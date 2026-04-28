@@ -1,0 +1,572 @@
+{
+  "connections": [
+    {
+      "name": "perf_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/input/jsonl"
+      }
+    },
+    {
+      "name": "perf_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/input/parquet"
+      }
+    },
+    {
+      "name": "perf_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "perf_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/output/delta"
+      }
+    },
+    {
+      "name": "perf_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/output/delta"
+      }
+    },
+    {
+      "name": "perf_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "perf_src",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/output/iceberg"
+      }
+    },
+    {
+      "name": "perf_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "perf_dst",
+      "configure": {
+        "base_path": "./usecase-sim/data/perf/output/iceberg"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "perf_jsonl_parquet__10k",
+      "stage": "perf_jsonl_parquet",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_10k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_jsonl_parquet_10k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_parquet__50k",
+      "stage": "perf_jsonl_parquet",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_50k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_jsonl_parquet_50k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_parquet__100k",
+      "stage": "perf_jsonl_parquet",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_100k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_jsonl_parquet_100k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_parquet__500k",
+      "stage": "perf_jsonl_parquet",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_500k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_jsonl_parquet_500k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_parquet__1m",
+      "stage": "perf_jsonl_parquet",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_1m" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_jsonl_parquet_1m", "load_type": "overwrite" },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_jsonl_delta__10k",
+      "stage": "perf_jsonl_delta",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_10k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_jsonl_delta_10k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_delta__50k",
+      "stage": "perf_jsonl_delta",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_50k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_jsonl_delta_50k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_delta__100k",
+      "stage": "perf_jsonl_delta",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_100k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_jsonl_delta_100k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_delta__500k",
+      "stage": "perf_jsonl_delta",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_500k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_jsonl_delta_500k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_delta__1m",
+      "stage": "perf_jsonl_delta",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_1m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_jsonl_delta_1m", "load_type": "overwrite" },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_jsonl_iceberg__10k",
+      "stage": "perf_jsonl_iceberg",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_10k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_jsonl_iceberg_10k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_iceberg__50k",
+      "stage": "perf_jsonl_iceberg",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_50k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_jsonl_iceberg_50k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_iceberg__100k",
+      "stage": "perf_jsonl_iceberg",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_100k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_jsonl_iceberg_100k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_iceberg__500k",
+      "stage": "perf_jsonl_iceberg",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_500k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_jsonl_iceberg_500k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_jsonl_iceberg__1m",
+      "stage": "perf_jsonl_iceberg",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_jsonl_source", "table": "orders_1m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_jsonl_iceberg_1m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_parquet_parquet__10k",
+      "stage": "perf_parquet_parquet",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_10k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_10k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__50k",
+      "stage": "perf_parquet_parquet",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_50k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_50k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__100k",
+      "stage": "perf_parquet_parquet",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_100k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_100k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__500k",
+      "stage": "perf_parquet_parquet",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_500k" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_500k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__1m",
+      "stage": "perf_parquet_parquet",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_1m" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_1m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__5m",
+      "stage": "perf_parquet_parquet",
+      "group_number": 6,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_5m" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_5m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__10m",
+      "stage": "perf_parquet_parquet",
+      "group_number": 7,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_10m" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_10m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_parquet__50m",
+      "stage": "perf_parquet_parquet",
+      "group_number": 8,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_50m" },
+      "destination": { "connection_name": "perf_parquet_dest", "table": "orders_parquet_parquet_50m", "load_type": "overwrite" },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_parquet_delta__10k",
+      "stage": "perf_parquet_delta",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_10k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_10k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__50k",
+      "stage": "perf_parquet_delta",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_50k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_50k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__100k",
+      "stage": "perf_parquet_delta",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_100k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_100k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__500k",
+      "stage": "perf_parquet_delta",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_500k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_500k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__1m",
+      "stage": "perf_parquet_delta",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_1m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_1m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__5m",
+      "stage": "perf_parquet_delta",
+      "group_number": 6,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_5m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_5m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__10m",
+      "stage": "perf_parquet_delta",
+      "group_number": 7,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_10m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_10m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_delta__50m",
+      "stage": "perf_parquet_delta",
+      "group_number": 8,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_50m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_parquet_delta_50m", "load_type": "overwrite" },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_parquet_iceberg__10k",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_10k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_10k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__50k",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_50k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_50k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__100k",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_100k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_100k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__500k",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_500k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_500k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__1m",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_1m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_1m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__5m",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 6,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_5m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_5m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__10m",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 7,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_10m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_10m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_parquet_iceberg__50m",
+      "stage": "perf_parquet_iceberg",
+      "group_number": 8,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_parquet_source", "table": "orders_50m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_50m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_delta_delta__10k",
+      "stage": "perf_delta_delta",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_10k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_10k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__50k",
+      "stage": "perf_delta_delta",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_50k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_50k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__100k",
+      "stage": "perf_delta_delta",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_100k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_100k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__500k",
+      "stage": "perf_delta_delta",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_500k" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_500k", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__1m",
+      "stage": "perf_delta_delta",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_1m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_1m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__5m",
+      "stage": "perf_delta_delta",
+      "group_number": 6,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_5m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_5m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__10m",
+      "stage": "perf_delta_delta",
+      "group_number": 7,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_10m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_10m", "load_type": "overwrite" },
+      "transform": {}
+    },
+    {
+      "name": "perf_delta_delta__50m",
+      "stage": "perf_delta_delta",
+      "group_number": 8,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_delta_source", "table": "orders_parquet_delta_50m" },
+      "destination": { "connection_name": "perf_delta_dest", "table": "orders_delta_delta_50m", "load_type": "overwrite" },
+      "transform": {}
+    },
+
+    {
+      "name": "perf_iceberg_iceberg__10k",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 1,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_10k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_10k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__50k",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 2,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_50k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_50k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__100k",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 3,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_100k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_100k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__500k",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 4,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_500k" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_500k", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__1m",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 5,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_1m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_1m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__5m",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 6,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_5m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_5m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__10m",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 7,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_10m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_10m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    },
+    {
+      "name": "perf_iceberg_iceberg__50m",
+      "stage": "perf_iceberg_iceberg",
+      "group_number": 8,
+      "processing_mode": "batch",
+      "source": { "connection_name": "perf_iceberg_dest", "table": "orders_parquet_iceberg_50m" },
+      "destination": { "connection_name": "perf_iceberg_dest", "table": "orders_iceberg_iceberg_50m", "load_type": "merge_upsert", "merge_keys": ["order_id"] },
+      "transform": {}
+    }
+  ],
+  "schema_hints": {}
+}

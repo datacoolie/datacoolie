@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry==1.8.3
+
+      - name: Install dependencies
+        run: poetry install --with dev --extras "spark polars db api excel aws iceberg deltalake"
+
+      - name: Validate Poetry metadata
+        run: poetry check
+
+      - name: Ruff
+        run: poetry run ruff check .
+
+      - name: Mypy
+        run: poetry run mypy src/datacoolie
+
+      - name: Pytest
+        run: poetry run pytest tests/ --tb=short
+
+      - name: Build package
+        run: poetry build

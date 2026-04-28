@@ -1,0 +1,194 @@
+site_name: DataCoolie
+site_description: Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first.
+site_url: https://datacoolie.github.io/datacoolie/
+repo_url: https://github.com/datacoolie/datacoolie
+repo_name: datacoolie/datacoolie
+edit_uri: edit/main/docs/
+docs_dir: docs
+site_dir: site
+strict: true
+
+theme:
+  name: material
+  language: en
+  logo: images/logos/datacoolie-icon-circle-dark_512x512.png
+  favicon: images/logos/datacoolie-icon-circle-dark_32x32.png
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra:
+  version:
+    provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/datacoolie/datacoolie
+
+extra_css:
+  - assets/stylesheets/zoomable-media.css
+
+extra_javascript:
+  - assets/javascripts/mermaid.min.js
+  - assets/javascripts/mermaid-render.js
+  - assets/javascripts/zoomable-media.js
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: dc-mermaid-source
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - docs/scripts/gen_plugin_table.py
+        - docs/scripts/gen_metadata_schema.py
+  - section-index
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            merge_init_into_class: true
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            filters:
+              - "!^_"
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quickstart · Polars: getting-started/quickstart-polars.md
+      - Quickstart · Spark: getting-started/quickstart-spark.md
+      - Your first dataflow: getting-started/first-dataflow.md
+  - Concepts:
+      - concepts/index.md
+      - Architecture: concepts/architecture.md
+      - Engines: concepts/engines.md
+      - Platforms: concepts/platforms.md
+      - Metadata model: concepts/metadata-model.md
+      - Metadata providers: concepts/metadata-providers.md
+      - Sources & destinations: concepts/sources-and-destinations.md
+      - Transformers & pipeline: concepts/transformers-and-pipeline.md
+      - Load strategies: concepts/load-strategies.md
+      - Watermarks: concepts/watermarks.md
+      - Orchestration: concepts/orchestration.md
+      - Logging: concepts/logging.md
+      - Secrets: concepts/secrets.md
+  - How-to:
+      - how-to/index.md
+      - Configure file metadata: how-to/configure-file-metadata.md
+      - Configure database metadata: how-to/configure-database-metadata.md
+      - Configure API metadata: how-to/configure-api-metadata.md
+      - Run a stage: how-to/run-a-stage.md
+      - Merge & SCD2: how-to/merge-and-scd2.md
+      - Partitioning & sanitization: how-to/partitioning-and-sanitization.md
+      - Maintenance (vacuum/optimize): how-to/maintenance-vacuum-optimize.md
+      - Expected-failure scenarios: how-to/expected-failure-scenarios.md
+      - Deploy to Fabric: how-to/deploy-to-fabric.md
+      - Deploy to Databricks: how-to/deploy-to-databricks.md
+      - Deploy to AWS Glue: how-to/deploy-to-aws-glue.md
+  - Reference:
+      - reference/index.md
+      - Metadata schema: reference/metadata-schema.md
+      - Plugin entry points: reference/plugin-entry-points.md
+      - CLI: reference/cli.md
+      - Environment variables: reference/environment-variables.md
+      - API:
+          - Core: reference/api/core.md
+          - Engines: reference/api/engines.md
+          - Platforms: reference/api/platforms.md
+          - Sources: reference/api/sources.md
+          - Destinations: reference/api/destinations.md
+          - Transformers: reference/api/transformers.md
+          - Orchestration: reference/api/orchestration.md
+          - Metadata: reference/api/metadata.md
+          - Watermark: reference/api/watermark.md
+          - Logging: reference/api/logging.md
+  - Extending:
+      - extending/index.md
+      - Write a source: extending/writing-a-source.md
+      - Write a destination: extending/writing-a-destination.md
+      - Write a transformer: extending/writing-a-transformer.md
+      - Write an engine: extending/writing-an-engine.md
+      - Write a secret resolver: extending/writing-a-secret-resolver.md
+      - Write a metadata provider: extending/writing-a-metadata-provider.md
+  - Operations:
+      - operations/index.md
+      - Logging layout: operations/logging-layout.md
+      - Benchmarks: operations/benchmarks.md
+      - Troubleshooting: operations/troubleshooting.md
+      - Testing strategy: operations/testing-strategy.md
+  - ADR:
+      - adr/index.md
+      - 0001 Engine fmt= parameter: adr/0001-engine-fmt-parameter.md
+      - 0002 Secret provider/resolver split: adr/0002-secret-provider-resolver-split.md
+      - 0003 Transformer ordering slots: adr/0003-transformer-ordering-slots.md
+      - 0004 Raw-JSON watermark contract: adr/0004-raw-json-watermark-contract.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md

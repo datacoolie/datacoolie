@@ -1,0 +1,28 @@
+# ignore __pycache__ all levels
+__pycache__/
+
+# Spark artifacts (shared across tests and usecase-sim)
+# iceberg-warehouse is NOT local — REST catalog stores it on MinIO/S3
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Ivy cache for Spark JAR dependencies (usecase-sim/runner/spark-jars/)
+**/spark-jars/
+
+# Local virtual environments and MkDocs build output.
+# Standard convention: use a single `.venv/` at the root of the active
+# checkout. `.docs-venv/` remains ignored only as a legacy scratch env.
+.venv/
+.docs-venv/
+node_modules/
+site/
+
+# Local IDE files
+dc_quickstart/
+dist/
+build/
+.vscode/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/

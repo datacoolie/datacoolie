@@ -1,0 +1,2114 @@
+{
+  "connections": [
+    {
+      "name": "aws_csv_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        }
+      }
+    },
+    {
+      "name": "aws_json_source",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/json",
+        "read_options": {
+          "multiLine": "true"
+        }
+      }
+    },
+    {
+      "name": "aws_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet"
+      }
+    },
+    {
+      "name": "aws_avro_source",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/avro"
+      }
+    },
+    {
+      "name": "aws_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/jsonl"
+      }
+    },
+    {
+      "name": "aws_csv_dest",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/csv"
+      }
+    },
+    {
+      "name": "aws_json_dest",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/json"
+      }
+    },
+    {
+      "name": "aws_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "aws_avro_dest",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/avro"
+      }
+    },
+    {
+      "name": "aws_jsonl_dest",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/jsonl"
+      }
+    },
+    {
+      "name": "aws_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/delta"
+      }
+    },
+    {
+      "name": "aws_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/delta"
+      }
+    },
+    {
+      "name": "aws_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "aws_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "aws_sqlite_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_SQLITE_DB",
+      "configure": {
+        "database_type": "sqlite",
+        "database": "DATACOOLIE_SQLITE_DB"
+      },
+      "secrets_ref": {
+        "env:": [
+          "database"
+        ]
+      }
+    },
+    {
+      "name": "aws_postgres_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_PG_DB",
+      "configure": {
+        "database_type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_PG_USER",
+        "password": "DATACOOLIE_PG_PASS"
+      },
+      "secrets_ref": {
+        "env:": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "aws_parquet_date_folder_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "aws_parquet_date_folder_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "aws_parquet_hive_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet_hive",
+        "use_hive_partitioning": true
+      }
+    },
+    {
+      "name": "aws_function_src",
+      "connection_type": "function",
+      "format": "function",
+      "configure": {}
+    },
+    {
+      "name": "aws_csv_no_hint",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        },
+        "use_schema_hint": false
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "aws_read__csv",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_csv",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__json",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_json",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__jsonl",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_jsonl_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__parquet",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_parquet",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__avro",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_avro_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_avro",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__delta",
+      "stage": "aws_read_lakehouse",
+      "group_number": 2,
+      "execution_order": 100,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_delta",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__iceberg",
+      "stage": "aws_read_lakehouse",
+      "group_number": 3,
+      "execution_order": 101,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_from_json"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_iceberg",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_db__sqlite",
+      "stage": "aws_read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "table": "orders"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_sqlite",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_db__postgres",
+      "stage": "aws_read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_postgres_source",
+        "table": "source_orders"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_postgres",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__csv",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_csv_dest",
+        "table": "orders_write_csv",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__json",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_json_dest",
+        "table": "orders_write_json",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__jsonl",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_jsonl_dest",
+        "table": "orders_write_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__avro",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_avro_dest",
+        "table": "orders_write_avro",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__parquet",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_write_parquet",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__full_load",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": -1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_full_load",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__overwrite",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 0,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__append",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__merge_upsert",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__merge_overwrite",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ]
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__merge_upsert_no_watermark",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__full_load",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_from_json",
+        "load_type": "full_load"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__overwrite",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__merge_upsert",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__merge_overwrite",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__append",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_schema__date_format",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_date",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__timestamp",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_timestamp",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__decimal",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_decimal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__numeric_types",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_numeric",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "FLOAT"
+          },
+          {
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__global_hint",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_global",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_dedup__row_number",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_row_number",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "aws_dedup__rank",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_rank",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "deduplicate_by_rank": true
+        },
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "aws_dedup__no_order_col",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_no_order",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "aws_addcols__literal",
+      "stage": "aws_transform_addcols",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_addcols_literal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "ingested_at",
+            "expression": "'batch_ingest'"
+          },
+          {
+            "column": "etl_source",
+            "expression": "'usecase_sim'"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_addcols__expression",
+      "stage": "aws_transform_addcols",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_addcols_expr",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_double",
+            "expression": "CAST(amount AS DOUBLE) * 2"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_partition__single",
+      "stage": "aws_transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_partition_single",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_partition__multi",
+      "stage": "aws_transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_partition_multi",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "region_part",
+            "expression": "region"
+          },
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_watermark__file_mtime",
+      "stage": "aws_watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_file_mtime",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark__file_mtime_multi_col",
+      "stage": "aws_watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time",
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_file_multi",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark__data_col",
+      "stage": "aws_watermark_file",
+      "group_number": 2,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_db__postgres",
+      "stage": "aws_watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_postgres_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_postgres",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_db__sqlite",
+      "stage": "aws_watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_sqlite",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__days",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_days",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__months_closing_day",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "months": 1,
+            "closing_day": 10
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_months",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_python_fn__delta_sql",
+      "stage": "aws_source_python_fn",
+      "group_number": 2,
+      "execution_order": 102,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "table": "orders_appended",
+        "python_function": "functions.sources.sql_query_orders"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_sql_result",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_python_fn__iceberg_sql",
+      "stage": "aws_source_python_fn",
+      "group_number": 3,
+      "execution_order": 103,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "table": "orders_overwritten",
+        "python_function": "functions.sources.sql_query_orders_iceberg"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_sql_result_iceberg",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_python_fn__custom_load",
+      "stage": "aws_source_python_fn",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "table": "sample",
+        "python_function": "functions.sources.load_orders_custom"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_function",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_date_folder__dest_partition",
+      "stage": "aws_date_folder_dest",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_date_folder_dest",
+        "table": "orders_dated_dest",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_date_folder__src_partition",
+      "stage": "aws_date_folder_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_date_folder_src",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_dated_src",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_hive_partition__source",
+      "stage": "aws_hive_partition_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_hive_src",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_hive",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__scd2",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers merge schema",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_delta__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_read_delta_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_read_delta_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__scd2",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_db__sqlite_query",
+      "stage": "aws_read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "query": "SELECT order_id, order_date, amount FROM orders WHERE amount > 100"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_sqlite_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_delta__query",
+      "stage": "aws_read_lakehouse",
+      "group_number": 2,
+      "execution_order": 105,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended",
+        "query": "SELECT order_id, amount, region FROM orders_appended WHERE region = 'US-East'"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_delta_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_delta__scd2",
+      "stage": "aws_read_lakehouse",
+      "group_number": 2,
+      "execution_order": 106,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_scd2"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_delta_scd2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_iceberg__query",
+      "stage": "aws_read_lakehouse",
+      "group_number": 3,
+      "execution_order": 108,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "python_function": "functions.sources.read_iceberg_orders_query"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_iceberg_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_iceberg__scd2",
+      "stage": "aws_read_lakehouse",
+      "group_number": 3,
+      "execution_order": 109,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_scd2"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_iceberg_scd2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_combined__dedup_schema_addcols_partition",
+      "stage": "aws_transform_combined",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_combined",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ],
+        "additional_columns": [
+          {
+            "column": "etl_batch",
+            "expression": "'combined_test'"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__string_cast",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_string",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "STRING"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_dedup__composite_key",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_composite",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id",
+          "region"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__hint_inactive",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_hint_inactive",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "INTEGER",
+            "is_active": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__no_ntz_convert",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_no_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "convert_timestamp_ntz": false
+        },
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__skip_hints",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_no_hint",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_skip",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__boolean",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_boolean",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "BOOLEAN"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__bigint",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_bigint",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "BIGINT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__timestamp_ntz",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "DATETIME"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_backward__hours",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "hours": 12
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_hours",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__years",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "years": 1
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_years",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__json_to_jsonl",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_jsonl_dest",
+        "table": "orders_json_to_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__append_partitioned",
+      "description": "Iceberg append with year partition column",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_appended_part",
+        "load_type": "append",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__merge_upsert_no_watermark",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 8,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers evolve",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_iceberg__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_read_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_read_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_iceberg__data_col",
+      "stage": "aws_watermark_file",
+      "group_number": 3,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_iceberg_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    }
+  ],
+  "schema_hints": [
+    {
+      "connection_name": "aws_json_source",
+      "table_name": "sample",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        },
+        {
+          "column_name": "quantity",
+          "data_type": "INTEGER"
+        }
+      ]
+    },
+    {
+      "connection_name": "aws_delta_dest",
+      "table_name": "orders_merged",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        },
+        {
+          "column_name": "quantity",
+          "data_type": "INTEGER"
+        }
+      ]
+    },
+    {
+      "connection_name": "aws_parquet_dest",
+      "table_name": "orders",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    }
+  ]
+}

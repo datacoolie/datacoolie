@@ -1,0 +1,194 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "datacoolie"
+version = "0.1.0"
+description = "Metadata-driven ETL framework that unifies engines, stays cloud-agnostic, and is currently batch-first with a roadmap to micro-batch and streaming."
+authors = ["DataCoolie Team", "Do Bui Nguyen Hieu <nguyenhieubis@gmail.com>"]
+license = "AGPL-3.0-or-later"
+homepage = "https://github.com/datacoolie/datacoolie"
+repository = "https://github.com/datacoolie/datacoolie"
+documentation = "https://datacoolie.github.io/datacoolie/"
+keywords = ["etl", "etl-framework", "data-engineering", "metadata-driven", "polars", "pyspark", "lakehouse"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+readme = "README.md"
+packages = [{include = "datacoolie", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+tzdata = {version = ">=2024.1", markers = "sys_platform == 'win32'"}
+# Optional — activated via [tool.poetry.extras]
+pyspark = {version = ">=3.5", optional = true}
+delta-spark = {version = ">=3.0", optional = true}
+polars = {version = ">=1.0", optional = true}
+deltalake = {version = ">=0.15", optional = true}
+pyiceberg = {version = ">=0.6", optional = true}
+boto3 = {version = ">=1.28", optional = true}
+httpx = {version = ">=0.24", optional = true}
+sqlalchemy = {version = "^2.0", optional = true}
+fastexcel = {version = ">=0.9", optional = true}
+openpyxl = {version = ">=3.1", optional = true}
+
+[tool.poetry.extras]
+# --- Engines ---
+spark = ["pyspark"]
+polars = ["polars"]
+
+# --- Table formats ---
+delta-spark = ["delta-spark"]       # Spark Delta connector (requires spark)
+deltalake = ["deltalake"]           # delta-rs for Python / Polars
+iceberg = ["pyiceberg"]             # PyIceberg for Python / Polars
+
+# --- Integrations ---
+aws = ["boto3"]
+api = ["httpx"]
+db = ["sqlalchemy"]                 # database metadata provider
+excel = ["fastexcel", "openpyxl"]   # Excel read support
+
+# --- Platform bundles ---
+fabric-spark = ["pyspark", "delta-spark"]
+fabric-polars = ["polars", "deltalake"]
+fabric = ["pyspark", "delta-spark", "polars", "deltalake"]
+databricks-spark = ["pyspark", "delta-spark"]
+databricks-polars = ["polars", "deltalake"]
+databricks = ["pyspark", "delta-spark", "polars", "deltalake"]
+
+# --- Everything ---
+all = ["pyspark", "delta-spark", "polars", "deltalake", "pyiceberg", "boto3", "httpx", "sqlalchemy", "fastexcel", "openpyxl"]
+
+[tool.poetry.plugins."datacoolie.engines"]
+spark = "datacoolie.engines.spark_engine:SparkEngine"
+polars = "datacoolie.engines.polars_engine:PolarsEngine"
+
+[tool.poetry.plugins."datacoolie.platforms"]
+local = "datacoolie.platforms.local_platform:LocalPlatform"
+fabric = "datacoolie.platforms.fabric_platform:FabricPlatform"
+databricks = "datacoolie.platforms.databricks_platform:DatabricksPlatform"
+aws = "datacoolie.platforms.aws_platform:AWSPlatform"
+
+[tool.poetry.plugins."datacoolie.sources"]
+delta = "datacoolie.sources.delta_reader:DeltaReader"
+parquet = "datacoolie.sources.file_reader:FileReader"
+csv = "datacoolie.sources.file_reader:FileReader"
+json = "datacoolie.sources.file_reader:FileReader"
+jsonl = "datacoolie.sources.file_reader:FileReader"
+avro = "datacoolie.sources.file_reader:FileReader"
+excel = "datacoolie.sources.file_reader:FileReader"
+sql = "datacoolie.sources.database_reader:DatabaseReader"
+iceberg = "datacoolie.sources.iceberg_reader:IcebergReader"
+function = "datacoolie.sources.python_function_reader:PythonFunctionReader"
+api = "datacoolie.sources.api_reader:APIReader"
+
+[tool.poetry.plugins."datacoolie.destinations"]
+delta = "datacoolie.destinations.delta_writer:DeltaWriter"
+iceberg = "datacoolie.destinations.iceberg_writer:IcebergWriter"
+parquet = "datacoolie.destinations.file_writer:FileWriter"
+csv = "datacoolie.destinations.file_writer:FileWriter"
+json = "datacoolie.destinations.file_writer:FileWriter"
+jsonl = "datacoolie.destinations.file_writer:FileWriter"
+avro = "datacoolie.destinations.file_writer:FileWriter"
+
+[tool.poetry.plugins."datacoolie.transformers"]
+schema_converter = "datacoolie.transformers.schema_converter:SchemaConverter"
+deduplicator = "datacoolie.transformers.deduplicator:Deduplicator"
+column_adder = "datacoolie.transformers.column_adder:ColumnAdder"
+system_column_adder = "datacoolie.transformers.column_adder:SystemColumnAdder"
+partition_handler = "datacoolie.transformers.partition_handler:PartitionHandler"
+column_name_sanitizer = "datacoolie.transformers.column_name_sanitizer:ColumnNameSanitizer"
+scd2_column_adder = "datacoolie.transformers.column_adder:SCD2ColumnAdder"
+
+[tool.poetry.plugins."datacoolie.resolvers"]
+env = "datacoolie.core.secret_resolver:EnvResolver"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^5.0"
+pytest-mock = "^3.0"
+pytest-xdist = "^3.0"
+mypy = "^1.0"
+ruff = "^0.5"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6"
+mkdocs-material = "^9.5"
+mkdocstrings = {extras = ["python"], version = "^0.26"}
+pymdown-extensions = "^10.9"
+mike = "^2.1"
+mkdocs-gen-files = "^0.5"
+mkdocs-literate-nav = "^0.6"
+mkdocs-section-index = "^0.3"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-q",
+    "--import-mode=importlib",
+    "-n",
+    "auto",
+    "--dist",
+    "loadgroup",
+    "-m",
+    "not spark",
+]
+log_cli = false
+log_level = "WARNING"
+markers = [
+    "unit: marks tests as unit tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "spark: marks tests requiring SparkSession",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+
+[tool.coverage.run]
+source = ["src/datacoolie"]
+branch = true
+omit = [
+    "src/datacoolie/engines/spark_engine.py",
+    "src/datacoolie/engines/spark_session_builder.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 85
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+    "@abstractmethod",
+    "raise NotImplementedError",
+]

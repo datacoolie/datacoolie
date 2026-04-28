@@ -1,0 +1,3212 @@
+{
+  "connections": [
+    {
+      "name": "local_csv_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        }
+      }
+    },
+    {
+      "name": "local_json_source",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/json",
+        "read_options": {
+          "multiLine": "true"
+        }
+      }
+    },
+    {
+      "name": "local_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/parquet"
+      }
+    },
+    {
+      "name": "local_avro_source",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/avro"
+      }
+    },
+    {
+      "name": "local_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/jsonl"
+      }
+    },
+    {
+      "name": "local_csv_dest",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/csv"
+      }
+    },
+    {
+      "name": "local_json_dest",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/json"
+      }
+    },
+    {
+      "name": "local_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "local_avro_dest",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/avro"
+      }
+    },
+    {
+      "name": "local_jsonl_dest",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/jsonl"
+      }
+    },
+    {
+      "name": "local_excel_source",
+      "connection_type": "file",
+      "format": "excel",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/excel"
+      }
+    },
+    {
+      "name": "local_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/delta"
+      }
+    },
+    {
+      "name": "local_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/delta"
+      }
+    },
+    {
+      "name": "local_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/iceberg"
+      }
+    },
+    {
+      "name": "local_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/iceberg"
+      }
+    },
+    {
+      "name": "local_sqlite_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_SQLITE_DB",
+      "configure": {
+        "database_type": "sqlite",
+        "database": "DATACOOLIE_SQLITE_DB"
+      },
+      "secrets_ref": {
+        "": [
+          "database"
+        ]
+      }
+    },
+    {
+      "name": "local_postgres_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_PG_DB",
+      "configure": {
+        "database_type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_PG_USER",
+        "password": "DATACOOLIE_PG_PASS"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_mysql_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mysql",
+        "host": "localhost",
+        "port": 3306,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_MYSQL_USER",
+        "password": "DATACOOLIE_MYSQL_PASS"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_mssql_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mssql",
+        "host": "localhost",
+        "port": 1433,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_MSSQL_USER",
+        "password": "DATACOOLIE_MSSQL_PASS",
+        "encrypt": "false"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_oracle_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "oracle",
+        "host": "localhost",
+        "port": 1521,
+        "database": "FREEPDB1",
+        "username": "DATACOOLIE_ORA_USER",
+        "password": "DATACOOLIE_ORA_PASS"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_api_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30
+      }
+    },
+    {
+      "name": "local_api_bearer",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "bearer",
+        "auth_token": "DATACOOLIE_API_BEARER_TOKEN",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "auth_token"
+        ]
+      }
+    },
+    {
+      "name": "local_api_apikey",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "api_key",
+        "api_key_header": "X-API-Key",
+        "api_key_value": "DATACOOLIE_API_KEY_VALUE",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "api_key_value"
+        ]
+      }
+    },
+    {
+      "name": "local_api_basic",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "basic",
+        "username": "DATACOOLIE_API_BASIC_USER",
+        "password": "DATACOOLIE_API_BASIC_PASS",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_api_oauth2",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "oauth2_client_credentials",
+        "token_url": "http://localhost:8082/oauth/token",
+        "client_id": "DATACOOLIE_OAUTH2_CLIENT_ID",
+        "client_secret": "DATACOOLIE_OAUTH2_CLIENT_SECRET",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "client_id",
+          "client_secret"
+        ]
+      }
+    },
+    {
+      "name": "local_api_oauth2_ext",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "oauth2_client_credentials",
+        "token_url": "http://localhost:8082/oauth/token",
+        "client_id": "DATACOOLIE_OAUTH2_CLIENT_ID",
+        "client_secret": "DATACOOLIE_OAUTH2_CLIENT_SECRET",
+        "token_auth_method": "client_secret_basic",
+        "scope": "read:orders",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "client_id",
+          "client_secret"
+        ]
+      }
+    },
+    {
+      "name": "local_api_tz",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30,
+        "watermark_to_param_timezone": "+07:00"
+      }
+    },
+    {
+      "name": "local_parquet_date_folder_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "local_parquet_date_folder_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "local_parquet_hive_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/parquet_hive",
+        "use_hive_partitioning": true
+      }
+    },
+    {
+      "name": "local_function_src",
+      "connection_type": "function",
+      "format": "function",
+      "configure": {}
+    },
+    {
+      "name": "local_csv_no_hint",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        },
+        "use_schema_hint": false
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "read__csv",
+      "stage": "read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_csv",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__json",
+      "stage": "read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_json",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__jsonl",
+      "stage": "read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_jsonl_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__parquet",
+      "stage": "read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_parquet",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__avro",
+      "stage": "read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_avro_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_avro",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__excel",
+      "stage": "read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_excel_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_excel",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__delta",
+      "stage": "read_lakehouse",
+      "group_number": 2,
+      "execution_order": 100,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_appended"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_delta",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read__iceberg",
+      "stage": "read_lakehouse",
+      "group_number": 3,
+      "execution_order": 101,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_from_json"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_iceberg",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_db__sqlite",
+      "stage": "read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_sqlite_source",
+        "table": "orders"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_sqlite",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_db__postgres",
+      "stage": "read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_postgres_source",
+        "table": "source_orders"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_postgres",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_db__mysql",
+      "stage": "read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_mysql_source",
+        "table": "source_orders"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_mysql",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_db__mssql",
+      "stage": "read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_mssql_source",
+        "table": "source_orders"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_mssql",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_db__oracle",
+      "stage": "read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_oracle_source",
+        "table": "source_orders"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_oracle",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "write__csv",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_csv_dest",
+        "table": "orders_write_csv",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "write__json",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_json_dest",
+        "table": "orders_write_json",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "write__jsonl",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_jsonl_dest",
+        "table": "orders_write_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "write__avro",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_avro_dest",
+        "table": "orders_write_avro",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "write__parquet",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_write_parquet",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__full_load",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": -1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_full_load",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__overwrite",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 0,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__append",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__merge_upsert",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__merge_overwrite",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ]
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__merge_upsert_no_watermark",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__full_load",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_from_json",
+        "load_type": "full_load"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__overwrite",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__merge_upsert",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__merge_overwrite",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__append",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "schema__date_format",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_date",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__timestamp",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_timestamp",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__decimal",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_decimal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__numeric_types",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_numeric",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "FLOAT"
+          },
+          {
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__global_hint",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_global",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "dedup__row_number",
+      "stage": "transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_row_number",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "dedup__rank",
+      "stage": "transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_rank",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "deduplicate_by_rank": true
+        },
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "dedup__no_order_col",
+      "stage": "transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_no_order",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "addcols__literal",
+      "stage": "transform_addcols",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_addcols_literal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "ingested_at",
+            "expression": "'batch_ingest'"
+          },
+          {
+            "column": "etl_source",
+            "expression": "'usecase_sim'"
+          }
+        ]
+      }
+    },
+    {
+      "name": "addcols__expression",
+      "stage": "transform_addcols",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_addcols_expr",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_double",
+            "expression": "CAST(amount AS DOUBLE) * 2"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "partition__single",
+      "stage": "transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_partition_single",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "partition__multi",
+      "stage": "transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_partition_multi",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "region_part",
+            "expression": "region"
+          },
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "watermark__file_mtime",
+      "stage": "watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_file_mtime",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark__file_mtime_multi_col",
+      "stage": "watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time",
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_file_multi",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark__data_col",
+      "stage": "watermark_file",
+      "group_number": 2,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark_db__postgres",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_postgres_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_postgres",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark_db__oracle",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_oracle_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_oracle",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark_db__mysql",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_mysql_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_mysql",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark_db__mssql",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_mssql_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_mssql",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark_db__sqlite",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_sqlite_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_sqlite",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "backward__days",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_days",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "backward__months_closing_day",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "months": 1,
+            "closing_day": 10
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_months",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "python_fn__delta_sql",
+      "stage": "source_python_fn",
+      "group_number": 2,
+      "execution_order": 102,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_function_src",
+        "table": "orders_appended",
+        "python_function": "functions.sources.sql_query_orders"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_sql_result",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "python_fn__iceberg_sql",
+      "stage": "source_python_fn",
+      "group_number": 3,
+      "execution_order": 103,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_function_src",
+        "table": "orders_overwritten",
+        "python_function": "functions.sources.sql_query_orders_iceberg"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_sql_result_iceberg",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "python_fn__custom_load",
+      "stage": "source_python_fn",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_function_src",
+        "table": "sample",
+        "python_function": "functions.sources.load_orders_custom"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_function",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_auth__none",
+      "stage": "api_auth",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/simple"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_none",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_auth__bearer",
+      "stage": "api_auth",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_bearer",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/secure/bearer",
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_bearer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_auth__api_key",
+      "stage": "api_auth",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_apikey",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/secure/apikey",
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_apikey",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_auth__basic",
+      "stage": "api_auth",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_basic",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/secure/basic",
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_basic",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_auth__oauth2",
+      "stage": "api_auth",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_oauth2",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/secure/oauth2",
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_oauth2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_auth__oauth2_basic_method",
+      "stage": "api_auth",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_oauth2_ext",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/secure/oauth2",
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_oauth2_basic",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_page__none",
+      "stage": "api_pagination",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/simple"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_page_none",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_page__offset",
+      "stage": "api_pagination",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/offset",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_page_offset",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_page__cursor",
+      "stage": "api_pagination",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/cursor",
+          "pagination_type": "cursor",
+          "page_size": 5,
+          "data_path": "items",
+          "cursor_path": "next_cursor"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_page_cursor",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_page__next_link",
+      "stage": "api_pagination",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/next-link",
+          "pagination_type": "next_link",
+          "page_size": 5,
+          "data_path": "records",
+          "next_link_path": "_links.next"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_page_next_link",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_request__post_body",
+      "stage": "api_request",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/search",
+          "method": "POST",
+          "body": {
+            "status": "completed"
+          },
+          "data_path": "data"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_post_body",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_request__static_params",
+      "stage": "api_request",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/with-params",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data",
+          "params": {
+            "api_version": "v2"
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_static_params",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_request__nested_data_path",
+      "stage": "api_request",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/nested",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "response.payload.orders"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_nested",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_request__server_filter",
+      "stage": "api_request",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "params": {
+            "modified_since": "2024-01-25T00:00:00"
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_server_filter",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_request__rate_limit",
+      "stage": "api_request",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/offset",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data",
+          "rate_limit_delay": 0.5
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_rate_limit",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_request__max_pages",
+      "stage": "api_request",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/offset",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data",
+          "max_pages": 2
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_max_pages",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__iso",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "iso"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_iso",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__date_fmt",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "date"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_date",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__timestamp_ms",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "timestamp_ms"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_ts_ms",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__body",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/wm-body",
+          "method": "POST",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_location": "body",
+          "watermark_param_format": "iso"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_body",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__tz_conn",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_tz",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "iso"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_tz_conn",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__tz_src_override",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_tz",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "iso",
+          "watermark_to_param_timezone": "UTC"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_tz_src",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__exclusive_offset",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged-inclusive",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_format": "iso",
+          "watermark_range_to_exclusive_offset": "1s"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_excl",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_range__day_interval",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_format": "iso",
+          "watermark_range_interval_unit": "day",
+          "watermark_range_interval_amount": 7,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 1
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_day",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_range__month_interval",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_format": "iso",
+          "watermark_range_interval_unit": "month",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 1
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_month",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_range__year_interval",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_tz",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_format": "iso",
+          "watermark_range_interval_unit": "year",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 1
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_year",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_range__multi_worker",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_format": "iso",
+          "watermark_range_interval_unit": "month",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 4
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_multi",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_range__with_bearer",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_bearer",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/secure/bearer-ranged",
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_to_param": "modified_until",
+          "watermark_param_format": "iso",
+          "watermark_range_interval_unit": "year",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 2
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_bearer",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "date_folder__dest_partition",
+      "stage": "date_folder_dest",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_date_folder_dest",
+        "table": "orders_dated_dest",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "date_folder__src_partition",
+      "stage": "date_folder_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_date_folder_src",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_dated_src",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "hive_partition__source",
+      "stage": "hive_partition_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_hive_src",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_hive",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__timestamp",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "timestamp"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_timestamp",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__datetime",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "datetime"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_datetime",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_wm__datetime_ms",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "watermark_param_mapping": {
+            "modified_at": "modified_since"
+          },
+          "watermark_param_format": "datetime_ms"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_datetime_ms",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "api_page__offset_concurrent",
+      "stage": "api_pagination",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "configure": {
+          "endpoint": "/api/orders/offset",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data",
+          "total_path": "total",
+          "offset_max_workers": 4
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_offset_concurrent",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__scd2",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_delta__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers merge schema",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read_delta__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_read_delta_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_read_delta_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_iceberg__scd2",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_db__sqlite_query",
+      "stage": "read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_sqlite_source",
+        "query": "SELECT order_id, order_date, amount FROM orders WHERE amount > 100"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_sqlite_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_delta__query",
+      "stage": "read_lakehouse",
+      "group_number": 2,
+      "execution_order": 105,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_appended",
+        "query": "SELECT order_id, amount, region FROM orders_appended WHERE region = 'US-East'"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_delta_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_delta__scd2",
+      "stage": "read_lakehouse",
+      "group_number": 2,
+      "execution_order": 106,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_scd2"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_delta_scd2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_iceberg__query",
+      "stage": "read_lakehouse",
+      "group_number": 3,
+      "execution_order": 108,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_function_src",
+        "python_function": "functions.sources.read_iceberg_orders_query"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_iceberg_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "read_iceberg__scd2",
+      "stage": "read_lakehouse",
+      "group_number": 3,
+      "execution_order": 109,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_scd2"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_read_iceberg_scd2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "combined__dedup_schema_addcols_partition",
+      "stage": "transform_combined",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_combined",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ],
+        "additional_columns": [
+          {
+            "column": "etl_batch",
+            "expression": "'combined_test'"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__string_cast",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_string",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "STRING"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dedup__composite_key",
+      "stage": "transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_composite",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id",
+          "region"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "schema__hint_inactive",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_hint_inactive",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "INTEGER",
+            "is_active": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__no_ntz_convert",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_no_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "convert_timestamp_ntz": false
+        },
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__skip_hints",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_no_hint",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_skip",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__boolean",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_boolean",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "BOOLEAN"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__bigint",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_bigint",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "BIGINT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema__timestamp_ntz",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "DATETIME"
+          }
+        ]
+      }
+    },
+    {
+      "name": "backward__hours",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "hours": 12
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_hours",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "backward__years",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "years": 1
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_years",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "write__json_to_jsonl",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_jsonl_dest",
+        "table": "orders_json_to_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_iceberg__append_partitioned",
+      "description": "Iceberg append with year partition column",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_appended_part",
+        "load_type": "append",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__merge_upsert_no_watermark",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 8,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers evolve",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read_iceberg__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_read_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "load_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_read_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark_iceberg__data_col",
+      "stage": "watermark_file",
+      "group_number": 3,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_iceberg_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "streaming__append",
+      "is_active": false,
+      "stage": "streaming_deferred",
+      "processing_mode": "streaming",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_streaming",
+        "load_type": "append"
+      },
+      "transform": {}
+    }
+  ],
+  "schema_hints": [
+    {
+      "connection_name": "local_json_source",
+      "table_name": "sample",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        },
+        {
+          "column_name": "quantity",
+          "data_type": "INTEGER"
+        }
+      ]
+    },
+    {
+      "connection_name": "local_delta_dest",
+      "table_name": "orders_merged",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        },
+        {
+          "column_name": "quantity",
+          "data_type": "INTEGER"
+        }
+      ]
+    },
+    {
+      "connection_name": "local_parquet_dest",
+      "table_name": "orders",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    }
+  ]
+}

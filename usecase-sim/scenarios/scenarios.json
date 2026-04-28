@@ -1,0 +1,225 @@
+{
+  "local_polars_file": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "notes": "All local file-metadata stages via Polars (includes api_* stages)"
+  },
+  "local_polars_file_yaml": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "notes": "All local file-metadata stages via Polars, but only for yaml metadata (api-source dataflows skipped since they require json)"
+  },
+  "local_polars_file_excel": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "notes": "All local file-metadata stages via Polars, but only for excel metadata (api-source dataflows skipped since they require json)"
+  },
+  "local_spark_file": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "notes": "All local file-metadata stages via Spark, api-source dataflows skipped"
+  },
+  "local_polars_database": {
+    "engine": "polars",
+    "metadata_type": "database",
+    "platform": "local",
+    "metadata_db_connection_string": "sqlite:///./usecase-sim/metadata/database/datacoolie_metadata.db",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from SQLite metadata DB via Polars"
+  },
+  "local_polars_database_postgres": {
+    "engine": "polars",
+    "metadata_type": "database",
+    "platform": "local",
+    "metadata_db_connection_string": "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from PostgreSQL metadata DB via Polars (requires postgres seeded)"
+  },
+  "local_polars_database_mysql": {
+    "engine": "polars",
+    "metadata_type": "database",
+    "platform": "local",
+    "metadata_db_connection_string": "mysql+pymysql://datacoolie:datacoolie@localhost:3306/datacoolie",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from MySQL metadata DB via Polars (requires mysql seeded)"
+  },
+  "local_polars_database_mssql": {
+    "engine": "polars",
+    "metadata_type": "database",
+    "platform": "local",
+    "metadata_db_connection_string": "mssql+pymssql://sa:Datacoolie%401@localhost:1433/datacoolie",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from SQL Server metadata DB via Polars (requires mssql seeded)"
+  },
+  "local_polars_database_oracle": {
+    "engine": "polars",
+    "metadata_type": "database",
+    "platform": "local",
+    "metadata_db_connection_string": "oracle+oracledb://datacoolie:datacoolie@localhost:1521/?service_name=FREEPDB1",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from Oracle metadata DB via Polars (requires oracle seeded)"
+  },
+  "local_spark_database": {
+    "engine": "spark",
+    "metadata_type": "database",
+    "platform": "local",
+    "metadata_db_connection_string": "sqlite:///./usecase-sim/metadata/database/datacoolie_metadata.db",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "skip_api_sources": true,
+    "notes": "All dataflows from SQLite metadata DB via Spark, api-source dataflows skipped"
+  },
+  "local_polars_api": {
+    "engine": "polars",
+    "metadata_type": "api",
+    "platform": "local",
+    "metadata_api_url": "http://localhost:8000",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from HTTP metadata API via Polars (requires api_metadata_server.py running)"
+  },
+  "local_spark_api": {
+    "engine": "spark",
+    "metadata_type": "api",
+    "platform": "local",
+    "metadata_api_url": "http://localhost:8000",
+    "metadata_workspace_id": "local-workspace",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "notes": "All dataflows from HTTP metadata API via Spark (requires api_metadata_server.py running)"
+  },
+  "local_polars_delta_maintenance": {
+    "engine": "polars",
+    "metadata_type": "maintenance",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "connection": "local_delta_dest",
+    "priority": "P1",
+    "notes": "Maintenance compact + cleanup on delta via Polars"
+  },
+  "local_polars_iceberg_maintenance": {
+    "engine": "polars",
+    "metadata_type": "maintenance",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "connection": "local_iceberg_dest",
+    "priority": "P1",
+    "notes": "Maintenance compact + cleanup on iceberg via Polars"
+  },
+  "local_spark_delta_maintenance": {
+    "engine": "spark",
+    "metadata_type": "maintenance",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "connection": "local_delta_dest",
+    "priority": "P1",
+    "notes": "Maintenance compact + cleanup on delta via Spark"
+  },
+  "local_spark_iceberg_maintenance": {
+    "engine": "spark",
+    "metadata_type": "maintenance",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "connection": "local_iceberg_dest",
+    "priority": "P1",
+    "notes": "Maintenance compact + cleanup on iceberg via Spark"
+  },
+  "aws_polars_file": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "aws",
+    "metadata_path": "./usecase-sim/metadata/file/aws_use_cases.json",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P2",
+    "notes": "All AWS file-metadata stages via Polars (requires MinIO + iceberg-rest running)"
+  },
+  "aws_spark_file": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "aws",
+    "metadata_path": "./usecase-sim/metadata/file/aws_use_cases.json",
+    "stage": "",
+    "column_name_mode": "lower",
+    "priority": "P2",
+    "skip_api_sources": true,
+    "notes": "All AWS file-metadata stages via Spark, api-source dataflows skipped"
+  },
+  "aws_polars_delta_maintenance": {
+    "engine": "polars",
+    "metadata_type": "maintenance",
+    "platform": "aws",
+    "metadata_path": "./usecase-sim/metadata/file/aws_use_cases.json",
+    "connection": "aws_delta_dest",
+    "priority": "P2",
+    "notes": "Maintenance compact + cleanup on AWS delta via Polars (requires MinIO)"
+  },
+  "aws_polars_iceberg_maintenance": {
+    "engine": "polars",
+    "metadata_type": "maintenance",
+    "platform": "aws",
+    "metadata_path": "./usecase-sim/metadata/file/aws_use_cases.json",
+    "connection": "aws_iceberg_dest",
+    "priority": "P2",
+    "notes": "Maintenance compact + cleanup on AWS iceberg via Polars (requires MinIO + iceberg-rest)"
+  },
+  "aws_spark_delta_maintenance": {
+    "engine": "spark",
+    "metadata_type": "maintenance",
+    "platform": "aws",
+    "metadata_path": "./usecase-sim/metadata/file/aws_use_cases.json",
+    "connection": "aws_delta_dest",
+    "priority": "P2",
+    "notes": "Maintenance compact + cleanup on AWS delta via Spark (requires MinIO)"
+  },
+  "aws_spark_iceberg_maintenance": {
+    "engine": "spark",
+    "metadata_type": "maintenance",
+    "platform": "aws",
+    "metadata_path": "./usecase-sim/metadata/file/aws_use_cases.json",
+    "connection": "aws_iceberg_dest",
+    "priority": "P2",
+    "notes": "Maintenance compact + cleanup on AWS iceberg via Spark (requires MinIO + iceberg-rest)"
+  }
+}

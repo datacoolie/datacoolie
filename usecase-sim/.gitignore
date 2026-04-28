@@ -1,0 +1,34 @@
+# Generated data and runner outputs
+data/input/
+data/output/
+data/perf/
+
+# Generated metadata siblings (rebuild with scripts/setup_metadata.py --targets file)
+metadata/file/*.yaml
+metadata/file/*.xlsx
+
+# Database files created by seed script
+metadata/database/*.db
+**/watermarks/
+
+# Ivy cache for Spark JAR dependencies (usecase-sim/runner/spark-jars/)
+**/spark-jars/
+
+# Runner logs
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Spark artifacts are gitignored at the datacoolie/ level (see datacoolie/.gitignore)
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

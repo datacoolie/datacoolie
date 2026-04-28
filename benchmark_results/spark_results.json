@@ -1,0 +1,464 @@
+{
+  "engine": "spark",
+  "timestamp": "2026-04-27T09:49:17.809087+00:00",
+  "max_size": "50m",
+  "session_warmup_s": 3.976,
+  "stages": {
+    "perf_jsonl_parquet": [
+      {
+        "dataflow": "perf_jsonl_parquet__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 6.966,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_parquet__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 0.997,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_parquet__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 0.807,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_parquet__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 1.395,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_parquet__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 2.065,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_jsonl_delta": [
+      {
+        "dataflow": "perf_jsonl_delta__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 6.02,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_delta__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 2.879,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_delta__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 2.71,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_delta__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 4.201,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_delta__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 6.755,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_jsonl_iceberg": [
+      {
+        "dataflow": "perf_jsonl_iceberg__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 3.824,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_iceberg__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 0.865,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_iceberg__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 0.961,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_iceberg__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 1.889,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_jsonl_iceberg__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 2.809,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_parquet_parquet": [
+      {
+        "dataflow": "perf_parquet_parquet__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 0.594,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 0.516,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 0.435,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 0.716,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 1.093,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__5m",
+        "size": "5m",
+        "rows": 5000000,
+        "elapsed_s": 3.376,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__10m",
+        "size": "10m",
+        "rows": 10000000,
+        "elapsed_s": 7.982,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_parquet__50m",
+        "size": "50m",
+        "rows": 50000000,
+        "elapsed_s": 30.308,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_parquet_delta": [
+      {
+        "dataflow": "perf_parquet_delta__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 2.319,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 1.987,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 2.076,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 3.203,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 4.598,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__5m",
+        "size": "5m",
+        "rows": 5000000,
+        "elapsed_s": 25.109,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__10m",
+        "size": "10m",
+        "rows": 10000000,
+        "elapsed_s": 28.088,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_delta__50m",
+        "size": "50m",
+        "rows": 50000000,
+        "elapsed_s": 64.122,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_parquet_iceberg": [
+      {
+        "dataflow": "perf_parquet_iceberg__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 0.937,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 0.648,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 0.608,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 0.994,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 1.332,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__5m",
+        "size": "5m",
+        "rows": 5000000,
+        "elapsed_s": 4.069,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__10m",
+        "size": "10m",
+        "rows": 10000000,
+        "elapsed_s": 7.999,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_parquet_iceberg__50m",
+        "size": "50m",
+        "rows": 50000000,
+        "elapsed_s": 37.125,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_delta_delta": [
+      {
+        "dataflow": "perf_delta_delta__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 2.63,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 2.134,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 2.38,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 3.876,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 5.285,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__5m",
+        "size": "5m",
+        "rows": 5000000,
+        "elapsed_s": 20.141,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__10m",
+        "size": "10m",
+        "rows": 10000000,
+        "elapsed_s": 22.357,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_delta_delta__50m",
+        "size": "50m",
+        "rows": 50000000,
+        "elapsed_s": 54.761,
+        "status": "ok",
+        "error": null
+      }
+    ],
+    "perf_iceberg_iceberg": [
+      {
+        "dataflow": "perf_iceberg_iceberg__10k",
+        "size": "10k",
+        "rows": 10000,
+        "elapsed_s": 1.419,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__50k",
+        "size": "50k",
+        "rows": 50000,
+        "elapsed_s": 1.28,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__100k",
+        "size": "100k",
+        "rows": 100000,
+        "elapsed_s": 1.046,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__500k",
+        "size": "500k",
+        "rows": 500000,
+        "elapsed_s": 1.629,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__1m",
+        "size": "1m",
+        "rows": 1000000,
+        "elapsed_s": 2.225,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__5m",
+        "size": "5m",
+        "rows": 5000000,
+        "elapsed_s": 4.1,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__10m",
+        "size": "10m",
+        "rows": 10000000,
+        "elapsed_s": 7.712,
+        "status": "ok",
+        "error": null
+      },
+      {
+        "dataflow": "perf_iceberg_iceberg__50m",
+        "size": "50m",
+        "rows": 50000000,
+        "elapsed_s": 36.709,
+        "status": "ok",
+        "error": null
+      }
+    ]
+  }
+}

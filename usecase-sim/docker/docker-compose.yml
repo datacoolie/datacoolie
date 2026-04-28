@@ -1,0 +1,183 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: datacoolie-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: datacoolie
+      POSTGRES_USER: datacoolie
+      POSTGRES_PASSWORD: datacoolie
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../metadata/database/schema_postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./init-iceberg-db.sql:/docker-entrypoint-initdb.d/02-iceberg-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datacoolie"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mysql:
+    image: mysql:8.4
+    container_name: datacoolie-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: datacoolie
+      MYSQL_USER: datacoolie
+      MYSQL_PASSWORD: datacoolie
+      MYSQL_ROOT_PASSWORD: datacoolie_root
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "datacoolie", "-pdatacoolie"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: datacoolie-mssql
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Datacoolie@1"
+      MSSQL_PID: Developer
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Datacoolie@1' -No -Q 'SELECT 1' > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: datacoolie-oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: datacoolie
+      APP_USER: datacoolie
+      APP_USER_PASSWORD: datacoolie
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+
+  minio:
+    image: minio/minio:latest
+    container_name: datacoolie-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  iceberg-rest:
+    image: tabulario/iceberg-rest:latest
+    container_name: datacoolie-iceberg-rest
+    ports:
+      - "8181:8181"
+    environment:
+      # Warehouse lives on MinIO — REST server owns this location
+      CATALOG_WAREHOUSE: s3://datacoolie-test/iceberg-warehouse
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      # MinIO endpoint (Docker internal hostname)
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_ACCESS__KEY__ID: minioadmin
+      CATALOG_S3_SECRET__ACCESS__KEY: minioadmin
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      CATALOG_S3_REGION: us-east-1
+      AWS_REGION: us-east-1
+      # PostgreSQL backend — eliminates SQLite BUSY errors under concurrency
+      CATALOG_URI: "jdbc:postgresql://postgres:5432/iceberg_catalog"
+      CATALOG_JDBC_USER: datacoolie
+      CATALOG_JDBC_PASSWORD: datacoolie
+    depends_on:
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  trino:
+    image: trinodb/trino:latest
+    container_name: datacoolie-trino
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino-conf/catalog:/etc/trino/catalog
+    depends_on:
+      - iceberg-rest
+      - minio
+
+  mock-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock-api
+    container_name: datacoolie-mock-api
+    ports:
+      - "8082:8082"
+
+  metadata-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.metadata-api
+    container_name: datacoolie-metadata-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://datacoolie:datacoolie@postgres:5432/datacoolie
+      PORT: "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request,sys; urllib.request.urlopen(\"http://localhost:8000/health\", timeout=3); sys.exit(0)' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  sqlpad:
+    image: sqlpad/sqlpad:latest
+    container_name: datacoolie-sqlpad
+    ports:
+      - "3000:3000"
+    environment:
+      SQLPAD_ADMIN: admin@datacoolie.local
+      SQLPAD_ADMIN_PASSWORD: admin
+      SQLPAD_APP_LOG_LEVEL: info
+      SQLPAD_WEB_LOG_LEVEL: warn
+      # Pre-configure Trino connection
+      SQLPAD_CONNECTIONS__trino__name: "Trino (Iceberg)"
+      SQLPAD_CONNECTIONS__trino__driver: trino
+      SQLPAD_CONNECTIONS__trino__host: trino
+      SQLPAD_CONNECTIONS__trino__port: "8080"
+      SQLPAD_CONNECTIONS__trino__username: admin
+      SQLPAD_CONNECTIONS__trino__catalog: iceberg
+      SQLPAD_CONNECTIONS__trino__schema: default
+    depends_on:
+      - trino
+
+volumes:
+  postgres_data:
+  mysql_data:
+  mssql_data:
+  oracle_data:
+  minio_data:

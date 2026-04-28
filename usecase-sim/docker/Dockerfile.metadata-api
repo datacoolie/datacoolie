@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# psycopg2-binary ships its own libpq so no apt packages required.
+RUN pip install --no-cache-dir \
+        flask==3.1.0 \
+        sqlalchemy==2.0.36 \
+        psycopg2-binary==2.9.10
+
+# Build context is usecase-sim/ (see docker-compose.yml).
+# Schema DDL is applied by the postgres container via its init volume
+# (see docker-compose.yml). Data seeding is done separately from the
+# host via scripts/setup_metadata.py --targets api-db.
+COPY docker/pg_api_metadata_server.py /app/pg_api_metadata_server.py
+
+ENV PORT=8000
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "python pg_api_metadata_server.py --host 0.0.0.0 --port ${PORT}"]
