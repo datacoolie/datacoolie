@@ -53,4 +53,6 @@ jobs:
 
       - name: Deploy latest to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: poetry run mike deploy --push --update-aliases latest
+        run: |
+          poetry run mike deploy --push --update-aliases latest
+          poetry run mike set-default --push latest
