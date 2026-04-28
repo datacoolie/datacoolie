@@ -6,14 +6,12 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
-      - "src/datacoolie/**"
       - "pyproject.toml"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
       - "mkdocs.yml"
-      - "src/datacoolie/**"
       - "pyproject.toml"
       - ".github/workflows/docs.yml"
 
