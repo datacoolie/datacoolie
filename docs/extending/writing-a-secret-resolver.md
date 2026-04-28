@@ -24,7 +24,7 @@ class VaultResolver(BaseSecretResolver):
 ## Register
 
 ```toml
-[tool.poetry.plugins."datacoolie.resolvers"]
+[project.entry-points."datacoolie.resolvers"]
 vault = "mypkg.resolvers:VaultResolver"
 ```
 

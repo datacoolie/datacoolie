@@ -30,6 +30,9 @@ GROUPS = [
 
 def _load_plugins() -> dict[str, dict[str, str]]:
     data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    project_entry_points = data.get("project", {}).get("entry-points", {})
+    if project_entry_points:
+        return project_entry_points
     return data.get("tool", {}).get("poetry", {}).get("plugins", {})
 
 

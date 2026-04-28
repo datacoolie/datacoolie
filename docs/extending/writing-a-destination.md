@@ -52,7 +52,7 @@ handling, and `DestinationRuntimeInfo` population.
 ## Register
 
 ```toml
-[tool.poetry.plugins."datacoolie.destinations"]
+[project.entry-points."datacoolie.destinations"]
 myfmt = "mypkg.writers:MyDestinationWriter"
 ```
 

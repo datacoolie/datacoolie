@@ -67,7 +67,7 @@ See [ADR-0001](../adr/0001-engine-fmt-parameter.md).
 ## Register
 
 ```toml
-[tool.poetry.plugins."datacoolie.engines"]
+[project.entry-points."datacoolie.engines"]
 mylib = "mypkg.engine:MyLibEngine"
 ```
 

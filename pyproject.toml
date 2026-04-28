@@ -2,21 +2,21 @@
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "datacoolie"
 version = "0.1.0"
 description = "Metadata-driven ETL framework that unifies engines, stays cloud-agnostic, and is currently batch-first with a roadmap to micro-batch and streaming."
-authors = ["DataCoolie Team", "Do Bui Nguyen Hieu <nguyenhieubis@gmail.com>"]
+authors = [
+    {name = "DataCoolie Team"},
+    {name = "Do Bui Nguyen Hieu", email = "nguyenhieubis@gmail.com"},
+]
 license = "AGPL-3.0-or-later"
-homepage = "https://github.com/datacoolie/datacoolie"
-repository = "https://github.com/datacoolie/datacoolie"
-documentation = "https://datacoolie.github.io/datacoolie/"
+requires-python = ">=3.11,<4.0"
 keywords = ["etl", "etl-framework", "data-engineering", "metadata-driven", "polars", "pyspark", "lakehouse"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -25,61 +25,65 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 readme = "README.md"
-packages = [{include = "datacoolie", from = "src"}]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-tzdata = {version = ">=2024.1", markers = "sys_platform == 'win32'"}
-# Optional — activated via [tool.poetry.extras]
-pyspark = {version = ">=3.5", optional = true}
-delta-spark = {version = ">=3.0", optional = true}
-polars = {version = ">=1.0", optional = true}
-deltalake = {version = ">=0.15", optional = true}
-pyiceberg = {version = ">=0.6", optional = true}
-boto3 = {version = ">=1.28", optional = true}
-httpx = {version = ">=0.24", optional = true}
-sqlalchemy = {version = "^2.0", optional = true}
-fastexcel = {version = ">=0.9", optional = true}
-openpyxl = {version = ">=3.1", optional = true}
+dependencies = [
+    "tzdata>=2024.1; sys_platform == 'win32'",
+]
 
-[tool.poetry.extras]
+[project.urls]
+Homepage = "https://github.com/datacoolie/datacoolie"
+Repository = "https://github.com/datacoolie/datacoolie"
+Documentation = "https://datacoolie.github.io/datacoolie/"
+
+[project.optional-dependencies]
 # --- Engines ---
-spark = ["pyspark"]
-polars = ["polars"]
+spark = ["pyspark>=3.5"]
+polars = ["polars>=1.0"]
 
 # --- Table formats ---
-delta-spark = ["delta-spark"]       # Spark Delta connector (requires spark)
-deltalake = ["deltalake"]           # delta-rs for Python / Polars
-iceberg = ["pyiceberg"]             # PyIceberg for Python / Polars
+delta-spark = ["delta-spark>=3.0"]
+deltalake = ["deltalake>=0.15"]
+iceberg = ["pyiceberg>=0.6"]
 
 # --- Integrations ---
-aws = ["boto3"]
-api = ["httpx"]
-db = ["sqlalchemy"]                 # database metadata provider
-excel = ["fastexcel", "openpyxl"]   # Excel read support
+aws = ["boto3>=1.28"]
+api = ["httpx>=0.24"]
+db = ["sqlalchemy>=2.0,<3.0"]
+excel = ["fastexcel>=0.9", "openpyxl>=3.1"]
 
 # --- Platform bundles ---
-fabric-spark = ["pyspark", "delta-spark"]
-fabric-polars = ["polars", "deltalake"]
-fabric = ["pyspark", "delta-spark", "polars", "deltalake"]
-databricks-spark = ["pyspark", "delta-spark"]
-databricks-polars = ["polars", "deltalake"]
-databricks = ["pyspark", "delta-spark", "polars", "deltalake"]
+fabric-spark = ["pyspark>=3.5", "delta-spark>=3.0"]
+fabric-polars = ["polars>=1.0", "deltalake>=0.15"]
+fabric = ["pyspark>=3.5", "delta-spark>=3.0", "polars>=1.0", "deltalake>=0.15"]
+databricks-spark = ["pyspark>=3.5", "delta-spark>=3.0"]
+databricks-polars = ["polars>=1.0", "deltalake>=0.15"]
+databricks = ["pyspark>=3.5", "delta-spark>=3.0", "polars>=1.0", "deltalake>=0.15"]
 
 # --- Everything ---
-all = ["pyspark", "delta-spark", "polars", "deltalake", "pyiceberg", "boto3", "httpx", "sqlalchemy", "fastexcel", "openpyxl"]
+all = [
+    "pyspark>=3.5",
+    "delta-spark>=3.0",
+    "polars>=1.0",
+    "deltalake>=0.15",
+    "pyiceberg>=0.6",
+    "boto3>=1.28",
+    "httpx>=0.24",
+    "sqlalchemy>=2.0,<3.0",
+    "fastexcel>=0.9",
+    "openpyxl>=3.1",
+]
 
-[tool.poetry.plugins."datacoolie.engines"]
+[project.entry-points."datacoolie.engines"]
 spark = "datacoolie.engines.spark_engine:SparkEngine"
 polars = "datacoolie.engines.polars_engine:PolarsEngine"
 
-[tool.poetry.plugins."datacoolie.platforms"]
+[project.entry-points."datacoolie.platforms"]
 local = "datacoolie.platforms.local_platform:LocalPlatform"
 fabric = "datacoolie.platforms.fabric_platform:FabricPlatform"
 databricks = "datacoolie.platforms.databricks_platform:DatabricksPlatform"
 aws = "datacoolie.platforms.aws_platform:AWSPlatform"
 
-[tool.poetry.plugins."datacoolie.sources"]
+[project.entry-points."datacoolie.sources"]
 delta = "datacoolie.sources.delta_reader:DeltaReader"
 parquet = "datacoolie.sources.file_reader:FileReader"
 csv = "datacoolie.sources.file_reader:FileReader"
@@ -92,7 +96,7 @@ iceberg = "datacoolie.sources.iceberg_reader:IcebergReader"
 function = "datacoolie.sources.python_function_reader:PythonFunctionReader"
 api = "datacoolie.sources.api_reader:APIReader"
 
-[tool.poetry.plugins."datacoolie.destinations"]
+[project.entry-points."datacoolie.destinations"]
 delta = "datacoolie.destinations.delta_writer:DeltaWriter"
 iceberg = "datacoolie.destinations.iceberg_writer:IcebergWriter"
 parquet = "datacoolie.destinations.file_writer:FileWriter"
@@ -101,7 +105,7 @@ json = "datacoolie.destinations.file_writer:FileWriter"
 jsonl = "datacoolie.destinations.file_writer:FileWriter"
 avro = "datacoolie.destinations.file_writer:FileWriter"
 
-[tool.poetry.plugins."datacoolie.transformers"]
+[project.entry-points."datacoolie.transformers"]
 schema_converter = "datacoolie.transformers.schema_converter:SchemaConverter"
 deduplicator = "datacoolie.transformers.deduplicator:Deduplicator"
 column_adder = "datacoolie.transformers.column_adder:ColumnAdder"
@@ -110,8 +114,26 @@ partition_handler = "datacoolie.transformers.partition_handler:PartitionHandler"
 column_name_sanitizer = "datacoolie.transformers.column_name_sanitizer:ColumnNameSanitizer"
 scd2_column_adder = "datacoolie.transformers.column_adder:SCD2ColumnAdder"
 
-[tool.poetry.plugins."datacoolie.resolvers"]
+[project.entry-points."datacoolie.resolvers"]
 env = "datacoolie.core.secret_resolver:EnvResolver"
+
+[tool.poetry]
+packages = [{include = "datacoolie", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+tzdata = {version = ">=2024.1", markers = "sys_platform == 'win32'"}
+# Optional — activated via [project.optional-dependencies]
+pyspark = {version = ">=3.5", optional = true}
+delta-spark = {version = ">=3.0", optional = true}
+polars = {version = ">=1.0", optional = true}
+deltalake = {version = ">=0.15", optional = true}
+pyiceberg = {version = ">=0.6", optional = true}
+boto3 = {version = ">=1.28", optional = true}
+httpx = {version = ">=0.24", optional = true}
+sqlalchemy = {version = "^2.0", optional = true}
+fastexcel = {version = ">=0.9", optional = true}
+openpyxl = {version = ">=3.1", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
