@@ -41,7 +41,7 @@ error handling, and runtime-info collection.
 In **your** package's `pyproject.toml`:
 
 ```toml
-[tool.poetry.plugins."datacoolie.sources"]
+[project.entry-points."datacoolie.sources"]
 myfmt = "mypkg.readers:MyFormatReader"
 ```
 

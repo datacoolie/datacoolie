@@ -35,7 +35,7 @@ class PiiMaskerTransformer(BaseTransformer):
 ## Register
 
 ```toml
-[tool.poetry.plugins."datacoolie.transformers"]
+[project.entry-points."datacoolie.transformers"]
 pii_masker = "mypkg.transformers:PiiMaskerTransformer"
 ```
 
