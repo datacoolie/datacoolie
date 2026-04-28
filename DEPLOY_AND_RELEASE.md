@@ -90,6 +90,8 @@ git branch -M main
 git remote add origin git@github.com:datacoolie/datacoolie.git
 git push -u origin main
 ```
+- if `origin` uses `git@github.com:...`, your machine must have an SSH key registered with the `datacoolie` GitHub account before the first push will work
+- if you do not want to use SSH, switch `origin` to `https://github.com/datacoolie/datacoolie.git` instead
 
 If the standalone repo already exists, add the correct remote and push the
 current project state there instead of reinitializing.
