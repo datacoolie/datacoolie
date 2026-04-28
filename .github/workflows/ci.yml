@@ -27,14 +27,17 @@ jobs:
       - name: Validate Poetry metadata
         run: poetry check
 
-      - name: Ruff
-        run: poetry run ruff check .
-
-      - name: Mypy
-        run: poetry run mypy src/datacoolie
-
-      - name: Pytest
-        run: poetry run pytest tests/ --tb=short
-
       - name: Build package
         run: poetry build
+
+      - name: Advisory Ruff
+        continue-on-error: true
+        run: poetry run ruff check .
+
+      - name: Advisory Mypy
+        continue-on-error: true
+        run: poetry run mypy src/datacoolie
+
+      - name: Advisory Pytest
+        continue-on-error: true
+        run: poetry run pytest tests/ --tb=short

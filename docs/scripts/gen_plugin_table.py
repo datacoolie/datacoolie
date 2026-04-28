@@ -6,7 +6,6 @@ never drifts from the canonical entry-point declarations.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import mkdocs_gen_files

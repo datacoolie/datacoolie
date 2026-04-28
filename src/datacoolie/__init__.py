@@ -29,15 +29,15 @@ __all__ = [
 
 import logging as _logging
 
-_logger = _logging.getLogger(__name__)
-
 from datacoolie.core.registry import PluginRegistry
 from datacoolie.core.secret_resolver import BaseSecretResolver
+from datacoolie.destinations.base import BaseDestinationWriter
 from datacoolie.engines.base import BaseEngine
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.sources.base import BaseSourceReader
-from datacoolie.destinations.base import BaseDestinationWriter
 from datacoolie.transformers.base import BaseTransformer
+
+_logger = _logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Global plugin registries
