@@ -18,9 +18,6 @@ derby.log
 node_modules/
 site/
 
-# Poetry lock file (generated on-the-fly in CI)
-poetry.lock
-
 # Local IDE files
 dc_quickstart/
 dist/
