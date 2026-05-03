@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-docs-${{ runner.os }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          key: venv-docs-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: venv-docs-${{ runner.os }}-
 
       - name: Install docs dependencies
@@ -53,6 +53,7 @@ jobs:
           if [ "${{ steps.cache-venv.outputs.cache-hit }}" = "true" ]; then
             poetry install --only-root
           else
+            poetry lock
             poetry install --only main,docs --extras "polars db api excel aws iceberg deltalake"
           fi
 
