@@ -151,7 +151,6 @@ mkdocs = "^1.6"
 mkdocs-material = "^9.5"
 mkdocstrings = {extras = ["python"], version = "^0.26"}
 pymdown-extensions = "^10.9"
-mike = "^2.1"
 mkdocs-gen-files = "^0.5"
 mkdocs-literate-nav = "^0.6"
 mkdocs-section-index = "^0.3"

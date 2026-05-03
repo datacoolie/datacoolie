@@ -59,14 +59,12 @@ jobs:
       - name: Build docs (strict)
         run: poetry run mkdocs build --strict
 
-      - name: Configure git (for mike)
+      - name: Configure git
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config --global user.name "Ezalor"
           git config --global user.email "62685761+nguyenhieubis@users.noreply.github.com"
 
-      - name: Deploy latest to gh-pages
+      - name: Deploy to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          poetry run mike deploy --push --update-aliases latest
-          poetry run mike set-default --push latest
+        run: poetry run mkdocs gh-deploy --force
