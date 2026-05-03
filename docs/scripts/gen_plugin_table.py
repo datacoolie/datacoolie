@@ -38,6 +38,12 @@ def _load_plugins() -> dict[str, dict[str, str]]:
 
 def _render(plugins: dict[str, dict[str, str]]) -> str:
     out: list[str] = []
+    out.append("---\n")
+    out.append("title: Plugin Entry Points Reference | DataCoolie\n")
+    out.append(
+        "description: Generated reference for DataCoolie Python entry-point groups covering engines, platforms, sources, destinations, transformers, and secret resolvers.\n"
+    )
+    out.append("---\n\n")
     out.append("# Plugin entry points\n")
     out.append(
         "DataCoolie discovers built-in and third-party plugins through "

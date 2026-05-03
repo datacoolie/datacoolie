@@ -1,3 +1,8 @@
+---
+title: ADR-0004 — Raw JSON Watermark Contract | DataCoolie
+description: Why metadata providers return watermarks as raw JSON text and leave parsing and update semantics to WatermarkManager.
+---
+
 # ADR-0004 — Metadata provider returns raw JSON watermark text
 
 **Status** · Accepted

@@ -1,3 +1,8 @@
+---
+title: Deploy to Microsoft Fabric — DataCoolie How-to
+description: Run DataCoolie in Microsoft Fabric notebooks with Spark or Polars and integrate file access and secret retrieval through the platform layer.
+---
+
 # Deploy to Microsoft Fabric
 
 **Prerequisites** · Fabric workspace with an attached OneLake lakehouse · Spark notebook for `SparkEngine` or a native Python notebook for small `PolarsEngine` runs · `pip install datacoolie` in the notebook environment.

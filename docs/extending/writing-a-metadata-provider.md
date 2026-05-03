@@ -1,3 +1,8 @@
+---
+title: Write a Metadata Provider Plugin — DataCoolie
+description: Build a custom metadata provider for DataCoolie to load connections, dataflows, schema hints, and watermarks from your own backend.
+---
+
 # Write a metadata provider
 
 **Prerequisites** · You want to store metadata in a backend not covered by file / database / API.

@@ -1,3 +1,8 @@
+---
+title: Spark Quickstart for DataCoolie ETL
+description: Run a DataCoolie pipeline with the Spark engine and Delta Lake on a local SparkSession to validate the core workflow.
+---
+
 # Quickstart · Spark
 
 Same shape as the Polars quickstart, but with a Delta-enabled local `SparkSession`.

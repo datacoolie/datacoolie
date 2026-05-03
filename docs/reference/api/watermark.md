@@ -1,3 +1,8 @@
+---
+title: Watermark — Python API Reference | DataCoolie
+description: Python API reference for DataCoolie watermark modules covering WatermarkManager and related contracts for incremental processing.
+---
+
 # Watermark
 
 ::: datacoolie.watermark.base

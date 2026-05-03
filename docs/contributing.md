@@ -1,3 +1,8 @@
+---
+title: Contributing Guide for DataCoolie
+description: "Contributor guide for DataCoolie: project setup, code quality rules, ADR conventions, documentation workflow, and how to submit changes."
+---
+
 # Contributing
 
 Full guidelines live in [`CONTRIBUTING.md`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/CONTRIBUTING.md)

@@ -1,3 +1,8 @@
+---
+title: DataCoolie Changelog and Release Notes
+description: Version history and release notes for DataCoolie, including new features, breaking changes, and fixes from version 0.1.0 onwards.
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

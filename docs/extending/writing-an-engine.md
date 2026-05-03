@@ -1,3 +1,8 @@
+---
+title: Write an Engine Plugin — DataCoolie
+description: Build a custom DataCoolie engine plugin that implements the BaseEngine contract for a new dataframe backend and format surface.
+---
+
 # Write an engine
 
 **Prerequisites** · You have a DataFrame library you want to run DataCoolie pipelines on · you're ready to implement ~40 abstract methods.

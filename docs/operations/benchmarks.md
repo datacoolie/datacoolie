@@ -1,3 +1,8 @@
+---
+title: Benchmarks and Performance — DataCoolie Operations
+description: Compare DataCoolie Polars and Spark benchmark results, workload profiles, and when each engine is a better operational fit.
+---
+
 # Benchmarks
 
 DataCoolie ships a reproducible benchmark harness under

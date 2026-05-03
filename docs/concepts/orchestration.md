@@ -1,3 +1,8 @@
+---
+title: Orchestration Model — DataCoolie Concepts
+description: Understand how DataCoolieDriver, JobDistributor, ParallelExecutor, and RetryHandler coordinate multi-job execution, concurrency, and retries.
+---
+
 # Orchestration
 
 **TL;DR** `DataCoolieDriver` is a thin coordinator. Heavy lifting is split

@@ -1,3 +1,8 @@
+---
+title: Merge and SCD2 Loads — DataCoolie How-to
+description: Configure DataCoolie merge keys, upserts, and slowly changing dimension type 2 behavior for incremental table loads.
+---
+
 # Merge & SCD2
 
 **Prerequisites** · Destination is a lakehouse (Delta or Iceberg). Keys exist on both source and destination.

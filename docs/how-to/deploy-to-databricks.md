@@ -1,3 +1,8 @@
+---
+title: Deploy to Databricks — DataCoolie How-to
+description: Run DataCoolie on Databricks with notebook utilities, workspace storage, and Delta Lake or Unity Catalog patterns.
+---
+
 # Deploy to Databricks
 
 **Prerequisites** · Databricks workspace with Unity Catalog · cluster or SQL Warehouse · `pip install datacoolie` on the cluster.

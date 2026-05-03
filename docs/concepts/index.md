@@ -1,3 +1,8 @@
+---
+title: Concepts — How DataCoolie Works
+description: Understand the architecture, metadata model, engine contract, orchestration model, watermarks, logging, and secrets that underpin the DataCoolie ETL framework.
+---
+
 # Concepts
 
 Explanation-tier documentation. Each page answers **"why does DataCoolie work

@@ -1,3 +1,8 @@
+---
+title: Write a Transformer Plugin — DataCoolie
+description: Build a custom DataCoolie transformer plugin and place it correctly in the pipeline ordering model.
+---
+
 # Write a transformer
 
 **Prerequisites** · You have a per-row or per-batch transformation to apply between read and write.

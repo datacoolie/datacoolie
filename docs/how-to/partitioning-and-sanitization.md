@@ -1,3 +1,8 @@
+---
+title: Partitioning and Column Sanitization — DataCoolie How-to
+description: Configure DataCoolie partition columns and column-name sanitization rules for reliable file and table outputs.
+---
+
 # Partitioning & column sanitization
 
 **Prerequisites** · Destination is a lakehouse or file format that supports partitioning.

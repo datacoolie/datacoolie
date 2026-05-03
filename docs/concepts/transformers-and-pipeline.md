@@ -1,3 +1,8 @@
+---
+title: Transformers and Pipeline — DataCoolie Concepts
+description: Understand transformer ordering, built-in transformers, and how the DataCoolie pipeline mutates dataframes before writing to destinations.
+---
+
 # Transformers & pipeline
 
 **TL;DR** `TransformerPipeline` runs a fixed ordered list of transformers

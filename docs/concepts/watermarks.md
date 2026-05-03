@@ -1,3 +1,8 @@
+---
+title: Watermarks — DataCoolie Concepts
+description: Learn how DataCoolie stores, parses, and updates raw JSON watermarks for incremental loads across metadata providers.
+---
+
 # Watermarks
 
 **TL;DR** A watermark is a JSON object stored by the metadata provider and

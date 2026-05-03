@@ -1,3 +1,8 @@
+---
+title: Destinations — Python API Reference | DataCoolie
+description: Python API reference for DataCoolie destinations covering base writers and format-specific destination implementations.
+---
+
 # Destinations
 
 ::: datacoolie.destinations.base

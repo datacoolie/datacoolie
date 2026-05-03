@@ -10,6 +10,7 @@ strict: true
 
 theme:
   name: material
+  custom_dir: overrides
   language: en
   logo: images/logos/datacoolie-icon-circle-dark_512x512.png
   favicon: images/logos/datacoolie-icon-circle-dark_32x32.png
@@ -88,6 +89,9 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+hooks:
+  - docs/scripts/suppress_mkdocstrings_warnings.py
 
 plugins:
   - search

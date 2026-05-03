@@ -1,3 +1,8 @@
+---
+title: ADR-0002 — Secret Provider and Resolver Split | DataCoolie
+description: Why DataCoolie separates secret storage access from secret value resolution so platforms and credentials stay decoupled.
+---
+
 # ADR-0002 — Split secret **provider** from secret **resolver**
 
 **Status** · Accepted

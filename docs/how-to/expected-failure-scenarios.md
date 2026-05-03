@@ -1,3 +1,8 @@
+---
+title: Expected Failure Scenarios — DataCoolie How-to
+description: Model and validate expected DataCoolie failures so scenario runners and output checks can distinguish broken runs from planned negative tests.
+---
+
 # Expected-failure scenarios
 
 **Prerequisites** · Using the `usecase-sim` runner or wrapping `usecase-sim/runner/run.py` in your own test harness.

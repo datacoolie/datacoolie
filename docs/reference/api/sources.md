@@ -1,3 +1,8 @@
+---
+title: Sources — Python API Reference | DataCoolie
+description: Python API reference for DataCoolie sources covering file, database, Delta, Iceberg, API, and Python function readers.
+---
+
 # Sources
 
 ::: datacoolie.sources.base

@@ -1,3 +1,8 @@
+---
+title: Write a Destination Plugin — DataCoolie
+description: Build a custom DataCoolie destination plugin that writes engine dataframes and supports maintenance, metrics, and table formats.
+---
+
 # Write a destination
 
 **Prerequisites** · You want to write to a backend not covered by the built-ins · you understand the load-type contract.

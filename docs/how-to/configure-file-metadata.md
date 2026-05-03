@@ -1,3 +1,8 @@
+---
+title: Configure File Metadata — DataCoolie How-to
+description: Author DataCoolie metadata in JSON, YAML, or Excel files and load connections, dataflows, schema hints, and watermarks from disk.
+---
+
 # Configure file metadata
 
 **Prerequisites** · `datacoolie[excel]` or `openpyxl` if you want `.xlsx` generation · `pyyaml` if you want `.yaml` generation · a directory you control for metadata files.

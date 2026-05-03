@@ -1,3 +1,8 @@
+---
+title: First Dataflow Tutorial — DataCoolie
+description: Build your first DataCoolie pipeline end to end by defining metadata, running a stage, and inspecting outputs and logs.
+---
+
 # Your first dataflow (tutorial)
 
 A 20-minute walkthrough: ingest CSV → merge into a bronze Delta table →

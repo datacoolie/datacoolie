@@ -1,3 +1,8 @@
+---
+title: Platform Abstractions — DataCoolie Concepts
+description: Learn how DataCoolie platforms abstract file I O and secret retrieval for local, Fabric, Databricks, and AWS environments.
+---
+
 # Platforms
 
 **TL;DR** A platform abstracts *file I/O* and *secret retrieval* for a specific

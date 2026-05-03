@@ -1,3 +1,8 @@
+---
+title: Logging Layout — DataCoolie Operations
+description: See the DataCoolie log folder structure, debug and analyst outputs, partitioning rules, and how to trace job runs in production.
+---
+
 # Logging layout
 
 DataCoolie produces two independent log streams.

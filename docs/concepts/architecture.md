@@ -1,3 +1,8 @@
+---
+title: Architecture — DataCoolie Concepts
+description: Understand the DataCoolie architecture, plugin roles, control flow, and how engines, platforms, metadata, logs, and watermarks interact during a run.
+---
+
 # Architecture
 
 **TL;DR** Think of DataCoolie as a **conductor** (the `DataCoolieDriver`) and an

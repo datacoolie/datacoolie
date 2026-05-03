@@ -1,3 +1,8 @@
+---
+title: Core — Python API Reference | DataCoolie
+description: Python API reference for DataCoolie core modules covering models, registry, secret resolution, constants, and shared abstractions.
+---
+
 # Core
 
 ::: datacoolie.core.registry

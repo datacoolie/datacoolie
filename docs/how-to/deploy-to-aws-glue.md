@@ -1,3 +1,8 @@
+---
+title: Deploy to AWS Glue — DataCoolie How-to
+description: Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials.
+---
+
 # Deploy to AWS Glue
 
 **Prerequisites** · AWS account with Glue, S3, Secrets Manager · `datacoolie` installed in the Glue job's Python library path.

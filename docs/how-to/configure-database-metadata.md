@@ -1,3 +1,8 @@
+---
+title: Configure Database Metadata — DataCoolie How-to
+description: Store DataCoolie metadata in a relational database and configure shared connections, dataflows, schema hints, and watermarks.
+---
+
 # Configure database metadata
 
 **Prerequisites** · `pip install "datacoolie[db]"` · an RDBMS the team can share · DDL privileges to create the metadata schema.

@@ -1,5 +1,12 @@
+---
+description: DataCoolie is a metadata-driven ETL framework for Python. Define pipelines once as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue without rewriting.
+---
+
 <p align="center">
-  <img src="images/banners/datacoolie-banner-dark.png" alt="DataCoolie" style="max-width: 100%; height: auto;">
+  <picture>
+    <source srcset="images/banners/datacoolie-banner-dark.webp" type="image/webp">
+    <img src="images/banners/datacoolie-banner-dark.png" alt="DataCoolie architecture overview banner" style="max-width: 100%; height: auto;" loading="lazy" decoding="async">
+  </picture>
 </p>
 
 # DataCoolie

@@ -1,3 +1,8 @@
+---
+title: Logging Model — DataCoolie Concepts
+description: Understand SystemLogger and ETLLogger outputs, file layouts, event shapes, and how DataCoolie separates operator logs from analyst logs.
+---
+
 # Logging
 
 **TL;DR** Two orthogonal loggers. `SystemLogger` captures framework Python logs

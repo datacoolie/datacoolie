@@ -1,3 +1,8 @@
+---
+title: ADR-0001 — Engine fmt Parameter | DataCoolie
+description: Why DataCoolie uses a shared fmt parameter on format-aware engine methods so Delta and Iceberg stay on one abstract API.
+---
+
 # ADR-0001 — Engine `fmt=` parameter across format-aware methods
 
 **Status** · Accepted

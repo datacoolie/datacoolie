@@ -1,3 +1,8 @@
+---
+title: Polars Quickstart — DataCoolie
+description: Run a DataCoolie pipeline with the Polars engine on a local machine and see the fastest path from install to working ETL.
+---
+
 # Quickstart · Polars
 
 Run a full DataCoolie pipeline on your laptop in under five minutes. No Docker,

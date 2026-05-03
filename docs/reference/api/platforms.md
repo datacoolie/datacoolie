@@ -1,3 +1,8 @@
+---
+title: Platforms — Python API Reference | DataCoolie
+description: Python API reference for the DataCoolie platforms package — BasePlatform, LocalPlatform, AWSPlatform, FabricPlatform, and DatabricksPlatform.
+---
+
 # Platforms
 
 ::: datacoolie.platforms.base

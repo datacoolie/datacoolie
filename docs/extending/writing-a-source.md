@@ -1,3 +1,8 @@
+---
+title: Write a Source Plugin — DataCoolie
+description: Build a custom DataCoolie source plugin that reads data into the active engine dataframe contract and integrates with metadata.
+---
+
 # Write a source
 
 **Prerequisites** · You want DataCoolie to read from a format/backend not covered by the built-ins · you know which engine(s) your reader supports.

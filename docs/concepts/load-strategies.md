@@ -1,3 +1,8 @@
+---
+title: Load Strategies — DataCoolie Concepts
+description: Compare append, overwrite, merge, and SCD2 load strategies in DataCoolie, including keys, watermarks, and destination behavior.
+---
+
 # Load strategies
 
 **TL;DR** `destination.load_type` selects one of five strategies: `append`,

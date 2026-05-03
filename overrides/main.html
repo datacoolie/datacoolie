@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{#
+  Override <title> so the homepage gets a descriptive keyword-rich title
+  instead of the bare site_name. Pages with a front matter `title:` use that
+  value directly (no appended site_name) so it acts as the full title. Pages
+  without front matter title keep the standard "Nav label - Site name" pattern.
+  Guard against page=None when rendering error templates (e.g. 404.html).
+#}
+{% block htmltitle %}
+  {% if page and page.is_homepage %}
+    <title>DataCoolie — Metadata-driven ETL framework for Python</title>
+  {% elif page and page.meta and page.meta.title %}
+    <title>{{ page.meta.title }}</title>
+  {% elif page %}
+    <title>{{ page.title }} - {{ config.site_name }}</title>
+  {% else %}
+    <title>{{ config.site_name }}</title>
+  {% endif %}
+{% endblock %}
+
+{#
+  Inject Open Graph, Twitter Card, and JSON-LD into <head>.
+  Per-page descriptions come from front matter `description:`.
+  The homepage gets a richer @graph with Organization + WebSite +
+  SoftwareApplication; all other pages get a WebPage node.
+  Guard against page=None when rendering error templates (e.g. 404.html).
+#}
+{% block extrahead %}
+  {% if page %}
+    {% if page.is_homepage %}
+      {% set seo_title = "DataCoolie — Metadata-driven ETL framework for Python" %}
+    {% elif page.meta and page.meta.title %}
+      {% set seo_title = page.meta.title %}
+    {% else %}
+      {% set seo_title = page.title ~ " - " ~ config.site_name %}
+    {% endif %}
+    {% set seo_description = page.meta.description or config.site_description %}
+    {% set seo_url = page.canonical_url %}
+    {% set seo_image = config.site_url ~ "images/banners/datacoolie-og-1200x630.webp" %}
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="{{ config.site_name }}" />
+    <meta property="og:title" content="{{ seo_title }}" />
+    <meta property="og:description" content="{{ seo_description }}" />
+    <meta property="og:url" content="{{ seo_url }}" />
+    <meta property="og:image" content="{{ seo_image }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="{{ seo_title }}" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ seo_title }}" />
+    <meta name="twitter:description" content="{{ seo_description }}" />
+    <meta name="twitter:image" content="{{ seo_image }}" />
+    <meta name="twitter:image:alt" content="{{ seo_title }}" />
+
+    <!-- JSON-LD structured data -->
+    {% if page.is_homepage %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": {{ (config.site_url ~ "#organization") | tojson }},
+          "name": "DataCoolie",
+          "url": {{ config.site_url | tojson }},
+          "logo": {
+            "@type": "ImageObject",
+            "url": {{ (config.site_url ~ "images/logos/datacoolie-icon-circle-dark_512x512.png") | tojson }}
+          },
+          "sameAs": [{{ config.repo_url | tojson }}]
+        },
+        {
+          "@type": "WebSite",
+          "@id": {{ (config.site_url ~ "#website") | tojson }},
+          "url": {{ config.site_url | tojson }},
+          "name": {{ config.site_name | tojson }},
+          "description": {{ config.site_description | tojson }},
+          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": {{ (config.site_url ~ "#software") | tojson }},
+          "name": "DataCoolie",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Any",
+          "description": {{ config.site_description | tojson }},
+          "url": {{ config.repo_url | tojson }},
+          "codeRepository": {{ config.repo_url | tojson }},
+          "programmingLanguage": "Python",
+          "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} }
+        }
+      ]
+    }
+    </script>
+    {% else %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "@id": {{ (seo_url ~ "#webpage") | tojson }},
+      "url": {{ seo_url | tojson }},
+      "name": {{ seo_title | tojson }},
+      "description": {{ seo_description | tojson }},
+      "isPartOf": { "@id": {{ (config.site_url ~ "#website") | tojson }} }
+    }
+    </script>
+    {% endif %}
+  {% endif %}
+{% endblock %}

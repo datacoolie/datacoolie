@@ -1,3 +1,8 @@
+---
+title: Troubleshooting — DataCoolie Operations
+description: Diagnose common DataCoolie failures across metadata loading, engines, platforms, plugins, and destination writes.
+---
+
 # Troubleshooting
 
 ## "`pl.sql_expr` unknown function …"

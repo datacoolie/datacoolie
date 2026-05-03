@@ -1,3 +1,8 @@
+---
+title: Extending DataCoolie — Plugin Development
+description: Build custom sources, destinations, transformers, engines, secret resolvers, and metadata providers as first-class DataCoolie plugins using Python entry points.
+---
+
 # Extending DataCoolie
 
 DataCoolie is built for extension. Six plugin points cover the full pipeline:

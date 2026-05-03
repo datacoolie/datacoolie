@@ -1,3 +1,8 @@
+---
+title: ADR-0003 — Transformer Ordering Slots | DataCoolie
+description: Why DataCoolie assigns numeric ordering slots to built-in transformers so custom transformers can compose predictably.
+---
+
 # ADR-0003 — Number-slot transformer ordering
 
 **Status** · Accepted

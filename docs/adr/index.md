@@ -1,3 +1,8 @@
+---
+title: Architecture Decision Records — DataCoolie
+description: "Recorded architectural decisions (ADRs) for DataCoolie: engine format dispatch, secret provider/resolver split, transformer ordering slots, and the raw-JSON watermark contract."
+---
+
 # Architecture Decision Records
 
 ADRs capture *why* a significant architectural decision was made. They use

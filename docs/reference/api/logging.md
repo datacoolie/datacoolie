@@ -1,3 +1,8 @@
+---
+title: Logging — Python API Reference | DataCoolie
+description: Python API reference for the DataCoolie logging package — ETLLogger, LogPurpose, and the create_etl_logger factory.
+---
+
 # Logging
 
 ::: datacoolie.logging.base

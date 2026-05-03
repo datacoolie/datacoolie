@@ -1,3 +1,8 @@
+---
+title: Testing Strategy — DataCoolie Operations
+description: Understand DataCoolie testing layers, local validation patterns, coverage expectations, and how to keep pipelines safe to change.
+---
+
 # Testing strategy
 
 DataCoolie uses plain `pytest` with `pytest-xdist`. The default repo behavior

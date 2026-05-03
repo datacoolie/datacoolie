@@ -1,3 +1,8 @@
+---
+title: Configure API Metadata — DataCoolie How-to
+description: Connect DataCoolie to an API-backed metadata service for connections, dataflows, schema hints, and watermark reads and writes.
+---
+
 # Configure API metadata
 
 **Prerequisites** · `pip install "datacoolie[api]"` · a REST service matching the expected OpenAPI contract.

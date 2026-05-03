@@ -1,3 +1,8 @@
+---
+title: Metadata Model — DataCoolie Concepts
+description: See how DataCoolie models connections, sources, destinations, transforms, dataflows, and schema hints across JSON, YAML, Excel, database, and API metadata.
+---
+
 # Metadata model
 
 **TL;DR** DataCoolie is driven by four top-level models — `Connection`,

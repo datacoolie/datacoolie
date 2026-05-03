@@ -1,3 +1,8 @@
+---
+title: Environment Variables Reference | DataCoolie
+description: Reference for DataCoolie environment variables, runtime overrides, and when configuration should stay in metadata instead of shell state.
+---
+
 # Environment variables
 
 DataCoolie does not define a fixed framework-wide environment-variable surface

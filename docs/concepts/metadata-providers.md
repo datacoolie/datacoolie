@@ -1,3 +1,8 @@
+---
+title: Metadata Providers — DataCoolie Concepts
+description: Choose between file, database, and API metadata providers and understand caching, workspace scoping, and watermark behavior in DataCoolie.
+---
+
 # Metadata providers
 
 **TL;DR** Pick `FileProvider` for small fixed projects, `DatabaseProvider` for

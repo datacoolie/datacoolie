@@ -1,3 +1,8 @@
+---
+title: Secret Management — DataCoolie Concepts
+description: Learn how secret providers and secret resolvers work in DataCoolie, including secrets_ref mapping and platform-backed credential resolution.
+---
+
 # Secrets
 
 **TL;DR** DataCoolie has **two** secret interfaces: `BaseSecretProvider`

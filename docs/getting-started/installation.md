@@ -1,3 +1,8 @@
+---
+title: Install DataCoolie for Python ETL
+description: Install DataCoolie with the right extras for Polars, Spark, Delta Lake, Iceberg, cloud SDKs, and metadata backends.
+---
+
 # Installation
 
 DataCoolie is published to PyPI. The base package stays light;

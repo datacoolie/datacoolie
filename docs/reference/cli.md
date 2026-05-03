@@ -1,3 +1,8 @@
+---
+title: Command-Line Reference | DataCoolie
+description: Reference for DataCoolie runner scripts, command line flags, and execution patterns from the usecase-sim command surface.
+---
+
 # CLI
 
 DataCoolie ships as a library — there is no `datacoolie` console script. The

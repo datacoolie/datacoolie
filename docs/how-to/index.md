@@ -1,3 +1,8 @@
+---
+title: How-to Guides — DataCoolie Task Recipes
+description: Step-by-step guides for configuring metadata, authoring pipelines, deploying to Fabric, Databricks, and AWS Glue, and handling edge cases in DataCoolie.
+---
+
 # How-to guides
 
 Task-oriented recipes. Each guide opens with **Prerequisites** + **End state**

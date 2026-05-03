@@ -1,3 +1,8 @@
+---
+title: Engine Abstractions — DataCoolie Concepts
+description: Learn the BaseEngine contract, format-aware read and write semantics, and how Polars and Spark share one ETL surface in DataCoolie.
+---
+
 # Engines
 
 **TL;DR** `BaseEngine[DF]` is a generic ABC that abstracts read / write /

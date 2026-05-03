@@ -1,3 +1,8 @@
+---
+title: Orchestration — Python API Reference | DataCoolie
+description: Python API reference for the DataCoolie orchestration package — DataCoolieDriver, JobDistributor, ParallelExecutor, and RetryHandler.
+---
+
 # Orchestration
 
 ::: datacoolie.orchestration.driver

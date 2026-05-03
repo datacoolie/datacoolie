@@ -1,3 +1,8 @@
+---
+title: Get Started with DataCoolie for Python ETL
+description: Install DataCoolie, choose your engine, and run your first Polars or Spark ETL pipeline. Three paths from zero to a working dataflow in minutes.
+---
+
 # Getting started
 
 Three paths depending on how much you've already set up:

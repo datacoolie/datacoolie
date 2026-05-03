@@ -10,7 +10,12 @@ from __future__ import annotations
 
 import mkdocs_gen_files
 
-CONTENT = """# Metadata schema
+CONTENT = """---
+title: Metadata Schema Reference | DataCoolie
+description: Generated field-level reference for the DataCoolie metadata schema, including run config, connections, sources, destinations, transforms, dataflows, and supporting models.
+---
+
+# Metadata schema
 
 DataCoolie's metadata contract lives in `datacoolie.core.models` as
 `CompatModel`-backed dataclasses. This page is **generated at docs-build time**

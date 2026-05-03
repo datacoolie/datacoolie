@@ -1,3 +1,8 @@
+---
+title: Run a Stage — DataCoolie How-to
+description: Run one DataCoolie stage or a filtered set of dataflows with the main runner scripts and execution flags.
+---
+
 # Run a stage
 
 **Prerequisites** · Metadata loaded via any provider · engine attached to a platform.

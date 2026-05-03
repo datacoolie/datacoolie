@@ -1,3 +1,8 @@
+---
+title: Write a Secret Resolver Plugin — DataCoolie
+description: Build a custom DataCoolie secret resolver that maps metadata keys to runtime credentials without hardcoding secrets in configs.
+---
+
 # Write a secret resolver
 
 **Prerequisites** · You have a placeholder syntax you want DataCoolie to recognise (e.g. `vault:path/to/secret`).

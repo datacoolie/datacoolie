@@ -1,3 +1,8 @@
+---
+title: Sources and Destinations — DataCoolie Concepts
+description: Understand how DataCoolie sources read into engine dataframes and destinations write or maintain tables across files, databases, Delta, and Iceberg.
+---
+
 # Sources & destinations
 
 **TL;DR** Sources and destinations are plugins keyed by **format name**. A
