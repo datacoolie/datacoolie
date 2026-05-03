@@ -21,8 +21,23 @@ jobs:
       - name: Install Poetry
         run: pipx install poetry==2.3.4
 
+      - name: Cache virtualenv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: venv-${{ runner.os }}-
+
       - name: Install dependencies
-        run: poetry install --with dev --extras "spark polars db api excel aws iceberg deltalake"
+        env:
+          POETRY_VIRTUALENVS_IN_PROJECT: true
+        run: |
+          if [ "${{ steps.cache-venv.outputs.cache-hit }}" = "true" ]; then
+            poetry install --only-root
+          else
+            poetry install --with dev --extras "polars db api excel aws iceberg deltalake"
+          fi
 
       - name: Validate Poetry metadata
         run: poetry check
