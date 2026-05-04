@@ -1,0 +1,196 @@
+.md-content article {
+  --dc-mermaid-node-fill: var(--md-default-fg-color--lightest);
+  --dc-mermaid-node-stroke: var(--md-default-fg-color--lighter);
+  --dc-mermaid-edge: var(--md-default-fg-color--lighter);
+  --dc-mermaid-note-fill: var(--md-code-bg-color);
+  --dc-mermaid-text: var(--md-typeset-color);
+}
+
+.md-content article .mermaid svg path.label-container,
+.md-content article .mermaid svg path.basic,
+.md-content article .mermaid svg rect.basic,
+.md-content article .mermaid svg polygon.basic,
+.md-content article .mermaid svg ellipse.basic,
+.md-content article .mermaid svg circle.basic,
+.md-content article .mermaid svg .node rect,
+.md-content article .mermaid svg .node circle,
+.md-content article .mermaid svg .node ellipse,
+.md-content article .mermaid svg .node polygon,
+.md-content article .mermaid svg .node path,
+.md-content article .mermaid svg .actor,
+.md-content article .mermaid svg .actor-top,
+.md-content article .mermaid svg .actor-bottom,
+.md-content article .mermaid svg .labelBox {
+  fill: var(--dc-mermaid-node-fill) !important;
+  stroke: var(--dc-mermaid-node-stroke) !important;
+}
+
+.md-content article .mermaid svg .cluster rect,
+.md-content article .mermaid svg .cluster polygon,
+.md-content article .mermaid svg .cluster path,
+.md-content article .mermaid svg .note rect,
+.md-content article .mermaid svg .note polygon,
+.md-content article .mermaid svg .note path,
+.md-content article .mermaid svg rect.note,
+.md-content article .mermaid svg polygon.note,
+.md-content article .mermaid svg path.note {
+  fill: var(--dc-mermaid-note-fill) !important;
+  stroke: var(--dc-mermaid-node-stroke) !important;
+}
+
+.md-content article .mermaid svg .flowchart-link,
+.md-content article .mermaid svg .edgePaths path,
+.md-content article .mermaid svg .edgePath .path,
+.md-content article .mermaid svg .messageLine0,
+.md-content article .mermaid svg .messageLine1,
+.md-content article .mermaid svg .actor-line,
+.md-content article .mermaid svg .loopLine {
+  fill: none !important;
+  stroke: var(--dc-mermaid-edge) !important;
+}
+
+.md-content article .mermaid svg .arrowMarkerPath,
+.md-content article .mermaid svg .arrowheadPath,
+.md-content article .mermaid svg .marker path,
+.md-content article .mermaid svg marker path {
+  fill: var(--dc-mermaid-edge) !important;
+  stroke: var(--dc-mermaid-edge) !important;
+}
+
+.md-content article .mermaid svg .edgeLabel rect,
+.md-content article .mermaid svg .labelBkg,
+.md-content article .mermaid svg foreignObject div,
+.md-content article .mermaid svg foreignObject span,
+.md-content article .mermaid svg foreignObject p {
+  color: var(--dc-mermaid-text) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.md-content article .mermaid svg text,
+.md-content article .mermaid svg tspan,
+.md-content article .mermaid svg .label,
+.md-content article .mermaid svg .nodeLabel,
+.md-content article .mermaid svg .messageText,
+.md-content article .mermaid svg .loopText,
+.md-content article .mermaid svg .noteText {
+  fill: var(--dc-mermaid-text) !important;
+}
+
+.md-content article img.dc-zoomable-media,
+.md-content article .mermaid.dc-zoomable-media,
+.md-content article .mermaid.dc-zoomable-media svg {
+  cursor: zoom-in;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.md-content article img.dc-zoomable-media:hover,
+.md-content article .mermaid.dc-zoomable-media:hover {
+  transform: scale(1.01);
+}
+
+.dc-media-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(10, 15, 26, 0.88);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.dc-media-lightbox.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dc-media-lightbox__surface {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(96vw, 1600px);
+  max-height: 92vh;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  overflow: auto;
+}
+
+body[data-md-color-scheme="slate"] .dc-media-lightbox__surface {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.dc-media-lightbox__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.dc-media-lightbox__content img {
+  display: block;
+  max-width: 100%;
+  max-height: 86vh;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
+.dc-media-lightbox__content svg {
+  display: block;
+  max-width: 100%;
+  max-height: 86vh;
+}
+
+.dc-media-lightbox__close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dc-media-lightbox__hint {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+body.dc-media-lightbox-open {
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .dc-media-lightbox {
+    padding: 0.75rem;
+  }
+
+  .dc-media-lightbox__surface {
+    width: 100%;
+    max-height: 94vh;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .dc-media-lightbox__hint {
+    font-size: 0.72rem;
+  }
+}

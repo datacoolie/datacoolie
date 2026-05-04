@@ -1,0 +1,32 @@
+# DataCoolie
+
+> Metadata-driven ETL framework for Python — engine-unified, cloud-agnostic, batch-first.
+
+DataCoolie lets data engineering teams describe pipeline intent once as metadata
+(JSON / YAML / Excel / database / REST API) and execute on Polars, Spark, Fabric,
+Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.0.
+
+## Documentation
+
+- [Home](https://datacoolie.github.io/datacoolie/): Overview, value proposition, and quickstart
+- [Getting Started](https://datacoolie.github.io/datacoolie/getting-started/): Installation, Polars quickstart, Spark quickstart, first dataflow tutorial
+- [Concepts](https://datacoolie.github.io/datacoolie/concepts/): Architecture, engines, platforms, metadata model, orchestration, logging, secrets, watermarks
+- [How-to Guides](https://datacoolie.github.io/datacoolie/how-to/): Configuring metadata, running stages, merge/SCD2, partitioning, maintenance, deployment recipes
+- [Reference](https://datacoolie.github.io/datacoolie/reference/): Metadata schema, plugin entry points, CLI, environment variables, full Python API
+- [Extending](https://datacoolie.github.io/datacoolie/extending/): Plugin development — sources, destinations, transformers, engines, secret resolvers, metadata providers
+- [Operations](https://datacoolie.github.io/datacoolie/operations/): Production guidance, logging layout, benchmarks, troubleshooting, testing strategy
+- [ADR](https://datacoolie.github.io/datacoolie/adr/): Architecture decision records for engine format dispatch, secret provider split, transformer ordering, watermark contract
+- [Changelog](https://datacoolie.github.io/datacoolie/changelog/): Version history and release notes
+
+## Source Code
+
+- [GitHub Repository](https://github.com/datacoolie/datacoolie): Source code, issues, and contributions
+
+## Optional: Full content
+
+- [Concepts — Architecture](https://datacoolie.github.io/datacoolie/concepts/architecture/)
+- [Concepts — Engines](https://datacoolie.github.io/datacoolie/concepts/engines/)
+- [Concepts — Metadata model](https://datacoolie.github.io/datacoolie/concepts/metadata-model/)
+- [Concepts — Orchestration](https://datacoolie.github.io/datacoolie/concepts/orchestration/)
+- [Reference — Metadata schema](https://datacoolie.github.io/datacoolie/reference/metadata-schema/)
+- [Reference — API Core](https://datacoolie.github.io/datacoolie/reference/api/core/)
