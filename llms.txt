@@ -4,7 +4,7 @@
 
 DataCoolie lets data engineering teams describe pipeline intent once as metadata
 (JSON / YAML / Excel / database / REST API) and execute on Polars, Spark, Fabric,
-Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.0.
+Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.1.
 
 ## Documentation
 
