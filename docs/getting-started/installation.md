@@ -97,7 +97,7 @@ print(sorted(datacoolie.platform_registry.names()))
 Expected output (with `[all]`):
 
 ```text
-0.1.0
+0.1.1
 ['polars', 'spark']
 ['aws', 'databricks', 'fabric', 'local']
 ```

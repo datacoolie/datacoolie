@@ -13,7 +13,7 @@ description: Package and run DataCoolie on AWS Glue with Spark, S3-backed storag
 Glue lets you provide a wheel via `--additional-python-modules`:
 
 ```
---additional-python-modules datacoolie==0.1.0
+--additional-python-modules datacoolie==0.1.1
 ```
 
 Then add only the extra Python packages your specific job needs, for example:
