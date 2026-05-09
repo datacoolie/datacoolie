@@ -7,7 +7,7 @@ description = "Reusable constraint types to use with typing.Annotated"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53"},
     {file = "annotated_types-0.7.0.tar.gz", hash = "sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89"},
@@ -40,7 +40,7 @@ description = ""
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\""
+markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "arro3_core-0.8.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:ac43f746d5331bb37ed1b0ade18a12707b64cb85b3eb5cc1d5d7b5029f1f2c12"},
     {file = "arro3_core-0.8.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:29b3d1cbd2c4bac787f473d071e1eb02b71b2701a7118bb5d0a274ffbd26b16c"},
@@ -166,7 +166,7 @@ description = "The AWS SDK for Python"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"aws\" or extra == \"all\""
+markers = "extra == \"boto3\" or extra == \"aws-spark\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "boto3-1.43.2-py3-none-any.whl", hash = "sha256:796e859cfb5e93c55276ce746f8020f691eda6b68a0ec4ce4f6fd07a1cca6859"},
     {file = "boto3-1.43.2.tar.gz", hash = "sha256:be951cc22769fbcda73fac523b031ee38db45c3ae2b0d828c76b8f6e8e683073"},
@@ -187,7 +187,7 @@ description = "Low-level, data-driven core of boto 3."
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"aws\" or extra == \"all\""
+markers = "extra == \"boto3\" or extra == \"aws-spark\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "botocore-1.43.2-py3-none-any.whl", hash = "sha256:b823454d751a1c24bb403b5b07ab65007689654abb21787df923684e0743976c"},
     {file = "botocore-1.43.2.tar.gz", hash = "sha256:7b2ec87b6d0720bff920451ce930e71c2a99cdea48d0eaa66ccf0b21ea747e03"},
@@ -208,7 +208,7 @@ description = "Extensible memoizing collections and decorators"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "cachetools-6.2.6-py3-none-any.whl", hash = "sha256:8c9717235b3c651603fff0076db52d6acbfd1b338b8ed50256092f7ce9c85bda"},
     {file = "cachetools-6.2.6.tar.gz", hash = "sha256:16c33e1f276b9a9c0b49ab5782d901e3ad3de0dd6da9bf9bcd29ac5672f2f9e6"},
@@ -225,7 +225,7 @@ files = [
     {file = "certifi-2026.4.22-py3-none-any.whl", hash = "sha256:3cb2210c8f88ba2318d29b0388d1023c8492ff72ecdde4ebdaddbb13a31b1c4a"},
     {file = "certifi-2026.4.22.tar.gz", hash = "sha256:8d455352a37b71bf76a79caa83a3d6c25afee4a385d632127b6afb3963f1c580"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\" or extra == \"api\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"api\""}
 
 [[package]]
 name = "charset-normalizer"
@@ -365,7 +365,7 @@ files = [
     {file = "charset_normalizer-3.4.7-py3-none-any.whl", hash = "sha256:3dce51d0f5e7951f8bb4900c257dad282f49190fdbebecd4ba99bcc41fef404d"},
     {file = "charset_normalizer-3.4.7.tar.gz", hash = "sha256:ae89db9e5f98a11a4bf50407d4363e7b09b31e55bc117b4f7d80aab97ba009e5"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""}
 
 [[package]]
 name = "click"
@@ -378,7 +378,7 @@ files = [
     {file = "click-8.3.3-py3-none-any.whl", hash = "sha256:a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613"},
     {file = "click-8.3.3.tar.gz", hash = "sha256:398329ad4837b2ff7cbe1dd166a4c0f8900c3ca3a218de04466f38f6497f18a2"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""}
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
@@ -394,7 +394,7 @@ files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-markers = {main = "(extra == \"iceberg\" or extra == \"all\") and platform_system == \"Windows\"", dev = "sys_platform == \"win32\""}
+markers = {main = "(extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\") and platform_system == \"Windows\"", dev = "sys_platform == \"win32\""}
 
 [[package]]
 name = "delta-spark"
@@ -420,7 +420,7 @@ description = "Native Delta Lake Python binding based on delta-rs with Pandas in
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\""
+markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "deltalake-1.5.1-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:1ddbcd7ee3eeb9a776db7445a36bde78a94a131abe09450b0c4c4b83e8ae79d1"},
     {file = "deltalake-1.5.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:f3462997e6767382d178cb16e63a30a7a101af08403f7a59c0089a4afdba507b"},
@@ -446,7 +446,7 @@ description = "Python @deprecated decorator to deprecate old python classes, fun
 optional = true
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
 groups = ["main"]
-markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\""
+markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "deprecated-1.3.1-py2.py3-none-any.whl", hash = "sha256:597bfef186b6f60181535a29fbe44865ce137a5079f295b479886c82729d5f3f"},
     {file = "deprecated-1.3.1.tar.gz", hash = "sha256:b1b50e0ff0c1fddaa5708a2c6b0a6588bb09b892825ab2b214ac9ea9d92a5223"},
@@ -521,7 +521,7 @@ description = "File-system specification"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "fsspec-2026.4.0-py3-none-any.whl", hash = "sha256:11ef7bb35dab8a394fde6e608221d5cf3e8499401c249bebaeaad760a1a8dec2"},
     {file = "fsspec-2026.4.0.tar.gz", hash = "sha256:301d8ac70ae90ef3ad05dcf94d6c3754a097f9b5fe4667d2787aa359ec7df7e4"},
@@ -770,7 +770,7 @@ files = [
     {file = "idna-3.13-py3-none-any.whl", hash = "sha256:892ea0cde124a99ce773decba204c5552b69c3c67ffd5f232eb7696135bc8bb3"},
     {file = "idna-3.13.tar.gz", hash = "sha256:585ea8fe5d69b9181ec1afba340451fba6ba764af97026f92a91d4eef164a242"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\" or extra == \"api\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"api\""}
 
 [package.extras]
 all = ["mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
@@ -837,7 +837,7 @@ description = "JSON Matching Expressions"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"aws\" or extra == \"all\""
+markers = "extra == \"boto3\" or extra == \"aws-spark\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64"},
     {file = "jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d"},
@@ -866,7 +866,7 @@ description = "Python port of markdown-it. Markdown parsing, done right!"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "markdown_it_py-4.0.0-py3-none-any.whl", hash = "sha256:87327c59b172c5011896038353a81343b6754500a08cd7a4973bb48c6d578147"},
     {file = "markdown_it_py-4.0.0.tar.gz", hash = "sha256:cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3"},
@@ -990,7 +990,7 @@ description = "Markdown URL utilities"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"},
     {file = "mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"},
@@ -1214,7 +1214,7 @@ description = "Python extension for MurmurHash (MurmurHash3), a set of fast and 
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "mmh3-5.2.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:5d87a3584093e1a89987e3d36d82c98d9621b2cb944e22a420aa1401e096758f"},
     {file = "mmh3-5.2.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:30e4d2084df019880d55f6f7bea35328d9b464ebee090baa372c096dc77556fb"},
@@ -1429,7 +1429,7 @@ description = "Blazingly fast DataFrame library"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"polars\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\""
+markers = "extra == \"polars\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "polars-1.40.1-py3-none-any.whl", hash = "sha256:c0f861219d1319cdea45c4ce4d30355a47176b8f98dcedf95ea8269f131b8abd"},
     {file = "polars-1.40.1.tar.gz", hash = "sha256:ab2694134b137596b5a59bfd7b4c54ebbc9b59f9403127f18e32d363777552e8"},
@@ -1474,7 +1474,7 @@ description = "Blazingly fast DataFrame library"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"polars\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\""
+markers = "extra == \"polars\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "polars_runtime_32-1.40.1-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:b748ef652270cc49e9e69f99a035e0eb4d5f856d42bcd6ac4d9d80a40142aa1e"},
     {file = "polars_runtime_32-1.40.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:d249b3743e05986060cec0a7aaa542d020df6c6b876e556023a310efd581f9be"},
@@ -1536,7 +1536,7 @@ description = "Data validation using Python type hints"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "pydantic-2.13.3-py3-none-any.whl", hash = "sha256:6db14ac8dfc9a1e57f87ea2c0de670c251240f43cb0c30a5130e9720dc612927"},
     {file = "pydantic-2.13.3.tar.gz", hash = "sha256:af09e9d1d09f4e7fe37145c1f577e1d61ceb9a41924bf0094a36506285d0a84d"},
@@ -1559,7 +1559,7 @@ description = "Core functionality for Pydantic validation and serialization"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "pydantic_core-2.46.3-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:1da3786b8018e60349680720158cc19161cc3b4bdd815beb0a321cd5ce1ad5b1"},
     {file = "pydantic_core-2.46.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:cc0988cb29d21bf4a9d5cf2ef970b5c0e38d8d8e107a493278c05dc6c1dda69f"},
@@ -1697,7 +1697,7 @@ files = [
     {file = "pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176"},
     {file = "pygments-2.20.0.tar.gz", hash = "sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""}
 
 [package.extras]
 windows-terminal = ["colorama (>=0.4.6)"]
@@ -1709,7 +1709,7 @@ description = "Apache Iceberg is an open table format for huge analytic datasets
 optional = true
 python-versions = "<4.0.0,>=3.10.0"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "pyiceberg-0.11.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:89c347170a691e3b8d072519f36790b9c19a2263ec0af0144c873994ecfe55eb"},
     {file = "pyiceberg-0.11.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:138983e96a5c473aae1e1cd6143aacf02ccc9bbbf6180f15fa2588f99531188b"},
@@ -1808,7 +1808,7 @@ description = "pyparsing - Classes and methods to define and execute parsing gra
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d"},
     {file = "pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc"},
@@ -1824,7 +1824,7 @@ description = "Library for handling efficiently sorted integer sets."
 optional = true
 python-versions = "*"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "pyroaring-1.1.0-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:19c9bb8b32f17fe63e54e78f88a7a67fe2dca352bf79d7d3b43f0a901db5ea3b"},
     {file = "pyroaring-1.1.0-cp310-cp310-macosx_14_0_universal2.whl", hash = "sha256:212f471da113eba24a0fedbd1ef078bfed34b792e8f48dba3f7301f1bca2678a"},
@@ -2008,7 +2008,7 @@ files = [
     {file = "python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3"},
     {file = "python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\" or extra == \"aws\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"boto3\" or extra == \"aws-spark\""}
 
 [package.dependencies]
 six = ">=1.5"
@@ -2122,7 +2122,7 @@ files = [
     {file = "requests-2.33.1-py3-none-any.whl", hash = "sha256:4e6d1ef462f3626a1f0a0a9c42dd93c63bad33f9f1c1937509b8c5c8718ab56a"},
     {file = "requests-2.33.1.tar.gz", hash = "sha256:18817f8c57c6263968bc123d237e3b8b08ac046f5456bd1e307ee8f4250d3517"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""}
 
 [package.dependencies]
 certifi = ">=2023.5.7"
@@ -2141,7 +2141,7 @@ description = "Render rich text, tables, progress bars, syntax highlighting, mar
 optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "rich-14.3.4-py3-none-any.whl", hash = "sha256:07e7adb4690f68864777b1450859253bed81a99a31ac321ac1817b2313558952"},
     {file = "rich-14.3.4.tar.gz", hash = "sha256:817e02727f2b25b40ef56f5aa2217f400c8489f79ca8f46ea2b70dd5e14558a9"},
@@ -2161,7 +2161,7 @@ description = "An Amazon S3 Transfer Manager"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"aws\" or extra == \"all\""
+markers = "extra == \"boto3\" or extra == \"aws-spark\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "s3transfer-0.17.0-py3-none-any.whl", hash = "sha256:ce3801712acf4ad3e89fb9990df97b4972e93f4b3b0004d214be5bce12814c20"},
     {file = "s3transfer-0.17.0.tar.gz", hash = "sha256:9edeb6d1c3c2f89d6050348548834ad8289610d886e5bf7b7207728bd43ce33a"},
@@ -2184,7 +2184,7 @@ files = [
     {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
     {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\" or extra == \"aws\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"boto3\" or extra == \"aws-spark\""}
 
 [[package]]
 name = "sqlalchemy"
@@ -2296,7 +2296,7 @@ description = "Strict, typed YAML parser"
 optional = true
 python-versions = ">=3.7.0"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "strictyaml-1.7.3-py3-none-any.whl", hash = "sha256:fb5c8a4edb43bebb765959e420f9b3978d7f1af88c80606c03fb420888f5d1c7"},
     {file = "strictyaml-1.7.3.tar.gz", hash = "sha256:22f854a5fcab42b5ddba8030a0e4be51ca89af0267961c8d6cfa86395586c407"},
@@ -2312,7 +2312,7 @@ description = "Retry code until it succeeds"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55"},
     {file = "tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a"},
@@ -2329,7 +2329,7 @@ description = "Backported and Experimental Type Hints for Python 3.9+"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "(extra == \"iceberg\" or extra == \"all\" or extra == \"api\" or extra == \"db\") and python_version < \"3.13\" or python_version == \"3.11\" and (extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\" or extra == \"iceberg\" or extra == \"api\" or extra == \"db\") or extra == \"iceberg\" or extra == \"all\" or extra == \"db\""
+markers = "(extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"api\" or extra == \"db\") and python_version < \"3.13\" or python_version == \"3.11\" and (extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"iceberg\" or extra == \"api\" or extra == \"db\") or extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"db\""
 files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
@@ -2342,7 +2342,7 @@ description = "Runtime typing introspection tools"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7"},
     {file = "typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464"},
@@ -2375,7 +2375,7 @@ files = [
     {file = "urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4"},
     {file = "urllib3-2.6.3.tar.gz", hash = "sha256:1b62b6884944a57dbe321509ab94fd4d3b307075e0c2eae991ac71ee15ad38ed"},
 ]
-markers = {main = "extra == \"iceberg\" or extra == \"all\" or extra == \"aws\""}
+markers = {main = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\" or extra == \"boto3\" or extra == \"aws-spark\""}
 
 [package.extras]
 brotli = ["brotli (>=1.2.0) ; platform_python_implementation == \"CPython\"", "brotlicffi (>=1.2.0.0) ; platform_python_implementation != \"CPython\""]
@@ -2433,7 +2433,7 @@ description = "Module for decorators, wrappers and monkey patching."
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"all\""
+markers = "extra == \"deltalake\" or extra == \"fabric-polars\" or extra == \"fabric\" or extra == \"databricks-polars\" or extra == \"databricks\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "wrapt-2.1.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:4b7a86d99a14f76facb269dc148590c01aaf47584071809a70da30555228158c"},
     {file = "wrapt-2.1.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:a819e39017f95bf7aede768f75915635aa8f671f2993c036991b8d3bfe8dbb6f"},
@@ -2558,7 +2558,7 @@ description = "Zstandard bindings for Python"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "extra == \"iceberg\" or extra == \"all\""
+markers = "extra == \"iceberg\" or extra == \"aws-polars\" or extra == \"aws\" or extra == \"all\""
 files = [
     {file = "zstandard-0.25.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:e59fdc271772f6686e01e1b3b74537259800f57e24280be3f29c8a0deb1904dd"},
     {file = "zstandard-0.25.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:4d441506e9b372386a5271c64125f72d5df6d2a8e8a2a45a0ae09b03cb781ef7"},
@@ -2667,7 +2667,10 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [extras]
 all = ["boto3", "delta-spark", "deltalake", "fastexcel", "httpx", "openpyxl", "polars", "pyiceberg", "pyspark", "sqlalchemy"]
 api = ["httpx"]
-aws = ["boto3"]
+aws = ["boto3", "deltalake", "polars", "pyiceberg"]
+aws-polars = ["boto3", "deltalake", "polars", "pyiceberg"]
+aws-spark = ["boto3"]
+boto3 = ["boto3"]
 databricks = ["delta-spark", "deltalake", "polars", "pyspark"]
 databricks-polars = ["deltalake", "polars"]
 databricks-spark = ["delta-spark", "pyspark"]
@@ -2685,4 +2688,4 @@ spark = ["pyspark"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "de60b10ccf82f7728f18a2e9131c914acfad805a51748eaa1f21c700b0adf2cb"
+content-hash = "d0743c69c8eaa84c681aeb0e77dd7b9a8c9137aa7f20e7edd3fe02757510969d"
