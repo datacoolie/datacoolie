@@ -1,5 +1,5 @@
 ---
-description: DataCoolie: metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.
+description: DataCoolie — metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.
 ---
 
 <p align="center">

@@ -125,9 +125,9 @@ nav:
       - getting-started/index.md
       - Installation: getting-started/installation.md
       - Quickstart · Polars: getting-started/quickstart-polars.md
-      - Use your own data after the quickstart: getting-started/use-your-own-data.md
       - Quickstart · Spark: getting-started/quickstart-spark.md
       - Your first dataflow: getting-started/first-dataflow.md
+      - Use your own data after the quickstart: getting-started/use-your-own-data.md
   - Concepts:
       - concepts/index.md
       - Architecture: concepts/architecture.md

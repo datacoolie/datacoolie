@@ -1,6 +1,6 @@
 ---
 title: Transform Patterns — DataCoolie Metadata How-to
-description: Configure DataCoolie transforms in metadata: schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags.
+description: Configure DataCoolie transforms in metadata with schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags.
 ---
 
 # Transform patterns
