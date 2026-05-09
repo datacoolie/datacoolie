@@ -52,5 +52,6 @@ call. The client invalidates the cache whenever a watermark update succeeds.
 
 ## Related
 
+- [Metadata guide for new users](metadata-guide/index.md) — understand the metadata shape (connections, dataflows, sources, destinations) before configuring a backend
 - [Concepts · Metadata providers](../concepts/metadata-providers.md)
 - [`reference/api/metadata`](../reference/api/metadata.md)

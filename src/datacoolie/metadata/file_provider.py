@@ -657,8 +657,19 @@ class FileProvider(BaseMetadataProvider):
         name_to_id: Dict[str, str] = {c.name: c.connection_id for c in connections}
         valid_ids: set = {c.connection_id for c in connections}
 
+        raw_hints = self._data.get("schema_hints", [])
+        if not isinstance(raw_hints, list):
+            raise MetadataError(
+                f"'schema_hints' must be a list of group objects, got {type(raw_hints).__name__!r}. "
+                'Expected format: [{"connection_name": "...", "table_name": "...", "hints": [...]}]'
+            )
         grouped: Dict[Tuple[str, Optional[str], str], List[SchemaHint]] = {}
-        for group in self._data.get("schema_hints", []):
+        for i, group in enumerate(raw_hints):
+            if not isinstance(group, dict):
+                raise MetadataError(
+                    f"'schema_hints[{i}]' must be a dict, got {type(group).__name__!r}. "
+                    'Expected format: {"connection_name": "...", "table_name": "...", "hints": [...]}'
+                )
             conn_ref = group.get("connection_name") or group.get("connection_id")
             table = group.get("table_name")
             if not conn_ref or not table:

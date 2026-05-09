@@ -507,6 +507,42 @@ class AWSPlatform(BasePlatform):
     # Athena / Glue Catalog
     # ------------------------------------------------------------------
 
+    def delete_glue_table(self, database: str, table_name: str) -> None:
+        """Delete a Glue catalog table entry, ignoring if it does not exist.
+
+        Athena DDL does not support DROP TABLE for native Delta tables, so
+        the Glue API is used directly for all table types.
+
+        Args:
+            database: Glue database name.
+            table_name: Table name to delete.
+        """
+        try:
+            glue = self.boto3_client("glue")
+            glue.delete_table(DatabaseName=database, Name=table_name)
+            logger.info("Removed stale Glue catalog entry: %s.%s", database, table_name)
+        except glue.exceptions.EntityNotFoundException:
+            pass  # table did not exist — nothing to remove
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not delete Glue table %s.%s: %s", database, table_name, exc)
+
+    def glue_table_exists(self, database: str, table_name: str) -> bool:
+        """Return ``True`` if a Glue catalog table entry exists.
+
+        Uses the Glue ``get_table`` API. Never raises; returns ``False`` on any
+        error including a missing database, missing table, or network failure.
+
+        Args:
+            database: Glue database name.
+            table_name: Table name to check.
+        """
+        try:
+            glue = self.boto3_client("glue")
+            glue.get_table(DatabaseName=database, Name=table_name)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
     def execute_athena_ddl(
         self,
         sql: str,
@@ -582,32 +618,43 @@ class AWSPlatform(BasePlatform):
         table_name: str,
         path: str,
         *,
-        database: str | None = None,
+        database: str,
         output_location: str = "",
+        recreate: bool = False,
     ) -> None:
         """Register a native Delta table in the Glue Catalog via Athena.
 
         Creates an external table with ``TBLPROPERTIES ('table_type'='DELTA')``
         so Athena v3 can query it natively.
 
+        When *recreate* is ``True`` the existing Glue catalog entry is deleted
+        first (via the Glue API, not Athena DDL which does not support DROP
+        TABLE for Delta) so that the registration reflects schema evolution.
+        When *recreate* is ``False`` (the default) the CREATE is issued
+        directly — idempotent and avoids a redundant delete on every write.
+
         Args:
             table_name: Table name (without database prefix).
             path: S3 path to the Delta table root.
-            database: Athena/Glue database.
+            database: Glue/Athena database name (required).
             output_location: S3 location for Athena query results.
+            recreate: When ``True``, delete the existing Glue entry before
+                creating so schema changes are reflected.
         """
-        # DROP + CREATE pattern — ensures the Glue Catalog entry always has
-        # the correct TBLPROPERTIES, even if a stale Spark-created entry existed.
-        drop_sql = f"DROP TABLE IF EXISTS `{table_name}`"
-        logger.info("Dropping existing native table (if any): %s", table_name)
-        self.execute_athena_ddl(drop_sql, database=database, output_location=output_location)
+        if recreate:
+            self.delete_glue_table(database, table_name)
 
         create_sql = (
-            f"CREATE EXTERNAL TABLE IF NOT EXISTS `{table_name}` "
+            f"CREATE EXTERNAL TABLE IF NOT EXISTS `{database}`.`{table_name}` "
             f"LOCATION '{path}' "
             f"TBLPROPERTIES ('table_type'='DELTA')"
         )
-        logger.info("Registering native Delta table: %s", table_name)
+        logger.info(
+            "%s native Delta table: %s.%s",
+            "Recreating" if recreate else "Registering",
+            database,
+            table_name,
+        )
         self.execute_athena_ddl(create_sql, database=database, output_location=output_location)
 
     def register_symlink_table(
@@ -615,10 +662,12 @@ class AWSPlatform(BasePlatform):
         table_name: str,
         path: str,
         *,
-        database: str | None = None,
+        database: str,
         output_location: str = "",
         schema_ddl: str = "",
         partition_ddl: str = "",
+        recreate: bool = False,
+        run_msck: bool = True,
     ) -> None:
         """Register a symlink-based table in the Glue Catalog.
 
@@ -626,27 +675,36 @@ class AWSPlatform(BasePlatform):
         ``_symlink_format_manifest/`` directory of a Delta table, for use
         with Redshift Spectrum.
 
+        When *recreate* is ``True`` the Glue catalog entry is deleted first so
+        that schema or partition changes are picked up. When ``False`` (the
+        default) only a CREATE is issued — idempotent on first write.
+
+        When *run_msck* is ``True`` (the default) and *partition_ddl* is
+        provided, ``MSCK REPAIR TABLE`` is run after the CREATE so that newly
+        written partition paths are visible to Athena and Redshift.
+
         Args:
             table_name: Table name.
             path: S3 path to the Delta table root (``/_symlink_format_manifest/``
                 is appended automatically).
-            database: Athena/Glue database.
+            database: Glue/Athena database name (required).
             output_location: S3 location for Athena query results.
             schema_ddl: Column definitions, e.g.
                 ``"id INT, name STRING, event_date STRING"``.
             partition_ddl: ``PARTITIONED BY`` clause, e.g.
                 ``"PARTITIONED BY (year STRING, month STRING)"``.
+            recreate: When ``True``, delete the Glue entry before creating.
+            run_msck: When ``True`` and table is partitioned, run
+                ``MSCK REPAIR TABLE`` after the CREATE.
         """
         manifest_location = path.rstrip("/") + "/_symlink_format_manifest/"
 
-        # DROP + CREATE pattern so schema changes are picked up
-        drop_sql = f"DROP TABLE IF EXISTS `{table_name}`"
-        logger.info("Dropping existing symlink table (if any): %s", table_name)
-        self.execute_athena_ddl(drop_sql, database=database, output_location=output_location)
+        if recreate:
+            self.delete_glue_table(database, table_name)
 
         partitioned_by = f"\n{partition_ddl}" if partition_ddl else ""
         create_sql = (
-            f"CREATE EXTERNAL TABLE `{table_name}` (\n"
+            f"CREATE EXTERNAL TABLE IF NOT EXISTS `{database}`.`{table_name}` (\n"
             f"  {schema_ddl}\n"
             f")\n"
             f"{partitioned_by}"
@@ -655,11 +713,36 @@ class AWSPlatform(BasePlatform):
             f"OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'\n"
             f"LOCATION '{manifest_location}'"
         )
-        logger.info("Registering symlink table: %s", table_name)
+        logger.info(
+            "%s symlink table: %s.%s",
+            "Recreating" if recreate else "Registering",
+            database,
+            table_name,
+        )
         self.execute_athena_ddl(create_sql, database=database, output_location=output_location)
 
-        # Repair partitions if table is partitioned
-        if partition_ddl:
-            repair_sql = f"MSCK REPAIR TABLE `{table_name}`"
-            logger.info("Repairing partitions for symlink table: %s", table_name)
-            self.execute_athena_ddl(repair_sql, database=database, output_location=output_location)
+        if partition_ddl and run_msck:
+            self.repair_table_partitions(
+                table_name, database=database, output_location=output_location
+            )
+
+    def repair_table_partitions(
+        self,
+        table_name: str,
+        *,
+        database: str,
+        output_location: str = "",
+    ) -> None:
+        """Run ``MSCK REPAIR TABLE`` to sync partition metadata in the Glue Catalog.
+
+        Should be called whenever new partition paths have been written to S3
+        so the Glue/Athena catalog discovers them without a full table recreate.
+
+        Args:
+            table_name: Table name to repair.
+            database: Glue/Athena database name.
+            output_location: S3 location for Athena query results.
+        """
+        repair_sql = f"MSCK REPAIR TABLE `{database}`.`{table_name}`"
+        logger.info("Repairing partitions: %s.%s", database, table_name)
+        self.execute_athena_ddl(repair_sql, database=database, output_location=output_location)

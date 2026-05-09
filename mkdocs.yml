@@ -125,6 +125,7 @@ nav:
       - getting-started/index.md
       - Installation: getting-started/installation.md
       - Quickstart · Polars: getting-started/quickstart-polars.md
+      - Use your own data after the quickstart: getting-started/use-your-own-data.md
       - Quickstart · Spark: getting-started/quickstart-spark.md
       - Your first dataflow: getting-started/first-dataflow.md
   - Concepts:
@@ -143,6 +144,13 @@ nav:
       - Secrets: concepts/secrets.md
   - How-to:
       - how-to/index.md
+      - Metadata guide (new users):
+          - how-to/metadata-guide/index.md
+          - Build your first metadata file: how-to/metadata-guide/first-metadata-file.md
+          - Source patterns: how-to/metadata-guide/source-patterns.md
+          - Destination & load patterns: how-to/metadata-guide/destination-and-load-patterns.md
+          - Transform patterns: how-to/metadata-guide/transform-patterns.md
+          - Validation checklist: how-to/metadata-guide/validation-checklist.md
       - Configure file metadata: how-to/configure-file-metadata.md
       - Configure database metadata: how-to/configure-database-metadata.md
       - Configure API metadata: how-to/configure-api-metadata.md
@@ -192,4 +200,3 @@ nav:
       - 0003 Transformer ordering slots: adr/0003-transformer-ordering-slots.md
       - 0004 Raw-JSON watermark contract: adr/0004-raw-json-watermark-contract.md
   - Contributing: contributing.md
-  - Changelog: changelog.md

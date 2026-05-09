@@ -8,6 +8,9 @@ description: Run a DataCoolie pipeline with the Polars engine on a local machine
 Run a full DataCoolie pipeline on your laptop in under five minutes. No Docker,
 no JVM, no cloud account.
 
+If you are brand new to DataCoolie, this is the best first run. It removes JVM
+and cluster setup so you can validate the metadata model first.
+
 **Prerequisites**
 
 - Python 3.11+
@@ -64,12 +67,12 @@ order_id,customer_id,amount,updated_at
       "name": "orders_to_bronze",
       "stage": "ingest2bronze",
       "source": {
-        "connection": "local_input",
+        "connection_name": "local_input",
         "table": "orders",
         "watermark_columns": ["updated_at"]
       },
       "destination": {
-        "connection": "local_bronze",
+        "connection_name": "local_bronze",
         "schema_name": "sales",
         "table": "orders",
         "load_type": "merge_upsert",
@@ -83,6 +86,12 @@ order_id,customer_id,amount,updated_at
   ]
 }
 ```
+
+!!! note "Canonical metadata key"
+  New examples use `connection_name` for source and destination references.
+  The file metadata provider still accepts `connection` for backward
+  compatibility, but `connection_name` is the canonical shape for new
+  metadata.
 
 ## 4. Run it
 
@@ -123,7 +132,8 @@ print(df)
 ```
 
 You should see **3 rows** (not 4 — the duplicate `order_id=2` was deduplicated
-by `updated_at desc`) plus framework columns like `__<column_name>`.
+by `updated_at desc`) plus framework columns like `__created_at`,
+`__updated_at`, and `__updated_by`.
 
 ## 6. Run it again (incremental)
 
@@ -163,11 +173,24 @@ platform = FabricPlatform()
 engine = SparkEngine(spark_session=spark, platform=platform)
 ```
 
+## Make it yours
+
+If this run succeeded, the next highest-value step is usually to keep the same
+engine, platform, and `run.py` file and swap the sample input for your own
+data.
+
+1. Keep the runner unchanged.
+2. Replace the sample input folder and source table name.
+3. Start with `load_type: "overwrite"` if you do not yet have stable merge keys.
+4. Add `watermark_columns` only when you have a reliable incremental column.
+
+→ [Use your own data after the quickstart](use-your-own-data.md)
+
 ## Next
 
-- [Quickstart · Spark](quickstart-spark.md) — run the same pipeline on Spark with
-  Delta Lake.
+- [Use your own data after the quickstart](use-your-own-data.md) — replace the sample file while keeping the same runner pattern.
 - [Your first dataflow](first-dataflow.md) — a longer tutorial with multiple stages.
+- [Quickstart · Spark](quickstart-spark.md) — run the same pipeline on Spark with Delta Lake.
 - [Concepts · Metadata model](../concepts/metadata-model.md) — what every field in
   `metadata/orders.json` means.
 - [How-to · Merge & SCD2](../how-to/merge-and-scd2.md) — other load strategies.

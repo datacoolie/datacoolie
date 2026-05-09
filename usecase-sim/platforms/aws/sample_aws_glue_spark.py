@@ -5,17 +5,25 @@ This script is designed to run as an AWS Glue ETL job using the PySpark engine.
 It loads the shared metadata from S3, initialises AWSPlatform + SparkEngine,
 and runs all dataflows matching the selected stage(s).
 
-Glue job type: Spark (Glue 4.0+, Python 3)
+Glue job type: Spark (Glue 4.0+, Glue 5.0+ recommended, Python 3)
 
 Required Glue job parameters (--conf / job arguments):
   --REGION       AWS region, e.g. ap-southeast-1
-  --BUCKET       S3 bucket name, e.g. de-dev-0001
+  --BUCKET       S3 bucket name, e.g. de-dev-0007
   --STAGE        Comma-separated stage names to run, e.g. "read_file,load_delta"
                  Leave empty ("") to run ALL stages in the metadata file.
 
 Required Glue Spark configuration (Job details → Spark properties):
-  spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
-  spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+  For Delta + Iceberg in one job:
+  --datalake-formats delta,iceberg
+  --enable-glue-datacatalog true
+  --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension,org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+  --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+  --conf spark.delta.logStore.class=org.apache.spark.sql.delta.storage.S3SingleDriverLogStore
+  --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog
+  --conf spark.sql.catalog.glue_catalog.warehouse=s3://<bucket>/output/iceberg/
+  --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog
+  --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO
 
 Required Glue job libraries:
   - delta-core / delta-spark JAR matching your Spark version (via --extra-jars or
@@ -24,8 +32,8 @@ Required Glue job libraries:
     or an S3 path reference in the Glue job definition.
 
 IAM permissions required for the Glue execution role:
-  - s3:GetObject / s3:PutObject / s3:DeleteObject on s3://de-dev-0001/*
-  - s3:ListBucket on s3://de-dev-0001
+  - s3:GetObject / s3:PutObject / s3:DeleteObject on s3://de-dev-0007/*
+  - s3:ListBucket on s3://de-dev-0007
   - secretsmanager:GetSecretValue for any secrets used in connections
   - glue:CreateTable / glue:UpdateTable / glue:GetDatabase on the datacoolie database
   - athena:StartQueryExecution / athena:GetQueryExecution on the Athena workgroup
@@ -59,7 +67,7 @@ args = getResolvedOptions(
 )
 
 REGION: str = args.get("REGION", "ap-southeast-1")
-BUCKET: str = args.get("BUCKET", "de-dev-0001")
+BUCKET: str = args.get("BUCKET", "de-dev-0007")
 STAGE: str = args.get("STAGE", "")  # empty string = run all stages
 
 METADATA_PATH = f"s3://{BUCKET}/metadata/aws_glue_use_cases.json"

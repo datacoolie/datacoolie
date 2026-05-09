@@ -20,7 +20,7 @@ metadata/
     └── orders_csv_to_parquet_full_load.xlsx    ← generated
 ```
 
-See the [usecase-sim file metadata folder](https://github.com/datacoolie/datacoolie/tree/main/datacoolie/usecase-sim/metadata/file)
+See the [usecase-sim file metadata folder](https://github.com/datacoolie/datacoolie/tree/main/usecase-sim/metadata/file)
 for production-shape examples.
 
 ## Minimal JSON
@@ -141,5 +141,6 @@ If `pyyaml` is not installed, YAML output is skipped with a warning. If
 
 ## Related
 
+- [Metadata guide for new users](metadata-guide/index.md) — if you are new to DataCoolie, start with field-by-field guidance for connections, sources, destinations, and transforms
 - [Concepts · Metadata providers](../concepts/metadata-providers.md)
 - [Reference · Metadata schema](../reference/metadata-schema.md)

@@ -8,6 +8,16 @@ description: "Production guidance for DataCoolie: logging layout and file partit
 Practical guidance for running DataCoolie pipelines reliably in production
 environments, from understanding log output to diagnosing failures.
 
+Use this section after you already have a pipeline running. If you still need a
+first successful local run, go back to [Getting started](../getting-started/index.md).
+
+## Start with the question you have
+
+- I need to understand what DataCoolie wrote to disk: [Logging layout](logging-layout.md)
+- I need help choosing Polars vs Spark for production workloads: [Benchmarks](benchmarks.md)
+- A run is failing and I need likely causes: [Troubleshooting](troubleshooting.md)
+- I am changing or adding framework behavior and need test guidance: [Testing strategy](testing-strategy.md)
+
 ## What's in this section
 
 - [Logging layout](logging-layout.md) — How the ETL logger writes debug JSONL

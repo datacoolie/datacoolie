@@ -9,6 +9,34 @@ DataCoolie is published to PyPI. The base package stays light;
 engines, cloud SDKs, and metadata backends are **opt-in extras** so you only
 install what you need.
 
+## Recommended first install
+
+For most new users, start with the smallest setup that can run a real pipeline:
+
+```bash
+pip install "datacoolie[polars,deltalake]"
+```
+
+If you already know Spark is your main runtime, install Spark + Delta instead:
+
+```bash
+pip install "datacoolie[spark,delta-spark]"
+```
+
+Use `datacoolie[all]` for contributor machines or broad local experimentation.
+The bare `pip install datacoolie` package is mainly useful for extension work,
+API exploration, or environments where another package layer supplies the
+runtime dependencies.
+
+## Quick decision table
+
+| You want to do first | Install |
+|---|---|
+| Fastest first success on one machine | `pip install "datacoolie[polars,deltalake]"` |
+| Spark/Fabric/Databricks-style local validation | `pip install "datacoolie[spark,delta-spark]"` |
+| Try many engines, platforms, and metadata backends locally | `pip install "datacoolie[all]"` |
+| Only inspect APIs or develop extensions | `pip install datacoolie` |
+
 ## Pick your extras
 
 ```bash
@@ -77,6 +105,13 @@ Expected output (with `[all]`):
 If one of your engines is missing, the extra for it is not installed — see
 the table above.
 
+## Common beginner trap
+
+If `import datacoolie` works but your quickstart still cannot create an engine
+or read/write a table, you almost always installed the base package without the
+engine or table-format extra you need.
+
 ## Next
 
-→ [Quickstart · Polars](quickstart-polars.md)
+- Most new users: [Quickstart · Polars](quickstart-polars.md)
+- Spark-first users: [Quickstart · Spark](quickstart-spark.md)

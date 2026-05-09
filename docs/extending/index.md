@@ -7,6 +7,11 @@ description: Build custom sources, destinations, transformers, engines, secret r
 
 DataCoolie is built for extension. Six plugin points cover the full pipeline:
 
+If you only need to configure built-in sources, destinations, engines, or
+platforms, stay in [How-to](../how-to/index.md) and [Reference](../reference/index.md).
+Start here only when the built-in behavior is not enough and you need a new
+framework capability.
+
 | What you want to add | Base class | Entry-point group | Guide |
 |---|---|---|---|
 | Read a new format/protocol | `BaseSourceReader[DF]` | `datacoolie.sources` | [Write a source](writing-a-source.md) |

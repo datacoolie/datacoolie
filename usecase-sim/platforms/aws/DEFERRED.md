@@ -20,8 +20,10 @@ in this folder:
 ### Polars + Iceberg (pyiceberg Glue catalog)
 
 - `PolarsEngine` delegates Iceberg reads/writes to `pyiceberg`.
-- Full Glue catalog integration requires `pyiceberg[glue]` and appropriate
-  environment configuration (`PYICEBERG_CATALOG__GLUE__TYPE=glue`).
+- The sample now initialises a Glue-backed pyiceberg catalog in code using the
+  active AWS role.
+- Full end-to-end validation still requires `pyiceberg` plus working Glue
+  catalog permissions in the target account.
 - The Polars Iceberg path in `aws_glue_use_cases.json` (`base_path`) is present
   as a path hint, but the catalog-level create/register is driven by pyiceberg
   at runtime. Validate pyiceberg Glue catalog connectivity separately before
@@ -66,4 +68,5 @@ in this folder:
 ## Status
 
 Partially implemented: Glue script-first AWS assets are in place.
-Runner-level integration and pyiceberg Glue catalog validation remain deferred.
+Runner-level integration and real AWS validation for the pyiceberg Glue catalog
+remain deferred.

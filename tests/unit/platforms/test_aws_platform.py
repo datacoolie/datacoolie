@@ -731,53 +731,106 @@ class TestExecuteAthenaDDL:
             p.execute_athena_ddl("SELECT 1", output_location="s3://b/r/")
 
 
+class TestGlueTableExists:
+    """Tests for AWSPlatform.glue_table_exists."""
+
+    def test_returns_true_when_table_exists(self) -> None:
+        with patch("boto3.Session") as mock_session_cls:
+            sess = MagicMock()
+            mock_session_cls.return_value = sess
+            glue = MagicMock()
+            glue.get_table.return_value = {"Table": {"Name": "my_table"}}
+            sess.client.return_value = glue
+            p = AWSPlatform(region="us-east-1")
+            assert p.glue_table_exists("mydb", "my_table") is True
+
+    def test_returns_false_when_not_found(self) -> None:
+        with patch("boto3.Session") as mock_session_cls:
+            sess = MagicMock()
+            mock_session_cls.return_value = sess
+            glue = MagicMock()
+            glue.get_table.side_effect = Exception("EntityNotFoundException")
+            sess.client.return_value = glue
+            p = AWSPlatform(region="us-east-1")
+            assert p.glue_table_exists("mydb", "missing_table") is False
+
+
+class TestRepairTablePartitions:
+    """Tests for AWSPlatform.repair_table_partitions."""
+
+    def test_runs_msck_repair(self) -> None:
+        p = AWSPlatform(bucket="b", region="us-east-1")
+        p.execute_athena_ddl = MagicMock(return_value="q-1")
+        p.repair_table_partitions(
+            "my_table", database="mydb", output_location="s3://b/r/"
+        )
+        p.execute_athena_ddl.assert_called_once()
+        sql = p.execute_athena_ddl.call_args[0][0]
+        assert "MSCK REPAIR TABLE" in sql
+        assert "`mydb`.`my_table`" in sql
+
+
 class TestRegisterDeltaTable:
     """Tests for AWSPlatform.register_delta_table."""
 
-    def test_calls_execute_athena_ddl_with_drop_and_create(self) -> None:
+    def test_create_only_skips_delete(self) -> None:
+        """recreate=False (default) — no delete_glue_table call, 1 CREATE."""
         p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_delta_table(
             "my_table", "s3://bucket/data/my_table",
             database="mydb", output_location="s3://b/r/",
         )
-        # DROP + CREATE = 2 calls
-        assert p.execute_athena_ddl.call_count == 2
-
-        drop_sql = p.execute_athena_ddl.call_args_list[0][0][0]
-        assert "DROP TABLE IF EXISTS" in drop_sql
-        assert "`my_table`" in drop_sql
-
-        create_sql = p.execute_athena_ddl.call_args_list[1][0][0]
-        assert "CREATE EXTERNAL TABLE IF NOT EXISTS" in create_sql
+        p.delete_glue_table.assert_not_called()
+        assert p.execute_athena_ddl.call_count == 1
+        create_sql = p.execute_athena_ddl.call_args[0][0]
+        assert "CREATE EXTERNAL TABLE" in create_sql
         assert "`my_table`" in create_sql
         assert "LOCATION 's3://bucket/data/my_table'" in create_sql
         assert "'table_type'='DELTA'" in create_sql
-        assert p.execute_athena_ddl.call_args_list[1][1]["database"] == "mydb"
+        assert p.execute_athena_ddl.call_args[1]["database"] == "mydb"
+
+    def test_recreate_deletes_then_creates(self) -> None:
+        """recreate=True — delete_glue_table called first, then 1 CREATE."""
+        p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
+        p.execute_athena_ddl = MagicMock(return_value="q-1")
+        p.register_delta_table(
+            "my_table", "s3://bucket/data/my_table",
+            database="mydb", output_location="s3://b/r/",
+            recreate=True,
+        )
+        p.delete_glue_table.assert_called_once_with("mydb", "my_table")
+        assert p.execute_athena_ddl.call_count == 1
+        create_sql = p.execute_athena_ddl.call_args[0][0]
+        assert "CREATE EXTERNAL TABLE" in create_sql
 
 
 class TestRegisterSymlinkTable:
     """Tests for AWSPlatform.register_symlink_table."""
 
     def test_creates_symlink_table_without_partitions(self) -> None:
+        """Default recreate=False — no delete, 1 CREATE, no MSCK."""
         p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
             "my_table", "s3://bucket/data/my_table",
             database="symlink_mydb", output_location="s3://b/r/",
             schema_ddl="`id` INT, `name` STRING",
         )
-        # Should call DROP then CREATE (2 calls)
-        assert p.execute_athena_ddl.call_count == 2
-        drop_sql = p.execute_athena_ddl.call_args_list[0][0][0]
-        create_sql = p.execute_athena_ddl.call_args_list[1][0][0]
-        assert "DROP TABLE IF EXISTS" in drop_sql
+        p.delete_glue_table.assert_not_called()
+        assert p.execute_athena_ddl.call_count == 1
+        create_sql = p.execute_athena_ddl.call_args[0][0]
         assert "SymlinkTextInputFormat" in create_sql
         assert "ParquetHiveSerDe" in create_sql
         assert "_symlink_format_manifest/" in create_sql
 
     def test_creates_symlink_table_with_partitions(self) -> None:
+        """Default recreate=False, partitioned — 1 CREATE + 1 MSCK."""
         p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
             "my_table", "s3://bucket/data/my_table",
@@ -785,10 +838,50 @@ class TestRegisterSymlinkTable:
             schema_ddl="`id` INT, `name` STRING",
             partition_ddl="PARTITIONED BY (`year` STRING)",
         )
-        # DROP + CREATE + MSCK REPAIR = 3 calls
-        assert p.execute_athena_ddl.call_count == 3
-        repair_sql = p.execute_athena_ddl.call_args_list[2][0][0]
+        p.delete_glue_table.assert_not_called()
+        assert p.execute_athena_ddl.call_count == 2
+        repair_sql = p.execute_athena_ddl.call_args_list[1][0][0]
         assert "MSCK REPAIR TABLE" in repair_sql
+
+    def test_create_only_skips_delete(self) -> None:
+        """recreate=False — delete_glue_table is not called."""
+        p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
+        p.execute_athena_ddl = MagicMock(return_value="q-1")
+        p.register_symlink_table(
+            "my_table", "s3://bucket/data/my_table",
+            database="symlink_mydb", output_location="s3://b/r/",
+            schema_ddl="`id` INT",
+            recreate=False,
+        )
+        p.delete_glue_table.assert_not_called()
+
+    def test_recreate_deletes_then_creates(self) -> None:
+        """recreate=True — delete_glue_table called first."""
+        p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
+        p.execute_athena_ddl = MagicMock(return_value="q-1")
+        p.register_symlink_table(
+            "my_table", "s3://bucket/data/my_table",
+            database="symlink_mydb", output_location="s3://b/r/",
+            schema_ddl="`id` INT",
+            recreate=True,
+        )
+        p.delete_glue_table.assert_called_once_with("symlink_mydb", "my_table")
+
+    def test_run_msck_false_skips_repair(self) -> None:
+        """run_msck=False — MSCK REPAIR TABLE not called even for partitioned table."""
+        p = AWSPlatform(bucket="b", region="us-east-1")
+        p.delete_glue_table = MagicMock()
+        p.execute_athena_ddl = MagicMock(return_value="q-1")
+        p.register_symlink_table(
+            "my_table", "s3://bucket/data/my_table",
+            database="symlink_mydb", output_location="s3://b/r/",
+            schema_ddl="`id` INT",
+            partition_ddl="PARTITIONED BY (`year` STRING)",
+            run_msck=False,
+        )
+        assert p.execute_athena_ddl.call_count == 1
 
     def test_delete_file_exception_is_idempotent(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
         mock_client.delete_object.side_effect = RuntimeError("boom")

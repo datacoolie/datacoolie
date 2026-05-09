@@ -46,7 +46,7 @@ deltalake = ["deltalake>=0.15"]
 iceberg = ["pyiceberg>=0.6"]
 
 # --- Integrations ---
-aws = ["boto3>=1.28"]
+boto3 = ["boto3>=1.28"]
 api = ["httpx>=0.24"]
 db = ["sqlalchemy>=2.0,<3.0"]
 excel = ["fastexcel>=0.9", "openpyxl>=3.1"]
@@ -58,6 +58,10 @@ fabric = ["pyspark>=3.5", "delta-spark>=3.0", "polars>=1.0", "deltalake>=0.15"]
 databricks-spark = ["pyspark>=3.5", "delta-spark>=3.0"]
 databricks-polars = ["polars>=1.0", "deltalake>=0.15"]
 databricks = ["pyspark>=3.5", "delta-spark>=3.0", "polars>=1.0", "deltalake>=0.15"]
+# AWS bundles (pyspark/delta-spark are provided by Glue runtime, excluded here)
+aws-spark = ["boto3>=1.28"]
+aws-polars = ["polars>=1.0", "deltalake>=0.15", "pyiceberg>=0.6", "boto3>=1.28"]
+aws = ["polars>=1.0", "deltalake>=0.15", "pyiceberg>=0.6", "boto3>=1.28"]
 
 # --- Everything ---
 all = [

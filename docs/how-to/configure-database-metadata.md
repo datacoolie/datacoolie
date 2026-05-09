@@ -12,7 +12,7 @@ description: Store DataCoolie metadata in a relational database and configure sh
 
 Any dialect supported by SQLAlchemy 2.x. The usecase-sim testbed ships DDL
 for SQLite, PostgreSQL, MySQL, MSSQL, and Oracle — see
-[`usecase-sim/metadata/database/`](https://github.com/datacoolie/datacoolie/tree/main/datacoolie/usecase-sim/metadata/database).
+[`usecase-sim/metadata/database/`](https://github.com/datacoolie/datacoolie/tree/main/usecase-sim/metadata/database).
 
 ## Schema
 
@@ -56,4 +56,5 @@ reference implementation. It:
 
 ## Related
 
+- [Metadata guide for new users](metadata-guide/index.md) — understand the metadata shape (connections, dataflows, sources, destinations) before configuring a backend
 - [Concepts · Metadata providers](../concepts/metadata-providers.md)

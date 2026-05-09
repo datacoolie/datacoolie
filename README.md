@@ -29,17 +29,28 @@ Databricks, or AWS platforms.
 - **Operationally complete** — watermarks, schema hints, partitions, load strategies, logging, and maintenance are built in.
 - **Plugin everything** — engines, platforms, sources, destinations, transformers, and secret resolvers are all entry-point plugins.
 
+## Start here
+
+If you are evaluating DataCoolie for the first time, use this order:
+
+1. Install the smallest useful runtime: `pip install "datacoolie[polars,deltalake]"`
+2. Run the quick start below
+3. Then move to the docs for using your own input and building a multi-stage flow
+
+If you already know your runtime will be Spark, swap the install to
+`pip install "datacoolie[spark,delta-spark]"` and keep the same metadata pattern.
+
 ## Installation
 
 ```bash
-# Core only
+# Most common first install
+pip install "datacoolie[polars,deltalake]"
+
+# Spark-first local validation
+pip install "datacoolie[spark,delta-spark]"
+
+# Core only (mainly useful for extension work)
 pip install datacoolie
-
-# With Spark support (primary)
-pip install datacoolie[spark]
-
-# With Polars support
-pip install datacoolie[polars]
 
 # All engines
 pip install datacoolie[all]
@@ -47,16 +58,19 @@ pip install datacoolie[all]
 
 ## Quick Start
 
-Install, save the script below as `quickstart.py`, and run it. Part A generates
-a sample CSV + `metadata.json`; Part B runs the pipeline.
+Install, then run two short scripts:
+
+1. `prepare_quickstart.py` creates a sample CSV and `metadata.json`.
+2. `run_quickstart.py` loads that metadata and runs the pipeline.
 
 ```bash
 pip install "datacoolie[polars]"
 ```
 
+### Part 1 — Prepare sample data and metadata
+
 ```python
-# quickstart.py
-# --- Part A: prepare sample data & metadata (stdlib only) --------------------
+# prepare_quickstart.py
 import json
 from pathlib import Path
 
@@ -87,12 +101,26 @@ metadata = {
 }
 metadata_path = root / "metadata.json"
 metadata_path.write_text(json.dumps(metadata, indent=2))
+print(f"Created {metadata_path}")
+```
 
-# --- Part B: run DataCoolie --------------------------------------------------
+```bash
+python prepare_quickstart.py
+```
+
+### Part 2 — Run the pipeline
+
+```python
+# run_quickstart.py
+from pathlib import Path
+
 from datacoolie.engines.polars_engine import PolarsEngine
 from datacoolie.platforms.local_platform import LocalPlatform
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
+
+root = Path("dc_quickstart")
+metadata_path = root / "metadata.json"
 
 platform = LocalPlatform()
 engine = PolarsEngine(platform=platform)
@@ -104,21 +132,27 @@ with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:
 ```
 
 ```bash
-python quickstart.py
+python run_quickstart.py
 ```
 
 Swap `PolarsEngine` for `SparkEngine(spark, ...)` or `LocalPlatform()` for
 `AwsPlatform` / `FabricPlatform` / `DatabricksPlatform` — the metadata stays
 the same.
 
+## What to do next
+
+- Use your own files while keeping the same runner pattern: <https://datacoolie.github.io/datacoolie/getting-started/use-your-own-data/>
+- Build a multi-stage bronze→silver tutorial flow: <https://datacoolie.github.io/datacoolie/getting-started/first-dataflow/>
+- Learn the metadata model field by field: <https://datacoolie.github.io/datacoolie/how-to/metadata-guide/>
+
 ## Testbed & scenarios
 
-See [usecase-sim/README.md](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/README.md) for a ready-made integration
+See [usecase-sim/README.md](usecase-sim/README.md) for a ready-made integration
 testbed that exercises every `{polars,spark} × {file,database,api} × {local,aws}`
 combination, plus lakehouse maintenance and a Docker-compose backend stack.
 
 ## License
 
-[AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE) — free and open source.
+[AGPL-3.0-or-later](LICENSE) — free and open source.
 
-See [CONTRIBUTING.md](https://github.com/datacoolie/datacoolie/blob/main/CONTRIBUTING.md) for contribution terms.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution terms.

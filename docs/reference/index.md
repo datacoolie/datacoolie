@@ -9,8 +9,19 @@ Precise, mechanical contracts. Use this section when you need exact field names,
 types, defaults, or Python signatures. Prose explanations live under
 [Concepts](../concepts/index.md); task recipes under [How-to](../how-to/index.md).
 
+This is not the best place to start if you are still learning the framework.
+Use [Getting started](../getting-started/index.md) for runnable examples and
+[How-to](../how-to/index.md) for guided tasks.
+
 Some reference pages are generated only at docs-build time, so you will not see
 their source `.md` files checked into `docs/reference/`.
+
+## Start with the contract you need
+
+- Full metadata field definitions: [Metadata schema](metadata-schema.md)
+- Plugin registration names and entry-point groups: [Plugin entry points](plugin-entry-points.md)
+- Runtime configuration knobs: [Environment variables](environment-variables.md)
+- Programmatic interfaces: the API pages listed below
 
 ## Configuration contracts
 

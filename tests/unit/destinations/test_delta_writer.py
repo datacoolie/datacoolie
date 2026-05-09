@@ -15,9 +15,64 @@ from datacoolie.core.exceptions import DestinationError
 from datacoolie.core.models import Connection, Destination, PartitionColumn
 from datacoolie.platforms.aws_platform import AWSPlatform
 
-from datacoolie.destinations.delta_writer import DeltaWriter
+from datacoolie.destinations.delta_writer import DeltaWriter, _struct_field_names, _has_new_columns
 
 from tests.unit.destinations.support import MockEngine, _make_dataflow, engine
+
+
+# ============================================================================
+# Module-level helper tests
+# ============================================================================
+
+
+class TestStructFieldNames:
+    def test_parses_flat_struct(self) -> None:
+        assert _struct_field_names("STRUCT<a:INT,b:STRING>") == frozenset({"a", "b"})
+
+    def test_parses_nested_struct(self) -> None:
+        result = _struct_field_names("STRUCT<a:INT,b:STRUCT<x:INT,y:DOUBLE>>")
+        assert result == frozenset({"a", "b"})
+
+    def test_non_struct_returns_empty(self) -> None:
+        assert _struct_field_names("BIGINT") == frozenset()
+        assert _struct_field_names("ARRAY<STRING>") == frozenset()
+        assert _struct_field_names("") == frozenset()
+
+    def test_case_insensitive_field_names(self) -> None:
+        result = _struct_field_names("STRUCT<MyField:INT>")
+        assert "myfield" in result
+
+
+class TestHasNewColumns:
+    def test_same_schema_returns_false(self) -> None:
+        schema = {"id": "BIGINT", "name": "STRING"}
+        assert _has_new_columns(schema, schema) is False
+
+    def test_new_top_level_column_returns_true(self) -> None:
+        pre = {"id": "BIGINT"}
+        post = {"id": "BIGINT", "new_col": "STRING"}
+        assert _has_new_columns(pre, post) is True
+
+    def test_type_drift_ignored_when_not_strict(self) -> None:
+        pre = {"id": "INT"}
+        post = {"id": "BIGINT"}
+        assert _has_new_columns(pre, post, strict=False) is False
+
+    def test_type_drift_caught_when_strict(self) -> None:
+        pre = {"id": "INT"}
+        post = {"id": "BIGINT"}
+        assert _has_new_columns(pre, post, strict=True) is True
+
+    def test_new_struct_field_returns_true(self) -> None:
+        pre = {"meta": "STRUCT<a:INT>"}
+        post = {"meta": "STRUCT<a:INT,b:STRING>"}
+        assert _has_new_columns(pre, post) is True
+
+    def test_removed_column_returns_false(self) -> None:
+        """Column removal does not trigger recreate (additive check only)."""
+        pre = {"id": "BIGINT", "old": "STRING"}
+        post = {"id": "BIGINT"}
+        assert _has_new_columns(pre, post) is False
 
 
 # ============================================================================
@@ -228,6 +283,8 @@ def _make_aws_engine() -> tuple[MockEngine, MagicMock]:
     engine.read = MagicMock(return_value={})
     engine.get_schema = MagicMock(return_value={"id": "bigint", "name": "string", "amount": "double"})
     engine.get_hive_schema = MagicMock(return_value={"id": "BIGINT", "name": "STRING", "amount": "DOUBLE"})
+    # Default: first-write scenario (no existing Glue entries)
+    mock_platform.glue_table_exists.return_value = False
     return engine, mock_platform
 
 
@@ -266,6 +323,23 @@ def _make_glue_dataflow(
     )
 
 
+def _make_aws_state(
+    dataflow,
+    platform: MagicMock,
+    *,
+    native_exists: bool = False,
+    symlink_exists: bool = False,
+    pre_schema: dict[str, str] | None = None,
+):
+    """Build a captured AWS state payload for direct planner tests."""
+    return {
+        "platform": platform,
+        "native_exists": native_exists,
+        "symlink_exists": symlink_exists,
+        "pre_schema": pre_schema or {},
+    }
+
+
 class TestPostWriteCatalog:
     def test_no_op_when_not_aws_platform(self) -> None:
         engine = MockEngine()
@@ -283,7 +357,7 @@ class TestPostWriteCatalog:
         writer._post_write_catalog(df)
         platform.register_delta_table.assert_not_called()
 
-    def test_always_registers_native_delta_table(self) -> None:
+    def test_registers_native_on_first_write(self) -> None:
         engine, platform = _make_aws_engine()
         df = _make_glue_dataflow()
         writer = DeltaWriter(engine)
@@ -291,15 +365,118 @@ class TestPostWriteCatalog:
         platform.register_delta_table.assert_called_once()
         call_args = platform.register_delta_table.call_args
         assert call_args[0][0] == "orders"  # table_name
+        assert call_args[1].get("recreate") is False
+
+    def test_native_skipped_on_unchanged_schema(self) -> None:
+        """Existing native entry + same pre/post schema → no catalog call."""
+        engine, platform = _make_aws_engine()
+        schema = {"id": "BIGINT", "name": "STRING"}
+        engine.set_table_exists(True)
+        engine.get_hive_schema.return_value = schema
+        df = _make_glue_dataflow()
+        writer = DeltaWriter(engine)
+        writer._post_write_catalog(
+            df,
+            aws_state=_make_aws_state(df, platform, native_exists=True, pre_schema=schema),
+        )
+        platform.register_delta_table.assert_not_called()
+
+    def test_native_recreated_on_schema_evolution(self) -> None:
+        """Existing native entry + new column in post-schema → recreate=True."""
+        engine, platform = _make_aws_engine()
+        pre_schema = {"id": "BIGINT", "name": "STRING"}
+        post_schema = {"id": "BIGINT", "name": "STRING", "new_col": "DOUBLE"}
+        engine.set_table_exists(True)
+        engine.get_hive_schema.return_value = post_schema
+        df = _make_glue_dataflow()
+        writer = DeltaWriter(engine)
+        writer._post_write_catalog(
+            df,
+            aws_state=_make_aws_state(df, platform, native_exists=True, pre_schema=pre_schema),
+        )
+        platform.register_delta_table.assert_called_once()
+        assert platform.register_delta_table.call_args[1].get("recreate") is True
+
+    def test_native_recreated_on_new_struct_field(self) -> None:
+        """New attribute inside a STRUCT column → recreate=True."""
+        engine, platform = _make_aws_engine()
+        pre_schema = {"id": "BIGINT", "meta": "STRUCT<a:INT>"}
+        post_schema = {"id": "BIGINT", "meta": "STRUCT<a:INT,b:STRING>"}
+        engine.set_table_exists(True)
+        engine.get_hive_schema.return_value = post_schema
+        df = _make_glue_dataflow()
+        writer = DeltaWriter(engine)
+        writer._post_write_catalog(
+            df,
+            aws_state=_make_aws_state(df, platform, native_exists=True, pre_schema=pre_schema),
+        )
+        platform.register_delta_table.assert_called_once()
+        assert platform.register_delta_table.call_args[1].get("recreate") is True
+
+    def test_symlink_manifest_only_on_unchanged_unpartitioned(self) -> None:
+        """Existing symlink, no schema drift, not partitioned → manifest only."""
+        engine, platform = _make_aws_engine()
+        schema = {"id": "BIGINT", "name": "STRING"}
+        engine.set_table_exists(True)
+        engine.get_hive_schema.return_value = schema
+        df = _make_glue_dataflow(register_symlink_table=True)
+        writer = DeltaWriter(engine)
+        writer._post_write_catalog(
+            df,
+            aws_state=_make_aws_state(
+                df, platform, native_exists=True, symlink_exists=True, pre_schema=schema,
+            ),
+        )
+        engine.generate_symlink_manifest.assert_called_once()
+        platform.register_symlink_table.assert_not_called()
+        platform.repair_table_partitions.assert_not_called()
+
+    def test_symlink_msck_only_on_unchanged_partitioned(self) -> None:
+        """Existing symlink, no schema drift, partitioned → manifest + MSCK only."""
+        engine, platform = _make_aws_engine()
+        schema = {"id": "BIGINT", "year": "STRING"}
+        engine.set_table_exists(True)
+        engine.get_hive_schema.return_value = schema
+        df = _make_glue_dataflow(
+            register_symlink_table=True,
+            partition_cols=[PartitionColumn(column="year")],
+        )
+        writer = DeltaWriter(engine)
+        writer._post_write_catalog(
+            df,
+            aws_state=_make_aws_state(
+                df, platform, native_exists=True, symlink_exists=True, pre_schema=schema,
+            ),
+        )
+        engine.generate_symlink_manifest.assert_called_once()
+        platform.register_symlink_table.assert_not_called()
+        platform.repair_table_partitions.assert_called_once()
+
+    def test_symlink_recreated_on_type_drift(self) -> None:
+        """Existing symlink, type drift → register_symlink_table with recreate=True."""
+        engine, platform = _make_aws_engine()
+        pre_schema = {"id": "INT", "name": "STRING"}
+        post_schema = {"id": "BIGINT", "name": "STRING"}  # type of id changed
+        engine.set_table_exists(True)
+        engine.get_hive_schema.return_value = post_schema
+        df = _make_glue_dataflow(register_symlink_table=True)
+        writer = DeltaWriter(engine)
+        writer._post_write_catalog(
+            df,
+            aws_state=_make_aws_state(
+                df, platform, native_exists=True, symlink_exists=True, pre_schema=pre_schema,
+            ),
+        )
+        engine.generate_symlink_manifest.assert_called_once()
+        platform.register_symlink_table.assert_called_once()
+        assert platform.register_symlink_table.call_args[1].get("recreate") is True
 
     def test_no_symlink_when_flags_false(self) -> None:
         engine, platform = _make_aws_engine()
         df = _make_glue_dataflow(generate_manifest=False, register_symlink_table=False)
         writer = DeltaWriter(engine)
         writer._post_write_catalog(df)
-        # Native is always registered
         platform.register_delta_table.assert_called_once()
-        # Symlink is NOT generated
         engine.generate_symlink_manifest.assert_not_called()
         platform.register_symlink_table.assert_not_called()
 
@@ -321,6 +498,7 @@ class TestPostWriteCatalog:
         platform.register_symlink_table.assert_called_once()
         call_kwargs = platform.register_symlink_table.call_args
         assert call_kwargs[1]["database"] == "symlink_mydb"
+        assert call_kwargs[1].get("recreate") is False
 
     def test_symlink_table_with_partitions(self) -> None:
         engine, platform = _make_aws_engine()
@@ -365,27 +543,25 @@ class TestPostWriteCatalog:
         writer._post_write_catalog(df)  # should not raise
 
 
-class TestToHiveTypeDelegation:
-    """Verify DeltaWriter delegates type conversion to the engine."""
-
-    def test_build_schema_ddl_uses_engine_get_hive_schema(self) -> None:
-        engine, _ = _make_aws_engine()
-        engine.get_hive_schema = MagicMock(return_value={"id": "BIGINT", "name": "STRING"})
-        df = _make_glue_dataflow()
-        writer = DeltaWriter(engine)
-        ddl = writer._build_schema_ddl(df)
-        assert "`id` BIGINT" in ddl
-        assert "`name` STRING" in ddl
-
-
 class TestPostMaintenanceCatalog:
     def test_registers_native_after_maintenance(self) -> None:
+        """native_exists=False (default mock) → register_delta_table called."""
         engine, platform = _make_aws_engine()
         engine.set_table_exists(True)
         df = _make_glue_dataflow()
         writer = DeltaWriter(engine)
         writer.run_maintenance(df, do_compact=True, do_cleanup=False)
         platform.register_delta_table.assert_called_once()
+
+    def test_native_skipped_when_exists_after_maintenance(self) -> None:
+        """native_exists=True → skip registration (maintenance never recreates)."""
+        engine, platform = _make_aws_engine()
+        engine.set_table_exists(True)
+        platform.glue_table_exists.return_value = True
+        df = _make_glue_dataflow()
+        writer = DeltaWriter(engine)
+        writer.run_maintenance(df, do_compact=True, do_cleanup=False)
+        platform.register_delta_table.assert_not_called()
 
     def test_regenerates_symlink_after_maintenance(self) -> None:
         engine, platform = _make_aws_engine()
@@ -396,14 +572,29 @@ class TestPostMaintenanceCatalog:
         engine.generate_symlink_manifest.assert_called_once()
         platform.register_symlink_table.assert_called_once()
 
+    def test_maintenance_symlink_msck_only_when_exists_partitioned(self) -> None:
+        """symlink_exists=True + partitioned → manifest + MSCK only, no re-register."""
+        engine, platform = _make_aws_engine()
+        engine.set_table_exists(True)
+        schema = {"id": "BIGINT", "year": "STRING"}
+        engine.get_hive_schema.return_value = schema
+        # Both native and symlink already exist
+        platform.glue_table_exists.return_value = True
+        df = _make_glue_dataflow(
+            register_symlink_table=True,
+            partition_cols=[PartitionColumn(column="year")],
+        )
+        writer = DeltaWriter(engine)
+        writer.run_maintenance(df, do_compact=True, do_cleanup=False)
+        engine.generate_symlink_manifest.assert_called_once()
+        platform.register_symlink_table.assert_not_called()
+        platform.repair_table_partitions.assert_called_once()
+
     def test_no_symlink_after_maintenance_when_not_configured(self) -> None:
         engine, platform = _make_aws_engine()
         engine.set_table_exists(True)
         df = _make_glue_dataflow()  # no generate_manifest or register_symlink_table
         writer = DeltaWriter(engine)
         writer.run_maintenance(df, do_compact=True, do_cleanup=False)
-        # Native still registered
-        platform.register_delta_table.assert_called_once()
-        # Symlink NOT generated
         engine.generate_symlink_manifest.assert_not_called()
         platform.register_symlink_table.assert_not_called()

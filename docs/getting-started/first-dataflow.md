@@ -8,10 +8,16 @@ description: Build your first DataCoolie pipeline end to end by defining metadat
 A 20-minute walkthrough: ingest CSV → merge into a bronze Delta table →
 write a partitioned silver table → inspect the watermark → re-run incrementally.
 
+This tutorial is the next step after a quickstart. It assumes you already have
+one stage running successfully and now want to understand how DataCoolie handles
+stage ordering, a second destination, and a reusable incremental watermark.
+
 **Prerequisites**
 
 - Completed the [Polars quickstart](quickstart-polars.md).
-- Comfortable reading JSON metadata.
+- Comfortable reading JSON metadata, or willing to keep the
+  [metadata guide for new users](../how-to/metadata-guide/index.md) open beside
+  this page.
 
 **End state**
 
@@ -37,8 +43,8 @@ Replace `metadata/orders.json` from the quickstart with the two-stage version:
       "stage": "ingest2bronze",
       "group_number": 1,
       "execution_order": 10,
-      "source":      {"connection": "local_input", "table": "orders", "watermark_columns": ["updated_at"]},
-      "destination": {"connection": "local_bronze", "schema_name": "sales", "table": "orders",
+      "source":      {"connection_name": "local_input", "table": "orders", "watermark_columns": ["updated_at"]},
+      "destination": {"connection_name": "local_bronze", "schema_name": "sales", "table": "orders",
                       "load_type": "merge_upsert", "merge_keys": ["order_id"]},
       "transform":   {"deduplicate_columns": ["order_id"], "latest_data_columns": ["updated_at"],
                        "schema_hints": [
@@ -53,8 +59,8 @@ Replace `metadata/orders.json` from the quickstart with the two-stage version:
       "stage": "bronze2silver",
       "group_number": 1,
       "execution_order": 20,
-      "source":      {"connection": "local_bronze", "schema_name": "sales", "table": "orders"},
-      "destination": {"connection": "local_silver", "schema_name": "sales", "table": "orders_daily_totals",
+      "source":      {"connection_name": "local_bronze", "schema_name": "sales", "table": "orders"},
+      "destination": {"connection_name": "local_silver", "schema_name": "sales", "table": "orders_daily_totals",
                       "load_type": "overwrite",
                       "partition_columns": [{"column": "order_date", "expression": "date(updated_at)"}]}
     }
@@ -159,3 +165,13 @@ Then edit `base_path` in your connections to `s3://my-bucket/bronze` and re-run.
 | Partition columns can be SQL expressions | [How-to · Partitioning](../how-to/partitioning-and-sanitization.md) |
 | `merge_upsert` vs `overwrite` | [Concepts · Load strategies](../concepts/load-strategies.md) |
 | Watermarks are metadata-provider-stored JSON | [Concepts · Watermarks](../concepts/watermarks.md) |
+
+## Dive deeper into metadata authoring
+
+The [metadata guide for new users](../how-to/metadata-guide/index.md) covers
+every field in detail with worked examples for all source types, every load
+strategy, and all transform patterns — organized by the questions a new user
+actually asks.
+
+If you have not yet swapped the sample input for your own files, do that first
+with [Use your own data after the quickstart](use-your-own-data.md).

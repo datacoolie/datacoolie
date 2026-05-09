@@ -5,7 +5,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/csv",
+        "base_path": "s3://de-dev-0007/input/csv",
         "read_options": {
           "header": "true",
           "inferSchema": "true"
@@ -17,7 +17,7 @@
       "connection_type": "file",
       "format": "json",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/json",
+        "base_path": "s3://de-dev-0007/input/json",
         "read_options": {
           "multiLine": "true"
         }
@@ -28,7 +28,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/parquet"
+        "base_path": "s3://de-dev-0007/input/parquet"
       }
     },
     {
@@ -36,7 +36,7 @@
       "connection_type": "file",
       "format": "avro",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/avro"
+        "base_path": "s3://de-dev-0007/input/avro"
       }
     },
     {
@@ -44,7 +44,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/jsonl"
+        "base_path": "s3://de-dev-0007/input/jsonl"
       }
     },
     {
@@ -52,7 +52,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/csv"
+        "base_path": "s3://de-dev-0007/output/csv"
       }
     },
     {
@@ -60,7 +60,7 @@
       "connection_type": "file",
       "format": "json",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/json"
+        "base_path": "s3://de-dev-0007/output/json"
       }
     },
     {
@@ -68,7 +68,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/parquet",
+        "base_path": "s3://de-dev-0007/output/parquet",
         "write_options": {
           "compression": "snappy"
         }
@@ -79,7 +79,7 @@
       "connection_type": "file",
       "format": "avro",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/avro"
+        "base_path": "s3://de-dev-0007/output/avro"
       }
     },
     {
@@ -87,7 +87,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/jsonl"
+        "base_path": "s3://de-dev-0007/output/jsonl"
       }
     },
     {
@@ -95,7 +95,7 @@
       "connection_type": "lakehouse",
       "format": "delta",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/delta"
+        "base_path": "s3://de-dev-0007/output/delta"
       }
     },
     {
@@ -104,8 +104,9 @@
       "format": "delta",
       "database": "datacoolie",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/delta",
-        "athena_output_location": "s3://de-dev-0001/athena-results/"
+        "base_path": "s3://de-dev-0007/output/delta",
+        "athena_output_location": "s3://de-dev-0007/athena-results/",
+        "register_symlink_table": true
       }
     },
     {
@@ -115,7 +116,7 @@
       "catalog": "glue_catalog",
       "database": "datacoolie",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/iceberg"
+        "base_path": "s3://de-dev-0007/output/iceberg"
       }
     },
     {
@@ -125,7 +126,7 @@
       "catalog": "glue_catalog",
       "database": "datacoolie",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/iceberg"
+        "base_path": "s3://de-dev-0007/output/iceberg"
       }
     },
     {
@@ -133,7 +134,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/parquet_dated",
+        "base_path": "s3://de-dev-0007/input/parquet_dated",
         "date_folder_partitions": "{year}/{month}/{day}"
       }
     },
@@ -142,7 +143,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/parquet_dated",
+        "base_path": "s3://de-dev-0007/output/parquet_dated",
         "date_folder_partitions": "{year}/{month}/{day}"
       }
     },
@@ -151,7 +152,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/parquet_hive",
+        "base_path": "s3://de-dev-0007/input/parquet_hive",
         "use_hive_partitioning": true
       }
     },
@@ -166,7 +167,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/csv",
+        "base_path": "s3://de-dev-0007/input/csv",
         "read_options": {
           "header": "true",
           "inferSchema": "true"
@@ -187,7 +188,7 @@
         "password": "db_pass"
       },
       "secrets_ref": {
-        "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:de-dev-0001/datacoolie/rds": [
+        "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:de-dev-0007/datacoolie/rds": [
           "username",
           "password"
         ]
@@ -403,7 +404,7 @@
       "source": {
         "connection_name": "aws_delta_source",
         "table": "orders_appended",
-        "query": "SELECT order_id, amount, region FROM orders_appended WHERE region = 'US-East'"
+        "query": "SELECT order_id, amount, region FROM datacoolie.orders_appended WHERE region = 'US-East'"
       },
       "destination": {
         "connection_name": "aws_parquet_dest",
@@ -437,7 +438,7 @@
       "processing_mode": "batch",
       "source": {
         "connection_name": "aws_iceberg_source",
-        "table": "orders_scd2"
+        "table": "orders_iceberg_scd2"
       },
       "destination": {
         "connection_name": "aws_parquet_dest",
@@ -659,7 +660,7 @@
       },
       "destination": {
         "connection_name": "aws_iceberg_dest",
-        "table": "orders_overwritten",
+        "table": "orders_iceberg_overwritten",
         "load_type": "overwrite",
         "partition_columns": [
           {
@@ -697,7 +698,7 @@
       },
       "destination": {
         "connection_name": "aws_iceberg_dest",
-        "table": "orders_merge_upsert",
+        "table": "orders_iceberg_merge_upsert",
         "load_type": "merge_upsert",
         "merge_keys": [
           "order_id"
@@ -734,7 +735,7 @@
       },
       "destination": {
         "connection_name": "aws_iceberg_dest",
-        "table": "orders_merge_overwrite",
+        "table": "orders_iceberg_merge_overwrite",
         "load_type": "merge_overwrite",
         "merge_keys": [
           "order_date"
@@ -775,7 +776,7 @@
       },
       "destination": {
         "connection_name": "aws_iceberg_dest",
-        "table": "orders_appended",
+        "table": "orders_iceberg_appended",
         "load_type": "append"
       },
       "transform": {}
@@ -795,7 +796,7 @@
       },
       "destination": {
         "connection_name": "aws_iceberg_dest",
-        "table": "orders_scd2",
+        "table": "orders_iceberg_scd2",
         "load_type": "scd2",
         "merge_keys": [
           "order_id"
@@ -1189,7 +1190,7 @@
       "processing_mode": "batch",
       "source": {
         "connection_name": "aws_function_src",
-        "table": "orders_overwritten",
+        "table": "orders_iceberg_overwritten",
         "python_function": "functions.sources.sql_query_orders_iceberg"
       },
       "destination": {
@@ -1422,12 +1423,55 @@
       "transform": {}
     }
   ],
-  "schema_hints": {
-    "global": {
-      "order_date": {
-        "data_type": "DATE",
-        "format": "yyyy-MM-dd"
-      }
+  "schema_hints": [
+    {
+      "connection_name": "aws_json_source",
+      "table_name": "sample",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        },
+        {
+          "column_name": "quantity",
+          "data_type": "INTEGER"
+        }
+      ]
+    },
+    {
+      "connection_name": "aws_csv_source",
+      "table_name": "sample",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DECIMAL",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "connection_name": "aws_parquet_source",
+      "table_name": "sample",
+      "hints": [
+        {
+          "column_name": "order_date",
+          "data_type": "DATE",
+          "format": "yyyy-MM-dd"
+        }
+      ]
     }
-  }
+  ]
 }

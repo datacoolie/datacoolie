@@ -1,5 +1,5 @@
 ---
-description: DataCoolie is a metadata-driven ETL framework for Python. Define pipelines once as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue without rewriting.
+description: DataCoolie: metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.
 ---
 
 <p align="center">
@@ -33,14 +33,33 @@ That helps in four practical ways:
 
 The documentation is written for more than framework implementers. Data
 engineers can use it to build and extend pipelines, while analysts, analytics
-engineers, and workflow owners can use it to understand how data moves across
-stages, where controls live, and how operational concerns such as watermarks,
-schema hints, and maintenance fit together.
+engineers, workflow owners, and adjacent backend teams can use it to understand
+how data moves across stages, where controls live, and how operational concerns
+such as watermarks, schema hints, and maintenance fit together.
 
-!!! note "Choose your path"
-    If you want to understand the workflow model without writing code, start with
-    [Concepts](concepts/architecture.md). If you want to run the framework end to
-    end, start with [Getting started](getting-started/installation.md).
+!!! tip "Start here"
+        If you are new to DataCoolie and want the fastest path to a working
+        pipeline, start with [Getting started](getting-started/installation.md).
+
+        If you mainly want to understand the model before touching code, read
+        [Concepts](concepts/architecture.md) after your first quickstart or when you
+        need deeper explanations.
+
+## Choose by goal
+
+- **I want my first pipeline to run**
+    Start with [Getting started](getting-started/installation.md). For most new
+    users, the best first path is Installation → Quickstart · Polars → Your first
+    metadata guide.
+- **I need to understand metadata and workflow design**
+    Start with [How-to · Metadata guide for new users](how-to/metadata-guide/index.md),
+    then read [Concepts](concepts/index.md) for the deeper model.
+- **I need to deploy, operate, or troubleshoot**
+    Go to [How-to guides](how-to/index.md) for task recipes and then
+    [Operations](operations/index.md) for logging, benchmarks, and troubleshooting.
+- **I want to extend the framework**
+    Start with [Extending](extending/index.md) and use
+    [Reference](reference/index.md) for the exact contracts and API surfaces.
 
 ## What DataCoolie gives you
 
@@ -57,16 +76,19 @@ schema hints, and maintenance fit together.
 
 ## 30-second demo
 
-Install, save the script below as `quickstart.py`, and run it. Part A generates
-a sample CSV + `metadata.json`; Part B runs the pipeline.
+Install, then run two short scripts:
+
+1. `prepare_quickstart.py` creates a sample CSV and `metadata.json`.
+2. `run_quickstart.py` loads that metadata and runs the pipeline.
 
 ```bash
 pip install "datacoolie[polars]"
 ```
 
+### Part 1 — Prepare sample data and metadata
+
 ```python
-# quickstart.py
-# --- Part A: prepare sample data & metadata (stdlib only) --------------------
+# prepare_quickstart.py
 import json
 from pathlib import Path
 
@@ -97,12 +119,26 @@ metadata = {
 }
 metadata_path = root / "metadata.json"
 metadata_path.write_text(json.dumps(metadata, indent=2))
+print(f"Created {metadata_path}")
+```
 
-# --- Part B: run DataCoolie --------------------------------------------------
+```bash
+python prepare_quickstart.py
+```
+
+### Part 2 — Run the pipeline
+
+```python
+# run_quickstart.py
+from pathlib import Path
+
 from datacoolie.engines.polars_engine import PolarsEngine
 from datacoolie.platforms.local_platform import LocalPlatform
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
+
+root = Path("dc_quickstart")
+metadata_path = root / "metadata.json"
 
 platform = LocalPlatform()
 engine = PolarsEngine(platform=platform)
@@ -114,7 +150,7 @@ with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:
 ```
 
 ```bash
-python quickstart.py
+python run_quickstart.py
 ```
 
 Swap `PolarsEngine` for `SparkEngine(spark, ...)` or `LocalPlatform()` for

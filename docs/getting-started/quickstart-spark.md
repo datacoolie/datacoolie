@@ -7,6 +7,11 @@ description: Run a DataCoolie pipeline with the Spark engine and Delta Lake on a
 
 Same shape as the Polars quickstart, but with a Delta-enabled local `SparkSession`.
 
+Choose this path when Spark is already your target runtime or when you want to
+validate the same metadata on a local Spark session before moving to Fabric,
+Databricks, or another Spark-first environment. If you are brand new and only
+need the fastest first success, start with [Quickstart · Polars](quickstart-polars.md).
+
 **Prerequisites**
 
 - Python 3.11+, Java 17
@@ -85,4 +90,6 @@ result.
 
 ## Next
 
-→ [Your first dataflow](first-dataflow.md)
+- [Use your own data after the quickstart](use-your-own-data.md) — keep the same runner shape and point it at your own input.
+- [Your first dataflow](first-dataflow.md) — add ordered bronze→silver stages.
+- [Metadata guide for new users](../how-to/metadata-guide/index.md) — deeper field-by-field coverage when you need more than the quickstart shape.
