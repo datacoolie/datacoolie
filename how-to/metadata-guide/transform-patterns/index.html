@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first.">
+        <meta name="description" content="Configure DataCoolie transforms in metadata with schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags.">
       
       
       
@@ -27,7 +27,7 @@
     
     
   
-    <title>Transform patterns - DataCoolie</title>
+    <title>Transform Patterns — DataCoolie Metadata How-to</title>
   
 
     
@@ -80,20 +80,20 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Transform patterns - DataCoolie" />
-    <meta property="og:description" content="Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first." />
+    <meta property="og:title" content="Transform Patterns — DataCoolie Metadata How-to" />
+    <meta property="og:description" content="Configure DataCoolie transforms in metadata with schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/how-to/metadata-guide/transform-patterns/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Transform patterns - DataCoolie" />
+    <meta property="og:image:alt" content="Transform Patterns — DataCoolie Metadata How-to" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Transform patterns - DataCoolie" />
-    <meta name="twitter:description" content="Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first." />
+    <meta name="twitter:title" content="Transform Patterns — DataCoolie Metadata How-to" />
+    <meta name="twitter:description" content="Configure DataCoolie transforms in metadata with schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Transform patterns - DataCoolie" />
+    <meta name="twitter:image:alt" content="Transform Patterns — DataCoolie Metadata How-to" />
 
     <!-- JSON-LD structured data -->
     
@@ -103,8 +103,8 @@
       "@type": "WebPage",
       "@id": "https://datacoolie.github.io/datacoolie/how-to/metadata-guide/transform-patterns/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/how-to/metadata-guide/transform-patterns/",
-      "name": "Transform patterns - DataCoolie",
-      "description": "Metadata-driven ETL framework \u2014 engine-unified, cloud-agnostic, batch-first.",
+      "name": "Transform Patterns \u2014 DataCoolie Metadata How-to",
+      "description": "Configure DataCoolie transforms in metadata with schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
     }
     </script>
@@ -165,7 +165,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Transform patterns
+              Transform Patterns — DataCoolie Metadata How-to
             
           </span>
         </div>
@@ -650,34 +650,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/use-your-own-data/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Use your own data after the quickstart
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../getting-started/quickstart-spark/" class="md-nav__link">
         
   
@@ -714,6 +686,34 @@
     
   
     Your first dataflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/use-your-own-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use your own data after the quickstart
   
 
     
@@ -3490,10 +3490,6 @@
   
 
 
-<hr />
-<p>title: Transform Patterns — DataCoolie Metadata How-to
-description: Configure DataCoolie transforms in metadata: schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags.</p>
-<hr />
 <h1 id="transform-patterns">Transform patterns<a class="headerlink" href="#transform-patterns" title="Permanent link">&para;</a></h1>
 <p><strong>Prerequisites</strong> · Completed <a href="../destination-and-load-patterns/">Destination &amp; load patterns</a>.<br />
 <strong>End state</strong> · A correct <code>transform</code> block in each dataflow that needs data shaping.</p>
@@ -4077,6 +4073,9 @@ case, quoted identifiers, or API keys like <code>CustomerID</code>.</p>
 
 
 
+
+  
+  
 
 
 

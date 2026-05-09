@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first.">
+        <meta name="description" content="DataCoolie — metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.">
       
       
       
@@ -79,7 +79,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
     <meta property="og:title" content="DataCoolie — Metadata-driven ETL framework for Python" />
-    <meta property="og:description" content="Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first." />
+    <meta property="og:description" content="DataCoolie — metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
@@ -89,7 +89,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="DataCoolie — Metadata-driven ETL framework for Python" />
-    <meta name="twitter:description" content="Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first." />
+    <meta name="twitter:description" content="DataCoolie — metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="DataCoolie — Metadata-driven ETL framework for Python" />
 
@@ -156,7 +156,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#description-datacoolie-metadata-driven-etl-for-python-define-pipelines-as-json-yaml-or-excel-and-run-on-polars-spark-fabric-databricks-or-aws-glue-unchanged" class="md-skip">
+        <a href="#datacoolie" class="md-skip">
           Skip to content
         </a>
       
@@ -528,6 +528,8 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
@@ -570,6 +572,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -578,29 +582,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description-datacoolie-metadata-driven-etl-for-python-define-pipelines-as-json-yaml-or-excel-and-run-on-polars-spark-fabric-databricks-or-aws-glue-unchanged" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        description: DataCoolie: metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#datacoolie" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        DataCoolie
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="DataCoolie">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
   <a href="#choose-by-goal" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -610,8 +591,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#what-datacoolie-gives-you" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -621,8 +602,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#30-second-demo" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -660,8 +641,8 @@
     </nav>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#where-to-next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -671,8 +652,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#support-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -682,8 +663,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#license" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -691,11 +672,6 @@
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -841,34 +817,6 @@
   
   
     <li class="md-nav__item">
-      <a href="getting-started/use-your-own-data/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Use your own data after the quickstart
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="getting-started/quickstart-spark/" class="md-nav__link">
         
   
@@ -905,6 +853,34 @@
     
   
     Your first dataflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="getting-started/use-your-own-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use your own data after the quickstart
   
 
     
@@ -3192,6 +3168,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -3200,29 +3178,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description-datacoolie-metadata-driven-etl-for-python-define-pipelines-as-json-yaml-or-excel-and-run-on-polars-spark-fabric-databricks-or-aws-glue-unchanged" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        description: DataCoolie: metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#datacoolie" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        DataCoolie
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="DataCoolie">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
   <a href="#choose-by-goal" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3232,8 +3187,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#what-datacoolie-gives-you" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3243,8 +3198,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#30-second-demo" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3282,8 +3237,8 @@
     </nav>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#where-to-next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3293,8 +3248,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#support-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3304,8 +3259,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#license" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3313,11 +3268,6 @@
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3346,8 +3296,6 @@
   
 
 
-<hr />
-<h2 id="description-datacoolie-metadata-driven-etl-for-python-define-pipelines-as-json-yaml-or-excel-and-run-on-polars-spark-fabric-databricks-or-aws-glue-unchanged">description: DataCoolie: metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.<a class="headerlink" href="#description-datacoolie-metadata-driven-etl-for-python-define-pipelines-as-json-yaml-or-excel-and-run-on-polars-spark-fabric-databricks-or-aws-glue-unchanged" title="Permanent link">&para;</a></h2>
 <p align="center">
   <picture>
     <source srcset="images/banners/datacoolie-banner-dark.webp" type="image/webp">
@@ -3588,6 +3536,9 @@ free and open source. See <a href="contributing/">Contributing</a> for contribut
 
 
 
+
+  
+  
 
 
 
