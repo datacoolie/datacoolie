@@ -6,17 +6,17 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Build a custom metadata provider for DataCoolie to load connections, dataflows, schema hints, and watermarks from your own backend.">
+        <meta name="description" content="Metadata authoring guide for new DataCoolie users — connections, sources, destinations, transforms, providers, load types, and validation.">
       
       
       
-        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/extending/writing-a-metadata-provider/">
+        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/how-to/metadata-guide/">
       
       
-        <link rel="prev" href="../writing-a-secret-resolver/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../../operations/">
+        <link rel="next" href="first-metadata-file/">
       
       
         
@@ -27,7 +27,7 @@
     
     
   
-    <title>Write a Metadata Provider Plugin — DataCoolie</title>
+    <title>Metadata Guide for New Users — DataCoolie How-to</title>
   
 
     
@@ -80,20 +80,20 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Write a Metadata Provider Plugin — DataCoolie" />
-    <meta property="og:description" content="Build a custom metadata provider for DataCoolie to load connections, dataflows, schema hints, and watermarks from your own backend." />
-    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/extending/writing-a-metadata-provider/" />
+    <meta property="og:title" content="Metadata Guide for New Users — DataCoolie How-to" />
+    <meta property="og:description" content="Metadata authoring guide for new DataCoolie users — connections, sources, destinations, transforms, providers, load types, and validation." />
+    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/how-to/metadata-guide/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Write a Metadata Provider Plugin — DataCoolie" />
+    <meta property="og:image:alt" content="Metadata Guide for New Users — DataCoolie How-to" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Write a Metadata Provider Plugin — DataCoolie" />
-    <meta name="twitter:description" content="Build a custom metadata provider for DataCoolie to load connections, dataflows, schema hints, and watermarks from your own backend." />
+    <meta name="twitter:title" content="Metadata Guide for New Users — DataCoolie How-to" />
+    <meta name="twitter:description" content="Metadata authoring guide for new DataCoolie users — connections, sources, destinations, transforms, providers, load types, and validation." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Write a Metadata Provider Plugin — DataCoolie" />
+    <meta name="twitter:image:alt" content="Metadata Guide for New Users — DataCoolie How-to" />
 
     <!-- JSON-LD structured data -->
     
@@ -101,10 +101,10 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "@id": "https://datacoolie.github.io/datacoolie/extending/writing-a-metadata-provider/#webpage",
-      "url": "https://datacoolie.github.io/datacoolie/extending/writing-a-metadata-provider/",
-      "name": "Write a Metadata Provider Plugin \u2014 DataCoolie",
-      "description": "Build a custom metadata provider for DataCoolie to load connections, dataflows, schema hints, and watermarks from your own backend.",
+      "@id": "https://datacoolie.github.io/datacoolie/how-to/metadata-guide/#webpage",
+      "url": "https://datacoolie.github.io/datacoolie/how-to/metadata-guide/",
+      "name": "Metadata Guide for New Users \u2014 DataCoolie How-to",
+      "description": "Metadata authoring guide for new DataCoolie users \u2014 connections, sources, destinations, transforms, providers, load types, and validation.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
     }
     </script>
@@ -130,7 +130,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#write-a-metadata-provider" class="md-skip">
+        <a href="#metadata-guide-for-new-users" class="md-skip">
           Skip to content
         </a>
       
@@ -165,7 +165,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Write a Metadata Provider Plugin — DataCoolie
+              Metadata Guide for New Users — DataCoolie How-to
             
           </span>
         </div>
@@ -327,9 +327,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../../how-to/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="../" class="md-tabs__link">
         
   
   
@@ -365,11 +367,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="../" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../extending/" class="md-tabs__link">
         
   
   
@@ -1166,8 +1166,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -1199,20 +1201,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../how-to/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1230,13 +1235,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1251,8 +1256,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1272,18 +1279,21 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../how-to/metadata-guide/" class="md-nav__link ">
+            <a href="./" class="md-nav__link md-nav__link--active">
               
   
   
@@ -1301,13 +1311,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+              <label class="md-nav__link md-nav__link--active" for="__nav_4_1" id="__nav_4_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1325,7 +1335,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/first-metadata-file/" class="md-nav__link">
+      <a href="first-metadata-file/" class="md-nav__link">
         
   
   
@@ -1353,7 +1363,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/source-patterns/" class="md-nav__link">
+      <a href="source-patterns/" class="md-nav__link">
         
   
   
@@ -1381,7 +1391,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/destination-and-load-patterns/" class="md-nav__link">
+      <a href="destination-and-load-patterns/" class="md-nav__link">
         
   
   
@@ -1409,7 +1419,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/transform-patterns/" class="md-nav__link">
+      <a href="transform-patterns/" class="md-nav__link">
         
   
   
@@ -1437,7 +1447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/validation-checklist/" class="md-nav__link">
+      <a href="validation-checklist/" class="md-nav__link">
         
   
   
@@ -1473,7 +1483,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/configure-file-metadata/" class="md-nav__link">
+      <a href="../configure-file-metadata/" class="md-nav__link">
         
   
   
@@ -1501,7 +1511,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/configure-database-metadata/" class="md-nav__link">
+      <a href="../configure-database-metadata/" class="md-nav__link">
         
   
   
@@ -1529,7 +1539,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/configure-api-metadata/" class="md-nav__link">
+      <a href="../configure-api-metadata/" class="md-nav__link">
         
   
   
@@ -1557,7 +1567,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/run-a-stage/" class="md-nav__link">
+      <a href="../run-a-stage/" class="md-nav__link">
         
   
   
@@ -1585,7 +1595,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/merge-and-scd2/" class="md-nav__link">
+      <a href="../merge-and-scd2/" class="md-nav__link">
         
   
   
@@ -1613,7 +1623,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/partitioning-and-sanitization/" class="md-nav__link">
+      <a href="../partitioning-and-sanitization/" class="md-nav__link">
         
   
   
@@ -1641,7 +1651,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/maintenance-vacuum-optimize/" class="md-nav__link">
+      <a href="../maintenance-vacuum-optimize/" class="md-nav__link">
         
   
   
@@ -1669,7 +1679,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/expected-failure-scenarios/" class="md-nav__link">
+      <a href="../expected-failure-scenarios/" class="md-nav__link">
         
   
   
@@ -1697,7 +1707,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/deploy-to-fabric/" class="md-nav__link">
+      <a href="../deploy-to-fabric/" class="md-nav__link">
         
   
   
@@ -1725,7 +1735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/deploy-to-databricks/" class="md-nav__link">
+      <a href="../deploy-to-databricks/" class="md-nav__link">
         
   
   
@@ -1753,7 +1763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/deploy-to-aws-glue/" class="md-nav__link">
+      <a href="../deploy-to-aws-glue/" class="md-nav__link">
         
   
   
@@ -2337,10 +2347,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -2360,23 +2368,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../extending/" class="md-nav__link ">
               
   
   
@@ -2394,13 +2399,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2418,7 +2423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../writing-a-source/" class="md-nav__link">
+      <a href="../../extending/writing-a-source/" class="md-nav__link">
         
   
   
@@ -2446,7 +2451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../writing-a-destination/" class="md-nav__link">
+      <a href="../../extending/writing-a-destination/" class="md-nav__link">
         
   
   
@@ -2474,7 +2479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../writing-a-transformer/" class="md-nav__link">
+      <a href="../../extending/writing-a-transformer/" class="md-nav__link">
         
   
   
@@ -2502,7 +2507,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../writing-an-engine/" class="md-nav__link">
+      <a href="../../extending/writing-an-engine/" class="md-nav__link">
         
   
   
@@ -2530,7 +2535,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../writing-a-secret-resolver/" class="md-nav__link">
+      <a href="../../extending/writing-a-secret-resolver/" class="md-nav__link">
         
   
   
@@ -2555,37 +2560,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Write a metadata provider
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../extending/writing-a-metadata-provider/" class="md-nav__link">
         
   
   
@@ -2601,70 +2579,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#contract" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contract
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#rules" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rules
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#schema-hint-attachment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Schema-hint attachment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3107,10 +3021,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#contract" class="md-nav__link">
+  <a href="#sequence-read-in-this-order" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Contract
+        Sequence: read in this order
       
     </span>
   </a>
@@ -3118,10 +3032,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rules" class="md-nav__link">
+  <a href="#coverage-map" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rules
+        Coverage map
       
     </span>
   </a>
@@ -3129,10 +3043,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#schema-hint-attachment" class="md-nav__link">
+  <a href="#where-metadata-lives" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Schema-hint attachment
+        Where metadata lives
       
     </span>
   </a>
@@ -3140,10 +3054,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#testing" class="md-nav__link">
+  <a href="#what-metadata-tells-the-framework" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Testing
+        What metadata tells the framework
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-example-30-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick example (30 seconds)
       
     </span>
   </a>
@@ -3167,7 +3092,7 @@
 
 
   
-    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/extending/writing-a-metadata-provider.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/how-to/metadata-guide/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3175,90 +3100,205 @@
   
 
 
-<h1 id="write-a-metadata-provider">Write a metadata provider<a class="headerlink" href="#write-a-metadata-provider" title="Permanent link">&para;</a></h1>
-<p><strong>Prerequisites</strong> · You want to store metadata in a backend not covered by file / database / API.
-<strong>End state</strong> · A concrete <code>BaseMetadataProvider</code> you pass to <code>DataCoolieDriver(metadata_provider=...)</code>.</p>
-<div class="admonition note">
-<p class="admonition-title">No entry-point group</p>
-<p>Metadata providers are <strong>constructor-injected</strong>, not entry-point plugins.
-The choice of metadata backend is an application-level concern; you wire
-your provider directly into the driver.</p>
+<h1 id="metadata-guide-for-new-users">Metadata guide for new users<a class="headerlink" href="#metadata-guide-for-new-users" title="Permanent link">&para;</a></h1>
+<p>If you are a new Data Engineer or Data Analyst who just installed DataCoolie
+and is not sure how to configure your first pipeline, start here.</p>
+<p>DataCoolie is <strong>driven entirely by metadata</strong> — a JSON (or YAML, or Excel)
+document that tells the framework what to read, how to transform it, where to
+write it, and when to re-run incrementally. You do <strong>not</strong> write Python for
+each pipeline; you fill in a structured document.</p>
+<p>This guide walks through that document from zero, but it also covers the cases
+that usually appear right after the first successful run: incremental loads,
+query-based sources, API pagination, function sources, partitioning, merge
+strategies, secrets, and metadata-provider differences.</p>
+<h2 id="sequence-read-in-this-order">Sequence: read in this order<a class="headerlink" href="#sequence-read-in-this-order" title="Permanent link">&para;</a></h2>
+<div class="admonition tip">
+<p class="admonition-title">New user path</p>
+<p>Work through the four pages in order on your first day. After that, the
+individual pages work as standalone references.</p>
 </div>
-<h2 id="contract">Contract<a class="headerlink" href="#contract" title="Permanent link">&para;</a></h2>
-<p><code>BaseMetadataProvider</code> uses the <strong>Template Method</strong> pattern.  Public <code>get_*</code>
-methods call protected <code>_fetch_*</code> abstract methods, wrapping them with an
-optional in-memory cache layer.  Subclasses implement the <code>_fetch_*</code> hooks
-and the two watermark methods:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.metadata.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseMetadataProvider</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Connection</span><span class="p">,</span> <span class="n">DataFlow</span><span class="p">,</span> <span class="n">SchemaHint</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyProvider</span><span class="p">(</span><span class="n">BaseMetadataProvider</span><span class="p">):</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="c1"># --- fetch hooks (I/O layer) -----------------------------------------</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_connections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">active_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Connection</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_connection_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Connection</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_connection_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Connection</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_dataflows</span><span class="p">(</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="n">stages</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="n">active_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">DataFlow</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_dataflow_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataflow_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataFlow</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_schema_hints</span><span class="p">(</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="n">connection_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">table_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">schema_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">SchemaHint</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="c1"># --- watermark methods (abstract in base) -----------------------------</span>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_watermark</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataflow_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span> <span class="o">...</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update_watermark</span><span class="p">(</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>        <span class="n">dataflow_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>        <span class="n">watermark_value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>        <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>        <span class="n">job_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>        <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Page</th>
+<th>You will learn</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="first-metadata-file/">Build your first metadata file</a></td>
+<td>Minimum valid document — two connections, one dataflow</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="source-patterns/">Source patterns</a></td>
+<td>How to configure any source type (file, database, API, Delta, Iceberg, function)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="destination-and-load-patterns/">Destination &amp; load patterns</a></td>
+<td>Which <code>load_type</code> to pick and what extra fields it needs</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="transform-patterns/">Transform patterns</a></td>
+<td>Cast types, deduplicate, add computed columns, partition output</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="validation-checklist/">Validation checklist</a></td>
+<td>Catch mistakes before the first run</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coverage-map">Coverage map<a class="headerlink" href="#coverage-map" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Covered in this guide</th>
+<th>Key cases</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metadata shape</td>
+<td>Yes</td>
+<td><code>connections[]</code>, <code>dataflows[]</code>, optional orchestration fields, <code>configure</code>, <code>secrets_ref</code></td>
+</tr>
+<tr>
+<td>Metadata backends</td>
+<td>Yes</td>
+<td>JSON, YAML, Excel, database provider, API provider</td>
+</tr>
+<tr>
+<td>Source types</td>
+<td>Yes</td>
+<td>File, Delta, Iceberg, database table/query, REST API, Python function</td>
+</tr>
+<tr>
+<td>Destination types</td>
+<td>Yes</td>
+<td>File outputs, Delta, Iceberg, partitioned writes, lakehouse registration</td>
+</tr>
+<tr>
+<td>Load strategies</td>
+<td>Yes</td>
+<td><code>append</code>, <code>overwrite</code>, <code>full_load</code>, <code>merge_upsert</code>, <code>merge_overwrite</code>, <code>scd2</code></td>
+</tr>
+<tr>
+<td>Transform features</td>
+<td>Yes</td>
+<td><code>schema_hints</code>, deduplication, computed columns, partition expressions, SCD2/system columns</td>
+</tr>
+<tr>
+<td>Validation &amp; safety</td>
+<td>Yes</td>
+<td><code>dry_run</code>, smoke tests, secret resolution, common errors</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition info">
+<p class="admonition-title">Important edge cases</p>
+</div>
+<p>This guide covers the real behavior of the current framework, including:</p>
+<ul>
+<li><code>connection_type</code> can be derived automatically from <code>format</code></li>
+<li>Excel is a supported <strong>source</strong> format, not a writable destination</li>
+<li>flat-file destinations support <code>append</code>, <code>overwrite</code>, and <code>full_load</code>, but not merge or SCD2</li>
+<li><code>connection_type: "streaming"</code> exists in the model but has no supported formats yet</li>
+</ul>
+<h2 id="where-metadata-lives">Where metadata lives<a class="headerlink" href="#where-metadata-lives" title="Permanent link">&para;</a></h2>
+<p>DataCoolie supports three metadata backends. Choose one:</p>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Good for</th>
+<th>Operational note</th>
+<th>How-to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JSON / YAML / Excel file</strong></td>
+<td>Local dev, small teams, single-machine runs</td>
+<td>JSON should stay canonical; YAML/Excel are alternative views or generated siblings</td>
+<td><a href="../configure-file-metadata/">Configure file metadata</a></td>
+</tr>
+<tr>
+<td><strong>Relational database</strong></td>
+<td>Shared team configuration, multi-workspace governance</td>
+<td>Rows are workspace-scoped via <code>workspace_id</code></td>
+<td><a href="../configure-database-metadata/">Configure database metadata</a></td>
+</tr>
+<tr>
+<td><strong>REST API</strong></td>
+<td>Enterprise ops, Git-backed or approval-gated config</td>
+<td>Endpoints are workspace-scoped under <code>/workspaces/{workspace_id}/...</code></td>
+<td><a href="../configure-api-metadata/">Configure API metadata</a></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Recommendation for beginners</p>
+<p>Start with a <strong>JSON file</strong>. The file backend requires no database and no
+service — just create a <code>.json</code> file and point <code>FileProvider</code> at it.
+You can migrate to the database or API backend later without changing a
+single field in your metadata.</p>
+</div>
+<h2 id="what-metadata-tells-the-framework">What metadata tells the framework<a class="headerlink" href="#what-metadata-tells-the-framework" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>metadata.json
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── connections[]            ← WHERE to read from and write to
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── name / format / configure
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── catalog / database / base_path
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   └── secrets_ref / is_active / workspace_id
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>└── dataflows[]              ← HOW to move data
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  ├── name / stage / description
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  ├── group_number / execution_order / processing_mode / is_active
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  ├── source               ← which connection + table/query/function to read
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  ├── destination          ← which connection + table + load_type to write
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  └── transform            ← schema hints, dedup, computed columns (optional)
 </span></code></pre></div>
-<p>The public <code>get_connection_by_name(name)</code>, <code>get_connections()</code>, and
-<code>get_dataflows(...)</code> methods are already implemented by the base class on top
-of these hooks — do not re-implement them.</p>
-<h2 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h2>
+<p>Start with <code>connections</code> and <code>dataflows</code>. The rest is optional and you can
+add it incrementally.</p>
+<p>If you are unsure where a field belongs, use this rule:</p>
 <ul>
-<li><strong><code>get_watermark</code> returns raw JSON text</strong> (or <code>None</code>). Never a parsed dict.
-  <code>WatermarkManager</code> owns deserialisation. See
-  <a href="../../adr/0004-raw-json-watermark-contract/">ADR-0004</a>.</li>
-<li><strong>Construct model objects</strong>, not dicts. The framework relies on validation
-  at model construction time.</li>
-<li><strong>Honour <code>active_only</code></strong> — skip <code>is_active=False</code> rows unless the caller
-  asks for them.</li>
-<li><strong>Honour <code>stage</code> filtering</strong> — accept single string, comma-separated
-  string, or list.</li>
-<li><strong>Be thread-safe</strong> — <code>DataCoolieDriver</code> may call concurrent <code>get_dataflows</code>
-  from <code>ParallelExecutor</code> workers.</li>
+<li><code>Connection.configure</code> = reusable endpoint defaults</li>
+<li><code>source.configure</code> / <code>destination.configure</code> = per-dataflow overrides</li>
+<li><code>transform.configure</code> = transformer behavior flags</li>
 </ul>
-<h2 id="schema-hint-attachment">Schema-hint attachment<a class="headerlink" href="#schema-hint-attachment" title="Permanent link">&para;</a></h2>
-<p>When <code>attach_schema_hints=True</code> the base class calls <code>_attach_schema_hints</code>,
-which reads schema hints based on the <strong>source</strong> connection + table (not
-destination).  <code>_fetch_schema_hints(connection_id, table_name, schema_name)</code>
-is called with the source connection id and source table.  The schema-converter
-transformer then casts the incoming DataFrame <em>into</em> this shape.  If your
-store has no schema hints, implement <code>_fetch_schema_hints</code> to return an empty
-list and document that type inference falls back to the source DataFrame.</p>
-<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
-<p>Mirror <code>tests/unit/metadata/</code>:</p>
-<ul>
-<li><code>get_connections</code> with zero / one / many connections.</li>
-<li><code>get_dataflows</code> with stage filter combinations.</li>
-<li>Watermark round-trip: write "null", write a real JSON, overwrite.</li>
-<li>Concurrent <code>get_dataflows</code> from two threads — no shared mutable state.</li>
-</ul>
+<h2 id="quick-example-30-seconds">Quick example (30 seconds)<a class="headerlink" href="#quick-example-30-seconds" title="Permanent link">&para;</a></h2>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;connections&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;csv_input&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">&quot;connection_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">&quot;format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;csv&quot;</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data/input&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bronze&quot;</span><span class="p">,</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delta&quot;</span><span class="p">,</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data/output/bronze&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="nt">&quot;dataflows&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;orders_to_bronze&quot;</span><span class="p">,</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="nt">&quot;stage&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ingest&quot;</span><span class="p">,</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;connection_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;csv_input&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;table&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;orders&quot;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span><span class="nt">&quot;destination&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;connection_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bronze&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;schema_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sales&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;table&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;orders&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;load_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;append&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>This reads <code>data/input/orders</code> (a folder of CSV files) and appends to a Delta
+table at <code>data/output/bronze/sales/orders</code>. In this example DataCoolie derives
+<code>connection_type: "lakehouse"</code> from <code>format: "delta"</code>.</p>
+<p>→ <strong>Next</strong>: <a href="first-metadata-file/">Build your first metadata file</a></p>
 
 
 

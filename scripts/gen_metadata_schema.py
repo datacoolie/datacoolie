@@ -12,7 +12,7 @@ import mkdocs_gen_files
 
 CONTENT = """---
 title: Metadata Schema Reference | DataCoolie
-description: Generated field-level reference for the DataCoolie metadata schema, including run config, connections, sources, destinations, transforms, dataflows, and supporting models.
+description: Field-level reference for the DataCoolie metadata schema — run config, connections, sources, destinations, transforms, dataflows, and supporting models.
 ---
 
 # Metadata schema

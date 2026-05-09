@@ -6,17 +6,17 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Python API reference for DataCoolie watermark modules covering WatermarkManager and related contracts for incremental processing.">
+        <meta name="description" content="DataCoolie metadata checklist before the first pipeline run — providers, naming, sources, destinations, transforms, secrets, and common failure cases.">
       
       
       
-        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/reference/api/watermark/">
+        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/how-to/metadata-guide/validation-checklist/">
       
       
-        <link rel="prev" href="../metadata/">
+        <link rel="prev" href="../transform-patterns/">
       
       
-        <link rel="next" href="../logging/">
+        <link rel="next" href="../../configure-file-metadata/">
       
       
         
@@ -27,7 +27,7 @@
     
     
   
-    <title>Watermark — Python API Reference | DataCoolie</title>
+    <title>Validate Metadata Before First Run — DataCoolie How-to</title>
   
 
     
@@ -80,20 +80,20 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Watermark — Python API Reference | DataCoolie" />
-    <meta property="og:description" content="Python API reference for DataCoolie watermark modules covering WatermarkManager and related contracts for incremental processing." />
-    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/reference/api/watermark/" />
+    <meta property="og:title" content="Validate Metadata Before First Run — DataCoolie How-to" />
+    <meta property="og:description" content="DataCoolie metadata checklist before the first pipeline run — providers, naming, sources, destinations, transforms, secrets, and common failure cases." />
+    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/how-to/metadata-guide/validation-checklist/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Watermark — Python API Reference | DataCoolie" />
+    <meta property="og:image:alt" content="Validate Metadata Before First Run — DataCoolie How-to" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Watermark — Python API Reference | DataCoolie" />
-    <meta name="twitter:description" content="Python API reference for DataCoolie watermark modules covering WatermarkManager and related contracts for incremental processing." />
+    <meta name="twitter:title" content="Validate Metadata Before First Run — DataCoolie How-to" />
+    <meta name="twitter:description" content="DataCoolie metadata checklist before the first pipeline run — providers, naming, sources, destinations, transforms, secrets, and common failure cases." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Watermark — Python API Reference | DataCoolie" />
+    <meta name="twitter:image:alt" content="Validate Metadata Before First Run — DataCoolie How-to" />
 
     <!-- JSON-LD structured data -->
     
@@ -101,10 +101,10 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "@id": "https://datacoolie.github.io/datacoolie/reference/api/watermark/#webpage",
-      "url": "https://datacoolie.github.io/datacoolie/reference/api/watermark/",
-      "name": "Watermark \u2014 Python API Reference | DataCoolie",
-      "description": "Python API reference for DataCoolie watermark modules covering WatermarkManager and related contracts for incremental processing.",
+      "@id": "https://datacoolie.github.io/datacoolie/how-to/metadata-guide/validation-checklist/#webpage",
+      "url": "https://datacoolie.github.io/datacoolie/how-to/metadata-guide/validation-checklist/",
+      "name": "Validate Metadata Before First Run \u2014 DataCoolie How-to",
+      "description": "DataCoolie metadata checklist before the first pipeline run \u2014 providers, naming, sources, destinations, transforms, secrets, and common failure cases.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
     }
     </script>
@@ -130,7 +130,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#watermark" class="md-skip">
+        <a href="#validation-checklist" class="md-skip">
           Skip to content
         </a>
       
@@ -165,7 +165,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Watermark — Python API Reference | DataCoolie
+              Validate Metadata Before First Run — DataCoolie How-to
             
           </span>
         </div>
@@ -327,9 +327,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../../../how-to/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="../../" class="md-tabs__link">
         
   
   
@@ -346,11 +348,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="../../" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../../reference/" class="md-tabs__link">
         
   
   
@@ -1166,8 +1166,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -1199,20 +1201,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../how-to/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -1230,13 +1235,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1251,8 +1256,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1272,18 +1279,21 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../how-to/metadata-guide/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1301,13 +1311,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1325,7 +1335,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../how-to/metadata-guide/first-metadata-file/" class="md-nav__link">
+      <a href="../first-metadata-file/" class="md-nav__link">
         
   
   
@@ -1353,7 +1363,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../how-to/metadata-guide/source-patterns/" class="md-nav__link">
+      <a href="../source-patterns/" class="md-nav__link">
         
   
   
@@ -1381,7 +1391,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../how-to/metadata-guide/destination-and-load-patterns/" class="md-nav__link">
+      <a href="../destination-and-load-patterns/" class="md-nav__link">
         
   
   
@@ -1409,7 +1419,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../how-to/metadata-guide/transform-patterns/" class="md-nav__link">
+      <a href="../transform-patterns/" class="md-nav__link">
         
   
   
@@ -1417,848 +1427,6 @@
     
   
     Transform patterns
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/metadata-guide/validation-checklist/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Validation checklist
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/configure-file-metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configure file metadata
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/configure-database-metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configure database metadata
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/configure-api-metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configure API metadata
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/run-a-stage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Run a stage
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/merge-and-scd2/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Merge & SCD2
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/partitioning-and-sanitization/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Partitioning & sanitization
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/maintenance-vacuum-optimize/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Maintenance (vacuum/optimize)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/expected-failure-scenarios/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Expected-failure scenarios
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/deploy-to-fabric/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploy to Fabric
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/deploy-to-databricks/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploy to Databricks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../how-to/deploy-to-aws-glue/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploy to AWS Glue
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Reference
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../metadata-schema/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Metadata schema
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plugin-entry-points/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Plugin entry points
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../environment-variables/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Environment variables
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../core/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Core
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../engines/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Engines
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../platforms/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Platforms
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Sources
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../destinations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Destinations
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../transformers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Transformers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../orchestration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Orchestration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Metadata
   
 
     
@@ -2295,7 +1463,7 @@
   <span class="md-ellipsis">
     
   
-    Watermark
+    Validation checklist
   
 
     
@@ -2313,7 +1481,7 @@
   <span class="md-ellipsis">
     
   
-    Watermark
+    Validation checklist
   
 
     
@@ -2339,108 +1507,126 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base" class="md-nav__link">
+  <a href="#1-document-provider-preflight" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;base
+        1. Document / provider preflight
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" base">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.BaseWatermarkManager" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BaseWatermarkManager
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.WatermarkSerializer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WatermarkSerializer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.serialize_watermark" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;serialize_watermark
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.deserialize_watermark" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;deserialize_watermark
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.is_watermark_empty" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;is_watermark_empty
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#datacoolie.watermark.watermark_manager" class="md-nav__link">
+  <a href="#2-connection-basics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;watermark_manager
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" watermark_manager">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.watermark_manager.WatermarkManager" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WatermarkManager
+        2. Connection basics
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#3-dataflow-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Dataflow envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-destination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Destination
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-transform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Transform
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-load-and-run-a-quick-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Load and run a quick smoke test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-common-errors-quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Common errors quick-reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ready-to-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ready to run
+      
+    </span>
+  </a>
   
 </li>
       
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -2454,7 +1640,831 @@
   
   
     <li class="md-nav__item">
-      <a href="../logging/" class="md-nav__link">
+      <a href="../../configure-file-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configure file metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configure-database-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configure database metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configure-api-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configure API metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../run-a-stage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run a stage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../merge-and-scd2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../partitioning-and-sanitization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Partitioning & sanitization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintenance-vacuum-optimize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance (vacuum/optimize)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../expected-failure-scenarios/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expected-failure scenarios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy-to-fabric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy to Fabric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy-to-databricks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy to Databricks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy-to-aws-glue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy to AWS Glue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/metadata-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/plugin-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin entry points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/environment-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environment variables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/engines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Destinations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/transformers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/orchestration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/watermark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Watermark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/logging/" class="md-nav__link">
         
   
   
@@ -3168,102 +3178,112 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base" class="md-nav__link">
+  <a href="#1-document-provider-preflight" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;base
+        1. Document / provider preflight
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" base">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.BaseWatermarkManager" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BaseWatermarkManager
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.WatermarkSerializer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WatermarkSerializer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.serialize_watermark" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;serialize_watermark
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.deserialize_watermark" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;deserialize_watermark
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.base.is_watermark_empty" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;is_watermark_empty
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#datacoolie.watermark.watermark_manager" class="md-nav__link">
+  <a href="#2-connection-basics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;watermark_manager
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" watermark_manager">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.watermark.watermark_manager.WatermarkManager" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WatermarkManager
+        2. Connection basics
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#3-dataflow-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Dataflow envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-destination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Destination
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-transform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Transform
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-load-and-run-a-quick-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Load and run a quick smoke test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-common-errors-quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Common errors quick-reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ready-to-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ready to run
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3284,7 +3304,7 @@
 
 
   
-    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/reference/api/watermark.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/how-to/metadata-guide/validation-checklist.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3292,615 +3312,318 @@
   
 
 
-<h1 id="watermark">Watermark<a class="headerlink" href="#watermark" title="Permanent link">&para;</a></h1>
-
-
-<div class="doc doc-object doc-module">
-
-
-
-<h2 id="datacoolie.watermark.base" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">base</span>
-
-
-<a href="#datacoolie.watermark.base" class="headerlink" title="Permanent link">&para;</a></h2>
-
-    <div class="doc doc-contents first">
-
-        <p>Watermark serialization and abstract manager.</p>
-<p><code>WatermarkSerializer</code> converts <code>Dict[str, Any]</code> watermarks to/from JSON
-using the <code>__datetime__</code> sentinel pattern for <code>datetime</code> round-tripping.</p>
-<p><code>BaseWatermarkManager</code> is the ABC that :class:<code>WatermarkManager</code> implements.</p>
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-class">
-
-
-
-<h3 id="datacoolie.watermark.base.BaseWatermarkManager" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">BaseWatermarkManager</span>
-
-
-<a href="#datacoolie.watermark.base.BaseWatermarkManager" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseWatermarkManager</span><span class="p">()</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="abc.ABC">ABC</span></code></p>
-
-
-        <p>Abstract watermark manager.</p>
-<p>Concrete implementations decide <em>where</em> watermarks are stored (file,
-database, API).  The serializer is an internal concern — callers
-always pass and receive <code>Dict[str, Any]</code>.</p>
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.base.BaseWatermarkManager.deserialize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">deserialize</span>
-
-
-<a href="#datacoolie.watermark.base.BaseWatermarkManager.deserialize" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">deserialize</span><span class="p">(</span><span class="n">json_str</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Deserialize a JSON string to a watermark dict.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.base.BaseWatermarkManager.get_watermark" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_watermark</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
-  </span>
-
-<a href="#datacoolie.watermark.base.BaseWatermarkManager.get_watermark" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_watermark</span><span class="p">(</span><span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return the current watermark for <em>dataflow_id</em>, or <code>None</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.base.BaseWatermarkManager.save_watermark" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">save_watermark</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
-  </span>
-
-<a href="#datacoolie.watermark.base.BaseWatermarkManager.save_watermark" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_watermark</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Persist a watermark for <em>dataflow_id</em>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.base.BaseWatermarkManager.serialize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">serialize</span>
-
-
-<a href="#datacoolie.watermark.base.BaseWatermarkManager.serialize" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">serialize</span><span class="p">(</span><span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Serialize a dict watermark to JSON.</p>
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h3 id="datacoolie.watermark.base.WatermarkSerializer" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">WatermarkSerializer</span>
-
-
-<a href="#datacoolie.watermark.base.WatermarkSerializer" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-
-        <p>Serialize / deserialize watermark dictionaries to / from JSON.</p>
-<p><code>datetime</code> values are stored as::</p>
-<div class="language-text highlight"><pre><span></span><code>{&quot;__datetime__&quot;: &quot;2026-02-09T10:30:00+00:00&quot;}
+<h1 id="validation-checklist">Validation checklist<a class="headerlink" href="#validation-checklist" title="Permanent link">&para;</a></h1>
+<p><strong>Prerequisites</strong> · You have authored a metadata JSON file.<br />
+<strong>End state</strong> · Confidence that your metadata is correct before you press run.</p>
+<p>Use this checklist before the first run on a new pipeline. You can also return
+to it whenever a run fails with an unexpected error.</p>
+<hr />
+<h2 id="1-document-provider-preflight">1. Document / provider preflight<a class="headerlink" href="#1-document-provider-preflight" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If you use the file provider, JSON is your canonical source and any YAML
+      or Excel sibling has been regenerated after the latest edit.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If you use the database or API provider, you know which <code>workspace_id</code>
+      the run should target.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Every connection has a <strong>unique <code>name</code></strong> within the metadata set.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Every dataflow has a <strong>unique <code>name</code></strong> within the metadata set.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Any nested JSON stored in Excel cells (<code>configure</code>, <code>secrets_ref</code>,
+      <code>source_configure</code>, <code>destination_configure</code>, <code>transform</code>) is valid JSON.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You are not expecting <code>connection_type: "streaming"</code> to work yet; that
+      model value exists, but no built-in formats are mapped to it.</li>
+</ul>
+<hr />
+<h2 id="2-connection-basics">2. Connection basics<a class="headerlink" href="#2-connection-basics" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>connection_type</code> and <code>format</code> are a valid pair:</p>
+<table>
+<thead>
+<tr>
+<th><code>connection_type</code></th>
+<th>Valid <code>format</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file</code></td>
+<td><code>csv</code> <code>parquet</code> <code>json</code> <code>jsonl</code> <code>avro</code> <code>excel</code></td>
+</tr>
+<tr>
+<td><code>lakehouse</code></td>
+<td><code>delta</code> <code>iceberg</code></td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td><code>sql</code></td>
+</tr>
+<tr>
+<td><code>api</code></td>
+<td><code>api</code></td>
+</tr>
+<tr>
+<td><code>function</code></td>
+<td><code>function</code></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>connection_type</code> is omitted, <code>format</code> alone still identifies the
+      intended connection family.</p>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>configure.base_path</code> exists on disk (or the cloud path is reachable)
+      for <code>file</code> and <code>lakehouse</code> connections.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Lakehouse connections using metastore registration have the right
+      <code>catalog</code> / <code>database</code> values.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Database connections have either <code>configure.url</code> or a valid combination
+      of <code>database_type</code>, <code>host</code>, <code>port</code>, and <code>database</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> API connections use <code>configure.base_url</code> rather than <code>configure.url</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>secrets_ref</code> only lists field names that actually exist in <code>configure</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> No <code>configure</code> field appears under two different <code>secrets_ref</code> sources.</li>
+</ul>
+<p>Quick database connectivity check:</p>
+<div class="language-text highlight"><pre><span></span><code>```python
+from sqlalchemy import create_engine, text
+engine = create_engine(&quot;postgresql+psycopg2://user:pass@host:5432/db&quot;)
+with engine.connect() as conn:
+    print(conn.execute(text(&quot;SELECT 1&quot;)).fetchone())
+```
 </code></pre></div>
-<p>and restored on deserialization.</p>
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.base.WatermarkSerializer.deserialize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">deserialize</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
-  </span>
-
-<a href="#datacoolie.watermark.base.WatermarkSerializer.deserialize" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">deserialize</span><span class="p">(</span><span class="n">json_str</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span>
+<hr />
+<h2 id="3-dataflow-envelope">3. Dataflow envelope<a class="headerlink" href="#3-dataflow-envelope" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Every <code>source.connection_name</code> matches a <code>name</code> in <code>connections</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Every <code>destination.connection_name</code> matches a <code>name</code> in <code>connections</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>stage</code> is set — it is the filter you pass to <code>driver.run(stage=…)</code>.
+      All dataflows in the same logical step should share the same <code>stage</code> string.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If execution order matters, <code>group_number</code> and <code>execution_order</code> are set
+      explicitly instead of relying on file order.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>processing_mode</code> is left as <code>batch</code> unless you intentionally need a
+      specialized mode.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>is_active</code> was not accidentally set to <code>false</code> on the dataflow.</li>
+</ul>
+<hr />
+<h2 id="4-source">4. Source<a class="headerlink" href="#4-source" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Each source uses the right selector style:<ul>
+<li>file / lakehouse / database table mode → <code>source.table</code></li>
+<li>database query mode → <code>source.query</code></li>
+<li>function source → <code>source.python_function</code></li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If the source is in a sub-folder/schema, <code>source.schema_name</code> is set.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If you want incremental loads, <code>source.watermark_columns</code> is set and the
+      column actually exists in the source data.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> For database sources: the SQL schema (<code>source.schema_name</code>) and table
+      (<code>source.table</code>) exist in the target database.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> For database query sources: <code>source.query</code> runs successfully by itself.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> For API sources: <code>connection.configure.base_url</code> and
+      <code>source.configure.endpoint</code> together form the correct URL.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> For API sources: pagination keys (<code>pagination_type</code>, <code>page_size</code>,
+      <code>cursor_path</code>, <code>next_link_path</code>, <code>total_path</code>) match the actual response.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> For function sources: <code>source.python_function</code> is a dotted path like
+      <code>mypkg.loaders.load_orders</code> and is allowed by runtime prefix rules if you
+      use <code>allowed_function_prefixes</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Any <code>source.configure.read_options</code> override is intentional and engine-valid.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If the file source uses <code>date_folder_partitions</code> or backward replay, you
+      have verified the folder layout matches the pattern.</li>
+</ul>
+<hr />
+<h2 id="5-destination">5. Destination<a class="headerlink" href="#5-destination" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The destination format is supported by a built-in writer:
+      <code>parquet</code>, <code>csv</code>, <code>json</code>, <code>jsonl</code>, <code>avro</code>, <code>delta</code>, or <code>iceberg</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>destination.load_type</code> is set to one of:
+      <code>append</code>, <code>overwrite</code>, <code>full_load</code>, <code>merge_upsert</code>, <code>merge_overwrite</code>, <code>scd2</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If the destination is a flat-file writer (<code>parquet</code>, <code>csv</code>, <code>json</code>,
+      <code>jsonl</code>, <code>avro</code>), the load type is only <code>append</code>, <code>overwrite</code>, or <code>full_load</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>load_type</code> is <code>merge_upsert</code>, <code>merge_overwrite</code>, or <code>scd2</code>:<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>destination.merge_keys</code> is set and is a list.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Every column in <code>merge_keys</code> exists in the source data.</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>load_type</code> is <code>scd2</code>:<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>destination.configure.scd2_effective_column</code> is set.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The column named in <code>scd2_effective_column</code> exists in the source data.</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>destination.partition_columns</code> are used:<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Each <code>column</code> either already exists in the source data, or its
+        <code>expression</code> references columns that do.</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>connection.configure.date_folder_partitions</code> is used for a flat-file
+      destination, you understand that <code>partition_columns</code> takes precedence when both are present.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Any <code>destination.configure.write_options</code> override is intentional and engine-valid.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If you use <code>catalog</code> / <code>database</code> registration, the resulting qualified
+      name resolves to the intended lakehouse table.</li>
+</ul>
+<hr />
+<h2 id="6-transform">6. Transform<a class="headerlink" href="#6-transform" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>schema_hints</code> entries use a supported <code>data_type</code>:
+      <code>int</code>, <code>long</code>, <code>float</code>, <code>double</code>, <code>decimal</code>, <code>string</code>, <code>boolean</code>,
+      <code>date</code>, <code>timestamp</code>, <code>binary</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>decimal</code> hints have both <code>precision</code> and <code>scale</code> set.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>source.connection.use_schema_hint</code> is not disabled if you expect schema
+      hints to take effect.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>deduplicate_columns</code> and <code>latest_data_columns</code> reference columns that
+      actually exist in the source data.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If you rely on deduplication but left <code>latest_data_columns</code> empty, you
+      intentionally want ordering to fall back to <code>source.watermark_columns</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> SQL expressions in <code>additional_columns</code> are valid for your engine:<ul>
+<li>Polars: use <code>EXTRACT(YEAR FROM col)</code>, not <code>year(col)</code>.</li>
+<li>Polars: use <code>CAST(col AS DATE)</code>, not <code>date(col)</code>.</li>
+<li>Both: standard SQL arithmetic, <code>CASE WHEN</code>, string concatenation work.</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You have not configured <code>__created_at</code>, <code>__updated_at</code>, or <code>__updated_by</code>
+      in <code>additional_columns</code> — these are added automatically.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You are not trying to reference system columns inside <code>additional_columns</code>;
+      they are added later in the pipeline.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>transform.configure.convert_timestamp_ntz</code> and
+      <code>transform.configure.deduplicate_by_rank</code> are only set when you want those behaviors.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Downstream expectations account for final lowercase column names after
+      <code>ColumnNameSanitizer</code> runs.</li>
+</ul>
+<hr />
+<h2 id="7-secrets">7. Secrets<a class="headerlink" href="#7-secrets" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Credentials are <strong>not hardcoded</strong> in <code>configure.url</code> or <code>configure.password</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>secrets_ref</code> lists the correct field names from <code>configure</code>.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The current value of each <code>configure</code> field listed in <code>secrets_ref</code> is a
+      <strong>vault key or environment variable name</strong>, not the real credential.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The vault/environment variables are available in the execution environment.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The same <code>configure</code> field is not listed under two different secret sources.</li>
+</ul>
+<p>Environment-variable example:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DC_POSTGRES_URL&quot;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">&quot;secrets_ref&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">]</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Parse a JSON string back into a watermark dict.</p>
-<p>Restores <code>__datetime__</code> patterns to <code>datetime</code> objects.
-Empty / null inputs return <code>{}</code>.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>json_str</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JSON string (may be <code>None</code>, empty, <code>"null"</code>).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Watermark dictionary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.base.WatermarkSerializer.serialize" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">serialize</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
-  </span>
-
-<a href="#datacoolie.watermark.base.WatermarkSerializer.serialize" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">serialize</span><span class="p">(</span><span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<p>Quick check — environment-variable secrets:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Every variable referenced indirectly by secrets_ref must be set:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DC_POSTGRES_URL&quot;</span><span class="p">))</span>   <span class="c1"># should not be None</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Convert a watermark dict to a JSON string.</p>
-<p><code>datetime</code> values are encoded with the <code>__datetime__</code> pattern.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>watermark</code>
-            </td>
-            <td>
-                  <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Watermark key-value pairs.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JSON string.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="datacoolie.watermark.base.serialize_watermark" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">serialize_watermark</span>
-
-
-<a href="#datacoolie.watermark.base.serialize_watermark" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">serialize_watermark</span><span class="p">(</span><span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<p>See <a href="../../../concepts/secrets/">Concepts · Secrets</a> for the full <code>secrets_ref</code>
+schema.</p>
+<hr />
+<h2 id="8-load-and-run-a-quick-smoke-test">8. Load and run a quick smoke test<a class="headerlink" href="#8-load-and-run-a-quick-smoke-test" title="Permanent link">&para;</a></h2>
+<p>Before a full production run, test with a small subset. The quickest way is to
+use <code>dry_run=True</code> — the driver validates and plans without writing anything:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataCoolieRunConfig</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.orchestration.driver</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataCoolieDriver</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;ingest&quot;</span><span class="p">,</span> <span class="n">run_config</span><span class="o">=</span><span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># ExecutionResult(total=1, succeeded=0, failed=0, skipped=1)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Skipped = dry run; no write attempted.</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Convenience wrapper for :meth:<code>WatermarkSerializer.serialize</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="datacoolie.watermark.base.deserialize_watermark" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">deserialize_watermark</span>
-
-
-<a href="#datacoolie.watermark.base.deserialize_watermark" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">deserialize_watermark</span><span class="p">(</span><span class="n">json_str</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span>
+<p>Or validate the metadata load alone:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.metadata.file_provider</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileProvider</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.platforms.local_platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalPlatform</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">FileProvider</span><span class="p">(</span><span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;metadata.json&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">LocalPlatform</span><span class="p">())</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">flows</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;ingest&quot;</span><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">flows</span><span class="p">)</span>     <span class="c1"># list of DataFlow objects — inspect fields here</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">conns</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_connections</span><span class="p">()</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">conns</span><span class="p">)</span>     <span class="c1"># list of Connection objects</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Convenience wrapper for :meth:<code>WatermarkSerializer.deserialize</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="datacoolie.watermark.base.is_watermark_empty" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">is_watermark_empty</span>
-
-
-<a href="#datacoolie.watermark.base.is_watermark_empty" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_watermark_empty</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="bool">bool</span></span>
+<p>If either call raises, the error message points directly at the invalid field.</p>
+<p>For merge-style destinations, remember that the <strong>first</strong> successful run may
+create the table with overwrite-style behavior before later runs switch to true
+merge semantics.</p>
+<hr />
+<h2 id="9-common-errors-quick-reference">9. Common errors quick-reference<a class="headerlink" href="#9-common-errors-quick-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Error message</th>
+<th>Root cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Format 'delta' is not valid for connection_type 'file'</code></td>
+<td>Type/format mismatch</td>
+<td>Use the valid pairs table in section 2</td>
+</tr>
+<tr>
+<td><code>APIReader requires 'base_url' in connection.configure</code></td>
+<td>API connection used the wrong key</td>
+<td>Put the root URL in <code>connection.configure.base_url</code></td>
+</tr>
+<tr>
+<td><code>PythonFunctionReader requires source.python_function</code></td>
+<td>Function path is missing or was put on the connection</td>
+<td>Put a dotted path on <code>source.python_function</code></td>
+</tr>
+<tr>
+<td><code>connection 'X' not found</code></td>
+<td><code>connection_name</code> typo in source or destination</td>
+<td>Check spelling against <code>connections[].name</code></td>
+</tr>
+<tr>
+<td><code>Field 'url' listed in secrets_ref is missing from configure</code></td>
+<td><code>secrets_ref</code> points at a non-existent config field</td>
+<td>Add <code>configure.url</code> first, then resolve it via <code>secrets_ref</code></td>
+</tr>
+<tr>
+<td><code>MergeUpsertStrategy requires merge_keys</code></td>
+<td>Merge load type requires business keys</td>
+<td>Add <code>"merge_keys": [...]</code> to destination</td>
+</tr>
+<tr>
+<td><code>SCD2Strategy requires scd2_effective_column</code></td>
+<td>SCD2 without effective date</td>
+<td>Add <code>"configure": {"scd2_effective_column": "..."}</code> to destination</td>
+</tr>
+<tr>
+<td><code>FileWriter only supports ['append', 'full_load', 'overwrite']</code></td>
+<td>Merge or SCD2 was configured on a flat-file destination</td>
+<td>Use Delta/Iceberg for merge-style writes or switch the load type</td>
+</tr>
+<tr>
+<td><code>Column not found: updated_at</code></td>
+<td>Watermark or dedup column doesn't exist</td>
+<td>Check actual column names in source data</td>
+</tr>
+<tr>
+<td><code>year()</code> / <code>date()</code> fails on Polars</td>
+<td>Unsupported SQL helper was used in metadata expressions</td>
+<td>Use <code>EXTRACT(...)</code> or <code>CAST(... AS DATE)</code></td>
+</tr>
+<tr>
+<td><code>JSONDecodeError</code> in Excel cell</td>
+<td><code>configure</code> cell contains invalid JSON</td>
+<td>Fix the JSON in that cell; ensure it's a valid object</td>
+</tr>
+<tr>
+<td>All dataflows skipped / 0 loaded</td>
+<td><code>is_active</code> is false, the stage filter did not match, or the source legitimately returned zero rows</td>
+<td>Check <code>is_active</code>, <code>driver.run(stage=...)</code>, and the source query/path</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ready-to-run">Ready to run<a class="headerlink" href="#ready-to-run" title="Permanent link">&para;</a></h2>
+<p>If all boxes above are checked, run your first stage:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;ingest&quot;</span><span class="p">)</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">failed</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Pipeline failed: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processed </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2"> dataflows, </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">succeeded</span><span class="si">}</span><span class="s2"> succeeded&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return <code>True</code> if the watermark is <code>None</code>, empty, or all-<code>None</code> values.</p>
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-module">
-
-
-
-<h2 id="datacoolie.watermark.watermark_manager" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">watermark_manager</span>
-
-
-<a href="#datacoolie.watermark.watermark_manager" class="headerlink" title="Permanent link">&para;</a></h2>
-
-    <div class="doc doc-contents first">
-
-        <p>Concrete watermark manager that delegates storage to a metadata provider.</p>
-<p><code>WatermarkManager</code> is the primary implementation used by the ETL Driver.
-It serializes / deserializes watermarks and delegates persistence to the
-injected :class:<code>~datacoolie.metadata.base.BaseMetadataProvider</code>.</p>
-<p>For file-based standalone operation, <code>FileProvider</code> implements both
-metadata and watermark storage, so <code>WatermarkManager</code> simply delegates
-<code>save</code>/<code>get</code> through the same provider.</p>
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-class">
-
-
-
-<h3 id="datacoolie.watermark.watermark_manager.WatermarkManager" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">WatermarkManager</span>
-
-
-<a href="#datacoolie.watermark.watermark_manager.WatermarkManager" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WatermarkManager</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.metadata.base.BaseMetadataProvider" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.watermark.base.BaseWatermarkManager" href="#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a></code></p>
-
-
-        <p>Watermark manager backed by a metadata provider.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>metadata_provider</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.metadata.base.BaseMetadataProvider" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Provider responsible for watermark persistence.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.watermark_manager.WatermarkManager.get_watermark" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_watermark</span>
-
-
-<a href="#datacoolie.watermark.watermark_manager.WatermarkManager.get_watermark" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_watermark</span><span class="p">(</span><span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return the current watermark dict, or <code>None</code>.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.watermark.watermark_manager.WatermarkManager.save_watermark" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">save_watermark</span>
-
-
-<a href="#datacoolie.watermark.watermark_manager.WatermarkManager.save_watermark" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_watermark</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Serialize the watermark dict and persist via the provider.</p>
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
+<p>→ Back to <a href="../">Metadata guide overview</a></p>
 
 
 
