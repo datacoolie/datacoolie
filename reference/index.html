@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3107,12 +3137,12 @@ their source <code>.md</code> files checked into <code>docs/reference/</code>.</
 <h2 id="python-api-reference">Python API reference<a class="headerlink" href="#python-api-reference" title="Permanent link">&para;</a></h2>
 <p>All packages are rendered directly from docstrings via <code>mkdocstrings</code>.</p>
 <ul>
-<li><a href="api/core/">Core</a> — <code>DataCoolie</code>, <code>create_platform</code>, registry helpers.</li>
+<li><a href="api/core/">Core</a> — <code>Connection</code>, <code>Source</code>, <code>Destination</code>, <code>Transform</code>, <code>DataFlow</code>, <code>ReplayConfig</code>, <code>DataCoolieRunConfig</code>, registry helpers.</li>
 <li><a href="api/engines/">Engines</a> — <code>BaseEngine[DF]</code>, <code>PolarsEngine</code>, <code>SparkEngine</code>.</li>
 <li><a href="api/platforms/">Platforms</a> — <code>BasePlatform</code>, <code>LocalPlatform</code>, <code>AWSPlatform</code>.</li>
 <li><a href="api/sources/">Sources</a> — <code>BaseSourceReader</code>, <code>FileReader</code>, <code>APIReader</code>.</li>
 <li><a href="api/destinations/">Destinations</a> — <code>BaseDestinationWriter</code>, <code>FileWriter</code>.</li>
-<li><a href="api/transformers/">Transformers</a> — built-in transformer classes and <code>Pipeline</code>.</li>
+<li><a href="api/transformers/">Transformers</a> — built-in transformers (<code>SchemaConverter</code>, <code>Deduplicator</code>, <code>ColumnAdder</code>, <code>RowFilter</code>, <code>SCD2ColumnAdder</code>, <code>SystemColumnAdder</code>, <code>PartitionHandler</code>, <code>ColumnNameSanitizer</code>) and <code>TransformerPipeline</code>.</li>
 <li><a href="api/orchestration/">Orchestration</a> — <code>DataCoolieDriver</code>, <code>JobDistributor</code>, <code>ParallelExecutor</code>.</li>
 <li><a href="api/metadata/">Metadata</a> — provider classes and <code>BaseMetadataProvider</code>.</li>
 <li><a href="api/watermark/">Watermark</a> — <code>WatermarkManager</code> and the raw-JSON contract.</li>

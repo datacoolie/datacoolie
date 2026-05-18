@@ -1197,6 +1197,8 @@
       
         
       
+        
+      
     
     
     
@@ -1647,10 +1649,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#filtering-by-active-flag" class="md-nav__link">
+  <a href="#column-name-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Filtering by active flag
+        Column name mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-loading-and-filtering-dataflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-loading and filtering dataflows
       
     </span>
   </a>
@@ -1673,6 +1686,39 @@
     <span class="md-ellipsis">
       
         Sharded across workers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datacoolierunconfig-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataCoolieRunConfig reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executionresult-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ExecutionResult fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-execution-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other execution modes
       
     </span>
   </a>
@@ -1703,6 +1749,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3143,10 +3217,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#filtering-by-active-flag" class="md-nav__link">
+  <a href="#column-name-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Filtering by active flag
+        Column name mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-loading-and-filtering-dataflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-loading and filtering dataflows
       
     </span>
   </a>
@@ -3169,6 +3254,39 @@
     <span class="md-ellipsis">
       
         Sharded across workers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datacoolierunconfig-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataCoolieRunConfig reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executionresult-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ExecutionResult fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-execution-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other execution modes
       
     </span>
   </a>
@@ -3201,10 +3319,10 @@
 
 
 <h1 id="run-a-stage">Run a stage<a class="headerlink" href="#run-a-stage" title="Permanent link">&para;</a></h1>
-<p><strong>Prerequisites</strong> · Metadata loaded via any provider · engine attached to a platform.
+<p><strong>Prerequisites</strong> · Metadata loaded via any provider · engine attached to a platform.<br />
 <strong>End state</strong> · One or more stages executed with parallel dataflows and a returned <code>ExecutionResult</code>.</p>
 <h2 id="single-stage">Single stage<a class="headerlink" href="#single-stage" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">failed</span> <span class="o">==</span> <span class="mi">0</span>
@@ -3216,32 +3334,167 @@
 Execution still follows each dataflow's <code>group_number</code> and <code>execution_order</code>,
 not the order of stage names in the list.</p>
 <p>If you need strict stage-by-stage progression, call <code>run()</code> separately:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">for</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ingest2bronze&quot;</span><span class="p">,</span> <span class="s2">&quot;bronze2silver&quot;</span><span class="p">,</span> <span class="s2">&quot;silver2gold&quot;</span><span class="p">]:</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">failed</span> <span class="o">==</span> <span class="mi">0</span>
 </span></code></pre></div>
-<h2 id="filtering-by-active-flag">Filtering by active flag<a class="headerlink" href="#filtering-by-active-flag" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Skip anything is_active = False</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">loaded</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">,</span> <span class="n">active_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">loaded</span><span class="p">)</span>
+<h2 id="column-name-mode">Column name mode<a class="headerlink" href="#column-name-mode" title="Permanent link">&para;</a></h2>
+<p>By default, all output column names are lowercased. Pass <code>column_name_mode</code> to
+change the behaviour:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">,</span> <span class="n">column_name_mode</span><span class="o">=</span><span class="s2">&quot;snake&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"lower"</code> (default)</td>
+<td>Lowercase without inserting underscores</td>
+</tr>
+<tr>
+<td><code>"snake"</code></td>
+<td>Convert to <code>snake_case</code> (inserts underscores at case boundaries)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pre-loading-and-filtering-dataflows">Pre-loading and filtering dataflows<a class="headerlink" href="#pre-loading-and-filtering-dataflows" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Skip anything is_active = False</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">loaded</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">,</span> <span class="n">active_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">loaded</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>driver.run(stage=...)</code> is shorthand for loading matching metadata first, then
 executing those dataflows. Pass <code>dataflows=...</code> when you want to inspect or
 filter the loaded list before execution.</p>
 <h2 id="dry-run">Dry run<a class="headerlink" href="#dry-run" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">driver</span> <span class="o">=</span> <span class="n">DataCoolieDriver</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">config</span><span class="o">=</span><span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">driver</span> <span class="o">=</span> <span class="n">DataCoolieDriver</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">with</span> <span class="n">driver</span><span class="p">:</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Nothing is read or written. Logs show what <em>would</em> have happened.</p>
 <h2 id="sharded-across-workers">Sharded across workers<a class="headerlink" href="#sharded-across-workers" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">cfg</span> <span class="o">=</span> <span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">job_num</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">job_index</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># worker 2 of 4</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">cfg</span> <span class="o">=</span> <span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">job_num</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">job_index</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># worker 2 of 4</span>
 </span></code></pre></div>
 <p>Use this for horizontal scaling across cluster tasks. See <a href="../../concepts/orchestration/">Orchestration</a>.</p>
+<h2 id="datacoolierunconfig-reference"><code>DataCoolieRunConfig</code> reference<a class="headerlink" href="#datacoolierunconfig-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>job_id</code></td>
+<td>auto-generated UUID</td>
+<td>Unique identifier for this run</td>
+</tr>
+<tr>
+<td><code>job_num</code></td>
+<td><code>1</code></td>
+<td>Total number of parallel workers</td>
+</tr>
+<tr>
+<td><code>job_index</code></td>
+<td><code>0</code></td>
+<td>This worker's index (0-based, must be &lt; <code>job_num</code>)</td>
+</tr>
+<tr>
+<td><code>max_workers</code></td>
+<td><code>8</code></td>
+<td>Thread pool size for concurrent dataflow execution</td>
+</tr>
+<tr>
+<td><code>stop_on_error</code></td>
+<td><code>False</code></td>
+<td>Halt remaining dataflows on first failure</td>
+</tr>
+<tr>
+<td><code>retry_count</code></td>
+<td><code>0</code></td>
+<td>Number of retry attempts per failed dataflow</td>
+</tr>
+<tr>
+<td><code>retry_delay</code></td>
+<td><code>5.0</code></td>
+<td>Seconds between retry attempts</td>
+</tr>
+<tr>
+<td><code>dry_run</code></td>
+<td><code>False</code></td>
+<td>Plan without reading or writing</td>
+</tr>
+<tr>
+<td><code>retention_hours</code></td>
+<td><code>168</code></td>
+<td>VACUUM retention for maintenance (7 days)</td>
+</tr>
+<tr>
+<td><code>allowed_function_prefixes</code></td>
+<td><code>[]</code></td>
+<td>Restrict which Python modules can be imported by function sources</td>
+</tr>
+</tbody>
+</table>
+<h2 id="executionresult-fields"><code>ExecutionResult</code> fields<a class="headerlink" href="#executionresult-fields" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>total</code></td>
+<td>Dataflows submitted for execution</td>
+</tr>
+<tr>
+<td><code>succeeded</code></td>
+<td>Completed with <code>status == "succeeded"</code></td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td>Raised an exception (after all retries exhausted)</td>
+</tr>
+<tr>
+<td><code>skipped</code></td>
+<td>Not executed (dry-run, or short-circuited by <code>stop_on_error</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-execution-modes">Other execution modes<a class="headerlink" href="#other-execution-modes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>driver.run_replay(dataflows, replay)</code></td>
+<td>Re-process a bounded historical range in chunks</td>
+</tr>
+<tr>
+<td><code>driver.run_maintenance(connection=...)</code></td>
+<td>OPTIMIZE / VACUUM for lakehouse tables</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../replay-and-backfill/">Replay &amp; backfill</a> and
+<a href="../maintenance-vacuum-optimize/">Maintenance</a>.</p>
 
 
 

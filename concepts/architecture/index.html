@@ -956,6 +956,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#driver-execution-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Driver execution modes
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1288,6 +1299,8 @@
   
     
     
+      
+        
       
         
       
@@ -1711,6 +1724,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3194,6 +3235,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#driver-execution-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Driver execution modes
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3371,14 +3423,16 @@ that provider layer, not a ninth execution role. See <a href="../secrets/">Secre
 
     Drv-&gt;&gt;MP: get_dataflows(stage)
     MP--&gt;&gt;Drv: List[DataFlow]
-    Note over Drv: Distribute + run in parallel
+    Note over Drv: Resolve secrets → distribute → run in parallel
 
     loop per dataflow
       Drv-&gt;&gt;WM: get_watermark(dataflow_id)
       WM--&gt;&gt;Drv: {last_value: "2026-04-19T…"}
-      Drv-&gt;&gt;SR: read(source, watermark)
+      Drv-&gt;&gt;SR: read(source, watermark, operator="&gt;")
+      Note over SR: watermark filter → source.filter_expression
       SR--&gt;&gt;Drv: DataFrame (native)
       Drv-&gt;&gt;TP: transform(df, dataflow)
+      Note over TP: schema → dedup → columns → row_filter → SCD2 → system → partition → sanitize
       TP--&gt;&gt;Drv: DataFrame (reshaped)
       Drv-&gt;&gt;DW: write(df, dataflow)
       DW--&gt;&gt;Drv: DestinationRuntimeInfo
@@ -3447,6 +3501,38 @@ declaring:</p>
 <p>…with no import of <code>datacoolie</code> at install time. See
 <a href="../../reference/plugin-entry-points/">Plugin entry points</a> for the full
 generated table.</p>
+<h2 id="driver-execution-modes">Driver execution modes<a class="headerlink" href="#driver-execution-modes" title="Permanent link">&para;</a></h2>
+<p>The driver supports three execution modes through separate entry points:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+<th>Watermark behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run()</code> / <code>run_dataflow()</code></td>
+<td>Normal incremental ETL</td>
+<td>Reads <code>&gt;</code> last saved, saves new max after write</td>
+</tr>
+<tr>
+<td><code>run_replay(dataflows, replay)</code></td>
+<td>Bounded historical re-processing in chunks</td>
+<td>Operator <code>&gt;=</code> (inclusive); saves per-chunk only when <code>save_watermark=True</code></td>
+</tr>
+<tr>
+<td><code>run_maintenance(connection)</code></td>
+<td><code>OPTIMIZE</code> / <code>VACUUM</code> for lakehouse tables</td>
+<td>N/A — no data movement</td>
+</tr>
+</tbody>
+</table>
+<p>All three share <code>JobDistributor</code> + <code>ParallelExecutor</code> + <code>RetryHandler</code> for
+concurrency, sharding, and fault tolerance.  <code>run_replay</code> adds sequential
+chunk iteration <em>within</em> each dataflow.</p>
+<p>See <a href="../orchestration/">Orchestration</a> for details on each mode.</p>
 
 
 

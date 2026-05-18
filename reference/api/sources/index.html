@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3611,7 +3641,7 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
 
 
 <a href="#datacoolie.sources.base.BaseSourceReader.read" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.Source" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></span><span class="p">,</span> <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.Source" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></span><span class="p">,</span> <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">watermark_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3665,6 +3695,24 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>watermark_operator</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Comparison operator for the watermark
+WHERE clause.  <code>"&gt;"</code> (default) for exclusive lower bound,
+<code>"&gt;="</code> for inclusive lower bound (used by replay).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&gt;&#39;</code>
             </td>
           </tr>
       </tbody>

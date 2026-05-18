@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, partition handling, and column adders.">
+        <meta name="description" content="Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, row filtering, partition handling, and column adders.">
       
       
       
@@ -81,7 +81,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
     <meta property="og:title" content="Transformers — Python API Reference | DataCoolie" />
-    <meta property="og:description" content="Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, partition handling, and column adders." />
+    <meta property="og:description" content="Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, row filtering, partition handling, and column adders." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/reference/api/transformers/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
@@ -91,7 +91,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Transformers — Python API Reference | DataCoolie" />
-    <meta name="twitter:description" content="Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, partition handling, and column adders." />
+    <meta name="twitter:description" content="Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, row filtering, partition handling, and column adders." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Transformers — Python API Reference | DataCoolie" />
 
@@ -104,7 +104,7 @@
       "@id": "https://datacoolie.github.io/datacoolie/reference/api/transformers/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/reference/api/transformers/",
       "name": "Transformers \u2014 Python API Reference | DataCoolie",
-      "description": "Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, partition handling, and column adders.",
+      "description": "Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, row filtering, partition handling, and column adders.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
     }
     </script>
@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -2373,6 +2403,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SystemColumnAdder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#datacoolie.transformers.column_adder.SCD2ColumnAdder" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2383,11 +2424,28 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datacoolie.transformers.row_filter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SystemColumnAdder
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;row_filter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" row_filter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.transformers.row_filter.RowFilter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;RowFilter
       
     </span>
   </a>
@@ -3409,6 +3467,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SystemColumnAdder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#datacoolie.transformers.column_adder.SCD2ColumnAdder" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3419,11 +3488,28 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datacoolie.transformers.row_filter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SystemColumnAdder
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;row_filter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" row_filter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.transformers.row_filter.RowFilter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;RowFilter
       
     </span>
   </a>
@@ -4463,6 +4549,73 @@ audit columns as the <strong>final</strong> step in the pipeline.</p>
 
 
 
+<h3 id="datacoolie.transformers.column_adder.SystemColumnAdder" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SystemColumnAdder</span>
+
+
+<a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SystemColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="n">author</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_AUTHOR">DEFAULT_AUTHOR</span></span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
+
+        <p>Append system audit columns as the final pipeline step (order = 70).</p>
+<p>Adds <code>__created_at</code>, <code>__updated_at</code>, and <code>__updated_by</code> to every
+DataFrame.  Running last ensures that column name sanitization never
+touches system column names.</p>
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.transformers.column_adder.SystemColumnAdder.transform" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">transform</span>
+
+
+<a href="#datacoolie.transformers.column_adder.SystemColumnAdder.transform" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Add system audit columns.</p>
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
 <h3 id="datacoolie.transformers.column_adder.SCD2ColumnAdder" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SCD2ColumnAdder</span>
 
@@ -4526,16 +4679,57 @@ insert new versions.</p>
 
 </div>
 
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="datacoolie.transformers.row_filter" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">row_filter</span>
+
+
+<a href="#datacoolie.transformers.row_filter" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Row filter transformer.</p>
+<p>Applies a SQL <code>WHERE</code>-style expression to discard unwanted rows
+after column addition but before SCD2 processing.</p>
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
 <div class="doc doc-object doc-class">
 
 
 
-<h3 id="datacoolie.transformers.column_adder.SystemColumnAdder" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SystemColumnAdder</span>
+<h3 id="datacoolie.transformers.row_filter.RowFilter" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">RowFilter</span>
 
 
-<a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SystemColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="n">author</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_AUTHOR">DEFAULT_AUTHOR</span></span><span class="p">)</span>
+<a href="#datacoolie.transformers.row_filter.RowFilter" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RowFilter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4543,10 +4737,28 @@ insert new versions.</p>
               Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
 
 
-        <p>Append system audit columns as the final pipeline step (order = 70).</p>
-<p>Adds <code>__created_at</code>, <code>__updated_at</code>, and <code>__updated_by</code> to every
-DataFrame.  Running last ensures that column name sanitization never
-touches system column names.</p>
+        <p>Filter rows by a SQL expression (order = 35).</p>
+<p>Reads :attr:<code>~datacoolie.core.models.Transform.filter_expression</code>.
+When the expression is absent or empty, the transformer is a no-op.</p>
+<p>The expression is passed verbatim to
+:meth:<code>engine.filter_rows</code> which delegates to the engine's native
+<code>WHERE</code>-clause equivalent (Polars <code>filter</code>, Spark <code>where</code>, etc.).</p>
+<p>This transformer complements :attr:<code>~datacoolie.core.models.Source.filter_expression</code>
+(applied at read time inside each source reader).  Use
+<code>source.filter_expression</code> for conditions on raw source columns and
+<code>transform.filter_expression</code> for conditions on computed or added
+columns that only exist after :class:<code>ColumnAdder</code> runs.</p>
+<p>Example (YAML metadata)::</p>
+<div class="language-text highlight"><pre><span></span><code>transform:
+  filter_expression: &quot;category_label != &#39;unknown&#39; AND derived_score &gt; 0.5&quot;
+</code></pre></div>
+<p>Ordering rationale:</p>
+<ul>
+<li>Runs <strong>after</strong> <code>ColumnAdder</code> (slot 30) so expressions may reference
+  computed columns.</li>
+<li>Runs <strong>before</strong> <code>SCD2ColumnAdder</code> (slot 60) to reduce the row set
+  before the heavier SCD2 logic.</li>
+</ul>
 
 
 
@@ -4569,17 +4781,17 @@ touches system column names.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="datacoolie.transformers.column_adder.SystemColumnAdder.transform" class="doc doc-heading">
+<h4 id="datacoolie.transformers.row_filter.RowFilter.transform" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">transform</span>
 
 
-<a href="#datacoolie.transformers.column_adder.SystemColumnAdder.transform" class="headerlink" title="Permanent link">&para;</a></h4>
+<a href="#datacoolie.transformers.row_filter.RowFilter.transform" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Add system audit columns.</p>
+        <p>Apply the filter expression, or skip when none is configured.</p>
 
     </div>
 

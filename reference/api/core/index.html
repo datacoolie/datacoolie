@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -2304,6 +2334,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#datacoolie.core.secret_provider.SecretStr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SecretStr
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#datacoolie.core.secret_provider.get_registered_secret_values" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2330,6 +2371,28 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_secrets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.secret_provider.unwrap_configure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unwrap_configure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.secret_provider.unwrap_secret" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unwrap_secret
       
     </span>
   </a>
@@ -3545,6 +3608,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#datacoolie.core.secret_provider.SecretStr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SecretStr
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#datacoolie.core.secret_provider.get_registered_secret_values" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3571,6 +3645,28 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_secrets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.secret_provider.unwrap_configure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unwrap_configure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.secret_provider.unwrap_secret" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unwrap_secret
       
     </span>
   </a>
@@ -3669,6 +3765,10 @@
 
 
 <h1 id="core">Core<a class="headerlink" href="#core" title="Permanent link">&para;</a></h1>
+<div class="admonition info">
+<p class="admonition-title">Model classes are documented on the <a href="../../metadata-schema/">Metadata schema</a> page</p>
+<p><code>Connection</code>, <code>Source</code>, <code>Destination</code>, <code>Transform</code>, <code>DataFlow</code>, <code>ReplayConfig</code>, <code>DataCoolieRunConfig</code>, and supporting types are rendered from source on the Metadata schema reference page to avoid duplicate anchors.</p>
+</div>
 
 
 <div class="doc doc-object doc-module">
@@ -4909,6 +5009,11 @@ error context.</p>
 from platform-specific vaults.  :func:<code>resolve_secrets</code> wires a provider
 (or any :class:<code>~datacoolie.core.secret_resolver.BaseSecretResolver</code>) into
 a :class:<code>Connection</code> by replacing vault key references with real values.</p>
+<p>:class:<code>SecretStr</code> is an opaque wrapper that prevents accidental exposure
+of secret values through <code>str()</code>, <code>repr()</code>, <code>print()</code>, f-strings,
+and tracebacks.  The raw value is <strong>never</strong> exposed via a public method.
+Framework internals use :func:<code>unwrap_secret</code> / :func:<code>unwrap_configure</code>
+to obtain plain strings at I/O boundaries (HTTP auth, JDBC, etc.).</p>
 
 
 
@@ -5211,6 +5316,56 @@ secret name/ARN for AWS).  Defaults to <code>""</code>.</p>
 
 </div>
 
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="datacoolie.core.secret_provider.SecretStr" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SecretStr</span>
+
+
+<a href="#datacoolie.core.secret_provider.SecretStr" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SecretStr</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+        <p>Opaque wrapper that hides secret values from all public access.</p>
+<p><code>str()</code>, <code>repr()</code>, <code>print()</code>, <code>format()</code>, and <code>logging</code>
+all render <code>***</code> instead of the real value.</p>
+<p>There is <strong>no</strong> public method to extract the underlying string.
+Framework internals access the value via :func:<code>unwrap_secret</code> or
+:func:<code>unwrap_configure</code>.</p>
+<p>The wrapper is immutable, unhashable-by-value, and unpicklable to
+prevent accidental persistence or cache-key leaks.</p>
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5363,6 +5518,47 @@ absent from <code>configure</code>, or a secret cannot be retrieved.</p>
           </tr>
       </tbody>
     </table>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="datacoolie.core.secret_provider.unwrap_configure" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">unwrap_configure</span>
+
+
+<a href="#datacoolie.core.secret_provider.unwrap_configure" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">unwrap_configure</span><span class="p">(</span><span class="n">configure</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return a shallow copy with all :class:<code>SecretStr</code> values unwrapped.</p>
+<p>Call this <strong>once</strong> at the I/O boundary (HTTP auth, JDBC connect, etc.)
+to obtain a plain-string dict for external libraries.  The original
+<em>configure</em> dict retains its <code>SecretStr</code> wrappers.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="datacoolie.core.secret_provider.unwrap_secret" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">unwrap_secret</span>
+
+
+<a href="#datacoolie.core.secret_provider.unwrap_secret" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">unwrap_secret</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Any">Any</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return the raw string if <em>value</em> is a :class:<code>SecretStr</code>, else pass through.</p>
 
     </div>
 

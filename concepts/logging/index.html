@@ -1190,6 +1190,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ETLLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#debug-jsonl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debug JSONL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analyst-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analyst Outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1288,6 +1316,8 @@
   
     
     
+      
+        
       
         
       
@@ -1711,6 +1741,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3148,6 +3206,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ETLLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#debug-jsonl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debug JSONL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analyst-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analyst Outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3221,26 +3307,72 @@
 
 <h1 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h1>
 <p><strong>TL;DR</strong> Two orthogonal loggers. <code>SystemLogger</code> captures framework Python logs
-as JSONL for operators. <code>ETLLogger</code> writes structured execution logs in two
-forms: debug JSONL and analyst Parquet.</p>
+as plain-text <code>.log</code> files for operators. <code>ETLLogger</code> writes structured execution
+logs in two forms: debug JSONL (appended per run) and analyst outputs (JSONL for
+job summaries, Parquet for dataflow detail).</p>
 <h2 id="systemlogger"><code>SystemLogger</code><a class="headerlink" href="#systemlogger" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Captures framework Python logs through <code>LogManager</code>.</li>
-<li>JSONL output, <code>INFO</code> by default, configurable.</li>
-<li>Writes <code>system_log_&lt;timestamp&gt;_&lt;job_num&gt;_&lt;job_index&gt;_&lt;job_id&gt;.jsonl</code> under the
-  configured <code>output_path</code>, optionally date-partitioned.</li>
+<li><strong>Two independent levels:</strong><ul>
+<li><code>log_level</code> — controls what is printed to the console (default <code>INFO</code>).</li>
+<li><code>file_level</code> — controls what is captured to the file (default <code>DEBUG</code>,
+  capturing all framework messages regardless of console level).</li>
+</ul>
+</li>
+<li>Writes plain-text <code>.log</code> files: one line per record,
+  format <code>timestamp - LEVEL - logger [dataflow_id] - message</code>.</li>
+<li>Filename: <code>system_log_&lt;job_id&gt;.log</code> under the configured <code>output_path</code>,
+  optionally date-partitioned.</li>
+<li><strong>Periodic flush</strong> via background timer — appends new records to the remote
+  file using <code>platform.append_file()</code> at each interval.  Final remaining
+  records are appended on <code>close()</code>.</li>
 <li>Intended for operators reading runtime logs and troubleshooting failures.</li>
 </ul>
 <h2 id="etllogger"><code>ETLLogger</code><a class="headerlink" href="#etllogger" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Writes two outputs for the same run session:</li>
 <li>Debug JSONL for full-fidelity troubleshooting.</li>
-<li>Analyst Parquet for query-friendly reporting and dashboards.</li>
+<li>Analyst outputs for query-friendly reporting and dashboards.</li>
 <li>Uses <code>_type</code> values <code>"dataflow_run_log"</code> (one per dataflow execution) and
   <code>"job_run_log"</code> (one per job run summary).</li>
 <li>Stores files under <code>{output_path}/{purpose}/{log_type}/__run_date=yyyy-mm-dd/</code>
   by default.</li>
 </ul>
+<h3 id="debug-jsonl">Debug JSONL<a class="headerlink" href="#debug-jsonl" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Single JSONL file per session: <code>debug_json/job_run_log/__run_date=.../job_&lt;stem&gt;.jsonl</code></li>
+<li><strong>Periodic flush</strong>: new bytes appended via <code>platform.append_file()</code> at each
+  flush interval.  Job summary line appended as the final line on <code>close()</code>.</li>
+<li>Per-dataflow entries followed by a final <code>job_run_log</code> summary line.</li>
+</ul>
+<h3 id="analyst-outputs">Analyst Outputs<a class="headerlink" href="#analyst-outputs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Log type</th>
+<th>Format</th>
+<th>Path</th>
+<th>Flush strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>job_run_log</code></td>
+<td>JSONL (one line per job run)</td>
+<td><code>analyst/job_run_log/__run_date=.../job_run_log.jsonl</code></td>
+<td><code>append_file</code> on close</td>
+</tr>
+<tr>
+<td><code>dataflow_run_log</code></td>
+<td>Parquet (one row per dataflow)</td>
+<td><code>analyst/dataflow_run_log/__run_date=.../dataflow_&lt;stem&gt;.parquet</code></td>
+<td><code>upload_file</code> on close</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>job_run_log</code> file is a <strong>shared daily file</strong> — multiple job runs on the
+same day append their summary to the same file, making it easy to query
+recent job history without listing many small per-run files.</p>
 <p>Row shape (dataflow entry):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dataflow_run_log&quot;</span><span class="p">,</span>
@@ -3282,12 +3414,13 @@ forms: debug JSONL and analyst Parquet.</p>
 <tr>
 <td><code>ANALYST</code></td>
 <td><code>analyst</code></td>
-<td>Parquet output for dashboards and analysis</td>
+<td>Analyst outputs for dashboards and analysis</td>
 </tr>
 </tbody>
 </table>
-<p><code>ETLLogger</code> uses <code>DEBUG/job_run_log</code> for the JSONL session file and
-<code>ANALYST/job_run_log</code> plus <code>ANALYST/dataflow_run_log</code> for Parquet outputs.</p>
+<p><code>ETLLogger</code> uses <code>DEBUG/job_run_log</code> for the JSONL debug session file,
+<code>ANALYST/job_run_log</code> for the appended job summary JSONL, and
+<code>ANALYST/dataflow_run_log</code> for the per-run Parquet.</p>
 <h2 id="executiontype-operation_type"><code>ExecutionType</code> → <code>operation_type</code><a class="headerlink" href="#executiontype-operation_type" title="Permanent link">&para;</a></h2>
 <p><code>operation_type</code> records the runtime operation:</p>
 <ul>
@@ -3298,6 +3431,8 @@ forms: debug JSONL and analyst Parquet.</p>
 <p><code>LogConfig</code> fields that affect storage:</p>
 <ul>
 <li><code>output_path</code> — root directory</li>
+<li><code>log_level</code> — console stream level (default <code>INFO</code>)</li>
+<li><code>file_level</code> — capture / file level for <code>SystemLogger</code> (default <code>DEBUG</code>)</li>
 <li><code>partition_by_date</code> — append a partition folder to output paths</li>
 <li><code>partition_pattern</code> — override the partition folder layout
   (default: <code>__run_date={year}-{month}-{day}</code>)</li>

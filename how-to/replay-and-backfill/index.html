@@ -6,17 +6,17 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Why DataCoolie uses a shared fmt parameter on format-aware engine methods so Delta and Iceberg stay on one abstract API.">
+        <meta name="description" content="Re-process a bounded historical time range in sequential calendar-aligned chunks using DataCoolieDriver.run_replay() and ReplayConfig.">
       
       
       
-        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/adr/0001-engine-fmt-parameter/">
+        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/how-to/replay-and-backfill/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../merge-and-scd2/">
       
       
-        <link rel="next" href="../0002-secret-provider-resolver-split/">
+        <link rel="next" href="../partitioning-and-sanitization/">
       
       
         
@@ -27,7 +27,7 @@
     
     
   
-    <title>ADR-0001 — Engine fmt Parameter | DataCoolie</title>
+    <title>Replay & Backfill — DataCoolie How-to</title>
   
 
     
@@ -80,20 +80,20 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="ADR-0001 — Engine fmt Parameter | DataCoolie" />
-    <meta property="og:description" content="Why DataCoolie uses a shared fmt parameter on format-aware engine methods so Delta and Iceberg stay on one abstract API." />
-    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/adr/0001-engine-fmt-parameter/" />
+    <meta property="og:title" content="Replay & Backfill — DataCoolie How-to" />
+    <meta property="og:description" content="Re-process a bounded historical time range in sequential calendar-aligned chunks using DataCoolieDriver.run_replay() and ReplayConfig." />
+    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/how-to/replay-and-backfill/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="ADR-0001 — Engine fmt Parameter | DataCoolie" />
+    <meta property="og:image:alt" content="Replay & Backfill — DataCoolie How-to" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="ADR-0001 — Engine fmt Parameter | DataCoolie" />
-    <meta name="twitter:description" content="Why DataCoolie uses a shared fmt parameter on format-aware engine methods so Delta and Iceberg stay on one abstract API." />
+    <meta name="twitter:title" content="Replay & Backfill — DataCoolie How-to" />
+    <meta name="twitter:description" content="Re-process a bounded historical time range in sequential calendar-aligned chunks using DataCoolieDriver.run_replay() and ReplayConfig." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="ADR-0001 — Engine fmt Parameter | DataCoolie" />
+    <meta name="twitter:image:alt" content="Replay & Backfill — DataCoolie How-to" />
 
     <!-- JSON-LD structured data -->
     
@@ -101,10 +101,10 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "@id": "https://datacoolie.github.io/datacoolie/adr/0001-engine-fmt-parameter/#webpage",
-      "url": "https://datacoolie.github.io/datacoolie/adr/0001-engine-fmt-parameter/",
-      "name": "ADR-0001 \u2014 Engine fmt Parameter | DataCoolie",
-      "description": "Why DataCoolie uses a shared fmt parameter on format-aware engine methods so Delta and Iceberg stay on one abstract API.",
+      "@id": "https://datacoolie.github.io/datacoolie/how-to/replay-and-backfill/#webpage",
+      "url": "https://datacoolie.github.io/datacoolie/how-to/replay-and-backfill/",
+      "name": "Replay \u0026 Backfill \u2014 DataCoolie How-to",
+      "description": "Re-process a bounded historical time range in sequential calendar-aligned chunks using DataCoolieDriver.run_replay() and ReplayConfig.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
     }
     </script>
@@ -130,7 +130,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0001-engine-fmt-parameter-across-format-aware-methods" class="md-skip">
+        <a href="#replay-backfill" class="md-skip">
           Skip to content
         </a>
       
@@ -165,7 +165,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0001 — Engine fmt Parameter | DataCoolie
+              Replay & Backfill — DataCoolie How-to
             
           </span>
         </div>
@@ -327,9 +327,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../../how-to/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="../" class="md-tabs__link">
         
   
   
@@ -403,11 +405,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="../" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../adr/" class="md-tabs__link">
         
   
   
@@ -1166,8 +1166,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -1201,20 +1203,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../how-to/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1232,13 +1237,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1274,10 +1279,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1285,7 +1293,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../how-to/metadata-guide/" class="md-nav__link ">
+            <a href="../metadata-guide/" class="md-nav__link ">
               
   
   
@@ -1303,7 +1311,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1327,7 +1335,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/first-metadata-file/" class="md-nav__link">
+      <a href="../metadata-guide/first-metadata-file/" class="md-nav__link">
         
   
   
@@ -1355,7 +1363,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/source-patterns/" class="md-nav__link">
+      <a href="../metadata-guide/source-patterns/" class="md-nav__link">
         
   
   
@@ -1383,7 +1391,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/destination-and-load-patterns/" class="md-nav__link">
+      <a href="../metadata-guide/destination-and-load-patterns/" class="md-nav__link">
         
   
   
@@ -1411,7 +1419,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/transform-patterns/" class="md-nav__link">
+      <a href="../metadata-guide/transform-patterns/" class="md-nav__link">
         
   
   
@@ -1439,7 +1447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/metadata-guide/validation-checklist/" class="md-nav__link">
+      <a href="../metadata-guide/validation-checklist/" class="md-nav__link">
         
   
   
@@ -1475,7 +1483,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/configure-file-metadata/" class="md-nav__link">
+      <a href="../configure-file-metadata/" class="md-nav__link">
         
   
   
@@ -1503,7 +1511,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/configure-database-metadata/" class="md-nav__link">
+      <a href="../configure-database-metadata/" class="md-nav__link">
         
   
   
@@ -1531,7 +1539,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/configure-api-metadata/" class="md-nav__link">
+      <a href="../configure-api-metadata/" class="md-nav__link">
         
   
   
@@ -1559,7 +1567,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/run-a-stage/" class="md-nav__link">
+      <a href="../run-a-stage/" class="md-nav__link">
         
   
   
@@ -1587,7 +1595,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/merge-and-scd2/" class="md-nav__link">
+      <a href="../merge-and-scd2/" class="md-nav__link">
         
   
   
@@ -1612,10 +1620,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1631,6 +1666,142 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replayconfig-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ReplayConfig fields
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ReplayConfig fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#range-convention-start-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Range convention: [start, end)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chunk_interval-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        chunk_interval keys
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chunk-column-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunk column resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resume-after-failure-save_watermarktrue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resume after failure (save_watermark=True)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#combining-with-sourcefilter_expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combining with source.filter_expression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-example-quarterly-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full example: quarterly backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1643,7 +1814,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/partitioning-and-sanitization/" class="md-nav__link">
+      <a href="../partitioning-and-sanitization/" class="md-nav__link">
         
   
   
@@ -1671,7 +1842,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/maintenance-vacuum-optimize/" class="md-nav__link">
+      <a href="../maintenance-vacuum-optimize/" class="md-nav__link">
         
   
   
@@ -1699,7 +1870,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/expected-failure-scenarios/" class="md-nav__link">
+      <a href="../expected-failure-scenarios/" class="md-nav__link">
         
   
   
@@ -1727,7 +1898,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/deploy-to-fabric/" class="md-nav__link">
+      <a href="../deploy-to-fabric/" class="md-nav__link">
         
   
   
@@ -1755,7 +1926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/deploy-to-databricks/" class="md-nav__link">
+      <a href="../deploy-to-databricks/" class="md-nav__link">
         
   
   
@@ -1783,7 +1954,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/deploy-to-aws-glue/" class="md-nav__link">
+      <a href="../deploy-to-aws-glue/" class="md-nav__link">
         
   
   
@@ -2803,10 +2974,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -2822,23 +2991,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../adr/" class="md-nav__link ">
               
   
   
@@ -2856,13 +3022,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2877,37 +3043,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0001 Engine fmt= parameter
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../adr/0001-engine-fmt-parameter/" class="md-nav__link">
         
   
   
@@ -2923,59 +3062,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2988,7 +3074,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0002-secret-provider-resolver-split/" class="md-nav__link">
+      <a href="../../adr/0002-secret-provider-resolver-split/" class="md-nav__link">
         
   
   
@@ -3016,7 +3102,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0003-transformer-ordering-slots/" class="md-nav__link">
+      <a href="../../adr/0003-transformer-ordering-slots/" class="md-nav__link">
         
   
   
@@ -3044,7 +3130,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0004-raw-json-watermark-contract/" class="md-nav__link">
+      <a href="../../adr/0004-raw-json-watermark-contract/" class="md-nav__link">
         
   
   
@@ -3126,10 +3212,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Quick start
       
     </span>
   </a>
@@ -3137,10 +3223,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+  <a href="#replayconfig-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
+        ReplayConfig fields
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ReplayConfig fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#range-convention-start-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Range convention: [start, end)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chunk_interval-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        chunk_interval keys
       
     </span>
   </a>
@@ -3148,10 +3262,65 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
+  <a href="#chunk-column-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consequences
+        Chunk column resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resume-after-failure-save_watermarktrue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resume after failure (save_watermark=True)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#combining-with-sourcefilter_expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combining with source.filter_expression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-example-quarterly-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full example: quarterly backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
       
     </span>
   </a>
@@ -3175,7 +3344,7 @@
 
 
   
-    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/adr/0001-engine-fmt-parameter.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/how-to/replay-and-backfill.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3183,39 +3352,238 @@
   
 
 
-<h1 id="adr-0001-engine-fmt-parameter-across-format-aware-methods">ADR-0001 — Engine <code>fmt=</code> parameter across format-aware methods<a class="headerlink" href="#adr-0001-engine-fmt-parameter-across-format-aware-methods" title="Permanent link">&para;</a></h1>
-<p><strong>Status</strong> · Accepted</p>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>Early iterations of the engine API had separate methods per format
-(<code>read_parquet</code>, <code>read_delta</code>, <code>read_iceberg</code>, <code>read_csv</code>, …) and
-corresponding writer variants (<code>write_parquet</code>, <code>write_delta</code>, …).
-Destinations and sources dispatched on format by branching at call sites.</p>
-<p>This made two things hard:</p>
-<ol>
-<li><strong>Adding a new format</strong> required touching every destination and source.</li>
-<li><strong>Table-aware methods</strong> (<code>read_table</code>, <code>table_exists_by_name</code>,
-   <code>merge_to_table</code>) had no natural place for Iceberg — it was a
-   copy-paste of the Delta variant with small changes.</li>
-</ol>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>Format-aware methods accept a <strong><code>fmt</code> string</strong> parameter. The engine
-dispatches internally:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_to_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">fmt</span><span class="p">,</span> <span class="n">partition_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;delta&quot;</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">merge_to_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">merge_keys</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;delta&quot;</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">table_exists_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;delta&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span></code></pre></div>
-<p><code>table_exists_by_name</code> uses <strong>keyword-only</strong> <code>fmt</code> — defensive because
-positional args can confuse <code>table_name</code> with format.</p>
-<p>Supported <code>fmt</code> values are listed in <code>datacoolie.core.constants.Format</code>.</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<h1 id="replay-backfill">Replay &amp; backfill<a class="headerlink" href="#replay-backfill" title="Permanent link">&para;</a></h1>
+<p><strong>Prerequisites</strong> · Familiarity with <a href="../../concepts/watermarks/">watermarks</a> and a running <code>DataCoolieDriver</code>.<br />
+<strong>End state</strong> · A completed historical replay of a bounded date range, with optional resume support.</p>
+<p><code>driver.run_replay()</code> re-processes a bounded window of historical data in
+sequential chunks without disturbing the production watermark.  Use it to:</p>
 <ul>
-<li>Adding a new format is a <strong>single engine change</strong> plus destination/source
-  plugins.</li>
-<li>Removes ~500 lines of dispatch boilerplate from destinations/sources.</li>
-<li><code>fmt</code> is now the canonical term throughout docstrings, logs, and metadata
-  — never "format" or "type".</li>
+<li><strong>Backfill</strong> a new destination table from historical source data.</li>
+<li><strong>Repair</strong> a corrupt range after a source system issue.</li>
+<li><strong>Re-run</strong> a date range after a schema or logic change.</li>
+</ul>
+<hr />
+<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.orchestration.driver</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataCoolieDriver</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplayConfig</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">replay</span> <span class="o">=</span> <span class="n">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">start</span><span class="o">=</span><span class="s2">&quot;2025-01-01&quot;</span><span class="p">,</span>          <span class="c1"># inclusive lower bound</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">end</span><span class="o">=</span><span class="s2">&quot;2025-04-01&quot;</span><span class="p">,</span>            <span class="c1"># exclusive upper bound</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">chunk_interval</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;months&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">dataflows</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">dataflows</span><span class="p">,</span> <span class="n">replay</span><span class="o">=</span><span class="n">replay</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunks: succeeded=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">succeeded</span><span class="si">}</span><span class="s2">, failed=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">failed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This replays January, February, and March 2025 as three independent chunks:
+<code>[Jan 1, Feb 1)</code>, <code>[Feb 1, Mar 1)</code>, <code>[Mar 1, Apr 1)</code>.</p>
+<hr />
+<h2 id="replayconfig-fields"><code>ReplayConfig</code> fields<a class="headerlink" href="#replayconfig-fields" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>start</code></td>
+<td><code>str</code>, <code>date</code>, <code>datetime</code>, or <code>int</code></td>
+<td>—</td>
+<td><strong>Inclusive</strong> lower bound of the replay range</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td><code>str</code>, <code>date</code>, <code>datetime</code>, or <code>int</code></td>
+<td>—</td>
+<td><strong>Exclusive</strong> upper bound of the replay range</td>
+</tr>
+<tr>
+<td><code>chunk_interval</code></td>
+<td><code>Dict[str, int]</code> or <code>None</code></td>
+<td><code>None</code></td>
+<td>Chunking interval (see below). <code>None</code> = single-shot replay</td>
+</tr>
+<tr>
+<td><code>save_watermark</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>When <code>True</code>, saves watermark after each chunk (enables crash-resume)</td>
+</tr>
+<tr>
+<td><code>chunk_column</code></td>
+<td><code>str</code> or <code>None</code></td>
+<td><code>None</code></td>
+<td>Override the auto-resolved chunk column</td>
+</tr>
+</tbody>
+</table>
+<h3 id="range-convention-start-end">Range convention: <code>[start, end)</code><a class="headerlink" href="#range-convention-start-end" title="Permanent link">&para;</a></h3>
+<p>The range is <strong>left-closed, right-open</strong>:</p>
+<ul>
+<li><code>start</code> is <strong>included</strong> in the first chunk.</li>
+<li><code>end</code> is <strong>excluded</strong> (the first instant NOT replayed).</li>
+</ul>
+<p>This aligns with Python <code>range()</code>, Spark partitioning, and ISO 8601 interval conventions.</p>
+<hr />
+<h2 id="chunk_interval-keys"><code>chunk_interval</code> keys<a class="headerlink" href="#chunk_interval-keys" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Alignment</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>years</code></td>
+<td>Calendar years</td>
+<td><code>{"years": 1}</code></td>
+</tr>
+<tr>
+<td><code>months</code></td>
+<td>Calendar months</td>
+<td><code>{"months": 1}</code> or <code>{"months": 3}</code></td>
+</tr>
+<tr>
+<td><code>weeks</code></td>
+<td>ISO weeks (Mon–Sun)</td>
+<td><code>{"weeks": 1}</code></td>
+</tr>
+<tr>
+<td><code>days</code></td>
+<td>Calendar days</td>
+<td><code>{"days": 1}</code></td>
+</tr>
+<tr>
+<td><code>hours</code></td>
+<td>Hours</td>
+<td><code>{"hours": 6}</code></td>
+</tr>
+<tr>
+<td><code>minutes</code></td>
+<td>Minutes</td>
+<td><code>{"minutes": 30}</code></td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td>Integer step</td>
+<td><code>{"step": 10000}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>step</code> when <code>watermark_columns</code> holds a row-number or integer sequence id
+instead of a timestamp.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Integer watermark — replay rows 0 to 1,000,000 in batches of 100k</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">end</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">chunk_interval</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="mi">100_000</span><span class="p">},</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Single-shot replay</p>
+<p>Set <code>chunk_interval=None</code> (the default) to replay the entire range as one
+operation. Useful for small ranges or when chunking is not needed.</p>
+</div>
+<hr />
+<h2 id="chunk-column-resolution">Chunk column resolution<a class="headerlink" href="#chunk-column-resolution" title="Permanent link">&para;</a></h2>
+<p>DataCoolie auto-resolves the chunk column from <code>dataflow.source.watermark_columns[0]</code>.</p>
+<p>If your dataflow has multiple watermark columns and the first is not the
+temporal column you want to chunk on, set <code>chunk_column</code> explicitly:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">start</span><span class="o">=</span><span class="s2">&quot;2025-01-01&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">end</span><span class="o">=</span><span class="s2">&quot;2025-04-01&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">chunk_interval</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;months&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">chunk_column</span><span class="o">=</span><span class="s2">&quot;event_date&quot;</span><span class="p">,</span>   <span class="c1"># override; uses this column instead of watermark_columns[0]</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="resume-after-failure-save_watermarktrue">Resume after failure (<code>save_watermark=True</code>)<a class="headerlink" href="#resume-after-failure-save_watermarktrue" title="Permanent link">&para;</a></h2>
+<p>By default (<code>save_watermark=False</code>), the production watermark is never touched
+during replay.  This is safe for backfill into a new table.</p>
+<p>When <code>save_watermark=True</code>, DataCoolie saves the chunk upper bound as the
+watermark after each successful chunk.  On re-run, completed chunks are skipped
+automatically:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">start</span><span class="o">=</span><span class="s2">&quot;2025-01-01&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">end</span><span class="o">=</span><span class="s2">&quot;2025-07-01&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">chunk_interval</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;months&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">save_watermark</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>   <span class="c1"># crash-resume mode: saves watermark per chunk</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Only use <code>save_watermark=True</code> for init / migration scenarios</p>
+<p>When <code>save_watermark=True</code>, the production watermark advances with each
+chunk.  Do not use this if you have an active incremental pipeline running
+in parallel — the watermark change will skip data in the next normal run.</p>
+</div>
+<hr />
+<h2 id="combining-with-sourcefilter_expression">Combining with <code>source.filter_expression</code><a class="headerlink" href="#combining-with-sourcefilter_expression" title="Permanent link">&para;</a></h2>
+<p>If your source dataflow already has a <code>source.filter_expression</code>, DataCoolie
+<strong>appends</strong> the chunk upper-bound condition automatically.  Your original
+filter is preserved:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;connection_name&quot;</span><span class="p">:</span><span class="w">   </span><span class="s2">&quot;orders_db&quot;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;table&quot;</span><span class="p">:</span><span class="w">             </span><span class="s2">&quot;orders&quot;</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">&quot;watermark_columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;updated_at&quot;</span><span class="p">],</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">&quot;filter_expression&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;status = &#39;active&#39;&quot;</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>During replay, the effective WHERE clause for each chunk becomes:
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">updated_at</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="s1">&#39;&lt;lower&gt;&#39;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;active&#39;</span><span class="p">)</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="p">(</span><span class="n">updated_at</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="s1">&#39;&lt;upper&gt;&#39;</span><span class="p">)</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="execution-model">Execution model<a class="headerlink" href="#execution-model" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Dataflows are processed concurrently</strong> (bounded by <code>max_workers</code>).</li>
+<li><strong>Chunks within a single dataflow run sequentially</strong> — a failed chunk stops
+  further chunks for that dataflow but does not affect other dataflows.</li>
+<li>Each chunk records a separate <code>DataFlowRuntimeInfo</code> in the ETL log with
+  <code>operation_type = "replay"</code>.</li>
+<li><code>ExecutionResult.succeeded</code> / <code>failed</code> counts <strong>chunks</strong>, not dataflows.</li>
+</ul>
+<hr />
+<h2 id="full-example-quarterly-backfill">Full example: quarterly backfill<a class="headerlink" href="#full-example-quarterly-backfill" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.orchestration.driver</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataCoolieDriver</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplayConfig</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">replay</span> <span class="o">=</span> <span class="n">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">start</span><span class="o">=</span><span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">end</span><span class="o">=</span><span class="n">date</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>     <span class="c1"># full year 2024</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">chunk_interval</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;months&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">save_watermark</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>      <span class="c1"># backfill: leave production watermark untouched</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p">)</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>    <span class="n">base_log_path</span><span class="o">=</span><span class="s2">&quot;logs/&quot;</span><span class="p">,</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>    <span class="n">dataflows</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">dataflows</span><span class="p">,</span> <span class="n">replay</span><span class="o">=</span><span class="n">replay</span><span class="p">)</span>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total chunks: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Succeeded:    </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">succeeded</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed:       </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">failed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../concepts/watermarks/">Concepts · Watermarks</a></li>
+<li><a href="../../concepts/orchestration/">Concepts · Orchestration</a></li>
+<li><a href="../metadata-guide/source-patterns/">How-to · Source patterns</a></li>
 </ul>
 
 

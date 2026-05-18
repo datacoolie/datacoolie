@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3473,7 +3503,7 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
   </span>
 
 <a href="#datacoolie.orchestration.driver.DEFAULT_TRANSFORMERS" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DEFAULT_TRANSFORMERS</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;schema_converter&#39;</span><span class="p">,</span> <span class="s1">&#39;deduplicator&#39;</span><span class="p">,</span> <span class="s1">&#39;scd2_column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;system_column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;partition_handler&#39;</span><span class="p">,</span> <span class="s1">&#39;column_name_sanitizer&#39;</span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DEFAULT_TRANSFORMERS</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;schema_converter&#39;</span><span class="p">,</span> <span class="s1">&#39;deduplicator&#39;</span><span class="p">,</span> <span class="s1">&#39;column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;row_filter&#39;</span><span class="p">,</span> <span class="s1">&#39;scd2_column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;system_column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;partition_handler&#39;</span><span class="p">,</span> <span class="s1">&#39;column_name_sanitizer&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4181,6 +4211,136 @@ formats only.</p>
             <td>
               <div class="doc-md-description">
                 <p>Aggregated execution statistics.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.orchestration.driver.DataCoolieDriver.run_replay" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">run_replay</span>
+
+
+<a href="#datacoolie.orchestration.driver.DataCoolieDriver.run_replay" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]],</span> <span class="n">replay</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.ReplayConfig" href="../../metadata-schema/#datacoolie.core.models.ReplayConfig">ReplayConfig</a></span><span class="p">,</span> <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Replay a bounded range across one or more dataflows in sequential chunks.</p>
+<p>Each dataflow is processed concurrently (bounded by <code>max_workers</code>);
+chunks within a single dataflow always run sequentially.</p>
+<p>The chunk column is resolved automatically from
+<code>dataflow.source.watermark_columns[0]</code> unless <code>replay.chunk_column</code>
+is set explicitly.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>dataflows</code>
+            </td>
+            <td>
+                  <code><span title="typing.Union">Union</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>, <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One or more dataflows to replay.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>replay</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.ReplayConfig" href="../../metadata-schema/#datacoolie.core.models.ReplayConfig">ReplayConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Replay configuration (range, chunking, watermark policy).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>column_name_mode</code>
+            </td>
+            <td>
+                  <code><span title="typing.Union">Union</span>[<span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Column name case-conversion mode.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>class:<code>ExecutionResult</code> where each counter entry represents one</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>chunk (not one dataflow).  Use :meth:<code>_process_replay</code> directly</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>to obtain the per-chunk :class:<code>DataFlowRuntimeInfo</code> list.</p>
               </div>
             </td>
           </tr>

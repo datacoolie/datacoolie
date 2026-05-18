@@ -73,6 +73,12 @@ rendered view.
 
 ## Supporting models
 
+::: datacoolie.core.models.ReplayConfig
+    options:
+      show_bases: false
+      members_order: source
+      show_source: false
+
 ::: datacoolie.core.models.SchemaHint
     options:
       show_bases: false

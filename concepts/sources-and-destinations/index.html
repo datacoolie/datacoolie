@@ -1050,6 +1050,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Source contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filter_expression-post-read-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        filter_expression (post-read filter)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secret-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secret resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1277,6 +1305,8 @@
   
     
     
+      
+        
       
         
       
@@ -1700,6 +1730,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3137,6 +3195,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Source contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filter_expression-post-read-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        filter_expression (post-read filter)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secret-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secret resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3250,14 +3336,31 @@ for the generated table):</p>
 <p><code>BaseSourceReader[DF]</code> declares:</p>
 <ul>
 <li><code>__init__(engine)</code> — the reader is constructed with an engine</li>
-<li><code>read(source, watermark) -&gt; DF</code> — public entry point (Template Method)</li>
+<li><code>read(source, watermark, *, watermark_operator="&gt;") -&gt; DF</code> — public entry point (Template Method)</li>
 <li>Subclasses implement <code>_read_internal(source, watermark)</code> and optionally <code>_read_data(source, configure)</code></li>
 <li>Must honour <code>source.read_options</code> and <code>source.connection.read_options</code></li>
 </ul>
+<p>The <code>watermark_operator</code> parameter controls the comparison used for the
+incremental filter (<code>"&gt;"</code> for normal ETL, <code>"&gt;="</code> for replay's inclusive
+lower bound).</p>
 <p>The source reader is also responsible for <strong>watermark push-down</strong> — applying
 the watermark predicate <em>during</em> the read when the backend supports it (e.g.
 parquet predicate pushdown, JDBC WHERE clause). If pushdown is not possible the
 reader returns the full DataFrame and the framework filters afterwards.</p>
+<h3 id="filter_expression-post-read-filter"><code>filter_expression</code> (post-read filter)<a class="headerlink" href="#filter_expression-post-read-filter" title="Permanent link">&para;</a></h3>
+<p>After watermark filtering, every reader calls <code>_apply_filter_expression(df,
+source)</code>.  When <code>source.filter_expression</code> is non-empty, the engine evaluates
+it as a SQL WHERE clause against the in-memory DataFrame:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>watermark filter  →  source.filter_expression  →  count / new watermark
+</span></code></pre></div>
+<p>This lets you exclude rows at read time using raw source columns before the
+transformer pipeline runs.  For database readers the expression is pushed into
+the generated WHERE clause alongside the watermark condition.</p>
+<h3 id="secret-resolution">Secret resolution<a class="headerlink" href="#secret-resolution" title="Permanent link">&para;</a></h3>
+<p>Before the reader is created, the driver calls <code>_resolve_connection_secrets()</code>
+which processes <code>connection.secrets_ref</code> and replaces placeholder values in
+<code>configure</code> with actual credentials from the active secret provider.  Readers
+never handle secret fetching directly.</p>
 <h2 id="destination-contract">Destination contract<a class="headerlink" href="#destination-contract" title="Permanent link">&para;</a></h2>
 <p><code>BaseDestinationWriter[DF]</code> declares:</p>
 <ul>
@@ -3285,6 +3388,11 @@ reader returns the full DataFrame and the framework filters afterwards.</p>
 <li><strong>Decimal precision / scale</strong> are honoured when writing to Delta; some Polars
   readers upcast to <code>Float64</code> by default — <code>SchemaHint</code> with
   <code>data_type="decimal"</code> fixes that.</li>
+<li><strong>Two filter points exist</strong> — <code>source.filter_expression</code> (read-time, raw
+  columns) and <code>transform.filter_expression</code> (order 35, after ColumnAdder
+  creates computed columns). See
+  <a href="../transformers-and-pipeline/">Transformers &amp; pipeline</a> for the pipeline
+  ordering.</li>
 </ul>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>

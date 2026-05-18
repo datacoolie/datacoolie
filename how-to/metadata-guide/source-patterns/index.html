@@ -1197,6 +1197,8 @@
       
         
       
+        
+      
     
     
     
@@ -1584,6 +1586,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#filter-rows-at-read-time-sourcefilter_expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filter rows at read time (source.filter_expression)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Filter rows at read time (source.filter_expression)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#database-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-delta-iceberg-and-function-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File, Delta, Iceberg, and function sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-sourcefilter_expression-vs-transformfilter_expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use source.filter_expression vs transform.filter_expression
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#common-mistakes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1833,6 +1885,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3412,6 +3492,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#filter-rows-at-read-time-sourcefilter_expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filter rows at read time (source.filter_expression)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Filter rows at read time (source.filter_expression)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#database-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-delta-iceberg-and-function-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File, Delta, Iceberg, and function sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-sourcefilter_expression-vs-transformfilter_expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use source.filter_expression vs transform.filter_expression
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#common-mistakes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3476,11 +3606,12 @@ per-dataflow overrides. For read behavior, DataCoolie merges them with
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w">              </span><span class="s2">&quot;SELECT * FROM sales.orders&quot;</span><span class="p">,</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;python_function&quot;</span><span class="p">:</span><span class="w">    </span><span class="s2">&quot;mypkg.loaders.load_orders&quot;</span><span class="p">,</span><span class="w"> </span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;watermark_columns&quot;</span><span class="p">:</span><span class="w">  </span><span class="p">[</span><span class="s2">&quot;updated_at&quot;</span><span class="p">],</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">&quot;read_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;separator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;;&quot;</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">&quot;endpoint&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/orders&quot;</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">}</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;filter_expression&quot;</span><span class="p">:</span><span class="w">  </span><span class="s2">&quot;status = &#39;active&#39;&quot;</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">&quot;read_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;separator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;;&quot;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">&quot;endpoint&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/orders&quot;</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -3513,6 +3644,10 @@ per-dataflow overrides. For read behavior, DataCoolie merges them with
 <tr>
 <td><code>watermark_columns</code></td>
 <td>Incremental loading</td>
+</tr>
+<tr>
+<td><code>filter_expression</code></td>
+<td>SQL predicate applied at read time on raw source columns, after the watermark filter</td>
 </tr>
 <tr>
 <td><code>configure</code></td>
@@ -4041,6 +4176,61 @@ the max <code>updated_at</code> value. On subsequent runs it adds <code>WHERE up
 </table>
 <p>See <a href="../../../concepts/watermarks/">Concepts · Watermarks</a> for the storage
 format and provider interaction.</p>
+<hr />
+<h2 id="filter-rows-at-read-time-sourcefilter_expression">Filter rows at read time (<code>source.filter_expression</code>)<a class="headerlink" href="#filter-rows-at-read-time-sourcefilter_expression" title="Permanent link">&para;</a></h2>
+<p><code>filter_expression</code> is a SQL predicate applied <strong>after</strong> the watermark filter,
+inside every source reader. It lets you pre-filter rows based on raw source
+columns before the transformer pipeline runs.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">&quot;connection_name&quot;</span><span class="p">:</span><span class="w">   </span><span class="s2">&quot;postgres_src&quot;</span><span class="p">,</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">&quot;schema_name&quot;</span><span class="p">:</span><span class="w">       </span><span class="s2">&quot;public&quot;</span><span class="p">,</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">&quot;table&quot;</span><span class="p">:</span><span class="w">             </span><span class="s2">&quot;orders&quot;</span><span class="p">,</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">&quot;watermark_columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;updated_at&quot;</span><span class="p">],</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="nt">&quot;filter_expression&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;status = &#39;active&#39; AND region = &#39;US&#39;&quot;</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>This is particularly useful when the source table holds multiple logical
+datasets and you only want one segment, or when you want to exclude known
+bad data before it enters the pipeline at all.</p>
+<h3 id="database-sources">Database sources<a class="headerlink" href="#database-sources" title="Permanent link">&para;</a></h3>
+<p>For SQL table/query sources, <code>filter_expression</code> is appended to the generated
+<code>WHERE</code> clause alongside the watermark condition:</p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1">-- generated SQL (conceptual)</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">orders</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">updated_at</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="s1">&#39;2024-01-01&#39;</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;active&#39;</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="n">region</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;US&#39;</span>
+</span></code></pre></div>
+<h3 id="file-delta-iceberg-and-function-sources">File, Delta, Iceberg, and function sources<a class="headerlink" href="#file-delta-iceberg-and-function-sources" title="Permanent link">&para;</a></h3>
+<p>For in-process readers (file, lakehouse, Python function), the predicate is
+applied by the engine as an in-memory filter after the read.</p>
+<h3 id="when-to-use-sourcefilter_expression-vs-transformfilter_expression">When to use <code>source.filter_expression</code> vs <code>transform.filter_expression</code><a class="headerlink" href="#when-to-use-sourcefilter_expression-vs-transformfilter_expression" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>source.filter_expression</code></th>
+<th><code>transform.filter_expression</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Stage</strong></td>
+<td>Read time (earliest possible)</td>
+<td>Transformer order 35 (after ColumnAdder)</td>
+</tr>
+<tr>
+<td><strong>Available columns</strong></td>
+<td>Raw source columns and watermark columns</td>
+<td>Source columns + columns from <code>additional_columns</code></td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Excluding rows that should never enter the pipeline</td>
+<td>Filtering on computed/derived columns</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="common-mistakes">Common mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
 <table>

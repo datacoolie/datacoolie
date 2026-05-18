@@ -1059,10 +1059,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-seven-built-ins-order-responsibility" class="md-nav__link">
+  <a href="#the-eight-built-ins-order-responsibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The seven built-ins (order → responsibility)
+        The eight built-ins (order → responsibility)
       
     </span>
   </a>
@@ -1070,10 +1070,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-slots-jump-from-30-to-60" class="md-nav__link">
+  <a href="#why-slots-jump-from-35-to-60" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why slots jump from 30 to 60?
+        Why slots jump from 35 to 60?
       
     </span>
   </a>
@@ -1277,6 +1277,8 @@
   
     
     
+      
+        
       
         
       
@@ -1700,6 +1702,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3118,10 +3148,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-seven-built-ins-order-responsibility" class="md-nav__link">
+  <a href="#the-eight-built-ins-order-responsibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The seven built-ins (order → responsibility)
+        The eight built-ins (order → responsibility)
       
     </span>
   </a>
@@ -3129,10 +3159,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-slots-jump-from-30-to-60" class="md-nav__link">
+  <a href="#why-slots-jump-from-35-to-60" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why slots jump from 30 to 60?
+        Why slots jump from 35 to 60?
       
     </span>
   </a>
@@ -3200,9 +3230,9 @@
 <h1 id="transformers-pipeline">Transformers &amp; pipeline<a class="headerlink" href="#transformers-pipeline" title="Permanent link">&para;</a></h1>
 <p><strong>TL;DR</strong> <code>TransformerPipeline</code> runs a fixed ordered list of transformers
 between read and write. Each transformer has an <code>order</code> integer (lower first);
-DataCoolie's seven built-ins claim the slots <strong>10 / 20 / 30 / 60 / 70 / 80 / 90</strong>,
+DataCoolie's eight built-ins claim the slots <strong>10 / 20 / 30 / 35 / 60 / 70 / 80 / 90</strong>,
 leaving <strong>40–50</strong> free for user plugins.</p>
-<h2 id="the-seven-built-ins-order-responsibility">The seven built-ins (order → responsibility)<a class="headerlink" href="#the-seven-built-ins-order-responsibility" title="Permanent link">&para;</a></h2>
+<h2 id="the-eight-built-ins-order-responsibility">The eight built-ins (order → responsibility)<a class="headerlink" href="#the-eight-built-ins-order-responsibility" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -3226,6 +3256,11 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 <td><strong>30</strong></td>
 <td><code>ColumnAdder</code></td>
 <td>User-configured calculated columns from <code>transform.additional_columns</code>.</td>
+</tr>
+<tr>
+<td><strong>35</strong></td>
+<td><code>RowFilter</code></td>
+<td>Discard rows by <code>transform.filter_expression</code> after computed columns exist but before SCD2 logic.</td>
 </tr>
 <tr>
 <td><strong>60</strong></td>
@@ -3254,16 +3289,17 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;schema_converter&quot;</span><span class="p">,</span>       <span class="c1"># 10</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;deduplicator&quot;</span><span class="p">,</span>           <span class="c1"># 20</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;column_adder&quot;</span><span class="p">,</span>           <span class="c1"># 30</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;scd2_column_adder&quot;</span><span class="p">,</span>      <span class="c1"># 60</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;system_column_adder&quot;</span><span class="p">,</span>    <span class="c1"># 70</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;partition_handler&quot;</span><span class="p">,</span>      <span class="c1"># 80</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;column_name_sanitizer&quot;</span><span class="p">,</span>  <span class="c1"># 90</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">]</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;row_filter&quot;</span><span class="p">,</span>             <span class="c1"># 35 — post-column_adder, pre-scd2</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;scd2_column_adder&quot;</span><span class="p">,</span>      <span class="c1"># 60</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;system_column_adder&quot;</span><span class="p">,</span>    <span class="c1"># 70</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;partition_handler&quot;</span><span class="p">,</span>      <span class="c1"># 80</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;column_name_sanitizer&quot;</span><span class="p">,</span>  <span class="c1"># 90</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">]</span>
 </span></code></pre></div>
 <p>(List order is informational; <code>TransformerPipeline</code> sorts by the transformer's
-<code>order</code> attribute, so <code>ColumnAdder</code> (30) still runs before <code>SCD2ColumnAdder</code>
-(60).)</p>
-<h2 id="why-slots-jump-from-30-to-60">Why slots jump from 30 to 60?<a class="headerlink" href="#why-slots-jump-from-30-to-60" title="Permanent link">&para;</a></h2>
+<code>order</code> attribute, so <code>ColumnAdder</code> (30) still runs before <code>RowFilter</code> (35)
+and <code>SCD2ColumnAdder</code> (60).)</p>
+<h2 id="why-slots-jump-from-35-to-60">Why slots jump from 35 to 60?<a class="headerlink" href="#why-slots-jump-from-35-to-60" title="Permanent link">&para;</a></h2>
 <p>Slots <strong>40–50 are reserved for your plugins</strong>. A common third-party addition
 is a PII masker at 40 or a validator at 50. See
 <a href="../../adr/0003-transformer-ordering-slots/">ADR-0003</a>.</p>

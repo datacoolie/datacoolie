@@ -1197,6 +1197,8 @@
       
         
       
+        
+      
     
     
     
@@ -1760,6 +1762,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3425,6 +3455,8 @@ with engine.connect() as conn:
       <code>mypkg.loaders.load_orders</code> and is allowed by runtime prefix rules if you
       use <code>allowed_function_prefixes</code>.</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Any <code>source.configure.read_options</code> override is intentional and engine-valid.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>source.filter_expression</code> is set, the SQL predicate references only
+      columns that exist in the raw source data (not computed columns).</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If the file source uses <code>date_folder_partitions</code> or backward replay, you
       have verified the folder layout matches the pattern.</li>
 </ul>
@@ -3475,6 +3507,12 @@ with engine.connect() as conn:
 <li>Polars: use <code>EXTRACT(YEAR FROM col)</code>, not <code>year(col)</code>.</li>
 <li>Polars: use <code>CAST(col AS DATE)</code>, not <code>date(col)</code>.</li>
 <li>Both: standard SQL arithmetic, <code>CASE WHEN</code>, string concatenation work.</li>
+</ul>
+</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If <code>transform.filter_expression</code> is set:<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The SQL predicate is valid for your engine.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> It only references source columns or columns created by
+        <code>additional_columns</code> (not system columns added later at order 70).</li>
 </ul>
 </li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You have not configured <code>__created_at</code>, <code>__updated_at</code>, or <code>__updated_by</code>

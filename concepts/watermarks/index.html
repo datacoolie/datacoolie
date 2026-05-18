@@ -1145,6 +1145,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Read-side push-down">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#watermark-operator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watermark operator
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1166,6 +1183,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Write-side update">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#replay-watermark-behaviour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay watermark behaviour
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1299,6 +1333,8 @@
   
     
     
+      
+        
       
         
       
@@ -1722,6 +1758,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3170,6 +3234,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Read-side push-down">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#watermark-operator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watermark operator
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3191,6 +3272,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Write-side update">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#replay-watermark-behaviour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay watermark behaviour
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3278,6 +3376,33 @@ round-trip through JSON losslessly.</p>
   <code>watermark_param_location</code>, and <code>watermark_param_format</code>.</li>
 <li><strong>CSV / JSON / Excel</strong> — full scan, then filter in the engine (fallback).</li>
 </ul>
+<h3 id="watermark-operator">Watermark operator<a class="headerlink" href="#watermark-operator" title="Permanent link">&para;</a></h3>
+<p>By default the comparison is <code>&gt;</code> (strict greater-than), meaning "only rows
+newer than the last saved value".  During <strong>replay</strong>, the driver passes
+<code>watermark_operator="&gt;="</code> (inclusive) so that the lower-bound chunk boundary is
+included in the read.  Source readers forward this operator to the engine's
+<code>apply_watermark_filter</code> method.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Operator</th>
+<th>Semantics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal ETL</td>
+<td><code>&gt;</code></td>
+<td>Exclusive — skip the exact last-saved row</td>
+</tr>
+<tr>
+<td>Replay chunk</td>
+<td><code>&gt;=</code></td>
+<td>Inclusive — include the chunk start value</td>
+</tr>
+</tbody>
+</table>
 <h2 id="backward-look-back">Backward look-back<a class="headerlink" href="#backward-look-back" title="Permanent link">&para;</a></h2>
 <p><code>Connection.date_backward</code> reads backward offsets from the <code>configure</code> dict:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">configure</span><span class="p">:</span>
@@ -3297,6 +3422,30 @@ next watermark from the configured <code>source.watermark_columns</code> during 
 flow, and the driver saves that value only after the destination write
 succeeds. On failure nothing is written — the next run retries from the same
 watermark.</p>
+<h3 id="replay-watermark-behaviour">Replay watermark behaviour<a class="headerlink" href="#replay-watermark-behaviour" title="Permanent link">&para;</a></h3>
+<p>During <code>run_replay()</code>, watermark persistence is controlled by
+<code>ReplayConfig.save_watermark</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>save_watermark</code></th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>False</code> (default)</td>
+<td>Production watermark is <strong>never touched</strong> — safe for backfill into new tables</td>
+</tr>
+<tr>
+<td><code>True</code></td>
+<td>Chunk upper bound is saved after each successful chunk — enables crash-resume</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>save_watermark=True</code>, already-completed chunks are skipped on re-run by
+comparing the stored watermark against chunk boundaries.</p>
+<p>See <a href="../../how-to/replay-and-backfill/">How-to · Replay &amp; backfill</a>.</p>
 <h2 id="empty-watermark-semantics">Empty watermark semantics<a class="headerlink" href="#empty-watermark-semantics" title="Permanent link">&para;</a></h2>
 <p><code>is_watermark_empty(wm)</code> returns <code>True</code> when:</p>
 <ul>

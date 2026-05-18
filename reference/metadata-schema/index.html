@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -2222,6 +2252,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.models.Destination.replace_by_watermark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;replace_by_watermark
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2312,10 +2353,43 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#datacoolie.core.models.DataFlow.watermark_window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;watermark_window
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#datacoolie.core.models.DataFlow.order_columns" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;order_columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.models.DataFlow.validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.models.DataFlow.apply_watermark_window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_watermark_window
       
     </span>
   </a>
@@ -2332,6 +2406,17 @@
     <span class="md-ellipsis">
       
         Supporting models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datacoolie.core.models.ReplayConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ReplayConfig
       
     </span>
   </a>
@@ -3878,6 +3963,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.models.Destination.replace_by_watermark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;replace_by_watermark
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3968,10 +4064,43 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#datacoolie.core.models.DataFlow.watermark_window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;watermark_window
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#datacoolie.core.models.DataFlow.order_columns" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;order_columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.models.DataFlow.validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datacoolie.core.models.DataFlow.apply_watermark_window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_watermark_window
       
     </span>
   </a>
@@ -3988,6 +4117,17 @@
     <span class="md-ellipsis">
       
         Supporting models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datacoolie.core.models.ReplayConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ReplayConfig
       
     </span>
   </a>
@@ -4786,6 +4926,34 @@ Returns <code>None</code> when not set (non-SCD2 destinations).</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="datacoolie.core.models.Destination.replace_by_watermark" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">replace_by_watermark</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#datacoolie.core.models.Destination.replace_by_watermark" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">replace_by_watermark</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether merge_overwrite should use range-based window replace.</p>
+<p>When <code>True</code>, the strategy deletes all target rows within the
+watermark window (watermark_effective → new_watermark) instead of
+doing key-based delete.  This handles source-side deletions.</p>
+<p>Requires <code>date_backward</code> on the source to ensure the read window
+covers the delete scope.</p>
+    </div>
+
+</div>
+
 
 
 
@@ -4966,6 +5134,31 @@ Defaults to <code>False</code>.</p>
 
 
 
+<h3 id="datacoolie.core.models.DataFlow.watermark_window" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">watermark_window</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#datacoolie.core.models.DataFlow.watermark_window" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">watermark_window</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">]]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Watermark window for range-based replace.</p>
+<p>Set by the driver after source read.  Maps column names to
+<code>(lower_bound, upper_bound)</code> tuples.</p>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
 <h3 id="datacoolie.core.models.DataFlow.order_columns" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">order_columns</span>
 
@@ -4989,6 +5182,49 @@ falls back to <code>source.watermark_columns</code>.</p>
 
 
 
+<div class="doc doc-object doc-function">
+
+
+<h3 id="datacoolie.core.models.DataFlow.validate" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">validate</span>
+
+
+<a href="#datacoolie.core.models.DataFlow.validate" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">validate</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Validate metadata configuration; raise on invalid combinations.</p>
+<p>Called automatically in <code>__post_init__</code> to fail fast at
+metadata load time.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="datacoolie.core.models.DataFlow.apply_watermark_window" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">apply_watermark_window</span>
+
+
+<a href="#datacoolie.core.models.DataFlow.apply_watermark_window" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_watermark_window</span><span class="p">(</span><span class="n">source_runtime</span><span class="p">:</span> <span class="s1">&#39;SourceRuntimeInfo&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Set :attr:<code>watermark_window</code> from source runtime info.</p>
+<p>Computes the (watermark_effective, watermark_after) window per
+column when <code>replace_by_watermark</code> is active and both bounds
+are available.  Otherwise leaves the window as <code>None</code>.</p>
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -4997,6 +5233,182 @@ falls back to <code>source.watermark_columns</code>.</p>
 
 </div><h2 id="supporting-models">Supporting models<a class="headerlink" href="#supporting-models" title="Permanent link">&para;</a></h2>
 
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="datacoolie.core.models.ReplayConfig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">ReplayConfig</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#datacoolie.core.models.ReplayConfig" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ReplayConfig</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">chunk_interval</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">save_watermark</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">chunk_column</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+        <p>Configuration for replaying a bounded time range in chunks.</p>
+<p>Used by :meth:<code>DataCoolieDriver.run_replay</code> to reprocess historical
+data without corrupting the production watermark.</p>
+<p>The range uses the left-closed, right-open <code>[start, end)</code> convention:
+<em>start</em> is <strong>inclusive</strong>, <em>end</em> is <strong>exclusive</strong>.  This aligns chunks
+to whole calendar units (days, weeks, months, etc.) and is the
+industry-standard interval convention used by Python’s <code>range()</code>,
+Spark partition pruning, and PostgreSQL range types.</p>
+<p>Example::</p>
+<div class="language-text highlight"><pre><span></span><code># Replay all of Q1 2025 in monthly chunks:
+ReplayConfig(
+    start=&quot;2025-01-01&quot;,  # inclusive
+    end=&quot;2025-04-01&quot;,    # exclusive (first day NOT included)
+    chunk_interval={&quot;months&quot;: 1},
+)
+# Produces chunks: [Jan 1, Feb 1), [Feb 1, Mar 1), [Mar 1, Apr 1)
+</code></pre></div>
+<p>The chunk column is auto-resolved from
+<code>dataflow.source.watermark_columns[0]</code> at runtime.  Override with
+<code>chunk_column</code> for multi-column watermarks where the first column
+is not the one to chunk on.</p>
+<p>Type detection is automatic:</p>
+<ul>
+<li><code>str</code> parseable to date/datetime → time-based chunking</li>
+<li><code>datetime</code> / <code>date</code> objects → time-based chunking</li>
+<li><code>int</code> → integer-based chunking</li>
+</ul>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>start</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Inclusive lower bound of the replay range.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>end</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Exclusive upper bound of the replay range.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>chunk_interval</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="int">int</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Chunking interval.  Time-based keys (<code>months</code>,
+<code>days</code>, <code>hours</code>, <code>minutes</code>, <code>weeks</code>, <code>years</code>) use
+<code>relativedelta</code>; <code>step</code> key is for integer watermarks.
+<code>None</code> disables chunking (single-shot replay).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>save_watermark</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code> (init mode), save the watermark
+after each successful chunk — enables crash-resume.
+When <code>False</code> (backfill mode), the stored watermark is
+never touched.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>chunk_column</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Override auto-resolved chunk column.  Only needed
+for multi-column watermarks where the first column is not
+the desired chunking dimension.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-class">
 

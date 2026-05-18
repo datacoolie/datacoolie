@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -2744,6 +2774,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#systemlogger-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SystemLogger levels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#analyst-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analyst outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#partitioning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3151,6 +3203,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#systemlogger-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SystemLogger levels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#analyst-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analyst outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#partitioning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3226,14 +3300,14 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── etl_logs/
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── debug_json/
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   │   └── job_run_log/
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   │       └── __run_date=yyyy-mm-dd/job_&lt;stem&gt;.jsonl
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   │       └── __run_date=yyyy-mm-dd/job_&lt;stem&gt;.jsonl          ← appended
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   └── analyst/
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│       ├── job_run_log/
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│       │   └── __run_date=yyyy-mm-dd/job_&lt;stem&gt;.parquet
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│       │   └── __run_date=yyyy-mm-dd/job_run_log.jsonl         ← shared daily file, appended
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│       └── dataflow_run_log/
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│           └── __run_date=yyyy-mm-dd/dataflow_&lt;stem&gt;.parquet
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│           └── __run_date=yyyy-mm-dd/dataflow_&lt;stem&gt;.parquet   ← per-run file
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>└── system_logs/
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    └── __run_date=yyyy-mm-dd/system_log_&lt;ts&gt;_&lt;job_num&gt;_&lt;job_index&gt;_&lt;job_id&gt;.jsonl
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    └── __run_date=yyyy-mm-dd/system_log_&lt;job_id&gt;.log          ← plain text, appended
 </span></code></pre></div>
 <h2 id="two-loggers-two-purposes">Two loggers, two purposes<a class="headerlink" href="#two-loggers-two-purposes" title="Permanent link">&para;</a></h2>
 <table>
@@ -3252,8 +3326,8 @@
 </tr>
 <tr>
 <td>Format</td>
-<td>Debug JSONL plus analyst Parquet</td>
-<td>JSONL, one event per line</td>
+<td>Debug JSONL + analyst JSONL/Parquet</td>
+<td>Plain text <code>.log</code>, one line per record</td>
 </tr>
 <tr>
 <td>Purpose</td>
@@ -3265,11 +3339,56 @@
 <td>Long-term (feeds dashboards)</td>
 <td>Short-term (rotate aggressively)</td>
 </tr>
+<tr>
+<td>Flush</td>
+<td>Periodic <code>append_file</code> + final on close</td>
+<td>Periodic <code>append_file</code> (timer) + final on close</td>
+</tr>
 </tbody>
 </table>
+<h2 id="systemlogger-levels">SystemLogger levels<a class="headerlink" href="#systemlogger-levels" title="Permanent link">&para;</a></h2>
+<p><code>SystemLogger</code> supports two independent log levels:</p>
+<ul>
+<li><strong><code>log_level</code></strong> (default <code>INFO</code>) — what is printed to the console.  Set by
+  the Driver configuration.</li>
+<li><strong><code>file_level</code></strong> (default <code>DEBUG</code>) — what is captured to the <code>.log</code> file.
+  Captures all framework messages regardless of the console level, acting as a
+  "black box recorder" for post-mortem diagnosis.</li>
+</ul>
+<h2 id="analyst-outputs">Analyst outputs<a class="headerlink" href="#analyst-outputs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Log type</th>
+<th>Format</th>
+<th>File per …</th>
+<th>Query</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>job_run_log</code></td>
+<td>JSONL</td>
+<td>Day (shared, appended)</td>
+<td>Read one file per day for job history</td>
+</tr>
+<tr>
+<td><code>dataflow_run_log</code></td>
+<td>Parquet (Snappy)</td>
+<td>Job run</td>
+<td>Scan with Spark / Polars / Athena</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>job_run_log.jsonl</code> is a <strong>shared daily file</strong>: every job run on the same
+date appends its summary line to the same file.  This makes it efficient to
+query recent job history without listing many small per-run files.  It is also
+hive-partition compatible (<code>__run_date=yyyy-mm-dd</code>) so Spark / Polars can
+discover the <code>run_date</code> column automatically.</p>
 <h2 id="partitioning">Partitioning<a class="headerlink" href="#partitioning" title="Permanent link">&para;</a></h2>
 <p>ETL logs are partitioned by <strong>purpose</strong> and <strong>log type</strong>, then by run date:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>etl_logs/analyst/dataflow_run_log/__run_date=2026-01-03/dataflow_&lt;stem&gt;.parquet
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log.jsonl
 </span></code></pre></div>
 <p>Query them directly with Spark / Polars / Athena.</p>
 <h2 id="configuring">Configuring<a class="headerlink" href="#configuring" title="Permanent link">&para;</a></h2>
@@ -3280,7 +3399,7 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Use <code>log_config=LogConfig(...)</code> when you need to override partition pattern,
-flush interval, or temporary storage mode.</p>
+flush interval, temporary storage mode, or the <code>file_level</code> for <code>SystemLogger</code>.</p>
 <h2 id="debug-mode">Debug mode<a class="headerlink" href="#debug-mode" title="Permanent link">&para;</a></h2>
 <p>When ETL logging is enabled, debug JSONL is written under the <code>debug_json</code>
 purpose folder. <code>LogPurpose.DEBUG.value == "debug_json"</code>.</p>

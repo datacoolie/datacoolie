@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1613,6 +1615,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/partitioning-and-sanitization/" class="md-nav__link">
         
   
@@ -1998,6 +2028,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="run.py">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#replay-mode-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay mode flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3151,6 +3198,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="run.py">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#replay-mode-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay mode flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3308,14 +3372,112 @@ template you should copy into your own repo.</p>
 <code>--storage-options KEY=VALUE</code>, <code>--log-path</code>, <code>--max-workers</code>,
 <code>--skip-api-sources</code>, <code>--catalog-preset</code>, <code>--iceberg-catalog-uri</code>,
 <code>--uc-token</code>, and <code>--uc-credential</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Optional flag</th>
+<th>Values / Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--platform</code></td>
+<td><code>local</code> (default) · <code>aws</code></td>
+</tr>
+<tr>
+<td><code>--column-name-mode</code></td>
+<td><code>lower</code> (default) · <code>snake</code></td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Flag — plan without reading or writing</td>
+</tr>
+<tr>
+<td><code>--storage-options KEY=VALUE</code></td>
+<td>Repeatable — e.g. <code>AWS_REGION=us-east-1</code></td>
+</tr>
+<tr>
+<td><code>--log-path</code></td>
+<td>Output directory for ETL and system logs</td>
+</tr>
+<tr>
+<td><code>--max-workers</code></td>
+<td>Integer — overrides <code>DataCoolieRunConfig.max_workers</code></td>
+</tr>
+<tr>
+<td><code>--skip-api-sources</code></td>
+<td>Flag — skip dataflows whose source <code>connection_type</code> is <code>api</code></td>
+</tr>
+<tr>
+<td><code>--catalog-preset</code></td>
+<td><code>local</code> (default) · <code>unity_catalog</code></td>
+</tr>
+<tr>
+<td><code>--iceberg-catalog-uri</code></td>
+<td>Catalog URI for Iceberg</td>
+</tr>
+<tr>
+<td><code>--uc-token</code></td>
+<td>Unity Catalog access token</td>
+</tr>
+<tr>
+<td><code>--uc-credential</code></td>
+<td>Alternative Unity Catalog credential</td>
+</tr>
+</tbody>
+</table>
+<h3 id="replay-mode-flags">Replay mode flags<a class="headerlink" href="#replay-mode-flags" title="Permanent link">&para;</a></h3>
+<p>When <code>--replay-start</code> and <code>--replay-end</code> are provided, <code>run.py</code> calls
+<code>driver.run_replay()</code> instead of <code>driver.run()</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--replay-start</code></td>
+<td>Inclusive lower bound — ISO date/datetime string or integer</td>
+</tr>
+<tr>
+<td><code>--replay-end</code></td>
+<td>Exclusive upper bound — ISO date/datetime string or integer</td>
+</tr>
+<tr>
+<td><code>--replay-chunk-interval KEY=VALUE</code></td>
+<td>Repeatable — e.g. <code>days=1</code> or <code>months=1</code></td>
+</tr>
+<tr>
+<td><code>--replay-save-watermark</code></td>
+<td>Flag — save watermark after each chunk (crash-resume)</td>
+</tr>
+<tr>
+<td><code>--replay-chunk-column</code></td>
+<td>Override auto-resolved chunk column</td>
+</tr>
+</tbody>
+</table>
+<p>Example — replay Q1 2025 in monthly chunks:</p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span> <span class="p">`</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="p">-</span><span class="n">-metadata-source</span> <span class="n">file</span> <span class="p">`</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="p">-</span><span class="n">-metadata-path</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">metadata</span><span class="p">/</span><span class="n">file</span><span class="p">/</span><span class="n">local_use_cases</span><span class="p">.</span><span class="n">json</span> <span class="p">`</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="p">-</span><span class="n">-stage</span> <span class="n">bronze2silver</span> <span class="p">`</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">-</span><span class="n">-replay-start</span> <span class="n">2025</span><span class="p">-</span><span class="n">01</span><span class="p">-</span><span class="n">01</span> <span class="p">`</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">-</span><span class="n">-replay-end</span> <span class="n">2025</span><span class="p">-</span><span class="n">04</span><span class="p">-</span><span class="n">01</span> <span class="p">`</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">-</span><span class="n">-replay-chunk-interval</span> <span class="n">months</span><span class="p">=</span><span class="n">1</span>
+</span></code></pre></div>
+<p>See <a href="../../how-to/replay-and-backfill/">How-to · Replay &amp; backfill</a>.</p>
 <p>Spark-only optional flags: <code>--app-name</code> and repeatable <code>--spark-config KEY=VALUE</code>.</p>
 <p>Typical invocation:</p>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c"># From datacoolie/</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span> <span class="p">`</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="p">-</span><span class="n">-metadata-source</span> <span class="n">file</span> <span class="p">`</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="p">-</span><span class="n">-metadata-path</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">metadata</span><span class="p">/</span><span class="n">file</span><span class="p">/</span><span class="n">orders_csv_to_parquet_full_load</span><span class="p">.</span><span class="n">json</span> <span class="p">`</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">-</span><span class="n">-stage</span> <span class="n">ingest2bronze</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c"># From datacoolie/</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span> <span class="p">`</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="p">-</span><span class="n">-metadata-source</span> <span class="n">file</span> <span class="p">`</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="p">-</span><span class="n">-metadata-path</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">metadata</span><span class="p">/</span><span class="n">file</span><span class="p">/</span><span class="n">orders_csv_to_parquet_full_load</span><span class="p">.</span><span class="n">json</span> <span class="p">`</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="p">-</span><span class="n">-stage</span> <span class="n">ingest2bronze</span>
 </span></code></pre></div>
 <h2 id="maintenancepy"><code>maintenance.py</code><a class="headerlink" href="#maintenancepy" title="Permanent link">&para;</a></h2>
 <p>Required flags:</p>
@@ -3351,11 +3513,11 @@ template you should copy into your own repo.</p>
 </ul>
 <p>Spark-only optional flags: <code>--app-name</code> and repeatable <code>--spark-config KEY=VALUE</code>.</p>
 <p>Typical invocation:</p>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">maintenance</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span> <span class="p">`</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="p">-</span><span class="n">-metadata-path</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">metadata</span><span class="p">/</span><span class="n">file</span><span class="p">/</span><span class="n">local_use_cases</span><span class="p">.</span><span class="n">json</span> <span class="p">`</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="p">-</span><span class="n">-connection</span> <span class="n">local_bronze</span> <span class="p">`</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="p">-</span><span class="n">-retention-hours</span> <span class="n">168</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">maintenance</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span> <span class="p">`</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="p">-</span><span class="n">-metadata-path</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">metadata</span><span class="p">/</span><span class="n">file</span><span class="p">/</span><span class="n">local_use_cases</span><span class="p">.</span><span class="n">json</span> <span class="p">`</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="p">-</span><span class="n">-connection</span> <span class="n">local_bronze</span> <span class="p">`</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="p">-</span><span class="n">-retention-hours</span> <span class="n">168</span>
 </span></code></pre></div>
 <h2 id="run_scenariopy"><code>run_scenario.py</code><a class="headerlink" href="#run_scenariopy" title="Permanent link">&para;</a></h2>
 <p>Dispatches named scenarios from <code>usecase-sim/scenarios/scenarios.json</code>.</p>

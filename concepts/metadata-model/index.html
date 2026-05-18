@@ -1363,6 +1363,8 @@
       
         
       
+        
+      
     
     
     
@@ -1761,6 +1763,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3365,6 +3395,7 @@ transforms are <strong>dataflow-scoped</strong>.</p>
 <ul>
 <li><code>schema_name</code>, <code>table</code> — used to build the path (<code>{base_path}/{schema_name}/{table}</code>) or the qualified name (<code>`catalog`.`database`.`schema`.`table`</code>)</li>
 <li>source-only: <code>watermark_columns</code> — list of column names used for incremental reads</li>
+<li>source-only: <code>filter_expression</code> — SQL predicate applied at read time (after watermark filter) on raw source columns</li>
 <li>destination-only: <code>load_type</code> (<code>append</code> / <code>overwrite</code> / <code>merge_upsert</code> / <code>merge_overwrite</code> / <code>scd2</code>), <code>merge_keys</code>, <code>partition_columns</code></li>
 </ul>
 <h3 id="transform"><code>Transform</code><a class="headerlink" href="#transform" title="Permanent link">&para;</a></h3>
@@ -3372,6 +3403,7 @@ transforms are <strong>dataflow-scoped</strong>.</p>
 <li><code>deduplicate_columns</code> — list of key column names for deduplication (maps to <code>Deduplicator</code>)</li>
 <li><code>latest_data_columns</code> — columns used to pick the latest row when deduplicating</li>
 <li><code>additional_columns</code> — list of <code>{column, expression}</code> for computed columns</li>
+<li><code>filter_expression</code> — SQL predicate applied at transformer order 35 (after <code>ColumnAdder</code> creates computed columns)</li>
 <li><code>schema_hints</code> — list of <code>SchemaHint</code> rows applied by the <code>SchemaConverter</code></li>
 <li><code>configure</code> — arbitrary JSON options passed through to transformers</li>
 </ul>

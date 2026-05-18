@@ -1209,6 +1209,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#replay-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay / backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1299,6 +1310,8 @@
   
     
     
+      
+        
       
         
       
@@ -1722,6 +1735,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -3206,6 +3247,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#replay-backfill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay / backfill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3310,6 +3362,30 @@ variant for <code>OPTIMIZE</code> / <code>VACUUM</code>. It:</p>
 <p><code>DataCoolieRunConfig(dry_run=True)</code> logs what <em>would</em> happen without reads,
 writes, or watermark updates. Useful for validating new metadata before the
 first real run.</p>
+<h2 id="replay-backfill">Replay / backfill<a class="headerlink" href="#replay-backfill" title="Permanent link">&para;</a></h2>
+<p><code>driver.run_replay(dataflows, replay: ReplayConfig)</code> re-processes a bounded
+historical range in sequential, calendar-aligned chunks without disturbing the
+production watermark.</p>
+<p>Each dataflow is processed concurrently (bounded by <code>max_workers</code>); chunks
+within a single dataflow always run sequentially.  A <code>ReplayConfig</code> specifies:</p>
+<ul>
+<li><code>start</code> / <code>end</code> — inclusive/exclusive bounds (timestamps, dates, or integers).</li>
+<li><code>chunk_interval</code> — chunking unit such as <code>{"months": 1}</code> or <code>{"days": 7}</code>.</li>
+<li><code>save_watermark</code> — when <code>True</code>, enables crash-resume by saving the chunk
+  upper bound as the watermark after each successful chunk.</li>
+<li><code>chunk_column</code> — overrides the auto-resolved column (defaults to
+  <code>watermark_columns[0]</code>).</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplayConfig</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">replay</span> <span class="o">=</span> <span class="n">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">start</span><span class="o">=</span><span class="s2">&quot;2025-01-01&quot;</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">end</span><span class="o">=</span><span class="s2">&quot;2025-04-01&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">chunk_interval</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;months&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">dataflows</span><span class="p">,</span> <span class="n">replay</span><span class="o">=</span><span class="n">replay</span><span class="p">)</span>
+</span></code></pre></div>
+<p>See <a href="../../how-to/replay-and-backfill/">How-to · Replay &amp; backfill</a>.</p>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../reference/api/orchestration/"><code>reference/api/orchestration</code></a></li>

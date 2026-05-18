@@ -1195,6 +1195,8 @@
       
         
       
+        
+      
     
     
     
@@ -1593,6 +1595,34 @@
     
   
     Merge & SCD2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
   
 
     
@@ -4412,6 +4442,11 @@ provide lookup by load-type string.</p>
 
 
         <p>Merge overwrite — delete + re-insert matching rows.</p>
+<p>When <code>destination.replace_by_watermark</code> is enabled and a watermark
+window is available on the dataflow, this strategy uses <strong>range-based
+delete</strong> (delete all target rows within the watermark window) instead
+of key-based delete.  This handles source-side deletions within the
+window.</p>
 
 
 

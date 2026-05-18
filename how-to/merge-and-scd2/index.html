@@ -16,7 +16,7 @@
         <link rel="prev" href="../run-a-stage/">
       
       
-        <link rel="next" href="../partitioning-and-sanitization/">
+        <link rel="next" href="../replay-and-backfill/">
       
       
         
@@ -1197,6 +1197,8 @@
       
         
       
+        
+      
     
     
     
@@ -1714,6 +1716,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deduplication-before-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deduplication before merge
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-merge-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-merge filtering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#which-strategy-to-pick" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1724,10 +1748,49 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#common-merge-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common merge issues
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay & backfill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3199,10 +3262,43 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deduplication-before-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deduplication before merge
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-merge-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-merge filtering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#which-strategy-to-pick" class="md-nav__link">
     <span class="md-ellipsis">
       
         Which strategy to pick
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-merge-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common merge issues
       
     </span>
   </a>
@@ -3302,8 +3398,80 @@ skips the close step.</p>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">__valid_from</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="k">CAST</span><span class="p">(</span><span class="s1">&#39;2026-01-01&#39;</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">TIMESTAMP</span><span class="p">)</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="k">COALESCE</span><span class="p">(</span><span class="n">__valid_to</span><span class="p">,</span><span class="w"> </span><span class="k">CAST</span><span class="p">(</span><span class="s1">&#39;9999-12-31&#39;</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">TIMESTAMP</span><span class="p">))</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="k">CAST</span><span class="p">(</span><span class="s1">&#39;2026-01-01&#39;</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">TIMESTAMP</span><span class="p">)</span>
 </span></code></pre></div>
+<hr />
+<h2 id="deduplication-before-merge">Deduplication before merge<a class="headerlink" href="#deduplication-before-merge" title="Permanent link">&para;</a></h2>
+<p>All merge strategies benefit from deduplication in the <code>transform</code> block.
+When CDC feeds or replayed data contain duplicate keys, deduplication keeps only
+the latest row per key <em>before</em> the merge executes — preventing redundant
+writes and version inflation in SCD2:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">&quot;transform&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;deduplicate_columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;customer_id&quot;</span><span class="p">],</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;latest_data_columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;updated_at&quot;</span><span class="p">]</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>If <code>deduplicate_columns</code> is not set, DataCoolie falls back to
+<code>destination.merge_keys</code>. If <code>latest_data_columns</code> is not set, it falls back
+to <code>source.watermark_columns</code>.</p>
+<hr />
+<h2 id="pre-merge-filtering">Pre-merge filtering<a class="headerlink" href="#pre-merge-filtering" title="Permanent link">&para;</a></h2>
+<p>Use <code>transform.filter_expression</code> to discard rows that should never reach the
+destination — for example, soft-deleted or test rows:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">&quot;transform&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;filter_expression&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;is_deleted = false AND environment != &#39;test&#39;&quot;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>This runs at transformer order 35, after computed columns are available but
+before SCD2 columns are added.</p>
+<p>For conditions on raw source columns that you want filtered as early as
+possible, use <code>source.filter_expression</code> instead:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;connection_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cdc_source&quot;</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">&quot;table&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;orders_changes&quot;</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">&quot;watermark_columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;updated_at&quot;</span><span class="p">],</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">&quot;filter_expression&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;region = &#39;US&#39;&quot;</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<hr />
 <h2 id="which-strategy-to-pick">Which strategy to pick<a class="headerlink" href="#which-strategy-to-pick" title="Permanent link">&para;</a></h2>
 <p>See the decision tree in <a href="../../concepts/load-strategies/">Concepts · Load strategies</a>.</p>
+<hr />
+<h2 id="common-merge-issues">Common merge issues<a class="headerlink" href="#common-merge-issues" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duplicate versions in SCD2</td>
+<td>Same key arrives multiple times per run</td>
+<td>Add <code>deduplicate_columns</code> in transform</td>
+</tr>
+<tr>
+<td>Merge fails: "table does not exist"</td>
+<td>First run on an empty destination</td>
+<td>First run auto-creates the table with an initial overwrite</td>
+</tr>
+<tr>
+<td>SCD2 <code>__valid_to</code> never set</td>
+<td><code>scd2_effective_column</code> is always the same value</td>
+<td>Ensure the effective column changes between versions</td>
+</tr>
+<tr>
+<td>Merge overwrites too many rows</td>
+<td><code>merge_keys</code> too broad (e.g. only date column)</td>
+<td>Include all natural key columns in <code>merge_keys</code></td>
+</tr>
+<tr>
+<td><code>merge_upsert</code> inserts duplicates</td>
+<td>Source has duplicate rows for the same key</td>
+<td>Add deduplication or verify <code>merge_keys</code> covers the full unique key</td>
+</tr>
+</tbody>
+</table>
 
 
 
