@@ -67,7 +67,7 @@ class FakeEngine:
                 maxes[col] = max(vals)
         return count, maxes
 
-    def apply_watermark_filter(self, df, columns, watermark):
+    def apply_watermark_filter(self, df, columns, watermark, *, operator=">"):
         filtered = []
         for row in df:
             keep = False

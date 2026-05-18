@@ -37,9 +37,8 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TextIO
 
 from datacoolie.core.constants import DataFlowStatus, ExecutionType, LogPurpose, LogType
 from datacoolie.core.models import (
@@ -106,10 +105,12 @@ def _build_dataflow_schema() -> Any:
         ("source_query", pa.string()),
         ("source_python_function", pa.string()),
         ("source_watermark_columns", pa.string()),
+        ("source_filter_expression", pa.string()),
         ("source_configure", pa.string()),
         # transform config
         ("transform_deduplicate_columns", pa.string()),
         ("transform_latest_data_columns", pa.string()),
+        ("transform_filter_expression", pa.string()),
         ("transform_additional_columns", pa.string()),
         ("transform_schema_hints", pa.string()),
         ("transform_configure", pa.string()),
@@ -148,6 +149,7 @@ def _build_dataflow_schema() -> Any:
         ("source_action", pa.string()),
         ("source_watermark_before", pa.string()),
         ("source_watermark_after", pa.string()),
+        ("source_watermark_effective", pa.string()),
         # transform runtime
         ("transform_start_time", pa.timestamp('us', tz='UTC')),
         ("transform_end_time", pa.timestamp('us', tz='UTC')),
@@ -234,7 +236,7 @@ class ETLLogger(BaseLogger):
     All :meth:`log` calls accumulate entries in memory.  A single
     :class:`~datacoolie.core.models.JobRuntimeInfo` tracks session-level
     aggregates.  On :meth:`flush` (called automatically by :meth:`close`)
-    the logger writes debug JSONL and analyst Parquet in one shot.
+    the logger appends debug JSONL and writes analyst Parquet.
     """
 
     def __init__(
@@ -247,8 +249,9 @@ class ETLLogger(BaseLogger):
         self._job_info: JobRuntimeInfo = JobRuntimeInfo(start_time=utc_now())
         self._component_names: Dict[str, Optional[str]] = {}
         self._debug_temp_file: Optional[str] = None
+        self._debug_temp_handle: Optional[TextIO] = None  # open file handle
         self._debug_remote_path: Optional[str] = None
-        self._last_flush_time: float = 0.0
+        self._debug_flush_offset: int = 0
 
     # ------------------------------------------------------------------
     # Public API
@@ -307,7 +310,6 @@ class ETLLogger(BaseLogger):
         self._runtime_logs.append(entry)
         self._update_job_runtime(runtime_info, dataflow.name or dataflow.dataflow_id)
         self._stream_write_entry(entry)
-        self._maybe_periodic_flush()
 
     # ------------------------------------------------------------------
     # Entry construction
@@ -352,10 +354,12 @@ class ETLLogger(BaseLogger):
             "source_query":              src.query,
             "source_python_function":    src.python_function,
             "source_watermark_columns":  _as_json(src.watermark_columns),
+            "source_filter_expression":  src.filter_expression,
             "source_configure":          _as_json(src.configure),
             # transform config
             "transform_deduplicate_columns":  _as_json(trn.deduplicate_columns),
             "transform_latest_data_columns":  _as_json(trn.latest_data_columns),
+            "transform_filter_expression":    trn.filter_expression,
             "transform_additional_columns":   _as_json(
                 [c.model_dump() for c in trn.additional_columns] if trn.additional_columns else None
             ),
@@ -417,8 +421,9 @@ class ETLLogger(BaseLogger):
             "source_error_message":     src.error_message,
             "source_rows_read":         src.rows_read,
             "source_action":            _as_json(src.source_action),
-            "source_watermark_before":  _as_json(src.watermark_before),
-            "source_watermark_after":   _as_json(src.watermark_after),
+            "source_watermark_before":    _as_json(src.watermark_before),
+            "source_watermark_after":     _as_json(src.watermark_after),
+            "source_watermark_effective": _as_json(src.watermark_effective),
             # transform runtime
             "transform_start_time":         trn.start_time,
             "transform_end_time":           trn.end_time,
@@ -537,37 +542,35 @@ class ETLLogger(BaseLogger):
             elif ji.total_skipped > 0:
                 ji.status = DataFlowStatus.SKIPPED.value
 
-        summary = self._flatten_job_runtime(ji)
-        return summary
+        return self._flatten_job_runtime(ji)
 
     # ------------------------------------------------------------------
     # Stream-write helpers
     # ------------------------------------------------------------------
 
     def _stream_write_entry(self, entry: Dict[str, Any]) -> None:
-        """Append a single JSONL line to the local temp file."""
+        """Append a single JSONL line to the local temp file.
+
+        Keeps the file handle open to avoid open/close syscalls per entry.
+        """
         if not self._config.output_path:
             return
         try:
-            if self._debug_temp_file is None:
+            if self._debug_temp_handle is None:
                 fd, self._debug_temp_file = tempfile.mkstemp(suffix=".jsonl")
                 os.close(fd)
-            with open(self._debug_temp_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, default=_json_default) + "\n")
+                self._debug_temp_handle = open(  # noqa: SIM115
+                    self._debug_temp_file, "a", encoding="utf-8",
+                )
+            self._debug_temp_handle.write(
+                json.dumps(entry, default=_json_default) + "\n"
+            )
+            self._debug_temp_handle.flush()
         except Exception:
             _logger.error("Failed to write log entry to temp file: %s", entry, exc_info=True)
 
-    def _maybe_periodic_flush(self) -> None:
-        """Upload the current temp file if the flush interval has elapsed."""
-        if not self._config.output_path or not self._platform:
-            return
-        now = time.monotonic()
-        if self._last_flush_time == 0.0:
-            self._last_flush_time = now
-            return
-        if (now - self._last_flush_time) >= self._config.flush_interval_seconds:
-            self._periodic_flush()
-            self._last_flush_time = now
+    def _on_periodic_flush(self) -> None:  # noqa: D102
+        self._periodic_flush()
 
     def _ensure_debug_remote_path(self) -> str:
         """Return (and lazily compute) the single remote JSONL path."""
@@ -580,14 +583,23 @@ class ETLLogger(BaseLogger):
         return self._debug_remote_path
 
     def _periodic_flush(self) -> None:
-        """Upload the current temp JSONL to the single remote path."""
+        """Append only new bytes from the temp JSONL to the remote path."""
         if not self._debug_temp_file or not os.path.exists(self._debug_temp_file):
             return
         if not self._platform:
             return
         try:
+            # Ensure buffered writes are on disk before reading.
+            if self._debug_temp_handle is not None:
+                self._debug_temp_handle.flush()
+            with open(self._debug_temp_file, "rb") as f:
+                f.seek(self._debug_flush_offset)
+                raw = f.read()
+            if not raw:
+                return
             full_path = self._ensure_debug_remote_path()
-            self._platform.upload_file(self._debug_temp_file, full_path, overwrite=True)
+            self._platform.append_file(full_path, raw.decode("utf-8"))
+            self._debug_flush_offset += len(raw)
             _logger.debug("Debug JSONL periodic flush: %s", full_path)
         except Exception as exc:
             _logger.error("Failed periodic flush: %s", exc)
@@ -605,7 +617,8 @@ class ETLLogger(BaseLogger):
             stem    = self._file_stem(now)
             summary = self._build_job_summary()
             self._write_debug_jsonl(summary)
-            self._write_analyst_parquet(summary, stem, now)
+            self._write_analyst_outputs(summary, stem, now)
+            _logger.info("ETL logs saved: %s", self._config.output_path)
         except Exception as exc:
             _logger.error("Failed to flush ETL logs: %s", exc)
 
@@ -636,40 +649,59 @@ class ETLLogger(BaseLogger):
         full_path = self._ensure_debug_remote_path()
 
         # Append job summary as the final line of the JSONL file.
-        summary_line = {"_type": LogType.JOB_RUN_LOG.value}
-        summary_line = {**summary_line, **{k: v for k, v in summary.items() if k != "runtime_logs"}}
+        summary_line = {"_type": LogType.JOB_RUN_LOG.value, **summary}
+        summary_text = json.dumps(summary_line, default=_json_default) + "\n"
 
         if self._debug_temp_file and os.path.exists(self._debug_temp_file):
             try:
-                with open(self._debug_temp_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(summary_line, default=_json_default) + "\n")
-                self._platform.upload_file(self._debug_temp_file, full_path, overwrite=True)
-                _logger.info("Debug JSONL written: %s", full_path)
+                # Write summary via the open handle, then close before reading.
+                if self._debug_temp_handle is not None:
+                    self._debug_temp_handle.write(summary_text)
+                    self._debug_temp_handle.close()
+                    self._debug_temp_handle = None
+                else:
+                    with open(self._debug_temp_file, "a", encoding="utf-8") as f:
+                        f.write(summary_text)
+                # Read all bytes not yet flushed (dataflow entries + summary).
+                with open(self._debug_temp_file, "rb") as f:
+                    f.seek(self._debug_flush_offset)
+                    remaining_raw = f.read()
+                if remaining_raw:
+                    self._platform.append_file(full_path, remaining_raw.decode("utf-8"))
+                _logger.debug("Debug JSONL written: %s", full_path)
             finally:
                 self._remove_debug_temp()
         else:
-            # Fallback: write everything from memory
+            # Fallback: build content from in-memory entries and append.
             lines = [json.dumps(e, default=_json_default) for e in self._runtime_logs]
             lines.append(json.dumps(summary_line, default=_json_default))
             content = "\n".join(lines) + "\n"
+            self._platform.append_file(full_path, content)
+            _logger.debug("Debug JSONL written (fallback): %s", full_path)
 
-            with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as tmp:
-                tmp_path = tmp.name
-            try:
-                with open(tmp_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                self._platform.upload_file(tmp_path, full_path, overwrite=True)
-                _logger.info("Debug JSONL written: %s", full_path)
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-
-    def _write_analyst_parquet(
+    def _write_analyst_outputs(
         self,
         summary: Dict[str, Any],
         stem: str,
         run_date: datetime,
     ) -> None:
+        """Write analyst outputs: job_run_log as JSONL (append), dataflow_run_log as Parquet."""
+        # -- job_run_log: one JSONL line per job run, appended to shared daily file --
+        summary_row: Dict[str, Any] = {"_type": LogType.JOB_RUN_LOG.value, **summary}
+        job_log_dir = self._partition_path(
+            LogPurpose.ANALYST.value, LogType.JOB_RUN_LOG.value, run_date,
+        )
+        job_log_path = f"{job_log_dir}/job_run_log.jsonl"
+        job_line = json.dumps(summary_row, default=_json_default) + "\n"
+        try:
+            self._platform.append_file(job_log_path, job_line)
+            _logger.debug("Analyst job_run_log appended: %s", job_log_path)
+        except Exception as exc:
+            _logger.error("Failed to write analyst job_run_log: %s", exc, exc_info=True)
+
+        # -- dataflow_run_log: per-run Parquet (unchanged) --
+        if not self._runtime_logs:
+            return
         try:
             import pyarrow as pa
             import pyarrow.parquet as pq
@@ -677,24 +709,12 @@ class ETLLogger(BaseLogger):
             _logger.warning("pyarrow not installed — Parquet output skipped.")
             return
 
-        # Job summary table (single row)
-        summary_row = {"_type": LogType.JOB_RUN_LOG.value}
-        summary_row = {**summary_row, **{k: v for k, v in summary.items() if k != "runtime_logs"}}
         path = self._partition_path(
-            LogPurpose.ANALYST.value, LogType.JOB_RUN_LOG.value, run_date,
+            LogPurpose.ANALYST.value, LogType.DATAFLOW_RUN_LOG.value, run_date,
         )
-        full_path = f"{path}/job_{stem}.parquet"
-        schema = _build_job_summary_schema()
-        self._write_parquet_file([summary_row], full_path, pa, pq, schema=schema)
-
-        # Dataflow runtime table (no job context stamped)
-        if self._runtime_logs:
-            path = self._partition_path(
-                LogPurpose.ANALYST.value, LogType.DATAFLOW_RUN_LOG.value, run_date,
-            )
-            full_path = f"{path}/dataflow_{stem}.parquet"
-            schema = _build_dataflow_schema()
-            self._write_parquet_file(self._runtime_logs, full_path, pa, pq, schema=schema)
+        full_path = f"{path}/dataflow_{stem}.parquet"
+        schema = _build_dataflow_schema()
+        self._write_parquet_file(self._runtime_logs, full_path, pa, pq, schema=schema)
 
     def _write_parquet_file(
         self,
@@ -726,7 +746,7 @@ class ETLLogger(BaseLogger):
         try:
             pq.write_table(table, tmp_path, compression="snappy")
             self._platform.upload_file(tmp_path, full_path)
-            _logger.info("Parquet written: %s", full_path)
+            _logger.debug("Parquet written: %s", full_path)
         except Exception as exc:
             _logger.error("Failed to write Parquet file: %s", exc, exc_info=True)
         finally:
@@ -738,6 +758,12 @@ class ETLLogger(BaseLogger):
     # ------------------------------------------------------------------
 
     def _remove_debug_temp(self) -> None:
+        if self._debug_temp_handle is not None:
+            try:
+                self._debug_temp_handle.close()
+            except Exception:
+                pass
+            self._debug_temp_handle = None
         if self._debug_temp_file and os.path.exists(self._debug_temp_file):
             try:
                 os.remove(self._debug_temp_file)

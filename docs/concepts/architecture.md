@@ -110,14 +110,16 @@ sequenceDiagram
 
     Drv->>MP: get_dataflows(stage)
     MP-->>Drv: List[DataFlow]
-    Note over Drv: Distribute + run in parallel
+    Note over Drv: Resolve secrets → distribute → run in parallel
 
     loop per dataflow
       Drv->>WM: get_watermark(dataflow_id)
       WM-->>Drv: {last_value: "2026-04-19T…"}
-      Drv->>SR: read(source, watermark)
+      Drv->>SR: read(source, watermark, operator=">")
+      Note over SR: watermark filter → source.filter_expression
       SR-->>Drv: DataFrame (native)
       Drv->>TP: transform(df, dataflow)
+      Note over TP: schema → dedup → columns → row_filter → SCD2 → system → partition → sanitize
       TP-->>Drv: DataFrame (reshaped)
       Drv->>DW: write(df, dataflow)
       DW-->>Drv: DestinationRuntimeInfo
@@ -184,3 +186,19 @@ duckdb = "my_pkg.duckdb_engine:DuckDbEngine"
 …with no import of `datacoolie` at install time. See
 [Plugin entry points](../reference/plugin-entry-points.md) for the full
 generated table.
+
+## Driver execution modes
+
+The driver supports three execution modes through separate entry points:
+
+| Method | Purpose | Watermark behaviour |
+|--------|---------|---------------------|
+| `run()` / `run_dataflow()` | Normal incremental ETL | Reads `>` last saved, saves new max after write |
+| `run_replay(dataflows, replay)` | Bounded historical re-processing in chunks | Operator `>=` (inclusive); saves per-chunk only when `save_watermark=True` |
+| `run_maintenance(connection)` | `OPTIMIZE` / `VACUUM` for lakehouse tables | N/A — no data movement |
+
+All three share `JobDistributor` + `ParallelExecutor` + `RetryHandler` for
+concurrency, sharding, and fault tolerance.  `run_replay` adds sequential
+chunk iteration *within* each dataflow.
+
+See [Orchestration](orchestration.md) for details on each mode.

@@ -100,7 +100,7 @@ class FileReader(BaseSourceReader[DF]):
         self._set_source_action({"reader": type(self).__name__, "format": source.connection.format, "paths": paths})
         
         if not paths:
-            logger.info("FileReader: no paths found — skipping. Table: %s (format: %s), Source path: %s", source.full_table_name, source.connection.format, source.path)
+            logger.debug("FileReader: no paths found — skipping. Table: %s (format: %s), Source path: %s", source.full_table_name, source.connection.format, source.path)
             self._set_rows_read(0)
             self._set_new_watermark(watermark or {})
             return None
@@ -120,6 +120,8 @@ class FileReader(BaseSourceReader[DF]):
             wm_filter_cols = [c for c in source.watermark_columns if c not in _wm_skip]
             if wm_filter_cols:
                 df = self._apply_watermark_filter(df, wm_filter_cols, watermark)
+
+        df = self._apply_filter_expression(df, source)
 
         wm_df_cols = [c for c in (source.watermark_columns or []) if c not in _wm_skip]
         count, new_wm = self._calculate_count_and_new_watermark(df, wm_df_cols)
@@ -141,10 +143,10 @@ class FileReader(BaseSourceReader[DF]):
         self._set_rows_read(count)
 
         if count == 0:
-            logger.info("FileReader: 0 rows after filtering — skipping. Table: %s (format: %s), Source path: %s", source.full_table_name, source.connection.format, source.path)
+            logger.debug("FileReader: 0 rows after filtering — skipping. Table: %s (format: %s), Source path: %s", source.full_table_name, source.connection.format, source.path)
             return None
 
-        logger.info("FileReader: read %d rows from %d path(s). Table: %s (format: %s), Source path: %s", count, len(paths), source.full_table_name, source.connection.format, source.path)
+        logger.debug("FileReader: read %d rows from %d path(s). Table: %s (format: %s), Source path: %s", count, len(paths), source.full_table_name, source.connection.format, source.path)
         return df
 
     def _read_data(

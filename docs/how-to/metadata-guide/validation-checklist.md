@@ -97,6 +97,8 @@ Quick database connectivity check:
       `mypkg.loaders.load_orders` and is allowed by runtime prefix rules if you
       use `allowed_function_prefixes`.
 - [ ] Any `source.configure.read_options` override is intentional and engine-valid.
+- [ ] If `source.filter_expression` is set, the SQL predicate references only
+      columns that exist in the raw source data (not computed columns).
 - [ ] If the file source uses `date_folder_partitions` or backward replay, you
       have verified the folder layout matches the pattern.
 
@@ -143,6 +145,10 @@ Quick database connectivity check:
       - Polars: use `EXTRACT(YEAR FROM col)`, not `year(col)`.
       - Polars: use `CAST(col AS DATE)`, not `date(col)`.
       - Both: standard SQL arithmetic, `CASE WHEN`, string concatenation work.
+- [ ] If `transform.filter_expression` is set:
+      - [ ] The SQL predicate is valid for your engine.
+      - [ ] It only references source columns or columns created by
+            `additional_columns` (not system columns added later at order 70).
 - [ ] You have not configured `__created_at`, `__updated_at`, or `__updated_by`
       in `additional_columns` — these are added automatically.
 - [ ] You are not trying to reference system columns inside `additional_columns`;

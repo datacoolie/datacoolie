@@ -91,6 +91,68 @@ WHERE __valid_from <= CAST('2026-01-01' AS TIMESTAMP)
   AND COALESCE(__valid_to, CAST('9999-12-31' AS TIMESTAMP)) > CAST('2026-01-01' AS TIMESTAMP)
 ```
 
+---
+
+## Deduplication before merge
+
+All merge strategies benefit from deduplication in the `transform` block.
+When CDC feeds or replayed data contain duplicate keys, deduplication keeps only
+the latest row per key *before* the merge executes — preventing redundant
+writes and version inflation in SCD2:
+
+```json
+"transform": {
+  "deduplicate_columns": ["customer_id"],
+  "latest_data_columns": ["updated_at"]
+}
+```
+
+If `deduplicate_columns` is not set, DataCoolie falls back to
+`destination.merge_keys`. If `latest_data_columns` is not set, it falls back
+to `source.watermark_columns`.
+
+---
+
+## Pre-merge filtering
+
+Use `transform.filter_expression` to discard rows that should never reach the
+destination — for example, soft-deleted or test rows:
+
+```json
+"transform": {
+  "filter_expression": "is_deleted = false AND environment != 'test'"
+}
+```
+
+This runs at transformer order 35, after computed columns are available but
+before SCD2 columns are added.
+
+For conditions on raw source columns that you want filtered as early as
+possible, use `source.filter_expression` instead:
+
+```json
+"source": {
+  "connection_name": "cdc_source",
+  "table": "orders_changes",
+  "watermark_columns": ["updated_at"],
+  "filter_expression": "region = 'US'"
+}
+```
+
+---
+
 ## Which strategy to pick
 
 See the decision tree in [Concepts · Load strategies](../concepts/load-strategies.md).
+
+---
+
+## Common merge issues
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Duplicate versions in SCD2 | Same key arrives multiple times per run | Add `deduplicate_columns` in transform |
+| Merge fails: "table does not exist" | First run on an empty destination | First run auto-creates the table with an initial overwrite |
+| SCD2 `__valid_to` never set | `scd2_effective_column` is always the same value | Ensure the effective column changes between versions |
+| Merge overwrites too many rows | `merge_keys` too broad (e.g. only date column) | Include all natural key columns in `merge_keys` |
+| `merge_upsert` inserts duplicates | Source has duplicate rows for the same key | Add deduplication or verify `merge_keys` covers the full unique key |

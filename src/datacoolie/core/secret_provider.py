@@ -4,6 +4,12 @@
 from platform-specific vaults.  :func:`resolve_secrets` wires a provider
 (or any :class:`~datacoolie.core.secret_resolver.BaseSecretResolver`) into
 a :class:`Connection` by replacing vault key references with real values.
+
+:class:`SecretStr` is an opaque wrapper that prevents accidental exposure
+of secret values through ``str()``, ``repr()``, ``print()``, f-strings,
+and tracebacks.  The raw value is **never** exposed via a public method.
+Framework internals use :func:`unwrap_secret` / :func:`unwrap_configure`
+to obtain plain strings at I/O boundaries (HTTP auth, JDBC, etc.).
 """
 
 from __future__ import annotations
@@ -23,6 +29,93 @@ from datacoolie.core.secret_resolver import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# SecretStr — opaque secret wrapper
+# ============================================================================
+
+
+class SecretStr:
+    """Opaque wrapper that hides secret values from all public access.
+
+    ``str()``, ``repr()``, ``print()``, ``format()``, and ``logging``
+    all render ``***`` instead of the real value.
+
+    There is **no** public method to extract the underlying string.
+    Framework internals access the value via :func:`unwrap_secret` or
+    :func:`unwrap_configure`.
+
+    The wrapper is immutable, unhashable-by-value, and unpicklable to
+    prevent accidental persistence or cache-key leaks.
+    """
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: str) -> None:
+        object.__setattr__(self, "_value", value)
+
+    # -- Block casual exposure -------------------------------------------
+
+    def __str__(self) -> str:
+        return "***"
+
+    def __repr__(self) -> str:
+        return "SecretStr('***')"
+
+    def __format__(self, format_spec: str) -> str:  # noqa: A003
+        return "***"
+
+    # -- Immutability ----------------------------------------------------
+
+    def __setattr__(self, _name: str, _value: Any) -> None:
+        raise AttributeError("SecretStr is immutable")
+
+    def __delattr__(self, _name: str) -> None:
+        raise AttributeError("SecretStr is immutable")
+
+    # -- Equality (identity-only, not value-based) -----------------------
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SecretStr):
+            return NotImplemented
+        return object.__getattribute__(self, "_value") == object.__getattribute__(other, "_value")
+
+    def __hash__(self) -> int:
+        return id(self)
+
+    # -- Prevent serialisation -------------------------------------------
+
+    def __reduce__(self) -> None:  # type: ignore[override]
+        raise TypeError("Cannot pickle SecretStr")
+
+    # -- Length (needed by truthiness checks) ----------------------------
+
+    def __len__(self) -> int:
+        return len(object.__getattribute__(self, "_value"))
+
+    def __bool__(self) -> bool:
+        return bool(object.__getattribute__(self, "_value"))
+
+
+def unwrap_secret(value: Any) -> Any:
+    """Return the raw string if *value* is a :class:`SecretStr`, else pass through."""
+    if isinstance(value, SecretStr):
+        return object.__getattribute__(value, "_value")
+    return value
+
+
+def unwrap_configure(configure: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a shallow copy with all :class:`SecretStr` values unwrapped.
+
+    Call this **once** at the I/O boundary (HTTP auth, JDBC connect, etc.)
+    to obtain a plain-string dict for external libraries.  The original
+    *configure* dict retains its ``SecretStr`` wrappers.
+    """
+    return {
+        k: object.__getattribute__(v, "_value") if isinstance(v, SecretStr) else v
+        for k, v in configure.items()
+    }
 
 # Thread-safe set of resolved secret values used by the log filter.
 _resolved_values: Set[str] = set()
@@ -222,7 +315,7 @@ def resolve_secrets(
                     f"Failed to resolve secret '{vault_key}' for field "
                     f"'{config_field}' on connection '{connection.name}': {exc}"
                 ) from exc
-            connection.configure[config_field] = value
+            connection.configure[config_field] = SecretStr(value)
             resolved_values.append(value)
 
     # Re-populate model attributes that were lifted from configure at

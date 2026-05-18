@@ -49,6 +49,7 @@ Once you understand the metadata shape, choose a storage backend:
 
 - [Run a stage](run-a-stage.md)
 - [Merge & SCD2](merge-and-scd2.md)
+- [Replay & backfill](replay-and-backfill.md)
 - [Partitioning & column sanitization](partitioning-and-sanitization.md)
 - [Maintenance (vacuum / optimize)](maintenance-vacuum-optimize.md)
 - [Expected-failure scenarios](expected-failure-scenarios.md)

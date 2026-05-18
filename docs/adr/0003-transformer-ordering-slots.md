@@ -35,6 +35,7 @@ Each transformer declares an **integer `order`**. Slots:
 | 10 | `SchemaConverter` |
 | 20 | `Deduplicator` |
 | 30 | `ColumnAdder` |
+| 35 | `RowFilter` |
 | **40–50** | **User plugins** |
 | 60 | `SCD2ColumnAdder` |
 | 70 | `SystemColumnAdder` |

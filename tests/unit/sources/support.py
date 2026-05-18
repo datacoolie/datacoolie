@@ -126,6 +126,12 @@ class MockEngine(BaseEngine[dict]):
     def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
         pass
 
+    def delete_by_window_path(self, path, window, fmt="delta"):
+        pass
+
+    def delete_by_window_table(self, table_name, window, fmt="delta"):
+        pass
+
     # --- Transform ---
     def add_column(self, df, column_name, expression):
         return df
@@ -146,7 +152,7 @@ class MockEngine(BaseEngine[dict]):
         self._filtered = True
         return df
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark):
+    def apply_watermark_filter(self, df, watermark_columns, watermark, *, operator=">"):
         self._filtered = True
         return df
 

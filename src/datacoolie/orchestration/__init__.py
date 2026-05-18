@@ -6,6 +6,7 @@ Provides the top-level :class:`DataCoolieDriver` and its supporting components:
 * :class:`ParallelExecutor` / :class:`ExecutionResult` — thread-pool execution.
 * :class:`RetryHandler` — exponential-backoff retry logic.
 * :func:`create_driver` — convenience factory.
+* :func:`generate_chunk_boundaries` — replay chunk boundary generation (from :mod:`datacoolie.utils.datetime_utils`).
 """
 
 from datacoolie.orchestration.driver import DataCoolieDriver, create_driver

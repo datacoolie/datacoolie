@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from datacoolie.core.constants import DatabaseType
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models import Source
+from datacoolie.core.secret_provider import unwrap_secret
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.base import get_logger
 from datacoolie.sources.base import BaseSourceReader
@@ -88,7 +89,16 @@ class DatabaseReader(BaseSourceReader[DF]):
             active_wm = {c: watermark[c] for c in wm_cols if watermark.get(c) is not None}
 
         db_type = source.connection.database_type or ""
-        where_clause = self._build_where_clause(active_wm, db_type=db_type) if active_wm else ""
+        where_clause = (
+            self._build_where_clause(active_wm, db_type=db_type, operator=self._watermark_operator)
+            if active_wm
+            else ""
+        )
+
+        # Append user-supplied filter_expression to the WHERE clause.
+        if source.filter_expression:
+            filter_clause = f"({source.filter_expression})"
+            where_clause = f"{where_clause} AND {filter_clause}" if where_clause else filter_clause
 
         if source.query:
             logger.debug("DatabaseReader: executing query on source database")
@@ -154,12 +164,23 @@ class DatabaseReader(BaseSourceReader[DF]):
         return f"'{safe}'"
 
     @staticmethod
-    def _build_where_clause(watermark: Dict[str, Any], db_type: str = "") -> str:
+    def _build_where_clause(
+        watermark: Dict[str, Any],
+        db_type: str = "",
+        operator: str = ">",
+    ) -> str:
         """Build ``col1 > v1 OR col2 > v2 …`` from watermark values.
 
         Column names are validated against :data:`_SAFE_COLUMN_RE` to
         prevent SQL injection via malicious metadata.
+
+        Args:
+            watermark: Column-name → value mapping.
+            db_type: Database type hint for value escaping.
+            operator: Comparison operator (``">"`` or ``">="``).
         """
+        if operator not in (">", ">="):
+            operator = ">"
         conditions = []
         for col, val in watermark.items():
             if not DatabaseReader._SAFE_COLUMN_RE.match(col):
@@ -169,7 +190,7 @@ class DatabaseReader(BaseSourceReader[DF]):
                     details={"column": col},
                 )
             escaped = DatabaseReader._escape_value(val, db_type=db_type)
-            conditions.append(f"{col} > {escaped}")
+            conditions.append(f"{col} {operator} {escaped}")
         return " OR ".join(conditions)
 
     # ------------------------------------------------------------------
@@ -200,17 +221,17 @@ class DatabaseReader(BaseSourceReader[DF]):
         # which is set at init time and not updated when secrets are resolved.
         db = conn.configure.get("database") or conn.database
         if db:
-            opts["database"] = db
+            opts["database"] = unwrap_secret(db)
         if conn.username:
-            opts["user"] = conn.username
+            opts["user"] = unwrap_secret(conn.username)
         if conn.password:
-            opts["password"] = conn.password
+            opts["password"] = unwrap_secret(conn.password)
         if conn.driver:
             opts["driver"] = conn.driver
 
         # Explicit URL — resolve placeholders like {user}, {password}, etc.
         if conn.url:
-            url = conn.url
+            url = unwrap_secret(conn.url)
             replacements = {
                 "user": opts.get("user", ""),
                 "password": opts.get("password", ""),
@@ -229,7 +250,7 @@ class DatabaseReader(BaseSourceReader[DF]):
         _handled_keys = {"database_type", "host", "port", "database", "username", "password", "driver", "url"}
         for k, v in conn.configure.items():
             if k not in _handled_keys and k not in opts:
-                opts[k] = v
+                opts[k] = unwrap_secret(v)
 
         opts.update(source.read_options)
         if configure:

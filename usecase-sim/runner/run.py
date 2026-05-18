@@ -36,6 +36,7 @@ from _runner_utils import (
     MINIO_STORAGE_OPTIONS,
     build_iceberg_rest_catalog,
     build_spark_session,
+    replay_and_report,
     run_and_report,
     setup_platform,
 )
@@ -86,6 +87,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-workers", type=int, default=None)
     parser.add_argument("--skip-api-sources", action="store_true",
                         help="Skip any dataflow whose source connection_type is 'api'")
+
+    # Replay mode (mutually exclusive with normal run)
+    parser.add_argument("--replay-start", default=None,
+                        help="Inclusive replay range start (ISO date/datetime or int)")
+    parser.add_argument("--replay-end", default=None,
+                        help="Exclusive replay range end (ISO date/datetime or int)")
+    parser.add_argument("--replay-chunk-interval", action="append", default=[],
+                        metavar="KEY=VALUE",
+                        help="Chunk interval, e.g. days=1  (repeatable)")
+    parser.add_argument("--replay-save-watermark", action="store_true",
+                        help="Save watermark after each chunk (init/crash-resume mode)")
+    parser.add_argument("--replay-chunk-column", default=None,
+                        help="Override auto-resolved chunk column")
 
     # Spark-only (ignored when --engine polars)
     parser.add_argument("--app-name", default="DataCoolie-UseCase")
@@ -224,11 +238,26 @@ def main() -> None:
         base_log_path=args.log_path,
     )
 
-    run_and_report(
-        driver, args.stage, args.column_name_mode, logger,
-        cleanup_fn=cleanup_fn,
-        skip_api_sources=args.skip_api_sources,
-    )
+    if args.replay_start:
+        replay_and_report(
+            driver,
+            stage=args.stage,
+            column_name_mode=args.column_name_mode,
+            logger=logger,
+            replay_start=args.replay_start,
+            replay_end=args.replay_end,
+            replay_chunk_interval=args.replay_chunk_interval,
+            replay_save_watermark=args.replay_save_watermark,
+            replay_chunk_column=args.replay_chunk_column,
+            skip_api_sources=args.skip_api_sources,
+            cleanup_fn=cleanup_fn,
+        )
+    else:
+        run_and_report(
+            driver, args.stage, args.column_name_mode, logger,
+            cleanup_fn=cleanup_fn,
+            skip_api_sources=args.skip_api_sources,
+        )
 
 
 if __name__ == "__main__":

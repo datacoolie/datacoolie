@@ -5,6 +5,9 @@ description: Python API reference for DataCoolie core modules covering models, r
 
 # Core
 
+!!! info "Model classes are documented on the [Metadata schema](../metadata-schema.md) page"
+    `Connection`, `Source`, `Destination`, `Transform`, `DataFlow`, `ReplayConfig`, `DataCoolieRunConfig`, and supporting types are rendered from source on the Metadata schema reference page to avoid duplicate anchors.
+
 ::: datacoolie.core.registry
     options:
       show_submodules: false

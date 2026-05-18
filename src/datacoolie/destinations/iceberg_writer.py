@@ -63,7 +63,7 @@ class IcebergWriter(BaseDestinationWriter[DF]):
         load_type = dataflow.load_type
         strategy = get_load_strategy(load_type)
 
-        logger.info(
+        logger.debug(
             "IcebergWriter: writing to %s (load_type=%s)",
             table_name or path,
             load_type,

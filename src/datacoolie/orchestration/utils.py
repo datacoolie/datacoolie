@@ -44,9 +44,13 @@ def dedupe_by_destination(dataflows: List[DataFlow]) -> List[DataFlow]:
         seen.setdefault(key, df)
     unique = list(seen.values())
     if len(unique) < len(dataflows):
-        logger.info(
+        logger.debug(
             "Deduped %d dataflows into %d unique destinations",
             len(dataflows),
             len(unique),
         )
     return unique
+
+
+
+

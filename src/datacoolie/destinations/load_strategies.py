@@ -45,7 +45,7 @@ def _initial_load_fallback(
     if engine.exists(table_name=table_name, path=path, fmt=fmt):
         return False
 
-    logger.info(
+    logger.debug(
         "%s: table not found – falling back to overwrite at %s, format=%s",
         strategy_name, table_name, fmt,
     )
@@ -85,7 +85,7 @@ class OverwriteStrategy(BaseLoadStrategy):
         fmt = dest.connection.format
         options = dest.write_options
 
-        logger.info("OverwriteStrategy: writing to table %s (format=%s)", table_name or dest.full_table_name, fmt)
+        logger.debug("OverwriteStrategy: writing to table %s (format=%s)", table_name or dest.full_table_name, fmt)
         engine.write(
             df,
             table_name=table_name,
@@ -121,7 +121,7 @@ class AppendStrategy(BaseLoadStrategy):
         fmt = dest.connection.format
         options = dest.write_options
 
-        logger.info("AppendStrategy: appending to table %s (format=%s)", table_name or dest.full_table_name, fmt)
+        logger.debug("AppendStrategy: appending to table %s (format=%s)", table_name or dest.full_table_name, fmt)
         engine.write(
             df,
             table_name=table_name,
@@ -168,7 +168,7 @@ class MergeUpsertStrategy(BaseLoadStrategy):
         if _initial_load_fallback(df, table_name, dataflow, engine, path, "MergeUpsertStrategy"):
             return
 
-        logger.info("MergeUpsertStrategy: merging into table %s (keys=%s), format=%s", table_name or dest.full_table_name, merge_keys, fmt)
+        logger.debug("MergeUpsertStrategy: merging into table %s (keys=%s), format=%s", table_name or dest.full_table_name, merge_keys, fmt)
         engine.merge(
             df,
             table_name=table_name,
@@ -186,7 +186,14 @@ class MergeUpsertStrategy(BaseLoadStrategy):
 
 
 class MergeOverwriteStrategy(BaseLoadStrategy):
-    """Merge overwrite — delete + re-insert matching rows."""
+    """Merge overwrite — delete + re-insert matching rows.
+
+    When ``destination.replace_by_watermark`` is enabled and a watermark
+    window is available on the dataflow, this strategy uses **range-based
+    delete** (delete all target rows within the watermark window) instead
+    of key-based delete.  This handles source-side deletions within the
+    window.
+    """
 
     @property
     def load_type(self) -> str:
@@ -215,7 +222,34 @@ class MergeOverwriteStrategy(BaseLoadStrategy):
         if _initial_load_fallback(df, table_name, dataflow, engine, path, "MergeOverwriteStrategy"):
             return
 
-        logger.info("MergeOverwriteStrategy: merge-overwrite table %s (keys=%s), format=%s", table_name or dest.full_table_name, merge_keys, fmt)
+        # Range-based window replace when replace_by_watermark is active.
+        watermark_window = dataflow.watermark_window
+        if dest.replace_by_watermark and watermark_window:
+            logger.debug(
+                "MergeOverwriteStrategy: replace-by-watermark table %s (window=%s), format=%s",
+                table_name or dest.full_table_name, watermark_window, fmt,
+            )
+            engine.delete_by_window(
+                table_name=table_name,
+                path=path,
+                window=watermark_window,
+                fmt=fmt,
+            )
+            engine.write(
+                df,
+                table_name=table_name,
+                path=path,
+                mode=LoadType.APPEND.value,
+                fmt=fmt,
+                partition_columns=dest.partition_column_names or None,
+                options=options or None,
+            )
+            return
+
+        logger.debug(
+            "MergeOverwriteStrategy: key-based merge-overwrite table %s (keys=%s), format=%s",
+            table_name or dest.full_table_name, merge_keys, fmt,
+        )
         engine.merge_overwrite(
             df,
             table_name=table_name,
@@ -274,7 +308,7 @@ class SCD2Strategy(BaseLoadStrategy):
         if _initial_load_fallback(df, table_name, dataflow, engine, path, "SCD2Strategy"):
             return
 
-        logger.info("SCD2Strategy: scd2 merge into table %s (keys=%s), format=%s", table_name or dest.full_table_name, merge_keys, fmt)
+        logger.debug("SCD2Strategy: scd2 merge into table %s (keys=%s), format=%s", table_name or dest.full_table_name, merge_keys, fmt)
         engine.scd2(
             df,
             table_name=table_name,

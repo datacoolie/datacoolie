@@ -72,6 +72,12 @@ class StubEngine(BaseEngine[dict]):
     def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
         raise NotImplementedError
 
+    def delete_by_window_path(self, path, window, fmt="delta"):
+        raise NotImplementedError
+
+    def delete_by_window_table(self, table_name, window, fmt="delta"):
+        raise NotImplementedError
+
     # --- Transform ---
     def add_column(self, df, column_name, expression):
         raise NotImplementedError
@@ -88,7 +94,7 @@ class StubEngine(BaseEngine[dict]):
     def filter_rows(self, df, condition):
         raise NotImplementedError
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark):
+    def apply_watermark_filter(self, df, watermark_columns, watermark, *, operator=">"):
         raise NotImplementedError
 
     def deduplicate(self, df, partition_columns, order_columns=None, keep="first"):

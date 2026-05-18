@@ -154,6 +154,16 @@ def build_command(name: str, scenario: dict) -> list[str]:
     _add_flag(cmd, scenario, "skip_api_sources", "--skip-api-sources")
     if scenario.get("max_workers") is not None:
         cmd += ["--max-workers", str(scenario["max_workers"])]
+    # Replay mode — append --replay-* args when present in the scenario.
+    if scenario.get("replay_start"):
+        cmd += ["--replay-start", str(scenario["replay_start"])]
+        cmd += ["--replay-end", str(scenario["replay_end"])]
+        for kv in scenario.get("replay_chunk_interval", []):
+            cmd += ["--replay-chunk-interval", str(kv)]
+        if scenario.get("replay_save_watermark"):
+            cmd.append("--replay-save-watermark")
+        if scenario.get("replay_chunk_column"):
+            cmd += ["--replay-chunk-column", str(scenario["replay_chunk_column"])]
     return cmd
 
 

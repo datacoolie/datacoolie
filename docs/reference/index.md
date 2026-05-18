@@ -39,12 +39,12 @@ their source `.md` files checked into `docs/reference/`.
 
 All packages are rendered directly from docstrings via `mkdocstrings`.
 
-- [Core](api/core.md) — `DataCoolie`, `create_platform`, registry helpers.
+- [Core](api/core.md) — `Connection`, `Source`, `Destination`, `Transform`, `DataFlow`, `ReplayConfig`, `DataCoolieRunConfig`, registry helpers.
 - [Engines](api/engines.md) — `BaseEngine[DF]`, `PolarsEngine`, `SparkEngine`.
 - [Platforms](api/platforms.md) — `BasePlatform`, `LocalPlatform`, `AWSPlatform`.
 - [Sources](api/sources.md) — `BaseSourceReader`, `FileReader`, `APIReader`.
 - [Destinations](api/destinations.md) — `BaseDestinationWriter`, `FileWriter`.
-- [Transformers](api/transformers.md) — built-in transformer classes and `Pipeline`.
+- [Transformers](api/transformers.md) — built-in transformers (`SchemaConverter`, `Deduplicator`, `ColumnAdder`, `RowFilter`, `SCD2ColumnAdder`, `SystemColumnAdder`, `PartitionHandler`, `ColumnNameSanitizer`) and `TransformerPipeline`.
 - [Orchestration](api/orchestration.md) — `DataCoolieDriver`, `JobDistributor`, `ParallelExecutor`.
 - [Metadata](api/metadata.md) — provider classes and `BaseMetadataProvider`.
 - [Watermark](api/watermark.md) — `WatermarkManager` and the raw-JSON contract.

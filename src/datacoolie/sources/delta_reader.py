@@ -60,6 +60,8 @@ class DeltaReader(BaseSourceReader[DF]):
         if watermark and source.watermark_columns:
             df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
 
+        df = self._apply_filter_expression(df, source)
+
         context = f"Table: {source.full_table_name} (format: {source.connection.format}), Source path: {source.path}"
         return self._finalize_read(df, source.watermark_columns, "DeltaReader", context)
 

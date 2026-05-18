@@ -472,16 +472,20 @@ class BaseEngine(ABC, Generic[DF]):
         df: DF,
         watermark_columns: List[str],
         watermark: Dict[str, Any],
+        *,
+        operator: str = ">",
     ) -> DF:
         """Filter rows where any watermark column exceeds its stored value.
 
-        Builds an OR condition: ``col1 > val1 OR col2 > val2 ...``
+        Builds an OR condition: ``col1 {op} val1 OR col2 {op} val2 ...``
         using native DataFrame API.
 
         Args:
             df: Input DataFrame.
             watermark_columns: Column names to compare.
             watermark: ``{column: threshold_value}`` mapping.
+            operator: Comparison operator, ``">"`` (exclusive, default) or
+                ``">=" `` (inclusive, used by replay).
 
         Returns:
             Filtered DataFrame.
@@ -871,6 +875,56 @@ class BaseEngine(ABC, Generic[DF]):
             )
         else:
             raise EngineError("merge_overwrite() requires table_name or path")
+
+    def delete_by_window(
+        self,
+        *,
+        table_name: Optional[str] = None,
+        path: Optional[str] = None,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete all rows within the given column value window.
+
+        Used by ``replace_by_watermark`` to remove the target scope before
+        re-inserting fresh source data.
+
+        Args:
+            table_name: Target table name.  Takes precedence over *path*.
+            path: Target file path (used when *table_name* is not given).
+            window: Mapping of ``{column: (lower_bound, upper_bound)}``.
+                All rows where ``column > lower AND column <= upper``
+                (for each column) will be deleted.  The lower bound is
+                exclusive to match the source watermark filter semantics.
+            fmt: Table / file format.
+
+        Raises:
+            EngineError: If neither *table_name* nor *path* is provided.
+        """
+        if table_name:
+            self.delete_by_window_table(table_name, window=window, fmt=fmt)
+        elif path:
+            self.delete_by_window_path(path, window=window, fmt=fmt)
+        else:
+            raise EngineError("delete_by_window() requires table_name or path")
+
+    @abstractmethod
+    def delete_by_window_path(
+        self,
+        path: str,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete rows in a path-based table within the value window."""
+
+    @abstractmethod
+    def delete_by_window_table(
+        self,
+        table_name: str,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete rows in a named table within the value window."""
 
     def exists(
         self,

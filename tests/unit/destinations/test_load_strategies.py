@@ -512,3 +512,83 @@ class TestMaintenanceEdgeCases:
         assert info.status == DataFlowStatus.SKIPPED.value
         assert len(engine._compacted) == 0
         assert len(engine._cleaned) == 0
+
+
+# ============================================================================
+# Replace-by-watermark tests
+# ============================================================================
+
+
+class TestMergeOverwriteReplaceByWatermark:
+    """Verify MergeOverwriteStrategy uses range-delete when replace_by_watermark is active."""
+
+    def test_uses_range_delete_when_watermark_window_set(self, engine: MockEngine) -> None:
+        """When replace_by_watermark is True and watermark_window is set,
+        the strategy should delete by window then append."""
+        engine.set_table_exists(True)
+        df = _make_dataflow(
+            load_type=LoadType.MERGE_OVERWRITE.value,
+            merge_keys=["id"],
+            dest_configure={"replace_by_watermark": True},
+        )
+        df._watermark_window = {"date_col": ("2026-01-09", "2026-01-16")}
+
+        strategy = MergeOverwriteStrategy()
+        strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+
+        # Should have used delete_by_window + append, NOT merge_overwrite
+        assert len(engine._merge_overwritten) == 0
+        assert len(engine._deleted_windows) == 1
+        assert engine._deleted_windows[0]["window"] == {"date_col": ("2026-01-09", "2026-01-16")}
+        assert len(engine._written) == 1
+        assert engine._written[0]["mode"] == "append"
+
+    def test_falls_back_to_key_based_when_no_window(self, engine: MockEngine) -> None:
+        """When replace_by_watermark is True but no watermark_window,
+        fall back to key-based merge_overwrite."""
+        engine.set_table_exists(True)
+        df = _make_dataflow(
+            load_type=LoadType.MERGE_OVERWRITE.value,
+            merge_keys=["id"],
+            dest_configure={"replace_by_watermark": True},
+        )
+        # No watermark_window set
+
+        strategy = MergeOverwriteStrategy()
+        strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+
+        assert len(engine._merge_overwritten) == 1
+        assert len(engine._deleted_windows) == 0
+
+    def test_key_based_when_replace_by_watermark_false(self, engine: MockEngine) -> None:
+        """Without replace_by_watermark, always use key-based merge."""
+        engine.set_table_exists(True)
+        df = _make_dataflow(
+            load_type=LoadType.MERGE_OVERWRITE.value,
+            merge_keys=["id"],
+        )
+        df._watermark_window = {"date_col": ("2026-01-09", "2026-01-16")}
+
+        strategy = MergeOverwriteStrategy()
+        strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+
+        assert len(engine._merge_overwritten) == 1
+        assert len(engine._deleted_windows) == 0
+
+    def test_initial_load_fallback_still_works(self, engine: MockEngine) -> None:
+        """On initial load (table doesn't exist), always overwrite regardless of replace_by_watermark."""
+        engine.set_table_exists(False)
+        df = _make_dataflow(
+            load_type=LoadType.MERGE_OVERWRITE.value,
+            merge_keys=["id"],
+            dest_configure={"replace_by_watermark": True},
+        )
+        df._watermark_window = {"date_col": ("2026-01-09", "2026-01-16")}
+
+        strategy = MergeOverwriteStrategy()
+        strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+
+        # Initial load → overwrite, no delete_by_window
+        assert len(engine._deleted_windows) == 0
+        assert len(engine._written) == 1
+        assert engine._written[0]["mode"] == "overwrite"

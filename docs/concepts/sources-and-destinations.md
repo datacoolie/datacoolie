@@ -30,14 +30,39 @@ for the generated table):
 `BaseSourceReader[DF]` declares:
 
 - `__init__(engine)` — the reader is constructed with an engine
-- `read(source, watermark) -> DF` — public entry point (Template Method)
+- `read(source, watermark, *, watermark_operator=">") -> DF` — public entry point (Template Method)
 - Subclasses implement `_read_internal(source, watermark)` and optionally `_read_data(source, configure)`
 - Must honour `source.read_options` and `source.connection.read_options`
+
+The `watermark_operator` parameter controls the comparison used for the
+incremental filter (`">"` for normal ETL, `">=" ` for replay's inclusive
+lower bound).
 
 The source reader is also responsible for **watermark push-down** — applying
 the watermark predicate *during* the read when the backend supports it (e.g.
 parquet predicate pushdown, JDBC WHERE clause). If pushdown is not possible the
 reader returns the full DataFrame and the framework filters afterwards.
+
+### `filter_expression` (post-read filter)
+
+After watermark filtering, every reader calls `_apply_filter_expression(df,
+source)`.  When `source.filter_expression` is non-empty, the engine evaluates
+it as a SQL WHERE clause against the in-memory DataFrame:
+
+```
+watermark filter  →  source.filter_expression  →  count / new watermark
+```
+
+This lets you exclude rows at read time using raw source columns before the
+transformer pipeline runs.  For database readers the expression is pushed into
+the generated WHERE clause alongside the watermark condition.
+
+### Secret resolution
+
+Before the reader is created, the driver calls `_resolve_connection_secrets()`
+which processes `connection.secrets_ref` and replaces placeholder values in
+`configure` with actual credentials from the active secret provider.  Readers
+never handle secret fetching directly.
 
 ## Destination contract
 
@@ -68,6 +93,11 @@ See [Load strategies](load-strategies.md) for semantics.
 - **Decimal precision / scale** are honoured when writing to Delta; some Polars
   readers upcast to `Float64` by default — `SchemaHint` with
   `data_type="decimal"` fixes that.
+- **Two filter points exist** — `source.filter_expression` (read-time, raw
+  columns) and `transform.filter_expression` (order 35, after ColumnAdder
+  creates computed columns). See
+  [Transformers & pipeline](transformers-and-pipeline.md) for the pipeline
+  ordering.
 
 ## Related
 

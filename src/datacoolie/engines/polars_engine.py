@@ -1553,6 +1553,87 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             )
 
     # ==================================================================
+    # Delete by window (replace_by_watermark)
+    # ==================================================================
+
+    @staticmethod
+    def _to_iso8601(value: Any) -> str:
+        """Normalise a datetime/date/str bound to strict ISO-8601 for PyIceberg predicates.
+
+        * ``datetime`` / ``date`` — call ``.isoformat()`` directly.
+        * ``str`` — replace any space separator with ``T``.
+        """
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        return str(value).replace(" ", "T")
+
+    @staticmethod
+    def _build_window_predicate(window: Dict[str, tuple], quote_char: str = "`") -> str:
+        """Build a SQL-style predicate for a watermark window.
+
+        Uses ``col > lower AND col <= upper`` — exclusive lower bound
+        to match the source watermark filter semantics.
+
+        ``quote_char`` controls column-name quoting: backtick for Delta/Spark SQL,
+        empty string for PyIceberg (which uses its own expression grammar).
+        """
+        q = quote_char
+        return " AND ".join(
+            f"{q}{col}{q} > '{lower}' AND {q}{col}{q} <= '{upper}'"
+            for col, (lower, upper) in window.items()
+        )
+
+    def delete_by_window_path(
+        self,
+        path: str,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete rows in a Delta path where columns fall within the window bounds."""
+        if fmt.lower() != Format.DELTA.value:
+            raise EngineError(f"PolarsEngine delete_by_window_path only supports Delta, got {fmt!r}")
+
+        predicate = self._build_window_predicate(window)
+        storage_opts = self._storage_options or None
+        try:
+            dt = self.delta(path, storage_options=storage_opts)
+            dt.delete(predicate)
+        except Exception as exc:
+            self._raise_if_delta_target_missing(exc, path, "DeleteByWindow")
+            raise
+
+    def delete_by_window_table(
+        self,
+        table_name: str,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete rows in a named table within the value window."""
+        fmt_lower = fmt.lower()
+        if fmt_lower == Format.DELTA.value:
+            raise EngineError(
+                "PolarsEngine does not support named Delta tables — use delete_by_window_path(path) instead"
+            )
+        if fmt_lower == Format.ICEBERG.value:
+            if not self._iceberg_catalog:
+                raise EngineError(
+                    "PolarsEngine.delete_by_window_table requires iceberg_catalog for Iceberg format"
+                )
+            # PyIceberg requires strict ISO-8601 timestamps (T separator, not space).
+            iso_window = {
+                col: (self._to_iso8601(lower), self._to_iso8601(upper))
+                for col, (lower, upper) in window.items()
+            }
+            predicate = self._build_window_predicate(iso_window, quote_char="")
+            pyice_id = self._pyiceberg_table_id(table_name)
+            ice_table = self._iceberg_catalog.load_table(pyice_id)
+            ice_table.delete(delete_filter=predicate)
+            return
+        raise EngineError(
+            f"PolarsEngine.delete_by_window_table: unsupported format {fmt!r}"
+        )
+
+    # ==================================================================
     # SCD Type 2
     # ==================================================================
 
@@ -1880,6 +1961,8 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         df: pl.LazyFrame,
         watermark_columns: List[str],
         watermark: Dict[str, Any],
+        *,
+        operator: str = ">",
     ) -> pl.LazyFrame:
         actual = self._schema_names(df)
         combined: Optional[pl.Expr] = None
@@ -1890,7 +1973,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             resolved_col = self._resolve_column_name(actual, col_name)
             if isinstance(value, (datetime, date)):
                 value = value.isoformat()
-            condition = pl.col(resolved_col) > pl.lit(value)
+            col_expr = pl.col(resolved_col)
+            lit_expr = pl.lit(value)
+            condition = col_expr >= lit_expr if operator == ">=" else col_expr > lit_expr
             combined = condition if combined is None else (combined | condition)
 
         if combined is None:
@@ -2117,7 +2202,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
 
     def generate_symlink_manifest(self, path: str) -> None:
         """Generate a symlink manifest using delta-rs ``DeltaTable.generate()``."""
-        logger.info("PolarsEngine: generating symlink manifest for %s", path)
+        logger.debug("PolarsEngine: generating symlink manifest for %s", path)
         dt = self.delta(path, storage_options=self._storage_options or None)
         dt.generate()
 
@@ -2486,7 +2571,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             and s.snapshot_id != current_id
         ]
         if not expired:
-            logger.info(
+            logger.debug(
                 "PolarsEngine cleanup_by_name: no snapshots older than %dh; skipping expire_snapshots",
                 retention_hours,
             )

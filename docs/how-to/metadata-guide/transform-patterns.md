@@ -15,7 +15,7 @@ built-in transformer pipeline, which runs between read and write in this order:
 |-------|-------------|--------------|
 | 10 | `SchemaConverter` | `transform.schema_hints` |
 | 20 | `Deduplicator` | `transform.deduplicate_columns` |
-| 30 | `ColumnAdder` | `transform.additional_columns` |
+| 30 | `ColumnAdder` | `transform.additional_columns` || 35 | `RowFilter` | `transform.filter_expression` |
 | 60 | `SCD2ColumnAdder` | `destination.load_type = "scd2"` |
 | 70 | `SystemColumnAdder` | Always (adds `__created_at`, `__updated_at`, `__updated_by`) |
 | 80 | `PartitionHandler` | `destination.partition_columns` |
@@ -51,6 +51,7 @@ built-in transformer pipeline, which runs between read and write in this order:
 | `deduplicate_columns` | Define the grouping key for deduplication |
 | `latest_data_columns` | Define the ordering columns for deduplication |
 | `additional_columns` | Add SQL-derived columns |
+| `filter_expression` | Discard rows by a SQL WHERE-style predicate after computed columns are available |
 | `configure` | Control transformer behavior such as `convert_timestamp_ntz` and `deduplicate_by_rank` |
 
 `partition_columns` stays on the **destination**, not in `transform`.
@@ -240,7 +241,59 @@ Use standard SQL scalar functions — the Polars and Spark engines both support
 
 ---
 
-## Pattern 4 — Partition the output
+## Pattern 4 — Filter rows (`transform.filter_expression`)
+
+**When to use:** you need to drop rows before writing to the destination.
+The predicate runs at order **35**, _after_ `ColumnAdder` (30), so it can
+reference columns you created in `additional_columns`.
+
+```json
+"transform": {
+  "filter_expression": "status = 'active' AND amount > 0"
+}
+```
+
+`filter_expression` is a **SQL predicate** — everything you would normally
+place after `WHERE`. Both Polars and Spark engines evaluate it against the
+DataFrame.
+
+### Reference a computed column
+
+Because `RowFilter` runs _after_ `ColumnAdder`, you can filter on columns
+added by `additional_columns`:
+
+```json
+"transform": {
+  "additional_columns": [
+    { "column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)" }
+  ],
+  "filter_expression": "order_year >= 2023"
+}
+```
+
+### Combine multiple conditions
+
+```json
+"transform": {
+  "filter_expression": "region = 'US' AND status NOT IN ('cancelled', 'draft') AND amount > 0"
+}
+```
+
+!!! note "vs `source.filter_expression`"
+    There are two distinct filter hooks:
+
+    | Field | Stage | Scope |
+    |-------|-------|-------|
+    | `source.filter_expression` | Read time (before watermark) | Raw source columns only |
+    | `transform.filter_expression` | Order 35 (post-ColumnAdder) | Source columns + computed columns |
+
+    Use `source.filter_expression` when you want the filter pushed as close to
+    the source as possible. Use `transform.filter_expression` when you need
+    to filter on a column that is added by `additional_columns`.
+
+---
+
+## Pattern 5 — Partition the output
 
 **When to use:** your destination table will be large and you want query
 engines to skip irrelevant data via partition pruning.
@@ -283,7 +336,7 @@ they can rely on columns created earlier in the pipeline.
 
 ---
 
-## Pattern 5 — SCD2 audit columns
+## Pattern 6 — SCD2 audit columns
 
 When `load_type` is `scd2`, the `SCD2ColumnAdder` transformer automatically
 adds three columns. You do **not** configure them in `transform` — just set the
@@ -310,7 +363,7 @@ Columns added automatically:
 
 ---
 
-## Pattern 6 — System columns (always present)
+## Pattern 7 — System columns (always present)
 
 `SystemColumnAdder` runs on **every** dataflow, regardless of configuration.
 Your destination table will always receive these three columns:

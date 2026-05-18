@@ -74,7 +74,7 @@ class FileWriter(BaseDestinationWriter[DF]):
 
         strategy = get_load_strategy(load_type)
 
-        logger.info(
+        logger.debug(
             "FileWriter: writing to table %s path %s (format=%s, load_type=%s)",
             dest.full_table_name,
             resolved_path,

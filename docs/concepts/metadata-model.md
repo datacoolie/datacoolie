@@ -64,6 +64,7 @@ Reference a connection by name plus:
 
 - `schema_name`, `table` — used to build the path (`{base_path}/{schema_name}/{table}`) or the qualified name (`` `catalog`.`database`.`schema`.`table` ``)
 - source-only: `watermark_columns` — list of column names used for incremental reads
+- source-only: `filter_expression` — SQL predicate applied at read time (after watermark filter) on raw source columns
 - destination-only: `load_type` (`append` / `overwrite` / `merge_upsert` / `merge_overwrite` / `scd2`), `merge_keys`, `partition_columns`
 
 ### `Transform`
@@ -71,6 +72,7 @@ Reference a connection by name plus:
 - `deduplicate_columns` — list of key column names for deduplication (maps to `Deduplicator`)
 - `latest_data_columns` — columns used to pick the latest row when deduplicating
 - `additional_columns` — list of `{column, expression}` for computed columns
+- `filter_expression` — SQL predicate applied at transformer order 35 (after `ColumnAdder` creates computed columns)
 - `schema_hints` — list of `SchemaHint` rows applied by the `SchemaConverter`
 - `configure` — arbitrary JSON options passed through to transformers
 

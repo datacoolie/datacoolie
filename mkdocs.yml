@@ -156,6 +156,7 @@ nav:
       - Configure API metadata: how-to/configure-api-metadata.md
       - Run a stage: how-to/run-a-stage.md
       - Merge & SCD2: how-to/merge-and-scd2.md
+      - Replay & backfill: how-to/replay-and-backfill.md
       - Partitioning & sanitization: how-to/partitioning-and-sanitization.md
       - Maintenance (vacuum/optimize): how-to/maintenance-vacuum-optimize.md
       - Expected-failure scenarios: how-to/expected-failure-scenarios.md

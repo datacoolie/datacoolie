@@ -731,7 +731,7 @@ class SparkEngine(BaseEngine[DataFrame]):
                 )
             prev = tc
 
-        logger.info("Reordered trailing columns for %s", table_name)
+        logger.debug("Reordered trailing columns for %s", table_name)
         return True
 
     def _evolve_and_reorder_iceberg_schema(
@@ -960,6 +960,52 @@ class SparkEngine(BaseEngine[DataFrame]):
                 )
         finally:
             self._safe_unpersist(df)
+
+    # ------------------------------------------------------------------
+    # Delete by window (replace_by_watermark)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_window_predicate(window: Dict[str, tuple]) -> str:
+        """Build a SQL predicate for a watermark window.
+
+        Uses ``col > lower AND col <= upper`` — exclusive lower bound
+        to match the source watermark filter semantics.
+        """
+        return " AND ".join(
+            f"`{col}` > '{lower}' AND `{col}` <= '{upper}'"
+            for col, (lower, upper) in window.items()
+        )
+
+    def delete_by_window_path(
+        self,
+        path: str,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete rows in a path-based Delta table within the value window."""
+        if fmt.lower() != Format.DELTA.value:
+            raise EngineError(f"delete_by_window_path only supports delta format, got {fmt!r}")
+
+        predicate = self._build_window_predicate(window)
+        (
+            self._delta_table.forPath(self._spark, path)
+            .delete(predicate)
+        )
+
+    def delete_by_window_table(
+        self,
+        table_name: str,
+        window: Dict[str, tuple],
+        fmt: str = "delta",
+    ) -> None:
+        """Delete rows in a named table within the value window."""
+        predicate = self._build_window_predicate(window)
+        if fmt.lower() == Format.DELTA.value:
+            self._delta_table.forName(self._spark, table_name).delete(predicate)
+        else:
+            # Iceberg / generic: use SQL DELETE
+            self._spark.sql(f"DELETE FROM {table_name} WHERE {predicate}")
 
     # ------------------------------------------------------------------
     # SCD Type 2
@@ -1267,6 +1313,8 @@ class SparkEngine(BaseEngine[DataFrame]):
         df: DataFrame,
         watermark_columns: List[str],
         watermark: Dict[str, Any],
+        *,
+        operator: str = ">",
     ) -> DataFrame:
         combined = None
         for col_name in watermark_columns:
@@ -1275,7 +1323,9 @@ class SparkEngine(BaseEngine[DataFrame]):
                 continue
             if isinstance(value, (datetime, date)):
                 value = value.isoformat()
-            condition = sf.col(col_name) > sf.lit(value)
+            col_expr = sf.col(col_name)
+            lit_expr = sf.lit(value)
+            condition = col_expr >= lit_expr if operator == ">=" else col_expr > lit_expr
             combined = condition if combined is None else (combined | condition)
 
         if combined is None:
@@ -1725,7 +1775,7 @@ class SparkEngine(BaseEngine[DataFrame]):
 
     def generate_symlink_manifest(self, path: str) -> None:
         """Generate a symlink manifest using Spark's DeltaTable API."""
-        logger.info("SparkEngine: generating symlink manifest for %s", path)
+        logger.debug("SparkEngine: generating symlink manifest for %s", path)
         dt = self._delta_table.forPath(self._spark, path)
         dt.generate("symlink_format_manifest")
 

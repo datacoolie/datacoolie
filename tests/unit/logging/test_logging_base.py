@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -231,41 +230,34 @@ class TestCaptureHandler:
         handler.cleanup()
         lgr.removeHandler(handler)
 
-    def test_jsonl_logs_memory(self):
+    def test_get_and_clear_formatted_logs_memory(self):
         handler = CaptureHandler(storage_mode=StorageMode.MEMORY.value)
-        lgr = logging.getLogger("test.capture.jsonl.mem")
+        lgr = logging.getLogger("test.capture.getandclear.mem")
         lgr.addHandler(handler)
         lgr.setLevel(logging.DEBUG)
 
-        lgr.info("msg1")
-        lgr.warning("msg2")
+        lgr.info("alpha")
+        lgr.warning("beta")
 
-        jsonl = handler.get_jsonl_logs()
-        lines = jsonl.strip().split("\n")
-        assert len(lines) == 2
-        row1 = json.loads(lines[0])
-        assert row1["msg"] == "msg1"
-        assert row1["level"] == "INFO"
-        row2 = json.loads(lines[1])
-        assert row2["msg"] == "msg2"
-        assert row2["level"] == "WARNING"
+        text = handler.get_and_clear_formatted_logs()
+        assert "alpha" in text
+        assert "beta" in text
+        # Buffer cleared atomically.
+        assert handler.get_records() == []
 
         lgr.removeHandler(handler)
 
-    def test_jsonl_logs_file(self):
+    def test_get_and_clear_formatted_logs_file(self):
         handler = CaptureHandler(storage_mode=StorageMode.FILE.value)
-        lgr = logging.getLogger("test.capture.jsonl.file")
+        lgr = logging.getLogger("test.capture.getandclear.file")
         lgr.addHandler(handler)
         lgr.setLevel(logging.DEBUG)
 
-        lgr.error("err msg")
+        lgr.error("gamma")
 
-        jsonl = handler.get_jsonl_logs()
-        lines = jsonl.strip().split("\n")
-        assert len(lines) == 1
-        row = json.loads(lines[0])
-        assert row["msg"] == "err msg"
-        assert row["level"] == "ERROR"
+        text = handler.get_and_clear_formatted_logs()
+        assert "gamma" in text
+        assert handler.get_records() == []
 
         handler.cleanup()
         lgr.removeHandler(handler)
@@ -322,6 +314,23 @@ class TestLogManager:
         assert mgr._configured is True
         assert mgr.capture_handler is not None
 
+    def test_configure_file_level_splits_handlers(self):
+        """Capture handler uses file_level; console handler uses level."""
+        mgr = LogManager.get_instance()
+        mgr.configure(level="WARNING", file_level="DEBUG", capture_logs=True, console_output=True, force=True)
+        assert mgr._capture_handler is not None
+        assert mgr._console_handler is not None
+        # Capture handler captures DEBUG+, console handler shows WARNING+
+        assert mgr._capture_handler.level == logging.DEBUG
+        assert mgr._console_handler.level == logging.WARNING
+
+    def test_configure_file_level_defaults_to_level(self):
+        """When file_level is omitted it mirrors the console level."""
+        mgr = LogManager.get_instance()
+        mgr.configure(level="ERROR", capture_logs=True, console_output=False, force=True)
+        assert mgr._capture_handler is not None
+        assert mgr._capture_handler.level == logging.ERROR
+
     def test_configure_no_capture(self):
         mgr = LogManager.get_instance()
         mgr.configure(capture_logs=False)
@@ -360,22 +369,22 @@ class TestLogManager:
         mgr.configure(capture_logs=False)
         assert mgr.get_captured_logs() == ""
 
-    def test_get_captured_jsonl_logs(self):
+    def test_get_and_clear_captured_logs(self):
         mgr = LogManager.get_instance()
         mgr.configure(capture_logs=True, console_output=False)
-        lgr = mgr.get_logger("test.jsonl")
-        lgr.info("jsonl msg")
-        jsonl = mgr.get_captured_jsonl_logs()
-        lines = [l for l in jsonl.strip().split("\n") if l.strip()]
-        assert len(lines) >= 1
-        row = json.loads(lines[-1])
-        assert row["msg"] == "jsonl msg"
-        assert row["level"] == "INFO"
+        lgr = mgr.get_logger("test.getandclear")
+        lgr.info("line one")
+        lgr.warning("line two")
+        text = mgr.get_and_clear_captured_logs()
+        assert "line one" in text
+        assert "line two" in text
+        # Buffer is now empty.
+        assert mgr.get_captured_logs() == ""
 
-    def test_get_captured_jsonl_logs_no_handler(self):
+    def test_get_and_clear_captured_logs_no_handler(self):
         mgr = LogManager.get_instance()
         mgr.configure(capture_logs=False)
-        assert mgr.get_captured_jsonl_logs() == ""
+        assert mgr.get_and_clear_captured_logs() == ""
 
 
 # ============================================================================
@@ -404,6 +413,7 @@ class TestLogConfig:
     def test_defaults(self):
         cfg = LogConfig()
         assert cfg.log_level == "INFO"
+        assert cfg.file_level == "DEBUG"
         assert cfg.storage_mode == StorageMode.MEMORY.value
         assert cfg.output_path is None
         assert cfg.partition_by_date is True
@@ -413,14 +423,20 @@ class TestLogConfig:
         cfg = LogConfig(log_level="debug")
         assert cfg.log_level == "DEBUG"
 
+    def test_file_level_uppercased(self):
+        cfg = LogConfig(file_level="warning")
+        assert cfg.file_level == "WARNING"
+
     def test_custom(self):
         cfg = LogConfig(
             log_level="WARNING",
+            file_level="INFO",
             storage_mode="file",
             output_path="/logs",
             partition_by_date=False,
         )
         assert cfg.log_level == "WARNING"
+        assert cfg.file_level == "INFO"
         assert cfg.output_path == "/logs"
         assert cfg.partition_by_date is False
 
@@ -479,16 +495,16 @@ class TestBaseLogger:
     def test_partition_path(self):
         dt = datetime(2024, 1, 15, tzinfo=timezone.utc)
         path = format_partition_path("/base", run_date=dt)
-        assert path == "/base/run_date=2024-01-15"
+        assert path == "/base/__run_date=2024-01-15"
 
     def test_partition_path_defaults_to_now(self):
         path = format_partition_path("/base")
-        assert path.startswith("/base/run_date=")
+        assert path.startswith("/base/__run_date=")
 
     def test_partition_path_strips_trailing_slash(self):
         dt = datetime(2024, 3, 5, tzinfo=timezone.utc)
         path = format_partition_path("/base/", run_date=dt)
-        assert path == "/base/run_date=2024-03-05"
+        assert path == "/base/__run_date=2024-03-05"
 
     def test_partition_path_custom_pattern_with_hour(self):
         dt = datetime(2024, 6, 7, 9, 30, tzinfo=timezone.utc)
@@ -505,11 +521,61 @@ class TestBaseLogger:
         path = format_partition_path("/base", run_date=dt, pattern="run_date={year}-{month}-{day}/hour={hour}")
         assert path == "/base/run_date=2024-12-31/hour=03"
 
+    def test_timer_starts_when_configured(self):
+        """Timer starts when flush_interval > 0, output_path, and platform are set."""
+        from unittest.mock import MagicMock
+
+        cfg = LogConfig(output_path="/logs", flush_interval_seconds=60)
+        lgr = _StubLogger(cfg, platform=MagicMock())
+        assert lgr._flush_thread is not None
+        assert lgr._flush_thread.daemon is True
+        lgr.close()
+
+    def test_timer_not_started_without_output_path(self):
+        from unittest.mock import MagicMock
+
+        cfg = LogConfig(output_path=None, flush_interval_seconds=60)
+        lgr = _StubLogger(cfg, platform=MagicMock())
+        assert lgr._flush_thread is None
+        lgr.close()
+
+    def test_timer_not_started_without_platform(self):
+        cfg = LogConfig(output_path="/logs", flush_interval_seconds=60)
+        lgr = _StubLogger(cfg, platform=None)
+        assert lgr._flush_thread is None
+        lgr.close()
+
+    def test_timer_not_started_when_interval_zero(self):
+        from unittest.mock import MagicMock
+
+        cfg = LogConfig(output_path="/logs", flush_interval_seconds=0)
+        lgr = _StubLogger(cfg, platform=MagicMock())
+        assert lgr._flush_thread is None
+        lgr.close()
+
+    def test_cleanup_stops_timer(self):
+        from unittest.mock import MagicMock
+
+        cfg = LogConfig(output_path="/logs", flush_interval_seconds=60)
+        lgr = _StubLogger(cfg, platform=MagicMock())
+        assert lgr._flush_thread is not None
+        lgr.close()
+        assert lgr._stop_event.is_set()
+
+    def test_on_periodic_flush_calls_flush_by_default(self):
+        from unittest.mock import MagicMock
+
+        cfg = LogConfig(flush_interval_seconds=0)
+        lgr = _StubLogger(cfg, platform=MagicMock())
+        lgr._on_periodic_flush()
+        assert lgr.flushed is True
+        lgr.close()
+
 
 class TestLogConfigPartitionPattern:
     def test_default_partition_pattern(self):
         cfg = LogConfig()
-        assert cfg.partition_pattern == "run_date={year}-{month}-{day}"
+        assert cfg.partition_pattern == "__run_date={year}-{month}-{day}"
 
     def test_custom_partition_pattern(self):
         cfg = LogConfig(partition_pattern="year={year}/month={month}/day={day}/hour={hour}")

@@ -1,7 +1,5 @@
 # Generated data and runner outputs
-data/input/
-data/output/
-data/perf/
+data/
 
 # Generated metadata siblings (rebuild with scripts/setup_metadata.py --targets file)
 metadata/file/*.yaml

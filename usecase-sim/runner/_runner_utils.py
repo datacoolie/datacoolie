@@ -87,6 +87,11 @@ DEFAULT_LOCAL_ICEBERG_URI = "http://localhost:8181"
 # Import _runner_utils to activate these in any runner script.
 # ---------------------------------------------------------------------------
 _LOCAL_ENV_DEFAULTS: dict[str, str] = {
+    # Ensure Spark workers use the same Python interpreter as the driver.
+    # Prevents the Windows "python not found" App Execution Alias stub
+    # from being picked up instead of the active venv interpreter.
+    "PYSPARK_PYTHON": sys.executable,
+    "PYSPARK_DRIVER_PYTHON": sys.executable,
     "DATACOOLIE_SQLITE_DB": "./usecase-sim/data/input/sqlite/orders.db",
     "DATACOOLIE_PG_USER": "datacoolie",
     "DATACOOLIE_PG_PASS": "datacoolie",
@@ -310,9 +315,9 @@ def build_spark_session(
     # Base: warehouse + Derby metastore location
     spark_config: dict[str, str] = {
         # Cluster mode — single local machine, all available cores
-        "spark.master": f"local[{os.cpu_count()//2}]",
-        # 32 GB driver heap (local mode has no separate executor JVM)
-        "spark.driver.memory": "32g",
+        "spark.master": f"local[*]",
+        # 64 GB driver heap (local mode has no separate executor JVM)
+        "spark.driver.memory": "64g",
         "spark.driver.maxResultSize": "8g",
         "spark.sql.warehouse.dir": _SPARK_WAREHOUSE,
         "spark.driver.extraJavaOptions": (
@@ -552,6 +557,105 @@ def run_and_report(
         sys.exit(2 if result.has_failures else 0)
     except Exception:
         logger.exception("Runtime error")
+        sys.exit(2)
+    finally:
+        driver.close()
+        if cleanup_fn:
+            cleanup_fn()
+
+
+def parse_chunk_interval(pairs: list[str]) -> dict[str, int]:
+    """Parse a list of ``KEY=VALUE`` strings into a chunk-interval dict.
+
+    Example::
+
+        parse_chunk_interval(["days=1"]) → {"days": 1}
+        parse_chunk_interval(["months=1", "days=0"]) → {"months": 1, "days": 0}
+    """
+    result: dict[str, int] = {}
+    for kv in pairs:
+        key, _, value = kv.partition("=")
+        result[key.strip()] = int(value.strip())
+    return result
+
+
+def replay_and_report(
+    driver,
+    stage: str,
+    column_name_mode,
+    logger: logging.Logger,
+    replay_start: str,
+    replay_end: str,
+    replay_chunk_interval: list[str],
+    replay_save_watermark: bool = False,
+    replay_chunk_column: str | None = None,
+    skip_api_sources: bool = False,
+    cleanup_fn=None,
+) -> None:
+    """Execute ``driver.run_replay()``, log results, and ``sys.exit`` appropriately.
+
+    Args:
+        driver: A ``DataCoolieDriver`` instance.
+        stage: Stage name(s) used to load dataflows.
+        column_name_mode: ``ColumnCaseMode`` value.
+        logger: Logger for result output.
+        replay_start: Inclusive replay range start (ISO date/datetime or int).
+        replay_end: Exclusive replay range end (ISO date/datetime or int).
+        replay_chunk_interval: List of ``KEY=VALUE`` strings, e.g. ``["days=1"]``.
+            Pass an empty list for a single-shot (no chunking) replay.
+        replay_save_watermark: When True, save watermark after each chunk
+            (init/crash-resume mode).  Default False (backfill mode).
+        replay_chunk_column: Override the auto-resolved chunk column.
+        skip_api_sources: When True, exclude dataflows with API source.
+        cleanup_fn: Optional callable invoked in the ``finally`` block.
+    """
+    from datacoolie.core import ColumnCaseMode, ReplayConfig
+
+    chunk_interval = parse_chunk_interval(replay_chunk_interval) or None
+
+    replay = ReplayConfig(
+        start=replay_start,
+        end=replay_end,
+        chunk_interval=chunk_interval,
+        save_watermark=replay_save_watermark,
+        chunk_column=replay_chunk_column or None,
+    )
+
+    try:
+        all_dfs = driver.load_dataflows(stage=stage)
+        if skip_api_sources:
+            dataflows = [
+                df for df in all_dfs
+                if (df.source.connection.connection_type or "").lower() != "api"
+            ]
+            excluded = len(all_dfs) - len(dataflows)
+            logger.info(
+                "Skip-api-sources enabled: excluded %d dataflow(s) with API source; %d remain",
+                excluded, len(dataflows),
+            )
+        else:
+            dataflows = all_dfs
+
+        logger.info(
+            "Replay  start=%s  end=%s  chunk_interval=%s  save_watermark=%s  dataflows=%d",
+            replay_start, replay_end, chunk_interval, replay_save_watermark, len(dataflows),
+        )
+
+        result = driver.run_replay(
+            dataflows=dataflows,
+            replay=replay,
+            column_name_mode=ColumnCaseMode(column_name_mode),
+        )
+        logger.info(
+            "Replay result — total: %d, succeeded: %d, failed: %d (%.1fs)",
+            result.total, result.succeeded, result.failed, result.duration_seconds,
+        )
+        if result.errors:
+            for name, err in result.errors.items():
+                logger.error("  %s: %s", name, err)
+        sys.exit(2 if result.has_failures else 0)
+    except Exception:
+        logger.exception("Replay runtime error")
         sys.exit(2)
     finally:
         driver.close()

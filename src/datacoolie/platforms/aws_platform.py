@@ -520,7 +520,7 @@ class AWSPlatform(BasePlatform):
         try:
             glue = self.boto3_client("glue")
             glue.delete_table(DatabaseName=database, Name=table_name)
-            logger.info("Removed stale Glue catalog entry: %s.%s", database, table_name)
+            logger.debug("Removed stale Glue catalog entry: %s.%s", database, table_name)
         except glue.exceptions.EntityNotFoundException:
             pass  # table did not exist — nothing to remove
         except Exception as exc:  # noqa: BLE001
@@ -597,7 +597,7 @@ class AWSPlatform(BasePlatform):
                 ) from exc
 
             if state == "SUCCEEDED":
-                logger.info("Athena query %s succeeded", query_id)
+                logger.debug("Athena query %s succeeded", query_id)
                 return query_id
             if state in ("FAILED", "CANCELLED"):
                 reason = (

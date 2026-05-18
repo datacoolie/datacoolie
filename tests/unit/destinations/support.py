@@ -45,6 +45,7 @@ class MockEngine(BaseEngine[dict]):
         self._merged: list = []
         self._merge_overwritten: list = []
         self._scd2: list = []
+        self._deleted_windows: list = []
         self._compacted: list = []
         self._cleaned: list = []
         self._executed_sql: list = []
@@ -99,13 +100,21 @@ class MockEngine(BaseEngine[dict]):
     def scd2_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
         self._scd2.append({"table_name": table_name, "merge_keys": merge_keys})
 
+    def delete_by_window_path(self, path, window, fmt="delta"):
+        self._deleted_windows = getattr(self, "_deleted_windows", [])
+        self._deleted_windows.append({"path": path, "window": window})
+
+    def delete_by_window_table(self, table_name, window, fmt="delta"):
+        self._deleted_windows = getattr(self, "_deleted_windows", [])
+        self._deleted_windows.append({"table_name": table_name, "window": window})
+
     # --- Transform ---
     def add_column(self, df, column_name, expression): return df
     def drop_columns(self, df, columns): return df
     def select_columns(self, df, columns): return df
     def rename_column(self, df, old_name, new_name): return df
     def filter_rows(self, df, condition): return df
-    def apply_watermark_filter(self, df, watermark_columns, watermark): return df
+    def apply_watermark_filter(self, df, watermark_columns, watermark, *, operator=">"): return df
     def deduplicate(self, df, partition_columns, order_columns=None, order="desc"): return df
     def deduplicate_by_rank(self, df, partition_columns, order_columns, order="desc"): return df
     def cast_column(self, df, column_name, target_type, fmt=None): return df
@@ -207,9 +216,19 @@ def _make_dataflow(
         format=Format.DELTA.value,
         configure={"base_path": "/data/bronze"},
     )
+    # When replace_by_watermark is set, source must have date_backward to pass validation.
+    src_configure: Dict[str, Any] = {}
+    if dest_configure and dest_configure.get("replace_by_watermark"):
+        src_configure["backward_days"] = 7
+    source = Source(
+        connection=src_conn,
+        schema_name="raw",
+        table="orders",
+        configure=src_configure,
+    )
     return DataFlow(
         name="test_flow",
-        source=Source(connection=src_conn, schema_name="raw", table="orders"),
+        source=source,
         destination=Destination(
             connection=dst_conn,
             schema_name="curated",

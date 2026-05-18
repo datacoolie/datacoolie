@@ -9,7 +9,7 @@ Glue job type: Spark (Glue 4.0+, Glue 5.0+ recommended, Python 3)
 
 Required Glue job parameters (--conf / job arguments):
   --REGION       AWS region, e.g. ap-southeast-1
-  --BUCKET       S3 bucket name, e.g. de-dev-0007
+  --BUCKET       S3 bucket name, e.g. de-dev-0001
   --STAGE        Comma-separated stage names to run, e.g. "read_file,load_delta"
                  Leave empty ("") to run ALL stages in the metadata file.
 
@@ -32,8 +32,8 @@ Required Glue job libraries:
     or an S3 path reference in the Glue job definition.
 
 IAM permissions required for the Glue execution role:
-  - s3:GetObject / s3:PutObject / s3:DeleteObject on s3://de-dev-0007/*
-  - s3:ListBucket on s3://de-dev-0007
+  - s3:GetObject / s3:PutObject / s3:DeleteObject on s3://de-dev-0001/*
+  - s3:ListBucket on s3://de-dev-0001
   - secretsmanager:GetSecretValue for any secrets used in connections
   - glue:CreateTable / glue:UpdateTable / glue:GetDatabase on the datacoolie database
   - athena:StartQueryExecution / athena:GetQueryExecution on the Athena workgroup
@@ -67,7 +67,7 @@ args = getResolvedOptions(
 )
 
 REGION: str = args.get("REGION", "ap-southeast-1")
-BUCKET: str = args.get("BUCKET", "de-dev-0007")
+BUCKET: str = args.get("BUCKET", "de-dev-0001")
 STAGE: str = args.get("STAGE", "")  # empty string = run all stages
 
 METADATA_PATH = f"s3://{BUCKET}/metadata/aws_glue_use_cases.json"

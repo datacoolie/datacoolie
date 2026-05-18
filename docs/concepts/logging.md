@@ -6,26 +6,53 @@ description: Understand SystemLogger and ETLLogger outputs, file layouts, event 
 # Logging
 
 **TL;DR** Two orthogonal loggers. `SystemLogger` captures framework Python logs
-as JSONL for operators. `ETLLogger` writes structured execution logs in two
-forms: debug JSONL and analyst Parquet.
+as plain-text `.log` files for operators. `ETLLogger` writes structured execution
+logs in two forms: debug JSONL (appended per run) and analyst outputs (JSONL for
+job summaries, Parquet for dataflow detail).
 
 ## `SystemLogger`
 
 - Captures framework Python logs through `LogManager`.
-- JSONL output, `INFO` by default, configurable.
-- Writes `system_log_<timestamp>_<job_num>_<job_index>_<job_id>.jsonl` under the
-  configured `output_path`, optionally date-partitioned.
+- **Two independent levels:**
+    - `log_level` — controls what is printed to the console (default `INFO`).
+    - `file_level` — controls what is captured to the file (default `DEBUG`,
+      capturing all framework messages regardless of console level).
+- Writes plain-text `.log` files: one line per record,
+  format `timestamp - LEVEL - logger [dataflow_id] - message`.
+- Filename: `system_log_<job_id>.log` under the configured `output_path`,
+  optionally date-partitioned.
+- **Periodic flush** via background timer — appends new records to the remote
+  file using `platform.append_file()` at each interval.  Final remaining
+  records are appended on `close()`.
 - Intended for operators reading runtime logs and troubleshooting failures.
 
 ## `ETLLogger`
 
 - Writes two outputs for the same run session:
   - Debug JSONL for full-fidelity troubleshooting.
-  - Analyst Parquet for query-friendly reporting and dashboards.
+  - Analyst outputs for query-friendly reporting and dashboards.
 - Uses `_type` values `"dataflow_run_log"` (one per dataflow execution) and
   `"job_run_log"` (one per job run summary).
 - Stores files under `{output_path}/{purpose}/{log_type}/__run_date=yyyy-mm-dd/`
   by default.
+
+### Debug JSONL
+
+- Single JSONL file per session: `debug_json/job_run_log/__run_date=.../job_<stem>.jsonl`
+- **Periodic flush**: new bytes appended via `platform.append_file()` at each
+  flush interval.  Job summary line appended as the final line on `close()`.
+- Per-dataflow entries followed by a final `job_run_log` summary line.
+
+### Analyst Outputs
+
+| Log type | Format | Path | Flush strategy |
+|---|---|---|---|
+| `job_run_log` | JSONL (one line per job run) | `analyst/job_run_log/__run_date=.../job_run_log.jsonl` | `append_file` on close |
+| `dataflow_run_log` | Parquet (one row per dataflow) | `analyst/dataflow_run_log/__run_date=.../dataflow_<stem>.parquet` | `upload_file` on close |
+
+The `job_run_log` file is a **shared daily file** — multiple job runs on the
+same day append their summary to the same file, making it easy to query
+recent job history without listing many small per-run files.
 
 Row shape (dataflow entry):
 
@@ -60,10 +87,11 @@ Enum that controls the output folder and intended audience:
 | Enum | `.value` | Meaning |
 |---|---|---|
 | `DEBUG` | `debug_json` | JSONL debug output for troubleshooting |
-| `ANALYST` | `analyst` | Parquet output for dashboards and analysis |
+| `ANALYST` | `analyst` | Analyst outputs for dashboards and analysis |
 
-`ETLLogger` uses `DEBUG/job_run_log` for the JSONL session file and
-`ANALYST/job_run_log` plus `ANALYST/dataflow_run_log` for Parquet outputs.
+`ETLLogger` uses `DEBUG/job_run_log` for the JSONL debug session file,
+`ANALYST/job_run_log` for the appended job summary JSONL, and
+`ANALYST/dataflow_run_log` for the per-run Parquet.
 
 ## `ExecutionType` → `operation_type`
 
@@ -77,6 +105,8 @@ Enum that controls the output folder and intended audience:
 `LogConfig` fields that affect storage:
 
 - `output_path` — root directory
+- `log_level` — console stream level (default `INFO`)
+- `file_level` — capture / file level for `SystemLogger` (default `DEBUG`)
 - `partition_by_date` — append a partition folder to output paths
 - `partition_pattern` — override the partition folder layout
   (default: `__run_date={year}-{month}-{day}`)

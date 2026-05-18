@@ -23,6 +23,7 @@ from datacoolie.utils.path_utils import (
     build_path,
     normalize_path,
 )
+from datacoolie.utils.datetime_utils import generate_chunk_boundaries
 
 __all__ = [
     "as_json",
@@ -33,6 +34,7 @@ __all__ = [
     "custom_json_encoder",
     "ensure_list",
     "flatten_dict",
+    "generate_chunk_boundaries",
     "generate_unique_id",
     "json_default",
     "merge_dicts",

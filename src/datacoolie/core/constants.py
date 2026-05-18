@@ -107,6 +107,7 @@ class ExecutionType(str, Enum):
     """ETL execution types."""
 
     ETL = "etl"
+    REPLAY = "replay"
     MAINTENANCE = "maintenance"
 
 

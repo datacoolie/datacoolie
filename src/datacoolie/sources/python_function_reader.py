@@ -92,6 +92,8 @@ class PythonFunctionReader(BaseSourceReader[DF]):
         if watermark and source.watermark_columns:
             df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
 
+        df = self._apply_filter_expression(df, source)
+
         context = f"Function: {source.python_function}"
         return self._finalize_read(df, source.watermark_columns, "PythonFunctionReader", context)
 

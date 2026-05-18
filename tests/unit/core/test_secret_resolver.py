@@ -16,10 +16,12 @@ from datacoolie.core.secret_resolver import (
 )
 from datacoolie.core.secret_provider import (
     BaseSecretProvider,
+    SecretStr,
     _resolved_values,
     _resolved_values_lock,
     get_registered_secret_values,
     resolve_secrets,
+    unwrap_secret,
 )
 
 
@@ -204,7 +206,7 @@ class TestResolverDispatch:
         )
         resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
 
-        assert conn.configure["password"] == "env-secret"
+        assert unwrap_secret(conn.configure["password"]) == "env-secret"
         assert provider.call_count == 0  # provider NOT called
 
     def test_no_prefix_uses_native_provider(self):
@@ -216,7 +218,7 @@ class TestResolverDispatch:
         )
         resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
 
-        assert conn.configure["password"] == "native-secret"
+        assert unwrap_secret(conn.configure["password"]) == "native-secret"
         assert provider.call_count == 1
 
     def test_unknown_prefix_uses_native_provider(self):
@@ -228,7 +230,7 @@ class TestResolverDispatch:
         )
         resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
 
-        assert conn.configure["field"] == "native-val"
+        assert unwrap_secret(conn.configure["field"]) == "native-val"
         assert provider.call_count == 1
 
     def test_mixed_sources(self, monkeypatch):
@@ -245,8 +247,8 @@ class TestResolverDispatch:
         )
         resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
 
-        assert conn.configure["token"] == "env-tok"
-        assert conn.configure["password"] == "vault-secret"
+        assert unwrap_secret(conn.configure["token"]) == "env-tok"
+        assert unwrap_secret(conn.configure["password"]) == "vault-secret"
 
     def test_env_prefix_empty_source_part(self, monkeypatch):
         """Source 'env:' with empty source arg — key used as-is."""
@@ -259,7 +261,7 @@ class TestResolverDispatch:
         )
         resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
 
-        assert conn.configure["password"] == "direct"
+        assert unwrap_secret(conn.configure["password"]) == "direct"
 
     def test_resolver_failure_raises(self, monkeypatch):
         """Resolver failure is wrapped in DataCoolieError."""
@@ -296,5 +298,5 @@ class TestResolverDispatch:
         )
         resolve_secrets(conn, provider)  # no resolver_lookup
 
-        assert conn.configure["password"] == "native"
+        assert unwrap_secret(conn.configure["password"]) == "native"
         assert provider.call_count == 1

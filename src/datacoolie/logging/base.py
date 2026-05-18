@@ -134,6 +134,7 @@ class LogConfig:
     """Configuration dataclass for loggers."""
 
     log_level: str = LogLevel.INFO.value
+    file_level: str = LogLevel.DEBUG.value
     storage_mode: str = StorageMode.MEMORY.value
     output_path: Optional[str] = None
     partition_by_date: bool = True
@@ -142,6 +143,7 @@ class LogConfig:
 
     def __post_init__(self) -> None:
         self.log_level = self.log_level.upper()
+        self.file_level = self.file_level.upper()
 
 
 # ============================================================================
@@ -221,7 +223,12 @@ class LogRecord:
 
 
 class CaptureHandler(logging.Handler):
-    """Captures Python log records for later persistence."""
+    """Captures Python log records for later persistence.
+
+    Uses the handler's built-in ``self.lock`` (RLock) for thread safety —
+    no separate lock needed since ``logging.Handler.handle()`` already
+    acquires it before calling :meth:`emit`.
+    """
 
     def __init__(
         self,
@@ -232,7 +239,6 @@ class CaptureHandler(logging.Handler):
         self._storage_mode = storage_mode
         self._records: List[LogRecord] = []
         self._temp_file: Optional[str] = None
-        self._lock = threading.Lock()
         if storage_mode == StorageMode.FILE.value:
             self._setup_temp_file()
 
@@ -244,6 +250,7 @@ class CaptureHandler(logging.Handler):
         )
 
     def emit(self, record: logging.LogRecord) -> None:
+        # NOTE: self.lock is already held by Handler.handle() when this runs.
         try:
             exc_text: Optional[str] = None
             if record.exc_info:
@@ -261,11 +268,10 @@ class CaptureHandler(logging.Handler):
                 dataflow_id=getattr(record, "dataflow_id", None) or None,
             )
 
-            with self._lock:
-                if self._storage_mode == StorageMode.MEMORY.value:
-                    self._records.append(lr)
-                else:
-                    self._write_to_file(lr)
+            if self._storage_mode == StorageMode.MEMORY.value:
+                self._records.append(lr)
+            else:
+                self._write_to_file(lr)
         except Exception:
             self.handleError(record)
 
@@ -278,7 +284,7 @@ class CaptureHandler(logging.Handler):
                 self._records.append(record)
 
     def get_records(self) -> List[LogRecord]:
-        with self._lock:
+        with self.lock:
             if self._storage_mode == StorageMode.FILE.value:
                 return self._load_from_file()
             return list(self._records)
@@ -307,23 +313,37 @@ class CaptureHandler(logging.Handler):
         return records
 
     def get_formatted_logs(self, include_location: bool = False) -> str:
-        with self._lock:
+        with self.lock:
             if self._storage_mode == StorageMode.FILE.value:
                 records = self._load_from_file()
                 return "\n".join(r.format(include_location) for r in records)
             return "\n".join(r.format(include_location) for r in self._records)
 
-    def get_jsonl_logs(self) -> str:
-        """Return all captured records as newline-delimited JSON."""
-        with self._lock:
+    def get_and_clear_formatted_logs(self, include_location: bool = False) -> str:
+        """Atomically drain captured logs and return as formatted text.
+
+        Minimises lock hold time: swaps/clears the buffer under the lock,
+        then formats the text outside the lock.
+        """
+        with self.lock:
             if self._storage_mode == StorageMode.FILE.value:
                 records = self._load_from_file()
+                self._records.clear()
+                if self._temp_file and os.path.exists(self._temp_file):
+                    try:
+                        os.remove(self._temp_file)
+                        self._setup_temp_file()
+                    except Exception:
+                        pass
             else:
-                records = list(self._records)
-            return "\n".join(json.dumps(r.to_dict(), default=str) for r in records)
+                # Swap list — O(1) under the lock.
+                records = self._records
+                self._records = []
+        # Format outside the lock — no contention during string building.
+        return "\n".join(r.format(include_location) for r in records)
 
     def clear(self) -> None:
-        with self._lock:
+        with self.lock:
             self._records.clear()
             if self._temp_file and os.path.exists(self._temp_file):
                 try:
@@ -333,7 +353,7 @@ class CaptureHandler(logging.Handler):
                     pass
 
     def cleanup(self) -> None:
-        with self._lock:
+        with self.lock:
             self._records.clear()
             if self._temp_file and os.path.exists(self._temp_file):
                 try:
@@ -356,6 +376,7 @@ class LogManager:
 
     def __init__(self) -> None:
         self._level = LogLevel.INFO.value
+        self._file_level = LogLevel.DEBUG.value
         self._capture_handler: Optional[CaptureHandler] = None
         self._console_handler: Optional[logging.Handler] = None
         self._sensitive_filter: Optional[SensitiveValueFilter] = None
@@ -383,6 +404,7 @@ class LogManager:
     def configure(
         self,
         level: str = LogLevel.INFO.value,
+        file_level: Optional[str] = None,
         capture_logs: bool = True,
         storage_mode: str = StorageMode.MEMORY.value,
         console_output: bool = True,
@@ -396,7 +418,10 @@ class LogManager:
         and replace existing handlers.
 
         Args:
-            level: Minimum log level.
+            level: Console log level (controls what is printed to stderr).
+            file_level: Capture log level for file persistence.  Defaults to
+                ``level`` when not provided.  Set to ``"DEBUG"`` to capture all
+                framework messages regardless of the console level.
             capture_logs: Enable :class:`CaptureHandler`.
             storage_mode: ``"memory"`` or ``"file"``.
             console_output: Emit to stderr.
@@ -406,10 +431,15 @@ class LogManager:
         if self._configured and not force:
             return
         self._level = level.upper()
-        log_level = getattr(logging, self._level, logging.INFO)
+        self._file_level = (file_level or level).upper()
+
+        console_int = getattr(logging, self._level, logging.INFO)
+        file_int = getattr(logging, self._file_level, logging.DEBUG)
+        # Root logger must pass records needed by either handler.
+        root_int = min(console_int, file_int)
 
         root = logging.getLogger(self._root_logger_name)
-        root.setLevel(log_level)
+        root.setLevel(root_int)
         root.propagate = False
 
         for h in root.handlers[:]:
@@ -420,13 +450,13 @@ class LogManager:
 
         if console_output:
             self._console_handler = logging.StreamHandler()
-            self._console_handler.setLevel(log_level)
+            self._console_handler.setLevel(console_int)
             self._console_handler.setFormatter(formatter)
             root.addHandler(self._console_handler)
 
         if capture_logs:
             self._capture_handler = CaptureHandler(
-                level=log_level,
+                level=file_int,
                 storage_mode=storage_mode,
             )
             self._capture_handler.setFormatter(formatter)
@@ -441,7 +471,7 @@ class LogManager:
             h.addFilter(self._context_filter)
 
         for lgr in self._loggers.values():
-            lgr.setLevel(log_level)
+            lgr.setLevel(root_int)
 
         self._configured = True
 
@@ -457,7 +487,11 @@ class LogManager:
 
         if full_name not in self._loggers:
             lgr = logging.getLogger(full_name)
-            lgr.setLevel(getattr(logging, self._level, logging.INFO))
+            # Use the minimum of console/file levels so the child does not
+            # filter out records that the capture handler needs.
+            console_int = getattr(logging, self._level, logging.INFO)
+            file_int = getattr(logging, self._file_level, logging.DEBUG)
+            lgr.setLevel(min(console_int, file_int))
             self._loggers[full_name] = lgr
 
         return self._loggers[full_name]
@@ -471,10 +505,10 @@ class LogManager:
             return self._capture_handler.get_formatted_logs()
         return ""
 
-    def get_captured_jsonl_logs(self) -> str:
-        """Return captured logs as newline-delimited JSON."""
+    def get_and_clear_captured_logs(self) -> str:
+        """Atomically return captured logs as plain text and clear the buffer."""
         if self._capture_handler:
-            return self._capture_handler.get_jsonl_logs()
+            return self._capture_handler.get_and_clear_formatted_logs()
         return ""
 
     def clear_captured_logs(self) -> None:
@@ -512,8 +546,12 @@ def get_logger(name: str) -> logging.Logger:
 class BaseLogger(ABC):
     """Abstract base for persistent loggers (system, ETL).
 
-    Provides configuration, lifecycle management, and context-manager support.
-    Subclasses implement :meth:`flush`.
+    Provides configuration, lifecycle management, periodic flush timer,
+    and context-manager support.  Subclasses implement :meth:`flush` and
+    optionally override :meth:`_on_periodic_flush` for incremental behavior.
+
+    The periodic timer is started automatically when *flush_interval_seconds*
+    is positive **and** both *output_path* and *platform* are configured.
     """
 
     def __init__(self, config: LogConfig, platform: Optional[BasePlatform] = None) -> None:
@@ -521,6 +559,45 @@ class BaseLogger(ABC):
         self._platform = platform
         self._is_closed = False
         self._run_config: Optional[DataCoolieRunConfig] = None
+        # Periodic flush: single daemon thread using Event.wait(timeout)
+        self._stop_event = threading.Event()
+        self._flush_thread: Optional[threading.Thread] = None
+        if self._should_start_timer():
+            self._flush_thread = threading.Thread(
+                target=self._flush_loop, daemon=True,
+            )
+            self._flush_thread.start()
+
+    # ------------------------------------------------------------------
+    # Periodic flush timer
+    # ------------------------------------------------------------------
+
+    def _should_start_timer(self) -> bool:
+        """Whether periodic flushing is enabled."""
+        return (
+            self._config.flush_interval_seconds > 0
+            and self._config.output_path is not None
+            and self._platform is not None
+        )
+
+    def _flush_loop(self) -> None:
+        """Single daemon thread — sleeps until interval elapses or stop is signalled."""
+        interval = self._config.flush_interval_seconds
+        while not self._stop_event.wait(interval):
+            self._on_periodic_flush()
+
+    def _on_periodic_flush(self) -> None:
+        """Called by the periodic timer.
+
+        The default implementation calls :meth:`flush`.  Override in
+        subclasses that need incremental behavior distinct from the
+        final flush (e.g. appending only new bytes).
+        """
+        self.flush()
+
+    # ------------------------------------------------------------------
+    # Properties / lifecycle
+    # ------------------------------------------------------------------
 
     @property
     def config(self) -> LogConfig:
@@ -552,7 +629,14 @@ class BaseLogger(ABC):
             self._is_closed = True
 
     def _cleanup(self) -> None:
-        """Release resources. Subclasses should call ``super()._cleanup()``."""
+        """Stop the periodic flush thread and release resources.
+
+        Subclasses should call ``super()._cleanup()``.
+        """
+        self._stop_event.set()
+        if self._flush_thread is not None:
+            self._flush_thread.join(timeout=2.0)
+            self._flush_thread = None
 
     def __enter__(self) -> "BaseLogger":
         return self

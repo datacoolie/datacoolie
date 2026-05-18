@@ -26,9 +26,10 @@ class TestDebugJsonlFlush:
         logger.log(make_dataflow("b"), make_runtime("b", status=DataFlowStatus.FAILED.value))
         logger.close()
 
-        jsonl_files = list(tmp_path.rglob("*.jsonl"))
-        assert len(jsonl_files) == 1
-        lines = [json.loads(line) for line in jsonl_files[0].read_text(encoding="utf-8").strip().split("\n") if line.strip()]
+        # Debug JSONL is under debug_json/
+        debug_files = [f for f in tmp_path.rglob("*.jsonl") if "debug_json" in str(f)]
+        assert len(debug_files) == 1
+        lines = [json.loads(line) for line in debug_files[0].read_text(encoding="utf-8").strip().split("\n") if line.strip()]
         assert lines[0]["_type"] == "dataflow_run_log"
         assert lines[1]["_type"] == "dataflow_run_log"
         assert lines[-1]["_type"] == "job_run_log"
@@ -39,7 +40,9 @@ class TestDebugJsonlFlush:
         logger.log(make_dataflow("a"), make_runtime("a"))
         logger.close()
 
-        path = str(next(tmp_path.rglob("*.jsonl")))
+        debug_files = [f for f in tmp_path.rglob("*.jsonl") if "debug_json" in str(f)]
+        assert len(debug_files) == 1
+        path = str(debug_files[0])
         assert "debug_json" in path
         assert "job_run_log" in path
 
@@ -50,21 +53,24 @@ class TestDebugJsonlFlush:
 
         logger.flush()
 
-        platform.upload_file.assert_called()
-        uploads = [str(call.args[1]) for call in platform.upload_file.call_args_list]
-        assert any(path.endswith(".jsonl") for path in uploads)
+        # Fallback now uses append_file for debug JSONL.
+        append_paths = [str(call.args[0]) for call in platform.append_file.call_args_list]
+        assert any(path.endswith(".jsonl") for path in append_paths)
         logger.close()
 
-    def test_no_pyarrow_only_jsonl_uploaded(self):
+    def test_no_pyarrow_only_jsonl_appended(self):
         logger, platform = make_logger()
         logger.log(make_dataflow("a"), make_runtime("a"))
 
         with patch.dict("sys.modules", {"pyarrow": None, "pyarrow.parquet": None}):
             logger.close()
 
-        uploads = [str(call.args[1]) for call in platform.upload_file.call_args_list]
-        assert any(path.endswith(".jsonl") for path in uploads)
-        assert not any(path.endswith(".parquet") for path in uploads)
+        # Debug JSONL and analyst job_run_log use append_file.
+        append_paths = [str(call.args[0]) for call in platform.append_file.call_args_list]
+        assert any(path.endswith(".jsonl") for path in append_paths)
+        # No parquet uploaded.
+        upload_paths = [str(call.args[1]) for call in platform.upload_file.call_args_list]
+        assert not any(path.endswith(".parquet") for path in upload_paths)
 
 
 class TestPeriodicFlush:
@@ -74,15 +80,17 @@ class TestPeriodicFlush:
     def teardown_method(self):
         LogManager.reset()
 
-    def test_periodic_flush_uploads_after_interval(self):
-        logger, platform = make_logger(flush_interval_seconds=1)
+    def test_periodic_flush_appends_after_interval(self):
+        logger, platform = make_logger(flush_interval_seconds=0)
 
-        with patch("datacoolie.logging.etl_logger.time.monotonic", side_effect=[100.0, 100.5, 101.6]):
-            logger.log(make_dataflow("a"), make_runtime("a"))  # initializes last flush time only
-            logger.log(make_dataflow("b"), make_runtime("b"))  # below threshold
-            logger.log(make_dataflow("c"), make_runtime("c"))  # triggers periodic flush
+        # Log entries to create temp file content.
+        logger.log(make_dataflow("a"), make_runtime("a"))
+        logger.log(make_dataflow("b"), make_runtime("b"))
 
-        assert platform.upload_file.call_count >= 1
+        # Directly invoke the periodic flush hook (same as timer would call).
+        logger._on_periodic_flush()
+
+        assert platform.append_file.call_count >= 1
         logger.close()
 
     def test_periodic_flush_noop_without_platform_or_output(self):
@@ -124,9 +132,9 @@ class TestStreamAndPeriodicErrorPaths:
         logger._periodic_flush()
         logger.close()
 
-    def test_periodic_flush_handles_upload_error(self, tmp_path):
+    def test_periodic_flush_handles_append_error(self, tmp_path):
         platform = MagicMock()
-        platform.upload_file.side_effect = RuntimeError("upload failed")
+        platform.append_file.side_effect = RuntimeError("append failed")
         logger = ETLLogger(LogConfig(output_path="/logs"), platform=platform)
 
         fp = tmp_path / "debug.jsonl"

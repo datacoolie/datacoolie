@@ -454,9 +454,11 @@ class Connection(CompatModel):
         keys to real values.
         """
         if "database" in self.configure:
-            self.database = self.configure["database"]
+            v = self.configure["database"]
+            self.database = object.__getattribute__(v, "_value") if type(v).__name__ == "SecretStr" else v
         if "catalog" in self.configure:
-            self.catalog = self.configure["catalog"]
+            v = self.configure["catalog"]
+            self.catalog = object.__getattribute__(v, "_value") if type(v).__name__ == "SecretStr" else v
 
     # -- computed properties ------------------------------------------------
 
@@ -586,6 +588,7 @@ class Source(CompatModel):
     query: Optional[str] = None
     python_function: Optional[str] = None
     watermark_columns: List[str] = field(default_factory=list)
+    filter_expression: Optional[str] = None
     configure: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -836,6 +839,19 @@ class Destination(CompatModel):
         """
         return self.configure.get("scd2_effective_column") or None
 
+    @property
+    def replace_by_watermark(self) -> bool:
+        """Whether merge_overwrite should use range-based window replace.
+
+        When ``True``, the strategy deletes all target rows within the
+        watermark window (watermark_effective → new_watermark) instead of
+        doing key-based delete.  This handles source-side deletions.
+
+        Requires ``date_backward`` on the source to ensure the read window
+        covers the delete scope.
+        """
+        return bool(self.configure.get("replace_by_watermark", False))
+
 
 @dataclass(init=False)
 class Transform(CompatModel):
@@ -843,6 +859,7 @@ class Transform(CompatModel):
 
     deduplicate_columns: List[str] = field(default_factory=list)
     latest_data_columns: List[str] = field(default_factory=list)
+    filter_expression: Optional[str] = None
     additional_columns: List[AdditionalColumn] = field(default_factory=list)
     schema_hints: List[SchemaHint] = field(default_factory=list)
     configure: Dict[str, Any] = field(default_factory=dict)
@@ -978,6 +995,58 @@ class DataFlow(CompatModel):
         self.dataflow_id = values.get("dataflow_id")
         self.processing_mode = self._normalise_mode(self.processing_mode)
         self.configure = self._parse_configure(self.configure)
+        # Mutable runtime state — set by driver after source read.
+        self._watermark_window: Optional[Dict[str, tuple]] = None
+        self.validate()
+
+    @property
+    def watermark_window(self) -> Optional[Dict[str, tuple]]:
+        """Watermark window for range-based replace.
+
+        Set by the driver after source read.  Maps column names to
+        ``(lower_bound, upper_bound)`` tuples.
+        """
+        return self._watermark_window
+
+    # -- validation ---------------------------------------------------------
+
+    def validate(self) -> None:
+        """Validate metadata configuration; raise on invalid combinations.
+
+        Called automatically in ``__post_init__`` to fail fast at
+        metadata load time.
+        """
+        if self.destination.replace_by_watermark:
+            if not self.source.date_backward:
+                raise ConfigurationError(
+                    "replace_by_watermark requires date_backward on the source "
+                    "to ensure the read window covers the delete scope",
+                    details={"dataflow": self.name or self.dataflow_id},
+                )
+            if self.load_type != LoadType.MERGE_OVERWRITE.value:
+                raise ConfigurationError(
+                    f"replace_by_watermark is only supported with merge_overwrite load_type, "
+                    f"got {self.load_type!r}",
+                    details={"dataflow": self.name or self.dataflow_id},
+                )
+
+    def apply_watermark_window(self, source_runtime: "SourceRuntimeInfo") -> None:
+        """Set :attr:`watermark_window` from source runtime info.
+
+        Computes the (watermark_effective, watermark_after) window per
+        column when ``replace_by_watermark`` is active and both bounds
+        are available.  Otherwise leaves the window as ``None``.
+        """
+        if (
+            self.destination.replace_by_watermark
+            and source_runtime.watermark_effective
+            and source_runtime.watermark_after
+        ):
+            self._watermark_window = {
+                col: (source_runtime.watermark_effective[col], source_runtime.watermark_after[col])
+                for col in source_runtime.watermark_effective
+                if col in source_runtime.watermark_after
+            }
 
     # -- convenience proxies ------------------------------------------------
 
@@ -1009,6 +1078,74 @@ class DataFlow(CompatModel):
         falls back to ``source.watermark_columns``.
         """
         return self.transform.latest_data_columns or self.source.watermark_columns
+
+
+# ============================================================================
+# ReplayConfig — bounded replay / init with chunking
+# ============================================================================
+
+
+@dataclass
+class ReplayConfig:
+    """Configuration for replaying a bounded time range in chunks.
+
+    Used by :meth:`DataCoolieDriver.run_replay` to reprocess historical
+    data without corrupting the production watermark.
+
+    The range uses the left-closed, right-open ``[start, end)`` convention:
+    *start* is **inclusive**, *end* is **exclusive**.  This aligns chunks
+    to whole calendar units (days, weeks, months, etc.) and is the
+    industry-standard interval convention used by Python’s ``range()``,
+    Spark partition pruning, and PostgreSQL range types.
+
+    Example::
+
+        # Replay all of Q1 2025 in monthly chunks:
+        ReplayConfig(
+            start="2025-01-01",  # inclusive
+            end="2025-04-01",    # exclusive (first day NOT included)
+            chunk_interval={"months": 1},
+        )
+        # Produces chunks: [Jan 1, Feb 1), [Feb 1, Mar 1), [Mar 1, Apr 1)
+
+    The chunk column is auto-resolved from
+    ``dataflow.source.watermark_columns[0]`` at runtime.  Override with
+    ``chunk_column`` for multi-column watermarks where the first column
+    is not the one to chunk on.
+
+    Type detection is automatic:
+
+    * ``str`` parseable to date/datetime → time-based chunking
+    * ``datetime`` / ``date`` objects → time-based chunking
+    * ``int`` → integer-based chunking
+
+    Args:
+        start: Inclusive lower bound of the replay range.
+        end: Exclusive upper bound of the replay range.
+        chunk_interval: Chunking interval.  Time-based keys (``months``,
+            ``days``, ``hours``, ``minutes``, ``weeks``, ``years``) use
+            ``relativedelta``; ``step`` key is for integer watermarks.
+            ``None`` disables chunking (single-shot replay).
+        save_watermark: When ``True`` (init mode), save the watermark
+            after each successful chunk — enables crash-resume.
+            When ``False`` (backfill mode), the stored watermark is
+            never touched.
+        chunk_column: Override auto-resolved chunk column.  Only needed
+            for multi-column watermarks where the first column is not
+            the desired chunking dimension.
+    """
+
+    start: Any
+    end: Any
+    chunk_interval: Optional[Dict[str, int]] = None
+    save_watermark: bool = False
+    chunk_column: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.start is None:
+            raise ConfigurationError("ReplayConfig.start must not be None")
+        if self.end is None:
+            raise ConfigurationError("ReplayConfig.end must not be None")
 
 
 # ============================================================================
@@ -1085,6 +1222,7 @@ class SourceRuntimeInfo(RuntimeInfo):
     source_action: Dict[str, Any] = field(default_factory=dict)
     watermark_before: Optional[Dict[str, Any]] = None
     watermark_after: Optional[Dict[str, Any]] = None
+    watermark_effective: Optional[Dict[str, Any]] = None
 
 
 @dataclass

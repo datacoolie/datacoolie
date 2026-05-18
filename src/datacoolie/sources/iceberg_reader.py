@@ -48,6 +48,8 @@ class IcebergReader(BaseSourceReader[DF]):
         if watermark and source.watermark_columns:
             df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
 
+        df = self._apply_filter_expression(df, source)
+
         context = f"Table: {source.full_table_name or source.path} (format: {source.connection.format})"
         return self._finalize_read(df, source.watermark_columns, "IcebergReader", context)
 

@@ -220,6 +220,12 @@ def _register_builtins() -> None:
         _logger.debug("Skipping built-in column adder transformers: %s", exc)
 
     try:
+        from datacoolie.transformers.row_filter import RowFilter
+        transformer_registry.register("row_filter", RowFilter)
+    except Exception as exc:
+        _logger.debug("Skipping built-in 'row_filter' transformer: %s", exc)
+
+    try:
         from datacoolie.transformers.partition_handler import PartitionHandler
         transformer_registry.register("partition_handler", PartitionHandler)
     except Exception as exc:

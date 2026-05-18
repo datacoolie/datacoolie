@@ -91,6 +91,35 @@ See [How-to · Maintenance](../how-to/maintenance-vacuum-optimize.md).
 writes, or watermark updates. Useful for validating new metadata before the
 first real run.
 
+## Replay / backfill
+
+`driver.run_replay(dataflows, replay: ReplayConfig)` re-processes a bounded
+historical range in sequential, calendar-aligned chunks without disturbing the
+production watermark.
+
+Each dataflow is processed concurrently (bounded by `max_workers`); chunks
+within a single dataflow always run sequentially.  A `ReplayConfig` specifies:
+
+- `start` / `end` — inclusive/exclusive bounds (timestamps, dates, or integers).
+- `chunk_interval` — chunking unit such as `{"months": 1}` or `{"days": 7}`.
+- `save_watermark` — when `True`, enables crash-resume by saving the chunk
+  upper bound as the watermark after each successful chunk.
+- `chunk_column` — overrides the auto-resolved column (defaults to
+  `watermark_columns[0]`).
+
+```python
+from datacoolie.core.models import ReplayConfig
+
+replay = ReplayConfig(
+    start="2025-01-01",
+    end="2025-04-01",
+    chunk_interval={"months": 1},
+)
+result = driver.run_replay(dataflows=dataflows, replay=replay)
+```
+
+See [How-to · Replay & backfill](../how-to/replay-and-backfill.md).
+
 ## Related
 
 - [`reference/api/orchestration`](../reference/api/orchestration.md)

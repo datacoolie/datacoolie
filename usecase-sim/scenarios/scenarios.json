@@ -9,6 +9,33 @@
     "priority": "P0",
     "notes": "All local file-metadata stages via Polars (includes api_* stages)"
   },
+  "local_polars_replay": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "stage": "replay_test",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "replay_start": "2024-01-15",
+    "replay_end": "2024-01-18",
+    "replay_chunk_interval": ["days=1"],
+    "notes": "Replay test via Polars — run twice: first pass seeds table, second exercises window replace"
+  },
+  "local_spark_replay": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "stage": "replay_test",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "replay_start": "2024-01-15",
+    "replay_end": "2024-01-18",
+    "replay_chunk_interval": ["days=1"],
+    "notes": "Replay test via Spark — run twice: first pass seeds table, second exercises window replace"
+  },
   "local_polars_file_yaml": {
     "engine": "polars",
     "metadata_type": "file",

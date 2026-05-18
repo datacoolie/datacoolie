@@ -12,11 +12,14 @@ import pytest
 from datacoolie.core.exceptions import DataCoolieError
 from datacoolie.core.secret_provider import (
     BaseSecretProvider,
+    SecretStr,
     _resolved_values,
     _resolved_values_lock,
     get_registered_secret_values,
     register_secret_values,
     resolve_secrets,
+    unwrap_configure,
+    unwrap_secret,
 )
 
 
@@ -38,6 +41,116 @@ class InMemorySecretProvider(BaseSecretProvider):
         if key not in self._secrets:
             raise DataCoolieError(f"Secret '{key}' not found")
         return self._secrets[key]
+
+
+# ---------------------------------------------------------------------------
+# SecretStr tests
+# ---------------------------------------------------------------------------
+
+
+class TestSecretStr:
+    def test_no_public_access_method(self):
+        s = SecretStr("hunter2")
+        assert not hasattr(s, "get_secret_value")
+        # The only way to read the raw value is via unwrap_secret
+        assert unwrap_secret(s) == "hunter2"
+
+    def test_str_is_masked(self):
+        s = SecretStr("hunter2")
+        assert str(s) == "***"
+
+    def test_repr_is_masked(self):
+        s = SecretStr("hunter2")
+        assert repr(s) == "SecretStr('***')"
+
+    def test_format_is_masked(self):
+        s = SecretStr("hunter2")
+        assert f"pw={s}" == "pw=***"
+        assert f"{s!s}" == "***"
+
+    def test_print_is_masked(self, capsys):
+        s = SecretStr("hunter2")
+        print(s)  # noqa: T201
+        assert capsys.readouterr().out.strip() == "***"
+
+    def test_immutable(self):
+        s = SecretStr("hunter2")
+        with pytest.raises(AttributeError, match="immutable"):
+            s._value = "changed"
+        with pytest.raises(AttributeError, match="immutable"):
+            del s._value
+
+    def test_bool_true(self):
+        assert bool(SecretStr("x"))
+
+    def test_bool_false(self):
+        assert not bool(SecretStr(""))
+
+    def test_len(self):
+        assert len(SecretStr("abc")) == 3
+
+    def test_equality(self):
+        a = SecretStr("same")
+        b = SecretStr("same")
+        assert a == b
+
+    def test_inequality(self):
+        assert SecretStr("a") != SecretStr("b")
+
+    def test_not_equal_to_plain_str(self):
+        assert SecretStr("x") != "x"
+
+    def test_cannot_pickle(self):
+        import pickle
+        with pytest.raises(TypeError, match="Cannot pickle"):
+            pickle.dumps(SecretStr("x"))
+
+    def test_not_in_dict_repr(self):
+        d = {"password": SecretStr("hunter2"), "host": "localhost"}
+        text = str(d)
+        assert "hunter2" not in text
+        assert "***" in text
+
+    def test_no_way_to_expose_via_common_operations(self):
+        """Secret value never leaks through any standard Python operation."""
+        s = SecretStr("hidden")
+        # No public method to read
+        assert not hasattr(s, "get_secret_value")
+        # Cannot read via attribute access (immutable blocks setattr)
+        with pytest.raises(AttributeError):
+            s._value = "x"
+        # str/repr/format all masked
+        assert "hidden" not in str(s)
+        assert "hidden" not in repr(s)
+        assert "hidden" not in f"{s}"
+
+
+class TestUnwrapHelpers:
+    def test_unwrap_secret_with_secret_str(self):
+        assert unwrap_secret(SecretStr("val")) == "val"
+
+    def test_unwrap_secret_with_plain_value(self):
+        assert unwrap_secret("plain") == "plain"
+        assert unwrap_secret(42) == 42
+        assert unwrap_secret(None) is None
+
+    def test_unwrap_configure(self):
+        cfg = {
+            "host": "localhost",
+            "password": SecretStr("s3cret"),
+            "port": 5432,
+        }
+        result = unwrap_configure(cfg)
+        assert result == {"host": "localhost", "password": "s3cret", "port": 5432}
+        # Original is unchanged
+        assert isinstance(cfg["password"], SecretStr)
+
+    def test_unwrap_keeps_original_wrapped(self):
+        """unwrap_configure does not mutate the original dict."""
+        cfg = {"pw": SecretStr("secret"), "host": "localhost"}
+        plain = unwrap_configure(cfg)
+        assert plain == {"pw": "secret", "host": "localhost"}
+        assert isinstance(cfg["pw"], SecretStr)
 
 
 # ---------------------------------------------------------------------------
@@ -179,15 +292,18 @@ class TestResolveSecrets:
             configure={"host": "localhost", "password": "db-password", "auth_token": "api-token"},
         )
         resolve_secrets(conn, provider)
-        assert conn.configure["password"] == "s3cret!"
-        assert conn.configure["auth_token"] == "tok123"
-        assert conn.configure["host"] == "localhost"
+        assert isinstance(conn.configure["password"], SecretStr)
+        assert unwrap_secret(conn.configure["password"]) == "s3cret!"
+        assert isinstance(conn.configure["auth_token"], SecretStr)
+        assert unwrap_secret(conn.configure["auth_token"]) == "tok123"
+        assert conn.configure["host"] == "localhost"  # non-secret, stays plain
 
     def test_dict_ref(self, provider):
         ref = {"some-source": ["password"]}
         conn = self._make_connection(secrets_ref=ref, configure={"password": "db-password"})
         resolve_secrets(conn, provider)
-        assert conn.configure["password"] == "s3cret!"
+        assert isinstance(conn.configure["password"], SecretStr)
+        assert unwrap_secret(conn.configure["password"]) == "s3cret!"
 
     def test_non_dict_type_raises(self, provider):
         conn = self._make_connection(secrets_ref="not-allowed-string")
@@ -247,9 +363,9 @@ class TestDatabaseFieldRefresh:
 
         def _refresh():
             if "database" in conn.configure:
-                conn.database = conn.configure["database"]
+                conn.database = unwrap_secret(conn.configure["database"])
             if "catalog" in conn.configure:
-                conn.catalog = conn.configure["catalog"]
+                conn.catalog = unwrap_secret(conn.configure["catalog"])
 
         conn.refresh_from_configure = _refresh
         return conn
@@ -261,8 +377,9 @@ class TestDatabaseFieldRefresh:
             configure={"database": "db-vault-key", "host": "localhost"},
         )
         resolve_secrets(conn, provider)
-        assert conn.configure["database"] == "prod_db"
-        assert conn.database == "prod_db"
+        assert isinstance(conn.configure["database"], SecretStr)
+        assert unwrap_secret(conn.configure["database"]) == "prod_db"
+        assert conn.database == "prod_db"  # unwrapped by refresh_from_configure
 
     def test_catalog_field_updated_after_resolve(self):
         provider = InMemorySecretProvider(secrets={"cat-vault-key": "prod_catalog"})
@@ -271,8 +388,9 @@ class TestDatabaseFieldRefresh:
             configure={"catalog": "cat-vault-key"},
         )
         resolve_secrets(conn, provider)
-        assert conn.configure["catalog"] == "prod_catalog"
-        assert conn.catalog == "prod_catalog"
+        assert isinstance(conn.configure["catalog"], SecretStr)
+        assert unwrap_secret(conn.configure["catalog"]) == "prod_catalog"
+        assert conn.catalog == "prod_catalog"  # unwrapped by refresh_from_configure
 
     def test_no_database_key_in_configure_skips_refresh(self):
         provider = InMemorySecretProvider(secrets={"pw": "s3cret"})

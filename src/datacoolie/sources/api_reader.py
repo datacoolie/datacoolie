@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models import Source
+from datacoolie.core.secret_provider import unwrap_configure
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.base import get_logger
 from datacoolie.sources.base import BaseSourceReader
@@ -297,7 +298,7 @@ class APIReader(BaseSourceReader[DF]):
         records = self._read_data(source, watermark=watermark)
 
         if not records:
-            logger.info("APIReader: 0 records fetched — skipping. Table: %s (format: %s), URL: %s", source.full_table_name, source.connection.format, url)
+            logger.debug("APIReader: 0 records fetched — skipping. Table: %s (format: %s), URL: %s", source.full_table_name, source.connection.format, url)
             self._set_rows_read(0)
             self._set_new_watermark({})
             return None
@@ -314,6 +315,8 @@ class APIReader(BaseSourceReader[DF]):
             # Apply in-memory filter only for columns not already pushed to the API.
             if _non_pushed_cols:
                 df = self._apply_watermark_filter(df, _non_pushed_cols, watermark)
+
+        df = self._apply_filter_expression(df, source)
 
         # Compute count and max watermark only from columns present in the
         # dataframe (non-pushed).  Pushed-down columns advance to "now" separately.
@@ -338,10 +341,10 @@ class APIReader(BaseSourceReader[DF]):
         self._set_rows_read(count)
 
         if count == 0:
-            logger.info("APIReader: 0 rows after filtering — skipping. Table: %s (format: %s), URL: %s", source.full_table_name, source.connection.format, url)
+            logger.debug("APIReader: 0 rows after filtering — skipping. Table: %s (format: %s), URL: %s", source.full_table_name, source.connection.format, url)
             return None
 
-        logger.info("APIReader: read %d rows from %s", count, url)
+        logger.debug("APIReader: read %d rows from %s", count, url)
         return df
 
     def _read_data(
@@ -402,8 +405,10 @@ class APIReader(BaseSourceReader[DF]):
                 to_target[wm_to_param] = self._format_watermark_value(to_val, wm_format)
 
         headers = dict(conn_cfg.get("default_headers", {}))
-        self._apply_auth(headers, conn_cfg)
-        http_auth = self._get_http_auth(conn_cfg)
+        # Unwrap SecretStr values before passing to auth/HTTP libraries.
+        auth_cfg = unwrap_configure(conn_cfg)
+        self._apply_auth(headers, auth_cfg)
+        http_auth = self._get_http_auth(auth_cfg)
 
         # Warn when credentials are sent over plain HTTP
         auth_type = conn_cfg.get("auth_type", "")

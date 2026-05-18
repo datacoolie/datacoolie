@@ -42,6 +42,48 @@ Common optional flags include `--platform`, `--column-name-mode`, `--dry-run`,
 `--skip-api-sources`, `--catalog-preset`, `--iceberg-catalog-uri`,
 `--uc-token`, and `--uc-credential`.
 
+| Optional flag | Values / Notes |
+|---------------|----------------|
+| `--platform` | `local` (default) · `aws` |
+| `--column-name-mode` | `lower` (default) · `snake` |
+| `--dry-run` | Flag — plan without reading or writing |
+| `--storage-options KEY=VALUE` | Repeatable — e.g. `AWS_REGION=us-east-1` |
+| `--log-path` | Output directory for ETL and system logs |
+| `--max-workers` | Integer — overrides `DataCoolieRunConfig.max_workers` |
+| `--skip-api-sources` | Flag — skip dataflows whose source `connection_type` is `api` |
+| `--catalog-preset` | `local` (default) · `unity_catalog` |
+| `--iceberg-catalog-uri` | Catalog URI for Iceberg |
+| `--uc-token` | Unity Catalog access token |
+| `--uc-credential` | Alternative Unity Catalog credential |
+
+### Replay mode flags
+
+When `--replay-start` and `--replay-end` are provided, `run.py` calls
+`driver.run_replay()` instead of `driver.run()`.
+
+| Flag | Notes |
+|------|-------|
+| `--replay-start` | Inclusive lower bound — ISO date/datetime string or integer |
+| `--replay-end` | Exclusive upper bound — ISO date/datetime string or integer |
+| `--replay-chunk-interval KEY=VALUE` | Repeatable — e.g. `days=1` or `months=1` |
+| `--replay-save-watermark` | Flag — save watermark after each chunk (crash-resume) |
+| `--replay-chunk-column` | Override auto-resolved chunk column |
+
+Example — replay Q1 2025 in monthly chunks:
+
+```powershell
+python usecase-sim/runner/run.py `
+    --engine polars `
+    --metadata-source file `
+    --metadata-path usecase-sim/metadata/file/local_use_cases.json `
+    --stage bronze2silver `
+    --replay-start 2025-01-01 `
+    --replay-end 2025-04-01 `
+    --replay-chunk-interval months=1
+```
+
+See [How-to · Replay & backfill](../how-to/replay-and-backfill.md).
+
 Spark-only optional flags: `--app-name` and repeatable `--spark-config KEY=VALUE`.
 
 Typical invocation:

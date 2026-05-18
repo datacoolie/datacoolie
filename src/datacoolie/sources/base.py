@@ -40,6 +40,7 @@ class BaseSourceReader(ABC, Generic[DF]):
         self._engine = engine
         self._new_watermark: Dict[str, Any] = {}
         self._runtime_info = SourceRuntimeInfo()
+        self._watermark_operator: str = ">"
 
     # ------------------------------------------------------------------
     # Public API
@@ -49,6 +50,8 @@ class BaseSourceReader(ABC, Generic[DF]):
         self,
         source: Source,
         watermark: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_operator: str = ">",
     ) -> Optional[DF]:
         """Read data from a source (Template Method).
 
@@ -59,6 +62,9 @@ class BaseSourceReader(ABC, Generic[DF]):
         Args:
             source: Pipeline source configuration.
             watermark: Previous watermark values (``None`` = first run).
+            watermark_operator: Comparison operator for the watermark
+                WHERE clause.  ``">"`` (default) for exclusive lower bound,
+                ``">="`` for inclusive lower bound (used by replay).
 
         Returns:
             DataFrame with source data, or ``None`` when there is
@@ -67,6 +73,7 @@ class BaseSourceReader(ABC, Generic[DF]):
         Raises:
             SourceError: On any failure during reading.
         """
+        self._watermark_operator = watermark_operator
         self._runtime_info = SourceRuntimeInfo(
             start_time=utc_now(),
             status=DataFlowStatus.RUNNING.value,
@@ -75,9 +82,10 @@ class BaseSourceReader(ABC, Generic[DF]):
 
         # Apply backward offset to datetime watermark columns so late-arriving
         # data is not missed.  First-run (watermark=None) is left untouched.
-        effective_watermark = self._build_effective_watermark(source, watermark)
+        watermark_effective = self._build_watermark_effective(source, watermark)
+        self._runtime_info.watermark_effective = dict(watermark_effective) if watermark_effective else None
         try:
-            df = self._read_internal(source, effective_watermark)
+            df = self._read_internal(source, watermark_effective)
 
             self._runtime_info.end_time = utc_now()
 
@@ -185,10 +193,29 @@ class BaseSourceReader(ABC, Generic[DF]):
         filtered_watermark = {col: watermark[col] for col in filtered_columns}
 
         logger.debug(
-            "Applying watermark filter on columns: %s",
+            "Applying watermark filter on columns: %s (operator=%s)",
             filtered_columns,
+            self._watermark_operator,
         )
-        return self._engine.apply_watermark_filter(df, filtered_columns, filtered_watermark)
+        return self._engine.apply_watermark_filter(
+            df, filtered_columns, filtered_watermark, operator=self._watermark_operator
+        )
+
+    def _apply_filter_expression(self, df: DF, source: Source) -> DF:
+        """Apply ``source.filter_expression`` as a post-read row filter.
+
+        Non-database readers cannot push SQL predicates to the storage
+        layer, so the expression is evaluated in-memory via
+        :meth:`BaseEngine.filter_rows` (Polars ``sql_expr`` / Spark
+        ``df.filter``).
+
+        Called after watermark filtering and before count/new-watermark
+        calculation so that filtered rows are excluded from ``rows_read``.
+        """
+        if not source.filter_expression:
+            return df
+        logger.debug("Applying filter_expression: %s", source.filter_expression)
+        return self._engine.filter_rows(df, source.filter_expression)
 
     def _calculate_count_and_new_watermark(
         self,
@@ -251,10 +278,10 @@ class BaseSourceReader(ABC, Generic[DF]):
         self._set_rows_read(count)
 
         if count == 0:
-            logger.info("%s: 0 rows after filtering — skipping. %s", reader_name, context)
+            logger.debug("%s: 0 rows after filtering — skipping. %s", reader_name, context)
             return None
 
-        logger.info("%s: read %d rows from %s", reader_name, count, context)
+        logger.debug("%s: read %d rows from %s", reader_name, count, context)
         return df
 
     # ------------------------------------------------------------------
@@ -262,7 +289,7 @@ class BaseSourceReader(ABC, Generic[DF]):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_effective_watermark(
+    def _build_watermark_effective(
         source: Source,
         watermark: Optional[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:

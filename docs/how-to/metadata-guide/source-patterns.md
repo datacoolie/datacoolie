@@ -27,6 +27,7 @@ per-dataflow overrides. For read behavior, DataCoolie merges them with
   "query":              "SELECT * FROM sales.orders",
   "python_function":    "mypkg.loaders.load_orders", 
   "watermark_columns":  ["updated_at"],
+  "filter_expression":  "status = 'active'",
   "configure": {
     "read_options": { "separator": ";" },
     "endpoint": "/orders"
@@ -42,6 +43,7 @@ per-dataflow overrides. For read behavior, DataCoolie merges them with
 | `query` | Database query mode instead of table mode |
 | `python_function` | Function-source mode instead of a physical table |
 | `watermark_columns` | Incremental loading |
+| `filter_expression` | SQL predicate applied at read time on raw source columns, after the watermark filter |
 | `configure` | Per-dataflow overrides such as `read_options`, API endpoint, API params |
 
 In practice, you normally use **one selector style per source**:
@@ -470,6 +472,54 @@ Behavior differs by source family:
 
 See [Concepts · Watermarks](../../concepts/watermarks.md) for the storage
 format and provider interaction.
+
+---
+
+## Filter rows at read time (`source.filter_expression`)
+
+`filter_expression` is a SQL predicate applied **after** the watermark filter,
+inside every source reader. It lets you pre-filter rows based on raw source
+columns before the transformer pipeline runs.
+
+```json
+"source": {
+  "connection_name":   "postgres_src",
+  "schema_name":       "public",
+  "table":             "orders",
+  "watermark_columns": ["updated_at"],
+  "filter_expression": "status = 'active' AND region = 'US'"
+}
+```
+
+This is particularly useful when the source table holds multiple logical
+datasets and you only want one segment, or when you want to exclude known
+bad data before it enters the pipeline at all.
+
+### Database sources
+
+For SQL table/query sources, `filter_expression` is appended to the generated
+`WHERE` clause alongside the watermark condition:
+
+```sql
+-- generated SQL (conceptual)
+SELECT * FROM orders
+WHERE updated_at > '2024-01-01'
+  AND status = 'active'
+  AND region = 'US'
+```
+
+### File, Delta, Iceberg, and function sources
+
+For in-process readers (file, lakehouse, Python function), the predicate is
+applied by the engine as an in-memory filter after the read.
+
+### When to use `source.filter_expression` vs `transform.filter_expression`
+
+| | `source.filter_expression` | `transform.filter_expression` |
+|---|---|---|
+| **Stage** | Read time (earliest possible) | Transformer order 35 (after ColumnAdder) |
+| **Available columns** | Raw source columns and watermark columns | Source columns + columns from `additional_columns` |
+| **Best for** | Excluding rows that should never enter the pipeline | Filtering on computed/derived columns |
 
 ---
 

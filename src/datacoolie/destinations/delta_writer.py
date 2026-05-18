@@ -281,7 +281,7 @@ class DeltaWriter(BaseDestinationWriter[DF]):
         load_type = dataflow.load_type
         strategy = get_load_strategy(load_type)
 
-        logger.info(
+        logger.debug(
             "DeltaWriter: writing to %s (load_type=%s)",
             dest.full_table_name,
             load_type,

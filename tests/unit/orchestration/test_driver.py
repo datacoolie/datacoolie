@@ -6,7 +6,7 @@ operations, retry handling, and parallel execution.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch, PropertyMock
@@ -22,6 +22,7 @@ from datacoolie.core.models import (
     DataFlowRuntimeInfo,
     Destination,
     DestinationRuntimeInfo,
+    ReplayConfig,
     Source,
     SourceRuntimeInfo,
     TransformRuntimeInfo,
@@ -814,7 +815,7 @@ class TestFactoryMethods:
         pipeline = d._create_transformer_pipeline()
         from datacoolie.transformers import TransformerPipeline
         assert isinstance(pipeline, TransformerPipeline)
-        assert len(pipeline.transformers) == 7
+        assert len(pipeline.transformers) == 8
 
     def test_create_transformer_pipeline_uses_column_name_mode(self):
         d, *_ = _make_driver()
@@ -836,7 +837,370 @@ class TestFactoryMethods:
 
 
 # ============================================================================
-# create_driver factory function
+# ============================================================================
+# run_replay
+# ============================================================================
+
+
+def _replay_config(
+    from_val: str = "2025-01-01",
+    to_val: str = "2025-04-01",
+    chunk_interval: dict | None = None,
+    update_watermark: bool = False,
+    chunk_column: str | None = None,
+) -> ReplayConfig:
+    return ReplayConfig(
+        start=from_val,
+        end=to_val,
+        chunk_interval=chunk_interval or {"months": 1},
+        save_watermark=update_watermark,
+        chunk_column=chunk_column,
+    )
+
+
+def _dataflow_with_watermark(
+    dataflow_id: str = "df-1",
+    watermark_columns: list | None = None,
+) -> DataFlow:
+    """Create a DataFlow with watermark_columns for replay tests."""
+    conn = _conn()
+    return DataFlow(
+        dataflow_id=dataflow_id,
+        source=Source(
+            connection=conn,
+            table="src",
+            watermark_columns=watermark_columns or ["order_date"],
+        ),
+        destination=Destination(connection=conn, table="dst", load_type=LoadType.APPEND.value),
+    )
+
+
+class TestRunReplay:
+    """Tests for DataCoolieDriver.run_replay."""
+
+    def _setup_driver_for_replay(self, rows_read: int = 10) -> tuple:
+        """Create driver with mocked reader/writer/pipeline."""
+        driver, engine, metadata, watermark = _make_driver()
+        engine.filter_rows.side_effect = lambda df, expr: df
+        engine.count_rows.return_value = rows_read
+        return driver, engine, metadata, watermark
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_single_shot_no_chunking(self, mock_reader_fn, mock_pipeline_fn, mock_writer_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+
+        # Setup reader
+        reader = MagicMock()
+        reader.read.return_value = "fake_df"
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        reader.get_new_watermark.return_value = {"order_date": "2025-04-01"}
+        mock_reader_fn.return_value = reader
+
+        # Setup pipeline
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "transformed_df"
+        pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+        mock_pipeline_fn.return_value = pipeline
+
+        # Setup writer
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=10)
+        mock_writer_fn.return_value = writer
+
+        dataflow = _dataflow_with_watermark()
+        replay = ReplayConfig(
+            start="2025-01-01",
+            end="2025-04-01",
+            # No chunk_interval = single shot
+        )
+
+        result = driver.run_replay(dataflow, replay)
+
+        assert result.total == 1
+        assert result.succeeded == 1
+        # Reader called with override watermark
+        reader.read.assert_called_once()
+        # Watermark NOT updated (default)
+        watermark.save_watermark.assert_not_called()
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_chunked_three_months(self, mock_reader_fn, mock_pipeline_fn, mock_writer_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+
+        reader = MagicMock()
+        reader.read.return_value = "fake_df"
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        reader.get_new_watermark.return_value = {}
+        mock_reader_fn.return_value = reader
+
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "transformed_df"
+        pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+        mock_pipeline_fn.return_value = pipeline
+
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=10)
+        mock_writer_fn.return_value = writer
+
+        dataflow = _dataflow_with_watermark()
+        replay = _replay_config(chunk_interval={"months": 1})
+
+        result = driver.run_replay(dataflow, replay)
+
+        # One ExecutionResult entry per dataflow (chunks run internally)
+        assert result.total == 1
+        assert result.succeeded == 1
+        # Reader called 3 times (once per chunk)
+        assert reader.read.call_count == 3
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_update_watermark_saves_per_chunk(self, mock_reader_fn, mock_pipeline_fn, mock_writer_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+        watermark.get_watermark.return_value = None  # No stored watermark
+
+        reader = MagicMock()
+        reader.read.return_value = "fake_df"
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        mock_reader_fn.return_value = reader
+
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "transformed_df"
+        pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+        mock_pipeline_fn.return_value = pipeline
+
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=10)
+        mock_writer_fn.return_value = writer
+
+        dataflow = _dataflow_with_watermark()
+        replay = _replay_config(chunk_interval={"months": 1}, update_watermark=True)
+
+        result = driver.run_replay(dataflow, replay)
+
+        # 1 dataflow, all 3 chunks succeeded
+        assert result.total == 1
+        assert result.succeeded == 1
+        # Watermark saved 3 times (once per chunk)
+        assert watermark.save_watermark.call_count == 3
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_resume_skips_completed_chunks(self, mock_reader_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+        # Simulate: chunks 1-2 already completed — watermark at 2025-03-01
+        watermark.get_watermark.return_value = {"order_date": date(2025, 3, 1)}
+
+        reader = MagicMock()
+        reader.read.return_value = "fake_df"
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        mock_reader_fn.return_value = reader
+
+        dataflow = _dataflow_with_watermark()
+        replay = _replay_config(chunk_interval={"months": 1}, update_watermark=True)
+
+        with patch.object(driver, "_create_transformer_pipeline") as mock_pipe, \
+             patch.object(driver, "_create_destination_writer") as mock_writer:
+            pipeline = MagicMock()
+            pipeline.transform.return_value = "df"
+            pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+            mock_pipe.return_value = pipeline
+
+            writer = MagicMock()
+            writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=5)
+            mock_writer.return_value = writer
+
+            result = driver.run_replay(dataflow, replay)
+
+        # Only 1 chunk remains: [2025-03-01, 2025-04-01)
+        assert result.total == 1
+        assert result.succeeded == 1
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_resume_all_complete_returns_empty(self, mock_reader_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+        # Stored watermark is already at end of range
+        watermark.get_watermark.return_value = {"order_date": date(2025, 4, 1)}
+
+        dataflow = _dataflow_with_watermark()
+        replay = _replay_config(chunk_interval={"months": 1}, update_watermark=True)
+
+        result = driver.run_replay(dataflow, replay)
+        # Single SKIPPED entry — no chunks left to process
+        assert result.total == 1
+        assert result.skipped == 1
+        # Reader never called
+        mock_reader_fn.assert_not_called()
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_chunk_no_data_skipped(self, mock_reader_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay(rows_read=0)
+
+        reader = MagicMock()
+        reader.read.return_value = None
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=0)
+        mock_reader_fn.return_value = reader
+
+        dataflow = _dataflow_with_watermark()
+        replay = _replay_config(chunk_interval={"months": 1})
+
+        result = driver.run_replay(dataflow, replay)
+
+        # 1 dataflow, all 3 chunks skipped (no data)
+        assert result.total == 1
+        assert result.skipped == 1
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_chunk_failure_stops_replay(self, mock_reader_fn):
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+
+        reader = MagicMock()
+        reader.read.side_effect = RuntimeError("connection lost")
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=0)
+        mock_reader_fn.return_value = reader
+
+        dataflow = _dataflow_with_watermark()
+        replay = _replay_config(chunk_interval={"months": 1})
+
+        result = driver.run_replay(dataflow, replay)
+
+        # Processing stops at the first failed chunk
+        assert result.total == 1
+        assert result.failed == 1
+        assert "connection lost" in result.errors.get("df-1", "")
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_date_backward_disabled(self, mock_reader_fn, mock_pipeline_fn, mock_writer_fn):
+        """Replay disables date_backward on the source."""
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+
+        reader = MagicMock()
+        reader.read.return_value = "fake_df"
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        mock_reader_fn.return_value = reader
+
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "df"
+        pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+        mock_pipeline_fn.return_value = pipeline
+
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=10)
+        mock_writer_fn.return_value = writer
+
+        dataflow = _dataflow_with_watermark()
+        dataflow.source.configure["backward_days"] = 7  # Would normally extend read
+
+        replay = ReplayConfig(
+            start="2025-01-01",
+            end="2025-02-01",
+        )
+
+        result = driver.run_replay(dataflow, replay)
+
+        assert result.total == 1
+        assert result.succeeded == 1
+        # date_backward should have been cleared on the copy
+        # (the original is unchanged since model_copy is used)
+        assert dataflow.source.configure["backward_days"] == 7
+
+    def test_chunk_uses_gte_and_lt_operators(self):
+        """All replay chunks use >= for lower bound and < for upper bound."""
+        from datetime import date
+
+        driver, *_ = self._setup_driver_for_replay()
+
+        dataflow = _dataflow_with_watermark(watermark_columns=["order_date"])
+        replay = ReplayConfig(
+            start="2025-01-01",
+            end="2025-02-01",
+            chunk_interval={"months": 1},
+        )
+
+        with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
+            mock_pipeline.return_value = (
+                SourceRuntimeInfo(rows_read=5),
+                TransformRuntimeInfo(),
+                DestinationRuntimeInfo(rows_written=5),
+                DataFlowStatus.SUCCEEDED,
+            )
+            driver.run_replay(dataflow, replay)
+
+        # watermark_start is the raw inclusive lower bound
+        call_kwargs = mock_pipeline.call_args[1]
+        assert call_kwargs["watermark_start"] == {"order_date": date(2025, 1, 1)}
+
+        # watermark_operator passed as proper parameter (not via source.configure)
+        assert call_kwargs["watermark_operator"] == ">="
+
+        # Upper bound filter uses strict less-than
+        dataflow_arg = mock_pipeline.call_args[0][0]
+        assert "order_date < '2025-02-01'" in dataflow_arg.source.filter_expression
+
+    def test_auto_resolve_column_from_watermark_columns(self):
+        """chunk_column auto-resolved from dataflow.source.watermark_columns[0]."""
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+
+        dataflow = _dataflow_with_watermark(watermark_columns=["shipped_at"])
+        replay = ReplayConfig(start="2025-01-01", end="2025-02-01")
+
+        with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
+            mock_pipeline.return_value = (
+                SourceRuntimeInfo(rows_read=10),
+                TransformRuntimeInfo(),
+                DestinationRuntimeInfo(rows_written=10),
+                DataFlowStatus.SUCCEEDED,
+            )
+            result = driver.run_replay(dataflow, replay)
+
+        assert result.total == 1
+        # Verify the override watermark uses auto-resolved column "shipped_at"
+        call_kwargs = mock_pipeline.call_args[1]
+        assert "shipped_at" in call_kwargs["watermark_start"]
+
+    def test_no_watermark_columns_raises(self):
+        """Error when no watermark_columns and no chunk_column override."""
+        driver, *_ = self._setup_driver_for_replay()
+
+        dataflow = _dataflow()  # no watermark_columns
+        replay = ReplayConfig(start="2025-01-01", end="2025-02-01")
+
+        with pytest.raises(DataCoolieError, match="Cannot auto-resolve chunk_column"):
+            driver.run_replay([dataflow], replay)
+
+    def test_explicit_chunk_column_overrides_auto(self):
+        """Explicit chunk_column takes priority over watermark_columns[0]."""
+        driver, engine, _, watermark = self._setup_driver_for_replay()
+
+        dataflow = _dataflow_with_watermark(watermark_columns=["order_date", "region_id"])
+        replay = ReplayConfig(
+            start=0, end=100,
+            chunk_column="region_id",
+            chunk_interval={"step": 50},
+        )
+
+        with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
+            mock_pipeline.return_value = (
+                SourceRuntimeInfo(rows_read=10),
+                TransformRuntimeInfo(),
+                DestinationRuntimeInfo(rows_written=10),
+                DataFlowStatus.SUCCEEDED,
+            )
+            result = driver.run_replay(dataflow, replay)
+
+        assert mock_pipeline.call_count == 2
+        call_kwargs = mock_pipeline.call_args_list[0][1]
+        assert "region_id" in call_kwargs["watermark_start"]
+
+
+# ============================================================================
+# create_driver factory
 # ============================================================================
 
 

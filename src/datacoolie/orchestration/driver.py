@@ -36,6 +36,7 @@ from datacoolie.core.models import (
     DataFlow,
     DataFlowRuntimeInfo,
     DestinationRuntimeInfo,
+    ReplayConfig,
     SourceRuntimeInfo,
     TransformRuntimeInfo,
 )
@@ -64,20 +65,29 @@ from datacoolie.logging import ETLLogger, LogConfig, SystemLogger, create_etl_lo
 from datacoolie.logging.base import get_logger
 from datacoolie.logging.context import clear_dataflow_id, set_dataflow_id
 from datacoolie.utils.helpers import generate_unique_id, utc_now
+from datacoolie.utils.datetime_utils import generate_chunk_boundaries
 
 logger = get_logger(__name__)
+
+# Keys in source.configure / connection.configure that trigger date_backward logic.
+# Cleared on the deep-copied dataflow during replay so chunk boundaries are exact.
+_BACKWARD_KEYS: tuple[str, ...] = (
+    "backward_days", "backward_months", "backward_hours",
+    "backward_years", "backward_closing_day", "backward",
+)
 
 # Default transformer pipeline — names correspond to transformer_registry keys.
 # Order matters: each transformer sees the output of all preceding ones.
 # Override by subclassing DataCoolieDriver and replacing _create_transformer_pipeline.
 DEFAULT_TRANSFORMERS: list[str] = [
-    "schema_converter",       # 1. Cast to target schema types first
-    "deduplicator",           # 2. Remove duplicate source rows early
-    "scd2_column_adder",      # 3. SCD2 validity columns from source effective-date
-    "column_adder",           # 4. User-configured calculated columns
-    "system_column_adder",    # 5. Framework audit columns (__created_at, etc.)
-    "partition_handler",      # 6. Derive partition values from final columns
-    "column_name_sanitizer",  # 7. Normalize column names last
+    "schema_converter",       # 10. Cast to target schema types first
+    "deduplicator",           # 20. Remove duplicate source rows early
+    "column_adder",           # 30. User-configured calculated columns
+    "row_filter",             # 35. Discard unwanted rows (post-column_adder, pre-scd2)
+    "scd2_column_adder",      # 60. SCD2 validity columns from source effective-date
+    "system_column_adder",    # 70. Framework audit columns (__created_at, etc.)
+    "partition_handler",      # 80. Derive partition values from final columns
+    "column_name_sanitizer",  # 90. Normalize column names last
 ]
 
 
@@ -410,13 +420,43 @@ class DataCoolieDriver:
     def _process_dataflow(self, dataflow: DataFlow) -> DataFlowRuntimeInfo:
         """Process a single dataflow with retry logic.
 
-        Delegates to :meth:`RetryHandler.execute` so all retry / backoff
-        logic lives in one place.
+        Thin wrapper around :meth:`_run_single_pipeline` with deep copy.
+        """
+        return self._run_single_pipeline(dataflow.model_copy(deep=True))
+
+    def _run_single_pipeline(
+        self,
+        dataflow: DataFlow,
+        *,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        watermark_end: Optional[Dict[str, Any]] = None,
+        save_watermark: bool = True,
+        watermark_operator: str = ">",
+        operation_type: str = ExecutionType.ETL.value,
+    ) -> DataFlowRuntimeInfo:
+        """Execute one pipeline run with timing, retry, context, and logging.
+
+        This is the shared execution wrapper used by both normal ETL
+        (:meth:`_process_dataflow`) and replay chunks (:meth:`_process_replay`).
+
+        The *dataflow* should already be deep-copied by the caller.
+
+        Args:
+            dataflow: Pre-copied dataflow to execute.
+            watermark_start: Override the read watermark (chunk lower bound).
+                ``None`` = use the stored watermark (normal ETL).
+            watermark_end: Override the value saved after a successful write.
+                ``None`` = auto-save the reader-detected new watermark
+                (only applies when *save_watermark* is ``True``).
+            save_watermark: Whether to persist a watermark at all.
+                ``False`` leaves the stored watermark untouched (backfill mode).
+            watermark_operator: Comparison operator for the lower-bound
+                WHERE clause.  ``">"`` (default, normal ETL) or ``">=>"
+                (replay, inclusive lower bound).
 
         Returns:
-            Composite runtime info for the execution.
+            :class:`DataFlowRuntimeInfo` with timing, status, and metrics.
         """
-        dataflow = dataflow.model_copy(deep=True)
         start_time = utc_now()
         dataflow_run_id = generate_unique_id()
         status = DataFlowStatus.RUNNING
@@ -431,7 +471,12 @@ class DataCoolieDriver:
         try:
             (source_runtime, transform_runtime, dest_runtime, status), attempts = (
                 self._retry_handler.execute(
-                    self._execute_etl_pipeline, dataflow, dataflow_run_id
+                    self._execute_etl_pipeline, dataflow,
+                    dataflow_run_id=dataflow_run_id,
+                    watermark_start=watermark_start,
+                    watermark_end=watermark_end,
+                    save_watermark=save_watermark,
+                    watermark_operator=watermark_operator,
                 )
             )
         except PipelineError as exc:
@@ -447,13 +492,11 @@ class DataCoolieDriver:
         finally:
             clear_dataflow_id(ctx_token)
 
-        retry_attempts = max(0, attempts - 1)
         end_time = utc_now()
-
         runtime = DataFlowRuntimeInfo(
             dataflow_run_id=dataflow_run_id,
             dataflow_id=dataflow.dataflow_id,
-            operation_type=ExecutionType.ETL.value,
+            operation_type=operation_type,
             source=source_runtime or SourceRuntimeInfo(),
             transform=transform_runtime or TransformRuntimeInfo(),
             destination=dest_runtime or DestinationRuntimeInfo(),
@@ -461,28 +504,42 @@ class DataCoolieDriver:
             end_time=end_time,
             status=status.value,
             error_message=error_message,
-            retry_attempts=retry_attempts,
+            retry_attempts=max(0, attempts - 1),
         )
 
         if self._etl_logger:
             try:
-                self._etl_logger.log(
-                    dataflow=dataflow,
-                    runtime_info=runtime,
-                )
+                self._etl_logger.log(dataflow=dataflow, runtime_info=runtime)
             except Exception as exc:
                 logger.warning("Failed to log ETL result", exc_info=exc.__cause__)
+
         return runtime
 
     def _execute_etl_pipeline(
         self,
         dataflow: DataFlow,
         dataflow_run_id: str,
+        *,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        watermark_end: Optional[Dict[str, Any]] = None,
+        save_watermark: bool = True,
+        watermark_operator: str = ">",
     ) -> tuple:
         """Run read → transform → write for *dataflow*.
 
         Called by :meth:`RetryHandler.execute`; any exception triggers
         automatic retry with exponential backoff.
+
+        Args:
+            dataflow: The dataflow to execute (already deep-copied by caller).
+            dataflow_run_id: Unique ID for this execution.
+            watermark_start: Override the read watermark (chunk lower bound).
+                ``None`` = use the stored watermark (normal ETL).
+            watermark_end: Override the value saved after a successful write.
+                ``None`` = auto-save the reader-detected new watermark
+                (only applies when *save_watermark* is ``True``).
+            save_watermark: Whether to persist a watermark at all.
+                ``False`` leaves the stored watermark untouched (backfill mode).
 
         Returns:
             ``(source_runtime, transform_runtime, dest_runtime, status)``
@@ -494,9 +551,11 @@ class DataCoolieDriver:
             dataflow.destination.full_table_name or dataflow.destination.path,
         )
 
-        # Get watermark
-        watermark = self._watermark_manager.get_watermark(
-            dataflow_id=dataflow.dataflow_id
+        # Replay uses an explicit start; normal ETL reads from the store.
+        watermark = (
+            watermark_start
+            if watermark_start is not None
+            else self._watermark_manager.get_watermark(dataflow_id=dataflow.dataflow_id)
         )
 
         source_runtime: Optional[SourceRuntimeInfo] = None
@@ -509,7 +568,7 @@ class DataCoolieDriver:
             self._resolve_connection_secrets(dataflow)
 
             reader = self._create_source_reader(dataflow)
-            df = reader.read(dataflow.source, watermark)
+            df = reader.read(dataflow.source, watermark, watermark_operator=watermark_operator)
             source_runtime = reader.get_runtime_info()
 
             if df is None or source_runtime.rows_read == 0:
@@ -522,18 +581,25 @@ class DataCoolieDriver:
             transform_runtime = pipeline.get_runtime_info()
 
             # Write
+            # Compute watermark window for replace_by_watermark strategies.
+            dataflow.apply_watermark_window(source_runtime)
+
             writer = self._create_destination_writer(dataflow)
             writer.write(df, dataflow)
             dest_runtime = writer.get_runtime_info()
-            # Update watermark atomically with write
-            new_watermark = reader.get_new_watermark()
-            if new_watermark:
-                self._watermark_manager.save_watermark(
-                    dataflow_id=dataflow.dataflow_id,
-                    watermark=new_watermark,
-                    job_id=self._config.job_id,
-                    dataflow_run_id=dataflow_run_id,
-                )
+
+            # Watermark persistence: save_watermark=False skips entirely.
+            # When saving: use explicit watermark_end if provided, otherwise
+            # auto-save the reader-detected new watermark.
+            if save_watermark and self._watermark_manager:
+                wm_to_save = watermark_end if watermark_end is not None else reader.get_new_watermark()
+                if wm_to_save:
+                    self._watermark_manager.save_watermark(
+                        dataflow_id=dataflow.dataflow_id,
+                        watermark=wm_to_save,
+                        job_id=self._config.job_id,
+                        dataflow_run_id=dataflow_run_id,
+                    )
         except Exception as exc:
             raise PipelineError(
                 str(exc),
@@ -549,6 +615,208 @@ class DataCoolieDriver:
         )
 
         return source_runtime, transform_runtime, dest_runtime, DataFlowStatus.SUCCEEDED
+
+    # ------------------------------------------------------------------
+    # Replay / backfill
+    # ------------------------------------------------------------------
+
+    def run_replay(
+        self,
+        dataflows: Union[DataFlow, List[DataFlow]],
+        replay: ReplayConfig,
+        column_name_mode: Union[ColumnCaseMode, str] = ColumnCaseMode.LOWER,
+    ) -> ExecutionResult:
+        """Replay a bounded range across one or more dataflows in sequential chunks.
+
+        Each dataflow is processed concurrently (bounded by ``max_workers``);
+        chunks within a single dataflow always run sequentially.
+
+        The chunk column is resolved automatically from
+        ``dataflow.source.watermark_columns[0]`` unless ``replay.chunk_column``
+        is set explicitly.
+
+        Args:
+            dataflows: One or more dataflows to replay.
+            replay: Replay configuration (range, chunking, watermark policy).
+            column_name_mode: Column name case-conversion mode.
+
+        Returns:
+            :class:`ExecutionResult` where each counter entry represents one
+            chunk (not one dataflow).  Use :meth:`_process_replay` directly
+            to obtain the per-chunk :class:`DataFlowRuntimeInfo` list.
+        """
+        logger.info("Starting replay run")
+
+        self._column_name_mode = ColumnCaseMode(column_name_mode)
+
+        target: List[DataFlow] = dataflows if isinstance(dataflows, list) else [dataflows]
+        if not target:
+            return ExecutionResult()
+
+        # Pre-validate chunk_column resolution for all dataflows before executing.
+        if replay.chunk_column is None:
+            for df in target:
+                if not df.source.watermark_columns:
+                    raise DataCoolieError(
+                        f"Cannot auto-resolve chunk_column: dataflow {df.dataflow_id!r} "
+                        f"has no watermark_columns. Set replay.chunk_column explicitly."
+                    )
+
+        result = self._executor.execute(
+            dataflows=target,
+            process_fn=functools.partial(self._process_replay, replay=replay),
+            callback=self._on_replay_complete,
+        )
+
+        logger.info(
+            "Replay complete — Succeeded: %d, Failed: %d",
+            result.succeeded,
+            result.failed,
+        )
+        return result
+
+    def _process_replay(
+        self,
+        dataflow: DataFlow,
+        replay: ReplayConfig,
+    ) -> DataFlowRuntimeInfo:
+        """Process a full replay for a single dataflow.
+
+        Resolves chunk boundaries and runs sequential chunks via
+        :meth:`_run_single_pipeline`.
+
+        Args:
+            dataflow: The dataflow to replay.
+            replay: Replay configuration (range, chunking, watermark policy).
+
+        Returns:
+            Single :class:`DataFlowRuntimeInfo` summarising all chunks.
+            Processing stops on the first failed chunk.
+        """
+        start_time = utc_now()
+        dataflow_run_id = generate_unique_id()
+
+        # Resolve chunk column from dataflow metadata
+        col = replay.chunk_column
+        if col is None:
+            wm_cols = dataflow.source.watermark_columns
+            if not wm_cols:
+                raise DataCoolieError(
+                    f"Cannot auto-resolve chunk_column: dataflow {dataflow.dataflow_id!r} "
+                    f"has no watermark_columns. Set replay.chunk_column explicitly."
+                )
+            col = wm_cols[0]
+
+        # Generate chunk boundaries
+        if replay.chunk_interval:
+            chunks = generate_chunk_boundaries(
+                start=replay.start,
+                end=replay.end,
+                interval=replay.chunk_interval,
+            )
+        else:
+            # Single-shot: one chunk covering the entire range
+            chunks = [(replay.start, replay.end)]
+
+        # Resume support: skip completed chunks when save_watermark is enabled
+        if replay.save_watermark and self._watermark_manager:
+            stored = self._watermark_manager.get_watermark(dataflow.dataflow_id)
+            if stored and stored.get(col) is not None:
+                stored_val = stored[col]
+                chunks = [(lo, hi) for lo, hi in chunks if lo >= stored_val or (lo < stored_val < hi)]
+                if not chunks:
+                    logger.info(
+                        "Replay already complete for %s — stored watermark %s >= range end",
+                        dataflow.name,
+                        stored_val,
+                    )
+                    return DataFlowRuntimeInfo(
+                        dataflow_run_id=dataflow_run_id,
+                        dataflow_id=dataflow.dataflow_id,
+                        operation_type=ExecutionType.REPLAY.value,
+                        source=SourceRuntimeInfo(),
+                        transform=TransformRuntimeInfo(),
+                        destination=DestinationRuntimeInfo(),
+                        start_time=start_time,
+                        end_time=utc_now(),
+                        status=DataFlowStatus.SKIPPED.value,
+                    )
+
+        total = len(chunks)
+        logger.info(
+            "Replaying %s — %d chunk(s), range [%s, %s), column=%s",
+            dataflow.name,
+            total,
+            replay.start,
+            replay.end,
+            col,
+        )
+
+        chunk_results: List[DataFlowRuntimeInfo] = []
+
+        for idx, (lower, upper) in enumerate(chunks, 1):
+            logger.info("Replay chunk %d/%d: [%s, %s)", idx, total, lower, upper)
+
+            # Deep copy per chunk; disable date_backward so chunk boundaries are exact.
+            chunk_df: DataFlow = dataflow.model_copy(deep=True)
+            for key in _BACKWARD_KEYS:
+                chunk_df.source.configure.pop(key, None)
+            if chunk_df.source.connection:
+                for key in _BACKWARD_KEYS:
+                    chunk_df.source.connection.configure.pop(key, None)
+
+            # Set the upper-bound filter on source so the source reader
+            # applies it during read.  Uses strict less-than for [lower, upper)
+            # semantics — produces whole calendar-aligned chunks.
+            # Numeric bounds are unquoted; date/datetime/str bounds are
+            # single-quoted (Python's __str__ produces ISO 8601 for date/datetime).
+            _upper = f"{col} < {upper}" if isinstance(upper, (int, float)) else f"{col} < '{upper}'"
+            if chunk_df.source.filter_expression:
+                chunk_df.source.filter_expression = (
+                    f"({chunk_df.source.filter_expression}) AND ({_upper})"
+                )
+            else:
+                chunk_df.source.filter_expression = _upper
+
+            chunk_runtime = self._run_single_pipeline(
+                chunk_df,
+                watermark_start={col: lower},
+                watermark_end={col: upper} if replay.save_watermark else None,
+                save_watermark=replay.save_watermark,
+                watermark_operator=">=",
+                operation_type=ExecutionType.REPLAY.value,
+            )
+
+            chunk_results.append(chunk_runtime)
+            self._on_replay_complete(chunk_runtime)
+
+            if chunk_runtime.status == DataFlowStatus.FAILED.value:
+                logger.error(
+                    "Replay stopped for %s at chunk %d/%d due to failure",
+                    dataflow.name, idx, total,
+                )
+                break
+
+        # Summarise all chunk results into one DataFlowRuntimeInfo
+        failed = next((r for r in chunk_results if r.status == DataFlowStatus.FAILED.value), None)
+        all_skipped = all(r.status == DataFlowStatus.SKIPPED.value for r in chunk_results)
+        final_status = (
+            DataFlowStatus.FAILED.value if failed
+            else DataFlowStatus.SKIPPED.value if all_skipped
+            else DataFlowStatus.SUCCEEDED.value
+        )
+        return DataFlowRuntimeInfo(
+            dataflow_run_id=dataflow_run_id,
+            dataflow_id=dataflow.dataflow_id,
+            operation_type=ExecutionType.REPLAY.value,
+            source=SourceRuntimeInfo(rows_read=sum(r.source.rows_read for r in chunk_results)),
+            transform=TransformRuntimeInfo(),
+            destination=DestinationRuntimeInfo(rows_written=sum(r.destination.rows_written for r in chunk_results)),
+            start_time=start_time,
+            end_time=utc_now(),
+            status=final_status,
+            error_message=failed.error_message if failed else None,
+        )
 
     # ------------------------------------------------------------------
     # Maintenance
@@ -815,6 +1083,14 @@ class DataCoolieDriver:
 
     def _on_maintenance_complete(self, result: DataFlowRuntimeInfo) -> None:
         """Callback for maintenance completion."""
+        pass
+
+    def _on_replay_complete(self, result: DataFlowRuntimeInfo) -> None:
+        """Per-chunk completion hook for replay.
+
+        Called after each chunk finishes (including failures). Override in
+        subclasses to add custom monitoring, alerting, or logging.
+        """
         pass
 
     # ------------------------------------------------------------------

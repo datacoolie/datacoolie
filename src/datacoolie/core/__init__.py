@@ -37,6 +37,7 @@ from datacoolie.core.models import (
     Transform,
     DataFlow,
     DataCoolieRunConfig,
+    ReplayConfig,
 )
 from datacoolie.core.registry import PluginRegistry
 
@@ -76,6 +77,7 @@ __all__ = [
     "Transform",
     "DataFlow",
     "DataCoolieRunConfig",
+    "ReplayConfig",
     # Registry
     "PluginRegistry",
 ]

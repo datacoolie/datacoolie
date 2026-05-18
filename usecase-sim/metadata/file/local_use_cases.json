@@ -1206,6 +1206,87 @@
       }
     },
     {
+      "name": "filter__simple",
+      "stage": "source_filter",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_filter_simple",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "filter_expression": "amount > 100"
+      }
+    },
+    {
+      "name": "filter__compound",
+      "stage": "source_filter",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_filter_compound",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "filter_expression": "status != 'cancelled' AND amount > 0",
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "filter__transform_simple",
+      "stage": "transform_filter",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "filter_expression": "amount > 50"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_transform_filter_simple",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "filter__transform_date",
+      "stage": "transform_filter",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "filter_expression": "region = 'North' AND amount < 1000"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_transform_filter_date",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
       "name": "partition__single",
       "stage": "transform_partition",
       "processing_mode": "batch",
@@ -2380,6 +2461,45 @@
       "transform": {}
     },
     {
+      "name": "load_delta__merge_overwrite_rbw",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merge_overwrite_rbw",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "configure": {
+          "replace_by_watermark": true
+        }
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
       "name": "load_delta__schema_evolve_base",
       "description": "Schema evolution test: initial write with base columns only",
       "stage": "schema_evolve_delta",
@@ -2528,6 +2648,55 @@
         }
       },
       "transform": {}
+    },
+    {
+      "name": "load_iceberg__merge_overwrite_rbw",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merge_overwrite_rbw",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ],
+        "configure": {
+          "replace_by_watermark": true
+        }
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
     },
     {
       "name": "read_db__sqlite_query",
@@ -3146,6 +3315,36 @@
         "load_type": "append"
       },
       "transform": {}
+    },
+    {
+      "name": "replay__orders",
+      "stage": "replay_test",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_replay",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
     }
   ],
   "schema_hints": [

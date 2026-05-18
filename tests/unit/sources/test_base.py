@@ -287,26 +287,26 @@ class TestApplyClosingDayBackward:
 
 
 class TestBuildEffectiveWatermark:
-    """Tests for _build_effective_watermark with both strategies."""
+    """Tests for _build_watermark_effective with both strategies."""
 
     def test_none_watermark_passthrough(self) -> None:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": "7"})
-        result = BaseSourceReader._build_effective_watermark(src, None)
+        result = BaseSourceReader._build_watermark_effective(src, None)
         assert result is None
 
     def test_no_backward_passthrough(self) -> None:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn)
         wm = {"col": datetime(2026, 3, 8, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is wm
 
     def test_fixed_offset_strategy(self) -> None:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": "7"})
         wm = {"modified_at": datetime(2026, 3, 8, 12, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 3, 1, 12, 0, tzinfo=timezone.utc)
 
     @patch("datacoolie.sources.base.utc_now")
@@ -315,7 +315,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"closing_day": 10}})
         wm = {"modified_at": datetime(2026, 3, 5, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
     @patch("datacoolie.sources.base.utc_now")
@@ -324,7 +324,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"closing_day": 10, "months": 2}})
         wm = {"modified_at": datetime(2026, 3, 5, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2025, 12, 1, tzinfo=timezone.utc)
 
     @patch("datacoolie.sources.base.utc_now")
@@ -333,7 +333,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"closing_day": 10, "years": 1}})
         wm = {"modified_at": datetime(2026, 3, 5, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2025, 2, 1, tzinfo=timezone.utc)
 
     @patch("datacoolie.sources.base.utc_now")
@@ -342,14 +342,14 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"closing_day": 10}})
         wm = {"modified_at": datetime(2026, 3, 10, 0, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 3, 1, tzinfo=timezone.utc)
 
     def test_non_datetime_values_unchanged(self) -> None:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": "7"})
         wm = {"modified_at": datetime(2026, 3, 8, tzinfo=timezone.utc), "id": 42}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["id"] == 42
 
     @patch("datacoolie.sources.base.utc_now")
@@ -361,7 +361,7 @@ class TestBuildEffectiveWatermark:
         )
         src = Source(connection=conn)
         wm = {"modified_at": datetime(2026, 3, 5, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
     def test_file_partition_watermark_datetime_adjusted_only_partition_key(self) -> None:
@@ -371,7 +371,7 @@ class TestBuildEffectiveWatermark:
             DATE_FOLDER_PARTITION_KEY: datetime(2026, 3, 8, tzinfo=timezone.utc),
             "modified_at": datetime(2026, 3, 8, tzinfo=timezone.utc),
         }
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         assert result[DATE_FOLDER_PARTITION_KEY] == datetime(2026, 3, 7, tzinfo=timezone.utc)
         assert result["modified_at"] == datetime(2026, 3, 8, tzinfo=timezone.utc)
@@ -380,14 +380,14 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="file", format="parquet", configure={})
         src = Source(connection=conn, configure={"backward_days": 1})
         wm = {DATE_FOLDER_PARTITION_KEY: "not-a-date"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result == wm
 
     def test_file_partition_watermark_non_date_type_returns_original(self) -> None:
         conn = Connection(name="c", connection_type="file", format="parquet", configure={})
         src = Source(connection=conn, configure={"backward_days": 1})
         wm = {DATE_FOLDER_PARTITION_KEY: 12345}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result == wm
 
     # ---- shorthand top-level keys ----------------------------------------
@@ -397,7 +397,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": 7})
         wm = {"modified_at": datetime(2026, 3, 8, 12, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 3, 1, 12, 0, tzinfo=timezone.utc)
 
     def test_backward_months_shorthand(self) -> None:
@@ -405,7 +405,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_months": 2})
         wm = {"modified_at": datetime(2026, 5, 15, 0, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 3, 15, 0, 0, tzinfo=timezone.utc)
 
     def test_backward_years_shorthand(self) -> None:
@@ -413,7 +413,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_years": 1})
         wm = {"modified_at": datetime(2026, 3, 8, 12, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2025, 3, 8, 12, 0, tzinfo=timezone.utc)
 
     @patch("datacoolie.sources.base.utc_now")
@@ -423,7 +423,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_closing_day": 10})
         wm = {"modified_at": datetime(2026, 3, 5, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
     # ---- nested backward dict (months / years without closing_day) ---------
@@ -433,7 +433,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"months": 1}})
         wm = {"modified_at": datetime(2026, 4, 30, 0, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         # April 30 − 1 month → March 30
         assert result["modified_at"] == datetime(2026, 3, 30, 0, 0, tzinfo=timezone.utc)
 
@@ -442,7 +442,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"years": 1}})
         wm = {"modified_at": datetime(2026, 3, 8, 12, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2025, 3, 8, 12, 0, tzinfo=timezone.utc)
 
     def test_backward_nested_days_months_combined(self) -> None:
@@ -450,7 +450,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"days": 3, "months": 1}})
         wm = {"modified_at": datetime(2026, 4, 15, 0, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         # April 15 − 3 days = April 12 − 1 month = March 12
         assert result["modified_at"] == datetime(2026, 3, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -465,7 +465,7 @@ class TestBuildEffectiveWatermark:
         # Source says 7 days — should win
         src = Source(connection=conn, configure={"backward_days": 7})
         wm = {"modified_at": datetime(2026, 3, 8, 12, 0, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == datetime(2026, 3, 1, 12, 0, tzinfo=timezone.utc)
 
     @patch("datacoolie.sources.base.utc_now")
@@ -478,7 +478,7 @@ class TestBuildEffectiveWatermark:
         )
         src = Source(connection=conn, configure={"backward": {"closing_day": 10}})
         wm = {"modified_at": datetime(2026, 3, 5, tzinfo=timezone.utc)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         # closing_day strategy must win, not the 30-day offset
         assert result["modified_at"] == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
@@ -489,7 +489,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": 7})
         wm = {"modified_at": "2026-03-08T12:00:00+00:00"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         expected = datetime(2026, 3, 1, 12, 0, tzinfo=timezone.utc)
         assert datetime.fromisoformat(result["modified_at"]) == expected
@@ -499,7 +499,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_months": 2})
         wm = {"modified_at": "2026-05-15T00:00:00+00:00"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         assert datetime.fromisoformat(result["modified_at"]) == datetime(2026, 3, 15, 0, 0, tzinfo=timezone.utc)
 
@@ -508,7 +508,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_years": 1})
         wm = {"modified_at": "2026-04-08T05:59:47.206048+00:00"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         result_dt = datetime.fromisoformat(result["modified_at"])
         assert result_dt.year == 2025
@@ -520,7 +520,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": 1})
         wm = {"modified_at": "2026-03-08T12:00:00+00:00"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         assert isinstance(result["modified_at"], str)
 
@@ -529,7 +529,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": 7})
         wm = {"modified_at": "not-a-date"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result["modified_at"] == "not-a-date"
 
     @patch("datacoolie.sources.base.utc_now")
@@ -539,7 +539,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward": {"closing_day": 10}})
         wm = {"modified_at": "2026-03-05T00:00:00+00:00"}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         assert datetime.fromisoformat(result["modified_at"]) == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
@@ -550,7 +550,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": 7})
         wm = {"event_date": date(2026, 3, 8)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         assert result["event_date"] == date(2026, 3, 1)
 
@@ -559,7 +559,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_days": 1})
         wm = {"event_date": date(2026, 3, 8)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         val = result["event_date"]
         assert type(val) is date  # must not be datetime (which IS-A date)
@@ -569,7 +569,7 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn, configure={"backward_months": 1})
         wm = {"event_date": date(2026, 3, 31)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is not None
         # March 31 − 1 month → Feb only has 28 days in 2026, so clamp to Feb 28
         assert result["event_date"] == date(2026, 2, 28)
@@ -579,5 +579,5 @@ class TestBuildEffectiveWatermark:
         conn = Connection(name="c", connection_type="lakehouse", format="delta", configure={})
         src = Source(connection=conn)
         wm = {"event_date": date(2026, 3, 8)}
-        result = BaseSourceReader._build_effective_watermark(src, wm)
+        result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is wm

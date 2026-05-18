@@ -16,7 +16,7 @@ API, and a metadata REST API).
 ## 1. What is usecase-sim?
 
 - **Library under test:** the `datacoolie` package in `datacoolie/src/datacoolie/`.
-- **What it exercises:** 22 named scenarios that combine 2 engines, 3 metadata
+- **What it exercises:** 24 named scenarios that combine 2 engines, 3 metadata
   sources, 2 storage platforms, and lakehouse maintenance.
 - **Why it exists:** one-command regression coverage for ETL behaviour across
   the supported matrix, plus a teaching surface for new contributors.
@@ -94,7 +94,7 @@ python usecase-sim/runner/run_scenario.py --all
 **Expected result** (≈ a few minutes, depending on cold/warm JVM):
 
 ```
-Total: 22 | PASS: 22 | FAIL: 0
+Total: 24 | PASS: 24 | FAIL: 0
 ```
 
 Or, for a first sanity check after step 3:
@@ -191,12 +191,14 @@ Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 
 ### P0 — local filesystem I/O (still needs `minio` + `iceberg-rest`)
 
-| Key | Engine | Source |
-|---|---|---|
-| `local_polars_file` | polars | file (JSON) |
-| `local_polars_file_yaml` | polars | file (YAML) |
-| `local_polars_file_excel` | polars | file (XLSX) |
-| `local_spark_file` | spark | file (JSON) |
+| Key | Engine | Source | Notes |
+|---|---|---|---|
+| `local_polars_file` | polars | file (JSON) | all stages including `transform_filter` |
+| `local_polars_file_yaml` | polars | file (YAML) | |
+| `local_polars_file_excel` | polars | file (XLSX) | |
+| `local_spark_file` | spark | file (JSON) | api-source dataflows skipped |
+| `local_polars_replay` | polars | file (JSON) | replay mode — run twice to test window replace |
+| `local_spark_replay` | spark | file (JSON) | replay mode — api-source dataflows skipped |
 
 ### P1 — needs Docker services
 
@@ -265,6 +267,11 @@ Unified ETL runner. Dispatches any `(engine × metadata-source)` combination.
 | `--skip-api-sources` | | off | Skip dataflows with `connection_type=api` |
 | `--app-name` | spark | `DataCoolie-UseCase` | Spark app name |
 | `--spark-config KEY=VALUE` | spark | `[]` | Extra Spark configs |
+| `--replay-start` | | `None` | Inclusive replay range start (ISO date/datetime or int); activates replay mode |
+| `--replay-end` | | `None` | Exclusive replay range end |
+| `--replay-chunk-interval KEY=VALUE` | | `[]` | Repeatable; e.g. `days=1`. Empty = single-shot replay |
+| `--replay-save-watermark` | | off | Save watermark after each chunk (init/crash-resume mode) |
+| `--replay-chunk-column` | | `None` | Override auto-resolved chunk column |
 
 ### `runner/maintenance.py`
 
@@ -312,6 +319,7 @@ Shared factory module. Key exports:
 - `build_iceberg_rest_catalog(...)` — builds a `pyiceberg` REST catalog for Polars.
 - `setup_platform(is_aws, storage_opts, logger)` — returns `LocalPlatform` or `AWSPlatform`.
 - `run_and_report(driver, stage, ...)` — runs the driver, logs the result, optionally stops Spark.
+- `replay_and_report(driver, stage, ..., replay_start, replay_end, replay_chunk_interval, ...)` — runs `driver.run_replay()` with a `ReplayConfig` built from the supplied arguments.
 
 Three catalog presets are supported:
 

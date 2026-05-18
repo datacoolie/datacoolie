@@ -48,6 +48,19 @@ Source readers apply the watermark **during** the read when possible:
   `watermark_param_location`, and `watermark_param_format`.
 - **CSV / JSON / Excel** — full scan, then filter in the engine (fallback).
 
+### Watermark operator
+
+By default the comparison is `>` (strict greater-than), meaning "only rows
+newer than the last saved value".  During **replay**, the driver passes
+`watermark_operator=">="` (inclusive) so that the lower-bound chunk boundary is
+included in the read.  Source readers forward this operator to the engine's
+`apply_watermark_filter` method.
+
+| Mode | Operator | Semantics |
+|------|----------|-----------|
+| Normal ETL | `>` | Exclusive — skip the exact last-saved row |
+| Replay chunk | `>=` | Inclusive — include the chunk start value |
+
 ## Backward look-back
 
 `Connection.date_backward` reads backward offsets from the `configure` dict:
@@ -73,6 +86,21 @@ next watermark from the configured `source.watermark_columns` during the read
 flow, and the driver saves that value only after the destination write
 succeeds. On failure nothing is written — the next run retries from the same
 watermark.
+
+### Replay watermark behaviour
+
+During `run_replay()`, watermark persistence is controlled by
+`ReplayConfig.save_watermark`:
+
+| `save_watermark` | Behaviour |
+|------------------|-----------|
+| `False` (default) | Production watermark is **never touched** — safe for backfill into new tables |
+| `True` | Chunk upper bound is saved after each successful chunk — enables crash-resume |
+
+When `save_watermark=True`, already-completed chunks are skipped on re-run by
+comparing the stored watermark against chunk boundaries.
+
+See [How-to · Replay & backfill](../how-to/replay-and-backfill.md).
 
 ## Empty watermark semantics
 
