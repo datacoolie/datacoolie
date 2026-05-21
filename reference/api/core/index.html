@@ -2345,28 +2345,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#datacoolie.core.secret_provider.get_registered_secret_values" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_registered_secret_values
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.core.secret_provider.register_secret_values" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;register_secret_values
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#datacoolie.core.secret_provider.resolve_secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3612,28 +3590,6 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SecretStr
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.core.secret_provider.get_registered_secret_values" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_registered_secret_values
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#datacoolie.core.secret_provider.register_secret_values" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;register_secret_values
       
     </span>
   </a>
@@ -5370,44 +5326,6 @@ prevent accidental persistence or cache-key leaks.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="datacoolie.core.secret_provider.get_registered_secret_values" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">get_registered_secret_values</span>
-
-
-<a href="#datacoolie.core.secret_provider.get_registered_secret_values" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_registered_secret_values</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="frozenset">frozenset</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return a snapshot of all registered secret values.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="datacoolie.core.secret_provider.register_secret_values" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">register_secret_values</span>
-
-
-<a href="#datacoolie.core.secret_provider.register_secret_values" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">register_secret_values</span><span class="p">(</span><span class="o">*</span><span class="n">values</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Register resolved secret values so the log filter can scrub them.</p>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h3 id="datacoolie.core.secret_provider.resolve_secrets" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">resolve_secrets</span>
 
@@ -5428,7 +5346,6 @@ value; <code>resolve_secrets</code> replaces that value with the real secret.</p
 resolver for that prefix, the plugin resolver is used.  Otherwise the
 platform-native <em>provider</em> handles the request via
 :class:<code>~datacoolie.core.secret_resolver.NativeProviderResolver</code>.</p>
-<p>Also registers the resolved values with the global log-masking set.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

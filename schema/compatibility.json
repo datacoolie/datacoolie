@@ -1,0 +1,6 @@
+{
+  "latest_schema": "0.1.0",
+  "datacoolie_to_schema": {
+    ">=0.1.0,<1.0.0": "0.1.0"
+  }
+}

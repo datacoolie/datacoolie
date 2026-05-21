@@ -3641,7 +3641,7 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
 
 
 <a href="#datacoolie.sources.base.BaseSourceReader.read" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.Source" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></span><span class="p">,</span> <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">watermark_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.Source" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></span><span class="p">,</span> <span class="n">watermark_start</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">watermark_start_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="n">watermark_end</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">watermark_end_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&lt;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3683,14 +3683,15 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>watermark</code>
+                <code>watermark_start</code>
             </td>
             <td>
                   <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Previous watermark values (<code>None</code> = first run).</p>
+                <p>Previous watermark values (<code>None</code> = first run).
+Acts as the lower bound for incremental reads.</p>
               </div>
             </td>
             <td>
@@ -3699,20 +3700,56 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>watermark_operator</code>
+                <code>watermark_start_operator</code>
             </td>
             <td>
                   <code><span title="str">str</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Comparison operator for the watermark
+                <p>Comparison operator for the lower-bound
 WHERE clause.  <code>"&gt;"</code> (default) for exclusive lower bound,
-<code>"&gt;="</code> for inclusive lower bound (used by replay).</p>
+<code>"&gt;=</code>" for inclusive lower bound (used by replay).</p>
               </div>
             </td>
             <td>
                   <code>&#39;&gt;&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>watermark_end</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Upper watermark bound (<code>None</code> = no ceiling).
+When provided, rows are filtered to <code>col &lt; end</code> for
+each column.  Used by replay to cap reads at chunk
+boundaries.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>watermark_end_operator</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Comparison operator for the upper-bound
+WHERE clause.  <code>"&lt;"</code> (default) for exclusive upper bound.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&lt;&#39;</code>
             </td>
           </tr>
       </tbody>
@@ -4407,12 +4444,13 @@ dotted module path, e.g. <code>"mypackage.loaders.load_orders"</code>.</p>
    what other readers do.</li>
 </ol>
 <p>The function signature must be::</p>
-<div class="language-text highlight"><pre><span></span><code>def my_loader(engine, source, watermark) -&gt; DataFrame | None
+<div class="language-text highlight"><pre><span></span><code>def my_loader(engine, source, watermark_start, watermark_end) -&gt; DataFrame | None
 </code></pre></div>
 <ul>
 <li><code>engine</code> — the active :class:<code>BaseEngine</code> instance.</li>
 <li><code>source</code> — the :class:<code>Source</code> model.</li>
-<li><code>watermark</code> — previous watermark values (<code>None</code> on first run).</li>
+<li><code>watermark_start</code> — previous watermark values (<code>None</code> on first run).</li>
+<li><code>watermark_end</code> — replay ceiling watermark (<code>None</code> for normal incremental reads).</li>
 </ul>
 
 
@@ -4452,12 +4490,13 @@ dotted module path, e.g. <code>"mypackage.loaders.load_orders"</code>.</p>
 <p>The function path is read from <code>source.python_function</code> and must
 be a fully-qualified dotted path (e.g. <code>"my_module.load_data"</code>).</p>
 <p>The function signature must be::</p>
-<div class="language-text highlight"><pre><span></span><code>def my_loader(engine, source, watermark) -&gt; DataFrame | None
+<div class="language-text highlight"><pre><span></span><code>def my_loader(engine, source, watermark_start, watermark_end) -&gt; DataFrame | None
 </code></pre></div>
 <p>Watermark handling follows a <strong>before / after</strong> pattern:</p>
 <ul>
-<li>The <code>watermark</code> dict is passed to the function so it <em>can</em>
-  pre-filter at the source (optional — the function may ignore it).</li>
+<li>The <code>watermark_start</code> and <code>watermark_end</code> dicts are passed to the
+  function so it <em>can</em> pre-filter at the source (optional — the function
+  may ignore them).</li>
 <li>After the function returns, the framework applies
   :meth:<code>_apply_watermark_filter</code> for precise row-level filtering,
   consistent with other readers.</li>

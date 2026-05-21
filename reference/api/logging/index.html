@@ -2486,17 +2486,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#datacoolie.logging.base.SensitiveValueFilter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SensitiveValueFilter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#datacoolie.logging.base.StorageMode" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3453,17 +3442,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#datacoolie.logging.base.SensitiveValueFilter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SensitiveValueFilter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#datacoolie.logging.base.StorageMode" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4194,7 +4172,7 @@ framework messages regardless of the console level.</p>
 
 
 <a href="#datacoolie.logging.base.LogManager.get_and_clear_captured_logs" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_logs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_logs</span><span class="p">(</span><span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4335,52 +4313,6 @@ framework messages regardless of the console level.</p>
     </div>
 
 </div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h3 id="datacoolie.logging.base.SensitiveValueFilter" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SensitiveValueFilter</span>
-
-
-<a href="#datacoolie.logging.base.SensitiveValueFilter" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="logging.Filter">Filter</span></code></p>
-
-
-        <p>Scrub resolved secret values from log messages.</p>
-<p>Works with the global set maintained by
-:func:<code>~datacoolie.core.secret_provider.register_secret_values</code>.</p>
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
 
 
 

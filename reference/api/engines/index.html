@@ -3647,14 +3647,22 @@ objects used to resolve name / modification-time per path, or
   </span>
 
 <a href="#datacoolie.engines.base.BaseEngine.apply_watermark_filter" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_watermark_filter</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">watermark_columns</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span> <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_watermark_filter</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">watermark_columns</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span> <span class="n">watermark_start</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">start_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="n">watermark_end</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">end_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&lt;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Filter rows where any watermark column exceeds its stored value.</p>
-<p>Builds an OR condition: <code>col1 {op} val1 OR col2 {op} val2 ...</code>
-using native DataFrame API.</p>
+        <p>Filter rows by watermark bounds (lower, upper, or both).</p>
+<p>Builds an OR condition across watermark columns. When only lower
+bound is provided: <code>col1 {op} val1 OR col2 {op} val2 ...</code></p>
+<p>When <em>watermark_end</em> is provided, builds per-column windowed
+conditions OR'd across columns:
+<code>(col1 &gt; lower1 AND col1 &lt; upper1) OR (col2 &gt; lower2 AND col2 &lt; upper2)</code></p>
+<p>Per-column edge cases when watermark_end is set:
+- lower has col, upper has col → <code>col &gt; lower AND col &lt; upper</code>
+- lower has col, upper missing → <code>col &gt; lower</code> (no ceiling)
+- lower missing, upper has col → <code>col &lt; upper</code> (no floor)
+- both missing → skip column</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3702,14 +3710,14 @@ using native DataFrame API.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>watermark</code>
+                <code>watermark_start</code>
             </td>
             <td>
                   <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>{column: threshold_value}</code> mapping.</p>
+                <p><code>{column: threshold_value}</code> lower-bound mapping.</p>
               </div>
             </td>
             <td>
@@ -3718,19 +3726,53 @@ using native DataFrame API.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>operator</code>
+                <code>start_operator</code>
             </td>
             <td>
                   <code><span title="str">str</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Comparison operator, <code>"&gt;"</code> (exclusive, default) or
-<code>"&gt;="</code> (inclusive, used by replay).</p>
+                <p>Comparison operator for lower bound, <code>"&gt;"</code>
+(exclusive, default) or <code>"&gt;="</code> (inclusive, replay).</p>
               </div>
             </td>
             <td>
                   <code>&#39;&gt;&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>watermark_end</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional upper-bound mapping. When provided,
+builds a [lower, upper) window per column.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>end_operator</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Comparison operator for upper bound, <code>"&lt;"</code>
+(exclusive, default) or <code>"&lt;="</code> (inclusive).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&lt;&#39;</code>
             </td>
           </tr>
       </tbody>
