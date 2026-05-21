@@ -35,17 +35,17 @@ def _make_python_function_source(func_path: str, **kw) -> Source:
     return Source(connection=conn, python_function=func_path, **kw)
 
 
-def _sample_loader(engine, source, watermark=None):
+def _sample_loader(engine, source, watermark_start=None, watermark_end=None):
     """Returns mock data via the engine."""
     return engine._data
 
 
-def _none_loader(engine, source, watermark=None):
+def _none_loader(engine, source, watermark_start=None, watermark_end=None):
     """Returns None."""
     return None
 
 
-def _failing_loader(engine, source, watermark=None):
+def _failing_loader(engine, source, watermark_start=None, watermark_end=None):
     """Raises an intentional error."""
     raise ValueError("intentional boom")
 
@@ -97,7 +97,7 @@ class TestPythonFunctionReader:
             "tests.unit.sources.test_python_function_reader._sample_loader",
             watermark_columns=["modified_at"],
         )
-        result = reader.read(src, watermark={"modified_at": "2024-01-01"})
+        result = reader.read(src, watermark_start={"modified_at": "2024-01-01"})
         assert result is not None
         wm = reader.get_new_watermark()
         assert wm == {"modified_at": "2024-12-01"}
@@ -108,8 +108,8 @@ class TestPythonFunctionReader:
         """The watermark dict is forwarded to the user function (pre-filter)."""
         captured: Dict[str, Any] = {}
 
-        def _capture_loader(engine, source, watermark=None):
-            captured["watermark"] = watermark
+        def _capture_loader(engine, source, watermark_start=None, watermark_end=None):
+            captured["watermark_start"] = watermark_start
             return engine._data
 
         reader = PythonFunctionReader(engine)
@@ -121,8 +121,8 @@ class TestPythonFunctionReader:
         with patch.object(
             PythonFunctionReader, "_resolve_function", return_value=_capture_loader,
         ):
-            reader.read(src, watermark={"modified_at": "2024-01-01"})
-        assert captured["watermark"] == {"modified_at": "2024-01-01"}
+            reader.read(src, watermark_start={"modified_at": "2024-01-01"})
+        assert captured["watermark_start"] == {"modified_at": "2024-01-01"}
 
     def test_no_post_filter_without_watermark(self, engine: MockEngine) -> None:
         """When no watermark is passed, post-filter is skipped."""

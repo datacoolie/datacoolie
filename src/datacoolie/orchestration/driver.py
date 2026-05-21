@@ -410,10 +410,12 @@ class DataCoolieDriver:
         )
 
         logger.info(
-            "ETL complete — Succeeded: %d, Failed: %d, Skipped: %d",
+            "ETL complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d (%.1fs)",
+            result.total,
             result.succeeded,
             result.failed,
             result.skipped,
+            result.duration_seconds
         )
         return result
 
@@ -431,7 +433,8 @@ class DataCoolieDriver:
         watermark_start: Optional[Dict[str, Any]] = None,
         watermark_end: Optional[Dict[str, Any]] = None,
         save_watermark: bool = True,
-        watermark_operator: str = ">",
+        watermark_start_operator: str = ">",
+        watermark_end_operator: str = "<",
         operation_type: str = ExecutionType.ETL.value,
     ) -> DataFlowRuntimeInfo:
         """Execute one pipeline run with timing, retry, context, and logging.
@@ -445,14 +448,16 @@ class DataCoolieDriver:
             dataflow: Pre-copied dataflow to execute.
             watermark_start: Override the read watermark (chunk lower bound).
                 ``None`` = use the stored watermark (normal ETL).
-            watermark_end: Override the value saved after a successful write.
-                ``None`` = auto-save the reader-detected new watermark
-                (only applies when *save_watermark* is ``True``).
+            watermark_end: Upper watermark bound for the source reader AND
+                the value saved after a successful write.
+                ``None`` = no ceiling (normal ETL) / auto-save reader-detected.
             save_watermark: Whether to persist a watermark at all.
                 ``False`` leaves the stored watermark untouched (backfill mode).
-            watermark_operator: Comparison operator for the lower-bound
-                WHERE clause.  ``">"`` (default, normal ETL) or ``">=>"
+            watermark_start_operator: Comparison operator for the lower-bound
+                WHERE clause.  ``">"`` (default, normal ETL) or ``">="``
                 (replay, inclusive lower bound).
+            watermark_end_operator: Comparison operator for the upper-bound
+                filter.  ``"<"`` (default, exclusive) or ``"<="`` (inclusive).
 
         Returns:
             :class:`DataFlowRuntimeInfo` with timing, status, and metrics.
@@ -476,7 +481,8 @@ class DataCoolieDriver:
                     watermark_start=watermark_start,
                     watermark_end=watermark_end,
                     save_watermark=save_watermark,
-                    watermark_operator=watermark_operator,
+                    watermark_start_operator=watermark_start_operator,
+                    watermark_end_operator=watermark_end_operator,
                 )
             )
         except PipelineError as exc:
@@ -523,7 +529,8 @@ class DataCoolieDriver:
         watermark_start: Optional[Dict[str, Any]] = None,
         watermark_end: Optional[Dict[str, Any]] = None,
         save_watermark: bool = True,
-        watermark_operator: str = ">",
+        watermark_start_operator: str = ">",
+        watermark_end_operator: str = "<",
     ) -> tuple:
         """Run read → transform → write for *dataflow*.
 
@@ -535,11 +542,15 @@ class DataCoolieDriver:
             dataflow_run_id: Unique ID for this execution.
             watermark_start: Override the read watermark (chunk lower bound).
                 ``None`` = use the stored watermark (normal ETL).
-            watermark_end: Override the value saved after a successful write.
-                ``None`` = auto-save the reader-detected new watermark
-                (only applies when *save_watermark* is ``True``).
+            watermark_end: Upper watermark bound for the reader AND value
+                saved after a successful write.
+                ``None`` = no ceiling / auto-save reader-detected.
             save_watermark: Whether to persist a watermark at all.
                 ``False`` leaves the stored watermark untouched (backfill mode).
+            watermark_start_operator: Comparison operator for the lower-bound
+                filter.  ``">"`` (default) or ``">="`` (replay, inclusive).
+            watermark_end_operator: Comparison operator for the upper bound
+                filter.  ``"<"`` (default) or ``"<="`` (inclusive).
 
         Returns:
             ``(source_runtime, transform_runtime, dest_runtime, status)``
@@ -568,7 +579,8 @@ class DataCoolieDriver:
             self._resolve_connection_secrets(dataflow)
 
             reader = self._create_source_reader(dataflow)
-            df = reader.read(dataflow.source, watermark, watermark_operator=watermark_operator)
+            df = reader.read(dataflow.source, watermark, watermark_start_operator=watermark_start_operator, 
+                             watermark_end=watermark_end, watermark_end_operator=watermark_end_operator)
             source_runtime = reader.get_runtime_info()
 
             if df is None or source_runtime.rows_read == 0:
@@ -669,9 +681,12 @@ class DataCoolieDriver:
         )
 
         logger.info(
-            "Replay complete — Succeeded: %d, Failed: %d",
+            "Replay complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d (%.1fs)",
+            result.total,
             result.succeeded,
             result.failed,
+            result.skipped,
+            result.duration_seconds,
         )
         return result
 
@@ -768,22 +783,14 @@ class DataCoolieDriver:
             # Set the upper-bound filter on source so the source reader
             # applies it during read.  Uses strict less-than for [lower, upper)
             # semantics — produces whole calendar-aligned chunks.
-            # Numeric bounds are unquoted; date/datetime/str bounds are
-            # single-quoted (Python's __str__ produces ISO 8601 for date/datetime).
-            _upper = f"{col} < {upper}" if isinstance(upper, (int, float)) else f"{col} < '{upper}'"
-            if chunk_df.source.filter_expression:
-                chunk_df.source.filter_expression = (
-                    f"({chunk_df.source.filter_expression}) AND ({_upper})"
-                )
-            else:
-                chunk_df.source.filter_expression = _upper
+            # watermark_end serves as both reader ceiling AND save target.
 
             chunk_runtime = self._run_single_pipeline(
                 chunk_df,
                 watermark_start={col: lower},
-                watermark_end={col: upper} if replay.save_watermark else None,
+                watermark_end={col: upper},
                 save_watermark=replay.save_watermark,
-                watermark_operator=">=",
+                watermark_start_operator=">=",
                 operation_type=ExecutionType.REPLAY.value,
             )
 
@@ -868,9 +875,12 @@ class DataCoolieDriver:
         )
 
         logger.info(
-            "Maintenance complete — Succeeded: %d, Failed: %d",
+            "Maintenance complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d (%.1fs)",
+            result.total,
             result.succeeded,
             result.failed,
+            result.skipped,
+            result.duration_seconds,
         )
         return result
 

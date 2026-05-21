@@ -31,7 +31,9 @@ class IcebergReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Read an Iceberg table, optionally filtering by watermark."""
         action: dict = {"reader": type(self).__name__}
@@ -45,13 +47,14 @@ class IcebergReader(BaseSourceReader[DF]):
 
         df = self._read_data(source)
 
-        if watermark and source.watermark_columns:
-            df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
+        if watermark_start or watermark_end:
+            if source.watermark_columns:
+                df = self._apply_watermark_filter(df, source.watermark_columns, watermark_start or {}, watermark_end)
 
         df = self._apply_filter_expression(df, source)
 
         context = f"Table: {source.full_table_name or source.path} (format: {source.connection.format})"
-        return self._finalize_read(df, source.watermark_columns, "IcebergReader", context)
+        return self._finalize_read(df, source.watermark_columns, type(self).__name__, context)
 
     def _read_data(
         self,
@@ -64,7 +67,7 @@ class IcebergReader(BaseSourceReader[DF]):
         then ``source.path``.
         """
         if source.query:
-            logger.debug("IcebergReader: executing SQL query")
+            logger.debug("%s: executing SQL query", type(self).__name__)
             return self._engine.execute_sql(source.query)
 
         table_name = source.full_table_name
@@ -72,6 +75,6 @@ class IcebergReader(BaseSourceReader[DF]):
         path = source.path
         options = source.read_options
 
-        logger.debug("IcebergReader: reading Iceberg table by name: %s", table_name)
+        logger.debug("%s: reading Iceberg table by name: %s", type(self).__name__, table_name)
         return self._engine.read(fmt=fmt, table_name=table_name, path=path, options=options or None)
 

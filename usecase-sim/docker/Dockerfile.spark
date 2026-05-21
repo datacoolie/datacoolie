@@ -1,0 +1,125 @@
+# Dockerfile.spark — Containerised PySpark environment for usecase-sim
+#
+# Purpose: Run Spark scenarios on Linux to avoid Windows-specific JVM/Python
+#          path issues.  The entire datacoolie/ directory is mounted at
+#          /datacoolie at runtime, so input/output data and the editable
+#          package source are always in sync with the host.
+#
+# Base: python:3.11-slim + default-jdk-headless + SPARK_LOCAL_IP=127.0.0.1.
+#   - PySpark 3.5.8 is compatible with Java 21.
+#   - SPARK_LOCAL_IP forces Spark RPC to use loopback, fixing BlockManager
+#     heartbeater failures caused by unresolvable container hostnames.
+#   - bitnami/spark moved off Docker Hub (tags no longer resolve).
+#   - apache/spark-py:latest is a K8s executor image, pyspark not pip-importable.
+#
+# Build context: datacoolie/  (two levels up from usecase-sim/docker/)
+# Usage:
+#   python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+#   docker exec datacoolie-spark python usecase-sim/runner/run.py --engine spark ...
+
+FROM python:3.11-slim
+
+# ---------------------------------------------------------------------------
+# Java (headless) — required by PySpark / Hadoop
+# ---------------------------------------------------------------------------
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends default-jdk-headless procps socat \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Force Spark RPC to bind to loopback — prevents BlockManager heartbeater
+# failures caused by Docker container hostnames that don't resolve.
+ENV SPARK_LOCAL_IP=127.0.0.1
+
+# Point PySpark workers at this interpreter (same binary, no Windows stub issues)
+ENV PYSPARK_PYTHON=python3
+ENV PYSPARK_DRIVER_PYTHON=python3
+
+# ---------------------------------------------------------------------------
+# Pre-install datacoolie Python dependencies (layer-cached between rebuilds).
+# The datacoolie package itself is installed editable from the volume mount at
+# container startup so every code change on the host is immediately visible.
+# ---------------------------------------------------------------------------
+RUN pip install --no-cache-dir \
+    "pyspark>=3.5,<4" \
+    "delta-spark>=3.0" \
+    "polars>=1.0" \
+    "deltalake>=0.15" \
+    "pyiceberg>=0.6" \
+    "boto3>=1.28" \
+    "httpx>=0.24" \
+    "sqlalchemy>=2.0,<3.0" \
+    "fastexcel>=0.9" \
+    "openpyxl>=3.1" \
+    "pyarrow" \
+    "pandas" \
+    "jsonschema>=4" \
+    "importlib_metadata"
+
+# ---------------------------------------------------------------------------
+# Spark defaults — written into the pip-installed pyspark conf dir so every
+# SparkSession created in this image inherits them without source-code changes.
+#
+#   spark.driver.host / bindAddress   — bind RPC to loopback explicitly;
+#     SPARK_LOCAL_IP only sets the default, these override it at the Spark
+#     config level, eliminating the BlockManagerMasterEndpoint NPE that fires
+#     on the first 1-2 heartbeats in local[*] mode when the hostname can't
+#     be resolved inside the container.
+#
+#   spark.executor.heartbeatInterval  — give the BlockManager extra time to
+#     complete its initial registration before the first heartbeat fires.
+#
+#   spark.eventLog.gcMetrics.*        — register G1 Concurrent GC so Spark
+#     can collect GC metrics for it; silences the "non-built-in GC" WARN.
+# ---------------------------------------------------------------------------
+RUN python3 - <<'EOF'
+import pyspark, os
+conf_dir = os.path.join(os.path.dirname(pyspark.__file__), "conf")
+os.makedirs(conf_dir, exist_ok=True)
+lines = [
+    "spark.driver.host=127.0.0.1",
+    "spark.driver.bindAddress=127.0.0.1",
+    "spark.executor.heartbeatInterval=30s",
+    "spark.eventLog.gcMetrics.youngGenerationGarbageCollectors=G1 Young Generation,G1 Concurrent GC",
+    "spark.eventLog.gcMetrics.oldGenerationGarbageCollectors=G1 Old Generation",
+    # Allow Delta Lake to handle schema evolution (add/drop columns) gracefully
+    # instead of throwing DELTA_SCHEMA_CHANGE_SINCE_ANALYSIS.
+    # NOTE: RawLocalFileSystem was intentionally NOT used here — it breaks
+    # S3AFileSystem which casts FileSystem.getLocal() to LocalFileSystem
+    # internally when creating temp upload disk blocks.
+    "spark.databricks.delta.schema.autoMerge.enabled=true",
+]
+with open(os.path.join(conf_dir, "spark-defaults.conf"), "w") as f:
+    f.write("\n".join(lines) + "\n")
+print("spark-defaults.conf written to", conf_dir)
+EOF
+
+# ---------------------------------------------------------------------------
+# Working directory matches the CWD convention used by all runner scripts
+# (all relative paths like ./usecase-sim/data/... resolve from here)
+# ---------------------------------------------------------------------------
+WORKDIR /datacoolie
+
+# On container start:
+#  1. Start socat port forwarders so "localhost" connections in metadata
+#     transparently reach the Docker host.  Covers:
+#       DB ports  — 5432 (PG), 3306 (MySQL), 1433 (MSSQL), 1521 (Oracle)
+#       API server — 8000 (api_metadata_server.py / any local HTTP API)
+#     This avoids any source code changes — same metadata works for local
+#     Polars (Windows, real localhost) and Docker Spark (forwarded localhost).
+#  2. pip-install datacoolie editable from the volume mount (--no-deps).
+#  3. exec "$@" hands off to CMD so `docker exec` still works normally.
+RUN printf '#!/bin/bash\n\
+# Forward well-known ports from localhost to the Docker host.\n\
+# Only start a forwarder if the port is not already in use (idempotent restarts).\n\
+for spec in 5432 3306 1433 1521 8000 8082; do\n\
+  socat TCP-LISTEN:${spec},fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:${spec} &\n\
+done\n\
+pip install -e /datacoolie -q --no-deps\n\
+exec "$@"\n' > /entrypoint.sh \
+    && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["tail", "-f", "/dev/null"]

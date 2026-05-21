@@ -152,8 +152,12 @@ class MockEngine(BaseEngine[dict]):
         self._filtered = True
         return df
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark, *, operator=">"):
+    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">", watermark_end=None, end_operator="<"):
         self._filtered = True
+        self._filter_watermark = watermark_start
+        self._filter_end = watermark_end
+        self._filter_operator = start_operator
+        self._filter_end_operator = end_operator
         return df
 
     def deduplicate(self, df, partition_columns, order_columns=None, order="desc"):
@@ -362,7 +366,7 @@ class ConcreteSourceReader(BaseSourceReader[dict]):
         super().__init__(engine)
         self._return_none = return_none
 
-    def _read_internal(self, source, watermark=None):
+    def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
         if self._return_none:
             return None
         return self._engine.read_delta(source.path or "")
@@ -374,7 +378,7 @@ class ConcreteSourceReader(BaseSourceReader[dict]):
 class FailingSourceReader(BaseSourceReader[dict]):
     """Reader that always raises an exception."""
 
-    def _read_internal(self, source, watermark=None):
+    def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
         raise RuntimeError("Boom!")
 
     def _read_data(self, source, configure=None):

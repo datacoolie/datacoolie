@@ -107,7 +107,7 @@ class MockEngine(BaseEngine[dict]):
     def filter_rows(self, df, condition):
         return df
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark, *, operator=">"):
+    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">"):
         return df
 
     def deduplicate(self, df, partition_columns, order_columns=None, order="desc"):

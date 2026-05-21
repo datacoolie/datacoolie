@@ -48,7 +48,9 @@ class FileReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Read files with optional date-folder pruning and watermark filter.
 
@@ -58,7 +60,7 @@ class FileReader(BaseSourceReader[DF]):
             3. Optionally collect file infos for mtime-watermarked sources.
             4. Read raw data via :meth:`_read_data`.
             5. Add file-info columns.
-            6. Apply watermark filter (non-mtime columns only).
+            6. Apply watermark filter (lower + optional upper end).
             7. Calculate count and new watermark.
         """
         if not source.path:
@@ -68,10 +70,15 @@ class FileReader(BaseSourceReader[DF]):
         paths: List[str]
         
         if date_pattern and self._engine.platform:
-            date_wm: Optional[datetime] = self._parse_date_watermark(
-                (watermark or {}).get(DATE_FOLDER_PARTITION_KEY)
+            date_start_wm: Optional[datetime] = self._parse_date_watermark(
+                (watermark_start or {}).get(DATE_FOLDER_PARTITION_KEY)
             )
-            paths = self._get_date_folder_paths(source.path, date_pattern, date_wm)
+            date_end_wm: Optional[datetime] = self._parse_date_watermark(
+                (watermark_end or {}).get(DATE_FOLDER_PARTITION_KEY)
+            )
+            paths = self._get_date_folder_paths(
+                source.path, date_pattern, date_start_wm, date_end_wm,
+            )
         else:
             paths = [source.path]
         
@@ -90,9 +97,12 @@ class FileReader(BaseSourceReader[DF]):
                 )
         )
         if _tracks_mtime:
-            mtime_wm_raw = (watermark or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
+            mtime_wm_start_raw = (watermark_start or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
+            mtime_wm_end_raw = (watermark_end or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
             file_infos = self._collect_file_infos(
-                paths, source.connection.format, mtime_wm_raw,
+                paths, source.connection.format, mtime_wm_start_raw, mtime_wm_end_raw,
+                start_operator=self._watermark_start_operator,
+                end_operator=self._watermark_end_operator,
                 recursive=source.connection.use_hive_partitioning,
             )
             paths = [fi.path for fi in file_infos]
@@ -100,9 +110,9 @@ class FileReader(BaseSourceReader[DF]):
         self._set_source_action({"reader": type(self).__name__, "format": source.connection.format, "paths": paths})
         
         if not paths:
-            logger.debug("FileReader: no paths found — skipping. Table: %s (format: %s), Source path: %s", source.full_table_name, source.connection.format, source.path)
+            logger.debug("%s: no paths found — skipping. Table: %s (format: %s), Source path: %s", type(self).__name__, source.full_table_name, source.connection.format, source.path)
             self._set_rows_read(0)
-            self._set_new_watermark(watermark or {})
+            self._set_new_watermark(watermark_start or {})
             return None
 
         # Read and enrich
@@ -116,10 +126,11 @@ class FileReader(BaseSourceReader[DF]):
         #     or set to null (no platform); never a meaningful df column to filter/max
         _wm_skip = {DATE_FOLDER_PARTITION_KEY, FileInfoColumn.FILE_MODIFICATION_TIME}
 
-        if watermark and source.watermark_columns:
-            wm_filter_cols = [c for c in source.watermark_columns if c not in _wm_skip]
-            if wm_filter_cols:
-                df = self._apply_watermark_filter(df, wm_filter_cols, watermark)
+        if watermark_start or watermark_end:
+            if source.watermark_columns:
+                wm_filter_cols = [c for c in source.watermark_columns if c not in _wm_skip]
+                if wm_filter_cols:
+                    df = self._apply_watermark_filter(df, wm_filter_cols, watermark_start or {}, watermark_end)
 
         df = self._apply_filter_expression(df, source)
 
@@ -143,10 +154,10 @@ class FileReader(BaseSourceReader[DF]):
         self._set_rows_read(count)
 
         if count == 0:
-            logger.debug("FileReader: 0 rows after filtering — skipping. Table: %s (format: %s), Source path: %s", source.full_table_name, source.connection.format, source.path)
+            logger.debug("%s: 0 rows after filtering — skipping. Table: %s (format: %s), Source path: %s", type(self).__name__, source.full_table_name, source.connection.format, source.path)
             return None
 
-        logger.debug("FileReader: read %d rows from %d path(s). Table: %s (format: %s), Source path: %s", count, len(paths), source.full_table_name, source.connection.format, source.path)
+        logger.debug("%s: read %d rows from %d path(s). Table: %s (format: %s), Source path: %s", type(self).__name__, count, len(paths), source.full_table_name, source.connection.format, source.path)
         return df
 
     def _read_data(
@@ -181,11 +192,14 @@ class FileReader(BaseSourceReader[DF]):
         self,
         paths: List[str],
         fmt: str,
-        mtime_wm: Any,
+        mtime_wm_start: Any,
+        mtime_wm_end: Any = None,
         *,
+        start_operator: str = ">",
+        end_operator: str = "<",
         recursive: bool = False,
     ) -> List[FileInfo]:
-        """List all files under *paths* and return those newer than *mtime_wm*.
+        """List all files under *paths* and return those within the mtime window.
 
         Uses :meth:`~datacoolie.platforms.base.BasePlatform.list_files` with a
         ``".{fmt}"`` extension filter.  Errors on individual paths are logged
@@ -196,8 +210,14 @@ class FileReader(BaseSourceReader[DF]):
             paths: Leaf folder paths to scan.
             fmt: Source format string — used to build the extension filter
                 (e.g. ``"parquet"`` → ``".parquet"``).
-            mtime_wm: Watermark value (ISO-8601 string, ``datetime``, or
-                ``None``); only files **strictly newer** are returned.
+            mtime_wm_start: Lower-bound watermark (ISO-8601 string, ``datetime``, or
+                ``None``); ``None`` disables lower-bound filtering.
+            mtime_wm_end: Upper-bound watermark (ISO-8601 string, ``datetime``,
+                or ``None``); ``None`` disables upper-bound filtering.
+            start_operator: Comparison operator for the lower bound
+                (``">"`` or ``">="``).  Defaults to ``">"``.
+            end_operator: Comparison operator for the upper bound
+                (``"<"`` or ``"<="``).  Defaults to ``"<"``.
             recursive: When ``True`` (hive-partitioned sources), descend into
                 sub-directories such as ``region=ABC/``.  Defaults to
                 ``False`` for flat layouts.
@@ -207,7 +227,16 @@ class FileReader(BaseSourceReader[DF]):
             ``modification_time`` ascending so the newest high-water mark is
             always the last element.
         """
-        mtime_dt = self._parse_date_watermark(mtime_wm)
+        mtime_start_dt = self._parse_date_watermark(mtime_wm_start)
+        mtime_end_dt = self._parse_date_watermark(mtime_wm_end)
+        _cmp = {
+            ">": lambda a, b: a > b,
+            ">=": lambda a, b: a >= b,
+            "<": lambda a, b: a < b,
+            "<=": lambda a, b: a <= b,
+        }
+        lower_cmp = _cmp.get(start_operator, lambda a, b: a > b)
+        upper_cmp = _cmp.get(end_operator, lambda a, b: a < b)
         ext = self._engine.FORMAT_EXTENSIONS.get(fmt, f".{fmt}")
         result: List[FileInfo] = []
 
@@ -215,7 +244,7 @@ class FileReader(BaseSourceReader[DF]):
             try:
                 files = self._engine.platform.list_files(path, extension=ext, recursive=recursive)  # type: ignore[union-attr]
             except Exception as exc:
-                logger.warning("FileReader: failed to list files at %s: %s", path, exc)
+                logger.warning("%s: failed to list files at %s: %s", type(self).__name__, path, exc)
                 continue
 
             for fi in files:
@@ -223,8 +252,11 @@ class FileReader(BaseSourceReader[DF]):
                     continue
                 if fi.modification_time is None:
                     continue
-                if mtime_dt is None or fi.modification_time > mtime_dt:
-                    result.append(fi)
+                if mtime_start_dt is not None and not lower_cmp(fi.modification_time, mtime_start_dt):
+                    continue
+                if mtime_end_dt is not None and not upper_cmp(fi.modification_time, mtime_end_dt):
+                    continue
+                result.append(fi)
 
         result.sort(key=lambda fi: fi.modification_time)  # type: ignore[arg-type]
         return result
@@ -256,28 +288,26 @@ class FileReader(BaseSourceReader[DF]):
         self,
         base_path: str,
         date_pattern: str,
-        watermark_value: Optional[datetime] = None,
+        watermark_start: Optional[datetime] = None,
+        watermark_end: Optional[datetime] = None,
     ) -> List[str]:
         """Discover date-partitioned sub-folders under *base_path*.
 
-        Walks folder levels **one depth at a time** (non-recursive) using the
-        structure of *date_pattern*, pruning each level against *watermark_value*
-        so only the minimum required folders are ever listed.
-
-        Pruning logic per level:
-
-        * **On boundary** (all parent levels exactly equal the watermark):
-          skip folders whose component value < watermark's component.
-          If equal, stay on boundary; if greater, leave boundary (no more
-          pruning needed at deeper levels).
-        * **Off boundary** (a parent level already exceeded the watermark):
-          accept every folder — no further pruning needed.
+        Prunes folder levels against *watermark_start* (lower bound) and
+        *watermark_end* (upper bound).  Boundary folders are always
+        **included** — folder pruning is inherently conservative because a
+        folder covers a date range, not a point.  The precise row-level
+        operator (``>``/``>=``, ``<``/``<=``) is applied later by
+        :meth:`_apply_watermark_filter`, giving an effective window of
+        ``[start, end]`` at folder granularity.
 
         Args:
             base_path: Root data path.
             date_pattern: Date pattern string (e.g. ``{year}/{month}/{day}``).
-            watermark_value: Earliest folder to include as a UTC *datetime*.
-                ``None`` returns all matching folders.
+            watermark_start: Earliest folder to include as a UTC *datetime*.
+                ``None`` disables lower-bound pruning.
+            watermark_end: Latest folder to include as a UTC *datetime*.
+                ``None`` disables upper-bound pruning.
 
         Returns:
             Chronologically sorted list of leaf folder paths.
@@ -289,36 +319,30 @@ class FileReader(BaseSourceReader[DF]):
         if not levels:
             return [base_path]
 
-        # Decompose watermark into per-component integer thresholds once.
-        wm_parts: Optional[Dict[str, int]] = None
-        if watermark_value is not None:
-            wm = (
-                watermark_value
-                if watermark_value.tzinfo
-                else watermark_value.replace(tzinfo=timezone.utc)
-            )
-            wm_parts = {
-                "year": wm.year,
-                "month": wm.month,
-                "day": wm.day,
-                "hour": wm.hour,
-            }
+        def _to_parts(dt: Optional[datetime]) -> Optional[Dict[str, int]]:
+            if dt is None:
+                return None
+            d = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            return {"year": d.year, "month": d.month, "day": d.day, "hour": d.hour}
 
-        # Frontier: (path, on_boundary)
-        # on_boundary=True  → all parent levels == watermark; must still prune here.
-        # on_boundary=False → a parent level already exceeded watermark; accept all.
-        frontier: List[Tuple[str, bool]] = [(base_path, wm_parts is not None)]
-        
+        wm_start_parts = _to_parts(watermark_start)
+        wm_end_parts = _to_parts(watermark_end)
+
+        # Frontier: (path, on_lower_boundary, on_upper_boundary)
+        # on_lower_boundary=True → all parent levels == watermark_start; must still prune.
+        # on_upper_boundary=True → all parent levels == watermark_end; must still prune.
+        frontier: List[Tuple[str, bool, bool]] = [(base_path, wm_start_parts is not None, wm_end_parts is not None)]
+
         for component, level_regex in levels:
             pat = re.compile(level_regex)
-            next_frontier: List[Tuple[str, bool]] = []
-            
-            for path, on_boundary in frontier:
+            next_frontier: List[Tuple[str, bool, bool]] = []
+
+            for path, on_lower, on_upper in frontier:
                 try:
                     children = self._engine.platform.list_folders(path, recursive=False)
                 except Exception as exc:
                     logger.warning(
-                        "FileReader: failed to list folders at %s: %s", path, exc
+                        "%s: failed to list folders at %s: %s", type(self).__name__, path, exc
                     )
                     continue
 
@@ -328,22 +352,37 @@ class FileReader(BaseSourceReader[DF]):
                     if not m:
                         continue
 
-                    if on_boundary and wm_parts is not None:
-                        val = int(m.group(1))
-                        wm_val = wm_parts[component]
-                        if val < wm_val:
-                            continue  # older than watermark — prune
-                        child_on_boundary = val == wm_val
-                    else:
-                        child_on_boundary = False
+                    val = int(m.group(1))
 
-                    next_frontier.append((child, child_on_boundary))
+                    # Lower-bound pruning: prune val < wm_val.
+                    # Boundary folders (val == wm_val) are always kept;
+                    # row-level filtering applies the precise start_operator.
+                    if on_lower and wm_start_parts is not None:
+                        wm_val = wm_start_parts[component]
+                        if val < wm_val:
+                            continue  # older than watermark_start — prune
+                        child_on_lower = val == wm_val
+                    else:
+                        child_on_lower = False
+
+                    # Upper-bound pruning: prune val > end_val.
+                    # Boundary folders (val == end_val) are always kept;
+                    # row-level filtering applies the precise end_operator.
+                    if on_upper and wm_end_parts is not None:
+                        end_val = wm_end_parts[component]
+                        if val > end_val:
+                            continue  # newer than watermark_end — prune
+                        child_on_upper = val == end_val
+                    else:
+                        child_on_upper = False
+
+                    next_frontier.append((child, child_on_lower, child_on_upper))
 
             frontier = next_frontier
             if not frontier:
                 break
-        
-        return sorted(p for p, _ in frontier)
+
+        return sorted(p for p, _, _ in frontier)
 
     @staticmethod
     def _parse_date_levels(date_pattern: str) -> List[Tuple[str, str]]:

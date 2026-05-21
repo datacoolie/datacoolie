@@ -103,7 +103,7 @@ class TestFileReader:
         reader = FileReader(engine)
         engine._filtered = False
 
-        result = reader.read(file_source, watermark={"event_time": "2024-05-01"})
+        result = reader.read(file_source, watermark_start={"event_time": "2024-05-01"})
         assert result is not None
         assert engine._filtered is True
 
@@ -220,7 +220,7 @@ class TestFileReaderDateFolders:
         paths = reader._get_date_folder_paths(
             "/data/base",
             "{year}/{month}",
-            watermark_value=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            watermark_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
         )
         assert paths == []
 
@@ -236,7 +236,7 @@ class TestFileReaderDateFolders:
         paths = reader._get_date_folder_paths(
             "/data/base",
             "{year}/{month}",
-            watermark_value=datetime(2024, 2, 1),
+            watermark_start=datetime(2024, 2, 1),
         )
         assert "/data/base/2024/03" in paths
         assert "/data/base/2024/01" not in paths
@@ -253,7 +253,7 @@ class TestFileReaderDateFolders:
         paths = reader._get_date_folder_paths(
             "/data/base",
             "{year}/{month}",
-            watermark_value=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            watermark_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
         )
         assert paths == []
 
@@ -316,7 +316,7 @@ class TestFileReaderMtimeFilter:
 
         watermark = {FileInfoColumn.FILE_MODIFICATION_TIME: "2024-03-01T00:00:00+00:00"}
         reader = FileReader(engine)
-        result = reader.read(_make_file_source(), watermark=watermark)
+        result = reader.read(_make_file_source(), watermark_start=watermark)
 
         assert result is not None
         platform.list_files.assert_called_once()
@@ -352,7 +352,7 @@ class TestFileReaderMtimeFilter:
 
         watermark = {"some_other_column": "2024-01-01"}
         reader = FileReader(engine)
-        result = reader.read(source_no_mtime, watermark=watermark)
+        result = reader.read(source_no_mtime, watermark_start=watermark)
 
         assert result is not None
         # Non-Spark engines always call list_files to populate FileInfo metadata
@@ -373,7 +373,7 @@ class TestFileReaderMtimeFilter:
 
         watermark = {FileInfoColumn.FILE_MODIFICATION_TIME: "2024-01-01T00:00:00+00:00"}
         reader = FileReader(engine)
-        result = reader.read(_make_file_source(), watermark=watermark)
+        result = reader.read(_make_file_source(), watermark_start=watermark)
 
         assert result is None
         platform.list_files.assert_called_once()

@@ -96,7 +96,7 @@ class SystemLogger(BaseLogger):
 
     def _do_flush(self) -> None:
         """Drain captured logs and append them to the remote file."""
-        text = self._log_manager.get_and_clear_captured_logs()
+        text = self._log_manager.get_and_clear_captured_logs(include_location=True)
         if not text or not self._config.output_path or not self._platform:
             return
         try:

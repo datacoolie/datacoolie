@@ -40,7 +40,8 @@ class BaseSourceReader(ABC, Generic[DF]):
         self._engine = engine
         self._new_watermark: Dict[str, Any] = {}
         self._runtime_info = SourceRuntimeInfo()
-        self._watermark_operator: str = ">"
+        self._watermark_start_operator: str = ">"
+        self._watermark_end_operator: str = "<"
 
     # ------------------------------------------------------------------
     # Public API
@@ -49,9 +50,11 @@ class BaseSourceReader(ABC, Generic[DF]):
     def read(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
         *,
-        watermark_operator: str = ">",
+        watermark_start_operator: str = ">",
+        watermark_end: Optional[Dict[str, Any]] = None,
+        watermark_end_operator: str = "<",
     ) -> Optional[DF]:
         """Read data from a source (Template Method).
 
@@ -61,10 +64,17 @@ class BaseSourceReader(ABC, Generic[DF]):
 
         Args:
             source: Pipeline source configuration.
-            watermark: Previous watermark values (``None`` = first run).
-            watermark_operator: Comparison operator for the watermark
+            watermark_start: Previous watermark values (``None`` = first run).
+                Acts as the lower bound for incremental reads.
+            watermark_start_operator: Comparison operator for the lower-bound
                 WHERE clause.  ``">"`` (default) for exclusive lower bound,
-                ``">="`` for inclusive lower bound (used by replay).
+                ``">=``" for inclusive lower bound (used by replay).
+            watermark_end: Upper watermark bound (``None`` = no ceiling).
+                When provided, rows are filtered to ``col < end`` for
+                each column.  Used by replay to cap reads at chunk
+                boundaries.
+            watermark_end_operator: Comparison operator for the upper-bound
+                WHERE clause.  ``"<"`` (default) for exclusive upper bound.
 
         Returns:
             DataFrame with source data, or ``None`` when there is
@@ -73,19 +83,22 @@ class BaseSourceReader(ABC, Generic[DF]):
         Raises:
             SourceError: On any failure during reading.
         """
-        self._watermark_operator = watermark_operator
+        self._watermark_start_operator = watermark_start_operator
+        self._watermark_end_operator = watermark_end_operator
         self._runtime_info = SourceRuntimeInfo(
             start_time=utc_now(),
             status=DataFlowStatus.RUNNING.value,
-            watermark_before=dict(watermark) if watermark else None,
+            watermark_before=dict(watermark_start) if watermark_start else None,
         )
 
         # Apply backward offset to datetime watermark columns so late-arriving
-        # data is not missed.  First-run (watermark=None) is left untouched.
-        watermark_effective = self._build_watermark_effective(source, watermark)
+        # data is not missed.  First-run (watermark_start=None) is left untouched.
+        # NOTE: watermark_end is NOT adjusted by backward offset — upper
+        # bound must remain exact for replay chunk boundaries.
+        watermark_effective = self._build_watermark_effective(source, watermark_start)
         self._runtime_info.watermark_effective = dict(watermark_effective) if watermark_effective else None
         try:
-            df = self._read_internal(source, watermark_effective)
+            df = self._read_internal(source, watermark_effective, watermark_end=watermark_end)
 
             self._runtime_info.end_time = utc_now()
 
@@ -127,7 +140,9 @@ class BaseSourceReader(ABC, Generic[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Read data from the source (subclass implementation).
 
@@ -136,7 +151,9 @@ class BaseSourceReader(ABC, Generic[DF]):
 
         Args:
             source: Pipeline source configuration.
-            watermark: Previous watermark values.
+            watermark_start: Previous watermark values (lower bound).
+            watermark_end: Upper watermark bound.  When provided, rows
+                should be filtered to ``col < end`` for each column.
 
         Returns:
             DataFrame or ``None`` if no data available.
@@ -166,39 +183,61 @@ class BaseSourceReader(ABC, Generic[DF]):
         self,
         df: DF,
         watermark_columns: List[str],
-        watermark: Dict[str, Any],
+        watermark_start: Dict[str, Any],
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> DF:
         """Apply incremental watermark filter to the DataFrame.
 
         Builds an OR condition across watermark columns:
         ``col1 > val1 OR col2 > val2 ...``
 
+        When *watermark_end* is provided, builds per-column windowed
+        conditions: ``(col > lower AND col < upper) OR ...``
+
         Delegates the actual filtering to :meth:`BaseEngine.apply_watermark_filter`
         which uses native DataFrame API.
         ``DATE_FOLDER_PARTITION_KEY`` entries are skipped (handled by
         :class:`~datacoolie.sources.file_reader.FileReader`).
         """
-        if not watermark_columns or not watermark:
+        if not watermark_columns:
+            return df
+        if not watermark_start and not watermark_end:
             return df
 
-        # Filter out DATE_FOLDER_PARTITION_KEY and columns with no watermark value
+        # Filter out DATE_FOLDER_PARTITION_KEY and columns with no values at all
         filtered_columns = [
             col for col in watermark_columns
-            if col != DATE_FOLDER_PARTITION_KEY and watermark.get(col) is not None
+            if col != DATE_FOLDER_PARTITION_KEY
+            and ((watermark_start or {}).get(col) is not None or (watermark_end or {}).get(col) is not None)
         ]
 
         if not filtered_columns:
             return df
 
-        filtered_watermark = {col: watermark[col] for col in filtered_columns}
+        filtered_watermark = {col: (watermark_start or {}).get(col) for col in filtered_columns}
+        # Remove None entries from lower watermark (columns with only upper bound)
+        filtered_watermark = {k: v for k, v in filtered_watermark.items() if v is not None}
+
+        # Build upper bound dict if provided
+        filtered_end: Optional[Dict[str, Any]] = None
+        if watermark_end:
+            filtered_end = {col: watermark_end[col] for col in filtered_columns if watermark_end.get(col) is not None}
+            if not filtered_end:
+                filtered_end = None
 
         logger.debug(
-            "Applying watermark filter on columns: %s (operator=%s)",
+            "Applying watermark filter on columns: %s (start=%s, start_operator=%s, end=%s, end_operator=%s)",
             filtered_columns,
-            self._watermark_operator,
+            filtered_watermark,
+            self._watermark_start_operator,
+            filtered_end,
+            self._watermark_end_operator,
         )
         return self._engine.apply_watermark_filter(
-            df, filtered_columns, filtered_watermark, operator=self._watermark_operator
+            df, filtered_columns, filtered_watermark,
+            start_operator=self._watermark_start_operator,
+            watermark_end=filtered_end,
+            end_operator=self._watermark_end_operator,
         )
 
     def _apply_filter_expression(self, df: DF, source: Source) -> DF:

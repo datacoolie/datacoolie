@@ -1960,23 +1960,38 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         self,
         df: pl.LazyFrame,
         watermark_columns: List[str],
-        watermark: Dict[str, Any],
+        watermark_start: Dict[str, Any],
         *,
-        operator: str = ">",
+        start_operator: str = ">",
+        watermark_end: Optional[Dict[str, Any]] = None,
+        end_operator: str = "<",
     ) -> pl.LazyFrame:
         actual = self._schema_names(df)
         combined: Optional[pl.Expr] = None
         for col_name in watermark_columns:
-            value = watermark.get(col_name)
-            if value is None:
+            lower_val = watermark_start.get(col_name)
+            upper_val = (watermark_end or {}).get(col_name)
+
+            if lower_val is None and upper_val is None:
                 continue
+
             resolved_col = self._resolve_column_name(actual, col_name)
-            if isinstance(value, (datetime, date)):
-                value = value.isoformat()
             col_expr = pl.col(resolved_col)
-            lit_expr = pl.lit(value)
-            condition = col_expr >= lit_expr if operator == ">=" else col_expr > lit_expr
-            combined = condition if combined is None else (combined | condition)
+            cond: Optional[pl.Expr] = None
+
+            if lower_val is not None:
+                if isinstance(lower_val, (datetime, date)):
+                    lower_val = lower_val.isoformat()
+                lower_cond = col_expr >= pl.lit(lower_val) if start_operator == ">=" else col_expr > pl.lit(lower_val)
+                cond = lower_cond
+
+            if upper_val is not None:
+                if isinstance(upper_val, (datetime, date)):
+                    upper_val = upper_val.isoformat()
+                upper_cond = col_expr <= pl.lit(upper_val) if end_operator == "<=" else col_expr < pl.lit(upper_val)
+                cond = (cond & upper_cond) if cond is not None else upper_cond
+
+            combined = cond if combined is None else (combined | cond)
 
         if combined is None:
             return df

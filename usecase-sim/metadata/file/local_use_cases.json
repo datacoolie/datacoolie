@@ -1287,6 +1287,48 @@
       }
     },
     {
+      "name": "row_filter__on_computed_col",
+      "description": "RowFilter transformer: filter on a column added by ColumnAdder (slot 35 after slot 30)",
+      "stage": "row_filter",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_row_filter_computed",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "amount_double",
+            "expression": "CAST(amount AS DOUBLE)"
+          }
+        ],
+        "filter_expression": "amount_double > 100.0"
+      }
+    },
+    {
+      "name": "row_filter__simple",
+      "description": "RowFilter transformer: filter on an existing source column via transform.filter_expression",
+      "stage": "row_filter",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_row_filter_simple",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "filter_expression": "region = 'North' AND quantity > 1"
+      }
+    },
+    {
       "name": "partition__single",
       "stage": "transform_partition",
       "processing_mode": "batch",
@@ -3321,7 +3363,7 @@
       "stage": "replay_test",
       "processing_mode": "batch",
       "source": {
-        "connection_name": "local_csv_source",
+        "connection_name": "local_parquet_source",
         "table": "sample",
         "watermark_columns": [
           "modified_at"
@@ -3342,6 +3384,10 @@
           {
             "column_name": "modified_at",
             "data_type": "TIMESTAMP"
+          },
+          {
+            "column_name": "order_id",
+            "data_type": "INTEGER"
           }
         ]
       }

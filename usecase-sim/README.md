@@ -50,7 +50,7 @@ pip install -e .\datacoolie[polars,spark]
 usecase-sim/
 ├── scripts/       # Bootstrap + reset entrypoints (7 scripts + _common.py)
 ├── runner/        # ETL runners (run.py, maintenance.py) + dispatcher (run_scenario.py)
-├── scenarios/     # scenarios.json (22 entries) + SCENARIOS.md (field reference)
+├── scenarios/     # scenarios.json (multi entries) + SCENARIOS.md (field reference)
 ├── metadata/
 │   ├── file/      # JSON use-case files (local, aws, perf) + generated yaml/xlsx
 │   ├── database/  # DDL per dialect + verify_metadata.py
@@ -454,6 +454,7 @@ credentials are hardcoded — intended for local dev only.
 | `mock-api` | 8082 | env-configured | Simulates REST API sources |
 | `metadata-api` | 8000 | via `DATABASE_URL` | Flask API over postgres metadata |
 | `sqlpad` | 3000 | `admin@datacoolie.local / admin` | Web SQL editor |
+| `spark` | — | — | Containerised PySpark (Linux); avoids Windows Spark issues |
 
 ### UI endpoints
 
@@ -475,6 +476,60 @@ python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest
 # P1 metadata-api scenario (postgres + api server)
 python usecase-sim/scripts/setup_platform.py --services postgres metadata-api
 ```
+
+### Windows: running Spark via Docker (recommended)
+
+Running PySpark natively on Windows is fragile (JVM temp-dir cleanup,
+`winutils.exe`, Python-path resolution). The `spark` Docker service solves
+this by running Spark in `local[*]` mode inside a Linux container. Input and
+output data are shared through a volume mount — no path changes needed.
+
+**Start the service** (same pattern as any other service):
+
+```powershell
+# From the datacoolie/ directory — build image + start dependencies + spark
+python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+```
+
+On first start the container runs `pip install -e /datacoolie --no-deps`
+automatically via its entrypoint (all deps are pre-baked into the image, so
+this is fast). No separate setup script needed.
+
+**Generate input data on the host (once per reset):**
+
+```powershell
+python usecase-sim/scripts/generate_data.py --targets local
+```
+
+**Run any Spark scenario via `docker exec`:**
+
+```powershell
+# Single stage
+docker exec datacoolie-spark python usecase-sim/runner/run.py `
+  --engine spark --metadata-source file --platform local `
+  --metadata-path ./usecase-sim/metadata/file/local_use_cases.json `
+  --stage load_delta --column-name-mode lower --skip-api-sources
+
+# All stages
+docker exec datacoolie-spark python usecase-sim/runner/run.py `
+  --engine spark --metadata-source file --platform local `
+  --metadata-path ./usecase-sim/metadata/file/local_use_cases.json `
+  --stage "" --column-name-mode lower --skip-api-sources
+
+# Interactive shell for debugging
+docker exec -it datacoolie-spark bash
+```
+
+All relative paths (`./usecase-sim/data/...`) resolve correctly because the
+container's `WORKDIR` is `/datacoolie` (the mounted package directory).
+Output tables written inside the container appear on the host immediately.
+
+| What works | Notes |
+|---|---|
+| P0 file scenarios (Delta, Parquet, CSV, Iceberg) | ✅ Full support — minio + iceberg-rest reached by container name |
+| P0 replay scenarios | ✅ |
+| P1 database scenarios | ⚠ `localhost` in metadata JSON resolves to the container, not the host. Use `docker exec ... --metadata-source database` only after verifying connectivity. |
+| P1 API scenarios | ⚠ Same localhost caveat; pass `--skip-api-sources` to avoid. |
 
 ### MSSQL URL encoding
 

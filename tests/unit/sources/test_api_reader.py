@@ -67,12 +67,12 @@ class FakeEngine:
                 maxes[col] = max(vals)
         return count, maxes
 
-    def apply_watermark_filter(self, df, columns, watermark, *, operator=">"):
+    def apply_watermark_filter(self, df, columns, watermark_start, *, start_operator=">", watermark_end=None, end_operator="<"):
         filtered = []
         for row in df:
             keep = False
             for col in columns:
-                wm_val = watermark.get(col)
+                wm_val = watermark_start.get(col)
                 if wm_val is not None and row.get(col) is not None and row[col] > wm_val:
                     keep = True
             if keep:
@@ -538,7 +538,7 @@ class TestAPIReaderWatermark:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            df = reader.read(source, watermark={"event_id": 2})
+            df = reader.read(source, watermark_start={"event_id": 2})
 
         assert df is not None
         assert len(df) == 1
@@ -585,7 +585,7 @@ class TestAPIReaderWatermark:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            df = reader.read(source, watermark={"event_id": 999})
+            df = reader.read(source, watermark_start={"event_id": 999})
 
         assert df is None
 

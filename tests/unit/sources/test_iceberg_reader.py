@@ -88,5 +88,5 @@ class TestIcebergReader:
         src = Source(connection=conn, table="t1", watermark_columns=["modified_at"])
         reader = IcebergReader(engine)
 
-        reader.read(src, watermark={"modified_at": "2024-06-01"})
+        reader.read(src, watermark_start={"modified_at": "2024-06-01"})
         assert engine._filtered is True

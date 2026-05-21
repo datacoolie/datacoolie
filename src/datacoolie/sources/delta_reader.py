@@ -35,13 +35,15 @@ class DeltaReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Read a Delta table, optionally filtering by watermark.
 
         Steps:
             1. Read the raw Delta table (or execute a SQL query).
-            2. Apply watermark filter (if provided).
+            2. Apply watermark filter (lower + optional upper end).
             3. Calculate row count and new watermark.
             4. Return ``None`` if zero rows remain.
         """
@@ -56,14 +58,15 @@ class DeltaReader(BaseSourceReader[DF]):
 
         df = self._read_data(source)
 
-        # Apply watermark filter
-        if watermark and source.watermark_columns:
-            df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
+        # Apply watermark filter (handles both lower-only and windowed)
+        if watermark_start or watermark_end:
+            if source.watermark_columns:
+                df = self._apply_watermark_filter(df, source.watermark_columns, watermark_start or {}, watermark_end)
 
         df = self._apply_filter_expression(df, source)
 
         context = f"Table: {source.full_table_name} (format: {source.connection.format}), Source path: {source.path}"
-        return self._finalize_read(df, source.watermark_columns, "DeltaReader", context)
+        return self._finalize_read(df, source.watermark_columns, type(self).__name__, context)
 
     def _read_data(
         self,
@@ -79,7 +82,7 @@ class DeltaReader(BaseSourceReader[DF]):
             SourceError: If neither path, query, nor table name is specified.
         """
         if source.query:
-            logger.debug("DeltaReader: executing SQL query")
+            logger.debug("%s: executing SQL query", type(self).__name__)
             return self._engine.execute_sql(source.query)
 
         table_name = source.full_table_name
@@ -91,6 +94,6 @@ class DeltaReader(BaseSourceReader[DF]):
         if path and not source.namespace:
             table_name = None
 
-        logger.debug("DeltaReader: reading Delta table by name: %s, path: %s", table_name, path)
+        logger.debug("%s: reading Delta table by name: %s, path: %s", type(self).__name__, table_name, path)
         return self._engine.read(fmt=fmt, table_name=table_name, path=path, options=options or None)
 

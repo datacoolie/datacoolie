@@ -17,6 +17,7 @@ derby.log
 .docs-venv/
 node_modules/
 site/
+docs/schema/
 
 # Local IDE files
 dc_quickstart/

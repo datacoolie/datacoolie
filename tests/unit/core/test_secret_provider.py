@@ -13,10 +13,6 @@ from datacoolie.core.exceptions import DataCoolieError
 from datacoolie.core.secret_provider import (
     BaseSecretProvider,
     SecretStr,
-    _resolved_values,
-    _resolved_values_lock,
-    get_registered_secret_values,
-    register_secret_values,
     resolve_secrets,
     unwrap_configure,
     unwrap_secret,
@@ -158,16 +154,6 @@ class TestUnwrapHelpers:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _clear_global_values():
-    """Clear the global resolved-values set before and after each test."""
-    with _resolved_values_lock:
-        _resolved_values.clear()
-    yield
-    with _resolved_values_lock:
-        _resolved_values.clear()
-
-
 @pytest.fixture()
 def provider():
     return InMemorySecretProvider(
@@ -245,23 +231,6 @@ class TestBaseSecretProvider:
 
 
 # ---------------------------------------------------------------------------
-# register / get_registered_secret_values
-# ---------------------------------------------------------------------------
-
-
-class TestSecretValueRegistry:
-    def test_register_and_get(self):
-        register_secret_values("abc", "def")
-        vals = get_registered_secret_values()
-        assert "abc" in vals
-        assert "def" in vals
-
-    def test_empty_strings_ignored(self):
-        register_secret_values("", None)  # type: ignore[arg-type]
-        assert get_registered_secret_values() == frozenset()
-
-
-# ---------------------------------------------------------------------------
 # resolve_secrets
 # ---------------------------------------------------------------------------
 
@@ -321,13 +290,6 @@ class TestResolveSecrets:
         conn = self._make_connection(secrets_ref=ref, configure={"password": "missing-key"})
         with pytest.raises(DataCoolieError, match="Failed to resolve secret"):
             resolve_secrets(conn, provider)
-
-    def test_resolved_values_registered_for_masking(self, provider):
-        ref = {"some-source": ["password"]}
-        conn = self._make_connection(secrets_ref=ref, configure={"password": "db-password"})
-        resolve_secrets(conn, provider)
-        vals = get_registered_secret_values()
-        assert "s3cret!" in vals
 
     def test_empty_dict_ref_is_noop(self, provider):
         conn = self._make_connection(secrets_ref={})

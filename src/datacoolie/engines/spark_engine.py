@@ -1312,21 +1312,36 @@ class SparkEngine(BaseEngine[DataFrame]):
         self,
         df: DataFrame,
         watermark_columns: List[str],
-        watermark: Dict[str, Any],
+        watermark_start: Dict[str, Any],
         *,
-        operator: str = ">",
+        start_operator: str = ">",
+        watermark_end: Optional[Dict[str, Any]] = None,
+        end_operator: str = "<",
     ) -> DataFrame:
         combined = None
         for col_name in watermark_columns:
-            value = watermark.get(col_name)
-            if value is None:
+            lower_val = watermark_start.get(col_name)
+            upper_val = (watermark_end or {}).get(col_name)
+
+            if lower_val is None and upper_val is None:
                 continue
-            if isinstance(value, (datetime, date)):
-                value = value.isoformat()
+
             col_expr = sf.col(col_name)
-            lit_expr = sf.lit(value)
-            condition = col_expr >= lit_expr if operator == ">=" else col_expr > lit_expr
-            combined = condition if combined is None else (combined | condition)
+            cond = None
+
+            if lower_val is not None:
+                if isinstance(lower_val, (datetime, date)):
+                    lower_val = lower_val.isoformat()
+                lower_cond = col_expr >= sf.lit(lower_val) if start_operator == ">=" else col_expr > sf.lit(lower_val)
+                cond = lower_cond
+
+            if upper_val is not None:
+                if isinstance(upper_val, (datetime, date)):
+                    upper_val = upper_val.isoformat()
+                upper_cond = col_expr <= sf.lit(upper_val) if end_operator == "<=" else col_expr < sf.lit(upper_val)
+                cond = (cond & upper_cond) if cond is not None else upper_cond
+
+            combined = cond if combined is None else (combined | cond)
 
         if combined is None:
             return df

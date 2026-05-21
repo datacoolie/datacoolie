@@ -277,7 +277,9 @@ class APIReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         action: dict = {"reader": type(self).__name__}
         conn_cfg = source.connection.configure
@@ -295,7 +297,7 @@ class APIReader(BaseSourceReader[DF]):
                 details={"connection": source.connection.name},
             )
 
-        records = self._read_data(source, watermark=watermark)
+        records = self._read_data(source, watermark_start=watermark_start, watermark_end=watermark_end)
 
         if not records:
             logger.debug("APIReader: 0 records fetched — skipping. Table: %s (format: %s), URL: %s", source.full_table_name, source.connection.format, url)
@@ -311,10 +313,10 @@ class APIReader(BaseSourceReader[DF]):
         _pushed_cols = set(_wm_mapping)
         _non_pushed_cols = [c for c in (source.watermark_columns or []) if c not in _pushed_cols]
 
-        if watermark and source.watermark_columns:
+        if (watermark_start or watermark_end) and source.watermark_columns:
             # Apply in-memory filter only for columns not already pushed to the API.
             if _non_pushed_cols:
-                df = self._apply_watermark_filter(df, _non_pushed_cols, watermark)
+                df = self._apply_watermark_filter(df, _non_pushed_cols, watermark_start or {}, watermark_end)
 
         df = self._apply_filter_expression(df, source)
 
@@ -324,8 +326,10 @@ class APIReader(BaseSourceReader[DF]):
             df, _non_pushed_cols,
         )
 
-        # Advance pushed-down columns to "now" — filtered server-side and may
+        # Advance pushed-down columns — they are filtered server-side and may
         # not appear in the response dataframe at all.
+        # Prefer explicit watermark_end (replay) over now() so that
+        # source_runtime.watermark_after matches what the driver will save.
         if _pushed_cols and source.watermark_columns:
             _to_tz = APIReader._resolve_timezone(
                 src_cfg.get("watermark_to_param_timezone")
@@ -334,8 +338,11 @@ class APIReader(BaseSourceReader[DF]):
             _to_now = datetime.now(tz=_to_tz)
             for _col in source.watermark_columns:
                 if _col in _pushed_cols:
-                    _prev = (watermark or {}).get(_col)
-                    new_wm[_col] = _to_now.date() if type(_prev) is date else _to_now
+                    if watermark_end and watermark_end.get(_col) is not None:
+                        new_wm[_col] = watermark_end[_col]
+                    else:
+                        _prev = (watermark_start or {}).get(_col)
+                        new_wm[_col] = _to_now.date() if type(_prev) is date else _to_now
 
         self._set_new_watermark(new_wm)
         self._set_rows_read(count)
@@ -351,7 +358,8 @@ class APIReader(BaseSourceReader[DF]):
         self,
         source: Source,
         configure: Optional[Dict[str, Any]] = None,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """Fetch all pages from the API and return collected records."""
         if httpx is None:
@@ -395,12 +403,18 @@ class APIReader(BaseSourceReader[DF]):
             # ----------------------------------------------------------------
             # Normal single-call path: inject stored watermark + upper bound
             # ----------------------------------------------------------------
-            if watermark and wm_mapping:
+            if watermark_start and wm_mapping:
                 target = params if wm_location == "params" else body
-                APIReader._inject_stored_watermark(target, wm_mapping, watermark, wm_format)
+                APIReader._inject_stored_watermark(target, wm_mapping, watermark_start, wm_format)
 
             if wm_to_param:
-                to_val = datetime.now(tz=wm_to_tz)
+                # Use explicit watermark_end when provided (replay), else now()
+                if watermark_end and wm_mapping:
+                    # Pick the first mapped column's upper value as the to-param
+                    _upper_col = next((c for c in wm_mapping if watermark_end.get(c) is not None), None)
+                    to_val = watermark_end[_upper_col] if _upper_col else datetime.now(tz=wm_to_tz)
+                else:
+                    to_val = datetime.now(tz=wm_to_tz)
                 to_target = params if wm_location == "params" else body
                 to_target[wm_to_param] = self._format_watermark_value(to_val, wm_format)
 
@@ -433,7 +447,7 @@ class APIReader(BaseSourceReader[DF]):
 
                 # Determine lower bound of the entire window
                 from_dt: Optional[datetime] = APIReader._resolve_range_from_dt(
-                    watermark, wm_mapping, src_cfg.get("watermark_range_start"),
+                    watermark_start, wm_mapping, src_cfg.get("watermark_range_start"),
                     tz=wm_to_tz,
                 )
 
@@ -444,6 +458,15 @@ class APIReader(BaseSourceReader[DF]):
                     )
 
                 to_dt = datetime.now(tz=wm_to_tz)
+                # Cap to_dt at watermark_end when provided (replay)
+                if watermark_end and wm_mapping:
+                    _upper_col = next((c for c in wm_mapping if watermark_end.get(c) is not None), None)
+                    if _upper_col:
+                        _cap = watermark_end[_upper_col]
+                        if isinstance(_cap, datetime):
+                            to_dt = _cap
+                        elif isinstance(_cap, str):
+                            to_dt = datetime.fromisoformat(_cap)
                 # Normalise timezone so from_dt and to_dt are comparable
                 if from_dt.tzinfo is None:
                     to_dt = to_dt.replace(tzinfo=None)

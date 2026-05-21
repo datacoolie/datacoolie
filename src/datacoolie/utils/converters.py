@@ -156,11 +156,19 @@ def custom_json_encoder(obj: Any) -> Any:
 def json_default(obj: Any) -> Any:
     """JSON serializer for ``json.dumps(default=...)``.  Never raises.
 
-    * ``datetime`` / ``date`` → ISO-8601 string
+    * ``datetime`` / ``date`` / ``time`` → ISO-8601 string
+    * ``SecretStr`` → ``"***"``  (explicit guard; never leak secret values)
     * everything else → ``str(obj)``
+
+    Note: a direct ``isinstance(obj, SecretStr)`` check would create a
+    circular import (converters → secret_provider → models → converters),
+    so we match on the class name instead.  ``SecretStr.__str__`` also
+    returns ``"***"``, but relying solely on that fallback is implicit.
     """
     if isinstance(obj, (datetime, date, time)):
         return obj.isoformat()
+    if type(obj).__name__ == "SecretStr":
+        return "***"
     return str(obj)
 
 

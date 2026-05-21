@@ -14,13 +14,14 @@ from typing import Any, Dict, Optional
 from pyspark.sql import DataFrame
 
 
-def sql_query_orders_iceberg(engine, source, watermark: Optional[Dict[str, Any]]) -> DataFrame:
+def sql_query_orders_iceberg(engine, source, watermark_start: Optional[Dict[str, Any]] = None, watermark_end: Optional[Dict[str, Any]] = None, *args, **kwargs) -> DataFrame:
     """Return a filtered subset of the orders_iceberg_overwritten Iceberg table via SQL.
 
     Args:
         engine: Active :class:`~datacoolie.engines.SparkEngine` instance.
         source: :class:`~datacoolie.core.models.Source` model for this dataflow.
-        watermark: Previous watermark dict (``None`` on first run).
+        watermark_start: Previous watermark dict (``None`` on first run).
+        watermark_end: Replay ceiling watermark (``None`` for normal reads).
 
     Returns:
         A Spark DataFrame containing high-value orders (amount > 100).

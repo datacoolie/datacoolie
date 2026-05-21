@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from datacoolie.utils.converters import convert_to_bool, convert_to_int, parse_json
+from datacoolie.core.secret_provider import SecretStr
+from datacoolie.utils.converters import as_json, convert_to_bool, convert_to_int, json_default, parse_json
 
 
 class TestParseJson:
@@ -153,3 +156,38 @@ class TestConvertToInt:
         """Whitespace-only strings should return None."""
         assert convert_to_int("  ") is None
         assert convert_to_int("\t\n") is None
+
+
+class TestJsonDefault:
+    def test_secret_str_masked_directly(self) -> None:
+        """json_default must return '***' for SecretStr, never the raw value."""
+        result = json_default(SecretStr("hunter2"))
+        assert result == "***"
+        assert "hunter2" not in result
+
+    def test_secret_str_masked_in_dict(self) -> None:
+        """SecretStr values inside a configure dict must be masked when serialised."""
+        configure = {"password": SecretStr("s3cr3t"), "host": "localhost"}
+        serialised = as_json(configure)
+        assert serialised is not None
+        assert "s3cr3t" not in serialised
+        assert '"***"' in serialised
+        assert '"localhost"' in serialised
+
+    def test_secret_str_nested_not_leaked(self) -> None:
+        """Nested SecretStr values must not leak raw strings."""
+        configure = {"auth": {"token": SecretStr("tok123")}}
+        serialised = as_json(configure)
+        assert serialised is not None
+        assert "tok123" not in serialised
+
+    def test_datetime_serialised_as_iso(self) -> None:
+        from datetime import datetime, timezone
+        dt = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        assert json_default(dt) == "2024-01-15T12:00:00+00:00"
+
+    def test_unknown_type_stringified(self) -> None:
+        class Custom:
+            def __str__(self) -> str:
+                return "custom_str"
+        assert json_default(Custom()) == "custom_str"

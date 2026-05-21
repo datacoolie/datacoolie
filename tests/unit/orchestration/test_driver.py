@@ -1136,12 +1136,11 @@ class TestRunReplay:
         call_kwargs = mock_pipeline.call_args[1]
         assert call_kwargs["watermark_start"] == {"order_date": date(2025, 1, 1)}
 
-        # watermark_operator passed as proper parameter (not via source.configure)
-        assert call_kwargs["watermark_operator"] == ">="
+        # watermark_start_operator passed as proper parameter (not via source.configure)
+        assert call_kwargs["watermark_start_operator"] == ">="
 
-        # Upper bound filter uses strict less-than
-        dataflow_arg = mock_pipeline.call_args[0][0]
-        assert "order_date < '2025-02-01'" in dataflow_arg.source.filter_expression
+        # Upper bound passed as watermark_end (not via filter_expression)
+        assert call_kwargs["watermark_end"] == {"order_date": date(2025, 2, 1)}
 
     def test_auto_resolve_column_from_watermark_columns(self):
         """chunk_column auto-resolved from dataflow.source.watermark_columns[0]."""

@@ -36,6 +36,21 @@ AWS_LOG_PATH = "s3://datacoolie-test/logs"
 RUN_SCRIPT = RUNNER_DIR / "run.py"
 MAINTENANCE_SCRIPT = RUNNER_DIR / "maintenance.py"
 
+# Docker container used for Spark execution on Windows.
+# When the container is running, all spark-engine scenarios are dispatched
+# via `docker exec` to avoid Windows JVM / PySpark issues.
+DOCKER_SPARK_CONTAINER = "datacoolie-spark"
+CONTAINER_ROOT = "/datacoolie"
+DOCKER_COMPOSE_FILE = str(USECASE_SIM_DIR / "docker" / "docker-compose.yml")
+
+# Docker Compose service names that must be running for certain metadata types.
+# The runner will auto-start them via `docker compose up -d` when needed.
+METADATA_TYPE_SERVICES: dict[str, str] = {
+    "api": "metadata-api",  # metadata-api container (port 8000)
+}
+# Spark scenarios that don't skip API sources also need the mock-api data server.
+MOCK_API_SERVICE = "mock-api"  # mock-api container (port 8082)
+
 # Stale JVM artifacts that can block the next Spark session.
 SPARK_CLEANUP_DIRS = [
     DATACOOLIE_ROOT / "spark-warehouse",
@@ -83,6 +98,50 @@ def _is_spark(scenario: dict) -> bool:
     return scenario.get("engine") == "spark"
 
 
+def _docker_spark_running() -> bool:
+    """Return True when the datacoolie-spark Docker container is running."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", DOCKER_SPARK_CONTAINER],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip() == "true"
+    except Exception:
+        return False
+
+
+def _ensure_service_running(service: str) -> None:
+    """Start a docker-compose service if its container is not already running.
+
+    Uses the compose file next to this runner so the service joins the same
+    network as all other datacoolie containers.
+    """
+    container = f"datacoolie-{service}"
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", container],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.stdout.strip() == "true":
+            return  # already up
+    except Exception:
+        pass
+    logger.info("[docker] Service '%s' not running — starting via docker compose ...", service)
+    subprocess.run(
+        ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "up", "-d", "--wait", service],
+        timeout=120,
+    )
+
+
+def _to_container_path(windows_path: Path) -> str:
+    """Convert an absolute path inside DATACOOLIE_ROOT to the container equivalent."""
+    try:
+        rel = windows_path.relative_to(DATACOOLIE_ROOT)
+        return CONTAINER_ROOT + "/" + rel.as_posix()
+    except ValueError:
+        return str(windows_path)
+
+
 def _resolve_timeout(scenario: dict) -> int:
     if scenario.get("timeout_seconds") is not None:
         return int(scenario["timeout_seconds"])
@@ -121,20 +180,36 @@ def _metadata_source_args(name: str, scenario: dict) -> list[str]:
     raise ValueError(f"Unknown metadata_type={meta_type} for scenario {name}")
 
 
-def build_command(name: str, scenario: dict) -> list[str]:
+def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[str]:
     """Build a subprocess command from a scenario definition."""
     meta_type = scenario["metadata_type"]
     script = MAINTENANCE_SCRIPT if meta_type == "maintenance" else RUN_SCRIPT
     platform = scenario.get("platform", "local")
     log_path = AWS_LOG_PATH if platform == "aws" else str(LOG_DIR)
 
-    # `-u` forces unbuffered stdout in the child so the tee streams live.
-    cmd = [
-        sys.executable, "-u", str(script),
-        "--engine", scenario["engine"],
-        "--platform", platform,
-        "--log-path", log_path,
-    ]
+    if use_docker:
+        # Run inside the datacoolie-spark container (Linux, no Windows JVM issues).
+        # The container volume-mounts DATACOOLIE_ROOT → /datacoolie, so Windows
+        # absolute paths are converted to their container equivalents.
+        script_path = _to_container_path(script)
+        container_log = CONTAINER_ROOT + "/usecase-sim/logs"
+        # `-e` sets PYTHONUNBUFFERED so tee streams work the same as -u on the host.
+        cmd = [
+            "docker", "exec", "-e", "PYTHONUNBUFFERED=1",
+            DOCKER_SPARK_CONTAINER,
+            "python3", script_path,
+            "--engine", scenario["engine"],
+            "--platform", platform,
+            "--log-path", container_log,
+        ]
+    else:
+        # `-u` forces unbuffered stdout in the child so the tee streams live.
+        cmd = [
+            sys.executable, "-u", str(script),
+            "--engine", scenario["engine"],
+            "--platform", platform,
+            "--log-path", log_path,
+        ]
 
     if meta_type == "maintenance":
         if "metadata_path" in scenario:
@@ -195,6 +270,19 @@ def _spark_cooldown(last_spark_finish: float) -> None:
     _cleanup_spark_state("cooldown")
 
 
+def _pre_clean_paths(scenario: dict) -> None:
+    """Delete stale output paths listed in a scenario's pre_clean_paths."""
+    for rel_path in scenario.get("pre_clean_paths", []):
+        path = DATACOOLIE_ROOT / rel_path
+        if not path.exists():
+            continue
+        try:
+            shutil.rmtree(path)
+            logger.info("  [pre-clean] removed stale output: %s", path)
+        except OSError as exc:
+            logger.warning("  [pre-clean] could not remove %s: %s", path, exc)
+
+
 # ---------------------------------------------------------------------------
 # Subprocess tee runner
 # ---------------------------------------------------------------------------
@@ -209,6 +297,7 @@ def _run_with_tee(cmd: list[str], console_log: Path, timeout: int) -> tuple[int,
             text=True,
             encoding="utf-8",
             errors="replace",
+            cwd=str(DATACOOLIE_ROOT),
         )
         deadline = time.monotonic() + timeout
         try:
@@ -260,8 +349,32 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
     results: dict[str, int] = {}
     last_spark_finish = 0.0
 
-    if any(_is_spark(scenarios.get(n, {})) for n in names):
-        _cleanup_spark_state("pre-flight")
+    # Check once whether the Docker Spark container is available.
+    has_spark_scenarios = any(_is_spark(scenarios.get(n, {})) for n in names)
+    docker_spark = has_spark_scenarios and _docker_spark_running()
+    if has_spark_scenarios:
+        if docker_spark:
+            logger.info("[spark] Docker container '%s' is running — Spark scenarios will execute inside the container.", DOCKER_SPARK_CONTAINER)
+        else:
+            logger.warning("[spark] Docker container '%s' is NOT running — falling back to local PySpark.", DOCKER_SPARK_CONTAINER)
+            _cleanup_spark_state("pre-flight")
+
+    # Ensure dependent services are running for docker Spark scenarios.
+    if docker_spark:
+        needed: set[str] = set()
+        for n in names:
+            s = scenarios.get(n, {})
+            if _is_spark(s):
+                # metadata-api: needed when metadata source is "api"
+                svc = METADATA_TYPE_SERVICES.get(s.get("metadata_type", ""))
+                if svc:
+                    needed.add(svc)
+                # mock-api: needed when the scenario actually runs API data-source
+                # dataflows (i.e. skip_api_sources is not set)
+                if not s.get("skip_api_sources", False):
+                    needed.add(MOCK_API_SERVICE)
+        for svc in needed:
+            _ensure_service_running(svc)
 
     for name in names:
         if name not in scenarios:
@@ -270,16 +383,19 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             continue
 
         scenario = scenarios[name]
+        use_docker = _is_spark(scenario) and docker_spark
 
-        if _is_spark(scenario):
+        if _is_spark(scenario) and not docker_spark:
             _spark_cooldown(last_spark_finish)
 
         try:
-            cmd = build_command(name, scenario)
+            cmd = build_command(name, scenario, use_docker=use_docker)
         except ValueError as exc:
             logger.error("Scenario %s: %s", name, exc)
             results[name] = 1
             continue
+
+        _pre_clean_paths(scenario)
 
         console_log = SCENARIO_LOG_DIR / f"{name}.console.log"
         timeout = _resolve_timeout(scenario)
@@ -292,7 +408,7 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
         results[name] = rc
         logger.info("  Result: %s", status)
 
-        if _is_spark(scenario):
+        if _is_spark(scenario) and not docker_spark:
             last_spark_finish = time.monotonic()
 
     return _print_summary(results)

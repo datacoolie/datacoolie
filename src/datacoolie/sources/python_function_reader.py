@@ -17,11 +17,12 @@ dotted module path, e.g. ``"mypackage.loaders.load_orders"``.
 
 The function signature must be::
 
-    def my_loader(engine, source, watermark) -> DataFrame | None
+    def my_loader(engine, source, watermark_start, watermark_end) -> DataFrame | None
 
 * ``engine`` — the active :class:`BaseEngine` instance.
 * ``source`` — the :class:`Source` model.
-* ``watermark`` — previous watermark values (``None`` on first run).
+* ``watermark_start`` — previous watermark values (``None`` on first run).
+* ``watermark_end`` — replay ceiling watermark (``None`` for normal incremental reads).
 """
 
 from __future__ import annotations
@@ -46,12 +47,13 @@ class PythonFunctionReader(BaseSourceReader[DF]):
 
     The function signature must be::
 
-        def my_loader(engine, source, watermark) -> DataFrame | None
+        def my_loader(engine, source, watermark_start, watermark_end) -> DataFrame | None
 
     Watermark handling follows a **before / after** pattern:
 
-    * The ``watermark`` dict is passed to the function so it *can*
-      pre-filter at the source (optional — the function may ignore it).
+    * The ``watermark_start`` and ``watermark_end`` dicts are passed to the
+      function so it *can* pre-filter at the source (optional — the function
+      may ignore them).
     * After the function returns, the framework applies
       :meth:`_apply_watermark_filter` for precise row-level filtering,
       consistent with other readers.
@@ -68,12 +70,14 @@ class PythonFunctionReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Call the user-defined function and process the result.
 
         Steps:
-            1. Resolve and call the Python function (watermark is passed
+            1. Resolve and call the Python function (watermark_start is passed
                so the function can do source-side pre-filtering).
             2. Apply engine-level watermark filter on the returned
                DataFrame (post-filter — consistent with other readers).
@@ -82,27 +86,28 @@ class PythonFunctionReader(BaseSourceReader[DF]):
         """
         self._set_source_action({"reader": type(self).__name__, "function": source.python_function or ""})
 
-        df = self._read_data(source, watermark=watermark)
+        df = self._read_data(source, watermark_start=watermark_start, watermark_end=watermark_end)
 
         if df is None:
-            logger.info("PythonFunctionReader: function returned None — skipping.")
+            logger.info("%s: function returned None — skipping.", type(self).__name__)
             return None
 
         # Post-function watermark filter (engine-level precision)
-        if watermark and source.watermark_columns:
-            df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
+        if (watermark_start or watermark_end) and source.watermark_columns:
+            df = self._apply_watermark_filter(df, source.watermark_columns, watermark_start or {}, watermark_end)
 
         df = self._apply_filter_expression(df, source)
 
         context = f"Function: {source.python_function}"
-        return self._finalize_read(df, source.watermark_columns, "PythonFunctionReader", context)
+        return self._finalize_read(df, source.watermark_columns, type(self).__name__, context)
 
     def _read_data(
         self,
         source: Source,
         configure: Optional[Dict[str, Any]] = None,
         *,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Import and call the Python function.
 
@@ -113,16 +118,16 @@ class PythonFunctionReader(BaseSourceReader[DF]):
         func_path = source.python_function
         if not func_path:
             raise SourceError(
-                "PythonFunctionReader requires source.python_function",
+                f"{type(self).__name__} requires source.python_function",
             )
 
         func = self._resolve_function(func_path, self._allowed_prefixes)
 
         try:
-            return func(engine=self._engine, source=source, watermark=watermark)
+            return func(engine=self._engine, source=source, watermark_start=watermark_start, watermark_end=watermark_end)
         except Exception as exc:
             raise SourceError(
-                f"Python function '{func_path}' raised an error: {exc}",
+                f"{type(self).__name__}: Python function '{func_path}' raised an error: {exc}",
                 details={"python_function": func_path},
             ) from exc
 
@@ -165,17 +170,17 @@ class PythonFunctionReader(BaseSourceReader[DF]):
             module = importlib.import_module(module_path)
         except ImportError as exc:
             raise SourceError(
-                f"Cannot import module '{module_path}' "
+                f"PythonFunctionReader: Cannot import module '{module_path}' "
                 f"for python_function '{func_path}'",
             ) from exc
 
         func = getattr(module, func_name, None)
         if func is None:
             raise SourceError(
-                f"Module '{module_path}' has no attribute '{func_name}'",
+                f"PythonFunctionReader: Module '{module_path}' has no attribute '{func_name}'",
             )
         if not callable(func):
             raise SourceError(
-                f"'{func_path}' is not callable",
+                f"PythonFunctionReader: '{func_path}' is not callable",
             )
         return func

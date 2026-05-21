@@ -44,7 +44,9 @@ class DatabaseReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> Optional[DF]:
         """Read data from a database.
 
@@ -54,17 +56,18 @@ class DatabaseReader(BaseSourceReader[DF]):
             3. Calculate count and new watermark.
             4. Return ``None`` if zero rows.
         """
-        df = self._read_data(source, watermark=watermark)
+        df = self._read_data(source, watermark_start=watermark_start, watermark_end=watermark_end)
 
         context = f"Table: {source.full_table_name or 'query'} (type: {source.connection.database_type})"
-        return self._finalize_read(df, source.watermark_columns, "DatabaseReader", context)
+        return self._finalize_read(df, source.watermark_columns, type(self).__name__, context)
 
     def _read_data(
         self,
         source: Source,
         configure: Optional[Dict[str, Any]] = None,
         *,
-        watermark: Optional[Dict[str, Any]] = None,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        watermark_end: Optional[Dict[str, Any]] = None,
     ) -> DF:
         """Read from a database via :meth:`engine.read_database`.
 
@@ -74,6 +77,9 @@ class DatabaseReader(BaseSourceReader[DF]):
           ``SELECT * FROM <table> WHERE col1 > v1 OR col2 > v2``.
         * **Query mode** — wraps the user query as a subquery:
           ``SELECT * FROM (<user_query>) _q WHERE col1 > v1 OR col2 > v2``.
+
+        When *watermark_end* is provided, builds windowed conditions:
+          ``(col1 > lower1 AND col1 < upper1) OR (col2 > lower2 AND col2 < upper2)``
 
         On first run (*watermark* is ``None`` or empty) both modes
         execute the original query/table as-is — no placeholders required.
@@ -85,14 +91,19 @@ class DatabaseReader(BaseSourceReader[DF]):
 
         wm_cols = source.watermark_columns or []
         active_wm: Dict[str, Any] = {}
-        if watermark and wm_cols:
-            active_wm = {c: watermark[c] for c in wm_cols if watermark.get(c) is not None}
+        if watermark_start and wm_cols:
+            active_wm = {c: watermark_start[c] for c in wm_cols if watermark_start.get(c) is not None}
+
+        active_upper: Dict[str, Any] = {}
+        if watermark_end and wm_cols:
+            active_upper = {c: watermark_end[c] for c in wm_cols if watermark_end.get(c) is not None}
 
         db_type = source.connection.database_type or ""
-        where_clause = (
-            self._build_where_clause(active_wm, db_type=db_type, operator=self._watermark_operator)
-            if active_wm
-            else ""
+
+        where_clause = self._build_window_where_clause(
+            active_wm, active_upper, db_type=db_type,
+            lower_op=self._watermark_start_operator,
+            upper_op=self._watermark_end_operator,
         )
 
         # Append user-supplied filter_expression to the WHERE clause.
@@ -123,11 +134,11 @@ class DatabaseReader(BaseSourceReader[DF]):
         table = f"{source.schema_name}.{source.table}" if source.schema_name else source.table
         if where_clause:
             query = f"SELECT * FROM {table} WHERE {where_clause}"
-            logger.debug("DatabaseReader: reading table %s with watermark query", table)
+            logger.debug("%s: reading table %s with query", type(self).__name__, table)
             self._set_source_action({"reader": type(self).__name__, "table": table, "query": query})
             return self._engine.read_database(query=query, options=options)
 
-        logger.debug("DatabaseReader: reading table %s via read_database", table)
+        logger.debug("%s: reading table %s via read_database", type(self).__name__, table)
         self._set_source_action({"reader": type(self).__name__, "table": table})
         return self._engine.read_database(table=table, options=options)
 
@@ -164,33 +175,52 @@ class DatabaseReader(BaseSourceReader[DF]):
         return f"'{safe}'"
 
     @staticmethod
-    def _build_where_clause(
-        watermark: Dict[str, Any],
+    def _build_window_where_clause(
+        lower: Dict[str, Any],
+        upper: Dict[str, Any],
         db_type: str = "",
-        operator: str = ">",
+        lower_op: str = ">",
+        upper_op: str = "<",
     ) -> str:
-        """Build ``col1 > v1 OR col2 > v2 …`` from watermark values.
+        """Build per-column windowed WHERE clause OR'd across columns.
 
-        Column names are validated against :data:`_SAFE_COLUMN_RE` to
-        prevent SQL injection via malicious metadata.
+        Produces: ``(col1 > l1 AND col1 < u1) OR (col2 > l2 AND col2 < u2)``
 
-        Args:
-            watermark: Column-name → value mapping.
-            db_type: Database type hint for value escaping.
-            operator: Comparison operator (``">"`` or ``">="``).
+        Per-column edge cases:
+        - lower has col, upper has col → ``(col > lower AND col < upper)``
+        - lower has col, upper missing → ``col > lower``
+        - lower missing, upper has col → ``col < upper``
+        - both missing → skip column
         """
-        if operator not in (">", ">="):
-            operator = ">"
+        if lower_op not in (">", ">="):
+            lower_op = ">"
+        if upper_op not in ("<", "<="):
+            upper_op = "<"
+
+        all_cols = set(lower) | set(upper)
         conditions = []
-        for col, val in watermark.items():
+        for col in all_cols:
             if not DatabaseReader._SAFE_COLUMN_RE.match(col):
                 raise SourceError(
                     f"Invalid watermark column name: {col!r}. "
                     f"Column names must match [a-zA-Z_][a-zA-Z0-9_.]*",
                     details={"column": col},
                 )
-            escaped = DatabaseReader._escape_value(val, db_type=db_type)
-            conditions.append(f"{col} {operator} {escaped}")
+            lower_val = lower.get(col)
+            upper_val = upper.get(col)
+            if lower_val is None and upper_val is None:
+                continue
+            parts = []
+            if lower_val is not None:
+                escaped = DatabaseReader._escape_value(lower_val, db_type=db_type)
+                parts.append(f"{col} {lower_op} {escaped}")
+            if upper_val is not None:
+                escaped = DatabaseReader._escape_value(upper_val, db_type=db_type)
+                parts.append(f"{col} {upper_op} {escaped}")
+            if len(parts) == 1:
+                conditions.append(parts[0])
+            else:
+                conditions.append(f"({' AND '.join(parts)})")
         return " OR ".join(conditions)
 
     # ------------------------------------------------------------------

@@ -1,0 +1,56 @@
+name: "DataCoolie Deploy \u2014 Databricks"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "metadata/**"
+      - "functions/**"
+      - "databricks.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install datacoolie
+      - run: python .agents/skills/datacoolie-deploy/scripts/preflight.py --platform databricks --skip-auth
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build
+      - run: python .agents/skills/datacoolie-deploy/scripts/package.py --format wheel --output dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: functions-wheel
+          path: dist/*.whl
+
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    environment: {{ env_name }}
+    env:
+      DATABRICKS_HOST: {% raw %}${{ secrets.DATABRICKS_HOST }}{% endraw %}
+      DATABRICKS_CLIENT_ID: {% raw %}${{ secrets.DATABRICKS_CLIENT_ID }}{% endraw %}
+      DATABRICKS_CLIENT_SECRET: {% raw %}${{ secrets.DATABRICKS_CLIENT_SECRET }}{% endraw %}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: functions-wheel
+          path: dist/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install databricks-cli datacoolie jinja2
+      - name: Deploy Databricks bundle
+        run: python .agents/skills/datacoolie-deploy/scripts/apply.py --platform databricks --env {{ env_name }}

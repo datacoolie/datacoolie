@@ -32,7 +32,7 @@ class TestDeltaReader:
         engine.set_max_values({"modified_at": "2024-06-15"})
         reader = DeltaReader(engine)
         wm = {"modified_at": "2024-06-01"}
-        result = reader.read(delta_source, watermark=wm)
+        result = reader.read(delta_source, watermark_start=wm)
         assert result is not None
         assert engine._filtered is True
         info = reader.get_runtime_info()

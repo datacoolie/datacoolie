@@ -114,7 +114,7 @@ class MockEngine(BaseEngine[dict]):
     def select_columns(self, df, columns): return df
     def rename_column(self, df, old_name, new_name): return df
     def filter_rows(self, df, condition): return df
-    def apply_watermark_filter(self, df, watermark_columns, watermark, *, operator=">"): return df
+    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">"): return df
     def deduplicate(self, df, partition_columns, order_columns=None, order="desc"): return df
     def deduplicate_by_rank(self, df, partition_columns, order_columns, order="desc"): return df
     def cast_column(self, df, column_name, target_type, fmt=None): return df

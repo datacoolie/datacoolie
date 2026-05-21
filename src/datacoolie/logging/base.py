@@ -37,39 +37,6 @@ from datacoolie.platforms.base import BasePlatform
 from datacoolie.utils.helpers import utc_now
 
 
-# ============================================================================
-# Sensitive value log filter
-# ============================================================================
-
-
-class SensitiveValueFilter(logging.Filter):
-    """Scrub resolved secret values from log messages.
-
-    Works with the global set maintained by
-    :func:`~datacoolie.core.secret_provider.register_secret_values`.
-    """
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        # Lazy import to avoid circular dependency at module level
-        from datacoolie.core.secret_provider import get_registered_secret_values
-
-        secrets = get_registered_secret_values()
-        if not secrets:
-            return True
-
-        # Mask the message
-        msg = record.getMessage()
-        masked = msg
-        for s in secrets:
-            masked = masked.replace(s, "***")
-
-        if masked != msg:
-            record.msg = masked
-            record.args = None
-
-        return True
-
-
 class DataflowContextFilter(logging.Filter):
     """Inject the current ``dataflow_id`` from :mod:`contextvars` into every log record.
 
@@ -202,16 +169,15 @@ class LogRecord:
 
     def format(self, include_location: bool = False) -> str:
         ts = self.timestamp.isoformat()
-        df_part = f" [{self.dataflow_id}]" if self.dataflow_id else ""
-        base = f"{ts} - {self.level} - {self.logger_name}{df_part} - {self.message}"
-        if include_location and self.module:
-            loc = f" [{self.module}"
-            if self.func_name:
-                loc += f".{self.func_name}"
+        df_part = f"[{self.dataflow_id}]" if self.dataflow_id else ""
+        if include_location and self.func_name:
+            loc = f" [{self.func_name}"
             if self.line_no:
                 loc += f":{self.line_no}"
             loc += "]"
-            base += loc
+        else:
+            loc = ""
+        base = f"{ts} - {self.level} - {self.logger_name} {loc} - {df_part} - {self.message}"
         if self.exc_info:
             base += f"\n{self.exc_info}"
         return base
@@ -379,7 +345,6 @@ class LogManager:
         self._file_level = LogLevel.DEBUG.value
         self._capture_handler: Optional[CaptureHandler] = None
         self._console_handler: Optional[logging.Handler] = None
-        self._sensitive_filter: Optional[SensitiveValueFilter] = None
         self._context_filter: Optional[DataflowContextFilter] = None
         self._loggers: Dict[str, logging.Logger] = {}
         self._root_logger_name = DEFAULT_AUTHOR
@@ -462,12 +427,9 @@ class LogManager:
             self._capture_handler.setFormatter(formatter)
             root.addHandler(self._capture_handler)
 
-        # Attach filters to all handlers so they apply to propagated
-        # messages from child loggers as well.
-        self._sensitive_filter = SensitiveValueFilter()
+        # Inject dataflow_id context into every propagated message.
         self._context_filter = DataflowContextFilter()
         for h in root.handlers:
-            h.addFilter(self._sensitive_filter)
             h.addFilter(self._context_filter)
 
         for lgr in self._loggers.values():
@@ -500,15 +462,15 @@ class LogManager:
     def capture_handler(self) -> Optional[CaptureHandler]:
         return self._capture_handler
 
-    def get_captured_logs(self) -> str:
+    def get_captured_logs(self, include_location: bool = False) -> str:
         if self._capture_handler:
-            return self._capture_handler.get_formatted_logs()
+            return self._capture_handler.get_formatted_logs(include_location)
         return ""
 
-    def get_and_clear_captured_logs(self) -> str:
+    def get_and_clear_captured_logs(self, include_location: bool = False) -> str:
         """Atomically return captured logs as plain text and clear the buffer."""
         if self._capture_handler:
-            return self._capture_handler.get_and_clear_formatted_logs()
+            return self._capture_handler.get_and_clear_formatted_logs(include_location)
         return ""
 
     def clear_captured_logs(self) -> None:

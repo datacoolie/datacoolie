@@ -1,0 +1,624 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
+  "title": "DataCoolie Metadata",
+  "description": "Metadata definition for the DataCoolie ETL framework. Defines connections, dataflows, sources, destinations, and transforms.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to the DataCoolie metadata JSON Schema for IDE validation and autocomplete."
+    },
+    "connections": {
+      "type": "array",
+      "description": "Endpoint configurations for data sources and destinations.",
+      "items": { "$ref": "#/$defs/Connection" }
+    },
+    "dataflows": {
+      "type": "array",
+      "description": "ETL pipeline definitions composing source, destination, and transform.",
+      "items": { "$ref": "#/$defs/DataFlow" }
+    },
+    "schema_hints": {
+      "type": "array",
+      "description": "Shared schema hints that apply across dataflows. Matched by connection_name + table_name.",
+      "items": { "$ref": "#/$defs/SharedSchemaHint" }
+    }
+  },
+  "anyOf": [
+    { "required": ["connections"] },
+    { "required": ["dataflows"] }
+  ],
+  "additionalProperties": false,
+
+  "$defs": {
+    "Connection": {
+      "type": "object",
+      "description": "An endpoint: file root, lakehouse path, RDBMS, REST API, or Python function.",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique connection identifier. Used as connection_id via name_to_uuid."
+        },
+        "connection_type": {
+          "type": "string",
+          "enum": ["file", "lakehouse", "database", "api", "function", "streaming"],
+          "description": "Connection endpoint category. Auto-derived from format if omitted."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["delta", "iceberg", "parquet", "csv", "json", "jsonl", "avro", "excel", "sql", "api", "function"],
+          "description": "Data format for this connection."
+        },
+        "catalog": {
+          "type": ["string", "null"],
+          "description": "Catalog name for Unity Catalog or Iceberg catalogs."
+        },
+        "database": {
+          "type": ["string", "null"],
+          "description": "Database or schema namespace."
+        },
+        "configure": {
+          "type": "object",
+          "description": "Type-specific settings. Structure depends on connection_type. Common fields below; type-specific fields added conditionally.",
+          "properties": {
+            "read_options": { "type": "object", "additionalProperties": true, "description": "Engine-specific read options (e.g. header, inferSchema, delimiter)." },
+            "write_options": { "type": "object", "additionalProperties": true, "description": "Engine-specific write options (e.g. compression, mode)." },
+            "use_schema_hint": { "type": "boolean", "default": true, "description": "Apply schema hints from transform. Set false to skip type casting." },
+            "backward_years": { "type": "integer", "description": "Look-back years for watermark value." },
+            "backward_months": { "type": "integer", "description": "Look-back months for watermark value." },
+            "backward_days": { "type": "integer", "description": "Look-back days for watermark value." },
+            "backward_hours": { "type": "integer", "description": "Look-back hours for watermark value." },
+            "backward_closing_day": { "type": "integer", "description": "Look-back closing day for watermark value." },
+            "backward": { "type": "object", "description": "Nested backward config: {days, months, hours, years, closing_day}.", "additionalProperties": true }
+          },
+          "additionalProperties": true
+        },
+        "secrets_ref": {
+          "description": "Map of secret source to list of configure fields to resolve. Outer key is the vault identifier (ARN, Key Vault URL, or empty string for env vars).",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": true,
+          "description": "Toggle connection on/off."
+        }
+      },
+      "allOf": [
+        { "$ref": "#/$defs/ConnectionConfigureFile" },
+        { "$ref": "#/$defs/ConnectionConfigureLakehouse" },
+        { "$ref": "#/$defs/ConnectionConfigureDatabase" },
+        { "$ref": "#/$defs/ConnectionConfigureApi" }
+      ],
+      "additionalProperties": false
+    },
+
+    "ConnectionConfigureFile": {
+      "if": {
+        "properties": { "connection_type": { "const": "file" } },
+        "required": ["connection_type"]
+      },
+      "then": {
+        "properties": {
+          "configure": {
+            "type": "object",
+            "properties": {
+              "base_path": { "type": "string", "description": "Root file storage path." },
+              "use_hive_partitioning": { "type": "boolean", "default": false, "description": "Enable Hive-style partition discovery." },
+              "date_folder_partitions": { "type": "string", "description": "Date folder pattern, e.g. {year}/{month}/{day}." },
+              "backward_years": { "type": "integer", "description": "Look-back years for watermark value." },
+              "backward_months": { "type": "integer", "description": "Look-back months for watermark value." },
+              "backward_days": { "type": "integer", "description": "Look-back days for watermark value." },
+              "backward_hours": { "type": "integer", "description": "Look-back hours for watermark value." },
+              "backward_closing_day": { "type": "integer", "description": "Look-back closing day for watermark value." },
+              "backward": {
+                "type": "object",
+                "description": "Nested backward look-back config. Keys: days, months, hours, years, closing_day. Overrides connection-level setting.",
+                "properties": {
+                  "years": { "type": "integer" },
+                  "months": { "type": "integer" },
+                  "days": { "type": "integer" },
+                  "hours": { "type": "integer" },
+                  "closing_day": { "type": "integer" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+
+    "ConnectionConfigureLakehouse": {
+      "if": {
+        "properties": { "connection_type": { "const": "lakehouse" } },
+        "required": ["connection_type"]
+      },
+      "then": {
+        "properties": {
+          "configure": {
+            "type": "object",
+            "properties": {
+              "base_path": { "type": "string", "description": "Root lakehouse storage path." },
+              "catalog": { "type": "string", "description": "Catalog name (overrides top-level catalog)." },
+              "database": { "type": "string", "description": "Database name (overrides top-level database)." },
+              "athena_output_location": { "type": "string", "description": "S3 path for Athena DDL results. Triggers Glue catalog registration." },
+              "generate_manifest": { "type": "boolean", "default": false, "description": "Write _symlink_format_manifest/ after writes." },
+              "register_symlink_table": { "type": "boolean", "default": false, "description": "Register SymlinkTextInputFormat table in Glue. Implies generate_manifest." },
+              "symlink_database_prefix": { "type": "string", "default": "symlink_", "description": "Prefix for symlink Glue database name." }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+
+    "ConnectionConfigureDatabase": {
+      "if": {
+        "properties": { "connection_type": { "const": "database" } },
+        "required": ["connection_type"]
+      },
+      "then": {
+        "properties": {
+          "configure": {
+            "type": "object",
+            "properties": {
+              "database_type": {
+                "type": "string",
+                "enum": ["postgresql", "mysql", "mssql", "oracle", "sqlite"],
+                "description": "Database dialect."
+              },
+              "host": { "type": "string", "description": "Database hostname." },
+              "port": { "type": "integer", "description": "Database port." },
+              "database": { "type": "string", "description": "Database name." },
+              "username": { "type": "string", "description": "Database username (or env var placeholder for secrets_ref)." },
+              "password": { "type": "string", "description": "Database password (or env var placeholder for secrets_ref)." },
+              "driver": { "type": "string", "description": "JDBC driver class name." },
+              "url": { "type": "string", "description": "Explicit connection URL/string." },
+              "encrypt": { "type": "string", "description": "Encryption option (MSSQL)." }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+
+    "ConnectionConfigureApi": {
+      "if": {
+        "properties": { "connection_type": { "const": "api" } },
+        "required": ["connection_type"]
+      },
+      "then": {
+        "properties": {
+          "configure": {
+            "type": "object",
+            "properties": {
+              "base_url": { "type": "string", "description": "Base URL for API requests." },
+              "timeout": { "type": "number", "description": "Request timeout in seconds (int or float)." },
+              "auth_type": {
+                "type": "string",
+                "enum": ["bearer", "api_key", "basic", "oauth2_client_credentials", "aws_sigv4"],
+                "description": "Authentication method."
+              },
+              "auth_token": { "type": "string", "description": "Bearer token (or env var placeholder)." },
+              "api_key_header": { "type": "string", "description": "Header name for API key auth." },
+              "api_key_value": { "type": "string", "description": "API key value (or env var placeholder)." },
+              "username": { "type": "string", "description": "Username for basic auth." },
+              "password": { "type": "string", "description": "Password for basic auth." },
+              "token_url": { "type": "string", "description": "OAuth2 token endpoint." },
+              "client_id": { "type": "string", "description": "OAuth2 client ID." },
+              "client_secret": { "type": "string", "description": "OAuth2 client secret." },
+              "token_auth_method": { "type": "string", "description": "OAuth2 token auth method (e.g. client_secret_basic)." },
+              "scope": { "type": "string", "description": "OAuth2 scope." },
+              "watermark_to_param_timezone": { "type": "string", "description": "Timezone for watermark→query param conversion (e.g. +07:00)." },
+              "default_headers": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Static headers added to every request." },
+              "token_request_body_format": { "type": "string", "enum": ["form", "json"], "default": "form", "description": "OAuth2 token request body encoding format." },
+              "token_request_extras": { "type": "object", "additionalProperties": true, "description": "Extra fields sent in the OAuth2 token request body." },
+              "aws_region": { "type": "string", "description": "AWS region for SigV4 authentication (e.g. us-east-1)." },
+              "aws_service": { "type": "string", "description": "AWS service name for SigV4 auth (e.g. execute-api)." },
+              "aws_access_key_id": { "type": "string", "description": "AWS access key ID for SigV4 (or env var placeholder)." },
+              "aws_secret_access_key": { "type": "string", "description": "AWS secret access key for SigV4 (or env var placeholder)." },
+              "aws_session_token": { "type": "string", "description": "AWS session token for SigV4 temporary credentials (or env var placeholder)." }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+
+    "DataFlow": {
+      "type": "object",
+      "description": "Complete ETL pipeline configuration composing source, destination, and transform.",
+      "required": ["name", "source", "destination"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique dataflow name. Used to derive dataflow_id."
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Human-readable description of this dataflow."
+        },
+        "stage": {
+          "type": ["string", "null"],
+          "description": "Stage grouping (e.g. source2bronze, bronze2silver). Used by driver.run(stage=...)."
+        },
+        "group_number": {
+          "type": ["integer", "null"],
+          "description": "Execution group. Dataflows in the same group run in parallel."
+        },
+        "execution_order": {
+          "type": ["integer", "null"],
+          "description": "Order within group. Lower values execute first."
+        },
+        "processing_mode": {
+          "type": "string",
+          "enum": ["batch", "microbatch", "streaming"],
+          "default": "batch",
+          "description": "ETL processing mode."
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": true,
+          "description": "Toggle dataflow on/off."
+        },
+        "source": { "$ref": "#/$defs/Source" },
+        "destination": { "$ref": "#/$defs/Destination" },
+        "transform": { "$ref": "#/$defs/Transform" },
+        "configure": {
+          "type": "object",
+          "description": "Dataflow-level configuration options.",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Source": {
+      "type": "object",
+      "description": "Read-side pipeline configuration. References a connection by name.",
+      "required": ["connection_name"],
+      "properties": {
+        "connection_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the connection to read from."
+        },
+        "schema_name": {
+          "type": ["string", "null"],
+          "description": "Schema namespace within the connection."
+        },
+        "table": {
+          "type": ["string", "null"],
+          "description": "Table or object name to read."
+        },
+        "query": {
+          "type": ["string", "null"],
+          "description": "SQL query (alternative to table for database sources)."
+        },
+        "python_function": {
+          "type": ["string", "null"],
+          "description": "Dotted path to a Python function for function sources (e.g. functions.sources.my_fn)."
+        },
+        "watermark_columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Columns used for incremental reads (watermark filtering)."
+        },
+        "filter_expression": {
+          "type": ["string", "null"],
+          "description": "SQL WHERE predicate applied after watermark filter on raw source columns."
+        },
+        "configure": {
+          "type": "object",
+          "description": "Source-level configuration. API fields documented from api_reader.py.",
+          "properties": {
+            "read_options": { "type": "object", "additionalProperties": true, "description": "Source-level read option overrides (file/lakehouse)." },
+
+            "backward_days": { "type": "integer", "description": "Subtract N days from watermark for partition look-back. Overrides connection-level setting." },
+            "backward_months": { "type": "integer", "description": "Subtract N months from watermark for partition look-back. Overrides connection-level setting." },
+            "backward_hours": { "type": "integer", "description": "Subtract N hours from watermark for partition look-back. Overrides connection-level setting." },
+            "backward_years": { "type": "integer", "description": "Subtract N years from watermark for partition look-back. Overrides connection-level setting." },
+            "backward_closing_day": { "type": "integer", "description": "Day-of-month for closing-day look-back strategy. Overrides connection-level setting." },
+            "backward": {
+              "type": "object",
+              "description": "Nested backward look-back config. Keys: days, months, hours, years, closing_day. Overrides connection-level setting.",
+              "properties": {
+                "days": { "type": "integer" },
+                "months": { "type": "integer" },
+                "hours": { "type": "integer" },
+                "years": { "type": "integer" },
+                "closing_day": { "type": "integer" }
+              },
+              "additionalProperties": false
+            },
+
+            "endpoint": { "type": "string", "description": "API endpoint path appended to base_url." },
+            "method": { "type": "string", "default": "GET", "description": "HTTP method (GET, POST, PUT, etc.)." },
+            "params": { "type": "object", "additionalProperties": true, "description": "Static query parameters added to every request." },
+            "body": { "type": "object", "additionalProperties": true, "description": "Request body for POST/PUT requests." },
+            "data_path": { "type": "string", "description": "Dot-separated path to the records array in the response JSON (e.g. 'data.items'). Defaults to root-level list." },
+
+            "pagination_type": {
+              "type": "string",
+              "enum": ["offset", "cursor", "next_link"],
+              "description": "Pagination strategy. Omit for single-page fetch."
+            },
+            "page_size": { "type": "integer", "default": 100, "description": "Records per page." },
+            "max_pages": { "type": "integer", "default": 1000, "description": "Safety limit on total pages fetched." },
+            "next_link_path": { "type": "string", "default": "next", "description": "Dot-separated path to the next-page URL in the response (next_link pagination)." },
+            "cursor_path": { "type": "string", "default": "next_cursor", "description": "Dot-separated path to the cursor token in the response (cursor pagination)." },
+            "cursor_param": { "type": "string", "default": "cursor", "description": "Query parameter name for cursor value." },
+            "offset_param": { "type": "string", "default": "offset", "description": "Query parameter name for page offset." },
+            "limit_param": { "type": "string", "default": "limit", "description": "Query parameter name for page size." },
+            "total_path": { "type": "string", "description": "Dot-separated path to total record count in first-page response (e.g. 'meta.total'). Enables concurrent offset fetching when set." },
+            "offset_max_workers": { "type": "integer", "default": 4, "description": "Max parallel workers for concurrent offset pagination (requires total_path)." },
+            "rate_limit_delay": { "type": "number", "default": 0, "description": "Seconds to wait between sequential page requests." },
+            "max_retries": { "type": "integer", "default": 10, "description": "Max retries on HTTP 429 responses. Uses Retry-After header or exponential backoff." },
+
+            "watermark_param_mapping": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Maps watermark_columns entries to API parameter names (e.g. {'updated_at': 'updated_since'}). Pushes watermark server-side instead of filtering in memory."
+            },
+            "watermark_to_param": { "type": "string", "description": "API parameter name to receive the current timestamp as upper bound ('to' side of the window)." },
+            "watermark_param_location": {
+              "type": "string",
+              "enum": ["params", "body"],
+              "default": "params",
+              "description": "Where to inject watermark values: URL query string or request body."
+            },
+            "watermark_param_format": {
+              "type": "string",
+              "enum": ["iso", "date", "timestamp", "timestamp_ms", "datetime", "datetime_ms"],
+              "default": "iso",
+              "description": "Serialisation format for watermark values sent to the API."
+            },
+            "watermark_to_param_timezone": { "type": "string", "description": "Timezone for the 'now' upper-bound timestamp (IANA name or ±HH:MM offset). Overrides connection-level default." },
+
+            "watermark_range_interval_unit": {
+              "type": "string",
+              "enum": ["hour", "day", "month", "year"],
+              "description": "Splits the watermark window into sub-ranges of this unit and fetches concurrently. Requires watermark_to_param."
+            },
+            "watermark_range_interval_amount": { "type": "integer", "default": 1, "description": "Number of units per sub-range interval (e.g. 3 with unit='hour' → 3-hour windows)." },
+            "watermark_range_start": { "type": "string", "description": "ISO-8601 fallback lower bound for the first run when no stored watermark exists. Required when watermark_range_interval_unit is set." },
+            "watermark_range_max_workers": { "type": "integer", "default": 4, "description": "Max parallel HTTP workers for range-split fetching." },
+            "watermark_range_to_exclusive_offset": {
+              "type": ["string", "null"],
+              "enum": ["1ms", "1s", "1day", null],
+              "description": "Epsilon subtracted from each range upper-bound before sending to the API. Use when API has inclusive BETWEEN semantics to prevent duplicates."
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Destination": {
+      "type": "object",
+      "description": "Write-side pipeline configuration. References a connection by name.",
+      "required": ["connection_name", "table"],
+      "properties": {
+        "connection_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the connection to write to."
+        },
+        "table": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Target table or object name."
+        },
+        "schema_name": {
+          "type": ["string", "null"],
+          "description": "Schema namespace within the connection."
+        },
+        "load_type": {
+          "type": "string",
+          "enum": ["full_load", "overwrite", "append", "merge_upsert", "merge_overwrite", "scd2"],
+          "default": "append",
+          "description": "Write strategy."
+        },
+        "merge_keys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Key columns for merge operations (merge_upsert, merge_overwrite, scd2)."
+        },
+        "partition_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PartitionColumn" },
+          "default": [],
+          "description": "Partition columns for the destination table."
+        },
+        "configure": {
+          "type": "object",
+          "description": "Destination-level configuration.",
+          "properties": {
+            "scd2_effective_column": { "type": "string", "description": "SQL expression used as __valid_from for SCD2 loads." },
+            "replace_by_watermark": { "type": "boolean", "default": false, "description": "Use range-based window replace instead of key-based delete for merge_overwrite." },
+            "write_options": { "type": "object", "additionalProperties": true },
+            "partition_columns": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/PartitionColumn" },
+              "description": "Alternative location for partition columns (lifted to top level)."
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Transform": {
+      "type": "object",
+      "description": "Transformation rules applied between source read and destination write.",
+      "properties": {
+        "deduplicate_columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Key columns for deduplication."
+        },
+        "latest_data_columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Columns used to pick the latest row when deduplicating."
+        },
+        "filter_expression": {
+          "type": ["string", "null"],
+          "description": "SQL WHERE predicate applied after computed columns (transformer order 35)."
+        },
+        "additional_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AdditionalColumn" },
+          "default": [],
+          "description": "Computed columns added during transform phase."
+        },
+        "schema_hints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaHint" },
+          "default": [],
+          "description": "Column-level type hints for schema conversion."
+        },
+        "configure": {
+          "type": "object",
+          "description": "Transform-level configuration.",
+          "properties": {
+            "convert_timestamp_ntz": { "type": "boolean", "default": true, "description": "Convert timestamp_ntz columns to timestamp." },
+            "deduplicate_by_rank": { "type": "boolean", "default": false, "description": "Use RANK-based dedup instead of ROW_NUMBER." }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "SchemaHint": {
+      "type": "object",
+      "description": "Column-level type hint for schema conversion.",
+      "required": ["column_name", "data_type"],
+      "properties": {
+        "column_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Target column name."
+        },
+        "data_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Target data type (e.g. int, string, decimal, timestamp, date, boolean, float, double, long, short, byte)."
+        },
+        "format": {
+          "type": ["string", "null"],
+          "description": "Date/timestamp format pattern (e.g. yyyy-MM-dd)."
+        },
+        "precision": {
+          "type": ["integer", "null"],
+          "description": "Decimal precision (total digits)."
+        },
+        "scale": {
+          "type": ["integer", "null"],
+          "description": "Decimal scale (digits after decimal point)."
+        },
+        "default_value": {
+          "type": ["string", "null"],
+          "description": "Default value for null entries."
+        },
+        "ordinal_position": {
+          "type": ["integer", "null"],
+          "default": 0,
+          "description": "Column ordering position."
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": true,
+          "description": "Toggle hint on/off."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "PartitionColumn": {
+      "type": "object",
+      "description": "Partition column definition with optional derived expression.",
+      "required": ["column"],
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Partition column name."
+        },
+        "expression": {
+          "type": ["string", "null"],
+          "description": "SQL expression to derive the partition value (e.g. year(event_date))."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "AdditionalColumn": {
+      "type": "object",
+      "description": "Computed column added during the transform phase.",
+      "required": ["column", "expression"],
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Output column name."
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "SQL expression to compute the column value."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "SharedSchemaHint": {
+      "type": "object",
+      "description": "Shared schema hints scoped to a connection + table. Applied by the metadata provider to matching dataflows.",
+      "required": ["connection_name", "table_name", "hints"],
+      "properties": {
+        "connection_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Connection name this hint set applies to."
+        },
+        "table_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Table name this hint set applies to."
+        },
+        "schema_name": {
+          "type": ["string", "null"],
+          "description": "Optional schema namespace to narrow hint matching to a specific schema."
+        },
+        "hints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SchemaHint" },
+          "description": "List of column-level type hints."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -61,7 +61,7 @@ class TestBaseSourceReader:
     def test_read_records_watermark_before(self, engine: MockEngine, delta_source: Source) -> None:
         reader = ConcreteSourceReader(engine)
         wm = {"modified_at": "2024-01-01"}
-        reader.read(delta_source, watermark=wm)
+        reader.read(delta_source, watermark_start=wm)
         info = reader.get_runtime_info()
         assert info.watermark_before == wm
 

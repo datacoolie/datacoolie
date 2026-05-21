@@ -471,21 +471,37 @@ class BaseEngine(ABC, Generic[DF]):
         self,
         df: DF,
         watermark_columns: List[str],
-        watermark: Dict[str, Any],
+        watermark_start: Dict[str, Any],
         *,
-        operator: str = ">",
+        start_operator: str = ">",
+        watermark_end: Optional[Dict[str, Any]] = None,
+        end_operator: str = "<",
     ) -> DF:
-        """Filter rows where any watermark column exceeds its stored value.
+        """Filter rows by watermark bounds (lower, upper, or both).
 
-        Builds an OR condition: ``col1 {op} val1 OR col2 {op} val2 ...``
-        using native DataFrame API.
+        Builds an OR condition across watermark columns. When only lower
+        bound is provided: ``col1 {op} val1 OR col2 {op} val2 ...``
+
+        When *watermark_end* is provided, builds per-column windowed
+        conditions OR'd across columns:
+        ``(col1 > lower1 AND col1 < upper1) OR (col2 > lower2 AND col2 < upper2)``
+
+        Per-column edge cases when watermark_end is set:
+        - lower has col, upper has col → ``col > lower AND col < upper``
+        - lower has col, upper missing → ``col > lower`` (no ceiling)
+        - lower missing, upper has col → ``col < upper`` (no floor)
+        - both missing → skip column
 
         Args:
             df: Input DataFrame.
             watermark_columns: Column names to compare.
-            watermark: ``{column: threshold_value}`` mapping.
-            operator: Comparison operator, ``">"`` (exclusive, default) or
-                ``">=" `` (inclusive, used by replay).
+            watermark_start: ``{column: threshold_value}`` lower-bound mapping.
+            start_operator: Comparison operator for lower bound, ``">"``
+                (exclusive, default) or ``">="`` (inclusive, replay).
+            watermark_end: Optional upper-bound mapping. When provided,
+                builds a [lower, upper) window per column.
+            end_operator: Comparison operator for upper bound, ``"<"``
+                (exclusive, default) or ``"<="`` (inclusive).
 
         Returns:
             Filtered DataFrame.

@@ -1,6 +1,6 @@
 """Engine-agnostic source functions for usecase-sim test cases.
 
-Function signature: ``fn(engine, source, watermark) -> DataFrame | None``
+Function signature: ``fn(engine, source, watermark_start, watermark_end) -> DataFrame | None``
 
 These functions are referenced via ``source.python_function`` in metadata
 files (e.g. local_use_cases.json) as dotted paths::
@@ -16,7 +16,7 @@ Engine-specific setup (e.g. Polars table registration) is handled via
 from __future__ import annotations
 
 
-def sql_query_orders(engine, source, watermark):
+def sql_query_orders(engine, source, watermark_start=None, watermark_end=None, *args, **kwargs):
     """Query orders from Delta tables via SQL.
 
     * **Polars**: registers Delta tables from ``base_path`` into the
@@ -57,7 +57,7 @@ def sql_query_orders(engine, source, watermark):
     )
 
 
-def sql_query_orders_iceberg(engine, source, watermark):
+def sql_query_orders_iceberg(engine, source, watermark_start=None, watermark_end=None, *args, **kwargs):
     """Query orders from Iceberg tables via SQL.
 
     * **Polars**: registers Iceberg tables from the catalog namespace
@@ -91,7 +91,7 @@ def sql_query_orders_iceberg(engine, source, watermark):
     )
 
 
-def load_orders_custom(engine, source, watermark):
+def load_orders_custom(engine, source, watermark_start=None, watermark_end=None, *args, **kwargs):
     """Return a hard-coded set of orders — no external dependency.
 
     Uses ``engine.create_dataframe`` which is part of the common
@@ -106,7 +106,7 @@ def load_orders_custom(engine, source, watermark):
     return engine.create_dataframe(records)
 
 
-def read_iceberg_orders_query(engine, source, watermark):
+def read_iceberg_orders_query(engine, source, watermark_start=None, watermark_end=None, *args, **kwargs):
     """Read from Iceberg table with a filter — used by ``read_iceberg__query``.
 
     * **Polars**: registers Iceberg tables from the catalog namespace

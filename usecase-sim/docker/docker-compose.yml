@@ -175,6 +175,69 @@ services:
     depends_on:
       - trino
 
+  # ---------------------------------------------------------------------------
+  # Containerised PySpark — avoids Windows JVM / Python-path issues.
+  # The entire datacoolie/ dir is mounted at /datacoolie so input/output data
+  # and the editable source are always in sync with the host.
+  #
+  # First-time setup (run once after `docker compose up -d spark`):
+  #   docker exec datacoolie-spark pip install -e /datacoolie -q --no-deps
+  #
+  # Then run any Spark scenario:
+  #   docker exec datacoolie-spark python usecase-sim/runner/run.py \
+  #     --engine spark --metadata-source file --platform local \
+  #     --metadata-path ./usecase-sim/metadata/file/local_use_cases.json \
+  #     --stage load_delta --column-name-mode lower --skip-api-sources
+  # ---------------------------------------------------------------------------
+  spark:
+    build:
+      context: ../..                             # datacoolie/ dir (two levels up)
+      dockerfile: usecase-sim/docker/Dockerfile.spark
+    container_name: datacoolie-spark
+    ports:
+      - "4040:4040"
+      - "4041:4041"
+    environment:
+      # Override localhost defaults so the container resolves sibling services
+      # by their docker-compose service names instead of the host loopback.
+      DATACOOLIE_ICEBERG_URI: http://iceberg-rest:8181
+      DATACOOLIE_MINIO_ENDPOINT: http://minio:9000
+      # SQLite path uses the absolute container path (volume-mounted)
+      DATACOOLIE_SQLITE_DB: /datacoolie/usecase-sim/data/input/sqlite/orders.db
+      # DB credentials (hosts still resolve to docker service names — P1 only)
+      DATACOOLIE_PG_USER: datacoolie
+      DATACOOLIE_PG_PASS: datacoolie
+      DATACOOLIE_MYSQL_USER: datacoolie
+      DATACOOLIE_MYSQL_PASS: datacoolie
+      DATACOOLIE_MSSQL_USER: sa
+      DATACOOLIE_MSSQL_PASS: Datacoolie@1
+      DATACOOLIE_ORA_USER: datacoolie
+      DATACOOLIE_ORA_PASS: datacoolie
+      DATACOOLIE_API_BEARER_TOKEN: test-bearer-token-123
+      DATACOOLIE_API_KEY_VALUE: test-api-key-456
+      DATACOOLIE_API_BASIC_USER: datacoolie
+      DATACOOLIE_API_BASIC_PASS: password123
+      DATACOOLIE_OAUTH2_CLIENT_ID: datacoolie-client
+      DATACOOLIE_OAUTH2_CLIENT_SECRET: supersecret
+      # AWS SDK env vars — required by Iceberg S3FileIO (JVM-side) which uses
+      # DefaultAwsRegionProviderChain when catalog catalog properties are not
+      # resolved at the executor level.
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_ENDPOINT_URL_S3: http://minio:9000
+    extra_hosts:
+      # Provide host.docker.internal so the Spark container can reach DB
+      # containers via the Windows host's published ports.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Mount the entire datacoolie/ package dir as /datacoolie.
+      # Relative paths in metadata (./usecase-sim/data/...) resolve correctly
+      # because WORKDIR is /datacoolie.  Input data generated on the host is
+      # immediately visible; output data written here appears on the host too.
+      - ../..:/datacoolie
+    working_dir: /datacoolie
+
 volumes:
   postgres_data:
   mysql_data:

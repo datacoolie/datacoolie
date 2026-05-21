@@ -40,12 +40,12 @@ class FakeEngine:
                 maxes[col] = max(vals)
         return count, maxes
 
-    def apply_watermark_filter(self, df, columns, watermark, *, operator=">"):
+    def apply_watermark_filter(self, df, columns, watermark_start, *, start_operator=">", watermark_end=None, end_operator="<"):
         filtered = []
         for row in df:
             keep = False
             for col in columns:
-                wm_val = watermark.get(col)
+                wm_val = watermark_start.get(col)
                 if wm_val is not None and row.get(col) is not None and row[col] > wm_val:
                     keep = True
             if keep:

@@ -18,7 +18,7 @@ import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 
 from datacoolie.core.models import Connection
 from datacoolie.core.exceptions import DataCoolieError
@@ -116,25 +116,6 @@ def unwrap_configure(configure: Dict[str, Any]) -> Dict[str, Any]:
         k: object.__getattribute__(v, "_value") if isinstance(v, SecretStr) else v
         for k, v in configure.items()
     }
-
-# Thread-safe set of resolved secret values used by the log filter.
-_resolved_values: Set[str] = set()
-_resolved_values_lock = threading.Lock()
-
-
-def register_secret_values(*values: str) -> None:
-    """Register resolved secret values so the log filter can scrub them."""
-    with _resolved_values_lock:
-        for v in values:
-            if v:
-                _resolved_values.add(v)
-
-
-def get_registered_secret_values() -> frozenset[str]:
-    """Return a snapshot of all registered secret values."""
-    with _resolved_values_lock:
-        return frozenset(_resolved_values)
-
 
 class BaseSecretProvider(ABC):
     """Abstract base class for secret providers.
@@ -259,8 +240,6 @@ def resolve_secrets(
     platform-native *provider* handles the request via
     :class:`~datacoolie.core.secret_resolver.NativeProviderResolver`.
 
-    Also registers the resolved values with the global log-masking set.
-
     Args:
         connection: A :class:`~datacoolie.core.models.Connection` instance.
         provider: The platform-native secret provider.
@@ -290,7 +269,6 @@ def resolve_secrets(
 
     native = NativeProviderResolver(provider)
 
-    resolved_values: list[str] = []
     for source, fields in raw.items():
         if not isinstance(fields, list):
             raise DataCoolieError(
@@ -316,11 +294,7 @@ def resolve_secrets(
                     f"'{config_field}' on connection '{connection.name}': {exc}"
                 ) from exc
             connection.configure[config_field] = SecretStr(value)
-            resolved_values.append(value)
 
     # Re-populate model attributes that were lifted from configure at
     # construction time — they still hold the original vault key names.
     connection.refresh_from_configure()
-
-    # Register with the log filter
-    register_secret_values(*resolved_values)

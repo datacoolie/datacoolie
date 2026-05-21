@@ -1,0 +1,589 @@
+# datacoolie-metadata — Testing Guide
+
+All commands run from:
+```
+datacoolie/
+```
+
+Python interpreter (use your venv path):
+```powershell
+# Windows
+$py = "..\.venv\Scripts\python.exe"
+
+# macOS / Linux
+# py="../.venv/bin/python3"
+```
+
+Sample metadata files used throughout:
+```
+usecase-sim/metadata/file/local_use_cases.json   # 32 connections, 131 dataflows
+usecase-sim/metadata/file/local_use_cases.xlsx   # same data in native xlsx format
+usecase-sim/metadata/file/aws_use_cases.json
+usecase-sim/metadata/file/perf_test.json
+```
+
+---
+
+## 1. validate.py
+
+### 1.1 Valid file — expect exit 0
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/local_use_cases.json
+# ✓ local_use_cases.json is valid (schema v0.1.0)
+```
+
+### 1.2 Valid file, explicit schema version
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/local_use_cases.json --schema-version 0.1.0
+# ✓ local_use_cases.json is valid (schema v0.1.0)
+```
+
+### 1.3 YAML input
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to yaml --output test.yaml
+& $py skills/datacoolie-metadata/scripts/validate.py test.yaml
+# ✓ test.yaml is valid (schema v0.1.0)
+Remove-Item test.yaml
+```
+
+### 1.4 Invalid file — expect exit 1 with error path
+
+```powershell
+# Invalid format enum ('xlsx' is not allowed; valid value is 'excel')
+& $py -c "import json; d={'connections':[{'name':'c1','connection_type':'file','format':'xlsx'}],'dataflows':[]}; json.dump(d,open('bad.json','w'))"
+& $py skills/datacoolie-metadata/scripts/validate.py bad.json
+# ✗ bad.json has N validation error(s):
+#   connections[0].format: 'xlsx' is not one of ['delta', 'iceberg', ...]
+Remove-Item bad.json
+```
+
+```powershell
+# Dataflow missing required 'name' field
+& $py -c "import json; d={'connections':[{'name':'c1','format':'csv','connection_type':'file','configure':{'base_path':'/tmp'}}],'dataflows':[{'source':{'connection_name':'c1'},'destination':{'connection_name':'c1','table':'t','load_type':'full_load'}}]}; json.dump(d,open('bad2.json','w'))"
+& $py skills/datacoolie-metadata/scripts/validate.py bad2.json
+# ✗ bad2.json has N validation error(s):
+#   dataflows[0]: 'name' is a required property
+Remove-Item bad2.json
+```
+
+### 1.5 File not found — expect exit 2
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py nonexistent.json
+# ERROR: File not found: nonexistent.json
+# Exit 2
+```
+
+### 1.6 Quiet mode for CI — expect no output, only exit code
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/local_use_cases.json --quiet
+echo "Exit: $LASTEXITCODE"   # Exit: 0  (no output)
+
+& $py -c "import json; json.dump({'connections':[{'name':'c1','connection_type':'file','format':'xlsx'}],'dataflows':[]},open('bad.json','w'))"
+& $py skills/datacoolie-metadata/scripts/validate.py bad.json --quiet
+echo "Exit: $LASTEXITCODE"   # Exit: 1  (no output)
+Remove-Item bad.json
+```
+
+### 1.7 Fetch latest schema from GitHub
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py --fetch-latest
+# ✓ Schema vX.Y.Z fetched from GitHub and cached in ~/.datacoolie/schemas/
+# Exit 0 (schema-refresh-only; no file given)
+```
+
+### 1.8 Fetch and validate in one command
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py --fetch-latest usecase-sim/metadata/file/local_use_cases.json
+# ✓ Schema refreshed ... 
+# ✓ local_use_cases.json is valid (schema v0.1.0)
+```
+
+### 1.9 Custom schemas directory
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/local_use_cases.json --schemas-dir skills/datacoolie-metadata/schemas
+# Uses skill-bundled schemas explicitly
+```
+
+### 1.10 All metadata files batch
+
+```powershell
+Get-ChildItem usecase-sim/metadata/file/*.json | ForEach-Object {
+    & $py skills/datacoolie-metadata/scripts/validate.py $_.FullName
+}
+# Each file should print ✓
+```
+
+### 1.11 Excel (.xlsx) input
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/local_use_cases.xlsx
+# ✓ local_use_cases.xlsx is valid (schema v0.1.0)
+```
+
+---
+
+## 2. lint.py
+
+### 2.1 Clean file — expect exit 0
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.json
+# ✓ local_use_cases.json: no lint warnings (polars/dev)
+```
+
+### 2.2 Excel (.xlsx) input
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.xlsx --engine polars --env dev
+# ⚠ ... N warning(s): watermark-for-incremental on incremental dataflows without watermark_columns
+```
+
+### 2.3 Non-dev environment (inferSchema warning)
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.json --env prod
+# ⚠ ... N warning(s):
+#   [WARN] dataflows[N].source.configure.read_options: inferSchema is enabled in non-dev environment.
+```
+
+### 2.4 Spark engine (dot-notation filter suppressed)
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.json --engine spark --env dev
+# portable-filter-expression warnings should NOT appear for Spark engine
+```
+
+### 2.5 Quiet mode for CI
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.json --quiet
+echo "Exit: $LASTEXITCODE"   # Exit: 0 or 1, no output
+```
+
+### 2.6 Rule: undefined-connection
+
+```powershell
+& $py -c "
+import json
+data = {
+    'connections': [{'name': 'real_conn', 'format': 'csv', 'connection_type': 'file', 'configure': {'base_path': '/tmp'}}],
+    'dataflows': [{'name': 'df1',
+        'source': {'connection_name': 'typo_conn', 'table': 'x'},
+        'destination': {'connection_name': 'real_conn', 'table': 'y', 'load_type': 'full_load'}}]
+}
+json.dump(data, open('lint_test.json','w'), indent=2)
+"
+& $py skills/datacoolie-metadata/scripts/lint.py lint_test.json
+# [WARN] dataflows[0].source.connection_name: References connection 'typo_conn' which is not defined in connections[].
+Remove-Item lint_test.json
+```
+
+### 2.7 Rule: merge-keys-required (merge_upsert / merge_overwrite / scd2)
+
+```powershell
+& $py -c "
+import json
+data = {
+    'connections': [{'name': 'c1', 'format': 'delta', 'connection_type': 'lakehouse', 'configure': {'base_path': '/tmp'}}],
+    'dataflows': [
+        {'name': 'df1',
+            'source': {'connection_name': 'c1', 'table': 'x'},
+            'destination': {'connection_name': 'c1', 'table': 'y', 'load_type': 'merge_upsert', 'merge_keys': []}},
+        {'name': 'df2',
+            'source': {'connection_name': 'c1', 'table': 'a'},
+            'destination': {'connection_name': 'c1', 'table': 'b', 'load_type': 'scd2', 'configure': {'scd2_effective_column': 'modified_at'}}}
+    ]
+}
+json.dump(data, open('lint_test.json','w'), indent=2)
+"
+& $py skills/datacoolie-metadata/scripts/lint.py lint_test.json
+# [WARN] dataflows[0].destination: load_type is 'merge_upsert' but merge_keys is empty.
+# [WARN] dataflows[1].destination: load_type is 'scd2' but merge_keys is empty.
+Remove-Item lint_test.json
+```
+
+### 2.8 Rule: watermark-for-incremental
+
+```powershell
+& $py -c "
+import json
+data = {
+    'connections': [{'name': 'c1', 'format': 'delta', 'connection_type': 'lakehouse', 'configure': {'base_path': '/tmp'}}],
+    'dataflows': [{'name': 'df1',
+        'source': {'connection_name': 'c1', 'table': 'x', 'watermark_columns': []},
+        'destination': {'connection_name': 'c1', 'table': 'y', 'load_type': 'append',
+                        'merge_keys': ['id']}}]
+}
+json.dump(data, open('lint_test.json','w'), indent=2)
+"
+& $py skills/datacoolie-metadata/scripts/lint.py lint_test.json
+# [WARN] dataflows[0].source: Incremental load_type 'append' but source has no watermark_columns.
+Remove-Item lint_test.json
+```
+
+### 2.9 Rule: inactive-connection
+
+```powershell
+& $py -c "
+import json
+data = {
+    'connections': [{'name': 'c1', 'format': 'csv', 'connection_type': 'file', 'is_active': False, 'configure': {'base_path': '/tmp'}}],
+    'dataflows': [{'name': 'df1',
+        'source': {'connection_name': 'c1', 'table': 'x'},
+        'destination': {'connection_name': 'c1', 'table': 'y', 'load_type': 'full_load'}}]
+}
+json.dump(data, open('lint_test.json','w'), indent=2)
+"
+& $py skills/datacoolie-metadata/scripts/lint.py lint_test.json
+# [WARN] dataflows[0].source.connection_name: References connection 'c1' which is marked is_active: false.
+Remove-Item lint_test.json
+```
+
+### 2.10 Rule: unique-dataflow-name
+
+```powershell
+& $py -c "
+import json
+data = {
+    'connections': [{'name': 'c1', 'format': 'csv', 'connection_type': 'file', 'configure': {'base_path': '/tmp'}}],
+    'dataflows': [
+        {'name': 'dup_name', 'source': {'connection_name': 'c1', 'table': 'x'}, 'destination': {'connection_name': 'c1', 'table': 'y', 'load_type': 'full_load'}},
+        {'name': 'dup_name', 'source': {'connection_name': 'c1', 'table': 'a'}, 'destination': {'connection_name': 'c1', 'table': 'b', 'load_type': 'full_load'}}
+    ]
+}
+json.dump(data, open('lint_test.json','w'), indent=2)
+"
+& $py skills/datacoolie-metadata/scripts/lint.py lint_test.json
+# [WARN] dataflows[1].name: Duplicate dataflow name 'dup_name' (first at index 0).
+Remove-Item lint_test.json
+```
+
+### 2.11 Rule: partition-large-tables (REMOVED)
+
+```powershell
+# This rule was removed — watermark_columns does NOT imply partition_columns needed.
+# Partition decisions depend on table size and partition granularity (not determinable from metadata).
+# No test case needed.
+```
+
+### 2.12 Rule: scd2-effective-column-required
+
+```powershell
+& $py -c "
+import json
+data = {
+    'connections': [{'name': 'c1', 'format': 'delta', 'connection_type': 'lakehouse', 'configure': {'base_path': '/tmp'}}],
+    'dataflows': [{'name': 'df1',
+        'source': {'connection_name': 'c1', 'table': 'x', 'watermark_columns': ['modified_at']},
+        'destination': {'connection_name': 'c1', 'table': 'y', 'load_type': 'scd2', 'merge_keys': ['id']}}]
+}
+json.dump(data, open('lint_test.json','w'), indent=2)
+"
+& $py skills/datacoolie-metadata/scripts/lint.py lint_test.json
+# [WARN] dataflows[0].destination.configure: load_type is 'scd2' but scd2_effective_column is not set.
+#        → Set destination.configure.scd2_effective_column to the column used as __valid_from (e.g. 'modified_at').
+Remove-Item lint_test.json
+```
+
+---
+
+## 3. convert.py
+
+### 3.1 JSON → YAML
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to yaml --output out.yaml
+# ✓ Converted local_use_cases.json → out.yaml (yaml)
+Remove-Item out.yaml
+```
+
+### 3.2 YAML → JSON
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to yaml --output tmp.yaml
+& $py skills/datacoolie-metadata/scripts/convert.py tmp.yaml --to json --output out.json
+& $py skills/datacoolie-metadata/scripts/validate.py out.json
+# ✓ out.json is valid (schema v0.1.0)
+Remove-Item tmp.yaml, out.json
+```
+
+### 3.3 JSON → Excel
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to excel --output out.xlsx
+# ✓ Converted local_use_cases.json → out.xlsx (excel)
+# Open out.xlsx: should have sheets 'connections', 'dataflows', 'schema_hints'
+# Columns: source_connection_name, destination_table, source_watermark_columns, etc.
+Remove-Item out.xlsx
+```
+
+### 3.4 Excel → JSON (round-trip)
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to excel --output rt.xlsx
+& $py skills/datacoolie-metadata/scripts/convert.py rt.xlsx --to json --output rt.json
+& $py skills/datacoolie-metadata/scripts/validate.py rt.json
+# ✓ rt.json is valid (schema v0.1.0)
+Remove-Item rt.xlsx, rt.json
+```
+
+### 3.5 Excel → YAML
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to excel --output rt.xlsx
+& $py skills/datacoolie-metadata/scripts/convert.py rt.xlsx --to yaml --output rt.yaml
+# ✓ Converted rt.xlsx → rt.yaml (yaml)
+Remove-Item rt.xlsx, rt.yaml
+```
+
+### 3.6 Note — $schema not preserved in Excel round-trip
+
+```powershell
+# Native xlsx format uses three data sheets (connections, dataflows, schema_hints).
+# Top-level scalar fields like $schema are NOT stored in Excel.
+# Add $schema back manually when converting xlsx → json/yaml, or carry it in the JSON source.
+@'
+import json
+d = json.load(open('usecase-sim/metadata/file/local_use_cases.json'))
+d['$schema'] = 'schemas/0.1.0/metadata.schema.json'
+json.dump(d, open('with_schema.json', 'w'), indent=2)
+'@ | Set-Content _tmp_test.py
+& $py _tmp_test.py
+& $py skills/datacoolie-metadata/scripts/convert.py with_schema.json --to excel --output rt.xlsx
+& $py skills/datacoolie-metadata/scripts/convert.py rt.xlsx --to json --output rt.json
+@'
+import json
+d = json.load(open('rt.json'))
+print('Has $schema:', '$schema' in d)
+'@ | Set-Content _tmp_test.py
+& $py _tmp_test.py
+# Has $schema: False  (expected — $schema is not stored in Excel native format)
+Remove-Item with_schema.json, rt.xlsx, rt.json, _tmp_test.py
+```
+
+### 3.7 Default output path (no --output)
+
+```powershell
+Copy-Item usecase-sim/metadata/file/local_use_cases.json ./local_copy.json
+& $py skills/datacoolie-metadata/scripts/convert.py local_copy.json --to yaml
+# Output: local_copy.yaml  (same name, new extension)
+Remove-Item local_copy.json, local_copy.yaml
+```
+
+### 3.8 Error — Excel input with --to excel
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to excel --output rt.xlsx
+& $py skills/datacoolie-metadata/scripts/convert.py rt.xlsx --to excel
+# ERROR: Input and output are both Excel. Use --to json or --to yaml.
+# Exit 2
+Remove-Item rt.xlsx
+```
+
+### 3.9 Error — same input and output path
+
+```powershell
+Copy-Item usecase-sim/metadata/file/local_use_cases.json ./same.json
+& $py skills/datacoolie-metadata/scripts/convert.py same.json --to json --output same.json
+# ERROR: Output path is same as input. Use --output to specify a different path.
+# Exit 2
+Remove-Item same.json
+```
+
+### 3.10 Error — file not found
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/convert.py missing.json --to yaml
+# ERROR: File not found: missing.json
+# Exit 2
+```
+
+---
+
+## 4. merge.py
+
+### Setup: create a base directory with split files
+
+```powershell
+New-Item -ItemType Directory -Force test_base\environments | Out-Null
+
+# connections.json
+& $py -c "
+import json
+data = [
+    {'name': 'src', 'format': 'csv', 'connection_type': 'file', 'configure': {'base_path': '/dev/input'}},
+    {'name': 'dst', 'format': 'delta', 'connection_type': 'lakehouse', 'configure': {'base_path': '/dev/output'}}
+]
+json.dump(data, open('test_base/connections.json','w'), indent=2)
+"
+
+# dataflows.json
+& $py -c "
+import json
+data = [
+    {'name': 'flow1', 'source': {'connection_name': 'src', 'table': 'raw'}, 'destination': {'connection_name': 'dst', 'table': 'bronze', 'load_type': 'full_load'}},
+    {'name': 'flow2', 'source': {'connection_name': 'src', 'table': 'raw2'}, 'destination': {'connection_name': 'dst', 'table': 'bronze2', 'load_type': 'full_load'}}
+]
+json.dump(data, open('test_base/dataflows.json','w'), indent=2)
+"
+
+# environments/prod.yaml
+@"
+connections:
+  - name: src
+    configure:
+      base_path: /prod/input
+  - name: dst
+    configure:
+      base_path: /prod/output
+dataflows:
+  - name: flow1
+    destination:
+      load_type: merge_upsert
+      merge_keys: [id]
+"@ | Set-Content test_base\environments\prod.yaml
+```
+
+### 4.1 Basic merge
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/merge.py --base test_base --env prod
+# ✓ Merged 2 connections + 2 dataflows → .datacoolie/generated/metadata.prod.json
+# Check: src.configure.base_path should be /prod/input
+& $py -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); print(next(c for c in d['connections'] if c['name']=='src')['configure']['base_path'])"
+# /prod/input
+```
+
+### 4.2 Custom output path
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/merge.py --base test_base --env prod --output merged_out.json
+# ✓ Merged 2 connections + 2 dataflows → merged_out.json
+& $py skills/datacoolie-metadata/scripts/validate.py merged_out.json
+# ✓ merged_out.json is valid (schema v0.1.0)
+Remove-Item merged_out.json
+```
+
+### 4.3 Base items not in overlay are preserved unchanged
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/merge.py --base test_base --env prod --output merged_out.json
+& $py -c "import json; d=json.load(open('merged_out.json')); print('flow2 present:', any(df['name']=='flow2' for df in d['dataflows']))"
+# flow2 present: True
+Remove-Item merged_out.json
+```
+
+### 4.4 Deep merge: nested field override
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/merge.py --base test_base --env prod --output merged_out.json
+& $py -c "import json; d=json.load(open('merged_out.json')); flow1=next(df for df in d['dataflows'] if df['name']=='flow1'); print('load_type:', flow1['destination']['load_type'])"
+# load_type: merge_upsert  (overridden from overlay)
+Remove-Item merged_out.json
+```
+
+### 4.5 Missing environment overlay (warning, not error)
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/merge.py --base test_base --env staging
+# WARNING: No environment overlay found for 'staging' in test_base\environments
+# ✓ Merged 2 connections + 2 dataflows → .datacoolie/generated/metadata.staging.json  (base only)
+```
+
+### 4.6 Error — base directory not found
+
+```powershell
+& $py skills/datacoolie-metadata/scripts/merge.py --base nonexistent --env prod
+# ERROR: Base directory not found: nonexistent
+# Exit 2
+```
+
+### 4.7 Error — missing connections file
+
+```powershell
+New-Item -ItemType Directory -Force test_empty | Out-Null
+& $py skills/datacoolie-metadata/scripts/merge.py --base test_empty --env prod
+# ERROR: No connections file found in test_empty
+# Exit 2
+Remove-Item -Recurse -Force test_empty
+```
+
+### Cleanup merge test fixtures
+
+```powershell
+Remove-Item -Recurse -Force test_base, .datacoolie
+```
+
+---
+
+## 5. Full pipeline (validate → lint → convert → merge)
+
+```powershell
+# 1. Validate
+& $py skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/local_use_cases.json
+# ✓ valid
+
+# 2. Lint in dev
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.json --engine polars --env dev
+
+# 3. Lint in prod (more warnings expected)
+& $py skills/datacoolie-metadata/scripts/lint.py usecase-sim/metadata/file/local_use_cases.json --engine spark --env prod
+
+# 4. Convert to YAML for editing
+& $py skills/datacoolie-metadata/scripts/convert.py usecase-sim/metadata/file/local_use_cases.json --to yaml --output edit_me.yaml
+# Edit edit_me.yaml if needed...
+
+# 5. Convert YAML back to JSON
+& $py skills/datacoolie-metadata/scripts/convert.py edit_me.yaml --to json --output reviewed.json
+
+# 6. Validate after round-trip
+& $py skills/datacoolie-metadata/scripts/validate.py reviewed.json
+# ✓ valid
+
+# 7. Export to Excel for non-technical review (native format: connections/dataflows/schema_hints sheets)
+& $py skills/datacoolie-metadata/scripts/convert.py reviewed.json --to excel --output review.xlsx
+# Send review.xlsx to stakeholders...
+
+# 8. Import stakeholder edits back
+& $py skills/datacoolie-metadata/scripts/convert.py review.xlsx --to json --output final.json
+& $py skills/datacoolie-metadata/scripts/validate.py final.json
+# ✓ final.json is valid
+
+# Cleanup
+Remove-Item edit_me.yaml, reviewed.json, review.xlsx, final.json
+```
+
+---
+
+## 6. CI unit tests
+
+```powershell
+cd d:\GitHub\datacoolie-arch-5\datacoolie
+& d:\GitHub\datacoolie-arch-5\.venv\Scripts\python.exe -m pytest tests/unit/test_schema_enums.py -v
+# 5 passed — verifies schema enums stay in sync with constants.py
+```
+
+---
+
+## Exit Code Reference
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success / valid / no warnings |
+| 1 | Validation errors or lint warnings found |
+| 2 | Input error (file not found, parse error, bad arguments) |
+
+## Environment Variables
+
+| Variable | Effect |
+|----------|--------|
+| `DATACOOLIE_SCHEMAS_DIR` | Override schema directory for all scripts |
+| `DATACOOLIE_SCHEMA_GITHUB_BASE` | Override GitHub URL for `--fetch-latest` |

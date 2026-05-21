@@ -44,7 +44,7 @@ class TestDatabaseReader:
         engine.set_max_values({"updated_at": "2024-06-15"})
         reader = DatabaseReader(engine)
         wm = {"updated_at": "2024-06-01"}
-        result = reader.read(db_source, watermark=wm)
+        result = reader.read(db_source, watermark_start=wm)
         assert result is not None
         # Table mode uses a query with WHERE clause instead of post-filter
         assert engine._last_query is not None
@@ -133,12 +133,12 @@ class TestEscapeValue:
 
 class TestBuildWhereClause:
     def test_single_column(self) -> None:
-        clause = DatabaseReader._build_where_clause({"updated_at": "2024-06-01"})
+        clause = DatabaseReader._build_window_where_clause({"updated_at": "2024-06-01"}, {})
         assert clause == "updated_at > '2024-06-01'"
 
     def test_multi_column_or(self) -> None:
-        clause = DatabaseReader._build_where_clause(
-            {"modified_at": "2024-01-01", "seq_id": 100}
+        clause = DatabaseReader._build_window_where_clause(
+            {"modified_at": "2024-01-01", "seq_id": 100}, {}
         )
         assert "modified_at > '2024-01-01'" in clause
         assert "seq_id > 100" in clause
@@ -146,11 +146,11 @@ class TestBuildWhereClause:
 
     def test_datetime_column(self) -> None:
         dt = datetime(2024, 6, 15, 10, 30, 0)
-        clause = DatabaseReader._build_where_clause({"ts": dt})
+        clause = DatabaseReader._build_window_where_clause({"ts": dt}, {})
         assert clause == "ts > '2024-06-15T10:30:00'"
 
     def test_empty_watermark(self) -> None:
-        clause = DatabaseReader._build_where_clause({})
+        clause = DatabaseReader._build_window_where_clause({}, {})
         assert clause == ""
 
 
@@ -169,7 +169,7 @@ class TestTableModeWatermark:
         )
         engine.set_max_values({"event_time": "2024-07-01", "seq_id": 200})
         reader = DatabaseReader(engine)
-        result = reader.read(src, watermark={"event_time": "2024-06-01", "seq_id": 100})
+        result = reader.read(src, watermark_start={"event_time": "2024-06-01", "seq_id": 100})
         assert result is not None
         assert engine._last_query is not None
         assert "event_time > '2024-06-01'" in engine._last_query
@@ -184,17 +184,17 @@ class TestTableModeWatermark:
         assert engine._last_query is None
 
     def test_table_first_run_no_watermark_uses_table(self, engine: MockEngine, db_source: Source) -> None:
-        """First run (watermark=None): reads table directly, no WHERE clause."""
+        """First run (watermark_start=None): reads table directly, no WHERE clause."""
         engine.set_max_values({"updated_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        reader.read(db_source, watermark=None)
+        reader.read(db_source, watermark_start=None)
         assert engine._last_table == "public.users"
         assert engine._last_query is None
 
 
 class TestQueryModeWatermark:
     def test_query_first_run_no_watermark(self, engine: MockEngine) -> None:
-        """First run (watermark=None): query runs as-is, no wrapping."""
+        """First run (watermark_start=None): query runs as-is, no wrapping."""
         conn = Connection(
             name="q_db", connection_type="database", format="sql",
             configure={"host": "h", "port": 1, "username": "u", "password": "p"},
@@ -207,7 +207,7 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark=None)
+        reader.read(src, watermark_start=None)
         assert engine._last_query == original_query
 
     def test_query_with_watermark_wraps_subquery(self, engine: MockEngine) -> None:
@@ -224,7 +224,7 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark={"modified_at": "2024-06-01"})
+        reader.read(src, watermark_start={"modified_at": "2024-06-01"})
         expected = f"SELECT * FROM ({original_query}) AS t1 WHERE modified_at > '2024-06-01'"
         assert engine._last_query == expected
 
@@ -240,7 +240,7 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"ts": "2024-07-01", "seq": 200})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark={"ts": "2024-06-01", "seq": 100})
+        reader.read(src, watermark_start={"ts": "2024-06-01", "seq": 100})
         assert engine._last_query is not None
         assert "AS t1 WHERE" in engine._last_query
         assert "ts > '2024-06-01'" in engine._last_query
@@ -261,7 +261,7 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark={"modified_at": None})
+        reader.read(src, watermark_start={"modified_at": None})
         assert engine._last_query == original_query
 
 
@@ -271,38 +271,38 @@ class TestQueryModeWatermark:
 
 
 class TestColumnNameValidation:
-    """Verify _build_where_clause rejects invalid column names."""
+    """Verify _build_window_where_clause rejects invalid column names."""
 
     def test_column_with_space_raises(self) -> None:
         with pytest.raises(SourceError, match="Invalid watermark column name"):
-            DatabaseReader._build_where_clause({"updated at": 1})
+            DatabaseReader._build_window_where_clause({"updated at": 1}, {})
 
     def test_column_with_semicolon_raises(self) -> None:
         with pytest.raises(SourceError, match="Invalid watermark column name"):
-            DatabaseReader._build_where_clause({"col; DROP TABLE x": 1})
+            DatabaseReader._build_window_where_clause({"col; DROP TABLE x": 1}, {})
 
     def test_column_with_single_quote_raises(self) -> None:
         with pytest.raises(SourceError, match="Invalid watermark column name"):
-            DatabaseReader._build_where_clause({"col'name": 1})
+            DatabaseReader._build_window_where_clause({"col'name": 1}, {})
 
     def test_column_with_parentheses_raises(self) -> None:
         with pytest.raises(SourceError, match="Invalid watermark column name"):
-            DatabaseReader._build_where_clause({"col()": 1})
+            DatabaseReader._build_window_where_clause({"col()": 1}, {})
 
     def test_column_with_dash_raises(self) -> None:
         with pytest.raises(SourceError, match="Invalid watermark column name"):
-            DatabaseReader._build_where_clause({"col-name": 1})
+            DatabaseReader._build_window_where_clause({"col-name": 1}, {})
 
     def test_valid_simple_column(self) -> None:
-        clause = DatabaseReader._build_where_clause({"updated_at": 1})
+        clause = DatabaseReader._build_window_where_clause({"updated_at": 1}, {})
         assert "updated_at > 1" == clause
 
     def test_valid_dotted_column(self) -> None:
-        clause = DatabaseReader._build_where_clause({"schema.col": 1})
+        clause = DatabaseReader._build_window_where_clause({"schema.col": 1}, {})
         assert "schema.col > 1" == clause
 
     def test_valid_underscore_prefix(self) -> None:
-        clause = DatabaseReader._build_where_clause({"_col": 1})
+        clause = DatabaseReader._build_window_where_clause({"_col": 1}, {})
         assert "_col > 1" == clause
 
 

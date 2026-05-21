@@ -73,13 +73,16 @@ _SPARK_IVY_DIR = str(pathlib.Path(__file__).resolve().parent / "spark-jars")
 
 # ---------------------------------------------------------------------------
 # MinIO defaults (docker-compose.yml)
+# DATACOOLIE_MINIO_ENDPOINT / DATACOOLIE_ICEBERG_URI env vars let the
+# dockerised Spark container redirect these to sibling service names
+# (e.g. http://minio:9000) instead of localhost.
 # ---------------------------------------------------------------------------
-MINIO_ENDPOINT = "http://localhost:9000"
+MINIO_ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
 MINIO_ACCESS_KEY = "minioadmin"
 MINIO_SECRET_KEY = "minioadmin"
 MINIO_REGION = "us-east-1"
 
-DEFAULT_LOCAL_ICEBERG_URI = "http://localhost:8181"
+DEFAULT_LOCAL_ICEBERG_URI = os.environ.get("DATACOOLIE_ICEBERG_URI", "http://localhost:8181")
 
 # ---------------------------------------------------------------------------
 # Local dev env defaults — values are set only when the variable is not
