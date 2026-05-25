@@ -24,7 +24,7 @@ All skill runners are pure Python — no PowerShell or shell scripts required.
 #    macOS/Linux: source .venv/bin/activate
 
 # 2. Navigate to tests folder
-cd datacoolie/skills/tests
+cd datacoolie/ai/skills/tests
 
 # 3. Start all services + seed databases
 python run_all.py
@@ -142,7 +142,7 @@ Pure-Python tests that require no running services. Run standalone:
 
 ```sh
 # From workspace root (d:\GitHub\datacoolie-arch-5)
-python -m pytest datacoolie/skills/tests/unit/ -v
+python -m pytest datacoolie/ai/skills/tests/unit/ -v
 ```
 
 `run_all.py` runs these automatically before the integration suite.

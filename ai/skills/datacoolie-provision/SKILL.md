@@ -40,7 +40,7 @@ code deployment (use `datacoolie-deploy`).
 
 ## Scripts
 
-All scripts at `skills/datacoolie-provision/scripts/`.
+All scripts at `ai/skills/datacoolie-provision/scripts/`.
 
 ### provision.py — Main orchestrator
 

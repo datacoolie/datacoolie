@@ -12,7 +12,7 @@ import pytest
 
 # Resolve paths relative to this test file
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SCHEMA_PATH = REPO_ROOT / "skills" / "datacoolie-metadata" / "schemas" / "0.1.0" / "metadata.schema.json"
+SCHEMA_PATH = REPO_ROOT / "ai" / "skills" / "datacoolie-metadata" / "schemas" / "0.1.0" / "metadata.schema.json"
 
 # Import constants from datacoolie
 sys.path.insert(0, str(REPO_ROOT / "src"))

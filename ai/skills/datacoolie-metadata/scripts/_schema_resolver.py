@@ -1,6 +1,6 @@
 """Schema directory resolution for datacoolie-metadata skill scripts.
 
-Single source of truth: ``skills/datacoolie-metadata/schemas/``.
+Single source of truth: ``ai/skills/datacoolie-metadata/schemas/``.
 The schema lives exclusively in the skill — not in the Python package.
 
 Resolution order (first match wins):
@@ -47,7 +47,7 @@ USER_CACHE_DIR = Path.home() / ".datacoolie" / "schemas"
 # ---------------------------------------------------------------------------
 
 _DEFAULT_GITHUB_BASE = (
-    "https://raw.githubusercontent.com/datacoolie/datacoolie/main/skills/datacoolie-metadata/schemas"
+    "https://raw.githubusercontent.com/datacoolie/datacoolie/main/ai/skills/datacoolie-metadata/schemas"
 )
 
 

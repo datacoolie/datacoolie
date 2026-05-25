@@ -5,7 +5,7 @@ Master test runner — orchestrates the full skills integration test cycle:
   3. Seed Iceberg via Trino (creates schemas + tables)
   4. Run per-skill test runners
 
-Usage (from datacoolie/skills/tests/):
+Usage (from datacoolie/ai/skills/tests/):
   python run_all.py               # run all skill tests
   python run_all.py discover      # run only discover tests
   python run_all.py --no-docker   # skip docker start (already running)

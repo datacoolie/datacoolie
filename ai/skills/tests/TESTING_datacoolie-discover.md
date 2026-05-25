@@ -1,6 +1,6 @@
 # datacoolie-discover — Testing Guide
 
-All commands run from `datacoolie/skills/tests/` with the venv activated.
+All commands run from `datacoolie/ai/skills/tests/` with the venv activated.
 
 ```
 # Activate venv first
@@ -20,7 +20,7 @@ python ../datacoolie-discover/scripts/introspect.py [args]
 
 1. Start the shared test environment:
    ```
-   cd datacoolie/skills/tests
+   cd datacoolie/ai/skills/tests
    docker compose up -d --wait
    python run_all.py --no-docker    # seed MSSQL + Iceberg, skip docker start
    # OR:
@@ -386,7 +386,7 @@ Assert-based tests for pure logic in the discover scripts:
 
 ```sh
 # From workspace root (d:\GitHub\datacoolie-arch-5)
-python -m pytest datacoolie/skills/tests/unit/ -v
+python -m pytest datacoolie/ai/skills/tests/unit/ -v
 ```
 
 89 tests, 4 modules, no services required:

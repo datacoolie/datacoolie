@@ -2,7 +2,7 @@
 datacoolie-discover — Integration test runner.
 Runs introspect.py against all test data sources and saves output to test-results/discover/.
 
-Usage (from datacoolie/skills/tests/):
+Usage (from datacoolie/ai/skills/tests/):
   python run_discover.py
   python run_discover.py postgres          # single source
   python run_discover.py postgres mysql    # subset

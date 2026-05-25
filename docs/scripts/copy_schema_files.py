@@ -1,7 +1,7 @@
-"""MkDocs hook: copy JSON Schema files from skills/ into docs/schema/ at build time.
+"""MkDocs hook: copy JSON Schema files from ai/skills/ into docs/schema/ at build time.
 
 Single source of truth lives in:
-  skills/datacoolie-metadata/schemas/<version>/metadata.schema.json
+  ai/skills/datacoolie-metadata/schemas/<version>/metadata.schema.json
 
 Published at:
   https://datacoolie.github.io/datacoolie/schema/<version>/metadata.schema.json
@@ -15,7 +15,7 @@ from pathlib import Path
 
 def on_pre_build(config) -> None:  # noqa: ANN001
     docs_dir = Path(config["docs_dir"])
-    skills_schemas = Path(__file__).resolve().parents[2] / "skills" / "datacoolie-metadata" / "schemas"
+    skills_schemas = Path(__file__).resolve().parents[2] / "ai" / "skills" / "datacoolie-metadata" / "schemas"
 
     for schema_file in skills_schemas.rglob("*.json"):
         # Preserve version folder: schemas/0.1.0/metadata.schema.json → docs/schema/0.1.0/metadata.schema.json

@@ -4,7 +4,7 @@
 
 Start the shared integration environment before running these tests:
 ```sh
-cd datacoolie/skills/tests
+cd datacoolie/ai/skills/tests
 docker compose up -d --wait
 python run_all.py --no-docker   # seed MSSQL + Iceberg
 ```
@@ -13,7 +13,7 @@ See [README.md](README.md) for full connection details.
 
 ---
 
-All commands run from `datacoolie/skills/tests/` with venv activated.
+All commands run from `datacoolie/ai/skills/tests/` with venv activated.
 
 ---
 

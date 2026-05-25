@@ -72,7 +72,7 @@ def main() -> None:
 
     # Platform-specific variables
     if args.platform == "aws":
-        variables["bucket"] = platform_config.get("bucket", "de-dev-0001")
+        variables["bucket"] = platform_config.get("bucket", "de-dev-0007")
         variables["region"] = platform_config.get("region", "ap-southeast-1")
     elif args.platform == "databricks":
         variables["host"] = platform_config.get("host", "")

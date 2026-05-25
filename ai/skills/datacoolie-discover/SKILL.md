@@ -120,7 +120,7 @@ AI asks questions organized by category. Skip questions already answered by auto
 
 ## Scripts
 
-All scripts at `skills/datacoolie-discover/scripts/`.
+All scripts at `ai/skills/datacoolie-discover/scripts/`.
 
 ### introspect.py — Source schema extraction
 

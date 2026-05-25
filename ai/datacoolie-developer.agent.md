@@ -166,16 +166,16 @@ If prerequisites missing:
 
 ## Skill Locations
 
-All skills are at `datacoolie/skills/<skill-name>/`:
+All skills are at `skills/<skill-name>/`:
 
 | Skill | Path | Has Scripts? |
 |---|---|---|
-| datacoolie-discover | `datacoolie/skills/datacoolie-discover/` | Yes (introspect.py) |
-| datacoolie-architect | `datacoolie/skills/datacoolie-architect/` | No (AI-native) |
-| datacoolie-init | `datacoolie/skills/datacoolie-init/` | Yes (scaffold.py, introspect.py) |
-| datacoolie-metadata | `datacoolie/skills/datacoolie-metadata/` | Yes (validate, lint, merge, convert) |
-| datacoolie-provision | `datacoolie/skills/datacoolie-provision/` | Yes (provision.py, providers/) |
-| datacoolie-deploy | `datacoolie/skills/datacoolie-deploy/` | Yes (preflight, apply, promote, etc.) |
+| datacoolie-discover | `skills/datacoolie-discover/` | Yes (introspect.py) |
+| datacoolie-architect | `skills/datacoolie-architect/` | No (AI-native) |
+| datacoolie-init | `skills/datacoolie-init/` | Yes (scaffold.py, introspect.py) |
+| datacoolie-metadata | `skills/datacoolie-metadata/` | Yes (validate, lint, merge, convert) |
+| datacoolie-provision | `skills/datacoolie-provision/` | Yes (provision.py, providers/) |
+| datacoolie-deploy | `skills/datacoolie-deploy/` | Yes (preflight, apply, promote, etc.) |
 
 ---
 

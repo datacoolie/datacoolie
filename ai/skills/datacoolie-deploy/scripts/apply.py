@@ -68,7 +68,7 @@ def apply_aws(env_name: str, config: dict, dry_run: bool, skip_upload: bool, run
         project_dir = Path.cwd()
     env_config = config.get("environments", {}).get(env_name, {})
     aws_config = env_config.get("aws", {})
-    bucket = aws_config.get("bucket", "de-dev-0001")
+    bucket = aws_config.get("bucket", "de-dev-0007")
     region = aws_config.get("region", "ap-southeast-1")
     role_arn = aws_config.get("role_arn", "")
     glue_version = aws_config.get("glue_version", "5.0")

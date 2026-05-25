@@ -75,7 +75,7 @@ def resolve_variables(platform: str, env_name: str, config: dict) -> dict:
         variables.update(
             {
                 "region": platform_config.get("region", "ap-southeast-1"),
-                "bucket": platform_config.get("bucket", "de-dev-0001"),
+                "bucket": platform_config.get("bucket", "de-dev-0007"),
                 "glue_version": platform_config.get("glue_version", "5.0"),
                 "worker_type": platform_config.get("worker_type", "G.1X"),
                 "number_of_workers": platform_config.get("number_of_workers", 4),

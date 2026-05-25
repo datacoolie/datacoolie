@@ -104,7 +104,7 @@ When user removes a connection or dataflow:
 
 ## Scripts
 
-All scripts at `skills/datacoolie-metadata/scripts/`.
+All scripts at `ai/skills/datacoolie-metadata/scripts/`.
 
 ### validate.py — Schema validation
 
@@ -172,8 +172,8 @@ python scripts/merge.py --base <dir> --env <name> [--output <path>]
 
 ## Schema Location
 
-- Single source of truth: `skills/datacoolie-metadata/schemas/{version}/metadata.schema.json`
-- Compatibility map: `skills/datacoolie-metadata/schemas/compatibility.json`
+- Single source of truth: `ai/skills/datacoolie-metadata/schemas/{version}/metadata.schema.json`
+- Compatibility map: `ai/skills/datacoolie-metadata/schemas/compatibility.json`
 - Latest: v0.1.0 (Draft 2020-12, conditional configure per connection_type)
 
 ## Schema Quick Reference (for AI metadata generation)
@@ -184,7 +184,7 @@ When generating metadata JSON/YAML, follow this structure exactly.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json",
+  "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/ai/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json",
   "connections": [ ... ],
   "dataflows": [ ... ],
   "schema_hints": [ ... ]
@@ -311,7 +311,7 @@ Required: `connection_name`, `table_name`, `hints`
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json",
+  "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/ai/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json",
   "connections": [
     { "name": "raw_csv", "connection_type": "file", "format": "csv" },
     { "name": "bronze_lake", "connection_type": "lakehouse", "format": "delta", "configure": { "base_path": "/mnt/lake/bronze" } }

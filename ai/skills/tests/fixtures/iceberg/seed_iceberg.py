@@ -3,7 +3,7 @@ Seed Iceberg tables via Trino after docker compose starts.
 Creates two schemas with sample tables + data for lakehouse discovery testing.
 
 Requirements: pip install trino
-Run from: datacoolie/skills/tests/
+Run from: datacoolie/ai/skills/tests/
 Usage:    python fixtures/iceberg/seed_iceberg.py
 """
 import sys

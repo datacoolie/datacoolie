@@ -36,7 +36,7 @@ Ask the user:
 
 The AI **must read the Schema Quick Reference** in `datacoolie-metadata` SKILL.md to know the exact structure. Key rules:
 - **Never guess table names or column names** — either run introspection scripts to discover them, or ask the user to provide the exact list
-- Top-level: `{ "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json", "connections": [...], "dataflows": [...] }`
+- Top-level: `{ "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/ai/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json", "connections": [...], "dataflows": [...] }`
 - Every dataflow `source.connection_name` must reference an existing connection `name`
 - Use `secrets_ref` for credentials — never hardcode
 - Add `watermark_columns` for incremental loads
@@ -90,7 +90,7 @@ Key rules when generating or explaining runner code:
 ### Cross-skill dependency
 
 This skill depends on `datacoolie-metadata` for:
-- Schema definition (single source of truth at `skills/datacoolie-metadata/schemas/`)
+- Schema definition (single source of truth at `ai/skills/datacoolie-metadata/schemas/`)
 - Validation (`validate.py`) and linting (`lint.py`) of generated output
 - Format conversion (`convert.py`) if user wants YAML or Excel
 
@@ -108,7 +108,7 @@ This skill depends on `datacoolie-metadata` for:
 
 ## Scripts
 
-All scripts in `scripts/` (run from this skill's folder: `datacoolie/skills/datacoolie-init/`).
+All scripts in `scripts/` (run from this skill's folder: `skills/datacoolie-init/`).
 
 ### scaffold.py — Project generation
 
