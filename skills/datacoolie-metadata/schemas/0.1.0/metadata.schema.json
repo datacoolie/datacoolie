@@ -180,11 +180,19 @@
                 "enum": ["postgresql", "mysql", "mssql", "oracle", "sqlite"],
                 "description": "Database dialect."
               },
+              "auth_type": {
+                "type": "string",
+                "enum": ["password", "service_principal", "managed_identity", "access_token"],
+                "default": "password",
+                "description": "Authentication method. For service_principal: username=client_id, password=client_secret."
+              },
               "host": { "type": "string", "description": "Database hostname." },
               "port": { "type": "integer", "description": "Database port." },
               "database": { "type": "string", "description": "Database name." },
-              "username": { "type": "string", "description": "Database username (or env var placeholder for secrets_ref)." },
-              "password": { "type": "string", "description": "Database password (or env var placeholder for secrets_ref)." },
+              "username": { "type": "string", "description": "Database username or SPN client_id (env var placeholder for secrets_ref)." },
+              "password": { "type": "string", "description": "Database password or SPN client_secret (env var placeholder for secrets_ref)." },
+              "tenant_id": { "type": "string", "description": "Azure AD tenant ID (required for service_principal auth)." },
+              "token": { "type": "string", "description": "Pre-fetched access token (required for access_token auth)." },
               "driver": { "type": "string", "description": "JDBC driver class name." },
               "url": { "type": "string", "description": "Explicit connection URL/string." },
               "encrypt": { "type": "string", "description": "Encryption option (MSSQL)." }

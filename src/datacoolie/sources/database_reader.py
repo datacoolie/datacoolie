@@ -10,7 +10,7 @@ import re
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from datacoolie.core.constants import DatabaseType
+from datacoolie.core.constants import DatabaseAuthType, DatabaseType
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models import Source
 from datacoolie.core.secret_provider import unwrap_secret
@@ -259,6 +259,13 @@ class DatabaseReader(BaseSourceReader[DF]):
         if conn.driver:
             opts["driver"] = conn.driver
 
+        # Database auth type — defaults to password for backward compat
+        opts["auth_type"] = conn.configure.get("auth_type", DatabaseAuthType.PASSWORD)
+        if conn.tenant_id:
+            opts["tenant_id"] = unwrap_secret(conn.tenant_id)
+        if conn.token:
+            opts["token"] = unwrap_secret(conn.token)
+
         # Explicit URL — resolve placeholders like {user}, {password}, etc.
         if conn.url:
             url = unwrap_secret(conn.url)
@@ -277,7 +284,10 @@ class DatabaseReader(BaseSourceReader[DF]):
 
         # Pass through any extra configure keys not explicitly handled above
         # (e.g. encrypt, trustServerCertificate for MSSQL).
-        _handled_keys = {"database_type", "host", "port", "database", "username", "password", "driver", "url"}
+        _handled_keys = {
+            "database_type", "host", "port", "database", "username", "password",
+            "driver", "url", "auth_type", "tenant_id", "token",
+        }
         for k, v in conn.configure.items():
             if k not in _handled_keys and k not in opts:
                 opts[k] = unwrap_secret(v)

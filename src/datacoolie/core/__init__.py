@@ -3,6 +3,7 @@
 from datacoolie.core.constants import (
     ConnectionType,
     DataFlowStatus,
+    DatabaseAuthType,
     ExecutionType,
     DatabaseType,
     Format,
@@ -46,6 +47,7 @@ __all__ = [
     "ConnectionType",
     "DataFlowStatus",
     "ExecutionType",
+    "DatabaseAuthType",
     "DatabaseType",
     "Format",
     "LoadType",

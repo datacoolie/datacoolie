@@ -45,6 +45,7 @@ _SINK_DELTA_AVAILABLE: bool = hasattr(pl.LazyFrame, "sink_delta")
 
 from datacoolie.core.constants import (
     DEFAULT_AUTHOR,
+    DatabaseAuthType,
     DatabaseType,
     FileInfoColumn,
     SCD2Column,
@@ -194,6 +195,10 @@ _DECIMAL_RE = re.compile(r"^(?:decimal|numeric|dec|number)\((\d+),\s*(\d+)\)$")
 # segments (e.g. "year=2026", "region=US-East") that are appended to a
 # path when writing date- or hive-partitioned data.
 _PARTITION_SEGMENT_RE: re.Pattern[str] = re.compile(r"^\d+$|^[^=]+=.+$")
+
+
+# Pattern for valid SQL table identifiers: word chars and dots (for schema.table).
+_SAFE_TABLE_RE: re.Pattern[str] = re.compile(r"^[\w]+(?:\.[\w]+)*$")
 
 
 class PolarsEngine(BaseEngine["pl.LazyFrame"]):
@@ -579,6 +584,17 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             frames.append(frame.with_columns(pl.lit(f).alias(path_col)))
         return pl.concat(frames).lazy()
 
+    # Keys consumed by the framework that must not leak to connectorx / pyodbc.
+    _FRAMEWORK_DB_KEYS: frozenset[str] = frozenset({
+        "database_type", "host", "port", "database", "user", "password",
+        "driver", "tenant_id", "token",
+    })
+
+    def _strip_framework_keys(self, opts: Dict[str, Any]) -> None:
+        """Remove framework and driver-specific keys from *opts* in-place."""
+        for key in self._FRAMEWORK_DB_KEYS | self.DRIVER_CONNECTION_KEYS:
+            opts.pop(key, None)
+
     def read_database(
         self,
         *,
@@ -588,15 +604,42 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> pl.LazyFrame:
         merged: Dict[str, Any] = dict(options or {})
         db_type = merged.get("database_type", "")
+        auth_type = merged.pop("auth_type", DatabaseAuthType.PASSWORD)
+
+        # Validate table name when used in SQL interpolation
+        if table and not query and not _SAFE_TABLE_RE.match(table):
+            raise EngineError(f"Invalid table name: {table!r}")
+
+        # SPN / MI auth is only supported for MSSQL (ODBC driver handles it)
+        if auth_type in (DatabaseAuthType.SERVICE_PRINCIPAL, DatabaseAuthType.MANAGED_IDENTITY):
+            if db_type not in (DatabaseType.MSSQL, "mssql"):
+                raise EngineError(
+                    f"PolarsEngine: {auth_type} auth is only supported for MSSQL, "
+                    f"got database_type={db_type!r}"
+                )
+            connection_uri, attrs_before = self._build_mssql_odbc_connection(auth_type, merged)
+            sql = query if query else f"SELECT * FROM {table}"
+            self._strip_framework_keys(merged)
+            return self._read_database_odbc(sql, connection_uri, attrs_before, **merged)
+
+        # Access-token MSSQL: route through pyodbc/ODBC path
+        if auth_type == DatabaseAuthType.ACCESS_TOKEN and db_type in (DatabaseType.MSSQL, "mssql"):
+            connection_uri, attrs_before = self._build_mssql_odbc_connection(auth_type, merged)
+            sql = query if query else f"SELECT * FROM {table}"
+            self._strip_framework_keys(merged)
+            return self._read_database_odbc(sql, connection_uri, attrs_before, **merged)
+
+        # Access-token non-MSSQL: inject token as password (AWS RDS IAM / GCP Cloud SQL IAM)
+        if auth_type == DatabaseAuthType.ACCESS_TOKEN:
+            token = merged.pop("token", "")
+            if token:
+                merged["password"] = token
+            merged.pop("tenant_id", None)
+
         connection_uri = merged.pop("url", None)
         if connection_uri is None:
             connection_uri = self._build_connection_string(merged)
-        # Clean up framework keys that Polars doesn't need
-        for key in ("database_type", "host", "port", "database", "user", "password", "driver"):
-            merged.pop(key, None)
-        # Remove driver-specific options not understood by connectorx
-        for key in self.DRIVER_CONNECTION_KEYS:
-            merged.pop(key, None)
+        self._strip_framework_keys(merged)
         sql = query if query else f"SELECT * FROM {table}"
 
         # Oracle: use oracledb thin mode (no Oracle Instant Client needed)
@@ -638,6 +681,86 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             return pl.read_database(sql, connection=conn, **kwargs).lazy()
         finally:
             conn.close()
+
+    @staticmethod
+    def _build_mssql_odbc_connection(
+        auth_type: str, opts: Dict[str, Any]
+    ) -> Tuple[str, Optional[bytes]]:
+        """Build MSSQL connection via pyodbc ODBC connection string for non-password auth.
+
+        Returns ``(odbc_connection_string, attrs_before_token_struct)``.
+        The token struct is only set for ``access_token`` auth; otherwise ``None``.
+        """
+        from urllib.parse import quote_plus
+
+        host = opts.get("host", "localhost")
+        port = opts.get("port", 1433)
+        database = opts.get("database", "")
+        driver = opts.get("driver", "ODBC Driver 18 for SQL Server")
+
+        if auth_type == DatabaseAuthType.SERVICE_PRINCIPAL:
+            conn_str = (
+                f"Driver={{{driver}}};Server={host},{port};Database={database};"
+                f"Authentication=ActiveDirectoryServicePrincipal;"
+                f"UID={opts.get('user', '')};PWD={opts.get('password', '')}"
+            )
+            return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}", None
+
+        elif auth_type == DatabaseAuthType.MANAGED_IDENTITY:
+            conn_str = (
+                f"Driver={{{driver}}};Server={host},{port};Database={database};"
+                f"Authentication=ActiveDirectoryMsi"
+            )
+            user = opts.get("user")
+            if user:  # user-assigned managed identity
+                conn_str += f";UID={user}"
+            return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}", None
+
+        elif auth_type == DatabaseAuthType.ACCESS_TOKEN:
+            import struct
+            token = opts.get("token", "")
+            token_bytes = token.encode("UTF-16-LE")
+            token_struct = struct.pack(
+                f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
+            )
+            conn_str = (
+                f"Driver={{{driver}}};Server={host},{port};Database={database}"
+            )
+            return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}", token_struct
+
+        raise EngineError(f"PolarsEngine: unsupported MSSQL auth_type {auth_type!r}")
+
+    @staticmethod
+    def _read_database_odbc(
+        sql: str,
+        connection_uri: str,
+        attrs_before: Optional[bytes] = None,
+        **kwargs: Any,
+    ) -> pl.LazyFrame:
+        """Read from a database via SQLAlchemy + pyodbc.
+
+        Used for MSSQL non-password auth where connectorx is not supported.
+        When *attrs_before* is provided (access_token auth), it is passed
+        as ``connect_args`` to ``sqlalchemy.create_engine``.
+        """
+        try:
+            from sqlalchemy import create_engine, text  # noqa: PLC0415
+        except ImportError as exc:
+            raise EngineError(
+                "sqlalchemy is required for non-password MSSQL auth — "
+                "pip install sqlalchemy"
+            ) from exc
+
+        SQL_COPT_SS_ACCESS_TOKEN = 1256  # noqa: N806
+        connect_args: Dict[str, Any] = {}
+        if attrs_before is not None:
+            connect_args["attrs_before"] = {SQL_COPT_SS_ACCESS_TOKEN: attrs_before}
+
+        engine = create_engine(connection_uri, connect_args=connect_args)
+        try:
+            return pl.read_database(sql, connection=engine, **kwargs).lazy()
+        finally:
+            engine.dispose()
 
     # ------------------------------------------------------------------
     # Connection string helpers

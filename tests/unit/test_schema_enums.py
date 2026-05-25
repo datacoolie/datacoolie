@@ -18,6 +18,7 @@ SCHEMA_PATH = REPO_ROOT / "skills" / "datacoolie-metadata" / "schemas" / "0.1.0"
 sys.path.insert(0, str(REPO_ROOT / "src"))
 from datacoolie.core.constants import (
     ConnectionType,
+    DatabaseAuthType,
     Format,
     LoadType,
     ProcessingMode,
@@ -76,4 +77,20 @@ class TestSchemaEnumsMatchConstants:
         assert db_enum is not None, "Could not find database_type enum in schema"
         schema_values = set(db_enum)
         code_values = {e.value for e in DatabaseType}
+        assert schema_values == code_values, f"Mismatch: schema={schema_values - code_values}, code={code_values - schema_values}"
+
+    def test_database_auth_type(self, schema):
+        defs = schema.get("$defs", {})
+        db_config = defs.get("ConnectionConfigureDatabase", {})
+        auth_enum = (
+            db_config.get("then", {})
+            .get("properties", {})
+            .get("configure", {})
+            .get("properties", {})
+            .get("auth_type", {})
+            .get("enum")
+        )
+        assert auth_enum is not None, "Could not find auth_type enum in schema"
+        schema_values = set(auth_enum)
+        code_values = {e.value for e in DatabaseAuthType}
         assert schema_values == code_values, f"Mismatch: schema={schema_values - code_values}, code={code_values - schema_values}"

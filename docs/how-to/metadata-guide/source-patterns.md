@@ -271,6 +271,88 @@ You can connect with either of these shapes:
 Set `DC_POSTGRES_URL=postgresql+psycopg2://realuser:realpass@host:5432/mydb`
 in your environment. DataCoolie replaces `configure.url` at runtime.
 
+### Database authentication types
+
+By default, database connections use **username/password** auth. The optional
+`auth_type` field enables alternative authentication methods:
+
+| `auth_type` | Required fields | Use case |
+|-------------|-----------------|----------|
+| `password` (default) | `username`, `password` | All databases — standard SQL auth |
+| `service_principal` | `username` (= client ID), `password` (= client secret), `tenant_id` | Azure SQL, Fabric SQL via Azure AD/Entra |
+| `managed_identity` | none (or `username` = client ID for user-assigned MI) | Azure-hosted runtimes (AKS, App Service, Fabric) |
+| `access_token` | `token` (+ optional `username` for non-MSSQL) | Pre-fetched token from any provider (Azure, AWS IAM, GCP) |
+
+**Service principal example (Azure SQL):**
+
+```json
+{
+  "name":            "azure_sql_spn",
+  "connection_type": "database",
+  "format":          "sql",
+  "configure": {
+    "database_type": "mssql",
+    "auth_type":     "service_principal",
+    "host":          "myserver.database.windows.net",
+    "port":          1433,
+    "database":      "mydb",
+    "username":      "AZURE_CLIENT_ID",
+    "password":      "AZURE_CLIENT_SECRET",
+    "tenant_id":     "AZURE_TENANT_ID"
+  },
+  "secrets_ref": { "env": ["username", "password", "tenant_id"] }
+}
+```
+
+**Managed identity example (zero-credential, Fabric):**
+
+```json
+{
+  "name":            "fabric_sql_mi",
+  "connection_type": "database",
+  "format":          "sql",
+  "configure": {
+    "database_type": "mssql",
+    "auth_type":     "managed_identity",
+    "host":          "xyz.datawarehouse.fabric.microsoft.com",
+    "port":          1433,
+    "database":      "mydb"
+  }
+}
+```
+
+**Pre-fetched access token example (AWS RDS IAM):**
+
+```json
+{
+  "name":            "rds_postgres_iam",
+  "connection_type": "database",
+  "format":          "sql",
+  "configure": {
+    "database_type": "postgresql",
+    "auth_type":     "access_token",
+    "host":          "mydb.xxx.us-east-1.rds.amazonaws.com",
+    "port":          5432,
+    "database":      "analytics",
+    "username":      "iam_db_user",
+    "token":         "RDS_IAM_TOKEN"
+  },
+  "secrets_ref": { "env": ["token"] }
+}
+```
+
+!!! info "Fabric SQL endpoint"
+    Fabric SQL endpoints (`*.datawarehouse.fabric.microsoft.com`) only accept
+    Entra ID auth. DataCoolie rejects `auth_type: "password"` for these hosts
+    at validation time.
+
+!!! info "Engine notes"
+    **Spark (JDBC):** SPN/MI auth uses native MSSQL JDBC driver properties —
+    no extra Python packages needed.
+    **Polars:** Non-password MSSQL auth routes through `pyodbc` + ODBC Driver
+    18 instead of connectorx. Other databases use token-as-password via
+    connectorx.
+
 **Dataflow source block:**
 
 ```json

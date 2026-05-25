@@ -18,6 +18,7 @@ from pyspark.sql import types as T
 
 from datacoolie.core.constants import (
     DEFAULT_AUTHOR,
+    DatabaseAuthType,
     DatabaseType,
     FileInfoColumn,
     SCD2Column,
@@ -386,12 +387,18 @@ class SparkEngine(BaseEngine[DataFrame]):
         dbtable = f"({query.strip()}) q" if query else table
         merged["dbtable"] = dbtable
 
+        # Extract auth properties before URL building (may consume user/password)
+        auth_props = self._build_jdbc_auth_properties(merged)
+
         # Build JDBC URL if not explicitly provided
         if "url" not in merged:
             merged["url"] = self._build_jdbc_url(merged)
         # Clean up framework keys that Spark JDBC doesn't understand
         for key in ("database_type", "host", "port", "database"):
             merged.pop(key, None)
+
+        # Apply auth properties after URL building
+        merged.update(auth_props)
 
         reader = self._apply_options(self._spark.read.format("jdbc"), merged)
         return reader.load()
@@ -408,6 +415,49 @@ class SparkEngine(BaseEngine[DataFrame]):
         DatabaseType.ORACLE: "oracle.jdbc.OracleDriver",
         DatabaseType.SQLITE: "org.sqlite.JDBC",
     }
+
+    @staticmethod
+    def _build_jdbc_auth_properties(opts: Dict[str, Any]) -> Dict[str, Any]:
+        """Map ``auth_type`` to JDBC connection properties.
+
+        Consumes ``auth_type``, ``tenant_id``, and ``token`` from *opts*.
+        For ``service_principal`` and ``managed_identity``, also consumes
+        ``user``/``password`` since the JDBC driver uses dedicated
+        principal properties instead.
+
+        Returns a dict of JDBC auth properties to merge into the reader.
+        """
+        auth_type = opts.pop("auth_type", DatabaseAuthType.PASSWORD)
+        db_type = opts.get("database_type", "")
+        props: Dict[str, Any] = {}
+
+        if auth_type == DatabaseAuthType.SERVICE_PRINCIPAL:
+            props["authentication"] = "ActiveDirectoryServicePrincipal"
+            props["AADSecurePrincipalId"] = opts.pop("user", "")
+            props["AADSecurePrincipalSecret"] = opts.pop("password", "")
+            opts.pop("tenant_id", None)
+
+        elif auth_type == DatabaseAuthType.MANAGED_IDENTITY:
+            props["authentication"] = "ActiveDirectoryMSI"
+            msi_client = opts.pop("user", None)
+            if msi_client:
+                props["msiClientId"] = msi_client
+            opts.pop("password", None)
+            opts.pop("tenant_id", None)
+
+        elif auth_type == DatabaseAuthType.ACCESS_TOKEN:
+            token = opts.pop("token", "")
+            if db_type in (DatabaseType.MSSQL, "mssql"):
+                props["accessToken"] = token
+            else:
+                # PG/MySQL/Oracle: token used as password
+                opts["password"] = token
+            opts.pop("tenant_id", None)
+
+        # PASSWORD: no extra props — existing user/password flow
+        opts.pop("token", None)
+        opts.pop("tenant_id", None)
+        return props
 
     @staticmethod
     def _build_jdbc_url(opts: Dict[str, Any]) -> str:

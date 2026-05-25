@@ -212,7 +212,7 @@ At least one of `connections` or `dataflows` is required. `schema_hints` is opti
 **Connection configure — by connection_type:**
 - **file**: `base_path` (string), `use_hive_partitioning` (boolean, default false), `date_folder_partitions` (string, e.g. `{year}/{month}/{day}`), backward fields above
 - **lakehouse**: `base_path` (string), `catalog`, `database` (override top-level), `athena_output_location`, `generate_manifest` (boolean, default false), `register_symlink_table` (boolean), `symlink_database_prefix` (string, default `symlink_`)
-- **database**: `database_type` (postgresql\|mysql\|mssql\|oracle\|sqlite), `host`, `port` (int), `database`, `username`, `password`, `driver`, `url`, `encrypt`
+- **database**: `database_type` (postgresql\|mysql\|mssql\|oracle\|sqlite), `auth_type` (password\|service_principal\|managed_identity\|access_token — default `password`), `host`, `port` (int), `database`, `username` (or SPN client_id), `password` (or SPN client_secret), `tenant_id` (Azure AD tenant — SPN only), `token` (pre-fetched token — access_token only), `driver`, `url`, `encrypt`
 - **api**: `base_url`, `timeout` (number), `auth_type` (bearer\|api_key\|basic\|oauth2_client_credentials\|aws_sigv4), `auth_token`, `api_key_header`, `api_key_value`, `username`, `password` (basic auth), `default_headers` (object), `watermark_to_param_timezone` (IANA or ±HH:MM); OAuth2: `token_url`, `client_id`, `client_secret`, `token_auth_method`, `scope`, `token_request_body_format` (form\|json), `token_request_extras`; AWS SigV4: `aws_region`, `aws_service`, `aws_access_key_id`, `aws_secret_access_key`, `aws_session_token`
 
 ### DataFlow object
@@ -380,6 +380,23 @@ Required: `connection_name`, `table_name`, `hints`
 #### Python function source
 
 - **Custom loader**: set `connection.connection_type: "function"` + `source.python_function: "functions.sources.load_orders_custom"` — function returns a DataFrame; `source.table` is passed as argument when provided
+
+#### Database authentication
+
+| `auth_type` | Required fields | Use case |
+|-------------|-----------------|----------|
+| `password` (default) | `username`, `password` | All databases — standard SQL auth |
+| `service_principal` | `username` (= client_id), `password` (= client_secret), `tenant_id` | Azure SQL, Fabric SQL via Entra ID |
+| `managed_identity` | none (or `username` = client_id for user-assigned MI) | Azure-hosted runtimes (AKS, Fabric, App Service) |
+| `access_token` | `token` (+ optional `username` for non-MSSQL) | Pre-fetched bearer token (Azure, AWS RDS IAM, GCP Cloud SQL IAM) |
+
+- **Service principal**: `auth_type: "service_principal"` + `username: "AZURE_CLIENT_ID"` + `password: "AZURE_CLIENT_SECRET"` + `tenant_id: "AZURE_TENANT_ID"` — `secrets_ref` all three via env
+- **Managed identity (system-assigned)**: `auth_type: "managed_identity"` only — no credentials needed
+- **Managed identity (user-assigned)**: add `username: "msi-client-id"` to identify the specific MI
+- **Access token (Azure SQL)**: `auth_type: "access_token"` + `token: "AZURE_SQL_TOKEN"` via `secrets_ref` — token injected into JDBC `accessToken` property (MSSQL) or as password (PG/MySQL)
+- **Access token (AWS RDS IAM / GCP Cloud SQL IAM)**: same pattern — set `username` to the IAM DB user + `token` to the short-lived token generated externally
+- **Fabric SQL endpoint**: host `*.datawarehouse.fabric.microsoft.com` — `auth_type: "password"` is rejected at validation time; must use `service_principal`, `managed_identity`, or `access_token`
+- **Backward compat**: omitting `auth_type` is identical to `auth_type: "password"` — all existing configs work unchanged
 
 #### API connections
 

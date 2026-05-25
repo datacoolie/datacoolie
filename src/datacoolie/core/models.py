@@ -29,6 +29,7 @@ from datacoolie.core.constants import (
     DEFAULT_RETRY_DELAY,
     DEFAULT_RETENTION_HOURS,
     DataFlowStatus,
+    DatabaseAuthType,
     Format,
     ConnectionType,
     LoadType,
@@ -394,6 +395,52 @@ class Connection(CompatModel):
 
         return self
 
+    def _validate_database_auth(self) -> "Connection":
+        """Validate database auth_type requirements.
+
+        * ``service_principal`` requires ``username``, ``password``, ``tenant_id``.
+        * ``access_token`` requires ``token``.
+        * Fabric SQL endpoint host rejects ``password`` auth_type.
+        """
+        if self.connection_type != ConnectionType.DATABASE.value:
+            return self
+        auth = self.configure.get("auth_type")
+        if not auth:
+            return self  # no auth_type = implicit password (backward compat)
+
+        if auth == DatabaseAuthType.SERVICE_PRINCIPAL:
+            missing = [
+                f for f in ("username", "password", "tenant_id")
+                if not self.configure.get(f)
+            ]
+            if missing:
+                raise ConfigurationError(
+                    f"auth_type 'service_principal' requires configure fields: "
+                    f"{', '.join(missing)} on connection '{self.name}'"
+                )
+
+        elif auth == DatabaseAuthType.ACCESS_TOKEN:
+            if not self.configure.get("token"):
+                raise ConfigurationError(
+                    f"auth_type 'access_token' requires 'token' in configure "
+                    f"on connection '{self.name}'"
+                )
+
+        # Fabric SQL endpoint only supports Entra ID auth
+        host = self.configure.get("host", "")
+        if (
+            host
+            and ".fabric.microsoft.com" in host
+            and auth == DatabaseAuthType.PASSWORD
+        ):
+            raise ConfigurationError(
+                f"Fabric SQL endpoint ({host}) does not support password auth. "
+                f"Use auth_type 'service_principal', 'managed_identity', or "
+                f"'access_token' on connection '{self.name}'"
+            )
+
+        return self
+
     @classmethod
     def _parse_secrets_ref(cls, v: Any) -> Optional[Dict[str, List[str]]]:
         if v is None or (isinstance(v, str) and not v.strip()):
@@ -443,6 +490,7 @@ class Connection(CompatModel):
         self.secrets_ref = self._parse_secrets_ref(self.secrets_ref)
         self.configure = self._parse_json_field(self.configure)
         self._validate_connection_type_format()
+        self._validate_database_auth()
         self._populate_database_from_configure()
 
     def refresh_from_configure(self) -> None:
@@ -490,6 +538,21 @@ class Connection(CompatModel):
     def database_type(self) -> Optional[str]:
         """Database type (mysql, mssql, postgresql, oracle, sqlite)."""
         return self.configure.get("database_type")
+
+    @property
+    def auth_type(self) -> Optional[str]:
+        """Database authentication type (password, service_principal, managed_identity, access_token)."""
+        return self.configure.get("auth_type")
+
+    @property
+    def tenant_id(self) -> Optional[str]:
+        """Azure AD tenant ID for service_principal auth."""
+        return self.configure.get("tenant_id")
+
+    @property
+    def token(self) -> Optional[str]:
+        """Pre-fetched access token for access_token auth."""
+        return self.configure.get("token")
 
     @property
     def url(self) -> Optional[str]:

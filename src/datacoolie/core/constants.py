@@ -121,6 +121,15 @@ class DatabaseType(str, Enum):
     SQLITE = "sqlite"
 
 
+class DatabaseAuthType(str, Enum):
+    """Supported authentication types for database connections."""
+
+    PASSWORD = "password"
+    SERVICE_PRINCIPAL = "service_principal"
+    MANAGED_IDENTITY = "managed_identity"
+    ACCESS_TOKEN = "access_token"
+
+
 class MaintenanceType(str, Enum):
     """Maintenance operation types."""
 
