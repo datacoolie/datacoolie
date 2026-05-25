@@ -1,0 +1,116 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Paginated API",
+    "description": "Test fixture with multiple pagination styles: cursor, next_link, offset.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/items/cursor": {
+      "get": {
+        "summary": "List items (cursor pagination)",
+        "operationId": "listItemsCursor",
+        "parameters": [
+          {"name": "cursor", "in": "query", "schema": {"type": "string"}, "description": "Cursor token"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+                    "next_cursor": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/offset": {
+      "get": {
+        "summary": "List items (offset pagination)",
+        "operationId": "listItemsOffset",
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+          {"name": "per_page", "in": "query", "schema": {"type": "integer", "default": 25}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+                    "total": {"type": "integer"},
+                    "page": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/nextlink": {
+      "get": {
+        "summary": "List items (next_link pagination)",
+        "operationId": "listItemsNextLink",
+        "parameters": [
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list with next link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "value": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+                    "next": {"type": "string", "format": "uri"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}": {
+      "get": {
+        "summary": "Get single item",
+        "operationId": "getItem",
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Single item",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}}
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "name": {"type": "string"},
+          "status": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}

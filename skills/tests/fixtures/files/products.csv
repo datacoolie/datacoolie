@@ -1,0 +1,13 @@
+product_id,product_name,category,unit_price,stock_qty,supplier_id,last_restocked
+1,Laptop Pro 15,Electronics,999.00,45,101,2024-03-01
+2,Wireless Earbuds,Electronics,99.99,200,101,2024-02-15
+3,USB-C Hub,Electronics,49.99,320,102,2024-01-10
+4,Running Shoes,Apparel,79.50,88,103,2024-02-28
+5,Winter Jacket,Apparel,149.99,34,103,2024-01-20
+6,Yoga Mat,Sports,35.00,150,104,2024-03-05
+7,Protein Bars (12-pack),Food,24.99,600,105,2024-03-10
+8,Green Tea (50-bag),Food,12.50,400,105,2024-02-20
+9,Standing Desk,Furniture,399.00,12,106,2024-01-15
+10,Ergonomic Chair,Furniture,299.00,8,106,2024-01-15
+11,Notebook A5,Stationery,4.99,1200,107,2024-03-08
+12,Ballpoint Pen (10-pack),Stationery,7.99,900,107,2024-02-25

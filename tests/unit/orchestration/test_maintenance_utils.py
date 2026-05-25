@@ -16,7 +16,7 @@ from datacoolie.core.models import (
     Source,
 )
 from datacoolie.orchestration.driver import DataCoolieDriver
-from datacoolie.orchestration.maintenance_utils import dedupe_by_destination
+from datacoolie.orchestration.utils import dedupe_by_destination
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ class TestMaintenanceDedup:
 
         class _NoIdentity:
             @property
-            def maintenance_key(self):
+            def destination_key(self):
                 raise ConfigurationError("no identity")
 
         bad.destination = _NoIdentity()  # type: ignore[assignment]

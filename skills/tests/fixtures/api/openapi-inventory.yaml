@@ -1,0 +1,91 @@
+openapi: "3.0.3"
+info:
+  title: Inventory API
+  version: "1.0.0"
+paths:
+  /items:
+    get:
+      summary: List inventory items
+      operationId: listItems
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Item"
+    post:
+      summary: Create an item
+      operationId: createItem
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Item"
+      responses:
+        "201":
+          description: Created
+  /items/{itemId}:
+    get:
+      summary: Get item by ID
+      operationId: getItem
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: An item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+    put:
+      summary: Update item
+      operationId: updateItem
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Delete item
+      operationId: deleteItem
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+components:
+  schemas:
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+          format: double

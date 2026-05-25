@@ -716,3 +716,18 @@ class TestChunkBoundariesErrors:
             generate_chunk_boundaries(
                 start=[1, 2, 3], end="2025-02-01", interval={"days": 1}
             )
+
+
+class TestDatetimeUtilsUncovered:
+    def test_floor_boundary_fallback_returns_dt(self):
+        from datacoolie.utils.datetime_utils import _floor_boundary
+        from datetime import datetime
+        dt = datetime(2024, 6, 15, 12, 30)
+        result = _floor_boundary(dt, {"seconds": 30})
+        assert result == dt
+
+    def test_generate_chunk_boundaries_int_single_chunk(self):
+        from datacoolie.utils.datetime_utils import generate_chunk_boundaries
+        # start=50, end=80, step=100 => entire range in one step
+        chunks = generate_chunk_boundaries(start=50, end=80, interval={"step": 100})
+        assert chunks == [(50, 80)]

@@ -138,7 +138,99 @@ def check_functions(project_dir: Path) -> tuple[bool, str]:
     return False, "functions/ exists but has no pyproject.toml or __init__.py"
 
 
-def run_preflight(platform: str, project_dir: Path, skip_auth: bool = False) -> bool:
+def check_secrets_resolution(project_dir: Path, env_name: str) -> tuple[bool, str]:
+    """Check all secrets_ref keys in metadata resolve to real environment variables.
+
+    Scans metadata/ for any field named secrets_ref and verifies the referenced
+    env var is present in the current process environment.
+    """
+    import json
+    import os
+    import re
+
+    metadata_dir = project_dir / "metadata"
+    if not metadata_dir.is_dir():
+        return True, "No metadata/ (skip)"
+
+    missing: list[str] = []
+    found_refs: list[str] = []
+
+    def _scan(obj: object) -> None:
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if key == "secrets_ref" and isinstance(value, str):
+                    found_refs.append(value)
+                    if not os.environ.get(value):
+                        missing.append(value)
+                else:
+                    _scan(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                _scan(item)
+
+    for meta_file in list(metadata_dir.rglob("*.json")) + list(metadata_dir.rglob("*.yaml")) + list(metadata_dir.rglob("*.yml")):
+        try:
+            text = meta_file.read_text(encoding="utf-8")
+            if "secrets_ref" not in text:
+                continue
+            if meta_file.suffix == ".json":
+                data = json.loads(text)
+            else:
+                import yaml
+                data = yaml.safe_load(text) or {}
+            _scan(data)
+        except Exception:
+            continue
+
+    if not found_refs:
+        return True, "No secrets_ref keys found (skip)"
+    if missing:
+        return False, f"{len(missing)} unresolved secret(s): {', '.join(missing)}"
+    return True, f"All {len(found_refs)} secret(s) resolved"
+
+
+def check_infra_exists(platform: str, project_dir: Path, env_name: str) -> tuple[bool, str]:
+    """Check that target infrastructure resources exist on the platform.
+
+    Reads .datacoolie/provision/latest_provision-log.md or falls back to
+    architecture.md to determine expected resources, then spot-checks
+    a representative resource per platform.
+    """
+    # Local: infra is always filesystem, nothing to check
+    if platform == "local":
+        return True, "skip (local)"
+
+    # Look for a provision log that confirms infra was provisioned
+    provision_dir = project_dir / ".datacoolie" / "provision"
+    if provision_dir.is_dir():
+        logs = sorted(provision_dir.glob("*_provision-log.md"), reverse=True)
+        if logs:
+            content = logs[0].read_text(encoding="utf-8")
+            # A log with failures or no 'created' entries is a warning
+            created = content.count("| created |")
+            failed = content.count("| failed |")
+            if created > 0 and failed == 0:
+                return True, f"Provision log found ({created} resource(s) created)"
+            if failed > 0:
+                return False, f"Provision log shows {failed} failed resource(s) — run datacoolie-provision"
+
+    # No provision log — check platform directly via lightweight CLI probe
+    probe_map = {
+        "aws": ["aws", "sts", "get-caller-identity"],
+        "fabric": ["fab", "workspace", "list"],
+        "databricks": ["databricks", "unity-catalog", "list-catalogs"],
+    }
+    probe = probe_map.get(platform)
+    if not probe:
+        return True, "skip (unknown platform)"
+
+    code, _ = _run(probe)
+    if code == 0:
+        return True, "Platform reachable (provision log not found — run datacoolie-provision to confirm)"
+    return False, "Cannot reach platform — run datacoolie-provision first"
+
+
+def run_preflight(platform: str, project_dir: Path, skip_auth: bool = False, env_name: str = "dev") -> bool:
     """Run all preflight checks, print results, return True if all pass."""
     checks: list[tuple[str, tuple[bool, str]]] = []
 
@@ -152,6 +244,8 @@ def run_preflight(platform: str, project_dir: Path, skip_auth: bool = False) -> 
     checks.append(("datacoolie installed", check_datacoolie()))
     checks.append(("Metadata found", check_metadata(project_dir)))
     checks.append(("Functions packageable", check_functions(project_dir)))
+    checks.append(("Secrets resolution", check_secrets_resolution(project_dir, env_name)))
+    checks.append(("Infrastructure exists", check_infra_exists(platform, project_dir, env_name)))
 
     all_pass = True
     for label, (ok, detail) in checks:
@@ -182,12 +276,17 @@ def main() -> None:
         action="store_true",
         help="Skip authentication check (useful in CI lint-only mode)",
     )
+    parser.add_argument(
+        "--env",
+        default="dev",
+        help="Target environment name for secrets/infra checks (default: dev)",
+    )
     args = parser.parse_args()
 
-    print(f"\nDataCoolie Deploy — Preflight ({args.platform})")
+    print(f"\nDataCoolie Deploy \u2014 Preflight ({args.platform}, env={args.env})")
     print("-" * 50)
 
-    passed = run_preflight(args.platform, args.project_dir, args.skip_auth)
+    passed = run_preflight(args.platform, args.project_dir, args.skip_auth, args.env)
 
     print("-" * 50)
     if passed:

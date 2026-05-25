@@ -30,13 +30,15 @@ for the generated table):
 `BaseSourceReader[DF]` declares:
 
 - `__init__(engine)` — the reader is constructed with an engine
-- `read(source, watermark, *, watermark_operator=">") -> DF` — public entry point (Template Method)
-- Subclasses implement `_read_internal(source, watermark)` and optionally `_read_data(source, configure)`
+- `read(source, watermark_start, *, watermark_start_operator=">", watermark_end=None, watermark_end_operator="<") -> DF` — public entry point (Template Method)
+- Subclasses implement `_read_internal(source, watermark_start, *, watermark_end=None)` and optionally `_read_data(source, configure)`
 - Must honour `source.read_options` and `source.connection.read_options`
 
-The `watermark_operator` parameter controls the comparison used for the
-incremental filter (`">"` for normal ETL, `">=" ` for replay's inclusive
-lower bound).
+`watermark_start` is the lower bound (previously named `watermark`).
+`watermark_start_operator` controls the comparison (`">"` for normal ETL,
+`">="` for replay's inclusive lower bound).  `watermark_end` provides an
+optional upper ceiling for replay chunks; `watermark_end_operator` defaults
+to `"<"` (exclusive).
 
 The source reader is also responsible for **watermark push-down** — applying
 the watermark predicate *during* the read when the backend supports it (e.g.

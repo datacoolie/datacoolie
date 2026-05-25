@@ -71,7 +71,7 @@ class TestLogRecord:
             line_no=42,
         )
         formatted = rec.format(include_location=True)
-        assert "[mymod.myfn:42]" in formatted
+        assert "[myfn:42]" in formatted
 
     def test_format_with_location_partial(self):
         rec = LogRecord(
@@ -82,7 +82,8 @@ class TestLogRecord:
             module="mymod",
         )
         formatted = rec.format(include_location=True)
-        assert "[mymod]" in formatted
+        assert "msg" in formatted  # no func_name so no location bracket
+        assert "[" not in formatted.split(" - ")[-1]  # no location bracket appended
 
     def test_format_with_exc_info(self):
         rec = LogRecord(
@@ -831,3 +832,63 @@ class TestLogManagerContextFilter:
 
         assert any("[df-fmt-test]" in line for line in formatted_lines)
 
+
+
+class TestLogRecordDataflowId:
+    """Cover line 144: dataflow_id inclusion in LogRecord.to_dict()."""
+
+    def test_to_dict_includes_dataflow_id_when_set(self) -> None:
+        """Line 144: dataflow_id present when non-empty."""
+        from datacoolie.logging.base import LogRecord
+        import datetime
+        rec = LogRecord(
+            level='INFO',
+            message='test msg',
+            dataflow_id='df-123',
+            timestamp=datetime.datetime.now(datetime.timezone.utc),
+            logger_name='test',
+        )
+        d = rec.to_dict()
+        assert d.get('dataflow_id') == 'df-123'
+
+
+class TestInMemoryLogStoreSwapList:
+    """Cover lines 307-308: get_and_clear_formatted_logs() swap list path."""
+
+    def test_get_and_clear_returns_records_and_clears(self) -> None:
+        """Lines 307-308: swap list when storage_mode is MEMORY."""
+        import logging
+        from datacoolie.logging.base import CaptureHandler
+        handler = CaptureHandler(storage_mode='memory')
+        # Emit a record
+        record = logging.LogRecord(
+            name='test', level=logging.INFO,
+            pathname='', lineno=0, msg='hello world',
+            args=(), exc_info=None,
+        )
+        handler.emit(record)
+        result = handler.get_and_clear_formatted_logs()
+        assert 'hello world' in result
+        # After clear, should be empty
+        result2 = handler.get_and_clear_formatted_logs()
+        assert result2 == ''
+
+    def test_file_mode_remove_exception_swallowed(self) -> None:
+        """Lines 307-308: except Exception pass when os.remove fails in FILE mode."""
+        import logging
+        import os
+        from unittest.mock import patch
+        from datacoolie.logging.base import CaptureHandler
+        handler = CaptureHandler(storage_mode='file')
+        record = logging.LogRecord(
+            name='test', level=logging.INFO,
+            pathname='', lineno=0, msg='file mode test',
+            args=(), exc_info=None,
+        )
+        handler.emit(record)
+        # Make os.path.exists return True but os.remove raise
+        with patch('os.path.exists', return_value=True), \
+             patch('os.remove', side_effect=OSError('cannot remove')):
+            result = handler.get_and_clear_formatted_logs()
+        # Should still return content without raising
+        assert isinstance(result, str)

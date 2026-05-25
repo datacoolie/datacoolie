@@ -473,3 +473,10 @@ class TestFactoryFunctions:
 
         assert result is sentinel
         mock_get.assert_called_once_with("env", foo="bar")
+
+
+def test_unregister_raises_when_not_registered() -> None:
+    """Lines 83-90: unregister raises DataCoolieError for unknown name."""
+    reg = PluginRegistry(entry_point_group='test.group', base_class=_DummyBase)
+    with pytest.raises(DataCoolieError, match='not registered'):
+        reg.unregister('nonexistent')

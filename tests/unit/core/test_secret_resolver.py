@@ -17,9 +17,6 @@ from datacoolie.core.secret_resolver import (
 from datacoolie.core.secret_provider import (
     BaseSecretProvider,
     SecretStr,
-    _resolved_values,
-    _resolved_values_lock,
-    get_registered_secret_values,
     resolve_secrets,
     unwrap_secret,
 )
@@ -82,11 +79,7 @@ def _env_lookup(prefix: str) -> BaseSecretResolver | None:
 
 @pytest.fixture(autouse=True)
 def _clear_global_values():
-    with _resolved_values_lock:
-        _resolved_values.clear()
     yield
-    with _resolved_values_lock:
-        _resolved_values.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -274,20 +267,6 @@ class TestResolverDispatch:
         )
         with pytest.raises(DataCoolieError, match="Failed to resolve secret"):
             resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
-
-    def test_resolved_values_registered_for_masking(self, monkeypatch):
-        """Secrets resolved via plugin resolvers are still registered for log masking."""
-        monkeypatch.setenv("SEC_KEY", "masked-val")
-
-        provider = InMemoryProvider(secrets={})
-        conn = _make_connection(
-            secrets_ref={"env:SEC_": ["field"]},
-            configure={"field": "KEY"},
-        )
-        resolve_secrets(conn, provider, resolver_lookup=_env_lookup)
-
-        vals = get_registered_secret_values()
-        assert "masked-val" in vals
 
     def test_no_lookup_still_works_with_native(self):
         """When resolver_lookup is None, everything goes through provider."""

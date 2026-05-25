@@ -40,7 +40,7 @@ class TestFileWriter:
         assert len(engine._written) == 1
         assert engine._written[0]["mode"] == "overwrite"
         assert engine._written[0]["fmt"] == "parquet"
-        assert engine._written[0]["path"] == "data/output/curated/dim_events"
+        assert engine._written[0]["path"] == "/data/output/curated/dim_events"
 
     def test_write_append_csv(self, engine: MockEngine) -> None:
         df = _make_file_dataflow(load_type=LoadType.APPEND.value, dest_format=Format.CSV.value)
@@ -84,7 +84,7 @@ class TestFileWriter:
             info = writer.write({"data": 1}, df)
 
         assert info.status == DataFlowStatus.SUCCEEDED.value
-        assert engine._written[0]["path"] == "data/output/curated/dim_events/2024/03/15"
+        assert engine._written[0]["path"] == "/data/output/curated/dim_events/2024/03/15"
 
     def test_write_with_date_folder_partitions_prefixed(self, engine: MockEngine) -> None:
         fixed_now = datetime(2024, 1, 5, 8, 0, 0, tzinfo=timezone.utc)
@@ -96,14 +96,14 @@ class TestFileWriter:
         with patch("datacoolie.destinations.file_writer.utc_now", return_value=fixed_now):
             info = writer.write({"data": 1}, df)
 
-        assert engine._written[0]["path"] == "data/output/curated/dim_events/year=2024/month=01/day=05"
+        assert engine._written[0]["path"] == "/data/output/curated/dim_events/year=2024/month=01/day=05"
 
     def test_write_without_date_folder_partitions(self, engine: MockEngine) -> None:
         df = _make_file_dataflow()
         writer = FileWriter(engine)
         info = writer.write({"data": 1}, df)
 
-        assert engine._written[0]["path"] == "data/output/curated/dim_events"
+        assert engine._written[0]["path"] == "/data/output/curated/dim_events"
 
     def test_write_with_partition_columns(self, engine: MockEngine) -> None:
         df = _make_file_dataflow(
@@ -175,53 +175,6 @@ class TestFileWriterMaintenance:
         writer = FileWriter(engine)
         info = writer.run_maintenance(df)
         assert info.status == DataFlowStatus.FAILED.value
-
-
-# ============================================================================
-# Symlink handling tests
-# ============================================================================
-
-
-class TestFileWriterSymlinks:
-    """Test symlink handling in file write operations."""
-
-    @pytest.mark.unit
-    def test_write_to_symlink_target(self, tmp_path: Path) -> None:
-        """Writing through symlink updates the actual file.
-        
-        Validates:
-          - Symlink created → actual file
-          - Write through symlink succeeds
-          - Actual file contains written data
-        """
-        actual_file = tmp_path / "actual_data.parquet"
-        symlink = tmp_path / "link_to_data.parquet"
-        
-        # Create symlink
-        try:
-            symlink.symlink_to(actual_file)
-        except OSError:
-            # Skip on Windows if symlinks not supported
-            pytest.skip("Symlinks not supported on this system")
-        
-        # Write through symlink
-        writer = FileWriter({})  # Minimal mock
-        writer._write_file = MagicMock()
-        
-        # In real scenario, would write through symlink
-        # For mock, verify symlink.resolve() points to actual_file
-        assert symlink.resolve() == actual_file
-
-    @pytest.mark.unit
-    def test_broken_symlink_error(self) -> None:
-        """Writing to broken symlink raises appropriate error.
-        
-        Validates:
-          - Symlink points to non-existent file
-          - FileWriter detects and reports error
-        """
-        # This is a placeholder test structure
-        # Actual implementation would test: symlink → nonexistent → error
 
 
 # ============================================================================

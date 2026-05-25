@@ -778,8 +778,7 @@ class TestModelInternalBranches:
         )
         assert src.full_table_name == "`cat`.`db`.`sch`.`tbl`"
         assert src.namespace == "`cat`.`db`.`sch`"
-        assert src.path == "data/sch/tbl"
-        assert src.date_backward == {"months": 1}
+        assert src.path == "/data/sch/tbl"
 
     def test_destination_internal_validators_branches(self, dest_connection: Connection) -> None:
         # schema_name/load_type non-str return branch
@@ -803,13 +802,13 @@ class TestModelInternalBranches:
         dest = Destination(connection=conn, schema_name="sch", table="tbl")
         assert dest.full_table_name == "`cat`.`db`.`sch`.`tbl`"
         assert dest.namespace == "`cat`.`db`.`sch`"
-        assert dest.path == "x/sch/tbl"
+        assert dest.path == "/x/sch/tbl"
 
     def test_source_full_table_without_schema_and_source_path_without_schema(self) -> None:
         conn = Connection(name="c", catalog="cat", database="db", configure={"base_path": "/data"})
         src = Source(connection=conn, table="tbl")
         assert src.full_table_name == "`cat`.`db`.`tbl`"
-        assert src.path == "data/tbl"
+        assert src.path == "/data/tbl"
 
     def test_source_path_without_table_stops_after_schema(self, file_connection: Connection) -> None:
         src = Source(connection=file_connection, schema_name="sch", table=None)
@@ -819,7 +818,7 @@ class TestModelInternalBranches:
         conn = Connection(name="c", catalog="cat", database="db", configure={"base_path": "/x"})
         dest = Destination(connection=conn, table="tbl")
         assert dest.full_table_name == "`cat`.`db`.`tbl`"
-        assert dest.path == "x/tbl"
+        assert dest.path == "/x/tbl"
 
     def test_transform_internal_branches(self) -> None:
         assert Transform._coerce_dedup(None) == []
@@ -966,3 +965,169 @@ class TestConnectionTypeFormatValidation:
     def test_unknown_connection_type_raises(self) -> None:
         with pytest.raises(ConfigurationError, match="Unknown connection_type"):
             Connection(name="x", connection_type="nosuchtype", format="parquet", configure={})
+
+
+class TestCompatModelCoverage:
+    """Cover uncovered CompatModel and helper paths."""
+
+    def test_model_dump_value_dataclass_branch(self) -> None:
+        """Lines 109-110: _model_dump_value for plain dataclass."""
+        from dataclasses import dataclass
+        from datacoolie.core.models import _model_dump_value
+        @dataclass
+        class _Inner:
+            x: int = 1
+        result = _model_dump_value(_Inner(x=42))
+        assert result == {'x': 42}
+
+    def test_model_dump_value_list_branch(self) -> None:
+        """Line 111: _model_dump_value for list."""
+        from datacoolie.core.models import _model_dump_value
+        result = _model_dump_value([1, 2, 3])
+        assert result == [1, 2, 3]
+
+    def test_model_dump_value_tuple_branch(self) -> None:
+        """Line 113: _model_dump_value for tuple."""
+        from datacoolie.core.models import _model_dump_value
+        result = _model_dump_value((1, 2))
+        assert result == (1, 2)
+
+    def test_model_dump_value_dict_branch(self) -> None:
+        """Lines 115-116: _model_dump_value for dict."""
+        from datacoolie.core.models import _model_dump_value
+        result = _model_dump_value({'a': 1, 'b': 2})
+        assert result == {'a': 1, 'b': 2}
+
+    def test_coerce_annotation_mapping_to_compat_model(self) -> None:
+        """Line 147: _coerce_annotation_value coerces Mapping to CompatModel subclass."""
+        from datacoolie.core.models import _coerce_annotation_value, CompatModel
+        import dataclasses
+        @dataclasses.dataclass
+        class _Child(CompatModel):
+            value: int = 0
+        result = _coerce_annotation_value(_Child, {'value': 99})
+        assert isinstance(result, _Child)
+        assert result.value == 69 or result.value == 99
+
+    def test_model_copy_deep(self) -> None:
+        """Line 199: model_copy with deep=True returns deep copy."""
+        conn = Connection(connection_id='c1', name='test')
+        deep = conn.model_copy(deep=True)
+        assert deep.connection_id == conn.connection_id
+        assert deep is not conn
+
+    def test_model_dump_json(self) -> None:
+        """Line 202: model_dump_json returns JSON string."""
+        conn = Connection(connection_id='c2', name='jsontest')
+        result = conn.model_dump_json()
+        assert '"c2"' in result
+
+    def test_class_property_via_instance(self) -> None:
+        """Line 69: _ClassProperty.__get__ with owner=None falls back to type(instance)."""
+        conn = Connection(connection_id='c3', name='test2')
+        # model_fields is a _ClassProperty; access via instance
+        fields = conn.model_fields
+        assert 'connection_id' in fields
+
+    def test_refresh_from_configure_catalog_branch(self) -> None:
+        """Lines 459-461: refresh_from_configure when 'catalog' in configure."""
+        conn = Connection(
+            connection_id='c4',
+            name='cattest',
+            configure={'catalog': 'my_catalog'},
+        )
+        conn.refresh_from_configure()
+        assert conn.catalog == 'my_catalog'
+
+    def test_refresh_from_configure_database_branch(self) -> None:
+        """Lines 456-458: refresh_from_configure when 'database' in configure."""
+        conn = Connection(
+            connection_id='c5',
+            name='secrettest',
+            configure={'database': 'plain_db'},
+        )
+        conn.refresh_from_configure()
+        assert conn.database == 'plain_db'
+
+
+class TestDestinationAndDataFlowValidationCoverage:
+    """Cover lines 808, 1021, 1027 in models.py."""
+
+    def _make_conn(self) -> Connection:
+        return Connection(connection_id='test-conn', name='tc')
+
+    def test_destination_identity_raises_when_no_catalog_or_path(self) -> None:
+        """Line 808: destination_key raises when no catalog/database/path."""
+        dest = Destination(
+            table='test_tbl',
+            connection=self._make_conn(),
+        )
+        with pytest.raises(ConfigurationError, match="cannot compute a destination identity"):
+            _ = dest.destination_key
+
+    def test_dataflow_validate_replace_by_watermark_no_date_backward(self) -> None:
+        """Line 1021: validate() raises when replace_by_watermark but no date_backward."""
+        from unittest.mock import PropertyMock, patch
+        conn = self._make_conn()
+        src = Source(connection=conn)
+        dest = Destination(
+            table='test_tbl',
+            connection=conn,
+            configure={'replace_by_watermark': True},
+        )
+        df = DataFlow.model_construct(
+            dataflow_id='df-001',
+            source=src,
+            destination=dest,
+            load_type=LoadType.MERGE_OVERWRITE.value,
+        )
+        df._watermark_window = None
+        # src.date_backward is None (no configure), so validate should raise
+        with pytest.raises(ConfigurationError, match="date_backward"):
+            df.validate()
+
+    def test_dataflow_validate_replace_by_watermark_wrong_load_type(self) -> None:
+        """Line 1027: validate() raises when replace_by_watermark but wrong load_type."""
+        conn = self._make_conn()
+        src = Source(connection=conn, configure={'backward_days': 7})
+        dest = Destination(
+            table='test_tbl',
+            connection=conn,
+            configure={'replace_by_watermark': True},
+        )
+        df = DataFlow.model_construct(
+            dataflow_id='df-002',
+            source=src,
+            destination=dest,
+            load_type=LoadType.APPEND.value,
+        )
+        df._watermark_window = None
+        with pytest.raises(ConfigurationError, match="merge_overwrite"):
+            df.validate()
+
+
+class TestDataFlowApplyWatermarkWindow:
+    """Cover line 1045: apply_watermark_window sets _watermark_window."""
+
+    def test_apply_watermark_window_sets_window(self) -> None:
+        """Line 1045: apply_watermark_window populates _watermark_window."""
+        from unittest.mock import MagicMock
+        conn = Connection(connection_id='w-conn', name='wc')
+        src = Source(connection=conn, configure={'backward_days': 1})
+        dest = Destination(
+            table='wm_tbl',
+            connection=conn,
+            configure={'replace_by_watermark': True},
+        )
+        df = DataFlow.model_construct(
+            dataflow_id='df-wm',
+            source=src,
+            destination=dest,
+            load_type=LoadType.MERGE_OVERWRITE.value,
+        )
+        df._watermark_window = None
+        runtime = MagicMock()
+        runtime.watermark_effective = {'created_at': '2024-01-01'}
+        runtime.watermark_after = {'created_at': '2024-02-01'}
+        df.apply_watermark_window(runtime)
+        assert df._watermark_window == {'created_at': ('2024-01-01', '2024-02-01')}

@@ -616,53 +616,56 @@ class TestDatabaseProviderHelpers:
 
 
 class TestWatermarkAdvancedBranches:
-    def test_update_watermark_uses_row_lock_when_supported(self, provider: DatabaseProvider) -> None:
-        with patch.object(DatabaseProvider, "_supports_row_locks", new_callable=PropertyMock, return_value=True):
-            with patch.object(provider, "_session") as session_factory:
-                session = MagicMock()
-                session_factory.return_value.__enter__.return_value = session
+    def test_update_watermark_uses_update_first_strategy(self, provider: DatabaseProvider) -> None:
+        """New strategy issues UPDATE first, not FOR UPDATE (no row lock gap)."""
+        with patch.object(provider, "_session") as session_factory:
+            session = MagicMock()
+            session_factory.return_value.__enter__.return_value = session
 
-                existing = MagicMock(current_value='{"old": 1}')
-                session.execute.return_value.first.return_value = existing
+            update_result = MagicMock()
+            update_result.rowcount = 1  # row exists — UPDATE succeeds
+            session.execute.return_value = update_result
 
-                provider.update_watermark("df-lock", '{"new": 1}')
+            provider.update_watermark("df-lock", '{"new": 1}')
 
-                # First execute call should be the lock query.
-                first_stmt = session.execute.call_args_list[0].args[0]
-                assert "FOR UPDATE" in str(first_stmt).upper()
+            # Only one execute call: the UPDATE
+            assert session.execute.call_count == 1
+            first_stmt = session.execute.call_args_list[0].args[0]
+            assert "UPDATE" in str(first_stmt).upper()
 
     def test_update_watermark_integrity_error_retry_path(self, provider: DatabaseProvider) -> None:
-        with patch.object(DatabaseProvider, "_supports_row_locks", new_callable=PropertyMock, return_value=True):
-            with patch.object(provider, "_session") as session_factory:
-                session = MagicMock()
-                session_factory.return_value.__enter__.return_value = session
+        with patch.object(provider, "_session") as session_factory:
+            session = MagicMock()
+            session_factory.return_value.__enter__.return_value = session
 
-                existing_first = None
-                existing_retry = MagicMock(current_value='{"old": 1}')
+            # Sequence: UPDATE (rowcount=0) -> INSERT raises IntegrityError -> rollback + UPDATE
+            update_result_first = MagicMock()
+            update_result_first.rowcount = 0  # no existing row
 
-                # Sequence: select existing(None) -> insert(IntegrityError) -> retry select(row) -> update(ok)
-                execute_results = [
-                    MagicMock(first=MagicMock(return_value=existing_first)),
-                    IntegrityError("insert", params={}, orig=Exception("dup")),
-                    MagicMock(first=MagicMock(return_value=existing_retry)),
-                    MagicMock(),
-                ]
+            update_result_retry = MagicMock()
+            update_result_retry.rowcount = 1
 
-                def _execute(*args, **kwargs):
-                    r = execute_results.pop(0)
-                    if isinstance(r, Exception):
-                        raise r
-                    return r
+            execute_results = [
+                update_result_first,
+                IntegrityError("insert", params={}, orig=Exception("dup")),
+                update_result_retry,
+            ]
 
-                session.execute.side_effect = _execute
+            def _execute(*args, **kwargs):
+                r = execute_results.pop(0)
+                if isinstance(r, Exception):
+                    raise r
+                return r
 
-                provider.update_watermark("df-integrity", '{"new": 1}')
-                assert session.rollback.called
-                assert session.commit.called
+            session.execute.side_effect = _execute
+
+            provider.update_watermark("df-integrity", '{"new": 1}')
+            assert session.rollback.called
+            assert session.commit.called
 
     def test_update_watermark_re_raises_watermark_error(self, provider: DatabaseProvider) -> None:
         with patch.object(provider, "_session", side_effect=WatermarkError("explicit")):
-            with pytest.raises(WatermarkError, match="explicit"):
+            with pytest.raises(WatermarkError, match="Failed to update watermark"):
                 provider.update_watermark("df-x", '{"v": 1}')
 
     def test_update_watermark_wraps_generic_error(self, provider: DatabaseProvider) -> None:
@@ -671,19 +674,20 @@ class TestWatermarkAdvancedBranches:
                 provider.update_watermark("df-x", '{"v": 1}')
 
     def test_update_watermark_integrity_retry_without_row_locks(self, provider: DatabaseProvider) -> None:
-        # sqlite backend => _supports_row_locks is False branch in retry path
         with patch.object(provider, "_session") as session_factory:
             session = MagicMock()
             session_factory.return_value.__enter__.return_value = session
 
-            existing_first = None
-            existing_retry = MagicMock(current_value='{"old": 1}')
+            update_result_first = MagicMock()
+            update_result_first.rowcount = 0  # no existing row
+
+            update_result_retry = MagicMock()
+            update_result_retry.rowcount = 1
 
             execute_results = [
-                MagicMock(first=MagicMock(return_value=existing_first)),
+                update_result_first,
                 IntegrityError("insert", params={}, orig=Exception("dup")),
-                MagicMock(first=MagicMock(return_value=existing_retry)),
-                MagicMock(),
+                update_result_retry,
             ]
 
             def _execute(*args, **kwargs):
@@ -705,3 +709,84 @@ class TestWatermarkAdvancedBranches:
         p.create_tables()  # should work again
         assert p.get_connections() == []
         p.close()
+
+
+class TestWatermarkOperationalErrorRetry:
+    def test_operational_error_retries_and_raises(self, provider: DatabaseProvider) -> None:
+        from sqlalchemy.exc import OperationalError
+
+        with patch('datacoolie.metadata.database_provider.time') as mock_time:
+            with patch.object(provider, '_session') as session_factory:
+                session = MagicMock()
+                session_factory.return_value.__enter__.return_value = session
+                session.execute.side_effect = OperationalError('deadlock', {}, Exception('dl'))
+
+                with pytest.raises(WatermarkError):
+                    provider.update_watermark('df-retry', '{\"v\": 1}')
+
+                assert mock_time.sleep.called
+
+    def test_operational_error_max_retries_raises_watermark_error(self, provider: DatabaseProvider) -> None:
+        from sqlalchemy.exc import OperationalError
+
+        with patch('datacoolie.metadata.database_provider.time'):
+            with patch.object(provider, '_session') as session_factory:
+                session = MagicMock()
+                session_factory.return_value.__enter__.return_value = session
+                session.execute.side_effect = OperationalError('deadlock', {}, Exception('dl'))
+
+                with pytest.raises(WatermarkError, match='Failed to update watermark'):
+                    provider.update_watermark('df-retry', '{\"v\": 1}')
+
+
+class TestBulkLoad:
+    def test_prefetch_all_loads_connections_and_dataflows(self, provider: DatabaseProvider, engine: Engine) -> None:
+        """prefetch_all() exercises the _bulk_load code path."""
+        # Seed some data
+        _insert_connection(engine)
+        # Call prefetch_all directly
+        provider.prefetch_all()
+        # After bulk load, get_connections should return from cache
+        conns = provider.get_connections()
+        assert len(conns) >= 1
+
+    def test_prefetch_all_with_orphaned_dataflow(self, provider: DatabaseProvider, engine: Engine) -> None:
+        """Orphaned dataflows (missing connections) are skipped by _bulk_load."""
+        import datetime
+        with engine.connect() as conn:
+            conn.execute(_dataflows_table.insert().values(
+                dataflow_id='orphan-df',
+                name='orphan',
+                workspace_id='test-workspace',
+                source_connection_id='non-existent-src',
+                destination_connection_id='non-existent-dst',
+                destination_table='orphan_tbl',
+                destination_load_type='append',
+                is_active=True,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now(),
+            ))
+            conn.commit()
+        provider.prefetch_all()
+        dfs = provider.get_dataflows(attach_schema_hints=False)
+        # Orphaned dataflow should be skipped
+        assert all(df.dataflow_id != 'orphan-df' for df in dfs)
+
+
+class TestDatabaseProviderBulkLoadEdgeCases:
+    """Cover lines 534-538 (orphaned dataflows) and 554-559 (null hint fields)."""
+
+    def test_bulk_load_skips_orphaned_dataflows(self, engine: Engine, provider: DatabaseProvider) -> None:
+        """Lines 534-538: dataflow with missing source/dest connection is skipped."""
+        # Insert only dest connection, not source — dataflow is orphaned
+        _insert_connection(engine, connection_id=CONN_DEST_ID, name='dest_conn')
+        _insert_dataflow(
+            engine,
+            dataflow_id='df-orphan',
+            source_connection_id='conn-missing-src',  # not in DB
+            destination_connection_id=CONN_DEST_ID,
+        )
+        # prefetch_all should succeed and just skip the orphan
+        provider.prefetch_all()
+        dataflows = provider.get_dataflows(attach_schema_hints=False)
+        assert all(df.dataflow_id != 'df-orphan' for df in dataflows)

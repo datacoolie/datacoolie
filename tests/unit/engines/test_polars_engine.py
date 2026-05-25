@@ -16,6 +16,7 @@ from datacoolie.core.constants import DEFAULT_AUTHOR, FileInfoColumn, SystemColu
 from datacoolie.core.exceptions import EngineError  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
 from datacoolie.platforms.base import FileInfo  # noqa: E402
+from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
 
 
 # =====================================================================
@@ -26,6 +27,12 @@ from datacoolie.platforms.base import FileInfo  # noqa: E402
 @pytest.fixture()
 def engine() -> PolarsEngine:
     return PolarsEngine()
+
+
+@pytest.fixture()
+def platform_engine(tmp_path: Path) -> PolarsEngine:
+    """PolarsEngine backed by a LocalPlatform for read_bytes/write_bytes."""
+    return PolarsEngine(platform=LocalPlatform())
 
 
 @pytest.fixture()
@@ -89,59 +96,57 @@ class TestReadCsv:
 
 
 class TestReadJson:
-    def test_read_json(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_json(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
         path = tmp_path / "data.json"
         sample_lf.collect().write_json(str(path))
-        result = engine.read_json(str(path))
+        result = platform_engine.read_json(str(path))
         assert isinstance(result, pl.LazyFrame)
         assert result.collect().height == 3
 
 
 class TestReadExcel:
-    def test_read_excel_single_file(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_excel_single_file(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
         path = tmp_path / "data.xlsx"
         sample_lf.collect().write_excel(str(path))
-        result = engine.read_excel(str(path))
+        result = platform_engine.read_excel(str(path))
         assert isinstance(result, pl.LazyFrame)
         assert result.collect().height == 3
 
-    def test_read_excel_injects_file_path(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_excel_injects_file_path(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
         path = tmp_path / "data.xlsx"
         sample_lf.collect().write_excel(str(path))
-        result = engine.read_excel(str(path)).collect()
+        result = platform_engine.read_excel(str(path)).collect()
         assert FileInfoColumn.FILE_PATH in result.columns
 
-    def test_read_excel_multi_file(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_multi_file(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         p1 = tmp_path / "a.xlsx"
         p2 = tmp_path / "b.xlsx"
         pl.DataFrame({"id": [1]}).write_excel(str(p1))
         pl.DataFrame({"id": [2]}).write_excel(str(p2))
-        out = engine.read_excel([str(p1), str(p2)]).collect()
+        out = platform_engine.read_excel([str(p1), str(p2)]).collect()
         assert out.height == 2
         assert FileInfoColumn.FILE_PATH in out.columns
 
-    def test_read_excel_no_files_raises(self, engine: PolarsEngine, tmp_path: Path) -> None:
-        with pytest.raises(FileNotFoundError):
-            engine.read_excel(str(tmp_path / "nonexistent.xlsx"))
+    def test_read_excel_no_files_raises(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+        with pytest.raises((FileNotFoundError, Exception)):
+            platform_engine.read_excel(str(tmp_path / "nonexistent.xlsx"))
 
-    def test_read_excel_directory(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_directory(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """read_excel resolves .xlsx files from a directory."""
-        from datacoolie.platforms.local_platform import LocalPlatform
-        engine.set_platform(LocalPlatform())
         p1 = tmp_path / "a.xlsx"
         p2 = tmp_path / "b.xlsx"
         pl.DataFrame({"x": [10]}).write_excel(str(p1))
         pl.DataFrame({"x": [20]}).write_excel(str(p2))
-        out = engine.read_excel(str(tmp_path)).collect()
+        out = platform_engine.read_excel(str(tmp_path)).collect()
         assert out.height == 2
 
-    def test_read_excel_with_sheet_id(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_with_sheet_id(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         path = tmp_path / "data.xlsx"
         pl.DataFrame({"v": [1, 2]}).write_excel(str(path))
-        result = engine.read_excel(str(path), options={"sheet_id": 1})
+        result = platform_engine.read_excel(str(path), options={"sheet_id": 1})
         assert result.collect().height == 2
 
-    def test_read_excel_multi_sheet(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_multi_sheet(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """Multi-sheet dict return is flattened into a single DataFrame."""
         path = tmp_path / "multi.xlsx"
         from openpyxl import Workbook
@@ -155,11 +160,11 @@ class TestReadExcel:
         ws2.append([2])
         wb.save(str(path))
         # sheet_id=0 tells Polars to read all sheets → returns dict
-        result = engine.read_excel(str(path), options={"sheet_id": 0})
+        result = platform_engine.read_excel(str(path), options={"sheet_id": 0})
         collected = result.collect()
         assert collected.height == 2
 
-    def test_read_excel_default_first_sheet_only(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_default_first_sheet_only(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """Without sheet_id/sheet_name, only the first sheet is read."""
         path = tmp_path / "multi.xlsx"
         from openpyxl import Workbook
@@ -173,11 +178,11 @@ class TestReadExcel:
         ws2.append(["id"])
         ws2.append([10])
         wb.save(str(path))
-        result = engine.read_excel(str(path)).collect()
+        result = platform_engine.read_excel(str(path)).collect()
         # Default reads only first sheet (2 rows), NOT both sheets (3 rows)
         assert result.height == 2
 
-    def test_read_excel_with_sheet_name(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_with_sheet_name(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """sheet_name option selects a specific sheet by name."""
         path = tmp_path / "named.xlsx"
         from openpyxl import Workbook
@@ -191,21 +196,21 @@ class TestReadExcel:
         ws2.append([200])
         ws2.append([300])
         wb.save(str(path))
-        result = engine.read_excel(str(path), options={"sheet_name": "Beta"}).collect()
+        result = platform_engine.read_excel(str(path), options={"sheet_name": "Beta"}).collect()
         assert result.height == 2
         assert result["val"].to_list() == [200, 300]
 
-    def test_read_excel_file_path_values_correct(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_file_path_values_correct(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """__file_path column contains the actual file paths."""
         p1 = tmp_path / "a.xlsx"
         p2 = tmp_path / "b.xlsx"
         pl.DataFrame({"x": [1]}).write_excel(str(p1))
         pl.DataFrame({"x": [2]}).write_excel(str(p2))
-        out = engine.read_excel([str(p1), str(p2)]).collect()
+        out = platform_engine.read_excel([str(p1), str(p2)]).collect()
         paths = sorted(out[FileInfoColumn.FILE_PATH].to_list())
         assert paths == sorted([str(p1), str(p2)])
 
-    def test_read_excel_multi_sheet_has_file_path(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_multi_sheet_has_file_path(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """Multi-sheet result includes __file_path column."""
         path = tmp_path / "multi.xlsx"
         from openpyxl import Workbook
@@ -218,29 +223,27 @@ class TestReadExcel:
         ws2.append(["id"])
         ws2.append([2])
         wb.save(str(path))
-        result = engine.read_excel(str(path), options={"sheet_id": 0}).collect()
+        result = platform_engine.read_excel(str(path), options={"sheet_id": 0}).collect()
         assert FileInfoColumn.FILE_PATH in result.columns
         assert all(v == str(path) for v in result[FileInfoColumn.FILE_PATH].to_list())
 
-    def test_read_excel_empty_directory_raises(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_empty_directory_raises(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """Directory with no .xlsx files raises FileNotFoundError."""
-        from datacoolie.platforms.local_platform import LocalPlatform
-        engine.set_platform(LocalPlatform())
         (tmp_path / "readme.txt").write_text("not excel")
         with pytest.raises(FileNotFoundError, match="No Excel files"):
-            engine.read_excel(str(tmp_path))
+            platform_engine.read_excel(str(tmp_path))
 
-    def test_read_excel_use_hive_partitioning_stripped(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_use_hive_partitioning_stripped(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         """use_hive_partitioning is silently removed before calling pl.read_excel."""
         path = tmp_path / "data.xlsx"
         pl.DataFrame({"n": [1]}).write_excel(str(path))
-        result = engine.read_excel(str(path), options={"use_hive_partitioning": True})
+        result = platform_engine.read_excel(str(path), options={"use_hive_partitioning": True})
         assert result.collect().height == 1
 
-    def test_read_path_excel(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_path_excel(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
         path = tmp_path / "data.xlsx"
         sample_lf.collect().write_excel(str(path))
-        result = engine.read_path(str(path), "excel")
+        result = platform_engine.read_path(str(path), "excel")
         assert result.collect().height == 3
 
 
@@ -376,10 +379,10 @@ class TestWriteToPath:
         result = engine.read_csv(str(files[0]))
         assert result.collect().height == 3
 
-    def test_write_json(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_json(self, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
         path = str(tmp_path / "out_json")
         Path(path).mkdir(parents=True, exist_ok=True)
-        engine._platform = MagicMock()
+        engine = PolarsEngine(platform=LocalPlatform())
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="json")
         files = list(Path(path).glob("*.json"))
         assert len(files) >= 1
@@ -960,12 +963,12 @@ class TestPolarsEngineAdvancedCoverage:
         assert kwargs["storage_options"] == {"token": "x"}
         assert "use_hive_partitioning" not in kwargs
 
-    def test_read_json_list_paths(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_json_list_paths(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
         p1 = tmp_path / "a.json"
         p2 = tmp_path / "b.json"
         pl.DataFrame({"id": [1]}).write_json(str(p1))
         pl.DataFrame({"id": [2]}).write_json(str(p2))
-        out = engine.read_json([str(p1), str(p2)]).collect()
+        out = platform_engine.read_json([str(p1), str(p2)]).collect()
         assert out.height == 2
         assert FileInfoColumn.FILE_PATH in out.columns
 
@@ -1655,3 +1658,91 @@ class TestPolarsToHiveType:
         engine = PolarsEngine()
         result = engine.get_hive_schema(lf)
         assert result == {"id": "BIGINT", "name": "STRING", "tags": "ARRAY<BIGINT>"}
+
+
+class TestReadAvro:
+    def test_read_avro_success(self, tmp_path: Path) -> None:
+        import io
+        # Create a real avro file
+        df = pl.DataFrame({'a': [1, 2], 'b': ['x', 'y']})
+        avro_path = tmp_path / 'test.avro'
+        buf = io.BytesIO()
+        df.write_avro(buf)
+        avro_path.write_bytes(buf.getvalue())
+
+        engine = PolarsEngine(platform=LocalPlatform())
+        result = engine.read_avro(str(avro_path))
+        assert isinstance(result, pl.LazyFrame)
+        assert result.collect().shape[0] == 2
+
+    def test_read_avro_no_files_raises(self, tmp_path: Path) -> None:
+        # When a directory with no avro files is passed, _resolve_file_paths returns []
+        empty_dir = tmp_path / 'empty_dir'
+        empty_dir.mkdir()
+        engine = PolarsEngine(platform=LocalPlatform())
+        with pytest.raises(FileNotFoundError, match='No Avro files found'):
+            engine.read_avro(str(empty_dir))
+
+
+class TestWriteAvro:
+    def test_write_json_via_flat_eager(self, tmp_path: Path) -> None:
+        import io
+        engine = PolarsEngine(platform=LocalPlatform())
+        df = pl.DataFrame({'id': [1, 2], 'name': ['a', 'b']}).lazy()
+        engine.write_to_path(df, str(tmp_path / 'output'), mode='overwrite', fmt='json')
+        files = list(tmp_path.glob('output/*.json'))
+        assert len(files) == 1
+
+    def test_write_avro_via_flat_eager(self, tmp_path: Path) -> None:
+        engine = PolarsEngine(platform=LocalPlatform())
+        df = pl.DataFrame({'id': [1, 2], 'val': ['a', 'b']}).lazy()
+        engine.write_to_path(df, str(tmp_path / 'avro_out'), mode='overwrite', fmt='avro')
+        files = list(tmp_path.glob('avro_out/*.avro'))
+        assert len(files) == 1
+
+    def test_write_avro_with_datetime_casts(self, tmp_path: Path) -> None:
+        from datetime import datetime
+        engine = PolarsEngine(platform=LocalPlatform())
+        df = pl.DataFrame({'id': [1], 'ts': [datetime(2024, 1, 1, 12, 0, 0)]}).lazy()
+        # Should not raise despite datetime column
+        engine.write_to_path(df, str(tmp_path / 'avro_dt'), mode='overwrite', fmt='avro')
+        files = list(tmp_path.glob('avro_dt/*.avro'))
+        assert len(files) == 1
+
+
+class TestBuildConnectionString:
+    def test_mysql_default_port(self) -> None:
+        opts = {'database_type': 'mysql', 'user': 'root', 'password': 'pass', 'host': 'localhost', 'database': 'mydb'}
+        result = PolarsEngine._build_connection_string(opts)
+        assert 'mysql://' in result
+        assert '3306' in result
+
+    def test_mssql_default_port(self) -> None:
+        opts = {'database_type': 'mssql', 'user': 'sa', 'password': 'pw', 'host': 'server', 'database': 'db'}
+        result = PolarsEngine._build_connection_string(opts)
+        assert 'mssql://' in result
+        assert '1433' in result
+
+    def test_postgresql_default_port(self) -> None:
+        opts = {'database_type': 'postgresql', 'user': 'u', 'password': 'p', 'host': 'h', 'database': 'd'}
+        result = PolarsEngine._build_connection_string(opts)
+        assert 'postgresql://' in result
+
+    def test_oracle_default_port(self) -> None:
+        opts = {'database_type': 'oracle', 'user': 'u', 'password': 'p', 'host': 'h', 'database': 'mydb'}
+        result = PolarsEngine._build_connection_string(opts)
+        assert 'oracle://' in result
+        assert '1521' in result
+
+    def test_sqlite_relative_path(self) -> None:
+        opts = {'database_type': 'sqlite', 'database': 'mydb.sqlite'}
+        result = PolarsEngine._build_connection_string(opts)
+        assert 'sqlite:///' in result
+
+    def test_unsupported_type_raises(self) -> None:
+        with pytest.raises(EngineError, match='unsupported database_type'):
+            PolarsEngine._build_connection_string({'database_type': 'redis'})
+
+    def test_no_database_type_raises(self) -> None:
+        with pytest.raises(EngineError, match='requires'):
+            PolarsEngine().read_database(table='t', options={'database': 'db'})

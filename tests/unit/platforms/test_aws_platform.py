@@ -951,3 +951,83 @@ class TestRegisterSymlinkTable:
         with patch.object(AWSPlatform, "boto3_client", side_effect=PlatformError("boto3 missing")):
             with pytest.raises(PlatformError, match="boto3 missing"):
                 p._fetch_secret("k", "src")
+
+
+class TestAWSPlatformCoverageGaps:
+    """Cover lines 190, 226-237, 245-255, 520-527, 610-612."""
+
+    def test_parse_path_plain_path_no_s3_prefix(self) -> None:
+        """Line 190: path without s3:// returns default bucket."""
+        p = AWSPlatform(bucket='mybucket')
+        bucket, key = p._parse_path('some/plain/path.txt')
+        assert bucket == 'mybucket'
+        assert key == 'some/plain/path.txt'
+
+    def test_read_bytes_large_file_uses_download_fileobj(self) -> None:
+        """Lines 226-237: large file goes through download_fileobj."""
+        p = AWSPlatform(bucket='test-bucket')
+        mock_s3 = MagicMock()
+        import io
+        # head_object returns size > threshold
+        mock_s3.head_object.return_value = {'ContentLength': 100 * 1024 * 1024}
+        def fake_download(bucket, key, buf):
+            buf.write(b'large data')
+        mock_s3.download_fileobj.side_effect = fake_download
+        p._client = mock_s3
+        data = p.read_bytes('s3://test-bucket/big-file.bin')
+        assert data == b'large data'
+        mock_s3.download_fileobj.assert_called_once()
+
+    def test_write_bytes_large_data_uses_upload_fileobj(self) -> None:
+        """Lines 245-255: large data payload goes through upload_fileobj."""
+        p = AWSPlatform(bucket='test-bucket')
+        mock_s3 = MagicMock()
+        mock_s3.head_object.side_effect = Exception('not found')
+        p._client = mock_s3
+        large_data = b'x' * (10 * 1024 * 1024)
+        p.write_bytes('s3://test-bucket/large.bin', large_data, overwrite=True)
+        mock_s3.upload_fileobj.assert_called_once()
+
+    def test_delete_glue_table_entity_not_found_is_suppressed(self) -> None:
+        """Lines 520-521: EntityNotFoundException is swallowed."""
+        p = AWSPlatform(bucket='test-bucket')
+        mock_glue = MagicMock()
+        mock_glue.exceptions.EntityNotFoundException = Exception
+        mock_glue.delete_table.side_effect = Exception('EntityNotFound')
+        mock_boto = MagicMock(return_value=mock_glue)
+        with patch.object(p, 'boto3_client', mock_boto):
+            # Should not raise
+            p.delete_glue_table('mydb', 'mytable')
+
+    def test_delete_glue_table_generic_exception_warns(self) -> None:
+        """Lines 524-527: non-EntityNotFound exception logs warning."""
+        p = AWSPlatform(bucket='test-bucket')
+        mock_glue = MagicMock()
+        # Make EntityNotFoundException a distinct type so generic Exception is caught
+        class _EntityNotFoundError(Exception):
+            pass
+        mock_glue.exceptions.EntityNotFoundException = _EntityNotFoundError
+        mock_glue.delete_table.side_effect = RuntimeError('some other error')
+        mock_boto = MagicMock(return_value=mock_glue)
+        with patch.object(p, 'boto3_client', mock_boto):
+            # Should not raise; logs warning
+            p.delete_glue_table('mydb', 'mytable')
+
+    def test_execute_athena_ddl_failed_state_raises(self) -> None:
+        """Lines 610-612: FAILED state raises PlatformError."""
+        p = AWSPlatform(bucket='test-bucket')
+        mock_athena = MagicMock()
+        mock_athena.start_query_execution.return_value = {'QueryExecutionId': 'qid-123'}
+        mock_athena.get_query_execution.return_value = {
+            'QueryExecution': {
+                'Status': {
+                    'State': 'FAILED',
+                    'StateChangeReason': 'syntax error',
+                }
+            }
+        }
+        mock_boto = MagicMock(return_value=mock_athena)
+        with patch.object(p, 'boto3_client', mock_boto):
+            with patch('time.sleep'):
+                with pytest.raises(PlatformError, match='FAILED'):
+                    p.execute_athena_ddl('SELECT 1', output_location='s3://bucket/out/')

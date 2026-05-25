@@ -63,6 +63,12 @@ class DummyPlatform(BasePlatform):
     def _fetch_secret(self, key: str) -> str:
         raise NotImplementedError
 
+    def read_bytes(self, path: str) -> bytes:
+        raise NotImplementedError
+
+    def write_bytes(self, path: str, data: bytes, *, overwrite: bool = False) -> None:
+        raise NotImplementedError
+
 
 class TestBasePlatformContract:
     """Ensure BasePlatform cannot be instantiated directly."""
@@ -93,6 +99,8 @@ class TestBasePlatformContract:
             "copy_file",
             "move_file",
             "get_file_info",
+            "read_bytes",
+            "write_bytes",
         ],
     )
     def test_abstract_method_not_implemented(self, method_name: str) -> None:
@@ -108,9 +116,11 @@ class TestBasePlatformContract:
                 method("/path", "text")
             elif method_name == "delete_folder":
                 method("/path")
+            elif method_name == "write_bytes":
+                method("/path", b"data")
             else:
                 method("/path")
 
-    def test_has_16_abstract_methods(self) -> None:
+    def test_has_18_abstract_methods(self) -> None:
         abstracts = getattr(BasePlatform, "__abstractmethods__", frozenset())
-        assert len(abstracts) == 16  # 15 filesystem methods + _fetch_secret
+        assert len(abstracts) == 18  # 16 filesystem methods + _fetch_secret + read_bytes + write_bytes

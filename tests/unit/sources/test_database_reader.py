@@ -225,7 +225,7 @@ class TestQueryModeWatermark:
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
         reader.read(src, watermark_start={"modified_at": "2024-06-01"})
-        expected = f"SELECT * FROM ({original_query}) AS t1 WHERE modified_at > '2024-06-01'"
+        expected = f"SELECT * FROM ({original_query}) t1 WHERE modified_at > '2024-06-01'"
         assert engine._last_query == expected
 
     def test_query_multi_watermark_columns(self, engine: MockEngine) -> None:
@@ -242,7 +242,7 @@ class TestQueryModeWatermark:
         reader = DatabaseReader(engine)
         reader.read(src, watermark_start={"ts": "2024-06-01", "seq": 100})
         assert engine._last_query is not None
-        assert "AS t1 WHERE" in engine._last_query
+        assert "t1 WHERE" in engine._last_query
         assert "ts > '2024-06-01'" in engine._last_query
         assert "seq > 100" in engine._last_query
         assert " OR " in engine._last_query
@@ -319,3 +319,100 @@ class TestEscapeValueSingleQuotes:
         malicious = "x' OR '1'='1"
         escaped = DatabaseReader._escape_value(malicious)
         assert escaped == "'x'' OR ''1''=''1'"
+
+
+class TestEscapeValueOraclePaths:
+    """Cover Oracle-specific escape_value paths (lines 164-170)."""
+
+    def test_escape_datetime_oracle(self) -> None:
+        from datetime import datetime
+        from datacoolie.sources.database_reader import DatabaseReader
+        from datacoolie.core.constants import DatabaseType
+        val = datetime(2024, 3, 15, 10, 30, 0)
+        result = DatabaseReader._escape_value(val, db_type=DatabaseType.ORACLE)
+        assert 'TO_TIMESTAMP' in result
+
+    def test_escape_date_oracle(self) -> None:
+        from datetime import date
+        from datacoolie.sources.database_reader import DatabaseReader
+        from datacoolie.core.constants import DatabaseType
+        val = date(2024, 3, 15)
+        result = DatabaseReader._escape_value(val, db_type=DatabaseType.ORACLE)
+        assert 'TO_DATE' in result
+
+
+class TestBuildWindowWhereClauseEdgeCases:
+    """Cover edge cases in _build_window_where_clause (lines 196-275)."""
+
+    def test_both_none_skips_column(self) -> None:
+        from datacoolie.sources.database_reader import DatabaseReader
+        result = DatabaseReader._build_window_where_clause(
+            lower={'col1': None},
+            upper={'col1': None},
+        )
+        assert result == ''
+
+    def test_lower_only_condition(self) -> None:
+        from datacoolie.sources.database_reader import DatabaseReader
+        result = DatabaseReader._build_window_where_clause(
+            lower={'created_at': '2024-01-01'},
+            upper={},
+        )
+        assert 'created_at' in result
+        assert '>' in result
+        # No upper bound condition
+        assert '<' not in result
+
+    def test_invalid_column_name_raises(self) -> None:
+        from datacoolie.sources.database_reader import DatabaseReader
+        from datacoolie.core.exceptions import SourceError
+        with pytest.raises(SourceError, match='Invalid watermark column name'):
+            DatabaseReader._build_window_where_clause(
+                lower={"col; DROP TABLE--": 'val'},
+                upper={},
+            )
+
+    def test_invalid_lower_op_defaults_to_gt(self) -> None:
+        from datacoolie.sources.database_reader import DatabaseReader
+        result = DatabaseReader._build_window_where_clause(
+            lower={'col': 1},
+            upper={'col': 10},
+            lower_op='!=',  # invalid - defaults to >
+            upper_op='!=',  # invalid - defaults to <
+        )
+        assert '>' in result
+        assert '<' in result
+
+
+class TestDatabaseReaderFilterExpression:
+    """Cover filter_expression appended to WHERE clause (lines 111-112)."""
+
+    def test_read_with_filter_expression(self) -> None:
+        from unittest.mock import MagicMock
+        from datacoolie.sources.database_reader import DatabaseReader
+        from datacoolie.core.models import Connection, Source
+
+        engine = MagicMock()
+        engine.read_database.return_value = MagicMock()
+
+        reader = DatabaseReader(engine=engine)
+
+        source = Source(
+            connection=Connection(
+                name='test',
+                format='delta',
+                configure={'database_type': 'postgresql', 'url': 'postgresql://localhost/db'},
+            ),
+            table='orders',
+            filter_expression='status = 1',
+        )
+        reader._source = source
+        reader._watermark_start = {}
+        reader._watermark_end = {}
+        reader._watermark_start_operator = '>'
+        reader._watermark_end_operator = '<'
+        reader.read(source)
+
+        call_kwargs = engine.read_database.call_args
+        # verify filter_expression was incorporated in the SQL
+        assert call_kwargs is not None

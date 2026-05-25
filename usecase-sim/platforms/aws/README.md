@@ -1,15 +1,20 @@
 # AWS Assets for usecase-sim
 
 Prepared AWS assets for file + Delta + Iceberg scenarios using real S3 and
-AWS Secrets Manager. The sample metadata currently targets the `s3://de-dev-0001/`
+AWS Secrets Manager. The sample metadata currently targets the `s3://de-dev-0007/`
 bucket, and the scripts below default to the same bucket.
 
-Two execution paths are provided:
+Three execution paths are provided:
 
 | Script | Runtime | Engine | Formats |
 |---|---|---|---|
-| `sample_aws_glue_spark.py` | AWS Glue Spark (PySpark) | `SparkEngine` | File, Delta, Iceberg |
+| `sample_aws_glue_spark.py` | AWS Glue Spark (cloud job) | `SparkEngine` | File, Delta, Iceberg |
+| `sample_aws_glue_docker.py` | **Glue Docker on-prem** (hybrid) | `SparkEngine` | File, Delta, Iceberg |
 | `sample_aws_local_polars.py` | **Local** (Python 3.11+, `aws configure`) | `PolarsEngine` | File, Delta, Iceberg |
+
+Hybrid mode: `sample_aws_glue_docker.py` runs Spark compute inside the official
+Glue 5.0 Docker image on-prem, but all AWS data services (S3, Glue Data Catalog,
+Secrets Manager, Athena) remain in the real cloud — no mocking.
 
 > **Why not Glue Python Shell for Polars?**  DataCoolie requires Python >= 3.11.
 > AWS Glue Python Shell tops out at Python 3.9 and is incompatible with the
@@ -20,7 +25,7 @@ Two execution paths are provided:
 
 - `aws_glue_use_cases.json`:
   - Shared metadata file used by both the Glue Spark and local Polars paths.
-  - Paths currently point to `s3://de-dev-0001/`.
+  - Paths currently point to `s3://de-dev-0007/`.
   - Stages use standard names (`read_file`, `write_file`, `load_delta`,
     `load_iceberg`, `read_lakehouse`, …) without platform prefixes.
   - Delta destination includes `database` and `configure.athena_output_location`
@@ -29,9 +34,29 @@ Two execution paths are provided:
   - One `aws_secrets_example_source` connection demonstrates Secrets Manager
     `secrets_ref` with a Secrets Manager ARN as the outer key.
 - `sample_aws_glue_spark.py`:
-  - Glue Spark (PySpark) job script.
+  - Glue Spark (PySpark) job script for cloud Glue jobs.
   - Uses `SparkEngine` with `max_workers=8`.
   - Full Delta + Iceberg + Athena/Glue catalog registration.
+- `sample_aws_glue_docker.py`:
+  - **Hybrid Docker version** — runs inside `public.ecr.aws/glue/aws-glue-libs:5` on-prem.
+  - Mirrors `sample_aws_glue_spark.py` as closely as possible.
+  - Key differences from the cloud script:
+    - `sys.path` injects `src/` (datacoolie) from the volume mount — mirrors `--additional-python-modules`.
+    - `functions/` is passed via `--py-files functions.zip` — mirrors `--extra-py-files`.
+    - Arg parsing is **identical**: `getResolvedOptions(sys.argv, ["JOB_NAME", "REGION", "BUCKET", "STAGE"])`.
+    - No Glue Job bookmark / Job.init() calls (not supported locally).
+  - Use `run_glue_docker.py` to launch it (see **Running with Glue Docker** below).
+- `run_glue_docker.py`:
+  - Python CLI that builds and fires the `docker run` command (cross-platform).
+  - Packs `functions/` as `functions.zip` before launch (mirrors `--extra-py-files`).
+  - Passes the zip via spark-submit `--py-files` inside the container.
+  - Mounts `~/.aws:ro` and the workspace; passes `--profile`.
+  - Args: `--stage`, `--region`, `--bucket`, `--profile`, `--job-name`, `--workspace`.
+  - **`--install`** (optional) — mirrors `--additional-python-modules` in cloud Glue:
+    - Omit: load `datacoolie` from the volume-mounted `src/` tree (**src mode**, default).
+    - `--install datacoolie` or `--install datacoolie==1.0.0`: `pip install` from PyPI.
+    - `--install dist/datacoolie-1.0.0-py3-none-any.whl`: `pip install` a local wheel file.
+      Path can be relative to workspace root or absolute (must be inside the workspace).
 - `sample_aws_local_polars.py`:
   - Local runner for Polars pipelines — no Glue runtime or IAM execution role required.
   - Reads AWS credentials from `~/.aws/credentials` via `aws configure`.
@@ -44,24 +69,91 @@ Two execution paths are provided:
 - `README.md`: this file.
 - `DEFERRED.md`: known gaps and deferred work.
 
+## Running with Glue Docker (hybrid mode)
+
+Compute runs in the official Glue 5.0 Docker image on-prem; all AWS data services
+(S3, Glue Data Catalog, Secrets Manager, Athena) are real cloud resources.
+
+### Prerequisites
+
+1. Docker Desktop running in **Linux container** mode.
+2. Python 3.6+ available (for `run_glue_docker.py`).
+3. AWS named profile configured: `aws configure --profile <name>`
+4. Pull the image once (~7 GB):
+   ```bash
+   docker pull public.ecr.aws/glue/aws-glue-libs:5
+   ```
+
+`datacoolie` install modes for Docker (all mirror `--additional-python-modules` in cloud Glue):
+
+| Mode | Command | How `datacoolie` is loaded |
+|---|---|---|
+| **src** (default) | *(no `--install`)* | `sys.path` → volume-mounted `src/` |
+| **PyPI package** | `--install datacoolie` | `pip install datacoolie` inside container |
+| **wheel file** | `--install dist/datacoolie-*.whl` | `pip install <wheel>` inside container |
+
+`functions/` is packaged as `functions.zip` by the Python helper and passed to
+`spark-submit --py-files` (mirrors `--extra-py-files` in cloud Glue).
+
+### Quick start
+
+```bash
+# Src mode — load directly from volume-mounted src/ (Docker dev default)
+python usecase-sim/platforms/aws/run_glue_docker.py --stage read_file
+
+# PyPI package mode — same as cloud Glue --additional-python-modules
+python usecase-sim/platforms/aws/run_glue_docker.py --stage read_file --install datacoolie
+python usecase-sim/platforms/aws/run_glue_docker.py --stage read_file --install datacoolie==1.0.0
+
+# Wheel file mode — pip install a local wheel inside the container
+python usecase-sim/platforms/aws/run_glue_docker.py --stage read_file --install dist/datacoolie-1.0.0-py3-none-any.whl
+
+# Run multiple stages
+python usecase-sim/platforms/aws/run_glue_docker.py --stage "read_file,load_delta"
+
+# Run all stages
+python usecase-sim/platforms/aws/run_glue_docker.py
+
+# Use a non-default AWS profile or bucket
+python usecase-sim/platforms/aws/run_glue_docker.py --profile my-sso --bucket my-bucket --stage read_file
+```
+
+Spark UI is available at `http://localhost:4050` while the job runs.
+
+
+### Differences from cloud `sample_aws_glue_spark.py`
+
+| | Cloud Glue | Glue Docker |
+|---|---|---|
+| Script | `sample_aws_glue_spark.py` | `sample_aws_glue_docker.py` |
+| `datacoolie` import | `--additional-python-modules` (PyPI or wheel) | **`--install <pkg>`**: `pip install` from PyPI |
+| | | **`--install <wheel>`**: `pip install` wheel file |
+| | | **default (Docker only)**: `sys.path` → volume-mounted `src/` |
+| `functions/` on path | `--extra-py-files functions.zip` | `--py-files functions.zip` (zipped by Python helper) |
+| Arg parsing | `getResolvedOptions` | `getResolvedOptions` (identical) |
+| Job bookmarks | ✅ Supported | ❌ Not supported (local limitation) |
+| AWS services | Real cloud | Real cloud (identical) |
+
+---
+
 ## S3 path convention
 
-Root bucket: `s3://de-dev-0001/`
+Root bucket: `s3://de-dev-0007/`
 
 | Purpose | S3 path |
 |---|---|
-| Input files | `s3://de-dev-0001/input/{format}/` |
-| File outputs | `s3://de-dev-0001/output/{format}/` |
-| Delta tables | `s3://de-dev-0001/output/delta/` |
-| Iceberg tables | `s3://de-dev-0001/output/iceberg/` |
-| Metadata file | `s3://de-dev-0001/metadata/aws_glue_use_cases.json` |
-| Athena results | `s3://de-dev-0001/athena-results/` |
-| Logs | `s3://de-dev-0001/logs/datacoolie` |
+| Input files | `s3://de-dev-0007/input/{format}/` |
+| File outputs | `s3://de-dev-0007/output/{format}/` |
+| Delta tables | `s3://de-dev-0007/output/delta/` |
+| Iceberg tables | `s3://de-dev-0007/output/iceberg/` |
+| Metadata file | `s3://de-dev-0007/metadata/aws_glue_use_cases.json` |
+| Athena results | `s3://de-dev-0007/athena-results/` |
+| Logs | `s3://de-dev-0007/logs/datacoolie` |
 
 ## Prerequisites
 
 1. AWS account with IAM role for Glue execution.
-2. S3 bucket `de-dev-0001` created in the target region (default: `ap-southeast-1`).
+2. S3 bucket `de-dev-0007` created in the target region (default: `ap-southeast-1`).
 3. AWS Glue Data Catalog database `datacoolie` created:
    ```bash
    aws glue create-database --database-input '{"Name":"datacoolie"}' --region ap-southeast-1
@@ -74,9 +166,9 @@ Root bucket: `s3://de-dev-0001/`
 6. Input files uploaded from the local repo folder `usecase-sim/data/input/`
    to the corresponding S3 paths.
 7. Metadata file `aws_glue_use_cases.json` uploaded to
-  `s3://de-dev-0001/metadata/aws_glue_use_cases.json`.
+  `s3://de-dev-0007/metadata/aws_glue_use_cases.json`.
 8. Keep the `BUCKET` job argument and the paths inside `aws_glue_use_cases.json`
-  aligned. The current repo copy of the metadata already points at `de-dev-0001`.
+  aligned. The current repo copy of the metadata already points at `de-dev-0007`.
 
 ### IAM permissions required
 
@@ -94,7 +186,7 @@ Root bucket: `s3://de-dev-0001/`
         "s3:HeadObject",
         "s3:CopyObject"
       ],
-      "Resource": "arn:aws:s3:::de-dev-0001/*"
+      "Resource": "arn:aws:s3:::de-dev-0007/*"
     },
     {
       "Effect": "Allow",
@@ -102,12 +194,12 @@ Root bucket: `s3://de-dev-0001/`
         "s3:ListBucket",
         "s3:GetBucketLocation"
       ],
-      "Resource": "arn:aws:s3:::de-dev-0001"
+      "Resource": "arn:aws:s3:::de-dev-0007"
     },
     {
       "Effect": "Allow",
       "Action": "secretsmanager:GetSecretValue",
-      "Resource": "arn:aws:secretsmanager:ap-southeast-1:*:secret:de-dev-0001/*"
+      "Resource": "arn:aws:secretsmanager:ap-southeast-1:*:secret:de-dev-0007/*"
     },
     {
       "Effect": "Allow",
@@ -161,7 +253,7 @@ python -m build --wheel --outdir dist/
 
 ```bash
 aws s3 cp dist/datacoolie-0.1.1-py3-none-any.whl \
-    s3://de-dev-0001/libraries/datacoolie-0.1.1-py3-none-any.whl \
+    s3://de-dev-0007/libraries/datacoolie-0.1.1-py3-none-any.whl \
     --region ap-southeast-1
 ```
 
@@ -174,7 +266,7 @@ not** include them in `--additional-python-modules`.
 
 | Parameter | Value |
 |---|---|
-| `--extra-py-files` | `s3://de-dev-0001/libraries/datacoolie-0.1.1-py3-none-any.whl` |
+| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.1-py3-none-any.whl` |
 | `--additional-python-modules` | `boto3>=1.28` |
 
 > `boto3` is also pre-installed in Glue 4.0+; you can omit it if the
@@ -245,13 +337,13 @@ Compress-Archive -Path functions -DestinationPath functions.zip -Force
 
 # Upload to S3
 aws s3 cp functions.zip \
-    s3://de-dev-0001/libraries/functions.zip \
+    s3://de-dev-0007/libraries/functions.zip \
     --region ap-southeast-1
 ```
 
 | Glue parameter | Value |
 |---|---|
-| `--extra-py-files` | `s3://de-dev-0001/libraries/datacoolie-0.1.1-py3-none-any.whl,s3://de-dev-0001/libraries/functions.zip` |
+| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.1-py3-none-any.whl,s3://de-dev-0007/libraries/functions.zip` |
 
 Glue will unzip `functions.zip` and add it to `sys.path`, making
 `functions.sources.sql_query_orders` importable.
@@ -268,7 +360,7 @@ Glue will unzip `functions.zip` and add it to `sys.path`, making
 3. Add job parameters:
   ```text
   --REGION      ap-southeast-1
-  --BUCKET      de-dev-0001
+  --BUCKET      de-dev-0007
   --STAGE       read_file,load_delta
   ```
 
@@ -293,7 +385,7 @@ Glue will unzip `functions.zip` and add it to `sys.path`, making
   ```text
   --conf  spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
           --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog
-          --conf spark.sql.catalog.glue_catalog.warehouse=s3://de-dev-0001/output/iceberg/
+          --conf spark.sql.catalog.glue_catalog.warehouse=s3://de-dev-0007/output/iceberg/
           --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog
           --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO
   ```
@@ -308,7 +400,7 @@ Glue will unzip `functions.zip` and add it to `sys.path`, making
           --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
           --conf spark.delta.logStore.class=org.apache.spark.sql.delta.storage.S3SingleDriverLogStore
           --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog
-          --conf spark.sql.catalog.glue_catalog.warehouse=s3://de-dev-0001/output/iceberg/
+          --conf spark.sql.catalog.glue_catalog.warehouse=s3://de-dev-0007/output/iceberg/
           --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog
           --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO
   ```
@@ -347,7 +439,7 @@ python sample_aws_local_polars.py --PROFILE my-sso-profile
 python sample_aws_local_polars.py --STAGE read_file,load_delta
 
 # Override region / bucket
-python sample_aws_local_polars.py --REGION ap-southeast-1 --BUCKET de-dev-0001
+python sample_aws_local_polars.py --REGION ap-southeast-1 --BUCKET de-dev-0007
 ```
 
 ### Parameters
@@ -355,7 +447,7 @@ python sample_aws_local_polars.py --REGION ap-southeast-1 --BUCKET de-dev-0001
 | Flag | Default | Description |
 |---|---|---|
 | `--REGION` | `ap-southeast-1` | AWS region |
-| `--BUCKET` | `de-dev-0001` | S3 bucket name |
+| `--BUCKET` | `de-dev-0007` | S3 bucket name |
 | `--STAGE` | *(all stages)* | Comma-separated stage names |
 | `--PROFILE` | *(default profile)* | AWS CLI named profile |
 | `--METADATA_PATH` | `s3://{BUCKET}/metadata/aws_glue_use_cases.json` | Full S3 path to metadata |
@@ -384,7 +476,7 @@ how to wire a Secrets Manager secret:
 
 ```json
 "secrets_ref": {
-  "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:de-dev-0001/datacoolie/rds": [
+  "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:de-dev-0007/datacoolie/rds": [
     "username",
     "password"
   ]
@@ -400,7 +492,7 @@ To create the secret for testing:
 
 ```bash
 aws secretsmanager create-secret \
-  --name de-dev-0001/datacoolie/rds \
+  --name de-dev-0007/datacoolie/rds \
   --secret-string '{"username":"myuser","password":"mypassword"}' \
   --region ap-southeast-1
 ```
@@ -424,11 +516,11 @@ aws secretsmanager create-secret \
 ## Quick start (Spark job, recommended)
 
 1. Upload input data from `usecase-sim/data/input/` to S3 input paths.
-2. Upload `aws_glue_use_cases.json` to `s3://de-dev-0001/metadata/`.
+2. Upload `aws_glue_use_cases.json` to `s3://de-dev-0007/metadata/`.
 3. Create the Glue Spark job as described above.
 4. Run with `STAGE=read_file,load_delta` to validate file reads and Delta writes.
 5. Re-run with `STAGE=load_iceberg,read_lakehouse` to validate Glue-catalog Iceberg writes.
-6. Check outputs in `s3://de-dev-0001/output/` and catalog tables in Glue/Athena.
+6. Check outputs in `s3://de-dev-0007/output/` and catalog tables in Glue/Athena.
 
 ## Quick start (Local Polars)
 
@@ -438,7 +530,7 @@ aws secretsmanager create-secret \
    aws configure    # enter Access Key ID, Secret, Region, output format
    ```
 2. Upload input data from `usecase-sim/data/input/` to the corresponding S3 input paths.
-3. Upload `aws_glue_use_cases.json` to `s3://de-dev-0001/metadata/`.
+3. Upload `aws_glue_use_cases.json` to `s3://de-dev-0007/metadata/`.
 4. Run a single stage to validate:
    ```bash
    python sample_aws_local_polars.py --STAGE read_file
@@ -451,9 +543,9 @@ aws secretsmanager create-secret \
 
 Expected outcomes:
 
-- CSV/JSON/Parquet/Avro/JSONL are read from `s3://de-dev-0001/input/` and written
-  to `s3://de-dev-0001/output/`.
-- Delta tables are written under `s3://de-dev-0001/output/delta/` and registered
+- CSV/JSON/Parquet/Avro/JSONL are read from `s3://de-dev-0007/input/` and written
+  to `s3://de-dev-0007/output/`.
+- Delta tables are written under `s3://de-dev-0007/output/delta/` and registered
   in the Glue catalog under database `datacoolie`.
-- Iceberg tables are written under `s3://de-dev-0001/output/iceberg/` and
+- Iceberg tables are written under `s3://de-dev-0007/output/iceberg/` and
   registered in the Glue catalog.

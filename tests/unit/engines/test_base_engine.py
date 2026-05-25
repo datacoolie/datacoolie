@@ -449,3 +449,83 @@ class TestNavigationMethods:
         e = self._Nav()
         with pytest.raises(EngineError, match=r"cleanup\(\) requires"):
             e.cleanup()
+
+
+class TestEnginesInitLazyImport:
+    def test_polars_engine_lazy_import(self) -> None:
+        import datacoolie.engines as eng_mod
+        cls = eng_mod.__getattr__("PolarsEngine")
+        from datacoolie.engines.polars_engine import PolarsEngine
+        assert cls is PolarsEngine
+
+    def test_spark_engine_lazy_import(self) -> None:
+        import datacoolie.engines as eng_mod
+        cls = eng_mod.__getattr__("SparkEngine")
+        from datacoolie.engines.spark_engine import SparkEngine
+        assert cls is SparkEngine
+
+    def test_unknown_attr_raises_attribute_error(self) -> None:
+        import datacoolie.engines as eng_mod
+        with pytest.raises(AttributeError):
+            eng_mod.__getattr__("NoSuchEngine")
+
+
+class TestBaseEngineUncoveredBranches:
+    """Cover uncovered branches in base engine (lines 147-151, 922-925, 1073, 1085, 1102-1106)."""
+
+    def test_resolve_column_name_not_found_raises(self) -> None:
+        """Lines 147-151: raise EngineError when column not found."""
+        engine = StubEngine()
+        with pytest.raises(EngineError, match="Column 'missing' not found"):
+            engine._resolve_column_name(['col1', 'col2'], 'missing')
+
+    def test_delete_by_window_no_args_raises(self) -> None:
+        """Lines 922-925: delete_by_window raises when neither table_name nor path given."""
+        engine = StubEngine()
+        with pytest.raises(EngineError, match='requires table_name or path'):
+            engine.delete_by_window(table_name=None, window={'col': (1, 10)})
+
+    def test_scd2_to_path_raises_not_implemented(self) -> None:
+        """Line 1073: scd2_to_path raises NotImplementedError by default."""
+        engine = StubEngine()
+        with pytest.raises(NotImplementedError):
+            engine.scd2_to_path({}, 'path', merge_keys=['id'])
+
+    def test_scd2_to_table_raises_not_implemented(self) -> None:
+        """Line 1085: scd2_to_table raises NotImplementedError by default."""
+        engine = StubEngine()
+        with pytest.raises(NotImplementedError):
+            engine.scd2_to_table({}, 'tbl', merge_keys=['id'])
+
+    def test_scd2_dispatcher_no_args_raises(self) -> None:
+        """Lines 1102-1106: scd2() raises when neither table_name nor path given."""
+        engine = StubEngine()
+        with pytest.raises(EngineError, match='requires table_name or path'):
+            engine.scd2({}, merge_keys=['id'])
+
+
+class TestBaseEngineRemainingLines:
+    """Cover lines 150, 923, 1103 in base.py."""
+
+    def _make_engine(self):
+        return StubEngine()
+
+    def test_resolve_column_name_raises_when_not_found(self) -> None:
+        """Line 150: _resolve_column_name raises EngineError when column missing."""
+        engine = self._make_engine()
+        with pytest.raises(EngineError, match="not found"):
+            engine._resolve_column_name(['col_a', 'col_b'], 'missing_col')
+
+    def test_delete_by_window_no_table_or_path_raises(self) -> None:
+        """Line 923: delete_by_window raises when both table_name and path are None."""
+        engine = self._make_engine()
+        with pytest.raises(EngineError, match="requires table_name or path"):
+            engine.delete_by_window(table_name=None, path=None, window={'col': (1, 10)})
+
+    def test_scd2_no_table_or_path_raises(self) -> None:
+        """Line 1103: scd2() raises when both table_name and path are None."""
+        import polars as pl
+        engine = self._make_engine()
+        df = pl.DataFrame({'id': [1], 'val': ['a']})
+        with pytest.raises(EngineError, match="requires table_name or path"):
+            engine.scd2(df, table_name=None, path=None, merge_keys=['id'])

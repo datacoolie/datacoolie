@@ -48,6 +48,21 @@ docker compose -f datacoolie/usecase-sim/docker/docker-compose.yml up -d
 
 Then re-run the scenario.
 
+### Running Spark scenarios with Docker
+
+A containerized PySpark environment is available for running Spark-based
+scenarios without installing Spark locally:
+
+```powershell
+docker compose -f datacoolie/usecase-sim/docker/docker-compose.yml up spark -d
+docker exec -it datacoolie-spark bash
+# Inside container:
+python /app/runner/run_scenario.py --scenario spark_local
+```
+
+The `Dockerfile.spark` image includes PySpark, Delta Lake, and the DataCoolie
+package pre-installed.
+
 ## `fmt='parquet'` Iceberg writes not appearing in Athena
 
 Iceberg needs Glue catalog registration. Set `register_symlink_table = true`

@@ -50,7 +50,6 @@ def _file_item(name: str, path: str, size: int = 100, is_dir: bool = False) -> M
 
 class TestReadFile:
     def test_read(self, platform: DatabricksPlatform, mock_fs: MagicMock) -> None:
-        platform.download_file = MagicMock()  # type: ignore[method-assign]
         m = mock_open(read_data="hello")
         with patch("tempfile.mkstemp", return_value=(5, "/tmp/t.tmp")), \
              patch("os.close"), \
@@ -58,10 +57,10 @@ class TestReadFile:
              patch("builtins.open", m):
             result = platform.read_file("dbfs:/data/file.txt")
         assert result == "hello"
-        platform.download_file.assert_called_once_with("dbfs:/data/file.txt", "/tmp/t.tmp")
+        mock_fs.cp.assert_called_once_with("dbfs:/data/file.txt", "file:/tmp/t.tmp", recurse=False)
 
     def test_read_failure(self, platform: DatabricksPlatform, mock_fs: MagicMock) -> None:
-        platform.download_file = MagicMock(side_effect=PlatformError("fail"))  # type: ignore[method-assign]
+        mock_fs.cp.side_effect = Exception("fail")
         with patch("tempfile.mkstemp", return_value=(5, "/tmp/t.tmp")), \
              patch("os.close"), \
              patch("os.unlink"):
@@ -183,7 +182,7 @@ class TestGetFileInfo:
 class TestDownloadFile:
     def test_download(self, platform: DatabricksPlatform, mock_fs: MagicMock) -> None:
         platform.download_file("dbfs:/data/file.txt", "/tmp/local.txt")
-        mock_fs.cp.assert_called_once_with("dbfs:/data/file.txt", "file:/tmp/local.txt")
+        mock_fs.cp.assert_called_once_with("dbfs:/data/file.txt", "file:/tmp/local.txt", recurse=False)
 
     def test_download_failure(self, platform: DatabricksPlatform, mock_fs: MagicMock) -> None:
         mock_fs.cp.side_effect = Exception("boom")

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TextIO
@@ -691,7 +692,16 @@ class ETLLogger(BaseLogger):
         job_log_dir = self._partition_path(
             LogPurpose.ANALYST.value, LogType.JOB_RUN_LOG.value, run_date,
         )
-        job_log_path = f"{job_log_dir}/job_run_log.jsonl"
+        # Derive date stem from partition_pattern (same values as format_partition_path)
+        # e.g. "__run_date={year}-{month}-{day}" → "__run_date=2026-05-24" → "20260524"
+        _pf = self._config.partition_pattern.format(
+            year=run_date.year,
+            month=f"{run_date.month:02d}",
+            day=f"{run_date.day:02d}",
+            hour=f"{run_date.hour:02d}",
+        )
+        date_stem = re.sub(r"\D", "", _pf)
+        job_log_path = f"{job_log_dir}/job_run_log_{date_stem}.jsonl"
         job_line = json.dumps(summary_row, default=_json_default) + "\n"
         try:
             self._platform.append_file(job_log_path, job_line)

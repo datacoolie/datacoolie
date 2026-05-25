@@ -9,7 +9,8 @@ Generate, validate, lint, convert, and merge DataCoolie metadata files against t
 
 ## Scope
 
-This skill handles: metadata validation, linting, format conversion (JSON↔YAML), environment overlay merging.
+This skill handles: metadata authoring (build, generate from architecture, edit, add, remove),
+validation, linting, format conversion (JSON↔YAML), environment overlay merging.
 Does NOT handle: metadata provider implementation, engine runtime, orchestration, deployment pipelines.
 
 ## Security Policy
@@ -20,10 +21,86 @@ Does NOT handle: metadata provider implementation, engine runtime, orchestration
 
 ## Workflow
 
-1. **Validate** — Check metadata structure against versioned JSON Schema
-2. **Lint** — Detect anti-patterns beyond schema compliance
-3. **Convert** — Transform between JSON and YAML formats
-4. **Merge** — Combine base metadata + environment overlay into resolved file
+1. **Author** — Build metadata from scratch, generate from architecture, or interactively edit
+2. **Validate** — Check metadata structure against versioned JSON Schema
+3. **Lint** — Detect anti-patterns beyond schema compliance
+4. **Convert** — Transform between JSON and YAML formats
+5. **Merge** — Combine base metadata + environment overlay into resolved file
+
+---
+
+## Authoring Workflow (AI-native)
+
+Metadata authoring is performed directly by the AI using the Schema Quick Reference below.
+No script needed — the AI reads inputs, applies mapping rules, and writes JSON/YAML.
+
+### Build from scratch
+
+When user describes data verbally or provides requirements:
+1. Ask clarifying questions (source type, format, load strategy, platform)
+2. Generate `connections[]` and `dataflows[]` using Schema Quick Reference
+3. Write to `metadata/connections.json` + `metadata/dataflows.json`
+4. Auto-validate: run `validate.py` + `lint.py` on generated output
+5. Present result to user for confirmation
+
+### Generate from architecture
+
+When `.datacoolie/architect/yymmdd_architecture.md` exists (approved):
+1. Read the approved architecture document
+2. Apply the **Bridge Mapping** below to produce metadata
+3. Write output to `metadata/` directory
+4. Auto-validate: run `validate.py` + `lint.py`
+5. Generate environment overlays from Environment Differences table
+
+#### Bridge Mapping (Architecture → Metadata)
+
+| Architecture section | Metadata field |
+|---|---|
+| Infrastructure Requirements → Resource Name | `connections[].name` |
+| Infrastructure Requirements → Resource Type | `connections[].connection_type` (lakehouse/file/database) |
+| Infrastructure Requirements → Platform + Purpose | `connections[].configure` (base_path, database_type, etc.) |
+| Stage Definitions → Source column | `dataflows[].source.connection_name` + `.table` |
+| Stage Definitions → Destination column | `dataflows[].destination.connection_name` + `.table` |
+| Stage Definitions → Load Type column | `dataflows[].destination.load_type` |
+| Stage Definitions → Engine column | Runner generation config |
+| Stage Definitions → Schedule column | Orchestration config (out of metadata scope) |
+| Partitioning Strategy → Partition Columns | `dataflows[].destination.partition_columns` |
+| Partitioning Strategy → Expression | `partition_columns[].expression` |
+| Environment Differences → Dev/Test/Prod | `environments/{env}.yaml` overlays |
+
+**Mapping rules:**
+- Each unique resource in Infrastructure Requirements → one Connection object
+- Each row in Stage Definitions → one DataFlow object
+- Stage name pattern `{source}_source2bronze` → `dataflows[].stage: "source2bronze"`
+- If Load Type is `merge_upsert` / `merge_overwrite` / `scd2` → set `merge_keys` from discovery PKs
+- If architecture specifies watermark → set `source.watermark_columns`
+- Bronze partition by `_ingest_date` → `destination.partition_columns: [{"column": "_ingest_date", "expression": "current_date()"}]`
+- Use `secrets_ref` for all credentials — never hardcode in configure
+
+### Edit
+
+When user requests a change to existing metadata:
+1. Read the existing metadata file
+2. Apply the targeted change to the correct field
+3. Re-validate after change (`validate.py` + `lint.py`)
+4. Show diff to user
+
+### Add
+
+When user adds a new source/connection/dataflow:
+1. Generate the new object(s) using Schema Quick Reference
+2. Append to the correct array in metadata
+3. Validate cross-references (`connection_name` must exist)
+4. Re-validate
+
+### Remove
+
+When user removes a connection or dataflow:
+1. Confirm no other dataflows reference the removed connection
+2. Remove the object or set `is_active: false`
+3. Re-validate
+
+---
 
 ## Scripts
 

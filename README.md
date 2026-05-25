@@ -2,6 +2,15 @@
     <img src="https://raw.githubusercontent.com/datacoolie/datacoolie/main/docs/images/banners/datacoolie-banner-dark.png" alt="DataCoolie banner" width="100%">
 </p>
 
+<p align="center">
+  <a href="https://pypi.org/project/datacoolie/"><img src="https://img.shields.io/pypi/v/datacoolie" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/datacoolie/"><img src="https://img.shields.io/pypi/pyversions/datacoolie" alt="Python versions"></a>
+  <a href="https://pypi.org/project/datacoolie/"><img src="https://img.shields.io/pypi/dm/datacoolie" alt="Downloads"></a>
+  <a href="https://github.com/datacoolie/datacoolie/actions/workflows/ci.yml"><img src="https://github.com/datacoolie/datacoolie/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://datacoolie.github.io/datacoolie/"><img src="https://img.shields.io/badge/docs-datacoolie.github.io-blue" alt="Docs"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/datacoolie/datacoolie" alt="License"></a>
+</p>
+
 # DataCoolie — Metadata-driven ETL Framework
 
 Metadata-driven ETL framework that unifies execution engines (Spark, Polars, and more in the future), remains cloud-agnostic (Fabric, AWS, Databricks, and more in the future), and currently focuses on batch workloads with a roadmap to micro-batch and streaming.

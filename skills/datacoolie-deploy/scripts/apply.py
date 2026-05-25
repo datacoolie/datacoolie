@@ -201,6 +201,34 @@ def apply_databricks(env_name: str, config: dict, dry_run: bool, run_after: bool
             bundle_path.write_text(content, encoding="utf-8")
         print(f"  \u2713 Rendered databricks.yml")
 
+    # Upload metadata to Unity Catalog Volume
+    env_config = config.get("environments", {}).get(env_name, {})
+    dbx_config = env_config.get("databricks", {})
+    volume_root = dbx_config.get(
+        "volume_root",
+        f"/Volumes/{dbx_config.get('catalog', 'workspace')}/"
+        f"{dbx_config.get('schema', 'default')}/"
+        f"{dbx_config.get('volume', 'datacoolie')}",
+    )
+    # Upload wheel/zip packages to Volume libraries/
+    dist_dir = project_dir / ".datacoolie" / "generated" / "dist"
+    if dist_dir.is_dir():
+        print("\n  Uploading packages to Databricks Volume...")
+        for pkg in sorted(dist_dir.glob("*.whl")) + sorted(dist_dir.glob("*.zip")):
+            dest = f"{volume_root}/libraries/{pkg.name}"
+            _run_cmd(["databricks", "fs", "cp", "--overwrite", str(pkg), f"dbfs:{dest}"], dry_run)
+
+    metadata_dir = project_dir / "metadata"
+    if metadata_dir.is_dir():
+        print("\n  Uploading metadata to Databricks Volume...")
+        for meta_file in (
+            sorted(metadata_dir.glob("*.json"))
+            + sorted(metadata_dir.glob("*.yaml"))
+            + sorted(metadata_dir.glob("*.yml"))
+        ):
+            dest = f"{volume_root}/metadata/{meta_file.name}"
+            _run_cmd(["databricks", "fs", "cp", "--overwrite", str(meta_file), f"dbfs:{dest}"], dry_run)
+
     # Validate bundle
     code, _ = _run_cmd(["databricks", "bundle", "validate"], dry_run)
     if code != 0 and not dry_run:
@@ -239,9 +267,9 @@ def apply_fabric(env_name: str, config: dict, dry_run: bool, run_after: bool, pr
     # Upload metadata
     metadata_dir = project_dir / "metadata"
     if metadata_dir.is_dir():
-        for json_file in metadata_dir.glob("*.json"):
-            dest = f"{workspace}.Workspace/{lakehouse}.Lakehouse/Files/metadata/{json_file.name}"
-            _run_cmd(["fab", "cp", str(json_file), dest], dry_run)
+        for meta_file in sorted(metadata_dir.glob("*.json")) + sorted(metadata_dir.glob("*.yaml")) + sorted(metadata_dir.glob("*.yml")):
+            dest = f"{workspace}.Workspace/{lakehouse}.Lakehouse/Files/metadata/{meta_file.name}"
+            _run_cmd(["fab", "cp", str(meta_file), dest], dry_run)
 
     # Deploy via fab deploy (if config.yml exists)
     config_yml = generated_dir / "config.yml"
@@ -285,7 +313,11 @@ def main() -> None:
 
     # Step 1: Preflight
     print("Step 1: Preflight checks")
-    rc = _run_script("preflight.py", ["--platform", args.platform, "--project-dir", str(project_dir)], args.dry_run)
+    rc = _run_script(
+        "preflight.py",
+        ["--platform", args.platform, "--project-dir", str(project_dir), "--env", args.env],
+        args.dry_run,
+    )
     if rc != 0 and not args.dry_run:
         print("\nPreflight failed. Aborting.", file=sys.stderr)
         sys.exit(1)

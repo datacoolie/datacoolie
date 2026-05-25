@@ -155,6 +155,7 @@ pymdown-extensions = "^10.9"
 mkdocs-gen-files = "^0.5"
 mkdocs-literate-nav = "^0.6"
 mkdocs-section-index = "^0.3"
+mkdocs-rss-plugin = ">=1.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

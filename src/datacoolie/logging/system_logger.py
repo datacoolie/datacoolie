@@ -41,6 +41,7 @@ from datacoolie.logging.base import (
     get_logger,
 )
 from datacoolie.platforms.base import BasePlatform
+from datacoolie.utils.helpers import utc_now
 
 _logger = get_logger(__name__)
 
@@ -89,9 +90,11 @@ class SystemLogger(BaseLogger):
                 output_path = format_partition_path(
                     output_path, pattern=self._config.partition_pattern
                 )
+            now = utc_now()
+            date_stem = now.strftime("%Y%m%d_%H%M%S")
             rc = self._run_config
             job_id = (rc.job_id if rc else None) or "default"
-            self._remote_path = f"{output_path}/system_log_{job_id}.log"
+            self._remote_path = f"{output_path}/system_log_{date_stem}_{job_id}.log"
         return self._remote_path
 
     def _do_flush(self) -> None:

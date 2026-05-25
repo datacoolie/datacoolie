@@ -367,3 +367,26 @@ class TestMaintenanceOperations:
         compact = next(e for e in info.operation_details if e.get("operation") == "compact")
         assert cleanup["engine_metrics"]["files_removed"] == 2
         assert "engine_metrics" not in compact
+
+
+class TestRunOpExceptionPath:
+    def test_run_op_captures_exception(self, engine: MockEngine) -> None:
+        engine.set_table_exists(True)
+        writer = ConcreteWriter(engine)
+        errors = []
+
+        def _raise():
+            raise RuntimeError("boom")
+
+        result = writer._run_op(
+            op_name="compact",
+            table_exists=True,
+            fn=_raise,
+            errors=errors,
+            location="/some/path",
+        )
+
+        assert result["status"] == DataFlowStatus.FAILED.value
+        assert "boom" in result["error_message"]
+        assert len(errors) == 1
+        assert "Compact: boom" in errors[0]

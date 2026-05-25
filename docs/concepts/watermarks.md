@@ -100,6 +100,21 @@ During `run_replay()`, watermark persistence is controlled by
 When `save_watermark=True`, already-completed chunks are skipped on re-run by
 comparing the stored watermark against chunk boundaries.
 
+### `watermark_window` (range-based delete)
+
+After reading, the driver calls `DataFlow.apply_watermark_window(source_runtime)`
+to compute a `{column: (lower, upper)}` mapping from the source's effective
+watermark bounds.  This window is stored on `dataflow.watermark_window` and
+used by `MergeOverwriteStrategy` when `replace_by_watermark` is enabled to
+delete all target rows in the range before re-inserting fresh data.
+
+The window is only computed when:
+
+- `destination.replace_by_watermark` is `True`
+- Both lower and upper bounds are available (i.e. `source_runtime.watermark_before` and `source_runtime.watermark_after` are populated)
+
+See [Destination · replace_by_watermark](../how-to/metadata-guide/destination-and-load-patterns.md#replace_by_watermark--range-based-delete).
+
 See [How-to · Replay & backfill](../how-to/replay-and-backfill.md).
 
 ## Empty watermark semantics

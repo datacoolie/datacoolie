@@ -581,3 +581,36 @@ class TestBuildEffectiveWatermark:
         wm = {"event_date": date(2026, 3, 8)}
         result = BaseSourceReader._build_watermark_effective(src, wm)
         assert result is wm
+
+
+class TestApplyWatermarkFilterEdgeCases:
+    def test_watermark_end_with_no_matching_cols_sets_none(self) -> None:
+        """When watermark_end is provided but has no overlap with watermark_cols, filtered_end=None."""
+        eng = MockEngine()
+        reader = ConcreteSourceReader(eng)
+        df = {'ts': '2024-01-01', 'val': 1}
+        # watermark_start has 'ts' but watermark_end has only 'other_col' not in filtered_columns
+        # 'ts' is in watermark_columns and watermark_start, so filtered_columns = ['ts']
+        # watermark_end.get('ts') is None, so filtered_end stays None
+        reader._apply_watermark_filter(df, ['ts'], watermark_start={'ts': '2024-01-01'}, watermark_end={'other_col': '2024-12-31'})
+        assert eng._filter_end is None
+
+
+class TestApplyFilterExpression:
+    def test_filter_expression_calls_filter_rows(self) -> None:
+        eng = MockEngine()
+        reader = ConcreteSourceReader(eng)
+        conn = Connection(name='c', connection_type='lakehouse', format='delta', configure={'base_path': '/a'})
+        source = Source(connection=conn, filter_expression='val > 0')
+        df = {'id': 1}
+        reader._apply_filter_expression(df, source)
+        assert eng._filtered is True
+
+    def test_no_filter_expression_is_noop(self) -> None:
+        eng = MockEngine()
+        reader = ConcreteSourceReader(eng)
+        conn = Connection(name='c', connection_type='lakehouse', format='delta', configure={'base_path': '/a'})
+        source = Source(connection=conn)
+        df = {'id': 1}
+        result = reader._apply_filter_expression(df, source)
+        assert result is df

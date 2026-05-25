@@ -581,3 +581,273 @@ class TestEagerPrefetch:
         assert p._cache is not None
         assert p._cache.is_loaded() is False
         assert p.fetch_counts.get("connections", 0) == 0
+
+
+class TestMetadataInitLazyImport:
+    def test_database_provider_lazy(self) -> None:
+        import datacoolie.metadata as m
+        cls = m.__getattr__('DatabaseProvider')
+        from datacoolie.metadata.database_provider import DatabaseProvider
+        assert cls is DatabaseProvider
+
+    def test_api_client_lazy(self) -> None:
+        import datacoolie.metadata as m
+        cls = m.__getattr__('APIClient')
+        from datacoolie.metadata.api_client import APIClient
+        assert cls is APIClient
+
+    def test_file_provider_lazy(self) -> None:
+        import datacoolie.metadata as m
+        cls = m.__getattr__('FileProvider')
+        from datacoolie.metadata.file_provider import FileProvider
+        assert cls is FileProvider
+
+    def test_unknown_attr_raises(self) -> None:
+        import datacoolie.metadata as m
+        import pytest
+        with pytest.raises(AttributeError):
+            m.__getattr__('NoSuch')
+
+
+class TestBaseMetadataCacheHitPaths:
+    """Cover cached data retrieval paths (lines 266, 324, 375-376, 412-414)."""
+
+    def test_prefetch_all_already_loaded_skips_double_check(self) -> None:
+        """Line 266: return early inside lock if already loaded."""
+        provider = StubProvider(enable_cache=True)
+        provider.prefetch_all()
+        # Second call should hit the early return
+        pre = provider.fetch_counts.get('connections', 0)
+        provider.prefetch_all()
+        post = provider.fetch_counts.get('connections', 0)
+        # Should NOT have fetched again
+        assert post == pre
+
+    def test_get_dataflows_with_stage_filter_from_cache(self) -> None:
+        """Lines 375-376: stage filter applied on cached data."""
+        provider = StubProvider(enable_cache=True)
+        df1 = _dataflow(dataflow_id='df-1')
+        df2 = _dataflow(dataflow_id='df-2')
+        import dataclasses
+        df1 = dataclasses.replace(df1, stage='bronze')
+        df2 = dataclasses.replace(df2, stage='silver')
+        provider.dataflows = [df1, df2]
+
+        # Populate cache
+        provider.prefetch_all()
+        # Filter by stage from cache
+        result = provider.get_dataflows(stage=['bronze'])
+        assert len(result) == 1
+        assert result[0].dataflow_id == 'df-1'
+
+    def test_get_dataflows_inactive_filter_from_cache(self) -> None:
+        """Cache returns both active and inactive; active_only filters them."""
+        provider = StubProvider(enable_cache=True)
+        df_active = _dataflow(dataflow_id='df-active')
+        df_inactive = _dataflow(dataflow_id='df-inactive')
+        import dataclasses
+        df_inactive = dataclasses.replace(df_inactive, is_active=False)
+        provider.dataflows = [df_active, df_inactive]
+
+        provider.prefetch_all()
+        result = provider.get_dataflows(active_only=True)
+        assert all(df.is_active for df in result)
+
+    def test_attach_hints_from_cache_snapshot(self) -> None:
+        """Lines 412-414: attach hints from loaded cache snapshot."""
+        provider = StubProvider(enable_cache=True)
+        conn = Connection(connection_id='c-with-hint', name='conn_a', configure={'use_schema_hint': True})
+        hint = SchemaHint(column_name='id', data_type='INT')
+        df = DataFlow(
+            dataflow_id='df-hint',
+            source=Source(connection=conn, table='orders'),
+            destination=Destination(connection=conn, table='orders'),
+        )
+        provider.connections = [conn]
+        provider.dataflows = [df]
+        provider.hints['orders'] = [hint]
+
+        # Prefetch so cache is loaded with hints
+        provider.prefetch_all()
+        result = provider.get_dataflows(attach_schema_hints=True)
+        # Should have attached hints
+        assert result is not None
+
+
+class TestBaseMetadataCacheNegativeAndHints:
+    """Cover lines 444, 462, 478, 571, 621, 630, 633, 639."""
+
+    def test_get_connections_all_from_loaded_cache(self) -> None:
+        """Line 444: get_connections(active_only=False) served from cache."""
+        provider = StubProvider(enable_cache=True)
+        conn = _conn()
+        provider.connections = [conn]
+        provider.prefetch_all()
+        pre = provider.fetch_counts.get('connections', 0)
+        result = provider.get_connections(active_only=False)
+        assert provider.fetch_counts.get('connections', 0) == pre
+        assert len(result) == 1
+
+    def test_get_connection_by_name_negative_cache(self) -> None:
+        """Line 478: returns None when cache is loaded but name not found."""
+        provider = StubProvider(enable_cache=True)
+        provider.connections = []
+        provider.prefetch_all()
+        result = provider.get_connection_by_name('nonexistent')
+        assert result is None
+
+    def test_get_dataflow_by_id_from_cache(self) -> None:
+        """Line 571: get_dataflow_by_id hits cache."""
+        provider = StubProvider(enable_cache=True)
+        df = _dataflow(dataflow_id='df-cached')
+        provider.dataflows = [df]
+        provider.prefetch_all()
+        result = provider.get_dataflow_by_id('df-cached', attach_schema_hints=False)
+        assert result is not None
+        assert result.dataflow_id == 'df-cached'
+
+    def test_attach_schema_hints_skips_when_already_attached(self) -> None:
+        """Line 621: early return when hints already attached."""
+        from datacoolie.core.models import Transform
+        provider = StubProvider(enable_cache=True)
+        hint = SchemaHint(column_name='id', data_type='INT')
+        conn = _conn()
+        df = _dataflow()
+        df.transform.schema_hints = [hint]
+        # Should not call get_schema_hints
+        pre = provider.fetch_counts.get('schema_hints', 0)
+        provider._attach_schema_hints(df)
+        assert provider.fetch_counts.get('schema_hints', 0) == pre
+
+    def test_attach_schema_hints_skips_when_no_use_schema_hint(self) -> None:
+        """Line 630: skip when connection.use_schema_hint is False."""
+        provider = StubProvider(enable_cache=True)
+        conn = Connection(connection_id='c1', name='c1', configure={'use_schema_hint': False})
+        df = DataFlow(
+            dataflow_id='df1',
+            source=Source(connection=conn, table='t1'),
+            destination=Destination(connection=conn, table='t1'),
+        )
+        pre = provider.fetch_counts.get('schema_hints', 0)
+        provider._attach_schema_hints(df)
+        assert provider.fetch_counts.get('schema_hints', 0) == pre
+
+    def test_attach_schema_hints_skips_when_no_table(self) -> None:
+        """Line 639: skip when source.table is None."""
+        provider = StubProvider(enable_cache=True)
+        conn = Connection(connection_id='c1', name='c1', configure={'use_schema_hint': True})
+        df = DataFlow(
+            dataflow_id='df1',
+            source=Source(connection=conn, table=None),
+            destination=Destination(connection=conn, table='t1'),
+        )
+        pre = provider.fetch_counts.get('schema_hints', 0)
+        provider._attach_schema_hints(df)
+        assert provider.fetch_counts.get('schema_hints', 0) == pre
+
+
+class TestBaseMetadataRemainingLines:
+    """Cover lines 266, 412-414, 462, 571, 621 from the full coverage run."""
+
+    def test_get_connection_by_id_from_loaded_cache(self) -> None:
+        """Line 462: get_connection_by_id returns cached hit."""
+        p = StubProvider(enable_cache=True)
+        c = _conn(connection_id='cx1')
+        p.connections = [c]
+        p.prefetch_all()
+        pre = p.fetch_counts.get('connection_by_id', 0)
+        result = p.get_connection_by_id('cx1')
+        assert result is not None
+        assert p.fetch_counts.get('connection_by_id', 0) == pre
+
+    def test_get_dataflow_by_id_negative_cache(self) -> None:
+        """Line 571: returns None for unknown id when cache is loaded."""
+        p = StubProvider(enable_cache=True)
+        p.dataflows = []
+        p.prefetch_all()
+        result = p.get_dataflow_by_id('nonexistent-id')
+        assert result is None
+        assert p.fetch_counts.get('dataflow_by_id', 0) == 0
+
+    def test_attach_hints_if_requested_with_loaded_cache(self) -> None:
+        """Lines 412-414: _attach_hints_if_requested when cache is loaded."""
+        p = StubProvider(enable_cache=True)
+        conn = Connection(connection_id='c-hint', name='c-hint', configure={'use_schema_hint': True})
+        hint = SchemaHint(column_name='id', data_type='INT')
+        df = DataFlow(
+            dataflow_id='df-h',
+            source=Source(connection=conn, table='orders'),
+            destination=Destination(connection=conn, table='orders'),
+        )
+        p.connections = [conn]
+        p.dataflows = [df]
+        p.hints['orders'] = [hint]
+        p.prefetch_all()
+        # Call _attach_hints_if_requested directly with a loaded cache
+        p._attach_hints_if_requested([df], attach_schema_hints=True)
+        # Hints should be populated
+        assert df.transform.schema_hints is not None
+
+    def test_attach_schema_hints_skips_already_attached(self) -> None:
+        """Line 621: _attach_schema_hints returns early when hints exist."""
+        p = StubProvider(enable_cache=True)
+        conn = _conn()
+        df = _dataflow()
+        df.transform.schema_hints = [SchemaHint(column_name='x', data_type='INT')]
+        pre = p.fetch_counts.get('schema_hints', 0)
+        p._attach_schema_hints(df)
+        assert p.fetch_counts.get('schema_hints', 0) == pre
+
+
+class TestAttachHintsRemainingCoverage:
+    """Cover lines 412-414, 621 in base.py."""
+
+    def _make_df_with_hints(self) -> "DataFlow":
+        from unittest.mock import MagicMock
+        from datacoolie.core.models import Connection, DataFlow, Destination, Source, Transform
+        conn = Connection(connection_id='c1', name='test', configure={'use_schema_hint': True})
+        src = Source(connection=conn, table='tbl')
+        dest = Destination(table='dtbl', connection=conn, configure={'catalog': 'cat'})
+        transform = Transform()
+        transform.schema_hints = [MagicMock()]  # non-empty means already attached
+        return DataFlow.model_construct(
+            dataflow_id='df-hints',
+            source=src,
+            destination=dest,
+            load_type='append',
+            transform=transform,
+        )
+
+    def test_attach_hints_if_requested_no_cache_calls_prefetch(self) -> None:
+        """Lines 412-414: no cache → calls _prefetch_schema_hints and _attach_schema_hints."""
+        from datacoolie.metadata.base import BaseMetadataProvider
+        from unittest.mock import MagicMock
+        provider = MagicMock(spec=BaseMetadataProvider)
+        provider._cache = None
+        
+        # Create simple dataflow without hints
+        from datacoolie.core.models import Connection, DataFlow, Destination, Source, Transform
+        conn = Connection(connection_id='c2', name='t2', configure={'use_schema_hint': True})
+        src = Source(connection=conn, table='tbl2')
+        dest = Destination(table='dtbl2', connection=conn, configure={'catalog': 'cat'})
+        df = DataFlow.model_construct(
+            dataflow_id='df-no-hints', source=src, destination=dest,
+            load_type='append', transform=Transform(),
+        )
+        provider._prefetch_schema_hints = MagicMock()
+        provider._attach_schema_hints = MagicMock()
+        BaseMetadataProvider._attach_hints_if_requested(provider, [df], attach_schema_hints=True)
+        provider._prefetch_schema_hints.assert_called_once()
+        provider._attach_schema_hints.assert_called_once_with(df)
+
+    def test_attach_schema_hints_skips_when_already_attached(self) -> None:
+        """Line 621: returns early when schema_hints already set."""
+        from datacoolie.metadata.base import BaseMetadataProvider
+        from unittest.mock import MagicMock
+        provider = MagicMock(spec=BaseMetadataProvider)
+        df = self._make_df_with_hints()
+        # Should return without making requests (no get_schema_hints calls)
+        # The return happens before get_schema_hints is called
+        # We can verify by checking the result is None (no exception)
+        result = BaseMetadataProvider._attach_schema_hints(provider, df)
+        assert result is None

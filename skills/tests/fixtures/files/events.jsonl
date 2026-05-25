@@ -1,0 +1,10 @@
+{"event_id": "evt-001", "event_type": "page_view", "user_id": "u-1001", "session_id": "s-abc123", "page": "/home", "ts": "2024-03-15T08:01:22Z", "duration_ms": 1250, "referrer": "google.com"}
+{"event_id": "evt-002", "event_type": "click",     "user_id": "u-1001", "session_id": "s-abc123", "page": "/home", "ts": "2024-03-15T08:02:05Z", "element": "btn-signup", "referrer": null}
+{"event_id": "evt-003", "event_type": "page_view", "user_id": "u-1002", "session_id": "s-def456", "page": "/products", "ts": "2024-03-15T08:05:10Z", "duration_ms": 3400, "referrer": "direct"}
+{"event_id": "evt-004", "event_type": "add_to_cart","user_id": "u-1002", "session_id": "s-def456", "page": "/products", "ts": "2024-03-15T08:06:30Z", "product_id": 1, "quantity": 1}
+{"event_id": "evt-005", "event_type": "checkout",  "user_id": "u-1002", "session_id": "s-def456", "page": "/checkout","ts": "2024-03-15T08:09:15Z", "cart_total": 999.00, "payment_method": "credit_card"}
+{"event_id": "evt-006", "event_type": "page_view", "user_id": "u-1003", "session_id": "s-ghi789", "page": "/blog",    "ts": "2024-03-15T08:12:00Z", "duration_ms": 8700, "referrer": "twitter.com"}
+{"event_id": "evt-007", "event_type": "search",    "user_id": "u-1003", "session_id": "s-ghi789", "page": "/search",  "ts": "2024-03-15T08:15:33Z", "query": "wireless headphones", "results_count": 14}
+{"event_id": "evt-008", "event_type": "page_view", "user_id": "u-1004", "session_id": "s-jkl012", "page": "/home",    "ts": "2024-03-15T09:00:01Z", "duration_ms": 500, "referrer": "email_campaign"}
+{"event_id": "evt-009", "event_type": "logout",    "user_id": "u-1001", "session_id": "s-abc123", "page": "/account", "ts": "2024-03-15T09:30:45Z", "duration_ms": null, "referrer": null}
+{"event_id": "evt-010", "event_type": "error",     "user_id": null,     "session_id": "s-mno345", "page": "/checkout","ts": "2024-03-15T09:45:00Z", "error_code": 500, "error_msg": "Payment gateway timeout"}

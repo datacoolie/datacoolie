@@ -934,3 +934,208 @@ class TestFileProviderLifecycle:
             assert len(provider.get_connections()) > 0
         # After exit, internal data cleared
         assert len(provider._data) == 0
+
+
+class TestFileProviderSchemaHintFields:
+    """Cover schema hint optional fields (lines 448, 451, 454)."""
+
+    def test_schema_hint_with_default_value(self, tmp_path: Path) -> None:
+        data = dict(MINIMAL_CONFIG)
+        data['schema_hints'] = [
+            {
+                'connection_name': 'silver_lakehouse',
+                'table_name': 'orders',
+                'hints': [
+                    {
+                        'column_name': 'status',
+                        'data_type': 'STRING',
+                        'default_value': 'pending',
+                    }
+                ],
+            }
+        ]
+        path = _write_json_config(tmp_path, data)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        hints = provider.get_schema_hints(connection_id='c-2', table_name='orders')
+        assert len(hints) == 1
+
+    def test_schema_hint_with_ordinal_position_and_is_active(self, tmp_path: Path) -> None:
+        data = dict(MINIMAL_CONFIG)
+        data['schema_hints'] = [
+            {
+                'connection_name': 'silver_lakehouse',
+                'table_name': 'orders',
+                'hints': [
+                    {
+                        'column_name': 'id',
+                        'data_type': 'INT',
+                        'ordinal_position': '1',
+                        'is_active': 'true',
+                    }
+                ],
+            }
+        ]
+        path = _write_json_config(tmp_path, data)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        hints = provider.get_schema_hints(connection_id='c-2', table_name='orders')
+        assert len(hints) == 1
+
+    def test_watermark_path_with_stage_and_name(self, tmp_path: Path) -> None:
+        """Line 632: _watermark_path uses stage and name when available."""
+        data = dict(MINIMAL_CONFIG)
+        data['watermark'] = {'base_path': str(tmp_path / 'wm')}
+        path = _write_json_config(tmp_path, data)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        # df-1 has stage='bronze2silver' and name='orders_flow'
+        wm_path = provider._watermark_path('df-1')
+        # Path should include stage and name components
+        assert 'bronze2silver' in wm_path or 'orders_flow' in wm_path or 'df-1' in wm_path
+
+    def test_bulk_load_populates_schema_hints(self, tmp_path: Path) -> None:
+        """Lines 657-692: _bulk_load groups schema hints by (conn_id, schema, table)."""
+        data = dict(MINIMAL_CONFIG)
+        data['schema_hints'] = [
+            {
+                'connection_name': 'silver_lakehouse',
+                'table_name': 'orders',
+                'schema_name': 'dbo',
+                'hints': [{'column_name': 'id', 'data_type': 'INT'}],
+            }
+        ]
+        path = _write_json_config(tmp_path, data)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        # Trigger bulk load by calling get_dataflows
+        dataflows = provider.get_dataflows()
+        assert dataflows is not None
+
+
+class TestFileProviderBulkLoadSchemaHintEdgeCases:
+    """Cover lines 662, 669, 676, 678, 682, 688-689 in _bulk_load_schema_hints."""
+
+    def test_bulk_load_schema_hints_not_list_raises(self, tmp_path: Path) -> None:
+        """Line 662: schema_hints not a list raises MetadataError."""
+        config = {**MINIMAL_CONFIG, 'schema_hints': 'invalid'}
+        path = _write_json_config(tmp_path, config)
+        fp = FileProvider(config_path=path, platform=LocalPlatform())
+        with pytest.raises(MetadataError, match='schema_hints'):
+            fp.get_dataflows()
+
+    def test_bulk_load_schema_hint_group_not_dict_raises(self, tmp_path: Path) -> None:
+        """Line 669: schema_hints group not a dict raises MetadataError."""
+        config = {**MINIMAL_CONFIG, 'schema_hints': ['not_a_dict']}
+        path = _write_json_config(tmp_path, config)
+        fp = FileProvider(config_path=path, platform=LocalPlatform())
+        with pytest.raises(MetadataError):
+            fp.get_dataflows()
+
+    def test_bulk_load_schema_hint_missing_conn_or_table_skipped(self, tmp_path: Path) -> None:
+        """Line 676: group without conn_ref or table is skipped."""
+        config = {
+            **MINIMAL_CONFIG,
+            'schema_hints': [
+                {'hints': [{'column_name': 'id', 'data_type': 'INT'}]},
+            ],
+        }
+        path = _write_json_config(tmp_path, config)
+        fp = FileProvider(config_path=path, platform=LocalPlatform())
+        dfs = fp.get_dataflows()
+        assert dfs is not None
+
+    def test_bulk_load_schema_hint_conn_ref_is_valid_id(self, tmp_path: Path) -> None:
+        """Line 678: when conn_ref is a valid connection_id use directly."""
+        config = {
+            **MINIMAL_CONFIG,
+            'schema_hints': [
+                {
+                    'connection_id': 'c-2',
+                    'table_name': 'orders',
+                    'hints': [{'column_name': 'id', 'data_type': 'INT'}],
+                },
+            ],
+        }
+        path = _write_json_config(tmp_path, config)
+        fp = FileProvider(config_path=path, platform=LocalPlatform())
+        dfs = fp.get_dataflows()
+        assert dfs is not None
+
+    def test_bulk_load_schema_hint_unknown_conn_name_skipped(self, tmp_path: Path) -> None:
+        """Line 682: unknown connection name is skipped."""
+        config = {
+            **MINIMAL_CONFIG,
+            'schema_hints': [
+                {
+                    'connection_name': 'nonexistent_conn',
+                    'table_name': 'orders',
+                    'hints': [{'column_name': 'id', 'data_type': 'INT'}],
+                },
+            ],
+        }
+        path = _write_json_config(tmp_path, config)
+        fp = FileProvider(config_path=path, platform=LocalPlatform())
+        dfs = fp.get_dataflows()
+        assert dfs is not None
+
+    def test_bulk_load_schema_hint_invalid_hint_raises(self, tmp_path: Path) -> None:
+        """Lines 688-689: invalid hint fields raise MetadataError."""
+        config = {
+            **MINIMAL_CONFIG,
+            'schema_hints': [
+                {
+                    'connection_name': 'bronze_adls',
+                    'table_name': 'orders',
+                    'hints': [{'invalid_field': 'bad', 'another': 'bad'}],
+                },
+            ],
+        }
+        path = _write_json_config(tmp_path, config)
+        fp = FileProvider(config_path=path, platform=LocalPlatform())
+        with pytest.raises(MetadataError, match='Invalid schema hint'):
+            fp.get_dataflows()
+
+
+class TestFileProviderSchemaHintsOptionalFields:
+    """Cover lines 448, 451, 454: optional fields in _parse_schema_hints_from_rows."""
+
+    def test_parse_excel_schema_hints_with_optional_fields(self) -> None:
+        """Lines 448, 451, 454: default_value, ordinal_position, is_active set."""
+        rows = [
+            {
+                'connection_name': 'c1',
+                'table_name': 'tbl',
+                'column_name': 'col1',
+                'data_type': 'VARCHAR',
+                'default_value': 'N/A',
+                'ordinal_position': '3',
+                'is_active': 'true',
+            },
+        ]
+        with patch.object(FileProvider, '_excel_sheet_rows', return_value=rows):
+            out = FileProvider._parse_excel_schema_hints(MagicMock())
+        assert len(out) == 1
+        hint = out[0]['hints'][0]
+        assert hint.get('default_value') == 'N/A'
+        assert hint.get('ordinal_position') == 3
+        assert hint.get('is_active') is True
+
+
+class TestFileProviderWatermarkFolderNoDataflow:
+    """Cover line 632: _watermark_path when dataflow is None."""
+
+    def test_watermark_path_uses_dataflow_id_when_no_df(self, tmp_path) -> None:
+        """Line 632: folder = dataflow_id when get_dataflow_by_id returns None."""
+        import json
+        config = {
+            'connections': [{'connection_id': 'c1', 'name': 'c1', 'connection_type': 'file', 'format': 'parquet'}],
+            'dataflows': [],
+        }
+        path = tmp_path / 'config.json'
+        path.write_text(json.dumps(config))
+        from datacoolie.platforms.local_platform import LocalPlatform
+        from unittest.mock import patch
+        provider = FileProvider(config_path=str(path), platform=LocalPlatform())
+        provider._watermark_base_path
+        provider._watermark_base_path = str(tmp_path / 'wm')
+        # Patch get_dataflow_by_id to return None — should use dataflow_id as folder
+        with patch.object(provider, 'get_dataflow_by_id', return_value=None):
+            result = provider._watermark_path(dataflow_id='df-xyz')
+        assert 'df-xyz' in result

@@ -17,12 +17,12 @@ Usage
     python sample_aws_local_polars.py --PROFILE my-sso-profile
 
     # Override region or bucket
-    python sample_aws_local_polars.py --REGION ap-southeast-1 --BUCKET de-dev-0001
+    python sample_aws_local_polars.py --REGION ap-southeast-1 --BUCKET de-dev-0007
 
 Parameters (all optional — defaults shown below)
 -------------------------------------------------
   --REGION           AWS region                         default: ap-southeast-1
-  --BUCKET           S3 bucket name                     default: de-dev-0001
+  --BUCKET           S3 bucket name                     default: de-dev-0007
   --STAGE            Comma-separated stage names        default: "" (all stages)
   --PROFILE          AWS CLI named profile              default: "" (default profile)
   --METADATA_PATH    Full S3 path to the metadata JSON  default: s3://{BUCKET}/metadata/aws_glue_use_cases.json
@@ -37,8 +37,8 @@ Prerequisites
 
 Required AWS permissions for the local IAM user / role
 -------------------------------------------------------
-  s3:GetObject / s3:PutObject / s3:DeleteObject on s3://de-dev-0001/*
-  s3:ListBucket on s3://de-dev-0001
+  s3:GetObject / s3:PutObject / s3:DeleteObject on s3://de-dev-0007/*
+  s3:ListBucket on s3://de-dev-0007
   secretsmanager:GetSecretValue for any secrets referenced in connections
   glue:GetDatabase / glue:GetTable / glue:GetTables / glue:CreateTable /
   glue:UpdateTable / glue:DeleteTable on the target Glue catalog database
@@ -81,7 +81,7 @@ def _get_arg(name: str, default: str = "") -> str:
 
 
 REGION: str = _get_arg("REGION", "ap-southeast-1")
-BUCKET: str = _get_arg("BUCKET", "de-dev-0001")
+BUCKET: str = _get_arg("BUCKET", "de-dev-0007")
 STAGE: str = _get_arg("STAGE", "")           # empty = run all stages
 PROFILE: str = _get_arg("PROFILE", "")       # empty = use the default profile
 ICEBERG_CATALOG: str = _get_arg("ICEBERG_CATALOG", "glue_catalog")

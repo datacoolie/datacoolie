@@ -76,6 +76,30 @@ same field under two sources is ambiguous and raises `ConfigurationError`.
 Only one: `EnvResolver` for `env:*` lookups. Register more via the
 `datacoolie.resolvers` entry-point group.
 
+## `SecretStr` — Opaque secret wrapper
+
+Resolved secret values are wrapped in `SecretStr`, an opaque object that
+**prevents accidental exposure** through `str()`, `repr()`, `print()`,
+f-strings, and tracebacks.  All public representations render `***`.
+
+There is **no** public method to extract the underlying string.  Framework
+internals use two private helpers at I/O boundaries:
+
+| Helper | Purpose |
+|--------|---------|
+| `unwrap_secret(value)` | Extract the raw `str` from a `SecretStr` (identity for plain strings) |
+| `unwrap_configure(configure)` | Deep-copy a configure dict, unwrapping all `SecretStr` values |
+
+This replaces the earlier `SensitiveValueFilter` log filter approach.  Instead
+of scrubbing secrets from log messages after the fact, the framework now
+ensures secrets **never reach** log formatters in the first place.
+
+!!! warning "Extension authors"
+    If your plugin receives a `Connection.configure` dict, call
+    `unwrap_configure(configure)` before passing values to external clients
+    (HTTP auth, JDBC connection strings, etc.).  The wrapped values will not
+    work as raw strings.
+
 ## Built-in providers
 
 All four platforms. `AWSPlatform._fetch_secret` goes to AWS Secrets Manager;

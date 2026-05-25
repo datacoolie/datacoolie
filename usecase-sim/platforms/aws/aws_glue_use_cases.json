@@ -5,7 +5,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/csv",
+        "base_path": "s3://de-dev-0007/input/csv",
         "read_options": {
           "header": "true",
           "inferSchema": "true"
@@ -17,7 +17,7 @@
       "connection_type": "file",
       "format": "json",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/json",
+        "base_path": "s3://de-dev-0007/input/json",
         "read_options": {
           "multiLine": "true"
         }
@@ -28,7 +28,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/parquet"
+        "base_path": "s3://de-dev-0007/input/parquet"
       }
     },
     {
@@ -36,7 +36,7 @@
       "connection_type": "file",
       "format": "avro",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/avro"
+        "base_path": "s3://de-dev-0007/input/avro"
       }
     },
     {
@@ -44,7 +44,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/jsonl"
+        "base_path": "s3://de-dev-0007/input/jsonl"
       }
     },
     {
@@ -52,7 +52,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/csv"
+        "base_path": "s3://de-dev-0007/output/csv"
       }
     },
     {
@@ -60,7 +60,7 @@
       "connection_type": "file",
       "format": "json",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/json"
+        "base_path": "s3://de-dev-0007/output/json"
       }
     },
     {
@@ -68,7 +68,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/parquet",
+        "base_path": "s3://de-dev-0007/output/parquet",
         "write_options": {
           "compression": "snappy"
         }
@@ -79,7 +79,7 @@
       "connection_type": "file",
       "format": "avro",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/avro"
+        "base_path": "s3://de-dev-0007/output/avro"
       }
     },
     {
@@ -87,7 +87,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/jsonl"
+        "base_path": "s3://de-dev-0007/output/jsonl"
       }
     },
     {
@@ -95,7 +95,7 @@
       "connection_type": "lakehouse",
       "format": "delta",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/delta"
+        "base_path": "s3://de-dev-0007/output/delta"
       }
     },
     {
@@ -104,8 +104,8 @@
       "format": "delta",
       "database": "datacoolie",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/delta",
-        "athena_output_location": "s3://de-dev-0001/athena-results/",
+        "base_path": "s3://de-dev-0007/output/delta",
+        "athena_output_location": "s3://de-dev-0007/athena-results/",
         "register_symlink_table": true
       }
     },
@@ -116,7 +116,7 @@
       "catalog": "glue_catalog",
       "database": "datacoolie",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/iceberg"
+        "base_path": "s3://de-dev-0007/output/iceberg"
       }
     },
     {
@@ -126,7 +126,7 @@
       "catalog": "glue_catalog",
       "database": "datacoolie",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/iceberg"
+        "base_path": "s3://de-dev-0007/output/iceberg"
       }
     },
     {
@@ -134,7 +134,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/parquet_dated",
+        "base_path": "s3://de-dev-0007/input/parquet_dated",
         "date_folder_partitions": "{year}/{month}/{day}"
       }
     },
@@ -143,7 +143,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/output/parquet_dated",
+        "base_path": "s3://de-dev-0007/output/parquet_dated",
         "date_folder_partitions": "{year}/{month}/{day}"
       }
     },
@@ -152,7 +152,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/parquet_hive",
+        "base_path": "s3://de-dev-0007/input/parquet_hive",
         "use_hive_partitioning": true
       }
     },
@@ -167,7 +167,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "s3://de-dev-0001/input/csv",
+        "base_path": "s3://de-dev-0007/input/csv",
         "read_options": {
           "header": "true",
           "inferSchema": "true"
@@ -188,7 +188,7 @@
         "password": "db_pass"
       },
       "secrets_ref": {
-        "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:de-dev-0001/datacoolie/rds": [
+        "arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:de-dev-0007/datacoolie/rds": [
           "username",
           "password"
         ]

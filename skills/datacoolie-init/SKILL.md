@@ -35,6 +35,7 @@ Ask the user:
 ### Step 2: Generate metadata using schema knowledge
 
 The AI **must read the Schema Quick Reference** in `datacoolie-metadata` SKILL.md to know the exact structure. Key rules:
+- **Never guess table names or column names** — either run introspection scripts to discover them, or ask the user to provide the exact list
 - Top-level: `{ "$schema": "https://raw.githubusercontent.com/datacoolie/datacoolie/main/skills/datacoolie-metadata/schemas/0.1.0/metadata.schema.json", "connections": [...], "dataflows": [...] }`
 - Every dataflow `source.connection_name` must reference an existing connection `name`
 - Use `secrets_ref` for credentials — never hardcode

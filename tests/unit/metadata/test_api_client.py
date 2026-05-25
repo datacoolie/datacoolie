@@ -745,3 +745,228 @@ class TestPaginationBound:
         assert len(fake_client.calls) == 1000
         assert len(conns) == 1000
         assert any("capped" in rec.message.lower() or "1000" in rec.message for rec in caplog.records)
+
+
+class TestFanOut:
+    """Cover _fan_out when workers > 1 (line 282)."""
+
+    def test_fan_out_multiple_keys(self) -> None:
+        """When len(keys) > 1, uses ThreadPoolExecutor."""
+        client = _build_api_client(_FakeClient())
+
+        def _fetcher(k: str) -> str:
+            return f'result-{k}'
+
+        # Force parallel path by calling directly
+        results = client._fan_out(['a', 'b', 'c'], _fetcher)
+        assert results == {'a': 'result-a', 'b': 'result-b', 'c': 'result-c'}
+
+    def test_fan_out_single_key_serial(self) -> None:
+        """Single key uses serial path."""
+        client = _build_api_client(_FakeClient())
+
+        results = client._fan_out(['only'], lambda k: f'v-{k}')
+        assert results == {'only': 'v-only'}
+
+    def test_fan_out_empty_returns_empty(self) -> None:
+        """Empty keys returns empty dict without calling fetcher."""
+        client = _build_api_client(_FakeClient())
+        called = []
+        results = client._fan_out([], lambda k: called.append(k) or 'x')
+        assert results == {}
+        assert called == []
+
+
+class TestGroupSchemaHintRows:
+    """Cover _group_schema_hint_rows (lines 427-437)."""
+
+    def test_groups_by_connection_table(self) -> None:
+        client = _build_api_client(_FakeClient())
+        rows = [
+            {'connection_id': 'c1', 'table_name': 'orders', 'schema_name': 'public', 'column_name': 'id', 'data_type': 'INT'},
+            {'connection_id': 'c1', 'table_name': 'orders', 'schema_name': 'public', 'column_name': 'name', 'data_type': 'STRING'},
+            {'connection_id': 'c2', 'table_name': 'items', 'schema_name': None, 'column_name': 'sku', 'data_type': 'STRING'},
+        ]
+        result = client._group_schema_hint_rows(rows)
+        assert len(result[('c1', 'public', 'orders')]) == 2
+        assert len(result[('c2', None, 'items')]) == 1
+
+    def test_skips_rows_without_table(self) -> None:
+        client = _build_api_client(_FakeClient())
+        rows = [
+            {'connection_id': 'c1', 'table_name': None, 'column_name': 'id', 'data_type': 'INT'},
+        ]
+        result = client._group_schema_hint_rows(rows)
+        assert result == {}
+
+    def test_empty_schema_name_normalised_to_none(self) -> None:
+        client = _build_api_client(_FakeClient())
+        rows = [
+            {'connection_id': 'c1', 'table_name': 'tbl', 'schema_name': '', 'column_name': 'col', 'data_type': 'STRING'},
+        ]
+        result = client._group_schema_hint_rows(rows)
+        # Empty schema -> None
+        assert ('c1', None, 'tbl') in result
+
+
+class TestAPIClientBulkLoad:
+    """Cover lines 391-411: parallel _bulk_load via ThreadPoolExecutor."""
+
+    def test_bulk_load_fetches_connections_dataflows_hints_in_parallel(self) -> None:
+        conn_row = {
+            'connection_id': 'c-1',
+            'name': 'my_conn',
+            'workspace_id': 'ws-1',
+            'connection_type': 'lakehouse',
+            'format': 'delta',
+            'is_active': True,
+        }
+        df_row = {
+            'dataflow_id': 'df-1',
+            'name': 'my_df',
+            'workspace_id': 'ws-1',
+            'is_active': True,
+            'source': {
+                'table': 'src',
+                'connection': {
+                    'connection_id': 'c-1',
+                    'name': 'my_conn',
+                    'workspace_id': 'ws-1',
+                    'connection_type': 'lakehouse',
+                    'format': 'delta',
+                    'is_active': True,
+                },
+            },
+            'destination': {
+                'table': 'dst',
+                'load_type': 'overwrite',
+                'connection': {
+                    'connection_id': 'c-1',
+                    'name': 'my_conn',
+                    'workspace_id': 'ws-1',
+                    'connection_type': 'lakehouse',
+                    'format': 'delta',
+                    'is_active': True,
+                },
+            },
+        }
+        # Each /connections, /dataflows, /schema-hints request returns one item
+        responses = [
+            _FakeResponse(200, json_data={'data': [conn_row], 'next_cursor': None}),
+            _FakeResponse(200, json_data={'data': [df_row], 'next_cursor': None}),
+            _FakeResponse(200, json_data={'data': [], 'next_cursor': None}),
+        ]
+        fake_client = _FakeClient(responses=responses)
+        client = _build_api_client(fake_client, enable_cache=True)
+        # prefetch_all triggers _bulk_load
+        client.prefetch_all()
+        conns = client.get_connections()
+        assert len(conns) == 1
+        assert conns[0].connection_id == 'c-1'
+
+
+class TestAPIClientPrefetchSchemaHints:
+    """Cover lines 548-577: _prefetch_schema_hints."""
+
+    def test_prefetch_schema_hints_populates_cache(self) -> None:
+        """Lines 548-577: fetches schema hints per connection and caches them."""
+        from datacoolie.core.models import Connection, DataFlow, Destination, Source
+
+        hint_row = {
+            'connection_id': 'c-1',
+            'table_name': 'orders',
+            'schema_name': None,
+            'column_name': 'id',
+            'data_type': 'INT',
+            'ordinal_position': 0,
+            'is_active': True,
+        }
+        # Responses: hints request returns one hint
+        responses = [
+            _FakeResponse(200, json_data={'data': [hint_row], 'next_cursor': None}),
+        ]
+        fake_client = _FakeClient(responses=responses)
+        client = _build_api_client(fake_client, enable_cache=True)
+        # Inject a cache to make prefetch work
+        from datacoolie.metadata.base import MetadataCache
+        client._cache = MetadataCache()
+
+        conn = Connection(
+            connection_id='c-1', name='c-1',
+            configure={'use_schema_hint': True}
+        )
+        df = DataFlow(
+            dataflow_id='df-1',
+            source=Source(connection=conn, table='orders'),
+            destination=Destination(connection=conn, table='orders'),
+        )
+        client._prefetch_schema_hints([df])
+        hints = client._cache.get_schema_hints('c-1', None, 'orders')
+        assert hints is not None
+
+    def test_prefetch_schema_hints_skips_when_no_cache(self) -> None:
+        """Line 549: early return when cache is None."""
+        from datacoolie.core.models import Connection, DataFlow, Destination, Source
+
+        responses = []
+        fake_client = _FakeClient(responses=responses)
+        client = _build_api_client(fake_client, enable_cache=False)
+
+        conn = Connection(
+            connection_id='c-1', name='c-1',
+            configure={'use_schema_hint': True}
+        )
+        df = DataFlow(
+            dataflow_id='df-1',
+            source=Source(connection=conn, table='orders'),
+            destination=Destination(connection=conn, table='orders'),
+        )
+        # Should not make any requests
+        client._prefetch_schema_hints([df])
+        assert fake_client._idx == 0
+
+
+class TestPrefetchSchemaHintsEarlyExits:
+    """Cover lines 555, 557, 562: early exits in _prefetch_schema_hints."""
+
+    def _make_client_with_cache(self) -> "APIClient":
+        from unittest.mock import MagicMock
+        client = _build_api_client(_FakeClient())
+        # Provide a non-None cache so lines 548-549 don't short-circuit
+        client._cache = MagicMock()
+        return client
+
+    def _make_dataflow(self, use_schema_hint=True, table=None) -> "DataFlow":
+        from datacoolie.core.models import Connection, DataFlow, Destination, Source, Transform
+        conn = Connection(
+            connection_id='conn-1',
+            name='test',
+            configure={'use_schema_hint': use_schema_hint},
+        )
+        src = Source(connection=conn, table=table)
+        dest = Destination(table='dest_tbl', connection=conn, configure={'catalog': 'cat'})
+        return DataFlow.model_construct(
+            dataflow_id='df-1', source=src, destination=dest,
+            load_type='append', transform=Transform(),
+        )
+
+    def test_no_schema_hint_skips_connection(self) -> None:
+        """Line 555: continue when use_schema_hint is False."""
+        client = self._make_client_with_cache()
+        df = self._make_dataflow(use_schema_hint=False, table='tbl')
+        # conn_ids will be empty → returns on line 562
+        client._prefetch_schema_hints([df])
+
+    def test_no_table_skips_connection(self) -> None:
+        """Line 557: continue when df.source.table is None."""
+        client = self._make_client_with_cache()
+        df = self._make_dataflow(use_schema_hint=True, table=None)
+        # conn_ids will be empty → returns on line 562
+        client._prefetch_schema_hints([df])
+
+    def test_empty_conn_ids_returns_early(self) -> None:
+        """Line 562: return when conn_ids is empty."""
+        client = self._make_client_with_cache()
+        # Empty list of dataflows → conn_ids stays empty
+        client._prefetch_schema_hints([])
+        # No exception means early return

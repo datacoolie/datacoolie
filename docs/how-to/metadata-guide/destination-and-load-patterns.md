@@ -173,6 +173,37 @@ the source naturally.
     Like `merge_upsert`, this strategy writes a brand-new table with overwrite
     semantics when the destination does not exist yet.
 
+### `replace_by_watermark` — Range-based delete
+
+When `destination.configure.replace_by_watermark` is `true`, the
+`merge_overwrite` strategy switches from **key-based delete** to
+**range-based delete**: instead of deleting only rows matching `merge_keys`,
+it deletes *all* target rows within the watermark window and re-inserts
+the full source batch.  This handles upstream deletions that a key-match
+would miss.
+
+```json
+"destination": {
+  "connection_name": "silver",
+  "schema_name":     "logistics",
+  "table":           "active_shipments",
+  "load_type":       "merge_overwrite",
+  "merge_keys":      ["shipment_id"],
+  "configure":       { "replace_by_watermark": true }
+}
+```
+
+**Requirements:**
+
+- The source **must** have `date_backward` configured (so a watermark window
+  exists).
+- Only supported with `merge_overwrite` load type.
+
+At runtime the driver calls `DataFlow.apply_watermark_window()` after reading,
+which stores a `{column: (lower, upper)}` mapping on the dataflow.  The
+`MergeOverwriteStrategy` then calls `engine.delete_by_window(...)` to remove
+all target rows in that range before appending the fresh data.
+
 ---
 
 ## `scd2` — Slowly Changing Dimension Type 2

@@ -87,3 +87,36 @@ Run the framework's engine tests against your implementation. At minimum:
 
 For reference the Polars engine ships 73 dedicated tests; expect similar
 coverage for a new engine.
+
+## `delete_by_window` — Range-based delete
+
+Engines must implement `delete_by_window_path` and `delete_by_window_table`
+to support the `replace_by_watermark` destination feature:
+
+```python
+@abstractmethod
+def delete_by_window_path(
+    self,
+    path: str,
+    window: Dict[str, tuple],
+    fmt: str = "delta",
+) -> None:
+    """Delete rows in a path-based table within the value window."""
+
+@abstractmethod
+def delete_by_window_table(
+    self,
+    table_name: str,
+    window: Dict[str, tuple],
+    fmt: str = "delta",
+) -> None:
+    """Delete rows in a named table within the value window."""
+```
+
+The `window` dict maps column names to `(lower_bound, upper_bound)` tuples.
+Build a predicate like `col > lower AND col <= upper` for each entry and delete
+all matching rows.  The lower bound is **exclusive** to match the source
+watermark filter semantics.
+
+The base class dispatches to these via `delete_by_window()` — you only need to
+implement the two abstract variants.

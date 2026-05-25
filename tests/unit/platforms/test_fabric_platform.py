@@ -389,3 +389,57 @@ class TestFabricAdvancedPaths:
     def test_delete_file_exception_is_idempotent(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
         mock_fs.rm.side_effect = Exception("boom")
         platform.delete_file("abfss://x")
+
+
+class TestReadBytes:
+    def test_read_bytes_success(self, platform: FabricPlatform, mock_fs: MagicMock, tmp_path) -> None:
+        data = b'hello world'
+        def fake_download(src, dst, **kw):
+            import shutil, os
+            # write the data to dst
+            with open(dst, 'wb') as f:
+                f.write(data)
+        platform.download_file = fake_download
+        result = platform.read_bytes('abfss://path/to/file.txt')
+        assert result == data
+
+    def test_read_bytes_platform_error_reraises(self, platform: FabricPlatform) -> None:
+        platform.download_file = lambda *a, **kw: (_ for _ in ()).throw(PlatformError('dl fail'))
+        with pytest.raises(PlatformError, match='dl fail'):
+            platform.read_bytes('abfss://path/to/file.txt')
+
+    def test_read_bytes_os_error_wrapped(self, platform: FabricPlatform) -> None:
+        def fake_download(src, dst, **kw):
+            import os
+            os.unlink(dst)  # delete the tmp file so open fails
+        platform.download_file = fake_download
+        with pytest.raises(PlatformError, match='Failed to read bytes'):
+            platform.read_bytes('abfss://path/to/file.txt')
+
+
+class TestWriteBytes:
+    def test_write_bytes_success(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
+        calls = []
+        def fake_upload(src, dst, **kw):
+            calls.append((src, dst))
+        platform.upload_file = fake_upload
+        platform.file_exists = lambda p: False
+        platform.write_bytes('abfss://x/f.bin', b'data')
+        assert len(calls) == 1
+
+    def test_write_bytes_exists_no_overwrite(self, platform: FabricPlatform) -> None:
+        platform.file_exists = lambda p: True
+        with pytest.raises(PlatformError, match='File already exists'):
+            platform.write_bytes('abfss://x/f.bin', b'data', overwrite=False)
+
+    def test_write_bytes_generic_exception_wrapped(self, platform: FabricPlatform) -> None:
+        platform.file_exists = lambda p: False
+        platform.upload_file = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError('upload fail'))
+        with pytest.raises(PlatformError, match='Failed to write bytes'):
+            platform.write_bytes('abfss://x/f.bin', b'data')
+
+    def test_write_bytes_platform_error_reraises(self, platform: FabricPlatform) -> None:
+        platform.file_exists = lambda p: False
+        platform.upload_file = lambda *a, **kw: (_ for _ in ()).throw(PlatformError('up fail'))
+        with pytest.raises(PlatformError, match='up fail'):
+            platform.write_bytes('abfss://x/f.bin', b'data')

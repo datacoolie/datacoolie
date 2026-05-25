@@ -14,6 +14,7 @@ Options:
     --layers          Medallion layers: source2bronze, bronze2silver, silver2gold (comma-separated, default: source2bronze)
     --output          Output directory (default: ./{name})
     --dest-format     Destination format: delta, parquet, iceberg (default: delta)
+    --metadata-layout Metadata file layout: combined (single metadata.json) or split (connections.json + dataflows.json) (default: combined)
 
 Exit codes:
     0 = success
@@ -42,6 +43,7 @@ from _templates import (
     GITIGNORE,
     REQUIREMENTS_TXT,
     RUN_LOCAL_PY,
+    RUN_LOCAL_PY_SPLIT,
 )
 
 # ---------------------------------------------------------------------------
@@ -109,6 +111,7 @@ def generate_project(
     layers: list[str],
     output_dir: Path,
     dest_format: str,
+    metadata_layout: str = "combined",
 ) -> list[str]:
     """Generate project directory structure. Returns list of created files."""
     created: list[str] = []
@@ -185,19 +188,20 @@ def generate_project(
         }
         dataflows_list.append(json.loads(DATAFLOWS_JSON.format(**df_vars))[0])
 
-    # --- Write combined metadata.json (for validate/lint) ---
-    combined_metadata = {
-        "connections": connections_list,
-        "dataflows": dataflows_list,
-    }
-    combined_json = json.dumps(combined_metadata, indent=2, ensure_ascii=False) + "\n"
-    _write(output_dir / "metadata" / "metadata.json", combined_json, created)
-
-    # --- Also write split files (for merge workflow) ---
-    _write(output_dir / "metadata" / "connections.json",
-           json.dumps(connections_list, indent=2, ensure_ascii=False) + "\n", created)
-    _write(output_dir / "metadata" / "dataflows.json",
-           json.dumps(dataflows_list, indent=2, ensure_ascii=False) + "\n", created)
+    # --- Write metadata files based on layout ---
+    if metadata_layout == "combined":
+        combined_metadata = {
+            "connections": connections_list,
+            "dataflows": dataflows_list,
+        }
+        combined_json = json.dumps(combined_metadata, indent=2, ensure_ascii=False) + "\n"
+        _write(output_dir / "metadata" / "metadata.json", combined_json, created)
+    else:
+        # Split layout: separate connections + dataflows files
+        _write(output_dir / "metadata" / "connections.json",
+               json.dumps(connections_list, indent=2, ensure_ascii=False) + "\n", created)
+        _write(output_dir / "metadata" / "dataflows.json",
+               json.dumps(dataflows_list, indent=2, ensure_ascii=False) + "\n", created)
 
     # --- metadata/environments/ ---
     _write(output_dir / "metadata" / "environments" / "dev.yaml",
@@ -214,8 +218,9 @@ def generate_project(
            FUNCTIONS_PYPROJECT_TOML.format(**template_vars), created)
 
     # --- scripts/run_local.py ---
+    runner_template = RUN_LOCAL_PY_SPLIT if metadata_layout == "split" else RUN_LOCAL_PY
     _write(output_dir / "scripts" / "run_local.py",
-           RUN_LOCAL_PY.format(**template_vars), created)
+           runner_template.format(**template_vars), created)
 
     # --- Root files ---
     _write(output_dir / ".gitignore", GITIGNORE, created)
@@ -266,6 +271,10 @@ def main():
         "--dest-format", default="delta", choices=["delta", "parquet", "iceberg"],
         help="Destination format. Default: delta.",
     )
+    parser.add_argument(
+        "--metadata-layout", default="combined", choices=["combined", "split"],
+        help="Metadata file layout. combined: single metadata.json. split: separate connections.json + dataflows.json. Default: combined.",
+    )
     args = parser.parse_args()
 
     # Parse comma-separated values
@@ -312,6 +321,7 @@ def main():
         layers=layers,
         output_dir=output_dir,
         dest_format=args.dest_format,
+        metadata_layout=args.metadata_layout,
     )
 
     print(f"✓ Scaffolded project '{args.name}' at {output_dir}")

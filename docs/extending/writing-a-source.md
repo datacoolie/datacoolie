@@ -18,7 +18,13 @@ from datacoolie.core.models import Source
 
 
 class MyFormatReader(BaseSourceReader):
-    def _read_internal(self, source: Source, watermark: Optional[Dict[str, Any]] = None):
+    def _read_internal(
+        self,
+        source: Source,
+        watermark_start: Optional[Dict[str, Any]] = None,
+        *,
+        watermark_end: Optional[Dict[str, Any]] = None,
+    ):
         conn = source.connection
         path = f"{conn.base_path}/{source.schema_name}/{source.table}"
 
@@ -26,8 +32,10 @@ class MyFormatReader(BaseSourceReader):
         df = self._read_data(source, source.configure)
 
         # Apply watermark filter in memory when push-down is not supported
-        if source.watermark_columns and watermark:
-            df = self._apply_watermark_filter(df, source.watermark_columns, watermark)
+        if source.watermark_columns and watermark_start:
+            df = self._apply_watermark_filter(
+                df, source.watermark_columns, watermark_start, watermark_end
+            )
         return df
 
     def _read_data(self, source: Source, configure: Optional[Dict[str, Any]] = None):
@@ -36,10 +44,15 @@ class MyFormatReader(BaseSourceReader):
         return self._engine.read_path(path, fmt="myfmt", options=conn.read_options)
 ```
 
-The framework calls the public `read(source, watermark)` method; subclasses
-implement `_read_internal` (and optionally `_read_data`) with format-specific
-logic. Never override `read` directly — the base class wraps it with timing,
-error handling, and runtime-info collection.
+The framework calls the public `read(source, watermark_start, *, watermark_start_operator, watermark_end, watermark_end_operator)` method;
+subclasses implement `_read_internal(source, watermark_start, *, watermark_end)` and
+optionally `_read_data(source, configure)` with format-specific logic.  Never
+override `read` directly — the base class wraps it with timing, error handling,
+and runtime-info collection.
+
+The renamed parameters reflect the lower/upper bound split introduced for
+replay support.  `watermark_start` is the lower bound (previously `watermark`),
+`watermark_end` is the optional upper ceiling used by replay chunks.
 
 ## Register
 

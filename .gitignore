@@ -1,5 +1,6 @@
 # ignore __pycache__ all levels
 __pycache__/
+.cache/
 
 # Spark artifacts (shared across tests and usecase-sim)
 # iceberg-warehouse is NOT local — REST catalog stores it on MinIO/S3
@@ -23,7 +24,9 @@ docs/schema/
 dc_quickstart/
 dist/
 build/
+.coverage
 .vscode/
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
+.pip-cache/

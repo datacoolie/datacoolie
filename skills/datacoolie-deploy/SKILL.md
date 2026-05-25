@@ -28,12 +28,26 @@ All scripts live in `scripts/` relative to this skill directory.
 
 ### 1. Preflight (`scripts/preflight.py`)
 
-Validate CLI, auth, metadata, and functions before deploy.
+Validate CLI, auth, metadata, secrets, and infrastructure before deploy.
 
 ```bash
 python scripts/preflight.py --platform aws
 python scripts/preflight.py --platform fabric --skip-auth
+python scripts/preflight.py --platform local --env prod
 ```
+
+Checks run (in order):
+1. Platform CLI installed
+2. Authenticated (skippable with `--skip-auth`)
+3. `datacoolie` installed
+4. Metadata found (`metadata/` contains `.json`/`.yaml` files)
+5. Functions packageable (`functions/` has `pyproject.toml` or `__init__.py`)
+6. **Secrets resolution** — all `secrets_ref` keys in metadata resolve to env vars
+7. **Infrastructure exists** — provision log shows created resources, or platform CLI is reachable
+
+Flags:
+- `--env <name>`: Environment name for checks 6 and 7 (default: `dev`)
+- `--skip-auth`: Skip check 2
 
 Output: Checklist (✓/✗) + exit code 0 (pass) or 1 (fail).
 
@@ -78,7 +92,35 @@ Flags:
 - `--run`: Start a job run after deploy
 - `--skip-upload`: Skip S3 upload (CI already handled it)
 
-### 5. CI/CD (`scripts/cicd.py`)
+### 5. Promote (`scripts/promote.py`)
+
+Promote a datacoolie project from one environment to another (e.g., `dev → prod`).
+
+Runs the full pipeline: preflight on target → metadata validate → merge env overlay → deploy.
+
+```bash
+python scripts/promote.py --from dev --to prod
+python scripts/promote.py --from dev --to test --platform fabric
+python scripts/promote.py --from dev --to prod --confirm  # required for prod
+python scripts/promote.py --from dev --to test --skip-auth --platform local
+```
+
+Flags:
+- `--confirm`: **Required** for promotions to `prod`
+- `--skip-auth`: Skip authentication check in preflight
+- `--platform`: Target platform (aws/fabric/databricks/local, default: local)
+- `--project-dir`: Project root (default: CWD)
+
+Exit codes:
+- `0` = promotion succeeded
+- `1` = pipeline failure (preflight, validate, merge, or deploy error)
+- `2` = usage error (missing `--confirm` for prod, `--from` == `--to`)
+
+Output: `.datacoolie/promote/YYMMDD_promote-{from}-to-{to}.md`
+
+---
+
+### 6. CI/CD (`scripts/cicd.py`)
 
 Generate GitHub Actions workflow for automated deployment.
 
@@ -124,14 +166,22 @@ environments:
 Typical deployment flow:
 
 ```
-1. preflight.py --platform X       → validate environment
-2. generate.py --platform X --env Y → create runner
-3. package.py                       → build functions wheel
-4. apply.py --platform X --env Y    → deploy everything
-5. cicd.py --platform X --env Y     → (optional) generate CI workflow
+1. preflight.py --platform X --env Y  → validate environment
+2. generate.py --platform X --env Y   → create runner
+3. package.py                          → build functions wheel
+4. apply.py --platform X --env Y      → deploy everything
+5. cicd.py --platform X --env Y       → (optional) generate CI workflow
 ```
 
 Or single-command: `apply.py` runs steps 1-4 automatically.
+
+Promotion flow (env-to-env):
+
+```
+promote.py --from dev --to prod --confirm
+  → preflight (target env) → validate → merge → apply
+  → .datacoolie/promote/YYMMDD_promote-dev-to-prod.md
+```
 
 ## AWS Deploy Constraint
 

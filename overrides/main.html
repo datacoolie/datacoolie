@@ -78,7 +78,10 @@
             "@type": "ImageObject",
             "url": {{ (config.site_url ~ "images/logos/datacoolie-icon-circle-dark_512x512.png") | tojson }}
           },
-          "sameAs": [{{ config.repo_url | tojson }}]
+          "sameAs": [
+            {{ config.repo_url | tojson }},
+            "https://pypi.org/project/datacoolie/"
+          ]
         },
         {
           "@type": "WebSite",

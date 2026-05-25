@@ -174,7 +174,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("run_local")
 
-_METADATA_PATH = str(Path(__file__).resolve().parent.parent / "metadata" / "dataflows.json")
+_METADATA_PATH = str(Path(__file__).resolve().parent.parent / "metadata" / "metadata.json")
 
 
 def main():
@@ -196,6 +196,97 @@ def main():
         engine = PolarsEngine(platform=platform)
 
     metadata = FileProvider(config_path=_METADATA_PATH, platform=platform)
+    config = DataCoolieRunConfig(dry_run=args.dry_run)
+
+    with DataCoolieDriver(
+        engine=engine,
+        platform=platform,
+        metadata_provider=metadata,
+        config=config,
+    ) as driver:
+        if args.dry_run:
+            dataflows = driver.load_dataflows(stage=args.stage or None)
+            logger.info("Dry run — %d dataflow(s) matched:", len(dataflows))
+            for df in dataflows:
+                logger.info("  - [%s] %s", df.stage or "-", df.name)
+            return
+
+        result = driver.run(stage=args.stage or None, column_name_mode="lower")
+        logger.info(
+            "Done — total: %d, succeeded: %d, failed: %d, skipped: %d (%.1fs)",
+            result.total, result.succeeded, result.failed, result.skipped,
+            result.duration_seconds,
+        )
+        if result.has_failures:
+            sys.exit(2)
+
+
+if __name__ == "__main__":
+    main()
+"""
+
+# ---------------------------------------------------------------------------
+# scripts/run_local.py (split layout — connections_path overlay)
+# ---------------------------------------------------------------------------
+
+RUN_LOCAL_PY_SPLIT = """\
+\"\"\"Local runner script — execute DataCoolie pipelines locally.
+
+Usage:
+    python scripts/run_local.py [--stage STAGE] [--dry-run]
+    python scripts/run_local.py --stage source2bronze
+    python scripts/run_local.py --stage source2bronze,bronze2silver --engine spark
+\"\"\"
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+
+# Add project root to path so that functions.* modules are importable.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from datacoolie.core import DataCoolieRunConfig
+from datacoolie.engines import PolarsEngine
+from datacoolie.metadata import FileProvider
+from datacoolie.orchestration import DataCoolieDriver
+from datacoolie.platforms import LocalPlatform
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("run_local")
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_DATAFLOWS_PATH = str(_PROJECT_ROOT / "metadata" / "dataflows.json")
+_CONNECTIONS_PATH = str(_PROJECT_ROOT / "metadata" / "connections.json")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="DataCoolie local runner")
+    parser.add_argument("--stage", default="", help="Stage filter (empty = all stages)")
+    parser.add_argument("--engine", default="{default_engine}", choices=["polars", "spark"],
+                        help="Execution engine")
+    parser.add_argument("--dry-run", action="store_true", help="Log planned work without writing")
+    args = parser.parse_args()
+
+    platform = LocalPlatform()
+
+    if args.engine == "spark":
+        from pyspark.sql import SparkSession
+        from datacoolie.engines import SparkEngine
+        spark = SparkSession.builder.appName("{project_name}").getOrCreate()
+        engine = SparkEngine(spark_session=spark, platform=platform)
+    else:
+        engine = PolarsEngine(platform=platform)
+
+    metadata = FileProvider(
+        config_path=_DATAFLOWS_PATH,
+        connections_path=_CONNECTIONS_PATH,
+        platform=platform,
+    )
     config = DataCoolieRunConfig(dry_run=args.dry_run)
 
     with DataCoolieDriver(

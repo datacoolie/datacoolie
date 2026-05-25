@@ -96,7 +96,7 @@ class TestFileReader:
         reader._read_data(src, configure={"paths": ["/p1", "/p2"]})
 
         kwargs = engine.read.call_args.kwargs
-        assert kwargs["options"]["use_hive_partitioning"] == "data/raw/events/clicks"
+        assert kwargs["options"]["use_hive_partitioning"] == "/data/raw/events/clicks"
 
     def test_non_date_watermark_filter_is_applied(self, engine: MockEngine, file_source: Source) -> None:
         engine.set_max_values({"event_time": "2024-06-01"})

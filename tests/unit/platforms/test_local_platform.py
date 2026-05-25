@@ -474,3 +474,43 @@ class TestGetSecret:
         from datacoolie.core.secret_provider import BaseSecretProvider
         platform = LocalPlatform(base_path=str(tmp_path))
         assert isinstance(platform, BaseSecretProvider)
+
+
+class TestReadBytesErrors:
+    def test_file_not_found_raises_platform_error(self, tmp_path: Path) -> None:
+        from datacoolie.core.exceptions import PlatformError
+        from datacoolie.platforms.local_platform import LocalPlatform
+        p = LocalPlatform(base_path=str(tmp_path))
+        with pytest.raises(PlatformError, match='File not found'):
+            p.read_bytes('nonexistent_file.bin')
+
+    def test_os_error_raises_platform_error(self, tmp_path: Path, monkeypatch) -> None:
+        from datacoolie.core.exceptions import PlatformError
+        from datacoolie.platforms.local_platform import LocalPlatform
+        import pathlib
+        p = LocalPlatform(base_path=str(tmp_path))
+        # Create file, then mock read_bytes to raise OSError
+        f = tmp_path / 'test.bin'
+        f.write_bytes(b'data')
+        orig_read_bytes = pathlib.Path.read_bytes
+        def _raise(self):
+            if 'test.bin' in str(self):
+                raise OSError('permission denied')
+            return orig_read_bytes(self)
+        monkeypatch.setattr(pathlib.Path, 'read_bytes', _raise)
+        with pytest.raises(PlatformError, match='Cannot read file'):
+            p.read_bytes('test.bin')
+
+    def test_write_bytes_os_error_raises_platform_error(self, tmp_path: Path, monkeypatch) -> None:
+        from datacoolie.core.exceptions import PlatformError
+        from datacoolie.platforms.local_platform import LocalPlatform
+        import pathlib
+        p = LocalPlatform(base_path=str(tmp_path))
+        orig_write_bytes = pathlib.Path.write_bytes
+        def _raise(self, data):
+            if 'test_write.bin' in str(self):
+                raise OSError('disk full')
+            return orig_write_bytes(self, data)
+        monkeypatch.setattr(pathlib.Path, 'write_bytes', _raise)
+        with pytest.raises(PlatformError, match='Cannot write file'):
+            p.write_bytes('test_write.bin', b'data', overwrite=True)

@@ -1448,3 +1448,108 @@ class TestWatermarkAtomicSave:
 
         assert result.status == DataFlowStatus.FAILED.value
         wm.save_watermark.assert_not_called()
+
+
+class TestDriverCoverageGaps:
+    """Cover specific uncovered branches in driver.py."""
+
+    def test_run_replay_empty_list_returns_empty_result(self) -> None:
+        """Line 666: run_replay returns early when target is empty list."""
+        driver, engine, metadata, watermark = _make_driver()
+        replay = ReplayConfig(start='2025-01-01', end='2025-04-01')
+        result = driver.run_replay([], replay)
+        assert result.total == 0
+
+    def test_init_with_metadata_provider_autocreates_watermark_manager(self) -> None:
+        """Lines 164-165: WatermarkManager is auto-created when metadata_provider given."""
+        from datacoolie.metadata.base import BaseMetadataProvider
+        engine = _mock_engine()
+        metadata = _mock_metadata()
+        # Pass metadata_provider but NO watermark_manager
+        driver = DataCoolieDriver(
+            engine=engine,
+            platform=_mock_platform(),
+            metadata_provider=metadata,
+            watermark_manager=None,
+        )
+        # Should have auto-created a watermark manager
+        assert driver._watermark_manager is not None
+
+    def test_run_replay_auto_resolves_chunk_column_from_watermark(self) -> None:
+        """Line 719: auto-resolve chunk_column from source.watermark_columns."""
+        driver, engine, metadata, watermark = _make_driver()
+        engine.filter_rows.side_effect = lambda df, expr: df
+        engine.count_rows.return_value = 5
+
+        dataflow = DataFlow(
+            dataflow_id='df-auto',
+            source=Source(
+                connection=_conn(),
+                table='src',
+                watermark_columns=['order_date'],  # auto-resolve chunk_column from here
+            ),
+            destination=Destination(
+                connection=_conn(),
+                table='dst',
+                load_type=LoadType.APPEND.value,
+            ),
+        )
+        replay = ReplayConfig(
+            start='2025-01-01',
+            end='2025-02-01',
+            # chunk_column=None -> auto-resolved from watermark_columns
+        )
+
+        with patch.object(driver, '_execute_etl_pipeline') as mock_pipeline:
+            mock_pipeline.return_value = (
+                SourceRuntimeInfo(rows_read=5),
+                TransformRuntimeInfo(),
+                DestinationRuntimeInfo(rows_written=5),
+                DataFlowStatus.SUCCEEDED,
+            )
+            result = driver.run_replay(dataflow, replay)
+
+        assert result.total >= 1
+
+
+class TestDriverRemainingCoverage:
+    """Cover lines 719, 1030-1032, 1059."""
+
+    def test_run_replay_raises_when_no_watermark_columns_and_no_chunk_column(self) -> None:
+        """Line 719: raises DataCoolieError when no chunk_column and no watermark_columns."""
+        driver = DataCoolieDriver(
+            engine=MagicMock(),
+            metadata_provider=MagicMock(),
+        )
+        # Source with no watermark_columns
+        src_conn = Connection(connection_id='c-src', name='src', format='parquet')
+        dest_conn = Connection(connection_id='c-dst', name='dst', format='parquet')
+        df = DataFlow(
+            dataflow_id='df-replay-fail',
+            source=Source(connection=src_conn, table='t', watermark_columns=[]),
+            destination=Destination(connection=dest_conn, table='out'),
+        )
+        replay = ReplayConfig(start='2024-01-01', end='2024-12-31')
+        with pytest.raises(DataCoolieError, match='chunk_column'):
+            driver.run_replay(df, replay)
+
+    def test_create_source_reader_with_allowed_prefixes(self) -> None:
+        """Line 1059: allowed_prefixes kwarg passed when format is function."""
+        from datacoolie import source_registry
+        config = DataCoolieRunConfig(allowed_function_prefixes=['my_prefix'])
+        driver = DataCoolieDriver(
+            engine=MagicMock(),
+            metadata_provider=MagicMock(),
+            config=config,
+        )
+        src_conn = Connection(connection_id='c1', name='c1', format='function')
+        dest_conn = Connection(connection_id='c2', name='c2', format='parquet')
+        df = DataFlow(
+            dataflow_id='df1',
+            source=Source(connection=src_conn, table=None),
+            destination=Destination(connection=dest_conn, table='out'),
+        )
+        mock_source = MagicMock()
+        with patch('datacoolie.source_registry.get', return_value=mock_source):
+            reader = driver._create_source_reader(df)
+        assert reader == mock_source

@@ -195,6 +195,6 @@ class TestPythonFunctionReaderUpperWatermark:
         assert engine._filter_end == {"ts": "2024-06-15"}
 
 
-def _dummy_loader(engine, source, watermark_start=None):
+def _dummy_loader(engine, source, watermark_start=None, watermark_end=None):
     """Dummy function for PythonFunctionReader tests."""
     return {"ts": ["2024-06-05", "2024-06-10"], "val": [1, 2]}

@@ -51,6 +51,8 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/datacoolie/datacoolie
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/datacoolie/
 
 extra_css:
   - assets/stylesheets/zoomable-media.css
@@ -96,6 +98,20 @@ hooks:
 
 plugins:
   - search
+  - blog:
+      blog_dir: blog
+      post_url_format: "{date}/{slug}"
+      categories_allowed:
+        - Release
+        - Tutorial
+        - Architecture
+        - Benchmark
+  - rss:
+      match_path: blog/posts/.*
+      date_from_meta:
+        as_creation: date
+      categories:
+        - categories
   - gen-files:
       scripts:
         - docs/scripts/gen_plugin_table.py
@@ -202,3 +218,4 @@ nav:
       - 0003 Transformer ordering slots: adr/0003-transformer-ordering-slots.md
       - 0004 Raw-JSON watermark contract: adr/0004-raw-json-watermark-contract.md
   - Contributing: contributing.md
+  - Blog: blog/index.md

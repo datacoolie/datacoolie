@@ -62,9 +62,11 @@ class TestSystemLogger:
         platform.append_file.assert_called_once()
         remote_path = platform.append_file.call_args[0][0]
         assert "system_log" in remote_path
-        assert "job-1" in remote_path
         assert "run_date=" in remote_path
         assert remote_path.endswith(".log")
+        # filename: system_log_YYYYMMDD_HHMMSS_{job_id}.log
+        import re
+        assert re.search(r"system_log_\d{8}_\d{6}_\S+\.log$", remote_path)
 
     def test_flush_content_plain_text(self, tmp_path):
         """Appended file contains plain-text log lines (not JSON)."""
