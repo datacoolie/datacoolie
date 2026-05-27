@@ -2,8 +2,8 @@
 name: datacoolie-deploy
 description: >
   Deploy datacoolie ETL jobs to AWS Glue, Databricks, and Microsoft Fabric.
-  Full CLI automation: preflight checks, runner generation, functions packaging,
-  artifact upload, job creation/update, and CI/CD workflow generation.
+  AI-driven workflows: preflight checks, runner generation, functions packaging,
+  artifact upload, job creation/update, promotion, and CI/CD workflow generation.
   Use when user says "deploy", "ship to prod", "apply", "preflight", "generate runner",
   "package functions", "cicd", "aws glue deploy", "fabric deploy", "databricks bundle",
   or mentions shipping datacoolie to any cloud platform.
@@ -11,7 +11,7 @@ description: >
 
 # datacoolie-deploy
 
-Deploy datacoolie ETL jobs to cloud platforms via CLI automation.
+Deploy datacoolie ETL jobs to cloud platforms via direct CLI commands.
 
 ## Supported Platforms
 
@@ -22,115 +22,62 @@ Deploy datacoolie ETL jobs to cloud platforms via CLI automation.
 | Microsoft Fabric | `fab` CLI (ms-fabric-cli) | `fab deploy` / `fab cp` |
 | Local | None | Generate runner script only |
 
-## Scripts
+## AI Workflow
 
-All scripts live in `scripts/` relative to this skill directory.
+### 1. Preflight Checklist
 
-### 1. Preflight (`scripts/preflight.py`)
+| # | Check | Pass | Fail |
+|---|---|---|---|
+| 1 | Platform CLI installed | Continue | Show platform CLI install docs, stop |
+| 2 | Platform CLI authenticated | Continue | Show login command, stop |
+| 3 | `datacoolie` installed | Continue | `pip install datacoolie` |
+| 4 | `metadata/` has `.json`/`.yaml` files | Continue | Ask user to create metadata first |
+| 5 | `functions/` has `pyproject.toml` or `__init__.py` | Continue | Warn (functions package may not be needed) |
+| 6 | All `secrets_ref` env vars present | Continue | List missing vars, stop |
+| 7 | Target infrastructure exists | Continue | Ask user to provision infrastructure first |
 
-Validate CLI, auth, metadata, secrets, and infrastructure before deploy.
+### 2. Generate Runner
 
-```bash
-python scripts/preflight.py --platform aws
-python scripts/preflight.py --platform fabric --skip-auth
-python scripts/preflight.py --platform local --env prod
-```
+1. Determine target platform from user/config
+2. Read reference example from `references/run_{platform}.{ext}.example` to understand datacoolie API patterns
+3. Generate runner file with actual project values from `.datacoolie/config.yaml`
+4. Write to `scripts/run_{platform}.{ext}`
 
-Checks run (in order):
-1. Platform CLI installed
-2. Authenticated (skippable with `--skip-auth`)
-3. `datacoolie` installed
-4. Metadata found (`metadata/` contains `.json`/`.yaml` files)
-5. Functions packageable (`functions/` has `pyproject.toml` or `__init__.py`)
-6. **Secrets resolution** — all `secrets_ref` keys in metadata resolve to env vars
-7. **Infrastructure exists** — provision log shows created resources, or platform CLI is reachable
+### 3. Package Functions
 
-Flags:
-- `--env <name>`: Environment name for checks 6 and 7 (default: `dev`)
-- `--skip-auth`: Skip check 2
-
-Output: Checklist (✓/✗) + exit code 0 (pass) or 1 (fail).
-
-### 2. Generate (`scripts/generate.py`)
-
-Generate platform-specific runner scripts/notebooks from templates.
+AI runs these commands to build a deployable artifact:
 
 ```bash
-python scripts/generate.py --platform aws --env prod
-python scripts/generate.py --platform fabric --env dev
-python scripts/generate.py --platform databricks --env prod
-python scripts/generate.py --platform local --env dev
+# Wheel (preferred — when pyproject.toml exists)
+cd functions/ && pip wheel --no-deps -w ../dist .
+
+# Zip (fallback if no pyproject.toml)
+cd functions/ && python -m zipfile -c ../dist/functions.zip .
 ```
 
-Output: Runner in `.datacoolie/generated/` (`.py` for AWS/Local, `.ipynb` for Fabric/Databricks).
+### 4. Platform Deploy
 
-### 3. Package (`scripts/package.py`)
+Use the current platform CLI to upload artifacts and create/update the job. Key behaviors by platform:
 
-Build functions/ into a deployable wheel or zip.
+- **AWS Glue**: Upload runner script + wheel to S3 first (ScriptLocation must resolve before create/update-job), then create or update the Glue job
+- **Databricks**: Use bundle deploy (`databricks.yml` in project root)
+- **Microsoft Fabric**: Upload notebook and wheel to the target lakehouse
+- **Local**: Execute the runner script directly — no upload needed
 
-```bash
-python scripts/package.py                  # auto-detect
-python scripts/package.py --format wheel   # force wheel
-python scripts/package.py --format zip     # force zip
-```
+### 5. Promote (env → env)
 
-Output: Artifact in `.datacoolie/generated/dist/`.
+Deploy to a different environment using the same workflow with the target environment's config:
+1. Preflight on target environment
+2. Validate and merge metadata for target environment
+3. Deploy to target platform
 
-### 4. Apply (`scripts/apply.py`)
+**GATE**: Promotion to `prod` requires explicit user confirmation.
 
-Orchestrate full deployment: preflight → package → generate → deploy.
+### 6. Generate CI/CD
 
-```bash
-python scripts/apply.py --platform aws --env prod
-python scripts/apply.py --platform aws --env prod --skip-upload   # CI mode
-python scripts/apply.py --platform databricks --env dev --run
-python scripts/apply.py --platform fabric --env prod --dry-run
-```
-
-Flags:
-- `--dry-run`: Print commands without executing
-- `--run`: Start a job run after deploy
-- `--skip-upload`: Skip S3 upload (CI already handled it)
-
-### 5. Promote (`scripts/promote.py`)
-
-Promote a datacoolie project from one environment to another (e.g., `dev → prod`).
-
-Runs the full pipeline: preflight on target → metadata validate → merge env overlay → deploy.
-
-```bash
-python scripts/promote.py --from dev --to prod
-python scripts/promote.py --from dev --to test --platform fabric
-python scripts/promote.py --from dev --to prod --confirm  # required for prod
-python scripts/promote.py --from dev --to test --skip-auth --platform local
-```
-
-Flags:
-- `--confirm`: **Required** for promotions to `prod`
-- `--skip-auth`: Skip authentication check in preflight
-- `--platform`: Target platform (aws/fabric/databricks/local, default: local)
-- `--project-dir`: Project root (default: CWD)
-
-Exit codes:
-- `0` = promotion succeeded
-- `1` = pipeline failure (preflight, validate, merge, or deploy error)
-- `2` = usage error (missing `--confirm` for prod, `--from` == `--to`)
-
-Output: `.datacoolie/promote/YYMMDD_promote-{from}-to-{to}.md`
-
----
-
-### 6. CI/CD (`scripts/cicd.py`)
-
-Generate GitHub Actions workflow for automated deployment.
-
-```bash
-python scripts/cicd.py --platform aws --env prod
-python scripts/cicd.py --platform databricks --env staging
-python scripts/cicd.py --platform fabric --env prod
-```
-
-Output: `.github/workflows/deploy-{platform}.yml`
+1. Read reference example from `references/github-actions-{platform}.yml.example`
+2. Generate CI/CD workflow with actual project values
+3. Write to `.github/workflows/deploy-{platform}.yml`
 
 ## Configuration
 
@@ -161,48 +108,38 @@ environments:
       volume: datacoolie
 ```
 
-## Workflow
+## Full Deploy Flow
 
-Typical deployment flow:
-
-```
-1. preflight.py --platform X --env Y  → validate environment
-2. generate.py --platform X --env Y   → create runner
-3. package.py                          → build functions wheel
-4. apply.py --platform X --env Y      → deploy everything
-5. cicd.py --platform X --env Y       → (optional) generate CI workflow
-```
-
-Or single-command: `apply.py` runs steps 1-4 automatically.
-
-Promotion flow (env-to-env):
+Typical deployment sequence:
 
 ```
-promote.py --from dev --to prod --confirm
-  → preflight (target env) → validate → merge → apply
-  → .datacoolie/promote/YYMMDD_promote-dev-to-prod.md
+1. Preflight        → validate environment
+2. Generate runner   → create platform-specific runner
+3. Package functions → build wheel/zip
+4. Deploy            → upload + create/update job
+5. Generate CI/CD    → (optional) create GitHub Actions workflow
 ```
 
-## AWS Deploy Constraint
+Promotion flow (env → env):
 
-AWS Glue `ScriptLocation` is a static S3 URI. The runner script and wheel
-must be uploaded to S3 **before** `create-job`/`update-job` is called.
-In CI, use `--skip-upload` flag since the workflow uploads artifacts directly.
+```
+Preflight (target) → Validate metadata → Merge overlay → Deploy
+→ .datacoolie/promote/yymmdd_promote-{from}-to-{to}.md
+```
 
-## Templates
+## References
 
-Located in `templates/`:
-- `run_local.py.j2` — Local Python runner
-- `run_aws_glue.py.j2` — AWS Glue PySpark job
-- `run_fabric.ipynb.j2` — Fabric notebook (4 cells)
-- `run_databricks.ipynb.j2` — Databricks notebook (4 cells)
-- `github-actions-aws.yml.j2` — CI/CD for AWS
-- `github-actions-databricks.yml.j2` — CI/CD for Databricks
-- `github-actions-fabric.yml.j2` — CI/CD for Fabric
+Located in `references/`:
+- `run_local.py.example` — Local Python runner API pattern
+- `run_aws_glue.py.example` — AWS Glue PySpark job API pattern
+- `run_fabric.ipynb.example` — Fabric notebook API pattern
+- `run_databricks.ipynb.example` — Databricks notebook API pattern
+- `github-actions-aws.yml.example` — CI/CD for AWS
+- `github-actions-databricks.yml.example` — CI/CD for Databricks
+- `github-actions-fabric.yml.example` — CI/CD for Fabric
 
 ## Prerequisites
 
-- `jinja2` (for template rendering)
 - Platform CLI installed and authenticated
 - `datacoolie` installed
 - Project with `metadata/` directory containing dataflow JSON(s)

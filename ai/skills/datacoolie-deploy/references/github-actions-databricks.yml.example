@@ -1,0 +1,59 @@
+# Reference example — GitHub Actions CI/CD for Databricks
+# Reference used by datacoolie-deploy skill to understand CI/CD patterns.
+
+name: "DataCoolie Deploy — Databricks"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "metadata/**"
+      - "functions/**"
+      - "databricks.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install datacoolie
+      - run: python -c "import datacoolie; print('datacoolie', datacoolie.__version__)"
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build
+      - run: cd functions && pip wheel --no-deps -w ../dist . && cd ..
+      - uses: actions/upload-artifact@v4
+        with:
+          name: functions-wheel
+          path: dist/*.whl
+
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: functions-wheel
+          path: dist/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install databricks-cli datacoolie
+      - name: Deploy Databricks bundle
+        run: databricks bundle deploy

@@ -1,79 +1,73 @@
 """
-datacoolie-deploy — Integration test runner stub.
-Tests preflight, promote, and deploy scripts against the shared test environment.
+datacoolie-deploy — Knowledge-based skill validation.
+Validates that SKILL.md contains all required sections for the knowledge-based skill.
 
-Refer to TESTING_datacoolie-deploy.md for manual test steps.
+Usage (from datacoolie/ai/skills/tests/):
+  python run_deploy.py
 """
-import subprocess
 import sys
-import tempfile
-import json
 from pathlib import Path
 
 HERE = Path(__file__).parent
-SCRIPT_DIR = HERE.parent / "datacoolie-deploy" / "scripts"
-RESULTS = HERE / "test-results" / "deploy"
-RESULTS.mkdir(parents=True, exist_ok=True)
+SKILL_MD = HERE.parent / "datacoolie-deploy" / "SKILL.md"
 
-
-def _make_test_project(base: Path) -> Path:
-    """Create a minimal project tree for integration checks."""
-    meta = base / "metadata"
-    meta.mkdir(parents=True)
-    dataflows = {"dataflows": [{"name": "sales_load", "load_type": "full_load"}]}
-    (meta / "dataflows.json").write_text(json.dumps(dataflows), encoding="utf-8")
-    return base
+REQUIRED_SECTIONS = [
+    "# datacoolie-deploy",
+    "## Supported Platforms",
+    "## AI Workflow",
+    "## Configuration",
+    "## Full Deploy Flow",
+    "## Templates",
+    "## Prerequisites",
+]
 
 
 def run() -> None:
-    import tempfile
+    print(f"\n{'='*60}")
+    print("  datacoolie-deploy — SKILL.md validation")
+    print(f"{'='*60}")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        project = _make_test_project(Path(tmpdir))
+    if not SKILL_MD.exists():
+        print(f"  ✗ SKILL.md not found at {SKILL_MD}")
+        sys.exit(1)
 
-        TESTS: list[tuple[str, list[str], int | None]] = [
-            # (label, cmd_args, expected_exit_code)  None = any non-error
-            (
-                "preflight-local",
-                [str(SCRIPT_DIR / "preflight.py"), "--platform", "local", "--skip-auth", "--env", "dev",
-                 "--project-dir", str(project)],
-                0,
-            ),
-            (
-                "preflight-local-env-prod",
-                [str(SCRIPT_DIR / "preflight.py"), "--platform", "local", "--skip-auth", "--env", "prod",
-                 "--project-dir", str(project)],
-                0,
-            ),
-            (
-                "promote-prod-no-confirm-exits-2",
-                [str(SCRIPT_DIR / "promote.py"), "--from", "dev", "--to", "prod",
-                 "--platform", "local", "--project-dir", str(project), "--skip-auth"],
-                2,
-            ),
-            (
-                "promote-from-eq-to-rejected",
-                [str(SCRIPT_DIR / "promote.py"), "--from", "dev", "--to", "dev",
-                 "--platform", "local", "--project-dir", str(project)],
-                2,
-            ),
-        ]
+    content = SKILL_MD.read_text(encoding="utf-8")
+    summary: list[tuple[str, str]] = []
 
-        summary: list[tuple[str, str]] = []
-        for name, cmd, expected_rc in TESTS:
-            print(f"\n  {name}")
-            result = subprocess.run([sys.executable] + cmd, capture_output=True, text=True)
-            ok = (expected_rc is None and result.returncode == 0) or result.returncode == expected_rc
-            status = "✓" if ok else "✗"
-            detail = (result.stdout + result.stderr).strip().split("\n")[-1][:100]
-            print(f"  {status} rc={result.returncode} | {detail}")
-            summary.append((name, status))
+    # Check required sections
+    for section in REQUIRED_SECTIONS:
+        found = section in content
+        status = "✓" if found else "✗"
+        print(f"  {status} section: {section}")
+        summary.append((section, status))
 
-    print(f"\n{'='*60}\n  DEPLOY SUMMARY\n{'='*60}")
+    # Check minimum content length
+    min_length = 1500
+    length_ok = len(content) >= min_length
+    status = "✓" if length_ok else "✗"
+    print(f"  {status} content length: {len(content)} chars (min {min_length})")
+    summary.append(("content-length", status))
+
+    # Check workflow steps
+    workflow_steps = ["### 1. Preflight", "### 2. Generate Runner", "### 3. Package Functions",
+                      "### 4. Platform Deploy", "### 5. Promote", "### 6. Generate CI/CD"]
+    for step in workflow_steps:
+        found = step in content
+        status = "✓" if found else "✗"
+        print(f"  {status} workflow: {step}")
+        summary.append((step, status))
+
+    print(f"\n{'='*60}")
+    print("  DEPLOY SUMMARY")
+    print(f"{'='*60}")
+    failed = sum(1 for _, s in summary if s == "✗")
     passed = sum(1 for _, s in summary if s == "✓")
     for name, status in summary:
         print(f"  {status} {name}")
     print(f"\n  {passed}/{len(summary)} checks passed")
+
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

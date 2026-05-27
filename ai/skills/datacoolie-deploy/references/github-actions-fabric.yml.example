@@ -1,0 +1,62 @@
+# Reference example — GitHub Actions CI/CD for Microsoft Fabric
+# Reference used by datacoolie-deploy skill to understand CI/CD patterns.
+
+name: "DataCoolie Deploy — Fabric"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "metadata/**"
+      - "functions/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install datacoolie
+      - run: python -c "import datacoolie; print('datacoolie', datacoolie.__version__)"
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build
+      - run: cd functions && pip wheel --no-deps -w ../dist . && cd ..
+      - uses: actions/upload-artifact@v4
+        with:
+          name: functions-wheel
+          path: dist/*.whl
+
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      FABRIC_CLIENT_ID: ${{ secrets.FABRIC_CLIENT_ID }}
+      FABRIC_CLIENT_SECRET: ${{ secrets.FABRIC_CLIENT_SECRET }}
+      FABRIC_TENANT_ID: ${{ secrets.FABRIC_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: functions-wheel
+          path: dist/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ms-fabric-cli datacoolie
+      - name: Authenticate Fabric CLI
+        run: fab auth login -u $FABRIC_CLIENT_ID -p $FABRIC_CLIENT_SECRET --tenant $FABRIC_TENANT_ID
+      - name: Upload notebook and wheel to Fabric lakehouse
+        run: |
+          fab cp scripts/run_fabric.ipynb {workspace}/{lakehouse}/
+          fab cp dist/*.whl {workspace}/{lakehouse}/Files/libraries/

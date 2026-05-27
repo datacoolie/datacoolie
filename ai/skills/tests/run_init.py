@@ -1,35 +1,70 @@
 """
-datacoolie-init — Integration test runner stub.
-Tests scaffold.py against local filesystem targets.
+datacoolie-init — Knowledge-based skill validation.
+Validates that SKILL.md contains all required sections for the knowledge-based skill.
 
-Refer to TESTING_datacoolie-init.md for manual test steps.
+Usage (from datacoolie/ai/skills/tests/):
+  python run_init.py
 """
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).parent
-SCRIPT_DIR = HERE.parent / "datacoolie-init" / "scripts"
-RESULTS = HERE / "test-results" / "init"
-RESULTS.mkdir(parents=True, exist_ok=True)
+SKILL_MD = HERE.parent / "datacoolie-init" / "SKILL.md"
+
+REQUIRED_SECTIONS = [
+    "# datacoolie-init",
+    "## Scope",
+    "## AI Workflow",
+    "## Security Policy",
+    "## Dependencies",
+]
 
 
 def run() -> None:
-    summary = []
-    with tempfile.TemporaryDirectory() as tmpdir:
-        name = "test_project"
-        cmd = [sys.executable, str(SCRIPT_DIR / "scaffold.py"),
-               "--name", name, "--output", tmpdir]
-        print(f"\n  scaffold --name {name}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        status = "✓" if result.returncode == 0 else "✗"
-        print(f"  {status} {result.stdout.strip()[:120]}")
-        summary.append(("scaffold-basic", status))
+    print(f"\n{'='*60}")
+    print("  datacoolie-init — SKILL.md validation")
+    print(f"{'='*60}")
 
-    print(f"\n{'='*60}\n  INIT SUMMARY\n{'='*60}")
-    for n, s in summary:
-        print(f"  {s} {n}")
+    if not SKILL_MD.exists():
+        print(f"  ✗ SKILL.md not found at {SKILL_MD}")
+        sys.exit(1)
+
+    content = SKILL_MD.read_text(encoding="utf-8")
+    summary: list[tuple[str, str]] = []
+
+    # Check required sections
+    for section in REQUIRED_SECTIONS:
+        found = section in content
+        status = "✓" if found else "✗"
+        print(f"  {status} section: {section}")
+        summary.append((section, status))
+
+    # Check minimum content length
+    min_length = 1000
+    length_ok = len(content) >= min_length
+    status = "✓" if length_ok else "✗"
+    print(f"  {status} content length: {len(content)} chars (min {min_length})")
+    summary.append(("content-length", status))
+
+    # Check workflow steps
+    workflow_steps = ["### Step 1", "### Step 2", "### Step 3"]
+    for step in workflow_steps:
+        found = step in content
+        status = "✓" if found else "✗"
+        print(f"  {status} workflow: {step}")
+        summary.append((step, status))
+
+    print(f"\n{'='*60}")
+    print("  INIT SUMMARY")
+    print(f"{'='*60}")
+    failed = sum(1 for _, s in summary if s == "✗")
+    passed = sum(1 for _, s in summary if s == "✓")
+    for name, status in summary:
+        print(f"  {status} {name}")
+    print(f"\n  {passed}/{len(summary)} checks passed")
+
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

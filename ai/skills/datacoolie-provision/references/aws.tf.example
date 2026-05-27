@@ -1,0 +1,63 @@
+# Reference example — AWS Terraform
+# AI uses this as a convention guide when generating .tf files.
+# Naming: dev/test get environment suffix (e.g. my-bucket-dev); prod has no suffix.
+
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# S3 bucket example
+resource "aws_s3_bucket" "bronze_dev" {
+  bucket = "my-project-bronze-dev"
+
+  tags = {
+    Environment = "dev"
+    Purpose     = "Bronze layer storage"
+    ManagedBy   = "datacoolie-provision"
+  }
+}
+
+# Glue database example
+resource "aws_glue_catalog_database" "bronze_dev" {
+  name = "my_project_bronze_dev"
+
+  tags = {
+    Environment = "dev"
+    Purpose     = "Bronze layer catalog"
+    ManagedBy   = "datacoolie-provision"
+  }
+}
+
+# IAM role example
+resource "aws_iam_role" "glue_role_dev" {
+  name = "my-project-glue-role-dev"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "glue.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Environment = "dev"
+    Purpose     = "Glue execution role"
+    ManagedBy   = "datacoolie-provision"
+  }
+}

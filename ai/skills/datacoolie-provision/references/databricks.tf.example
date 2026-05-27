@@ -1,0 +1,41 @@
+# Reference example — Databricks Terraform
+# AI uses this as a convention guide when generating .tf files.
+# Naming: dev/test get environment suffix (e.g. my_catalog_dev); prod has no suffix.
+# Credentials always via variables — never hardcoded.
+
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    databricks = {
+      source  = "databricks/databricks"
+      version = "~> 1.40"
+    }
+  }
+}
+
+provider "databricks" {
+  host  = var.databricks_host
+  token = var.databricks_token
+}
+
+# Unity Catalog example
+resource "databricks_catalog" "my_project_dev" {
+  name    = "my_project_dev"
+  comment = "datacoolie project catalog — dev"
+}
+
+# Schema example
+resource "databricks_schema" "bronze_dev" {
+  catalog_name = databricks_catalog.my_project_dev.name
+  name         = "bronze_dev"
+  comment      = "Bronze layer schema"
+}
+
+# Volume example
+resource "databricks_volume" "bronze_files_dev" {
+  catalog_name = databricks_catalog.my_project_dev.name
+  schema_name  = databricks_schema.bronze_dev.name
+  name         = "bronze_files_dev"
+  volume_type  = "MANAGED"
+  comment      = "Bronze layer file volume"
+}

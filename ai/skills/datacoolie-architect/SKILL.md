@@ -19,23 +19,22 @@ architecture document that feeds into metadata generation and infrastructure pro
 This skill handles: medallion layer design, stage planning, load strategy selection,
 engine selection, infrastructure requirements, partitioning strategy, environment planning.
 
-Does NOT handle: source discovery (use `datacoolie-discover`), metadata generation
-(use `datacoolie-metadata`), infrastructure provisioning (use `datacoolie-provision`),
-project scaffolding (use `datacoolie-init`).
+Does NOT handle: source discovery, metadata generation, infrastructure provisioning, project scaffolding.
 
 ## Prerequisites
 
-- Discovery report exists at `.datacoolie/discover/yymmdd_discovery-report.md`
-- If no discovery report exists, prompt user to run `datacoolie-discover` first
+- One or more discovery reports exist in `.datacoolie/discover/` (files: `yymmdd_{source-name}.md` + `yymmdd_{source-name}_schema.md`)
+- If no discovery reports exist, prompt user to run source discovery first
 
 ## AI Workflow
 
-### Step 1: Read Discovery Report
+### Step 1: Read All Discovery Reports
 
-Read the latest discovery report from `.datacoolie/discover/`. Extract:
-- Table list with columns, PKs, types, row estimates
-- Operational assessment answers (load frequency, CDC availability, etc.)
-- Recommended load strategies and watermark candidates
+Read all discovery reports and schema inventories from `.datacoolie/discover/`. For each source:
+- From `yymmdd_{source-name}_schema.md`: tables/endpoints, columns/fields, PKs, types, row estimates, FK relationships
+- From `yymmdd_{source-name}.md`: source type (database/API/file/lakehouse), load frequency, CDC availability, access & connectivity, watermark candidates, load strategy recommendations
+
+Build a unified picture across all sources — cross-source joins and dependencies inform silver/gold layer design.
 
 ### Step 2: Apply Decision Framework
 
@@ -69,9 +68,9 @@ Iterate on the document until the user says "approve" or equivalent.
 ### Step 5: After Approval
 
 Once approved, inform the user of next steps:
-- `datacoolie-init` to scaffold project structure and generate metadata (connections + dataflows) from the architecture
-- `datacoolie-metadata` to validate and lint the generated metadata
-- `datacoolie-provision` to create infrastructure resources
+- Scaffold project structure and generate metadata (connections + dataflows) from the architecture
+- Validate and lint the generated metadata
+- Create infrastructure resources
 
 ---
 
@@ -99,17 +98,16 @@ Once approved, inform the user of next steps:
 
 | Condition | Read Strategy | Load Type (write) | Rationale |
 |-----------|---------------|-------------------|-----------|
-| Small table (<100K rows), no history needed | Full read | `full_load` = `overwrite` | Cheap to reload entirely |
+| Small source (<100K rows/records), no history needed | Full read | `full_load` = `overwrite` | Cheap to reload entirely |
 | Has reliable watermark column, append new rows | Incremental (watermark) | `append` | Efficient delta, no rewrites |
 | Has watermark, reload recent partition window | Incremental (watermark) | `merge_overwrite` | Replace partition slice, not full table |
 | Needs current state + has PK | Full or incremental | `merge_upsert` | Update existing, insert new |
 | Needs full column replace on key match | Full or incremental | `merge_overwrite` | Replace all columns on match |
 | Needs historical snapshots + has PK | Full or incremental | `scd2` | Track all historical states |
-| Reference/lookup table, rarely changes | Full read | `full_load` = `overwrite` | Simplest, always fresh |
+| Reference/lookup, rarely changes | Full read | `full_load` = `overwrite` | Simplest, always fresh |
 | Source provides CDC stream (Debezium, CT) | CDC feed | `append` or `merge_upsert` | Use native change feed |
 
-**Fallback**: If no good watermark column exists and table is large → use `merge_overwrite`
-with date partition key (reload last N days partition window, not the entire table).
+**Fallback**: If no good watermark exists and source is large → use `merge_overwrite` with date partition key (reload last N days, not the entire source).
 
 ### Engine Selection
 
@@ -194,13 +192,13 @@ Key sections:
 
 ---
 
-## Cross-Skill Dependencies
+## Input/Output Contracts
 
-| Direction | Skill | Interaction |
-|-----------|-------|-------------|
-| Input from | `datacoolie-discover` | Reads `yymmdd_discovery-report.md` |
-| Output to | `datacoolie-metadata` | Provides stage definitions → connections + dataflows |
-| Output to | `datacoolie-provision` | Provides infrastructure requirements → resource creation |
+| Direction | Artifact | Path |
+|-----------|----------|------|
+| Input | Discovery reports (all sources) | `.datacoolie/discover/yymmdd_{source-name}.md` |
+| Input | Schema inventories (all sources) | `.datacoolie/discover/yymmdd_{source-name}_schema.md` |
+| Output | Architecture document (single, spans all sources) | `.datacoolie/architect/yymmdd_architecture.md` |
 
 ---
 
@@ -208,7 +206,7 @@ Key sections:
 
 | Situation | Action |
 |-----------|--------|
-| No discovery report found | Prompt user to run `datacoolie-discover` first |
+| No discovery report found | Prompt user to run source discovery first |
 | Discovery report incomplete (many TODOs) | Warn user, proceed with available info, mark gaps in architecture |
 | User rejects architecture | Ask what to change, iterate until approved |
 | Platform not specified | Ask user which platform (Fabric/AWS/Databricks/Local) |

@@ -1,403 +1,86 @@
 # datacoolie-deploy — Testing Guide
 
-## Test Environment
-
-Start the shared integration environment before running these tests:
-```sh
-cd datacoolie/ai/skills/tests
-docker compose up -d --wait
-python run_all.py --no-docker   # seed MSSQL + Iceberg
-```
-
-See [README.md](README.md) for full connection details.
+This skill is **knowledge-based** — the AI reads SKILL.md rules and Jinja2 templates, then runs platform CLI commands directly. There are no scripts to execute.
 
 ---
 
-All commands run from `datacoolie/ai/skills/tests/` with venv activated.
-
----
-
-## 1. preflight.py
-
-### 1.1 Local platform — always passes (no CLI/auth required)
-
-```sh
-python skills/datacoolie-deploy/scripts/preflight.py --platform local
-# ✓ Platform CLI installed (skip (local))
-# ✓ Authenticated (skip (local))
-# ✓ datacoolie installed (0.1.x)
-# ✓ Metadata found (N file(s) in metadata/)  OR  ✗ if no metadata/ dir
-# ✓ Functions packageable (...)
-# Exit 0
-```
-
-### 1.2 Missing platform CLI — expect ✗ with install hint
-
-```sh
-# On a machine with fab/databricks/aws CLIs installed, these will show ✓ for CLI check.
-# On a machine WITHOUT the CLI, expect:
-python skills/datacoolie-deploy/scripts/preflight.py --platform fabric
-# ✗ Platform CLI installed (Not found. Install: pip install ms-fabric-cli)
-# Exit 1
-
-python skills/datacoolie-deploy/scripts/preflight.py --platform databricks
-# ✗ Platform CLI installed (Not found. Install: pip install databricks-cli)
-# Exit 1
-```
-
-### 1.3 Skip auth for CI lint-only mode
-
-```sh
-python skills/datacoolie-deploy/scripts/preflight.py --platform aws --skip-auth
-# ✓ Authenticated (skipped (--skip-auth))
-# Exit depends on other checks (datacoolie installed, metadata, etc.)
-```
-
-### 1.4 Metadata directory missing
-
-```sh
-# Run from a temp directory with no metadata/
-# Note: use absolute path for $py when changing directories
-$pyabs = (Resolve-Path $py).Path
-Push-Location $env:TEMP
-& $pyabs (Resolve-Path "$PSScriptRoot/../../skills/datacoolie-deploy/scripts/preflight.py").Path --platform local
-# ✗ Metadata found (Directory not found: ...)
-# Exit 1
-Pop-Location
-```
-
-### 1.5 Metadata directory empty
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/empty_meta/metadata\"  , exist_ok=True)"
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/empty_meta
-# ✗ Metadata found (No metadata files (.json/.yaml) in .../metadata)
-# Exit 1
-python -c "import shutil; shutil.rmtree(\"/tmp/empty_meta\")"
-```
-
-### 1.6 Metadata exists with JSON files — expect ✓
-
-```sh
-# From datacoolie/ where usecase-sim/metadata/ has JSON files
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir usecase-sim
-# ✓ Metadata found (N file(s) in metadata/)
-```
-
-### 1.7 Functions directory absent — skips gracefully
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/nofuncs/metadata\"  , exist_ok=True)"
-'{}' | Set-Content /tmp/nofuncs/metadata/test.json
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/nofuncs
-# ✓ Functions packageable (No functions/ directory (optional, skipping))
-python -c "import shutil; shutil.rmtree(\"/tmp/nofuncs\")"
-```
-
-### 1.8 Functions directory has pyproject.toml — wheel build expected
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/hasfuncs/metadata\"  , exist_ok=True)"
-python -c "import os; os.makedirs(\"/tmp/hasfuncs/functions\"  , exist_ok=True)"
-'{}' | Set-Content /tmp/hasfuncs/metadata/test.json
-'[project]' + "`n" + 'name = "functions"' + "`n" + 'version = "0.1.0"' | Set-Content /tmp/hasfuncs/functions/pyproject.toml
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/hasfuncs
-# ✓ Functions packageable (functions/pyproject.toml found (wheel build))
-python -c "import shutil; shutil.rmtree(\"/tmp/hasfuncs\")"
-```
-
-### 1.9 Functions directory has __init__.py only — zip package expected
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/zipfuncs/metadata\"  , exist_ok=True)"
-python -c "import os; os.makedirs(\"/tmp/zipfuncs/functions\"  , exist_ok=True)"
-'{}' | Set-Content /tmp/zipfuncs/metadata/test.json
-'' | Set-Content /tmp/zipfuncs/functions/__init__.py
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/zipfuncs
-# ✓ Functions packageable (functions/__init__.py found (zip package))
-python -c "import shutil; shutil.rmtree(\"/tmp/zipfuncs\")"
-```
-
-### 1.10 Functions directory exists but has neither pyproject.toml nor __init__.py
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/badfuncs/metadata\"  , exist_ok=True)"
-python -c "import os; os.makedirs(\"/tmp/badfuncs/functions\"  , exist_ok=True)"
-'{}' | Set-Content /tmp/badfuncs/metadata/test.json
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/badfuncs
-# ✗ Functions packageable (functions/ exists but has no pyproject.toml or __init__.py)
-python -c "import shutil; shutil.rmtree(\"/tmp/badfuncs\")"
-```
-
-### 1.11 Secrets resolution — all refs resolved
-
-```sh
-python -c "import os, json; os.makedirs('/tmp/sectest/metadata', exist_ok=True); open('/tmp/sectest/metadata/connections.json','w').write(json.dumps({'connections':[{'name':'db','password':{'secrets_ref':'MY_DB_PASS'}}]}))"
-$env:MY_DB_PASS = "supersecret"
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/sectest --env dev
-# ✓ Secrets resolution (All 1 secret(s) resolved)
-$env:MY_DB_PASS = $null
-python -c "import shutil; shutil.rmtree('/tmp/sectest')"
-```
-
-### 1.12 Secrets resolution — missing ref
-
-```sh
-python -c "import os, json; os.makedirs('/tmp/sectest2/metadata', exist_ok=True); open('/tmp/sectest2/metadata/connections.json','w').write(json.dumps({'connections':[{'name':'db','password':{'secrets_ref':'MISSING_SECRET'}}]}))"
-$env:MISSING_SECRET = $null
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --project-dir /tmp/sectest2 --env dev
-# ✗ Secrets resolution (1 unresolved secret(s): MISSING_SECRET)
-# Exit 1
-python -c "import shutil; shutil.rmtree('/tmp/sectest2')"
-```
-
-### 1.13 Infrastructure existence — local always passes
-
-```sh
-python skills/datacoolie-deploy/scripts/preflight.py --platform local --env prod
-# ✓ Infrastructure exists (skip (local))
-```
-
-### 1.14 Infrastructure existence — provision log with failures
-
-```sh
-python -c "
-import os, pathlib
-d = pathlib.Path('/tmp/provtest/.datacoolie/provision')
-d.mkdir(parents=True, exist_ok=True)
-(d / '250101_provision-log.md').write_text('| bucket | created |\n| schema | failed |')
-pathlib.Path('/tmp/provtest/metadata').mkdir(parents=True, exist_ok=True)
-open('/tmp/provtest/metadata/f.json','w').write('{}')
-"
-python skills/datacoolie-deploy/scripts/preflight.py --platform aws --skip-auth --project-dir /tmp/provtest --env prod
-# ✗ Infrastructure exists (Provision log shows 1 failed resource(s) — run datacoolie-provision)
-# Exit 1
-python -c "import shutil; shutil.rmtree('/tmp/provtest')"
-```
-
----
-
-## 2. package.py
-
-### Setup: create a minimal functions package
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/pkgtest/functions\"  , exist_ok=True)"
-'' | Set-Content /tmp/pkgtest/functions/__init__.py
-'def hello(): return "hello"' | Set-Content /tmp/pkgtest/functions/utils.py
-```
-
-### 2.1 Auto-detect format (zip when no pyproject.toml)
-
-```sh
-python skills/datacoolie-deploy/scripts/package.py --functions-dir /tmp/pkgtest/functions --output /tmp/pkgtest/dist
-# ✓ Built zip: functions.zip
-# ✓ Import validation passed
-# Output: /tmp/pkgtest/dist/functions.zip
-python -c "import os; print(os.path.exists(\"/tmp/pkgtest/dist/functions.zip\"  ))"  # True
-```
-
-### 2.2 Force zip format explicitly
-
-```sh
-python skills/datacoolie-deploy/scripts/package.py --format zip --functions-dir /tmp/pkgtest/functions --output /tmp/pkgtest/dist
-# ✓ Built zip: functions.zip
-# ✓ Import validation passed
-```
-
-### 2.3 Force zip — missing __init__.py — expect error
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/noinit/functions\"  , exist_ok=True)"
-'def hello(): return 1' | Set-Content /tmp/noinit/functions/utils.py
-python skills/datacoolie-deploy/scripts/package.py --format zip --functions-dir /tmp/noinit/functions --output /tmp/noinit/dist
-# ERROR: --format zip requires functions/__init__.py
-# Exit 1
-python -c "import shutil; shutil.rmtree(\"/tmp/noinit\")"
-```
-
-### 2.4 Zip excludes __pycache__
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/cachedtest/functions/__pycache__\"  , exist_ok=True)"
-'' | Set-Content /tmp/cachedtest/functions/__init__.py
-'junk' | Set-Content /tmp/cachedtest/functions/__pycache__/utils.cpython-311.pyc
-python skills/datacoolie-deploy/scripts/package.py --format zip --functions-dir /tmp/cachedtest/functions --output /tmp/cachedtest/dist
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::OpenRead("/tmp/cachedtest/dist/functions.zip")
-$entries = $zip.Entries | Select-Object -ExpandProperty FullName
-$zip.Dispose()
-$entries | Where-Object { $_ -match '__pycache__' }
-# (empty — no __pycache__ entries)
-python -c "import shutil; shutil.rmtree(\"/tmp/cachedtest\")"
-```
-
-### 2.5 No functions directory — skip silently
-
-```sh
-# Use absolute paths when changing directories
-$pyabs = (Resolve-Path $py).Path
-$skillabs = (Resolve-Path $skill).Path
-Push-Location $env:TEMP
-& $pyabs $skillabs/scripts/package.py
-# No functions/ directory found — skipping packaging.
-# Exit 0
-Pop-Location
-```
-
-### 2.6 Wheel build (requires pyproject.toml + `build` installed)
-
-```sh
-# Requires: pip install build
-# Use usecase-sim/functions if it exists, or create a minimal one:
-python -c "import os; os.makedirs(\"/tmp/wheeltest/functions\"  , exist_ok=True)"
-'' | Set-Content /tmp/wheeltest/functions/__init__.py
-@"
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "functions"
-version = "0.1.0"
-"@ | Set-Content /tmp/wheeltest/functions/pyproject.toml
-
-python skills/datacoolie-deploy/scripts/package.py --format wheel --functions-dir /tmp/wheeltest/functions --output /tmp/wheeltest/dist
-# ✓ Built wheel: functions-0.1.0-py3-none-any.whl
-# ✓ Import validation passed
-python -c "import os; print(os.path.exists(\"/tmp/wheeltest/dist/*.whl\"  ))"  # True
-python -c "import shutil; shutil.rmtree(\"/tmp/wheeltest\")"
-```
-
-### 2.7 Wheel build — missing pyproject.toml — expect error
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/nowhl/functions\"  , exist_ok=True)"
-'' | Set-Content /tmp/nowhl/functions/__init__.py
-python skills/datacoolie-deploy/scripts/package.py --format wheel --functions-dir /tmp/nowhl/functions --output /tmp/nowhl/dist
-# ERROR: --format wheel requires functions/pyproject.toml
-# Exit 1
-python -c "import shutil; shutil.rmtree(\"/tmp/nowhl\")"
-```
-
----
-
-## 3. generate.py
-
-### Setup: minimal project with config
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/gentest/.datacoolie\"  , exist_ok=True)"
-python -c "import os; os.makedirs(\"/tmp/gentest/metadata\"  , exist_ok=True)"
-'{}' | Set-Content /tmp/gentest/metadata/use_cases.json
-
-@"
-project_name: my-etl
-engine: spark
-max_workers: 8
-environments:
-  dev:
-    platform: local
-  prod:
-    platform: aws
-    aws:
-      region: ap-southeast-1
-      bucket: de-prod-0001
-      role_arn: arn:aws:iam::123456789012:role/GlueRole
-  staging:
-    platform: fabric
-    fabric:
-      workspace: DEV_Workspace
-      lakehouse: ETL_Lakehouse
-      root_path: "abfss://DEV_Workspace@onelake.dfs.fabric.microsoft.com/ETL_Lakehouse.Lakehouse"
-  analytics:
-    platform: databricks
-    databricks:
-      host: "https://adb-123.azuredatabricks.net"
-      catalog: workspace
-      schema: default
-      volume: datacoolie
-"@ | Set-Content /tmp/gentest/.datacoolie/config.yaml
-```
-
-### 3.1 Generate local runner
-
-```sh
-python skills/datacoolie-deploy/scripts/generate.py --platform local --env dev --project-dir /tmp/gentest
-# ✓ Generated: /tmp/gentest/.datacoolie/generated/run_local.py
-# ✓ Syntax check passed
-Get-Content /tmp/gentest/.datacoolie/generated/run_local.py | Select-Object -First 10
-# Should contain: LocalPlatform, PolarsEngine or SparkEngine, DataCoolieDriver
-```
-
-### 3.2 Generate AWS Glue runner
-
-```sh
-python skills/datacoolie-deploy/scripts/generate.py --platform aws --env prod --project-dir /tmp/gentest
-# ✓ Generated: /tmp/gentest/.datacoolie/generated/run_aws_glue.py
-# ✓ Syntax check passed
-python -c "import re; [print(l, end='') for l in open(\"/tmp/gentest/.datacoolie/generated/run_aws_glue.py\"  ) if re.search(r\"bucket|region\"  , l)]"
-# Should show: "ap-southeast-1", "de-prod-0001"
-```
-
-### 3.3 Generate Fabric notebook
-
-```sh
-python skills/datacoolie-deploy/scripts/generate.py --platform fabric --env staging --project-dir /tmp/gentest
-# ✓ Generated: /tmp/gentest/.datacoolie/generated/run_fabric.ipynb
-# ✓ Notebook JSON valid
-$nb = Get-Content /tmp/gentest/.datacoolie/generated/run_fabric.ipynb | ConvertFrom-Json
-$nb.cells.Count   # 4 cells
-$nb.cells[0].cell_type  # markdown
-```
-
-### 3.4 Fabric notebook contains correct ROOT_PATH
-
-```sh
-$nb = Get-Content /tmp/gentest/.datacoolie/generated/run_fabric.ipynb -Raw | ConvertFrom-Json
-$cell4 = ($nb.cells | Where-Object { $_.cell_type -eq 'code' })[2].source -join ''
-$cell4 | Select-String "DEV_Workspace"
-# Should match: ROOT_PATH = "abfss://DEV_Workspace@..."
-```
-
-### 3.5 Generate Databricks notebook
-
-```sh
-python skills/datacoolie-deploy/scripts/generate.py --platform databricks --env analytics --project-dir /tmp/gentest
-# ✓ Generated: /tmp/gentest/.datacoolie/generated/run_databricks.ipynb
-# ✓ Notebook JSON valid
-$nb = Get-Content /tmp/gentest/.datacoolie/generated/run_databricks.ipynb | ConvertFrom-Json
-$nb.cells.Count   # 4 cells
-```
-
-### 3.6 Databricks notebook contains correct VOLUME_ROOT
-
-```sh
-$nb = Get-Content /tmp/gentest/.datacoolie/generated/run_databricks.ipynb -Raw | ConvertFrom-Json
-$code_cells = $nb.cells | Where-Object { $_.cell_type -eq 'code' }
-$code_cells[2].source -join '' | Select-String "workspace/default/datacoolie"
-# Should match: VOLUME_ROOT = "/Volumes/workspace/default/datacoolie"
-```
-
-### 3.7 Custom output path
-
-```sh
-python skills/datacoolie-deploy/scripts/generate.py --platform aws --env prod --project-dir /tmp/gentest --output /tmp/gentest/my_runner.py
-# ✓ Generated: /tmp/gentest/my_runner.py
-# ✓ Syntax check passed
-python -c "import os; print(os.path.exists(\"/tmp/gentest/my_runner.py\"  ))"  # True
-```
-
-### 3.8 No config file — falls back to defaults
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/noconfig/metadata\"  , exist_ok=True)"
-'{}' | Set-Content /tmp/noconfig/metadata/use_cases.json
-python skills/datacoolie-deploy/scripts/generate.py --platform aws --env prod --project-dir /tmp/noconfig
-# ✓ Generated: .../run_aws_glue.py (uses default region, bucket, etc.)
-python -c "import re; [print(l, end='') for l in open(\"/tmp/noconfig/.datacoolie/generated/run_aws_glue.py\"  ) if re.search(r\"ap-southeast-1|de-dev-0007\"  , l)]"
-python -c "import shutil; shutil.rmtree(\"/tmp/noconfig\")"
-```
+## What to Test
+
+### 1. SKILL.md Content Validation
+
+Open `datacoolie-deploy/SKILL.md` and verify:
+
+- [ ] AI workflow steps are clear: preflight → generate runner → package functions → upload → create/update job → promote
+- [ ] All platforms documented: Local, AWS Glue, Databricks, Fabric
+- [ ] Preflight checklist covers: CLI installed, authenticated, datacoolie installed, metadata exists, functions packageable, secrets resolved, infra exists
+- [ ] Runner generation rules reference templates in `templates/`
+- [ ] Functions packaging logic: auto-detect zip vs wheel, exclude `__pycache__`, validate imports
+- [ ] CI/CD workflow generation documented (GitHub Actions templates)
+- [ ] Security: secrets never hardcoded, `secrets_ref` resolved from env vars
+
+### 2. Template Completeness
+
+Check `datacoolie-deploy/templates/`:
+
+| Template | Verify |
+|----------|--------|
+| `run_local.py.j2` | References LocalPlatform, engine selection (Polars/Spark), DataCoolieDriver |
+| `run_aws_glue.py.j2` | Placeholders for region, bucket, role_arn; uses SparkEngine |
+| `run_fabric.ipynb.j2` | 4-cell notebook: markdown header, pip install, config, run; ROOT_PATH placeholder |
+| `run_databricks.ipynb.j2` | 4-cell notebook; VOLUME_ROOT placeholder |
+| `github-actions-aws.yml.j2` | CI/CD workflow for AWS Glue deployment |
+| `github-actions-databricks.yml.j2` | CI/CD workflow for Databricks bundle deploy |
+| `github-actions-fabric.yml.j2` | CI/CD workflow for Fabric deployment |
+
+- [ ] All templates use valid Jinja2 syntax
+- [ ] Notebook templates produce valid `.ipynb` JSON structure
+- [ ] Python templates pass `py_compile` syntax check
+- [ ] Config values sourced from `.datacoolie/config.yaml` placeholders
+
+### 3. Manual Workflow Testing — Preflight
+
+Ask the AI to run preflight checks and verify:
+
+| Test Case | Setup | Expected |
+|-----------|-------|----------|
+| Local — passes | Project with metadata/ | All checks pass |
+| Missing CLI | No `aws`/`fab`/`databricks` installed | Fails with install hint |
+| No metadata | Empty project dir | "Run datacoolie-init first" |
+| Missing secrets | `secrets_ref` in metadata, env var unset | Lists missing vars, stops |
+| Functions — no dir | No `functions/` directory | Skips gracefully (optional) |
+| Functions — pyproject.toml | `functions/pyproject.toml` exists | Reports "wheel build" |
+| Functions — __init__.py only | `functions/__init__.py` exists | Reports "zip package" |
+| Provision failures | Provision log has "failed" entries | "Run datacoolie-provision first" |
+
+### 4. Manual Workflow Testing — Runner Generation
+
+Ask the AI to generate runners and verify output:
+
+| Platform | Prompt | Verify |
+|----------|--------|--------|
+| Local | "Generate local runner" | `.datacoolie/generated/run_local.py` — valid Python, correct engine |
+| AWS Glue | "Generate AWS Glue runner for prod" | `run_aws_glue.py` — region, bucket, role_arn from config |
+| Fabric | "Generate Fabric runner for staging" | `run_fabric.ipynb` — valid notebook JSON, 4 cells, correct ROOT_PATH |
+| Databricks | "Generate Databricks runner" | `run_databricks.ipynb` — valid notebook JSON, correct VOLUME_ROOT |
+| Custom output | "Generate AWS runner to /tmp/my_runner.py" | File at specified path |
+| No config | Project without `.datacoolie/config.yaml` | Falls back to defaults |
+
+### 5. Manual Workflow Testing — Functions Packaging
+
+Ask the AI to package functions:
+
+| Test Case | Verify |
+|-----------|--------|
+| Zip (auto-detect, no pyproject.toml) | `functions.zip` created, `__pycache__` excluded |
+| Wheel (has pyproject.toml) | `.whl` file created via `python -m build` |
+| No functions dir | Skips silently |
+| Missing __init__.py for zip | Error reported |
+
+### 6. Manual Workflow Testing — CI/CD Generation
+
+- [ ] "Generate GitHub Actions for AWS" → valid YAML workflow file
+- [ ] "Generate GitHub Actions for Fabric" → valid YAML workflow file
+- [ ] "Generate GitHub Actions for Databricks" → valid YAML workflow file
 
 ### Cleanup
 

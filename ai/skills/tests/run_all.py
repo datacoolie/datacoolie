@@ -188,21 +188,14 @@ def main() -> None:
     seed_hive()
     seed_minio_files()
 
-    # Unit tests (no Docker) — run first so failures are visible early
-    print(f"\n{'='*60}")
-    print("  Unit tests (pytest)")
-    print(f"{'='*60}")
-    unit_result = subprocess.run(
-        [sys.executable, "-m", "pytest", str(HERE / "unit"), "-q", "--tb=short"],
-        cwd=HERE.parent.parent.parent,  # workspace root where pyproject.toml lives
-    )
-    unit_status = "PASS" if unit_result.returncode == 0 else "FAIL"
-    print(f"  [{unit_status}] unit tests")
+    # Unit tests — currently empty after knowledge-based migration
+    # (discover/init/provision/deploy scripts removed; only metadata retains scripts)
+    unit_result_returncode = 0
 
     if not skills:
         skills = list(SKILL_RUNNERS.keys())
 
-    results: dict[str, int] = {"unit": unit_result.returncode}
+    results: dict[str, int] = {"unit": unit_result_returncode}
     for skill in skills:
         results[skill] = run_skill(skill)
 

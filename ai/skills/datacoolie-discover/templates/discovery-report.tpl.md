@@ -6,135 +6,119 @@
 
 ---
 
-## Auto-Discovery Results
+## Source Identity
 
-{{ auto_results | default("_Not yet run. Execute `introspect.py` to populate this section._") }}
+| Property | Value |
+|---|---|
+| Source name | {{ source_name }} |
+| Technology | TODO |
+| Version | TODO |
+| Hosting | TODO (on-prem / cloud — region) |
+| Approximate size | TODO (table count, total GB) |
+| Owner / contact | TODO |
 
-## Operational Assessment
+## Schema Summary
 
-### Source Identity
+Full schema inventory: [{{ date }}_{{ source_name }}_schema.md](./{{ date }}_{{ source_name }}_schema.md)
 
-- **What is the source name / system name?**
-  {{ source_name }}
+<!-- For database / file / lakehouse sources -->
 
-- **What is the technology stack?**
-  TODO
+| Property | Value |
+|---|---|
+| Total tables | TODO |
+| Key tables | TODO (list the most important ones) |
+| Tables without PK | TODO |
+| Composite keys | TODO |
 
-- **Approximate sizing? (table count, total GB, largest table rows)**
-  TODO
+<!-- For API sources -->
+<!--
+| Property | Value |
+|---|---|
+| Total endpoints | TODO |
+| Key endpoints | TODO (list the most important ones) |
+| Pagination types | TODO (offset / cursor / next_link) |
+-->
 
-- **On-prem or cloud? Which cloud/region?**
-  TODO
+## Data Characteristics
 
-### Schema Understanding
+| Property | Value |
+|---|---|
+| History tracking | TODO (audit tables, temporal tables, SCD, none) |
+| Soft delete pattern | TODO (deleted_at, is_active, none) |
+| Late-arriving data | TODO (yes/no, SLA if known) |
+| Data formats | TODO (date formats, currencies, encodings, timezones) |
+| Known quality issues | TODO (nulls, duplicates, stale data, encoding problems) |
 
-- **How many tables are relevant for this project? Which ones?**
-  TODO
+## Change Capture
 
-- **Which tables have primary keys? What are they?**
-  TODO
+| Property | Value |
+|---|---|
+| CDC available | TODO (Debezium, GoldenGate, SQL Server CT, none) |
+| Incremental markers | TODO (columns: updated_at, id, sequence) |
+| Watermark reliability | TODO (monotonic, gaps, backdating) |
+| Full-load-only tables | TODO (tables with no good incremental column) |
 
-- **Are there foreign key relationships between tables?**
-  TODO
+## Load Patterns
 
-- **Any composite keys?**
-  TODO
+| Property | Value |
+|---|---|
+| Expected frequency | TODO (real-time, hourly, daily, weekly, on-demand) |
+| Backfill required | TODO (yes/no, how far back) |
+| Growth rate | TODO (rows/day, GB/month) |
+| Peak window to avoid | TODO |
 
-### Data Characteristics
+## Access & Connectivity
 
-- **Does the source maintain history? (audit tables, temporal tables, SCD)**
-  TODO
+| Property | Value |
+|---|---|
+| Connection method | TODO (JDBC, ODBC, REST, SDK, file mount, S3) |
+| Authentication | TODO (user/pass, OAuth, service principal, IAM role) |
+| Network restrictions | TODO (VPN, private endpoint, IP whitelist, firewall) |
+| Rate limits | TODO (requests/min, concurrent connections) |
+| Environments | TODO (dev/test/prod — what differs) |
 
-- **Is there soft delete? (deleted_at, is_active flag)**
-  TODO
+<!-- Additional rows for API sources -->
+<!--
+| Base URL | TODO |
+| Auth type | TODO (bearer / api_key / basic / oauth2_client_credentials / aws_sigv4) |
+| Token URL | TODO (if oauth2) |
+| API spec | TODO (OpenAPI 3.0 at /path, GraphQL, OData, none) |
+| Default headers | TODO (if any) |
+-->
 
-- **Is there late-arriving data? What's the SLA?**
-  TODO
+## Performance
 
-- **Special data formats? (date formats, currencies, encodings, timezones)**
-  TODO
-
-### Change Capture
-
-- **Is CDC available? (Debezium, GoldenGate, SQL Server CT, etc.)**
-  TODO
-
-- **Which columns can serve as incremental markers? (updated_at, id, sequence)**
-  TODO
-
-- **Are watermark candidates reliable? (monotonic, no gaps, no backdating)**
-  TODO
-
-- **Tables with no good incremental column? (require full load)**
-  TODO
-
-### Load Patterns
-
-- **Expected load frequency? (real-time, hourly, daily, weekly, on-demand)**
-  TODO
-
-- **Is backfill required? How far back?**
-  TODO
-
-- **Growth rate? (rows/day, GB/month)**
-  TODO
-
-- **Daily/monthly volume?**
-  TODO
-
-- **Peak load time window to avoid?**
-  TODO
-
-### Access & Connectivity
-
-- **How do we connect? (JDBC, ODBC, REST, SDK, file mount, S3)**
-  TODO
-
-- **Authentication mechanism? (user/pass, OAuth, service principal, IAM role)**
-  TODO
-
-- **Network restrictions? (VPN, private endpoint, IP whitelist, firewall)**
-  TODO
-
-- **Rate limits or throttling? (requests/min, concurrent connections)**
-  TODO
-
-- **How many environments? (dev, test, prod) What differs between them?**
-  TODO
-
-### Performance
-
-- **Typical query performance? (avg response for full scan, index availability)**
-  TODO
-
-- **API latency? (p50, p99 if API source)**
-  TODO
-
-- **Query timeout limits?**
-  TODO
-
-- **Known performance constraints? (no parallel reads, single-threaded export)**
-  TODO
+| Property | Value |
+|---|---|
+| Query performance | TODO (avg response for full scan) |
+| API latency | TODO (p50, p99 — if API source) |
+| Timeout limits | TODO |
+| Constraints | TODO (no parallel reads, single-threaded export) |
 
 ## Recommendations
 
-### Load Strategy per Table
+### Load Strategy per Table / Endpoint
 
-| Table | Strategy | Watermark | Rationale |
-|-------|----------|-----------|-----------|
+| Table / Endpoint | Strategy | Watermark Column | Rationale |
+|---|---|---|---|
 | TODO | TODO | TODO | TODO |
 
 ### Watermark Candidates
 
-TODO — identify monotonically increasing columns suitable for incremental loads
+| Column | Table | Type | Reliable? | Notes |
+|---|---|---|---|---|
+| TODO | TODO | TODO | TODO | TODO |
 
 ### Risks & Concerns
 
-- TODO
+| Risk | Severity | Mitigation |
+|---|---|---|
+| TODO | TODO | TODO |
 
 ---
 
 ## Next Steps
 
 1. Complete all TODO items above
-2. Run `datacoolie-architect` to design architecture based on this report
+2. If more sources to discover, run discovery for each
+3. Design architecture based on all discovery reports

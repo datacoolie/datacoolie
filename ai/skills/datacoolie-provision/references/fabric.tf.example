@@ -1,0 +1,29 @@
+# Reference example — Microsoft Fabric Terraform
+# AI uses this as a convention guide when generating .tf files.
+# NOTE: Fabric Terraform provider is community/preview.
+# For production environments, prefer CLI mode (fab commands) or Fabric REST API.
+# Naming: dev/test get environment suffix (e.g. My Lakehouse Dev); prod has no suffix.
+
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    fabric = {
+      source  = "microsoft/fabric"
+      version = "~> 0.1"
+    }
+  }
+}
+
+provider "fabric" {}
+
+# Lakehouse example
+resource "fabric_lakehouse" "bronze_dev" {
+  display_name = "My Project Bronze Dev"
+  workspace_id = var.workspace_id
+}
+
+# Warehouse (SQL endpoint) example
+resource "fabric_warehouse" "gold_dev" {
+  display_name = "My Project Gold Dev"
+  workspace_id = var.workspace_id
+}

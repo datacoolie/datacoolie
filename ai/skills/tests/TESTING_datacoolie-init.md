@@ -1,203 +1,71 @@
 # datacoolie-init — Testing Guide
 
-## Test Environment
-
-Start the shared integration environment before running these tests:
-```sh
-cd datacoolie/ai/skills/tests
-docker compose up -d --wait
-python run_all.py --no-docker   # seed MSSQL + Iceberg
-```
-
-See [README.md](README.md) for full connection details.
+This skill is **knowledge-based** — the AI reads SKILL.md rules and `templates/project-structure.md`, then creates project files directly using file tools. There are no scripts to execute.
 
 ---
 
-All commands run from `datacoolie/ai/skills/tests/` with venv activated.
+## What to Test
 
----
+### 1. SKILL.md Content Validation
 
-## 1. scaffold.py
+Open `datacoolie-init/SKILL.md` and verify:
 
-### 1.1 Minimal project — defaults only (combined layout)
+- [ ] AI workflow steps are clear: understand sources → scaffold → generate metadata → introspect
+- [ ] All supported source types listed: database, file, API
+- [ ] All supported engines listed: polars, spark, mixed
+- [ ] All supported platforms listed: local, aws, databricks, fabric
+- [ ] All supported layers listed: source2bronze, bronze2silver, silver2gold
+- [ ] Metadata generation rules reference `datacoolie-metadata/references/schema-quick-reference.md`
+- [ ] File introspection commands are documented (head, parquet-tools, Python one-liners)
+- [ ] Engine advisory logic for "mixed" mode is described
 
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name my_project --output /tmp/sc_basic
-# ✓ Scaffolded project 'my_project' at /tmp/sc_basic
-# Files created: .datacoolie/config.yaml, metadata/metadata.json,
-#   metadata/environments/dev.yaml, metadata/environments/prod.yaml,
-#   functions/__init__.py, functions/sources.py, functions/pyproject.toml,
-#   scripts/run_local.py, .gitignore, requirements.txt
-# NOTE: combined layout generates metadata.json only — no separate connections.json or dataflows.json
-# Exit 0
-python -c "import os; [print(f) for _,_,fs in os.walk(\"/tmp/sc_basic\"  ) for f in fs]"
-python -c "import os; print(os.path.exists(\"/tmp/sc_basic/metadata/metadata.json\"  ))"  # True
-python -c "import os; print(os.path.exists(\"/tmp/sc_basic/metadata/connections.json\"  ))"  # False (combined mode)
-python -c "import os; print(os.path.exists(\"/tmp/sc_basic/metadata/dataflows.json\"  ))"  # False (combined mode)
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_basic\")"
-```
+### 2. Template Completeness
 
-### 1.2 Config.yaml engine and project_name match args
+Check `datacoolie-init/templates/project-structure.md`:
 
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name acme_etl --engine polars --output /tmp/sc_cfg
-python -c "import re; [print(l, end='') for l in open(\"/tmp/sc_cfg/.datacoolie/config.yaml\"  ) if re.search(r\"acme_etl|polars\"  , l)]"
-# Should show project_name: acme_etl  and  default_engine: polars
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_cfg\")"
-```
+- [ ] Directory tree covers all expected files: `.datacoolie/config.yaml`, `metadata/`, `functions/`, `scripts/`, `.gitignore`, `requirements.txt`
+- [ ] Variable placeholders (`{project_name}`, `{engine}`, etc.) are documented
+- [ ] Config.yaml template includes: `project_name`, `engine`, `platforms`, `environments`
+- [ ] Metadata layout options documented (combined `metadata.json` vs split `connections.json`/`dataflows.json`)
+- [ ] Functions package structure includes `pyproject.toml`, `__init__.py`, `sources.py`
 
-### 1.3 Source type: database — connections use sql format
+### 3. Manual Workflow Testing — Basic Scaffolding
 
-```sh
-# Use --metadata-layout split to get a separate connections.json to inspect
-python skills/datacoolie-init/scripts/scaffold.py --name db_proj --source-type database --metadata-layout split --output /tmp/sc_db
-$c = Get-Content /tmp/sc_db/metadata/connections.json | ConvertFrom-Json
-$c[0].format   # sql
-$c[0].connection_type  # database
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_db\")"
-```
+Ask the AI to scaffold a new project and verify output:
 
-### 1.4 Source type: api — connections use api format
+| Test Case | Prompt | Verify |
+|-----------|--------|--------|
+| Minimal defaults | "Create a datacoolie project called my_project" | All files from template exist, config.yaml has correct project_name |
+| Engine selection | "Init project acme_etl with polars engine" | config.yaml shows `default_engine: polars` |
+| Spark engine | "Scaffold spark_proj with spark" | run_local.py references SparkSession/SparkEngine |
+| Multiple platforms | "Create cloud_proj for local, aws, fabric" | config.yaml lists all three platforms |
+| Multiple layers | "Init medal_proj with source2bronze, bronze2silver, silver2gold" | Three dataflows in metadata, names prefixed with project name |
+| Database source | "Create db_proj for database sources" | Connection format = `sql`, connection_type = `database` |
+| API source | "Create api_proj for API sources" | Connection format = `api` |
+| Parquet destination | "Create pq_proj with parquet destination" | Destination connection format = `parquet` |
+| Iceberg destination | "Create ice_proj with iceberg destination" | Destination connection format = `iceberg` |
 
-```sh
-# Use --metadata-layout split to get a separate connections.json to inspect
-python skills/datacoolie-init/scripts/scaffold.py --name api_proj --source-type api --metadata-layout split --output /tmp/sc_api
-$c = Get-Content /tmp/sc_api/metadata/connections.json | ConvertFrom-Json
-$c[0].format   # api
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_api\")"
-```
+### 4. Manual Workflow Testing — Metadata Generation
 
-### 1.5 Multiple source types (comma-separated)
+- [ ] Generated `metadata.json` follows the datacoolie schema (v0.1.0)
+- [ ] `connections` array has valid entries with `secrets_ref` for credentials (never hardcoded)
+- [ ] `dataflows` reference existing connection names
+- [ ] Incremental loads include `watermark_columns`
+- [ ] Merge/SCD2 loads include `merge_keys`
 
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name multi_src --source-type file,database,api --output /tmp/sc_multi
-# Exit 0 (primary source type is 'file', the rest inform config)
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_multi\")"
-```
+### 5. Manual Workflow Testing — Source Introspection
 
-### 1.6 Multiple layers — one dataflow per layer
+- [ ] Given CSV files on disk, AI reads headers and generates column metadata
+- [ ] Given SQL DDL text, AI parses CREATE TABLE and generates metadata
+- [ ] Given verbal description, AI generates reasonable metadata
+- [ ] For live databases, AI delegates to `datacoolie-discover` skill
 
-```sh
-# Use --metadata-layout split to get a separate dataflows.json to inspect
-python skills/datacoolie-init/scripts/scaffold.py --name medal_proj --layers source2bronze,bronze2silver,silver2gold --metadata-layout split --output /tmp/sc_layers
-$df = Get-Content /tmp/sc_layers/metadata/dataflows.json | ConvertFrom-Json
-$df.Count   # 3 dataflows
-$df.name    # medal_proj_source2bronze, medal_proj_bronze2silver, medal_proj_silver2gold
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_layers\")"
-```
+### 6. Edge Cases
 
-### 1.7 Multiple platforms — config.yaml lists all
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name cloud_proj --platform local,aws,fabric --output /tmp/sc_plat
-Get-Content /tmp/sc_cloud_proj/.datacoolie/config.yaml 2>$null
-python -c "import re; [print(l, end='') for l in open(\"/tmp/sc_plat/.datacoolie/config.yaml\"  ) if re.search(r\"local|aws|fabric\"  , l)]"
-# Should show all three listed under platforms:
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_plat\")"
-```
-
-### 1.8 Destination format: parquet
-
-```sh
-# Use --metadata-layout split to get a separate connections.json to inspect
-python skills/datacoolie-init/scripts/scaffold.py --name pq_proj --dest-format parquet --metadata-layout split --output /tmp/sc_pq
-$c = Get-Content /tmp/sc_pq/metadata/connections.json | ConvertFrom-Json
-($c | Where-Object { $_.name -like "*destination*" }).format  # parquet
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_pq\")"
-```
-
-### 1.9 Destination format: iceberg
-
-```sh
-# Use --metadata-layout split to get a separate connections.json to inspect
-python skills/datacoolie-init/scripts/scaffold.py --name ice_proj --dest-format iceberg --metadata-layout split --output /tmp/sc_ice
-$c = Get-Content /tmp/sc_ice/metadata/connections.json | ConvertFrom-Json
-($c | Where-Object { $_.name -like "*destination*" }).format  # iceberg
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_ice\")"
-```
-
-### 1.10 Engine: spark — run_local.py uses SparkSession
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name spark_proj --engine spark --output /tmp/sc_spark
-python -c "import re; [print(l, end='') for l in open(\"/tmp/sc_spark/scripts/run_local.py\"  ) if re.search(r\"SparkSession|SparkEngine\"  , l)]"
-# Should mention SparkSession or SparkEngine
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_spark\")"
-```
-
-### 1.11 Engine: mixed — prints advisory table
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name mix_proj --engine mixed --layers source2bronze,bronze2silver --output /tmp/sc_mix
-# Output includes:
-# Engine Advisory:
-# ┌──────── ... Recommended ... Reason ──────────┐
-# │ source2bronze (file) │ polars  │ File I/O ingest < 10GB typical   │
-# │ bronze2silver (file) │ spark   │ Transforms with joins ...         │
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_mix\")"
-```
-
-### 1.12 Mixed engine — config.yaml contains engine_strategy.overrides
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name mix2 --engine mixed --layers source2bronze,bronze2silver --output /tmp/sc_mix2
-python -c "import re; [print(l, end='') for l in open(\"/tmp/sc_mix2/.datacoolie/config.yaml\"  ) if re.search(r\"overrides|source2bronze|bronze2silver\"  , l)]"
-# Should show overrides section with per-layer engine assignments
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_mix2\")"
-```
-
-### 1.13 Generated metadata.json passes validate
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name valid_test --output /tmp/sc_valid
-python skills/datacoolie-metadata/scripts/validate.py /tmp/sc_valid/metadata/metadata.json
-# ✓ metadata.json is valid (schema v0.1.0)
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_valid\")"
-```
-
-### 1.14 Functions package is buildable (has pyproject.toml + __init__.py)
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name funcs_test --output /tmp/sc_funcs
-python -c "import os; print(os.path.exists(\"/tmp/sc_funcs/functions/pyproject.toml\"  ))"  # True
-python -c "import os; print(os.path.exists(\"/tmp/sc_funcs/functions/__init__.py\"  ))"  # True
-python -c "import os; print(os.path.exists(\"/tmp/sc_funcs/functions/sources.py\"  ))"  # True
-python -c "import shutil; shutil.rmtree(\"/tmp/sc_funcs\")"
-```
-
-### 1.15 Invalid source type — expect exit 2
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name bad_src --source-type kafka --output /tmp/sc_bad
-# ERROR: Invalid source type 'kafka'. Valid: ['api', 'database', 'file']
-# Exit 2
-echo $?  # print exit code  # Exit: 2
-```
-
-### 1.16 Invalid platform — expect exit 2
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name bad_plat --platform gcp --output /tmp/sc_bad2
-# ERROR: Invalid platform 'gcp'. Valid: ['aws', 'databricks', 'fabric', 'local']
-# Exit 2
-```
-
-### 1.17 Invalid layer — expect exit 2
-
-```sh
-python skills/datacoolie-init/scripts/scaffold.py --name bad_layer --layers raw2bronze --output /tmp/sc_bad3
-# ERROR: Invalid layer 'raw2bronze'. Valid: ['bronze2silver', 'silver2gold', 'source2bronze']
-# Exit 2
-```
-
-### 1.18 Output dir already exists — warns but continues
-
-```sh
-python -c "import os; os.makedirs(\"/tmp/sc_exists\"  , exist_ok=True)"
-'existing' | Set-Content /tmp/sc_exists/README.md
-python skills/datacoolie-init/scripts/scaffold.py --name exists_test --output /tmp/sc_exists 2>&1
-# ✓ Scaffolded project 'exists_test' at \tmp\sc_exists  (stdout — shown first)
-# python.exe : WARNING: Output directory '\tmp\sc_exists' already exists. Files may be overwritten.
+- [ ] Invalid source type (e.g., "kafka") → AI rejects or asks for correction
+- [ ] Invalid platform (e.g., "gcp") → AI rejects or asks for correction
+- [ ] Invalid layer name → AI rejects or asks for correction
+- [ ] Output directory already exists → AI handles gracefully (warns, continues)
 #   (stderr shown by PowerShell as a NativeCommandError object — that is expected, not a real failure)
 # Exit 0
 python -c "import shutil; shutil.rmtree(\"/tmp/sc_exists\")"

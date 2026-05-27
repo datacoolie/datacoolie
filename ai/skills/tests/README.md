@@ -130,29 +130,23 @@ python generate_extra_fixtures.py
 
 | Runner | Skill | What it tests |
 |--------|-------|---------------|
-| `run_all.py` | all | Start env, seed DBs, run unit tests + all skill runners |
-| `run_discover.py` | datacoolie-discover | 18 source types: DB/File/API/Lakehouse |
-| `run_deploy.py` | datacoolie-deploy | Deploy preflight + package checks |
-| `run_init.py` | datacoolie-init | Scaffold project structure |
-| `run_metadata.py` | datacoolie-metadata | Metadata validation |
+| `run_all.py` | all | Start env, seed DBs, run all skill runners |
+| `run_discover.py` | datacoolie-discover | SKILL.md section completeness |
+| `run_deploy.py` | datacoolie-deploy | SKILL.md section completeness |
+| `run_init.py` | datacoolie-init | SKILL.md section completeness |
+| `run_metadata.py` | datacoolie-metadata | Metadata validation (script-based) |
+| `run_provision.py` | datacoolie-provision | SKILL.md section completeness |
 
 ## Unit Tests
 
-Pure-Python tests that require no running services. Run standalone:
+Unit tests for script-based skills. After the knowledge-based migration, only
+`datacoolie-metadata` retains scripts. The `unit/` directory currently has no
+active test files for the migrated skills.
 
 ```sh
 # From workspace root (d:\GitHub\datacoolie-arch-5)
 python -m pytest datacoolie/ai/skills/tests/unit/ -v
 ```
-
-`run_all.py` runs these automatically before the integration suite.
-
-| Test file | What it covers |
-|-----------|----------------|
-| `unit/test_api_introspect.py` | `_detect_pagination` (13 cases), `_build_auth_headers` (9 cases) |
-| `unit/test_auth.py` | `resolve_env_var`, `build_mssql_token_struct`, `build_connection_string` (all dialects + mock token flows) |
-| `unit/test_schema_parsers.py` | Golden schema assertions for CSV/TSV/JSON/JSONL/Parquet/Avro/Excel |
-| `unit/test_file_introspect.py` | `max_files` boundary values, `_resolve_storage_options`, `introspect_files` smoke |
 
 ---
 

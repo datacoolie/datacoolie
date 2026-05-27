@@ -1,203 +1,75 @@
 # datacoolie-provision — Testing Guide
 
-## Test Environment
-
-No Docker required — local and dry-run modes work standalone.
-For actual CLI provisioning tests, the relevant CLIs must be installed:
-- Fabric: `pip install ms-fabric-cli`
-- AWS: `pip install awscli`
-- Databricks: `pip install databricks-cli`
-
-All commands run from `datacoolie/` (workspace root) with venv activated.
+This skill is **knowledge-based** — the AI reads SKILL.md rules and Terraform templates, then runs platform CLI commands or generates `.tf` files directly. There are no scripts to execute.
 
 ---
 
-## 1. provision.py — Local platform (no CLI required)
+## What to Test
 
-### 1.1 Dry-run local — default behaviour (no `--confirm`)
+### 1. SKILL.md Content Validation
 
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/local_architecture.md \
-  --platform local \
-  --env dev
-# ✓ [DRY RUN] No resources created. Pass --confirm to apply.
-# Provision log written: .datacoolie/provision/YYMMDD_provision-log.md
-# Exit 0
-```
+Open `datacoolie-provision/SKILL.md` and verify:
 
-### 1.2 Confirm local — actually creates directories
+- [ ] AI workflow steps are clear: read architecture → preflight → dry-run → confirm → log
+- [ ] All platforms documented: Local, AWS, Fabric, Databricks
+- [ ] CLI commands listed per platform (e.g., `aws s3 mb`, `fab lakehouse create`, `databricks workspace`)
+- [ ] Dry-run is default — `--confirm` required for actual execution
+- [ ] Security policy: no credentials in generated files, idempotent operations
+- [ ] Preflight check logic: CLI installed → authenticated → architecture exists
+- [ ] Provision log format documented
+- [ ] Env suffix rules: `_dev`/`_test` appended for non-prod, prod uses base name
 
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/local_architecture.md \
-  --platform local \
-  --env dev \
-  --confirm
-# ✓ 4/4 resources created
-# Each directory should exist under the project root
-# Exit 0
-```
+### 2. Template Completeness
 
-### 1.3 Env suffix applied — dev appends `_dev`
+Check `datacoolie-provision/templates/`:
 
-```sh
-python -c "
-from pathlib import Path; import sys
-sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from provision import apply_env_suffix
-assert apply_env_suffix('bronze_lake', 'dev') == 'bronze_lake_dev'
-assert apply_env_suffix('bronze_lake', 'prod') == 'bronze_lake'
-print('OK: env suffix logic correct')
-"
-```
+| Template | Verify |
+|----------|--------|
+| `aws.tf.j2` | S3 buckets, Glue databases, IAM roles; uses variables for sensitive values |
+| `fabric.tf.j2` | Workspace, lakehouse resources; `workspace_id` variable |
+| `databricks.tf.j2` | Catalog, schema, volume resources; `databricks_host`/`databricks_token` variables (sensitive) |
+| `provision-log.tpl.md` | Status table with resource name, type, status (created/failed/skipped) |
 
-### 1.4 Custom output dir for log
+- [ ] All templates use Jinja2 placeholders correctly
+- [ ] Terraform templates include `managed_by = "datacoolie"` tags
+- [ ] Variables use `sensitive = true` for tokens/passwords
 
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/local_architecture.md \
-  --platform local \
-  --env test \
-  --output /tmp/prov_test
-# Log written to /tmp/prov_test/YYMMDD_provision-log.md
-python -c "import os; files = os.listdir('/tmp/prov_test'); print(files)"
-# Should list one file: YYMMDD_provision-log.md
-```
+### 3. Manual Workflow Testing — Local Platform
 
----
+Ask the AI to provision for local platform:
 
-## 2. provision.py — AWS (dry-run, no real AWS required)
+| Test Case | Prompt | Verify |
+|-----------|--------|--------|
+| Dry-run | "Provision local resources for dev" | AI shows what directories would be created, does not create |
+| Confirm | "Provision local resources for dev, confirm" | Directories actually created |
+| Idempotent | Run confirm twice | Second run reports "already exists", no errors |
+| Provision log | After any run | `.datacoolie/provision/YYMMDD_provision-log.md` created with status table |
 
-### 2.1 Dry-run AWS — preflight check skipped in dry-run
+### 4. Manual Workflow Testing — Cloud Platforms (dry-run)
 
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/aws_architecture.md \
-  --platform aws \
-  --env dev
-# May warn: aws CLI not found (expected if not installed)
-# Shows list of commands that would be executed
-# Exit 0
-```
+These tests verify the AI generates correct CLI commands without executing them:
 
-### 2.2 Parse AWS architecture — verify resource count
+| Platform | Prompt | Verify AI Output |
+|----------|--------|-----------------|
+| AWS | "Provision AWS resources, dry-run" | Shows `aws s3 mb`, `aws glue create-database` commands |
+| Fabric | "Provision Fabric resources, dry-run" | Shows `fab lakehouse create` or equivalent commands |
+| Databricks | "Provision Databricks resources, dry-run" | Shows `databricks` CLI commands |
 
-```sh
-python -c "
-from pathlib import Path; import sys
-sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from provision import parse_infra_requirements
-resources = parse_infra_requirements(Path('usecase-sim/metadata/architecture/aws_architecture.md'))
-print(f'Parsed {len(resources)} resources')
-for r in resources:
-    print(f'  {r[\"resource_type\"]:20} {r[\"name\"]}')
-"
-```
+### 5. Manual Workflow Testing — Terraform Mode
 
-### 2.3 AWS provider commands — S3
+Ask the AI to generate Terraform files:
 
-```sh
-python -c "
-import sys; sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from providers import aws
-cmd = aws.create_command('S3 Bucket', 'my-bucket')
-print(cmd)
-# ['aws', 's3', 'mb', 's3://my-bucket']
-"
-```
+| Test Case | Prompt | Verify |
+|-----------|--------|--------|
+| AWS TF | "Generate Terraform for AWS" | `main.tf` has `aws_s3_bucket` resources, `variables.tf` has region/bucket vars |
+| Fabric TF | "Generate Terraform for Fabric" | `variables.tf` has `workspace_id` |
+| Databricks TF | "Generate Terraform for Databricks" | `variables.tf` has `databricks_host`, `databricks_token` (sensitive) |
 
----
+### 6. Preflight Checks
 
-## 3. provision.py — Terraform mode
-
-### 3.1 Generate AWS Terraform
-
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/aws_architecture.md \
-  --platform aws \
-  --mode terraform \
-  --env dev \
-  --output /tmp/tf_aws
-# Generated: /tmp/tf_aws/main.tf
-# Generated: /tmp/tf_aws/variables.tf
-cat /tmp/tf_aws/main.tf
-cat /tmp/tf_aws/variables.tf
-python -c "import shutil; shutil.rmtree('/tmp/tf_aws')"
-```
-
-### 3.2 Generated main.tf contains expected resources
-
-```sh
-python -c "
-content = open('/tmp/tf_aws/main.tf').read()
-assert 'aws_s3_bucket' in content, 'Missing S3 resource'
-assert 'managed_by' in content.lower() or 'ManagedBy' in content, 'Missing tag'
-print('OK: main.tf structure correct')
-"
-```
-
-### 3.3 Generate Fabric Terraform
-
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/fabric_architecture.md \
-  --platform fabric \
-  --mode terraform \
-  --env prod \
-  --output /tmp/tf_fabric
-cat /tmp/tf_fabric/variables.tf
-# Should contain: workspace_id variable
-python -c "import shutil; shutil.rmtree('/tmp/tf_fabric')"
-```
-
-### 3.4 Generate Databricks Terraform
-
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture usecase-sim/metadata/architecture/databricks_architecture.md \
-  --platform databricks \
-  --mode terraform \
-  --env test \
-  --output /tmp/tf_dbx
-cat /tmp/tf_dbx/variables.tf
-# Should contain: databricks_host, databricks_token (sensitive = true)
-python -c "import shutil; shutil.rmtree('/tmp/tf_dbx')"
-```
-
----
-
-## 4. Preflight checks
-
-### 4.1 Local always passes
-
-```sh
-python -c "
-import sys; sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from provision import check_preflight
-ok, msg = check_preflight('local')
-assert ok, f'Expected True, got: {msg}'
-print(f'OK: {msg}')
-"
-```
-
-### 4.2 Missing CLI returns False with install hint
-
-```sh
-python -c "
-import sys; sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from unittest.mock import patch
-from provision import check_preflight
-with patch('subprocess.run', side_effect=FileNotFoundError):
-    ok, msg = check_preflight('aws')
-assert not ok
-assert 'not found' in msg.lower()
-print(f'OK: {msg}')
-"
-```
-
----
+- [ ] Missing CLI → AI detects and shows install command, stops
+- [ ] Missing architecture file → AI prompts to run `datacoolie-architect` first
+- [ ] Local platform → always passes preflight (no CLI required)
 
 ## 5. Provision log
 

@@ -11,23 +11,19 @@ description: >
 
 # datacoolie-provision
 
-Provision platform infrastructure based on the approved architecture design document.
-Supports four platforms (Fabric, AWS, Databricks, Local) and two execution modes
-(CLI direct execution, Terraform file generation).
+Provision platform infrastructure. Supports four platforms (Fabric, AWS, Databricks, Local)
+and two execution modes (CLI script generation, Terraform file generation).
 
 ## Scope
 
-This skill handles: infrastructure resource creation, Terraform generation, provision logging,
-idempotent resource checks, dry-run previews.
+This skill handles: provision script generation, Terraform generation, provision logging,
+idempotent resource checks.
 
-Does NOT handle: source discovery (use `datacoolie-discover`), architecture design
-(use `datacoolie-architect`), metadata generation (use `datacoolie-metadata`),
-code deployment (use `datacoolie-deploy`).
+Does NOT handle: source discovery, architecture design, metadata generation, code deployment.
 
 ## Prerequisites
 
-- Approved architecture at `.datacoolie/architect/yymmdd_architecture.md`
-- If no architecture exists, prompt user to run `datacoolie-architect` first
+- User provides resource requirements: resource names, types, platform, and environment
 - Platform CLI installed and authenticated (for CLI mode)
 
 ## Security Policy
@@ -38,89 +34,48 @@ code deployment (use `datacoolie-deploy`).
 - All operations must be idempotent (check-before-create)
 - Generated Terraform uses variables for sensitive values
 
-## Scripts
+## AI Workflow
 
-All scripts at `ai/skills/datacoolie-provision/scripts/`.
+### Step 1: Gather Resource Requirements
 
-### provision.py — Main orchestrator
+Collect from user: resource names, types (lakehouse, S3 bucket, schema, directory, etc.), target platform, and environment.
 
-```bash
-python scripts/provision.py --architecture <path> --platform {fabric|aws|databricks|local} --mode {cli|terraform} --env {dev|test|prod} [--confirm] [--output <dir>]
-```
+### Step 2: Detect OS and Preflight
 
-**Arguments:**
-- `--architecture` — Path to approved architecture.md (default: latest in `.datacoolie/architect/`)
-- `--platform` — Target platform
-- `--mode` — `cli` (execute commands) or `terraform` (generate .tf files)
-- `--env` — Target environment (affects naming, resource sizes)
-- `--confirm` — Actually execute commands (CLI mode only). Without this, dry-run only.
-- `--output` — Output directory (default: `.datacoolie/provision/`)
+Detect user's OS from terminal context → determines script format (`.sh` for Linux/macOS, `.ps1` for Windows).
+Check platform CLI is installed and authenticated. If not → show install/auth guidance and stop.
 
-**Workflow:**
-1. Parse architecture.md → extract Infrastructure Requirements table
-2. Run preflight checks (CLI installed, authenticated)
-3. Select provider module based on `--platform`
-4. If `--mode cli`:
-   - Generate commands from infra requirements
-   - Check if each resource already exists (idempotent)
-   - If `--confirm`: execute commands
-   - Else: print commands (dry-run)
-5. If `--mode terraform`:
-   - Render Jinja2 templates with infra requirements
-   - Write `.tf` files to output directory
-6. Write provision log to `.datacoolie/provision/yymmdd_provision-log.md`
+### Step 3: Generate Provision Script
 
-**Exit codes:**
-- 0 = success (or dry-run completed)
-- 1 = provisioning error (partial failure)
-- 2 = preflight failure (CLI missing, auth expired)
-- 3 = architecture file not found or unparseable
+Generate an executable script at `.datacoolie/provision/yymmdd_provision.sh` (or `.ps1`).
+The script must:
+- Check if each resource already exists before creating (idempotent)
+- Print what it will do before doing it
+- Exit on first error
+- Never contain hardcoded secrets
 
-### Providers
+If uncertain about current CLI syntax, read [platform-cli-reference.md](./references/platform-cli-reference.md) for documentation URLs.
 
-Platform-specific modules at `scripts/providers/`:
+### Step 4: User Reviews and Approves
 
-#### fabric.py
+Present the generated script to user. Do NOT execute until user explicitly approves.
 
-| Resource Type | CLI Command | Exists Check |
-|---|---|---|
-| Lakehouse | `fab lakehouse create --display-name {name} --workspace {ws}` | `fab lakehouse list --workspace {ws}` |
-| Warehouse | `fab warehouse create --display-name {name} --workspace {ws}` | `fab warehouse list --workspace {ws}` |
-| Workspace | `fab workspace create --display-name {name}` | `fab workspace list` |
+### Step 5: Execute
 
-#### aws.py
+Run the approved script. Log results.
 
-| Resource Type | CLI Command | Exists Check |
-|---|---|---|
-| S3 Bucket | `aws s3 mb s3://{name}` | `aws s3api head-bucket --bucket {name}` |
-| Glue Database | `aws glue create-database --database-input '{"Name":"{name}"}'` | `aws glue get-database --name {name}` |
-| IAM Role | `aws iam create-role --role-name {name} --assume-role-policy-document file://policy.json` | `aws iam get-role --role-name {name}` |
+### Step 6: Terraform Alternative
 
-#### databricks.py
+If user requests Terraform mode:
+1. Read reference examples from `references/*.tf.example` to understand naming conventions and resource patterns
+2. Generate `.tf` files directly for the user's specific resources
+3. Write to `.datacoolie/provision/`
+4. Run `terraform validate` if available, otherwise AI reviews for correctness
+5. User approves before `terraform apply`
 
-| Resource Type | CLI Command | Exists Check |
-|---|---|---|
-| Catalog | `databricks unity-catalog create-catalog --name {name}` | `databricks unity-catalog get-catalog --name {name}` |
-| Schema | `databricks unity-catalog create-schema --catalog {cat} --name {name}` | `databricks unity-catalog get-schema --full-name {cat}.{name}` |
-| Volume | `databricks unity-catalog create-volume --catalog {cat} --schema {schema} --name {name} --volume-type MANAGED` | `databricks unity-catalog get-volume --full-name {cat}.{schema}.{name}` |
+### Step 7: Log
 
-#### local.py
-
-| Resource Type | Command | Exists Check |
-|---|---|---|
-| Directory | `mkdir -p {base_path}/{layer}/` | `os.path.exists()` |
-| Metadata dir | `mkdir -p metadata/` | `os.path.exists()` |
-
-### Terraform generator
-
-```bash
-python scripts/provision.py --platform aws --mode terraform --env prod
-```
-
-Generates `.tf` files using Jinja2 templates at `scripts/terraform/templates/`:
-- `{platform}.tf.j2` → `main.tf`
-- Always generates `variables.tf` for sensitive values
-- Pins provider versions
+Write provision log to `.datacoolie/provision/yymmdd_provision-log.md` using `templates/provision-log.tpl.md`.
 
 ## Platform-Resource Mapping
 
@@ -143,18 +98,19 @@ Resources are named with environment suffix:
 Provision log written to `.datacoolie/provision/yymmdd_provision-log.md` using
 `templates/provision-log.tpl.md`.
 
-## Cross-Skill Dependencies
+## Output Contracts
 
-| Direction | Skill | Interaction |
-|---|---|---|
-| Input from | `datacoolie-architect` | Reads Infrastructure Requirements from architecture.md |
-| Used by | `datacoolie-deploy` | Preflight checks confirm provisioned resources exist |
+| Artifact | Path |
+|---|---|
+| Provision script | `.datacoolie/provision/yymmdd_provision.sh` (or `.ps1`) |
+| Provision log | `.datacoolie/provision/yymmdd_provision-log.md` |
+| Terraform files | `.datacoolie/provision/*.tf` (Terraform mode only) |
 
 ## Error Handling
 
 | Situation | Action |
 |---|---|
-| No architecture file found | Prompt user to run `datacoolie-architect` first |
+| No resource requirements provided | Ask user what resources to provision |
 | Platform CLI not installed | Show install command, exit 2 |
 | Authentication expired | Show re-auth command, exit 2 |
 | Resource already exists | Skip + log "already exists" (idempotent) |

@@ -1,0 +1,80 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# DataCoolie Fabric Runner\n",
+    "\n",
+    "Reference used by datacoolie-deploy skill to understand Python API patterns.\n",
+    "Platform: Fabric | Engine: spark"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%pip install datacoolie /lakehouse/default/Files/libraries/functions*.whl --force-reinstall"
+   ],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "notebookutils.session.restartPython()"
+   ],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from datacoolie.engines.spark_engine import SparkEngine\n",
+    "from datacoolie.core.models import DataCoolieRunConfig\n",
+    "from datacoolie.metadata.file_provider import FileProvider\n",
+    "from datacoolie.orchestration.driver import DataCoolieDriver\n",
+    "from datacoolie.platforms.fabric_platform import FabricPlatform\n",
+    "\n",
+    "ROOT_PATH = \"/lakehouse/default\"\n",
+    "METADATA_PATH = f\"{ROOT_PATH}/Files/metadata/use_cases.json\"\n",
+    "BASE_LOG_PATH = f\"{ROOT_PATH}/Files/logs/datacoolie\"\n",
+    "STAGE = \"\"  # empty = run all stages\n",
+    "\n",
+    "spark_session = spark  # type: ignore[name-defined]\n",
+    "\n",
+    "platform = FabricPlatform()\n",
+    "engine = SparkEngine(spark_session, platform=platform)\n",
+    "metadata = FileProvider(config_path=METADATA_PATH, platform=platform)\n",
+    "run_config = DataCoolieRunConfig(max_workers=4)\n",
+    "\n",
+    "with DataCoolieDriver(\n",
+    "    engine=engine,\n",
+    "    metadata_provider=metadata,\n",
+    "    base_log_path=BASE_LOG_PATH,\n",
+    "    config=run_config,\n",
+    ") as driver:\n",
+    "    result = driver.run(stage=STAGE if STAGE else None)\n",
+    "\n",
+    "print({\"total\": result.total, \"succeeded\": result.succeeded, \"failed\": result.failed, \"skipped\": result.skipped})"
+   ],
+   "execution_count": null
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.11"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

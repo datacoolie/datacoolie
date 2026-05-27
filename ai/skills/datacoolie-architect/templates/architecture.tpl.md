@@ -1,7 +1,7 @@
 # Architecture Design — {{ project_name }}
 
 **Date:** {{ date }}
-**Discovery Report:** {{ discovery_report_path }}
+**Discovery Reports:** `.datacoolie/discover/`
 **Platform:** {{ platform }}
 **Status:** Draft — Awaiting Approval
 
@@ -13,6 +13,39 @@
 - **Target platform:** {{ platform }}
 - **Estimated daily volume:** {{ estimated_volume }}
 - **Medallion layers:** {{ layer_count }} ({{ layer_names }})
+
+---
+
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    subgraph Sources
+        S1[erp]
+        S2[crm-api]
+    end
+
+    subgraph Bronze
+        B1[erp_source2bronze]
+        B2[crm-api_source2bronze]
+    end
+
+    subgraph Silver
+        SV1[sales_bronze2silver]
+    end
+
+    subgraph Gold
+        G1[sales_silver2gold]
+    end
+
+    S1 --> B1
+    S2 --> B2
+    B1 --> SV1
+    B2 --> SV1
+    SV1 --> G1
+```
+
+> _Replace node names with actual source and stage names from the Stage Definitions below. Add or remove nodes to match._
 
 ---
 
@@ -57,7 +90,7 @@
 #### {stage_name}
 
 - **Source connection:** {connection_name}
-- **Source table(s):** {tables}
+- **Source table / endpoint:** {table or endpoint path}
 - **Destination:** {layer}/{path}
 - **Load type:** {full_load | overwrite | append | merge_upsert | merge_overwrite | scd2}
 - **Watermark column:** {column or N/A}

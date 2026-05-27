@@ -42,4 +42,4 @@
 
 ## Next Steps
 
-{{ next_steps | default("Run `datacoolie-metadata` to generate metadata from the architecture.") }}
+{{ next_steps | default("Provisioning complete. Proceed with metadata authoring and pipeline development.") }}
