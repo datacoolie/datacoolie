@@ -1,30 +1,47 @@
 # datacoolie-discover — Testing Guide
 
-This skill is **knowledge-based** — the AI reads SKILL.md rules and runs introspection directly via terminal commands, SQL queries, and Python one-liners. There are no scripts to execute.
+This skill uses **introspection scripts** (`scripts/introspect_db.py`, `introspect_files.py`, `introspect_api.py`) plus knowledge-based AI rules in SKILL.md. All scripts output a 14-column CSV.
+
+---
+
+## Quick Start
+
+```sh
+cd datacoolie/ai/skills/tests
+
+# Unit tests (mocked, no Docker needed)
+python -m pytest unit/test_introspect_db.py unit/test_introspect_files.py unit/test_introspect_api.py -v -o "addopts="
+
+# Integration tests (scripts against local fixtures)
+python run_discover.py
+
+# Integration tests with Docker databases
+docker compose up -d --wait
+python run_discover.py --docker
+```
 
 ---
 
 ## What to Test
 
-### 1. SKILL.md Content Validation
+### 1. Unit Tests (112 tests)
 
-Open `datacoolie-discover/SKILL.md` and verify:
+| File | Covers |
+|------|--------|
+| `unit/test_introspect_db.py` | Type mapping, FK map, URL masking, CSV contract, mocked introspection |
+| `unit/test_introspect_files.py` | Arrow/Delta type mapping, format detection, Parquet/CSV/JSON/Delta schema |
+| `unit/test_introspect_api.py` | OpenAPI parsing, type mapping, $ref resolution, pagination detection |
 
-- [ ] **Source Introspection Rules** cover all source types: database (PostgreSQL, MySQL, MSSQL, Oracle, SQLite), file (CSV, Parquet, JSON, Avro, Delta, Excel), API (OpenAPI, GraphQL, OData), lakehouse (Iceberg, Delta, Hive, Fabric, Glue, Unity Catalog)
-- [ ] Each source type has concrete SQL/CLI commands the AI should run
-- [ ] Output format rules specify discovery report structure (tables, columns, PKs, types, row counts)
-- [ ] Interview mode has clear question categories for operational intelligence
-- [ ] Mode selection logic is documented (auto vs interview vs both)
+### 2. Script Smoke Tests (run_discover.py)
 
-### 2. Template Completeness
+Runs scripts against local fixtures and validates output:
+- Parquet → 9 rows, 14 cols
+- CSV → 7 rows, 14 cols
+- Delta → 5 rows, 14 cols
+- Structure report → Markdown with Tree + Summary
+- OpenAPI → 63+ rows, 14 cols
 
-Check `datacoolie-discover/templates/discovery-report.tpl.md`:
-
-- [ ] Template has sections for all source types
-- [ ] Placeholders are clearly named and documented
-- [ ] Output matches what downstream skills (`datacoolie-architect`, `datacoolie-metadata`) expect
-
-### 3. Manual Workflow Testing — Databases
+### 3. Docker Database Tests (run_discover.py --docker)
 
 Start the shared test environment:
 ```sh

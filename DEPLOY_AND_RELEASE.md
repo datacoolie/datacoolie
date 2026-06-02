@@ -219,7 +219,7 @@ Update the version in both files so they match exactly:
 
 Example release version:
 
-- `0.1.1`
+- `0.1.2`
 
 ### Step 3: Update the changelog
 
@@ -228,7 +228,7 @@ Edit `docs/changelog.md`.
 Release flow:
 
 1. move release items out of `Unreleased`
-2. create a new dated release section such as `## [0.1.1] - 2026-05-01`
+2. create a new dated release section such as `## [0.1.2] - 2026-05-01`
 3. leave `Unreleased` in place for the next cycle
 
 ### Step 4: Review package metadata
@@ -272,11 +272,11 @@ After validation passes:
 
 ```bash
 git add pyproject.toml src/datacoolie/__init__.py docs/changelog.md
-git commit -m "Release 0.1.1"
+git commit -m "Release 0.1.2"
 git push origin main
 ```
 
-Replace `0.1.1` with the real version.
+Replace `0.1.2` with the real version.
 
 ## 7. Create The Release Tag
 
@@ -285,8 +285,8 @@ Create a tag that matches the version.
 Example:
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 The prepared PyPI and GitHub Release workflows are triggered only by tags that

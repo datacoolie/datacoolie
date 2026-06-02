@@ -14,9 +14,11 @@ SKILL_MD = HERE.parent / "datacoolie-init" / "SKILL.md"
 REQUIRED_SECTIONS = [
     "# datacoolie-init",
     "## Scope",
+    "## Prerequisites",
     "## AI Workflow",
-    "## Security Policy",
-    "## Dependencies",
+    "## Input Contracts",
+    "## Output Contracts",
+    "## Security",
 ]
 
 
@@ -47,7 +49,7 @@ def run() -> None:
     summary.append(("content-length", status))
 
     # Check workflow steps
-    workflow_steps = ["### Step 1", "### Step 2", "### Step 3"]
+    workflow_steps = ["### Step 0", "### Step 1", "### Step 2", "### Step 3"]
     for step in workflow_steps:
         found = step in content
         status = "✓" if found else "✗"

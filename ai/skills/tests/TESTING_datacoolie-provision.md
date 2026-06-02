@@ -1,6 +1,6 @@
 # datacoolie-provision — Testing Guide
 
-This skill is **knowledge-based** — the AI reads SKILL.md rules and Terraform templates, then runs platform CLI commands or generates `.tf` files directly. There are no scripts to execute.
+This skill is **knowledge-based** — the AI reads SKILL.md rules and Terraform reference examples, then generates platform CLI commands or `.tf` files directly. There are no scripts to execute.
 
 ---
 
@@ -10,29 +10,35 @@ This skill is **knowledge-based** — the AI reads SKILL.md rules and Terraform 
 
 Open `datacoolie-provision/SKILL.md` and verify:
 
-- [ ] AI workflow steps are clear: read architecture → preflight → dry-run → confirm → log
-- [ ] All platforms documented: Local, AWS, Fabric, Databricks
-- [ ] CLI commands listed per platform (e.g., `aws s3 mb`, `fab lakehouse create`, `databricks workspace`)
+- [ ] Step 0 reads architecture document (`.datacoolie/architect/*_architecture.md`)
+- [ ] Step 0 extracts Infrastructure Requirements table → resource list
+- [ ] Step 1 is conditional: arch consumed → ask env/mode only; no arch → ask everything
+- [ ] Step 2 preflight checks: CLI mode → platform CLI; Terraform mode → terraform binary; Local → skip
+- [ ] Step 3 generates CLI script OR Terraform files (parallel modes, not sequential)
 - [ ] Dry-run is default — `--confirm` required for actual execution
 - [ ] Security policy: no credentials in generated files, idempotent operations
-- [ ] Preflight check logic: CLI installed → authenticated → architecture exists
-- [ ] Provision log format documented
+- [ ] Provision log format documented (template reference)
 - [ ] Env suffix rules: `_dev`/`_test` appended for non-prod, prod uses base name
+- [ ] Input Contracts table present (architecture optional, user input required)
+- [ ] Output Contracts table present (script, log, .tf files)
+- [ ] All 4 platforms documented: Local, AWS, Fabric, Databricks
 
-### 2. Template Completeness
+### 2. Reference File Completeness
+
+Check `datacoolie-provision/references/`:
+
+| File | Verify |
+|------|--------|
+| `aws.tf.example` | S3 buckets, Glue databases, IAM roles; uses variables for sensitive values |
+| `fabric.tf.example` | Workspace, lakehouse resources; `workspace_id` variable |
+| `databricks.tf.example` | Catalog, schema, volume resources; `databricks_host`/`databricks_token` variables (sensitive) |
+| `platform-cli-reference.md` | CLI docs URLs for all 4 platforms + Terraform providers |
 
 Check `datacoolie-provision/templates/`:
 
-| Template | Verify |
-|----------|--------|
-| `aws.tf.j2` | S3 buckets, Glue databases, IAM roles; uses variables for sensitive values |
-| `fabric.tf.j2` | Workspace, lakehouse resources; `workspace_id` variable |
-| `databricks.tf.j2` | Catalog, schema, volume resources; `databricks_host`/`databricks_token` variables (sensitive) |
-| `provision-log.tpl.md` | Status table with resource name, type, status (created/failed/skipped) |
-
-- [ ] All templates use Jinja2 placeholders correctly
-- [ ] Terraform templates include `managed_by = "datacoolie"` tags
-- [ ] Variables use `sensitive = true` for tokens/passwords
+| File | Verify |
+|------|--------|
+| `provision-log.tpl.md` | Status table with resource name, type, status (created/failed/skipped), summary counts |
 
 ### 3. Manual Workflow Testing — Local Platform
 
@@ -65,106 +71,62 @@ Ask the AI to generate Terraform files:
 | Fabric TF | "Generate Terraform for Fabric" | `variables.tf` has `workspace_id` |
 | Databricks TF | "Generate Terraform for Databricks" | `variables.tf` has `databricks_host`, `databricks_token` (sensitive) |
 
-### 6. Preflight Checks
+---
 
-- [ ] Missing CLI → AI detects and shows install command, stops
-- [ ] Missing architecture file → AI prompts to run `datacoolie-architect` first
-- [ ] Local platform → always passes preflight (no CLI required)
+## 6. Architecture Consumption (SKILL.md AI Workflow)
 
-## 5. Provision log
+Prompt-level tests — verify AI behavior follows Step 0 logic.
 
-### 5.1 Log written and contains expected sections
+### 6.1 Architecture present + approved
 
-```sh
-python -c "
-import sys, tempfile
-from pathlib import Path
-sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from provision import write_provision_log
+- **Setup**: `.datacoolie/architect/260531_architecture.md` with `Status: Approved` and Infrastructure Requirements table (3 resources: bronze lakehouse, silver lakehouse, gold warehouse)
+- **Prompt**: "Provision resources for dev"
+- **Verify**: AI pre-populates resource list from Infrastructure Requirements; does NOT ask for resource names/types; asks for environment confirmation and mode (CLI/Terraform)
 
-results = [
-    {'resource': {'platform': 'Local', 'resource_type': 'Directory', 'name': 'bronze', 'purpose': 'Raw'},
-     'name': 'bronze_dev', 'action': 'dry_run', 'status': 'pending',
-     'command': ['mkdir', '-p', 'data/bronze_dev'], 'output': '[DRY RUN] Would execute.'},
-]
-with tempfile.TemporaryDirectory() as d:
-    log = write_provision_log(results, Path('architecture.md'), 'local', 'cli', 'dev', Path(d))
-    content = log.read_text()
-    assert 'Dry Run' in content
-    assert 'bronze_dev' in content
-    assert 'Commands' in content
-    print('OK: log structure correct')
-    print('Sections:', [s for s in ['Resources', 'Commands', 'Summary', 'Errors'] if s in content])
-"
-```
+### 6.2 No architecture — interactive fallback
 
-### 5.2 Error section present when failures exist
+- **Setup**: Empty or missing `.datacoolie/` directory
+- **Prompt**: "Provision resources"
+- **Verify**: AI asks for all details (resource names, types, platform, environment, mode)
 
-```sh
-python -c "
-import sys, tempfile
-from pathlib import Path
-sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from provision import write_provision_log
+### 6.3 Draft architecture — warning
 
-results = [
-    {'resource': {'platform': 'AWS', 'resource_type': 'S3 Bucket', 'name': 'x', 'purpose': ''},
-     'name': 'x_dev', 'action': 'create', 'status': 'failed',
-     'command': ['aws', 's3', 'mb', 's3://x_dev'], 'output': 'Access Denied'},
-]
-with tempfile.TemporaryDirectory() as d:
-    log = write_provision_log(results, Path('architecture.md'), 'aws', 'cli', 'dev', Path(d))
-    content = log.read_text()
-    assert 'Errors' in content
-    assert 'Access Denied' in content
-    print('OK: error section present')
-"
-```
+- **Setup**: Architecture with `Status: Draft`
+- **Prompt**: "Provision resources"
+- **Verify**: AI warns architecture is not approved; asks for confirmation; if confirmed, extracts Infrastructure Requirements
+
+### 6.4 Architecture has no Infrastructure Requirements table
+
+- **Setup**: Architecture approved but Infrastructure Requirements section is missing or empty
+- **Prompt**: "Provision resources"
+- **Verify**: AI falls back to interactive mode, asks for resource details
+
+### 6.5 Environment suffix applied correctly
+
+- **Setup**: Architecture with resource name "My Project Bronze"
+- **Prompt**: "Provision for dev"
+- **Verify**: Generated script/TF uses "My Project Bronze Dev" (dev suffix applied per Environment Naming Convention)
 
 ---
 
-## 6. Edge cases
+## 7. Edge Cases
 
-### 6.1 Architecture file not found — exits 3
+### 7.1 Missing CLI — AI detects and stops
 
-```sh
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture /tmp/does_not_exist.md \
-  --platform local
-# ERROR: Architecture file not found: /tmp/does_not_exist.md
-# Exit 3
-python -c "print('Exit code was:', $LASTEXITCODE)"
-```
+- **Prompt**: "Provision Fabric resources" (with `fab` CLI not installed)
+- **Verify**: AI detects missing CLI, shows install command, stops — does not generate script
 
-### 6.2 No Infrastructure Requirements table — exits 3
+### 7.2 Local platform — no CLI needed
 
-```sh
-python -c "
-content = '# Architecture\n\nNo table here.\n'
-open('/tmp/no_table.md', 'w').write(content)
-" 
-python skills/datacoolie-provision/scripts/provision.py \
-  --architecture /tmp/no_table.md \
-  --platform local
-# ERROR: No Infrastructure Requirements table found
-# Exit 3
-```
+- **Prompt**: "Provision local resources"
+- **Verify**: AI skips CLI preflight check, generates mkdir commands directly
 
-### 6.3 Already-existing resources are skipped
+### 7.3 Idempotent re-run
 
-```sh
-python -c "
-import sys, tempfile; from pathlib import Path
-sys.path.insert(0, 'skills/datacoolie-provision/scripts')
-from provision import provision_cli, apply_env_suffix
-from providers import local
+- **Prompt**: Run "Provision local for dev, confirm" twice
+- **Verify**: Second run reports resources "already exist", no errors, no duplicates
 
-with tempfile.TemporaryDirectory() as d:
-    local.set_base_path(Path(d))
-    Path(d, 'data', 'bronze_dev').mkdir(parents=True)
-    resources = [{'platform': 'Local', 'resource_type': 'Directory', 'name': 'data/bronze', 'purpose': ''}]
-    results = provision_cli(resources, 'local', 'dev', confirm=True)
-    assert results[0]['status'] == 'already_exists'
-    print('OK: existing directory skipped')
-"
-```
+### 7.4 Preflight — Terraform mode
+
+- **Prompt**: "Generate Terraform for AWS" (with `terraform` not installed)
+- **Verify**: AI warns terraform not found, still generates `.tf` files but skips `terraform validate`

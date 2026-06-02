@@ -19,9 +19,9 @@ We built DataCoolie to solve this by separating **pipeline intent** from **execu
 
 Every time a data engineer moves a pipeline from local development to production, they face:
 
-1. **Engine lock-in** — code written for Polars doesn't run on Spark (and vice versa).
-2. **Platform coupling** — file paths, secrets, and auth differ per cloud.
-3. **Operational drift** — watermarks, partitioning, and load strategies get reimplemented per job.
+1. **Engine lock-in** — code written for Polars doesn't run on Spark (and vice versa). See [Engines](../../concepts/engines.md).
+2. **Platform coupling** — file paths, secrets, and auth differ per cloud. See [Platforms](../../concepts/platforms.md).
+3. **Operational drift** — [watermarks](../../concepts/watermarks.md), partitioning, and [load strategies](../../concepts/load-strategies.md) get reimplemented per job.
 4. **Configuration sprawl** — environment-specific configs multiply across repos.
 5. **Repetitive boilerplate** — the same patterns (read → transform → merge → watermark) rewritten hundreds of times with minor variations.
 
@@ -31,9 +31,9 @@ Problem 5 is the one nobody talks about. It's boring work — and it's exactly t
 
 Instead of encoding pipeline behavior in imperative code, DataCoolie externalizes it as **declarative metadata**:
 
-- **Connections** describe where data lives (local paths, S3, ADLS, Delta tables)
+- **[Connections](../../concepts/metadata-model.md)** describe where data lives (local paths, S3, ADLS, Delta tables)
 - **Dataflows** describe what moves where, with schema hints and load strategies
-- **Transforms** describe column-level logic in a portable DSL
+- **[Transforms](../../concepts/transformers-and-pipeline.md)** describe column-level logic in a portable DSL
 - **Operational controls** (watermarks, partitions, maintenance) are declared, not coded
 
 The same metadata runs on Polars for development and Spark for production — zero code changes.

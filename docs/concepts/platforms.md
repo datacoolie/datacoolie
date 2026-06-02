@@ -83,3 +83,4 @@ guarantees a single canonical form.
 - [Secrets](secrets.md)
 - Custom platforms are possible through `BasePlatform` plus the `datacoolie.platforms` entry-point group.
 - [`reference/api/platforms`](../reference/api/platforms.md)
+- Blog: [Cloud-Agnostic Data Pipelines in Python](../blog/posts/2026-05-28-cloud-agnostic-data-pipelines-python.md)

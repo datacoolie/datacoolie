@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "datacoolie"
-version = "0.1.1"
+version = "0.1.2"
 description = "Metadata-driven ETL framework that unifies engines, stays cloud-agnostic, and is currently batch-first with a roadmap to micro-batch and streaming."
 authors = [
     {name = "DataCoolie Team"},

@@ -1,6 +1,6 @@
 """DataCoolie — Metadata-driven, engine-unified, cloud-agnostic ETL framework."""
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     # Base classes

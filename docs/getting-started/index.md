@@ -5,6 +5,20 @@ description: Install DataCoolie, choose your engine, and run your first Polars o
 
 # Getting started
 
+This section takes you from zero to a working DataCoolie pipeline. You will
+install the framework, run a pre-built quickstart, and then move on to building
+your own dataflows with real data.
+
+**What you will learn:**
+
+- How to install DataCoolie with the engine and format extras you need
+- How to run a complete ETL pipeline on your laptop in under 5 minutes
+- How to swap sample data for your own files and iterate
+- How the metadata model drives every step — so you write less code
+
+No prior ETL framework experience is required. If you are comfortable
+installing Python packages and running scripts, you have everything you need.
+
 For most new users, the smoothest path is:
 
 1. **[Installation](installation.md)** — install the smallest useful engine + table-format extras.

@@ -9,7 +9,8 @@ description: DataCoolie — metadata-driven ETL for Python. Define pipelines as 
   </picture>
 </p>
 
-# DataCoolie
+
+# DataCoolie — Metadata-Driven ETL Framework for Python
 
 > Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first.
 
@@ -31,19 +32,29 @@ That helps in four practical ways:
 - **Consistent operations** — watermarks, logging, maintenance, and load
     behavior follow the same model across environments.
 
-The documentation is written for more than framework implementers. Data
-engineers can use it to build and extend pipelines, while analysts, analytics
-engineers, workflow owners, and adjacent backend teams can use it to understand
-how data moves across stages, where controls live, and how operational concerns
-such as watermarks, schema hints, and maintenance fit together.
+
+```mermaid
+flowchart LR
+    A["Metadata\n(JSON / YAML / Excel)"] --> B[DataCoolieDriver]
+    B --> C["Engine\n(Polars | Spark)"]
+    C --> D["Platform\n(Local | AWS | Fabric | Databricks)"]
+    D --> E["Storage\n(Delta | Iceberg | Parquet)"]
+```
+
+## Who is DataCoolie for?
+
+- **Data Engineers** — build and operate ETL pipelines across engines and clouds
+- **Analytics Engineers** — define transforms and load strategies declaratively
+- **Platform / DataOps Teams** — standardize pipeline patterns across environments
+- **Data Team Leads** — reduce per-pipeline boilerplate and onboarding time
 
 !!! tip "Start here"
-        If you are new to DataCoolie and want the fastest path to a working
-        pipeline, start with [Getting started](getting-started/installation.md).
+    If you are new to DataCoolie and want the fastest path to a working
+    pipeline, start with [Getting started](getting-started/installation.md).
 
-        If you mainly want to understand the model before touching code, read
-        [Concepts](concepts/architecture.md) after your first quickstart or when you
-        need deeper explanations.
+    If you mainly want to understand the model before touching code, read
+    [Concepts](concepts/architecture.md) after your first quickstart or when you
+    need deeper explanations.
 
 ## Choose by goal
 
@@ -60,19 +71,6 @@ such as watermarks, schema hints, and maintenance fit together.
 - **I want to extend the framework**
     Start with [Extending](extending/index.md) and use
     [Reference](reference/index.md) for the exact contracts and API surfaces.
-
-## What DataCoolie gives you
-
-| Capability | What it means for you |
-|---|---|
-| **Engine-unified** | Same metadata runs on Polars *and* Spark. `BaseEngine[DF]` is a generic contract; you pick the implementation at runtime. |
-| **Cloud-agnostic** | `local`, `aws`, `fabric`, `databricks` platforms abstract file I/O and secrets. No code changes to move a pipeline. |
-| **Metadata-driven** | Connections, dataflows, transforms, schema hints, partitions, and load strategies are *declarative*. Code is for extension points, not orchestration. |
-| **Right-sized compute** | Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it. |
-| **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap. |
-| **Lakehouse-native** | First-class Delta Lake and Apache Iceberg, selected by `delta` / `iceberg` on every engine method. |
-| **Plugin everything** | Engines, platforms, sources, destinations, transformers, and secret resolvers are all [entry-point plugins](reference/plugin-entry-points.md). |
-| **Observable by default** | Structured `ETLLogger` (dataflow entries + job summary) and `SystemLogger` ship with the framework. |
 
 ## 30-second demo
 
@@ -157,6 +155,19 @@ Swap `PolarsEngine` for `SparkEngine(spark, ...)` or `LocalPlatform()` for
 `AwsPlatform` / `FabricPlatform` / `DatabricksPlatform` — the metadata stays
 the same.
 
+## What DataCoolie gives you
+
+| Capability | What it means for you |
+|---|---|
+| **Engine-unified** | Same metadata runs on Polars *and* Spark. `BaseEngine[DF]` is a generic contract; you pick the implementation at runtime. |
+| **Cloud-agnostic** | `local`, `aws`, `fabric`, `databricks` platforms abstract file I/O and secrets. No code changes to move a pipeline. |
+| **Metadata-driven** | Connections, dataflows, transforms, schema hints, partitions, and load strategies are *declarative*. Code is for extension points, not orchestration. |
+| **Right-sized compute** | Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it. |
+| **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap. |
+| **Lakehouse-native** | First-class Delta Lake and Apache Iceberg, selected by `delta` / `iceberg` on every engine method. |
+| **Plugin everything** | Engines, platforms, sources, destinations, transformers, and secret resolvers are all [entry-point plugins](reference/plugin-entry-points.md). |
+| **Observable by default** | Structured `ETLLogger` (dataflow entries + job summary) and `SystemLogger` ship with the framework. |
+
 ## Where to next
 
 <div class="grid cards" markdown>
@@ -198,15 +209,54 @@ the same.
 
 ## Support matrix
 
-| Engine | Platforms | Formats (read/write) | Merge | SCD2 |
+| Engine | Platforms | Read formats | Write formats | Load types² |
 |---|---|---|---|---|
-| **Spark** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel (read), sql, api, function | ✓ | ✓ |
-| **Polars** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel (read), sql, api, function | ✓ | ✓ |
+| **Spark** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta, iceberg, parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
+| **Polars** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta¹, iceberg, parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
+
+¹ Polars writes Delta to path only — named Delta tables require Spark.
+² `merge_upsert`, `merge_overwrite`, and `scd2` require a lakehouse destination (delta or iceberg). File formats support `append`, `full_load`, and `overwrite` only.
 
 See [Plugin entry points](reference/plugin-entry-points.md) for the generated
 registry of every built-in plugin.
+
+## Frequently asked questions
+
+??? question "What is DataCoolie?"
+    DataCoolie is an open-source, metadata-driven ETL framework for Python. You define pipeline intent once as JSON, YAML, or Excel metadata and run on Polars, Spark, Microsoft Fabric, Databricks, or AWS Glue without rewriting per-engine code. It handles connections, dataflows, transforms, load strategies, watermarks, and schema hints declaratively.
+
+??? question "How is DataCoolie different from dbt, Airflow, or Prefect?"
+    DataCoolie focuses on the **ETL execution layer**, not orchestration or SQL transforms. Unlike dbt (SQL-first transforms), DataCoolie runs Python-native dataframe operations. Unlike Airflow/Prefect (workflow schedulers), DataCoolie handles the read → transform → write → watermark lifecycle inside each job. You can use DataCoolie *inside* an Airflow DAG or Prefect flow. Read the full comparisons: [DataCoolie vs dbt](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/) · [DataCoolie vs Airflow/Prefect](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/).
+
+??? question "Does DataCoolie work with Polars and Spark?"
+    Yes. DataCoolie provides a unified `BaseEngine[DF]` contract. The same metadata runs on `PolarsEngine` for lightweight local development and `SparkEngine` for distributed production workloads — no code changes needed. You choose the engine at runtime.
+
+??? question "Can I use DataCoolie on Microsoft Fabric?"
+    Yes. DataCoolie ships a `FabricPlatform` that handles OneLake file I/O and Key Vault secrets natively. The [Deploy to Fabric](how-to/deploy-to-fabric.md) guide walks through notebook setup step by step.
+
+??? question "Is DataCoolie free and open source?"
+    Yes. DataCoolie is licensed under [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/LICENSE). Install from PyPI with `pip install datacoolie`.
+
+??? question "What data formats does DataCoolie support?"
+    DataCoolie reads and writes Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro. It reads Excel. It also supports SQL database sources, REST API sources, and custom Python function sources (must return a DataFrame). Format selection is per-dataflow in metadata.
+
+??? question "Does DataCoolie support SCD Type 2 and merge/upsert?"
+    Yes. DataCoolie has built-in load strategies for `append`, `full_load` (overwrite), `merge_upsert`, `merge_overwrite`, and `scd2`. Merge keys, effective columns, and SCD2 behavior are declared in metadata. See [Merge & SCD2](how-to/merge-and-scd2.md).
 
 ## License
 
 [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/LICENSE) —
 free and open source. See [Contributing](contributing.md) for contribution terms.
+
+## Community
+
+- [GitHub Issues](https://github.com/datacoolie/datacoolie/issues) — report bugs and request features
+- [Contributing guide](contributing.md) — how to contribute code, docs, or ideas
+- :star: [Star us on GitHub](https://github.com/datacoolie/datacoolie) if DataCoolie saves you time
+
+## Built by
+
+DataCoolie is maintained by data engineers who got tired of rewriting the same
+pipeline logic for every new cloud and engine. See the
+[contributors page](https://github.com/datacoolie/datacoolie/graphs/contributors)
+for everyone who has helped shape the project.

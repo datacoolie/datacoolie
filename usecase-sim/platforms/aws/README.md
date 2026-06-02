@@ -246,14 +246,14 @@ upload it to S3, and reference it via Glue job parameters.
 cd datacoolie/          # repo sub-folder that contains pyproject.toml
 pip install build
 python -m build --wheel --outdir dist/
-# produces: dist/datacoolie-0.1.1-py3-none-any.whl
+# produces: dist/datacoolie-0.1.2-py3-none-any.whl
 ```
 
 ### 2 — Upload wheel to S3
 
 ```bash
-aws s3 cp dist/datacoolie-0.1.1-py3-none-any.whl \
-    s3://de-dev-0007/libraries/datacoolie-0.1.1-py3-none-any.whl \
+aws s3 cp dist/datacoolie-0.1.2-py3-none-any.whl \
+    s3://de-dev-0007/libraries/datacoolie-0.1.2-py3-none-any.whl \
     --region ap-southeast-1
 ```
 
@@ -266,7 +266,7 @@ not** include them in `--additional-python-modules`.
 
 | Parameter | Value |
 |---|---|
-| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.1-py3-none-any.whl` |
+| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.2-py3-none-any.whl` |
 | `--additional-python-modules` | `boto3>=1.28` |
 
 > `boto3` is also pre-installed in Glue 4.0+; you can omit it if the
@@ -343,7 +343,7 @@ aws s3 cp functions.zip \
 
 | Glue parameter | Value |
 |---|---|
-| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.1-py3-none-any.whl,s3://de-dev-0007/libraries/functions.zip` |
+| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.2-py3-none-any.whl,s3://de-dev-0007/libraries/functions.zip` |
 
 Glue will unzip `functions.zip` and add it to `sys.path`, making
 `functions.sources.sql_query_orders` importable.

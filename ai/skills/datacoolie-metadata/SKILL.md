@@ -13,7 +13,7 @@ Author, validate, convert, and merge DataCoolie metadata files against the versi
 
 ## Scope
 
-This skill handles: metadata authoring (create, edit, extend), schema validation, format conversion (JSON↔YAML↔Excel), environment overlay merging.
+This skill handles: metadata authoring (create, edit, extend), schema validation, format conversion (JSON↔YAML↔Excel), environment overlay merging, architecture-to-metadata translation (pre-populating metadata from approved architecture and discovery schemas).
 Does NOT handle: metadata provider implementation, engine runtime, orchestration, deployment pipelines.
 
 ## Security Policy
@@ -24,17 +24,118 @@ Does NOT handle: metadata provider implementation, engine runtime, orchestration
 
 ## AI Workflow
 
-1. **Gather requirements** — Ask user about sources, destinations, load strategy, engine, platform
-2. **Author metadata** — Read [schema-quick-reference.md](./references/schema-quick-reference.md), generate `connections[]` and `dataflows[]`
-3. **Write** — Output to `metadata/metadata.json` (single file, unified format)
-4. **Validate + Lint** — Run `validate.py` then `lint.py` on generated output; fix any reported issues
-5. **Confirm** — Present result to user for review
+### Step 0: Read Prior-Phase Artifacts (if available)
+
+Check for upstream outputs before asking the user anything.
+
+**Architecture** — `.datacoolie/architect/*_architecture.md`
+
+If found and status is `Approved`, extract:
+
+| Architecture Section | Extract | Maps To |
+|---------------------|---------|---------|
+| Source Registry | Source names, connection types | `connections[]` entries |
+| Dataflow Summary Table | Dataflow name, layer, load_type, engine | `dataflows[]` skeleton |
+| Dataflow Details → Source | connection_name, table/endpoint | `dataflows[].source` |
+| Dataflow Details → Watermark | watermark_column | `dataflows[].source.watermark_columns` |
+| Dataflow Details → Merge keys | merge_keys | `dataflows[].destination.merge_keys` |
+| Dataflow Details → Partition | partition_columns | `dataflows[].destination.partition_columns` |
+| Infrastructure Requirements | Resource names, storage paths | `connections[].configure` stubs |
+
+If found but status is `Draft` → warn user architecture is not approved, proceed after confirmation.
+
+**Discovery schemas** — `.datacoolie/discover/*_schema.csv`
+
+If found, extract per-table column metadata:
+- `column_name` → `transform.schema_hints[].column_name`
+- `data_type` → `transform.schema_hints[].data_type` (normalize SQL types to datacoolie types)
+- `is_pk = true` → candidate for `destination.merge_keys` (fallback if architect didn't specify)
+
+If neither artifact exists → fall back to interactive mode (Step 1 asks everything).
+
+### Step 1: Gather Requirements
+
+**If architecture was consumed (Step 0)** — only ask for details NOT determined upstream:
+- `secrets_ref` configuration (security boundary — never in architecture)
+- Custom `filter_expression` and `additional_columns`
+- API-specific config (pagination type, auth tokens, rate limits)
+- `configure.read_options` / `configure.write_options`
+- Any corrections to architecture-derived values
+
+**If no architecture** — ask for all details (current behavior):
+- Source types, connection details, destination tables, load strategies
+- Engine preference, platform
+
+### Step 2: Author Metadata
+
+1. Read [schema-quick-reference.md](./references/schema-quick-reference.md)
+2. **If architecture consumed**: pre-populate from Step 0 extractions:
+   - `connections[]` from Source Registry + Infrastructure Requirements
+   - `dataflows[]` from Dataflow Summary Table + Dataflow Details
+   - `transform.schema_hints[]` from Discovery `_schema.csv` (if available)
+   - `stage` from Dataflow Summary Table layer column using [stage naming convention](#stage-naming-convention)
+3. **If no architecture**: generate from user input (Step 1)
+4. Fill remaining fields: `description`, `group_number`, `execution_order`
+5. Apply `secrets_ref` from user input (Step 1)
+
+### Step 3: Write
+
+Output to `metadata/metadata.json` (single file, unified format).
+Alternative: separate `metadata/connections.json` + `metadata/dataflows.json` when user chose split layout.
+
+### Step 4: Validate + Lint
+
+Run `validate.py` then `lint.py` on generated output; fix any reported issues.
+
+### Step 5: Confirm
+
+Present result to user for review. If architecture was consumed, show the mapping:
+
+> Architecture consumed: `.datacoolie/architect/260531_architecture.md`
+> - 4 connections pre-populated from Source Registry
+> - 12 dataflows pre-populated from Dataflow Summary Table
+> - 87 schema_hints pre-populated from Discovery schemas
+> - secrets_ref applied from user input
 
 ## Output Format
 
-Default output is a single `metadata/metadata.json` containing both `connections[]` and `dataflows[]` in one file.
+Default output is a single `metadata/metadata.json` containing `connections[]`, `dataflows[]`, and optionally `schema_hints[]` in one file.
 
-Alternative: separate `metadata/connections.json` + `metadata/dataflows.json` when using environment overlay workflows (merge.py expects this layout).
+Alternative: separate `metadata/connections.json` + `metadata/dataflows.json` when user chose split layout for environment overlay workflows.
+
+---
+
+## Input Contracts
+
+| Direction | Artifact | Path | Required |
+|-----------|----------|------|----------|
+| Input | Architecture document | `.datacoolie/architect/*_architecture.md` | No — falls back to interactive |
+| Input | Discovery schemas | `.datacoolie/discover/*_schema.csv` | No — schema_hints left empty |
+| Input | User input | Interactive | Yes (if no arch); secrets_ref always |
+
+## Output Contracts
+
+| Artifact | Default Path | Notes |
+|----------|-------------|-------|
+| Metadata (unified) | `metadata/metadata.json` | Default — connections + dataflows + schema_hints |
+| Metadata (split) | `metadata/connections.json` + `metadata/dataflows.json` | Alternative for overlay workflows |
+| Environment overlays | `metadata/environments/*.yaml` | Created by init, edited by user |
+
+---
+
+## Stage Naming Convention
+
+When grouping dataflows into stages (schedulable units), use this naming pattern:
+
+```
+{source_name}_source2bronze       # Raw ingestion from external source
+{domain}_bronze2silver            # Cleanse, deduplicate, conform
+{domain}_silver2gold              # Aggregate, join, serve
+```
+
+Where:
+- `{source_name}` = the connection/system name (e.g., `erp`, `crm`, `api_orders`)
+- `{domain}` = business domain grouping (e.g., `sales`, `finance`, `inventory`)
 
 ---
 
@@ -100,10 +201,14 @@ python scripts/convert.py metadata.xlsx --to yaml
 python scripts/merge.py --base <dir> --env <name> [--output <path>]
 ```
 
-- Base directory must contain `connections.json` + `dataflows.json`
+- Auto-detects metadata layout in base directory:
+  - **Unified**: `metadata.json` (or `.yaml`) — single file with connections + dataflows + schema_hints
+  - **Split**: `connections.json` + `dataflows.json` — separate files
+- Split layout checked first; falls back to unified if split files not found
 - Overlay at `environments/{env}.yaml` matched by `name` field
 - Deep merges nested objects (e.g., `configure.base_path`)
 - Unmentioned items pass through unchanged
+- `schema_hints` array preserved in output (from unified layout)
 - Default output: `.datacoolie/generated/metadata.{env}.json`
 
 ## Schema Location
@@ -137,6 +242,9 @@ python scripts/lint.py metadata.json --engine spark --env prod
 # Convert JSON to YAML for editing
 python scripts/convert.py metadata.json --to yaml
 
-# Merge base + prod overlay
+# Merge base + prod overlay (unified layout — metadata.json auto-detected)
+python scripts/merge.py --base metadata/ --env prod
+
+# Merge base + prod overlay (split layout — connections.json + dataflows.json auto-detected)
 python scripts/merge.py --base metadata/ --env prod --output .datacoolie/generated/metadata.prod.json
 ```

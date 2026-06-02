@@ -5,6 +5,8 @@ description: Run a DataCoolie pipeline with the Polars engine on a local machine
 
 # Quickstart · Polars
 
+**Time**: ~5 minutes
+
 Run a full DataCoolie pipeline on your laptop in under five minutes. No Docker,
 no JVM, no cloud account.
 

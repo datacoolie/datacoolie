@@ -1,6 +1,7 @@
 # Architecture Design — {{ project_name }}
 
 **Date:** {{ date }}
+**Version:** v{{ version | default("1") }}
 **Discovery Reports:** `.datacoolie/discover/`
 **Platform:** {{ platform }}
 **Status:** Draft — Awaiting Approval
@@ -16,26 +17,54 @@
 
 ---
 
+## Source Registry
+
+| Source | Type | Discovered | Arch Version | Tables | Dataflows | Status |
+|--------|------|-----------|-------------|--------|-----------|--------|
+| {{ source_registry_rows }} |
+
+**Status values:** `Active` — current; `New` — just added, pending approval; `Modified` — re-discovered with changes; `Retired` — removed from pipeline
+
+---
+
+## Source Overview
+
+<!-- Inline mode: source details listed here. Split mode: see layers/source.md -->
+
+<!-- Repeat for each source: -->
+<!--
+### {{ source_name }}
+
+- **Type:** {{ connection_type }} (database / API / file / lakehouse)
+- **Protocol:** {{ protocol }}
+- **Schedule:** {{ schedule }}
+- **CDC available:** {{ cdc_available }}
+- **Estimated volume:** {{ volume }}
+- **Access:** {{ access_notes }}
+-->
+
+---
+
 ## Architecture Diagram
 
 ```mermaid
 flowchart LR
     subgraph Sources
-        S1[erp]
-        S2[crm-api]
+        S1[{{ source_1 }}]
+        S2[{{ source_2 }}]
     end
 
     subgraph Bronze
-        B1[erp_source2bronze]
-        B2[crm-api_source2bronze]
+        B1[{{ source_1 }} tables]
+        B2[{{ source_2 }} tables]
     end
 
     subgraph Silver
-        SV1[sales_bronze2silver]
+        SV1[{{ domain_1 }}]
     end
 
     subgraph Gold
-        G1[sales_silver2gold]
+        G1[{{ domain_1 }} aggregations]
     end
 
     S1 --> B1
@@ -45,7 +74,7 @@ flowchart LR
     SV1 --> G1
 ```
 
-> _Replace node names with actual source and stage names from the Stage Definitions below. Add or remove nodes to match._
+> _Replace node names with actual sources and domains. Add or remove nodes to match._
 
 ---
 
@@ -77,25 +106,40 @@ flowchart LR
 
 ---
 
-## Stage Definitions
+## Dataflow Summary Table
 
-| Stage Name | Source | Destination | Load Type | Engine | Schedule |
-|---|---|---|---|---|---|
-| {{ stage_rows }} |
+| Dataflow | Layer | Source | Destination | Load Type | Engine | Schedule |
+|----------|-------|--------|-------------|-----------|--------|----------|
+| {{ dataflow_summary_rows }} |
 
-### Stage Details
+> This table is always present in the master file regardless of split mode.
 
-<!-- Repeat for each stage: -->
+### Dataflow Details
+
+<!-- Inline mode: dataflow details listed here. Split mode: see layers/{layer}.md -->
+
+<!-- Repeat for each dataflow: -->
 <!--
-#### {stage_name}
+#### {{ dataflow_name }}
 
-- **Source connection:** {connection_name}
-- **Source table / endpoint:** {table or endpoint path}
-- **Destination:** {layer}/{path}
-- **Load type:** {full_load | overwrite | append | merge_upsert | merge_overwrite | scd2}
-- **Watermark column:** {column or N/A}
-- **Merge keys:** {PK columns or N/A}
-- **Transform logic:** {brief description}
+- **Layer:** {{ layer }} (bronze / silver / gold)
+- **Source connection:** {{ connection_name }}
+- **Source table / endpoint:** {{ table_or_endpoint }}
+- **Destination:** {{ layer }}/{{ path }}
+- **Load type:** {{ load_type }}
+- **Watermark column:** {{ watermark_column | default("N/A") }}
+- **Merge keys:** {{ merge_keys | default("N/A") }}
+- **Engine:** {{ engine }}
+- **Partition columns:** {{ partition_columns | default("None") }}
+- **Transform logic:** {{ transform_description }}
+-->
+
+<!-- Split mode: replace the above with:
+> **Split mode:** Dataflow details organized by layer:
+> - [Source details](layers/source.md)
+> - [Bronze dataflows](layers/bronze.md)
+> - [Silver dataflows](layers/silver.md)
+> - [Gold dataflows](layers/gold.md)
 -->
 
 ---
@@ -121,11 +165,11 @@ flowchart LR
 
 ## Engine Strategy
 
-| Stage Pattern | Engine | Rationale |
+| Layer Transition | Engine | Rationale |
 |---|---|---|
-| *_source2bronze | polars | Lightweight I/O, no cluster overhead |
-| *_bronze2silver | polars or spark | Simple transforms, data fits in memory |
-| *_silver2gold | {{ gold_engine }} | {{ gold_engine_rationale }} |
+| source → bronze | polars | Lightweight I/O, no cluster overhead |
+| bronze → silver | polars or spark | Simple transforms, data fits in memory |
+| silver → gold | {{ gold_engine }} | {{ gold_engine_rationale }} |
 
 ---
 
@@ -155,6 +199,15 @@ flowchart LR
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | {{ risk_rows }} |
+
+---
+
+## Changelog
+
+### v{{ version | default("1") }} — {{ date }}
+{{ changelog_entries }}
+
+<!-- Older versions below, newest first -->
 
 ---
 

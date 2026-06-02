@@ -4,6 +4,9 @@ Allow: /
 User-agent: GPTBot
 Allow: /
 
+User-agent: ChatGPT-User
+Allow: /
+
 User-agent: ClaudeBot
 Allow: /
 
@@ -14,3 +17,7 @@ User-agent: Google-Extended
 Allow: /
 
 Sitemap: https://datacoolie.github.io/datacoolie/sitemap.xml
+
+# AI context files
+# llms.txt: https://datacoolie.github.io/datacoolie/llms.txt
+# llms-full.txt: https://datacoolie.github.io/datacoolie/llms-full.txt

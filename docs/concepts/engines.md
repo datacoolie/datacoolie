@@ -100,3 +100,4 @@ inferred `AMOUNT`.
 - [Sources & destinations](sources-and-destinations.md)
 - [Writing an engine](../extending/writing-an-engine.md)
 - [`reference/api/engines`](../reference/api/engines.md)
+- Blog: [Polars vs Spark for ETL](../blog/posts/2026-05-26-polars-vs-spark-for-etl.md)

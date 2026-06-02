@@ -32,3 +32,9 @@ Every guide follows the same pattern:
 
 Your package doesn't need to import the DataCoolie plugin registry — entry
 points are discovered automatically.
+
+## Related sections
+
+- Need to understand the architecture before building plugins? → [Concepts — Architecture](../concepts/architecture.md)
+- Looking for the exact API contracts? → [Reference — API](../reference/index.md)
+- Need test patterns for your custom plugin? → [Operations — Testing strategy](../operations/testing-strategy.md)

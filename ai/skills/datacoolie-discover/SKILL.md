@@ -26,14 +26,14 @@ Each source is discovered independently. One discovery run = one source = two ou
 ```
 .datacoolie/discover/
 ├── yymmdd_erp.md                # Discovery report (operational context + recommendations)
-├── yymmdd_erp_schema.md         # Schema inventory (tables, columns, PKs, FKs, row estimates)
+├── yymmdd_erp_schema.csv        # Schema inventory (CSV — 14 columns)
 ├── yymmdd_crm-api.md
-├── yymmdd_crm-api_schema.md
+├── yymmdd_crm-api_schema.csv
 ├── yymmdd_file-exports.md
-└── yymmdd_file-exports_schema.md
+└── yymmdd_file-exports_schema.csv
 ```
 
-**Naming**: `yymmdd_{source-name}.md` and `yymmdd_{source-name}_schema.md` where `source-name` is a kebab-case identifier from the user.
+**Naming**: `yymmdd_{source-name}.md` and `yymmdd_{source-name}_schema.csv` where `source-name` is a kebab-case identifier from the user.
 
 When user has multiple sources, run discovery for each source separately. Sources can be discovered at different times — re-running discovery for one source does not affect others.
 
@@ -56,43 +56,69 @@ Per source, two files:
 
 Template: `templates/discovery-report.tpl.md`
 
-### Schema Inventory (`yymmdd_{source-name}_schema.md`)
+### Schema Inventory (`yymmdd_{source-name}_schema.csv`)
 
-For database / file / lakehouse sources:
+A flat CSV file with 14 columns. Same contract for all source types (database, file, API).
 
-| Section | Content |
+| Column | Description |
 |---|---|
-| Tables | Schema, table name, column count, PK, row estimate |
-| Column details | Per table: column name, type (canonical with inline precision), nullable, FK reference, notes |
+| `source` | Source name (kebab-case) |
+| `schema` | Database schema or empty for files/APIs |
+| `table` | Table name, file path, or API endpoint path |
+| `column` | Column/field name (dot notation for nested: `customer.id`) |
+| `type` | Canonical type: `string`, `integer`, `long`, `double`, `float`, `decimal(p,s)`, `boolean`, `date`, `timestamp`, `timestamp_tz`, `time`, `binary`, `array`, `struct` |
+| `format` | Source-specific format hint (e.g. `parquet`, `uuid`, `email`) or empty |
+| `precision` | Numeric precision, string max length, or empty |
+| `scale` | Numeric scale or empty |
+| `nullable` | `true` or `false` |
+| `pk` | `true` if primary key, else empty |
+| `fk` | FK reference (e.g. `→ public.orders.customer_id`) or empty |
+| `ordinal_position` | Column ordinal (1-based) |
+| `row_estimate` | Approximate row count or empty |
+| `notes` | Free text (e.g. `inferred from sample rows`, `GET; pagination=cursor`) |
 
-For API sources:
-
-| Section | Content |
-|---|---|
-| Connection | Base URL, auth type, token URL, API spec, rate limit, default headers |
-| Endpoints | Endpoint path, method, pagination type, data path, field count |
-| Field details | Per endpoint: field name, type (canonical), nullable, FK reference, notes |
-
-Template: `templates/schema-inventory.tpl.md`
+Template: `templates/schema-inventory.tpl.csv`
 
 ## Retrieval Methods
 
 ### Method 1: Auto-Introspection
 
-Connect to the source and extract schema automatically via terminal.
+Connect to the source and extract schema automatically using the introspection scripts.
 
 **When to use**: User provides a connection string, file path, or API spec.
 
+#### Introspection Scripts
+
+Located in `scripts/`. Install dependencies first: `pip install -r scripts/requirements.txt`
+
+| Script | Source Type | Key Args |
+|---|---|---|
+| `introspect_db.py` | Databases (PostgreSQL, MySQL, MSSQL, Oracle, SQLite, Snowflake, BigQuery, Redshift) | `--url`, `--source`, `--schemas`, `--tables`, `--output` |
+| `introspect_files.py structure` | File/folder structure (local, S3, ADLS, GCS) | `--path`, `--output`, `--storage-options` |
+| `introspect_files.py schema` | File schema (Parquet, CSV, JSON, Delta, Avro, ORC, Excel) | `--path`, `--format`, `--source`, `--table`, `--output` |
+| `introspect_api.py` | APIs (OpenAPI JSON/YAML, GraphQL, OData) | `--spec` / `--graphql` / `--odata`, `--source`, `--output` |
+| `introspect_lakehouse.py` | Lakehouse catalogs (Iceberg REST, Hive Metastore, Unity Catalog, AWS Glue) | `--iceberg` / `--hive` / `--unity` / `--glue`, `--source`, `--output` |
+
+All scripts output the same 14-column CSV to stdout or `--output` file.
+
+#### Workflow
+
 1. Determine source type (database, file, API, lakehouse catalog)
-2. Run introspection — see `references/source-introspection-guide.md`
-3. Write schema inventory to `yymmdd_{source-name}_schema.md`
+2. Run the appropriate introspection script
+3. Write output to `yymmdd_{source-name}_schema.csv`
 4. Proceed to interview for remaining sections (data characteristics, load patterns, etc.)
 
-Key principles:
+#### Fallback
+
+If scripts fail (missing driver, network issue, unsupported source):
+- Consult `references/source-introspection-guide.md` for manual SQL/CLI approaches
 - Use whatever SQL client or CLI is available in the terminal
+- Output must still conform to the 14-column CSV contract
+
+Key principles:
 - Filter out system schemas (`information_schema`, `pg_catalog`, `sys`, `mysql`, `performance_schema`)
 - For unlisted databases: (1) try INFORMATION_SCHEMA, (2) try `SHOW TABLES` / `DESCRIBE TABLE`, (3) consult docs
-- Normalize discovered types to canonical forms (see Type Normalization Reference in the guide)
+- Normalize discovered types to canonical forms
 
 ### Method 2: Interview
 
@@ -129,4 +155,20 @@ Questions are at `templates/interview-questions.md`. Key rules:
 | Artifact | Path | Format |
 |---|---|---|
 | Discovery report | `.datacoolie/discover/yymmdd_{source-name}.md` | Markdown |
-| Schema inventory | `.datacoolie/discover/yymmdd_{source-name}_schema.md` | Markdown |
+| Schema inventory | `.datacoolie/discover/yymmdd_{source-name}_schema.csv` | CSV (14 columns) |
+
+## Dependencies
+
+Script dependencies are listed in `scripts/requirements.txt`. Core:
+- `sqlalchemy>=2.0` — database introspection
+- `fsspec` — cross-platform file system abstraction
+- `pyarrow` — file schema extraction (Parquet, CSV, JSON, ORC)
+- `deltalake` — Delta table schema extraction
+- `pyyaml` — OpenAPI YAML parsing
+- `requests` — API spec fetching
+
+Optional (install per source type):
+- Database drivers: `psycopg2-binary`, `pymysql`, `pyodbc`, `oracledb`, `snowflake-sqlalchemy`, `sqlalchemy-bigquery`, `sqlalchemy-redshift`
+- Cloud storage: `s3fs`, `adlfs`, `gcsfs`
+- File formats: `fastavro`, `openpyxl`
+- Lakehouse catalogs: `pyhive[hive]` (Hive Metastore), `trino` (Iceberg via Trino)

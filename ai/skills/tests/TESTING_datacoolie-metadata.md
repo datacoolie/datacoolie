@@ -507,20 +507,81 @@ python skills/datacoolie-metadata/scripts/merge.py --base nonexistent --env prod
 # Exit 2
 ```
 
-### 4.7 Error — missing connections file
+### 4.7 Error — missing metadata files
 
 ```sh
-python -c "import os; os.makedirs(\"test_empty\"  , exist_ok=True)"
+python -c "import os; os.makedirs('test_empty', exist_ok=True)"
 python skills/datacoolie-metadata/scripts/merge.py --base test_empty --env prod
-# ERROR: No connections file found in test_empty
+# ERROR: No metadata file found in test_empty (expected metadata.json or connections.json + dataflows.json)
 # Exit 2
-python -c "import shutil; shutil.rmtree(\"-Force test_empty\")"
+python -c "import shutil; shutil.rmtree('test_empty')"
+```
+
+### 4.8 Unified layout — metadata.json merge
+
+```sh
+# Setup: unified base file + overlay
+python -c "
+import json, os
+os.makedirs('test_unified/environments', exist_ok=True)
+json.dump({
+    'connections': [{'name': 'src_db', 'connection_type': 'mssql', 'configure': {'host': 'localhost'}}],
+    'dataflows': [{'name': 'load_orders', 'source': {'connection_name': 'src_db', 'object_name': 'orders'}, 'destination': {'object_name': 'bronze_orders'}}],
+    'schema_hints': [{'dataflow_name': 'load_orders', 'column_name': 'id', 'data_type': 'integer'}]
+}, open('test_unified/metadata.json', 'w'), indent=2)
+import yaml
+yaml.dump({
+    'connections': [{'name': 'src_db', 'configure': {'host': 'prod-db.example.com'}}],
+    'dataflows': [{'name': 'load_orders', 'source': {'filter_expression': 'active = 1'}}]
+}, open('test_unified/environments/prod.yaml', 'w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_unified --env prod
+# ✓ Merged 1 connections + 1 dataflows + 1 schema_hints → .datacoolie/generated/metadata.prod.json
+# Verify: host overridden, filter_expression added
+python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); assert d['connections'][0]['configure']['host'] == 'prod-db.example.com'; assert d['dataflows'][0]['source']['filter_expression'] == 'active = 1'; print('OK: overlay applied')"
+```
+
+### 4.9 Unified layout — schema_hints preserved
+
+```sh
+# Verify schema_hints pass through from test 4.8
+python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); assert len(d['schema_hints']) == 1; assert d['schema_hints'][0]['column_name'] == 'id'; print('OK: schema_hints preserved')"
+```
+
+### 4.10 Unified layout — $schema preserved
+
+```sh
+# Setup: unified file with $schema key
+python -c "
+import json
+json.dump({
+    '\$schema': 'https://raw.githubusercontent.com/.../metadata.schema.json',
+    'connections': [{'name': 'c1', 'connection_type': 'local_fs'}],
+    'dataflows': [{'name': 'd1', 'source': {'connection_name': 'c1'}, 'destination': {'object_name': 'out'}}]
+}, open('test_unified/metadata.json', 'w'), indent=2)
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_unified --env prod
+python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); assert '\$schema' in d; print('OK: \$schema preserved')"
+```
+
+### 4.11 Partial split layout error — only connections.json
+
+```sh
+python -c "
+import json, os
+os.makedirs('test_partial', exist_ok=True)
+json.dump([{'name': 'conn1'}], open('test_partial/connections.json', 'w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_partial --env prod
+# ERROR: No metadata file found in test_partial (expected metadata.json or connections.json + dataflows.json)
+# Exit 2
+python -c "import shutil; shutil.rmtree('test_partial')"
 ```
 
 ### Cleanup merge test fixtures
 
 ```sh
-python -c "import shutil; shutil.rmtree(\"-Force test_base, .datacoolie\")"
+python -c "import shutil; shutil.rmtree('test_unified', True); shutil.rmtree('.datacoolie', True); shutil.rmtree('test_base', True)"
 ```
 
 ---
@@ -571,6 +632,42 @@ cd d:\GitHub\datacoolie-arch-5\datacoolie
 & d:\GitHub\datacoolie-arch-5\.venv\Scripts\python.exe -m pytest tests/unit/test_schema_enums.py -v
 # 5 passed — verifies schema enums stay in sync with constants.py
 ```
+
+---
+
+## 7. Architecture Consumption (SKILL.md AI Workflow)
+
+These are **prompt-level tests** — verify AI behavior follows the Step 0 logic in SKILL.md. Run each scenario in a clean workspace and check AI output.
+
+### 7.1 Architecture present + approved
+
+- **Setup**: Create `.datacoolie/architect/test_architecture.md` with `Status: Approved`, Source Registry (2 sources), Dataflow Summary Table (3 dataflows)
+- **Prompt**: "Generate metadata for this project"
+- **Verify**: AI pre-populates connections from Source Registry; pre-populates dataflows from Summary Table; does NOT ask about load strategy, connection types, or source names; DOES ask about `secrets_ref`
+
+### 7.2 Discovery schemas present
+
+- **Setup**: Create `.datacoolie/discover/orders_schema.csv` with columns (id, order_date, amount, customer_id) and `is_pk=true` on id
+- **Prompt**: "Generate metadata for this project"
+- **Verify**: `transform.schema_hints` populated from CSV columns; `id` suggested as `destination.merge_keys` candidate
+
+### 7.3 No architecture — interactive fallback
+
+- **Setup**: Empty or missing `.datacoolie/` directory
+- **Prompt**: "Generate metadata for this project"
+- **Verify**: AI asks for all details (source types, connection details, load strategies, engine) — current interactive behavior
+
+### 7.4 Draft architecture — warning
+
+- **Setup**: Create `.datacoolie/architect/test_architecture.md` with `Status: Draft`
+- **Prompt**: "Generate metadata"
+- **Verify**: AI warns that architecture is not approved; asks for confirmation before proceeding; if confirmed, pre-populates as usual
+
+### 7.5 Secrets never from architecture
+
+- **Setup**: Architecture present with approved status
+- **Prompt**: "Generate metadata"
+- **Verify**: AI still asks user for `secrets_ref` values — never pre-populated from architecture (security boundary)
 
 ---
 

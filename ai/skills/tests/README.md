@@ -139,9 +139,8 @@ python generate_extra_fixtures.py
 
 ## Unit Tests
 
-Unit tests for script-based skills. After the knowledge-based migration, only
-`datacoolie-metadata` retains scripts. The `unit/` directory currently has no
-active test files for the migrated skills.
+Unit tests for script-based skill utilities and introspection modules used by
+the skills test harness.
 
 ```sh
 # From workspace root (d:\GitHub\datacoolie-arch-5)

@@ -83,3 +83,5 @@ flowchart TD
 
 - [ADR-0001 · Engine `fmt=` parameter](../adr/0001-engine-fmt-parameter.md)
 - [`reference/api/destinations`](../reference/api/destinations.md)
+- Blog: [SCD Type 2 in Python with Delta Lake](../blog/posts/2026-05-29-scd-type-2-python-delta-lake.md)
+- Blog: [Polars vs Spark for ETL](../blog/posts/2026-05-26-polars-vs-spark-for-etl.md)

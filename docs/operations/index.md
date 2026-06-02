@@ -44,3 +44,9 @@ Before running a pipeline in a new environment:
 3. Confirm the engine has the required extras installed (`polars`, `spark`, etc.).
 4. Review the logging output path and ensure the destination directory is
    writable with the expected partition structure.
+
+## Related sections
+
+- Choosing between Polars and Spark? Read the [blog post on Polars vs Spark for ETL](../blog/posts/2026-05-26-polars-vs-spark-for-etl.md)
+- Need deployment guides? → [Deploy to Fabric](../how-to/deploy-to-fabric.md) · [Deploy to Databricks](../how-to/deploy-to-databricks.md) · [Deploy to AWS Glue](../how-to/deploy-to-aws-glue.md)
+- Building custom plugins and need test patterns? → [Extending](../extending/index.md)

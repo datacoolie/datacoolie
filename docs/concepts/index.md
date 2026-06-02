@@ -10,6 +10,24 @@ this way?"** rather than "how do I do X?". For task recipes see
 [How-to](../how-to/index.md); for precise field-level contracts see
 [Reference](../reference/index.md).
 
+## How these concepts connect
+
+DataCoolie's architecture is layered. At the top sits the
+[**metadata model**](metadata-model.md) — connections, dataflows, and
+transforms defined as JSON, YAML, or Excel. The
+[**DataCoolieDriver**](orchestration.md) reads that metadata and coordinates
+execution. It delegates data processing to an [**engine**](engines.md) (Polars
+or Spark), which uses a [**platform**](platforms.md) (local, AWS, Fabric,
+Databricks) for file I/O and secrets. Between read and write, a
+[**transformer pipeline**](transformers-and-pipeline.md) applies schema hints,
+deduplication, computed columns, and filters. The write step uses a
+[**load strategy**](load-strategies.md) — append, merge, or SCD2. Finally,
+[**watermarks**](watermarks.md) track progress so the next run picks up only
+new data.
+
+Reading in the order below gives you the full picture, but you can jump to any
+page independently.
+
 This is the best starting section if you want to understand the workflow,
 terminology, and operating model without running code.
 
@@ -28,3 +46,10 @@ Otherwise jump to the concept you need:
 - [Orchestration](orchestration.md) — driver, job distributor, parallel executor, retry handler.
 - [Logging](logging.md) — ETL logger vs system logger, `LogPurpose`, partitioning.
 - [Secrets](secrets.md) — provider vs resolver, `secrets_ref` schema.
+
+## Related sections
+
+- Need task recipes instead of explanations? → [How-to guides](../how-to/index.md)
+- Need exact field names and API signatures? → [Reference](../reference/index.md)
+- Want to add a new engine, source, or transformer? → [Extending](../extending/index.md)
+- Looking for production guidance? → [Operations](../operations/index.md)

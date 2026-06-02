@@ -171,13 +171,12 @@ class LogRecord:
         ts = self.timestamp.isoformat()
         df_part = f"[{self.dataflow_id}]" if self.dataflow_id else ""
         if include_location and self.func_name:
-            loc = f" [{self.func_name}"
+            loc = f"{self.func_name}"
             if self.line_no:
                 loc += f":{self.line_no}"
-            loc += "]"
         else:
             loc = ""
-        base = f"{ts} - {self.level} - {self.logger_name} {loc} - {df_part} - {self.message}"
+        base = f"{ts} - {self.level} - {self.logger_name}:{loc} - {df_part} - {self.message}"
         if self.exc_info:
             base += f"\n{self.exc_info}"
         return base

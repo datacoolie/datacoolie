@@ -5,6 +5,8 @@ description: Run a DataCoolie pipeline with the Spark engine and Delta Lake on a
 
 # Quickstart · Spark
 
+**Time**: ~10 minutes (includes JVM startup)
+
 Same shape as the Polars quickstart, but with a Delta-enabled local `SparkSession`.
 
 Choose this path when Spark is already your target runtime or when you want to
@@ -57,6 +59,15 @@ print(f"succeeded={result.succeeded} failed={result.failed}")
 ```bash
 python run.py
 ```
+
+Expected:
+
+```text
+succeeded=1 failed=0
+```
+
+You should see `succeeded=1 failed=0`. If you see an error, check
+[Troubleshooting](../operations/troubleshooting.md).
 
 !!! note "Delta-enabled SparkSession"
     Local Spark needs a Delta-enabled session. The example above configures the

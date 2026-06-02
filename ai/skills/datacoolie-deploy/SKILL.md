@@ -24,6 +24,29 @@ Deploy datacoolie ETL jobs to cloud platforms via direct CLI commands.
 
 ## AI Workflow
 
+### 0. Read Upstream Artifacts
+
+Read project context from prior phases before starting deployment.
+
+**Required artifacts:**
+
+| Artifact | Path | Extract |
+|----------|------|--------|
+| Project config | `.datacoolie/config.yaml` | `project_name`, `engine`, `environments.{env}.platform`, platform-specific config (bucket, workspace, catalog, etc.) |
+| Metadata files | `metadata/*.json` or `metadata/*.yaml` | Dataflow definitions to deploy; validate at least one exists |
+| Functions package | `functions/` | Check if `pyproject.toml` (wheel) or `__init__.py` (zip) exists |
+
+**Optional artifacts:**
+
+| Artifact | Path | Extract |
+|----------|------|--------|
+| Architecture document | `.datacoolie/architect/*_architecture.md` | Platform name, environment config — cross-check against `config.yaml` alignment |
+| Environment overlays | `metadata/environments/*.yaml` | Available environments for promotion |
+
+**If `config.yaml` is missing** → ask user for platform, engine, and environment config interactively.
+
+**If `metadata/` is empty** → stop and suggest running `datacoolie-metadata` first.
+
 ### 1. Preflight Checklist
 
 | # | Check | Pass | Fail |
@@ -138,8 +161,32 @@ Located in `references/`:
 - `github-actions-databricks.yml.example` — CI/CD for Databricks
 - `github-actions-fabric.yml.example` — CI/CD for Fabric
 
+## Script Status
+
+This skill is **knowledge-based** — the AI reads SKILL.md and reference examples, then runs platform CLI commands directly. The testing guide contains specifications for future Python scripts (`apply.py`, `generate.py`, `package.py`, `cicd.py`, `promote.py`) that are not yet implemented.
+
 ## Prerequisites
 
-- Platform CLI installed and authenticated
-- `datacoolie` installed
-- Project with `metadata/` directory containing dataflow JSON(s)
+- Project config at `.datacoolie/config.yaml` (recommended — falls back to interactive)
+- Metadata files in `metadata/` directory
+- Platform CLI installed and authenticated (per target platform)
+- `datacoolie` installed (`pip install datacoolie`)
+
+## Input Contracts
+
+| Direction | Artifact | Path | Required |
+|-----------|----------|------|----------|
+| Input | Project config | `.datacoolie/config.yaml` | Yes — platform, engine, env config |
+| Input | Metadata files | `metadata/*.json` or `metadata/*.yaml` | Yes — at least one dataflow definition |
+| Input | Functions package | `functions/` | No — skipped if absent |
+| Input | Architecture document | `.datacoolie/architect/*_architecture.md` | No — optional platform cross-check |
+| Input | Environment overlays | `metadata/environments/*.yaml` | No — needed for promotion only |
+
+## Output Contracts
+
+| Artifact | Path | Notes |
+|----------|------|-------|
+| Runner script | `.datacoolie/generated/run_{platform}.{ext}` | Platform-specific runner |
+| Functions artifact | `.datacoolie/generated/dist/functions*.whl` or `functions.zip` | Wheel or zip package |
+| CI/CD workflow | `.github/workflows/deploy-{platform}.yml` | Step 6 only |
+| Promotion log | `.datacoolie/promote/yymmdd_promote-{from}-to-{to}.md` | Step 5 only |

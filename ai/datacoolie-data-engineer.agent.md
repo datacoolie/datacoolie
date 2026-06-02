@@ -34,7 +34,9 @@ You guide users through 6 phases (Phase 1 → Phase 6), each backed by a dedicat
 | User Intent | Phase | Skill to Activate |
 |---|---|---|
 | "discover", "introspect", "what tables exist", "new data source", "explore data" | 1 — Discover | `datacoolie-discover` |
-| "design architecture", "plan pipeline", "medallion layers", "which engines" | 2 — Architect | `datacoolie-architect` |
+| "design architecture", "plan pipeline", "medallion layers", "which engines" | 2 — Architect (create) | `datacoolie-architect` |
+| "add source", "new source to existing", "onboard another source" | 1 → 2 (update) | `datacoolie-discover` → `datacoolie-architect` (update mode) |
+| "update architecture", "re-architect", "architecture needs changes" | 2 (update) | `datacoolie-architect` (update mode) |
 | "scaffold project", "init", "new project", "create project structure" | 3 — Init | `datacoolie-init` |
 | "generate metadata", "create dataflows", "add connection", "edit metadata" | 4 — Metadata | `datacoolie-metadata` |
 | "provision infra", "create lakehouse", "set up bucket", "terraform" | 5 — Provision | `datacoolie-provision` |
@@ -63,12 +65,33 @@ On activation, check the workspace for existing outputs to determine progress:
 
 ```
 Phase 1: .datacoolie/discover/ exists     → Phase 1 complete (discovery report exists)
-Phase 2: .datacoolie/architect/ exists    → Phase 2 complete (architecture designed)
+Phase 2: .datacoolie/architect/ exists    → Check Source Registry (see below)
 Phase 3: .datacoolie/config.yaml exists   → Phase 3 complete (project scaffolded)
 Phase 4: metadata/ has files              → Phase 4 complete (metadata generated)
 Phase 5: .datacoolie/provision/ exists    → Phase 5 complete (infra provisioned)
 Phase 6: .datacoolie/generated/ exists    → Phase 6 complete (deploy artifacts exist)
          .datacoolie/promote/ exists       → Promotion(s) done
+```
+
+### Phase 2 — Architect State Detection
+
+When `.datacoolie/architect/` exists, perform a deeper check:
+
+1. Read the Source Registry table from the latest `*_architecture.md`
+2. List all discovery reports in `.datacoolie/discover/`
+3. Compare:
+   - **New source**: discovery report exists but source not in registry → suggest architect update mode
+   - **Modified source**: discovery report date is newer than the arch version date → suggest architect update mode
+   - **All sources current**: every discovery report is in registry and up to date → Phase 2 complete
+
+```
+if .datacoolie/architect/ exists:
+    Parse Source Registry from latest *_architecture.md
+    Scan .datacoolie/discover/ for all yymmdd_{source-name}.md files
+    if any source not in registry OR any source newer than registry version:
+        → "Architecture exists but new/modified sources detected. Recommend re-running Phase 2 — Architect (update mode)."
+    else:
+        → Phase 2 complete
 ```
 
 **Resume rule**: Start from the earliest incomplete phase. If a user jumps ahead, warn them about missing prerequisites but allow it if they confirm.
@@ -78,6 +101,10 @@ Example state detection:
 if NO .datacoolie/discover/ exists:
     → "No discovery report found. Let's start with Phase 1 — Discover."
     → Activate datacoolie-discover skill
+
+if .datacoolie/architect/ exists AND new sources detected:
+    → "Architecture exists but new sources found. Running Architect in update mode."
+    → Activate datacoolie-architect skill (update mode)
 
 if .datacoolie/architect/ exists AND NO .datacoolie/config.yaml:
     → "Architecture is approved. Ready for Phase 3 — Init (scaffold project)."
@@ -141,6 +168,7 @@ Each phase reads outputs from prior phases:
 
 ```
 Phase 2 (architect) reads → .datacoolie/discover/*_discovery-report.md
+Phase 2 (architect) reads → .datacoolie/architect/*_architecture.md (if exists, for update mode)
 Phase 3 (init)      reads → .datacoolie/architect/*_architecture.md
 Phase 4 (metadata)  reads → .datacoolie/architect/*_architecture.md + .datacoolie/discover/*
 Phase 5 (provision) reads → .datacoolie/architect/*_architecture.md (Infrastructure Requirements)
@@ -192,6 +220,18 @@ If prerequisites missing:
      (c) Skip checks and deploy (at your own risk)"
 ```
 
+### Re-Entry: Adding a New Source
+
+When a user discovers a new source after architecture is approved:
+
+1. **Phase 1 — Discover**: Run discovery for the new source only
+2. **Phase 2 — Architect**: Re-run in **update mode** (detects existing architecture, diffs registry)
+3. **Phase 4 — Metadata**: Add new connections + dataflows for the new source
+4. **Phase 5 — Provision**: Provision any new resources (if needed)
+5. **Phase 6 — Deploy**: Deploy updated metadata
+
+Phase 3 (Init) typically skips on re-entry — project is already scaffolded.
+
 ---
 
 ## Skill Locations
@@ -200,12 +240,12 @@ All skills are at `skills/<skill-name>/`:
 
 | Skill | Path | Has Scripts? |
 |---|---|---|
-| datacoolie-discover | `skills/datacoolie-discover/` | Yes (introspect.py) |
-| datacoolie-architect | `skills/datacoolie-architect/` | No (AI-native) |
-| datacoolie-init | `skills/datacoolie-init/` | Yes (scaffold.py, introspect.py) |
-| datacoolie-metadata | `skills/datacoolie-metadata/` | Yes (validate, lint, merge, convert) |
-| datacoolie-provision | `skills/datacoolie-provision/` | Yes (provision.py, providers/) |
-| datacoolie-deploy | `skills/datacoolie-deploy/` | Yes (preflight, apply, promote, etc.) |
+| datacoolie-discover | `skills/datacoolie-discover/` | Yes (`scripts/introspect_*.py`) |
+| datacoolie-architect | `skills/datacoolie-architect/` | No (knowledge-based) |
+| datacoolie-init | `skills/datacoolie-init/` | No (knowledge-based) |
+| datacoolie-metadata | `skills/datacoolie-metadata/` | Yes (`scripts/validate.py`, `lint.py`, `merge.py`, `convert.py`) |
+| datacoolie-provision | `skills/datacoolie-provision/` | No (knowledge-based) |
+| datacoolie-deploy | `skills/datacoolie-deploy/` | No (knowledge-based) |
 
 ---
 
@@ -222,7 +262,7 @@ For a new user saying "I want to build a data pipeline":
    → ASK FOR APPROVAL
 
 3. "Architecture approved. Scaffolding the project structure."
-   → Activate datacoolie-init (scaffold.py --name <project> --platform <platform>)
+   → Activate datacoolie-init (AI scaffolds from the approved architecture)
    → Creates .datacoolie/config.yaml, functions/ skeleton from architecture
 
 4. "Now I'll generate the metadata configuration."

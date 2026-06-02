@@ -95,6 +95,8 @@ markdown_extensions:
 hooks:
   - docs/scripts/suppress_mkdocstrings_warnings.py
   - docs/scripts/copy_schema_files.py
+  - docs/scripts/inject_faq_schema.py
+  - docs/scripts/enhance_sitemap.py
 
 plugins:
   - search

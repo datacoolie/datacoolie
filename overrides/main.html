@@ -37,7 +37,11 @@
     {% endif %}
     {% set seo_description = page.meta.description or config.site_description %}
     {% set seo_url = page.canonical_url %}
-    {% set seo_image = config.site_url ~ "images/banners/datacoolie-og-1200x630.webp" %}
+    {% if page.meta and page.meta.og_image %}
+      {% set seo_image = config.site_url ~ page.meta.og_image %}
+    {% else %}
+      {% set seo_image = config.site_url ~ "images/banners/datacoolie-og-1200x630.webp" %}
+    {% endif %}
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -62,6 +66,9 @@
     <meta name="twitter:description" content="{{ seo_description }}" />
     <meta name="twitter:image" content="{{ seo_image }}" />
     <meta name="twitter:image:alt" content="{{ seo_title }}" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ seo_url }}" />
 
     <!-- JSON-LD structured data -->
     {% if page.is_homepage %}
@@ -89,7 +96,15 @@
           "url": {{ config.site_url | tojson }},
           "name": {{ config.site_name | tojson }},
           "description": {{ config.site_description | tojson }},
-          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} }
+          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": {{ (config.site_url ~ "search/?q={search_term_string}") | tojson }}
+            },
+            "query-input": "required name=search_term_string"
+          }
         },
         {
           "@type": "SoftwareApplication",
@@ -102,21 +117,88 @@
           "codeRepository": {{ config.repo_url | tojson }},
           "programmingLanguage": "Python",
           "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} }
+          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "softwareRequirements": "Python >= 3.11",
+          "downloadUrl": "https://pypi.org/project/datacoolie/"
         }
       ]
     }
     </script>
     {% else %}
+    {# Build breadcrumb from URL path segments #}
+    {% set url_parts = page.url.split('/') | reject('equalto', '') | list %}
+    {% if url_parts | length > 0 %}
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": {{ config.site_url | tojson }}
+        }{% for part in url_parts %},
+        {
+          "@type": "ListItem",
+          "position": {{ loop.index + 1 }},
+          "name": {% if loop.last %}{{ seo_title | tojson }}{% else %}{{ part | replace('-', ' ') | title | tojson }}{% endif %},
+          "item": {{ (config.site_url ~ url_parts[:loop.index] | join('/') ~ '/') | tojson }}
+        }{% endfor %}
+      ]
+    }
+    </script>
+    {% endif %}
+    {# Determine page schema type based on URL path #}
+    {% set is_howto = page.url.startswith('how-to/') %}
+    {% set is_tutorial = page.url.startswith('getting-started/') %}
+    {% set is_blog = page.url.startswith('blog/') and not page.url == 'blog/' %}
+    {% set is_reference = page.url.startswith('reference/') %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      {% if is_blog %}
+      "@type": "BlogPosting",
+      {% if page.meta and page.meta.date %}
+      "datePublished": {{ page.meta.date | string | tojson }},
+      {% endif %}
+      {% if page.meta and page.meta.updated %}
+      "dateModified": {{ page.meta.updated | string | tojson }},
+      {% elif page.meta and page.meta.date %}
+      "dateModified": {{ page.meta.date | string | tojson }},
+      {% endif %}
+      "author": {
+        "@type": "Organization",
+        "@id": {{ (config.site_url ~ "#organization") | tojson }},
+        "name": "DataCoolie"
+      },
+      "mainEntityOfPage": { "@id": {{ seo_url | tojson }} },
+      {% elif is_howto or is_tutorial %}
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      {% elif is_reference %}
+      "@type": "TechArticle",
+      "proficiencyLevel": "Expert",
+      {% else %}
       "@type": "WebPage",
+      {% endif %}
       "@id": {{ (seo_url ~ "#webpage") | tojson }},
       "url": {{ seo_url | tojson }},
       "name": {{ seo_title | tojson }},
+      "headline": {{ seo_title | tojson }},
       "description": {{ seo_description | tojson }},
-      "isPartOf": { "@id": {{ (config.site_url ~ "#website") | tojson }} }
+      "isPartOf": { "@id": {{ (config.site_url ~ "#website") | tojson }} },
+      "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     {% endif %}

@@ -17,11 +17,10 @@ REQUIRED_SECTIONS = [
     "## Prerequisites",
     "## Security Policy",
     "## AI Workflow",
-    "## Platform CLI Reference",
     "## Platform-Resource Mapping",
     "## Environment Naming Convention",
-    "## Output",
-    "## Cross-Skill Dependencies",
+    "## Input Contracts",
+    "## Output Contracts",
     "## Error Handling",
 ]
 
@@ -52,16 +51,16 @@ def run() -> None:
     print(f"  {status} content length: {len(content)} chars (min {min_length})")
     summary.append(("content-length", status))
 
-    # Check platform subsections
-    platforms = ["### Fabric", "### AWS", "### Databricks", "### Local"]
-    for platform in platforms:
-        found = platform in content
-        status = "✓" if found else "✗"
-        print(f"  {status} platform: {platform}")
-        summary.append((platform, status))
-
     # Check workflow steps
-    workflow_steps = ["### Step 1", "### Step 2", "### Step 3", "### Step 4", "### Step 5"]
+    workflow_steps = [
+        "### Step 0",
+        "### Step 1",
+        "### Step 2",
+        "### Step 3",
+        "### Step 4",
+        "### Step 5",
+        "### Step 6",
+    ]
     for step in workflow_steps:
         found = step in content
         status = "✓" if found else "✗"

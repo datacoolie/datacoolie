@@ -17,8 +17,11 @@ REQUIRED_SECTIONS = [
     "## AI Workflow",
     "## Configuration",
     "## Full Deploy Flow",
-    "## Templates",
+    "## References",
+    "## Script Status",
     "## Prerequisites",
+    "## Input Contracts",
+    "## Output Contracts",
 ]
 
 
@@ -49,8 +52,15 @@ def run() -> None:
     summary.append(("content-length", status))
 
     # Check workflow steps
-    workflow_steps = ["### 1. Preflight", "### 2. Generate Runner", "### 3. Package Functions",
-                      "### 4. Platform Deploy", "### 5. Promote", "### 6. Generate CI/CD"]
+    workflow_steps = [
+        "### 0. Read Upstream Artifacts",
+        "### 1. Preflight Checklist",
+        "### 2. Generate Runner",
+        "### 3. Package Functions",
+        "### 4. Platform Deploy",
+        "### 5. Promote",
+        "### 6. Generate CI/CD",
+    ]
     for step in workflow_steps:
         found = step in content
         status = "✓" if found else "✗"

@@ -5,10 +5,14 @@ Usage:
     python merge.py --base metadata/ --env prod
     python merge.py --base metadata/ --env dev --output .datacoolie/generated/metadata.dev.json
 
-The base directory should contain:
-    - connections.json (or .yaml)
-    - dataflows.json (or .yaml)
+The base directory should contain either:
+    - metadata.json (or .yaml) — unified layout (connections + dataflows in one file)
+    - connections.json + dataflows.json (or .yaml) — split layout
+
+Plus:
     - environments/{env}.yaml (overlay)
+
+Auto-detects which layout is present. Split layout is checked first.
 
 Exit codes:
     0 = success
@@ -89,23 +93,38 @@ def main():
         print(f"ERROR: Base directory not found: {args.base}", file=sys.stderr)
         sys.exit(2)
 
-    # Load base files
+    # Load base files — detect layout: split (connections + dataflows) or unified (metadata)
     connections_file = find_file(args.base, "connections")
     dataflows_file = find_file(args.base, "dataflows")
+    unified_file = None
+    base_schema_hints = []
 
-    if not connections_file:
-        print(f"ERROR: No connections file found in {args.base}", file=sys.stderr)
-        sys.exit(2)
-    if not dataflows_file:
-        print(f"ERROR: No dataflows file found in {args.base}", file=sys.stderr)
-        sys.exit(2)
-
-    try:
-        connections_data = load_file(connections_file)
-        dataflows_data = load_file(dataflows_file)
-    except (json.JSONDecodeError, yaml.YAMLError) as e:
-        print(f"ERROR: Failed to parse base files: {e}", file=sys.stderr)
-        sys.exit(2)
+    if connections_file and dataflows_file:
+        # Split layout
+        try:
+            connections_data = load_file(connections_file)
+            dataflows_data = load_file(dataflows_file)
+        except (json.JSONDecodeError, yaml.YAMLError) as e:
+            print(f"ERROR: Failed to parse base files: {e}", file=sys.stderr)
+            sys.exit(2)
+    else:
+        # Try unified layout
+        unified_file = find_file(args.base, "metadata")
+        if not unified_file:
+            print(
+                f"ERROR: No metadata file found in {args.base} "
+                f"(expected metadata.json or connections.json + dataflows.json)",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        try:
+            unified_data = load_file(unified_file)
+        except (json.JSONDecodeError, yaml.YAMLError) as e:
+            print(f"ERROR: Failed to parse {unified_file}: {e}", file=sys.stderr)
+            sys.exit(2)
+        connections_data = unified_data
+        dataflows_data = unified_data
+        base_schema_hints = unified_data.get("schema_hints", []) if isinstance(unified_data, dict) else []
 
     # Normalize: accept both raw arrays and objects with a key
     if isinstance(connections_data, list):
@@ -148,18 +167,22 @@ def main():
     # Build output — preserve top-level keys from base (e.g., $schema)
     merged = {}
 
-    # Carry over $schema and other top-level metadata from the first base file
+    # Carry over $schema and other top-level metadata from base file(s)
     if isinstance(connections_data, dict):
         for k, v in connections_data.items():
-            if k not in ("connections", "items"):
+            if k not in ("connections", "dataflows", "schema_hints", "items"):
                 merged[k] = v
     if isinstance(dataflows_data, dict):
         for k, v in dataflows_data.items():
-            if k not in ("dataflows", "items") and k not in merged:
+            if k not in ("connections", "dataflows", "schema_hints", "items") and k not in merged:
                 merged[k] = v
 
     merged["connections"] = merged_connections
     merged["dataflows"] = merged_dataflows
+
+    # Preserve schema_hints from base (overlay doesn't modify schema_hints)
+    if base_schema_hints:
+        merged["schema_hints"] = base_schema_hints
 
     # Determine output path
     if args.output:
@@ -172,7 +195,8 @@ def main():
         json.dump(merged, f, indent=2, ensure_ascii=False)
         f.write("\n")
 
-    print(f"✓ Merged {len(merged_connections)} connections + {len(merged_dataflows)} dataflows → {output_path}")
+    hints_msg = f" + {len(base_schema_hints)} schema_hints" if base_schema_hints else ""
+    print(f"✓ Merged {len(merged_connections)} connections + {len(merged_dataflows)} dataflows{hints_msg} → {output_path}")
     sys.exit(0)
 
 

@@ -71,7 +71,7 @@ class TestLogRecord:
             line_no=42,
         )
         formatted = rec.format(include_location=True)
-        assert "[myfn:42]" in formatted
+        assert "mod:myfn:42" in formatted
 
     def test_format_with_location_partial(self):
         rec = LogRecord(
