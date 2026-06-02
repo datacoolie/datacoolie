@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,59 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="How-to Guides — DataCoolie Task Recipes" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/how-to/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "How-to Guides \u2014 DataCoolie Task Recipes",
+          "item": "https://datacoolie.github.io/datacoolie/how-to/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      
       "@id": "https://datacoolie.github.io/datacoolie/how-to/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/how-to/",
       "name": "How-to Guides \u2014 DataCoolie Task Recipes",
+      "headline": "How-to Guides \u2014 DataCoolie Task Recipes",
       "description": "Step-by-step guides for configuring metadata, authoring pipelines, deploying to Fabric, Databricks, and AWS Glue, and handling edge cases in DataCoolie.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     

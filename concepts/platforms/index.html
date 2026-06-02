@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,64 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Platform Abstractions — DataCoolie Concepts" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/concepts/platforms/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Concepts",
+          "item": "https://datacoolie.github.io/datacoolie/concepts/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Platform Abstractions \u2014 DataCoolie Concepts",
+          "item": "https://datacoolie.github.io/datacoolie/concepts/platforms/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
       "@type": "WebPage",
+      
       "@id": "https://datacoolie.github.io/datacoolie/concepts/platforms/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/concepts/platforms/",
       "name": "Platform Abstractions \u2014 DataCoolie Concepts",
+      "headline": "Platform Abstractions \u2014 DataCoolie Concepts",
       "description": "Learn how DataCoolie platforms abstract file I O and secret retrieval for local, Fabric, Databricks, and AWS environments.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3419,6 +3468,7 @@ guarantees a single canonical form.</p>
 <li><a href="../secrets/">Secrets</a></li>
 <li>Custom platforms are possible through <code>BasePlatform</code> plus the <code>datacoolie.platforms</code> entry-point group.</li>
 <li><a href="../../reference/api/platforms/"><code>reference/api/platforms</code></a></li>
+<li>Blog: <a href="../../blog/2026/05/28/how-to-build-cloud-agnostic-data-pipelines-in-python/">Cloud-Agnostic Data Pipelines in Python</a></li>
 </ul>
 
 

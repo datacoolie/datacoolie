@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,59 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Get Started with DataCoolie for Python ETL" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/getting-started/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Get Started with DataCoolie for Python ETL",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      
       "@id": "https://datacoolie.github.io/datacoolie/getting-started/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/getting-started/",
       "name": "Get Started with DataCoolie for Python ETL",
+      "headline": "Get Started with DataCoolie for Python ETL",
       "description": "Install DataCoolie, choose your engine, and run your first Polars or Spark ETL pipeline. Three paths from zero to a working dataflow in minutes.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3133,6 +3177,18 @@
 
 
 <h1 id="getting-started">Getting started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
+<p>This section takes you from zero to a working DataCoolie pipeline. You will
+install the framework, run a pre-built quickstart, and then move on to building
+your own dataflows with real data.</p>
+<p><strong>What you will learn:</strong></p>
+<ul>
+<li>How to install DataCoolie with the engine and format extras you need</li>
+<li>How to run a complete ETL pipeline on your laptop in under 5 minutes</li>
+<li>How to swap sample data for your own files and iterate</li>
+<li>How the metadata model drives every step — so you write less code</li>
+</ul>
+<p>No prior ETL framework experience is required. If you are comfortable
+installing Python packages and running scripts, you have everything you need.</p>
 <p>For most new users, the smoothest path is:</p>
 <ol>
 <li><strong><a href="installation/">Installation</a></strong> — install the smallest useful engine + table-format extras.</li>

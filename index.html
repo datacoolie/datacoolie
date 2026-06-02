@@ -71,6 +71,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -95,6 +97,9 @@
     <meta name="twitter:description" content="DataCoolie — metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="DataCoolie — Metadata-driven ETL framework for Python" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/" />
 
     <!-- JSON-LD structured data -->
     
@@ -122,7 +127,15 @@
           "url": "https://datacoolie.github.io/datacoolie/",
           "name": "DataCoolie",
           "description": "Metadata-driven ETL framework \u2014 engine-unified, cloud-agnostic, batch-first.",
-          "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" }
+          "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://datacoolie.github.io/datacoolie/search/?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
         },
         {
           "@type": "SoftwareApplication",
@@ -135,7 +148,14 @@
           "codeRepository": "https://github.com/datacoolie/datacoolie",
           "programmingLanguage": "Python",
           "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-          "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" }
+          "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "softwareRequirements": "Python >= 3.11",
+          "downloadUrl": "https://pypi.org/project/datacoolie/"
         }
       ]
     }
@@ -162,7 +182,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#datacoolie" class="md-skip">
+        <a href="#datacoolie-metadata-driven-etl-framework-for-python" class="md-skip">
           Skip to content
         </a>
       
@@ -607,10 +627,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#choose-by-goal" class="md-nav__link">
+  <a href="#who-is-datacoolie-for" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Choose by goal
+        Who is DataCoolie for?
       
     </span>
   </a>
@@ -618,10 +638,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-datacoolie-gives-you" class="md-nav__link">
+  <a href="#choose-by-goal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What DataCoolie gives you
+        Choose by goal
       
     </span>
   </a>
@@ -668,6 +688,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-datacoolie-gives-you" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What DataCoolie gives you
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-to-next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -690,10 +721,43 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frequently-asked-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frequently asked questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#license" class="md-nav__link">
     <span class="md-ellipsis">
       
         License
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#community" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Community
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built by
       
     </span>
   </a>
@@ -3262,10 +3326,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#choose-by-goal" class="md-nav__link">
+  <a href="#who-is-datacoolie-for" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Choose by goal
+        Who is DataCoolie for?
       
     </span>
   </a>
@@ -3273,10 +3337,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-datacoolie-gives-you" class="md-nav__link">
+  <a href="#choose-by-goal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What DataCoolie gives you
+        Choose by goal
       
     </span>
   </a>
@@ -3323,6 +3387,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-datacoolie-gives-you" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What DataCoolie gives you
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-to-next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3345,10 +3420,43 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frequently-asked-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frequently asked questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#license" class="md-nav__link">
     <span class="md-ellipsis">
       
         License
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#community" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Community
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built by
       
     </span>
   </a>
@@ -3387,7 +3495,7 @@
   </picture>
 </p>
 
-<h1 id="datacoolie">DataCoolie<a class="headerlink" href="#datacoolie" title="Permanent link">&para;</a></h1>
+<h1 id="datacoolie-metadata-driven-etl-framework-for-python">DataCoolie — Metadata-Driven ETL Framework for Python<a class="headerlink" href="#datacoolie-metadata-driven-etl-framework-for-python" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p>Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first.</p>
 </blockquote>
@@ -3408,20 +3516,25 @@ REST API) and execute it on the engine and platform they need.</p>
 <li><strong>Consistent operations</strong> — watermarks, logging, maintenance, and load
     behavior follow the same model across environments.</li>
 </ul>
-<p>The documentation is written for more than framework implementers. Data
-engineers can use it to build and extend pipelines, while analysts, analytics
-engineers, workflow owners, and adjacent backend teams can use it to understand
-how data moves across stages, where controls live, and how operational concerns
-such as watermarks, schema hints, and maintenance fit together.</p>
+<pre class="dc-mermaid-source"><code>flowchart LR
+    A["Metadata\n(JSON / YAML / Excel)"] --&gt; B[DataCoolieDriver]
+    B --&gt; C["Engine\n(Polars | Spark)"]
+    C --&gt; D["Platform\n(Local | AWS | Fabric | Databricks)"]
+    D --&gt; E["Storage\n(Delta | Iceberg | Parquet)"]</code></pre>
+<h2 id="who-is-datacoolie-for">Who is DataCoolie for?<a class="headerlink" href="#who-is-datacoolie-for" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Data Engineers</strong> — build and operate ETL pipelines across engines and clouds</li>
+<li><strong>Analytics Engineers</strong> — define transforms and load strategies declaratively</li>
+<li><strong>Platform / DataOps Teams</strong> — standardize pipeline patterns across environments</li>
+<li><strong>Data Team Leads</strong> — reduce per-pipeline boilerplate and onboarding time</li>
+</ul>
 <div class="admonition tip">
 <p class="admonition-title">Start here</p>
-<div class="language-text highlight"><pre><span></span><code>If you are new to DataCoolie and want the fastest path to a working
-pipeline, start with [Getting started](getting-started/installation.md).
-
-If you mainly want to understand the model before touching code, read
-[Concepts](concepts/architecture.md) after your first quickstart or when you
-need deeper explanations.
-</code></pre></div>
+<p>If you are new to DataCoolie and want the fastest path to a working
+pipeline, start with <a href="getting-started/installation/">Getting started</a>.</p>
+<p>If you mainly want to understand the model before touching code, read
+<a href="concepts/architecture/">Concepts</a> after your first quickstart or when you
+need deeper explanations.</p>
 </div>
 <h2 id="choose-by-goal">Choose by goal<a class="headerlink" href="#choose-by-goal" title="Permanent link">&para;</a></h2>
 <ul>
@@ -3439,49 +3552,6 @@ need deeper explanations.
     Start with <a href="extending/">Extending</a> and use
     <a href="reference/">Reference</a> for the exact contracts and API surfaces.</li>
 </ul>
-<h2 id="what-datacoolie-gives-you">What DataCoolie gives you<a class="headerlink" href="#what-datacoolie-gives-you" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Capability</th>
-<th>What it means for you</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Engine-unified</strong></td>
-<td>Same metadata runs on Polars <em>and</em> Spark. <code>BaseEngine[DF]</code> is a generic contract; you pick the implementation at runtime.</td>
-</tr>
-<tr>
-<td><strong>Cloud-agnostic</strong></td>
-<td><code>local</code>, <code>aws</code>, <code>fabric</code>, <code>databricks</code> platforms abstract file I/O and secrets. No code changes to move a pipeline.</td>
-</tr>
-<tr>
-<td><strong>Metadata-driven</strong></td>
-<td>Connections, dataflows, transforms, schema hints, partitions, and load strategies are <em>declarative</em>. Code is for extension points, not orchestration.</td>
-</tr>
-<tr>
-<td><strong>Right-sized compute</strong></td>
-<td>Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it.</td>
-</tr>
-<tr>
-<td><strong>Batch-first</strong></td>
-<td><code>append</code>, <code>overwrite</code>/<code>full_load</code>, <code>merge_upsert</code>, <code>merge_overwrite</code>, and <code>scd2</code> (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap.</td>
-</tr>
-<tr>
-<td><strong>Lakehouse-native</strong></td>
-<td>First-class Delta Lake and Apache Iceberg, selected by <code>delta</code> / <code>iceberg</code> on every engine method.</td>
-</tr>
-<tr>
-<td><strong>Plugin everything</strong></td>
-<td>Engines, platforms, sources, destinations, transformers, and secret resolvers are all <a href="reference/plugin-entry-points/">entry-point plugins</a>.</td>
-</tr>
-<tr>
-<td><strong>Observable by default</strong></td>
-<td>Structured <code>ETLLogger</code> (dataflow entries + job summary) and <code>SystemLogger</code> ship with the framework.</td>
-</tr>
-</tbody>
-</table>
 <h2 id="30-second-demo">30-second demo<a class="headerlink" href="#30-second-demo" title="Permanent link">&para;</a></h2>
 <p>Install, then run two short scripts:</p>
 <ol>
@@ -3551,6 +3621,49 @@ need deeper explanations.
 <p>Swap <code>PolarsEngine</code> for <code>SparkEngine(spark, ...)</code> or <code>LocalPlatform()</code> for
 <code>AwsPlatform</code> / <code>FabricPlatform</code> / <code>DatabricksPlatform</code> — the metadata stays
 the same.</p>
+<h2 id="what-datacoolie-gives-you">What DataCoolie gives you<a class="headerlink" href="#what-datacoolie-gives-you" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>What it means for you</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Engine-unified</strong></td>
+<td>Same metadata runs on Polars <em>and</em> Spark. <code>BaseEngine[DF]</code> is a generic contract; you pick the implementation at runtime.</td>
+</tr>
+<tr>
+<td><strong>Cloud-agnostic</strong></td>
+<td><code>local</code>, <code>aws</code>, <code>fabric</code>, <code>databricks</code> platforms abstract file I/O and secrets. No code changes to move a pipeline.</td>
+</tr>
+<tr>
+<td><strong>Metadata-driven</strong></td>
+<td>Connections, dataflows, transforms, schema hints, partitions, and load strategies are <em>declarative</em>. Code is for extension points, not orchestration.</td>
+</tr>
+<tr>
+<td><strong>Right-sized compute</strong></td>
+<td>Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it.</td>
+</tr>
+<tr>
+<td><strong>Batch-first</strong></td>
+<td><code>append</code>, <code>overwrite</code>/<code>full_load</code>, <code>merge_upsert</code>, <code>merge_overwrite</code>, and <code>scd2</code> (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap.</td>
+</tr>
+<tr>
+<td><strong>Lakehouse-native</strong></td>
+<td>First-class Delta Lake and Apache Iceberg, selected by <code>delta</code> / <code>iceberg</code> on every engine method.</td>
+</tr>
+<tr>
+<td><strong>Plugin everything</strong></td>
+<td>Engines, platforms, sources, destinations, transformers, and secret resolvers are all <a href="reference/plugin-entry-points/">entry-point plugins</a>.</td>
+</tr>
+<tr>
+<td><strong>Observable by default</strong></td>
+<td>Structured <code>ETLLogger</code> (dataflow entries + job summary) and <code>SystemLogger</code> ship with the framework.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="where-to-next">Where to next<a class="headerlink" href="#where-to-next" title="Permanent link">&para;</a></h2>
 <div class="grid cards">
 <ul>
@@ -3587,33 +3700,77 @@ needing to run code.</p>
 <tr>
 <th>Engine</th>
 <th>Platforms</th>
-<th>Formats (read/write)</th>
-<th>Merge</th>
-<th>SCD2</th>
+<th>Read formats</th>
+<th>Write formats</th>
+<th>Load types²</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Spark</strong></td>
 <td>local · aws · fabric · databricks</td>
-<td>delta, iceberg, parquet, csv, json, jsonl, avro, excel (read), sql, api, function</td>
-<td>✓</td>
-<td>✓</td>
+<td>delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function</td>
+<td>delta, iceberg, parquet, csv, json, jsonl, avro</td>
+<td>append, full_load, overwrite, merge_upsert, merge_overwrite, scd2</td>
 </tr>
 <tr>
 <td><strong>Polars</strong></td>
 <td>local · aws · fabric · databricks</td>
-<td>delta, iceberg, parquet, csv, json, jsonl, avro, excel (read), sql, api, function</td>
-<td>✓</td>
-<td>✓</td>
+<td>delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function</td>
+<td>delta¹, iceberg, parquet, csv, json, jsonl, avro</td>
+<td>append, full_load, overwrite, merge_upsert, merge_overwrite, scd2</td>
 </tr>
 </tbody>
 </table>
+<p>¹ Polars writes Delta to path only — named Delta tables require Spark.
+² <code>merge_upsert</code>, <code>merge_overwrite</code>, and <code>scd2</code> require a lakehouse destination (delta or iceberg). File formats support <code>append</code>, <code>full_load</code>, and <code>overwrite</code> only.</p>
 <p>See <a href="reference/plugin-entry-points/">Plugin entry points</a> for the generated
 registry of every built-in plugin.</p>
+<h2 id="frequently-asked-questions">Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Permanent link">&para;</a></h2>
+<details class="question">
+<summary>What is DataCoolie?</summary>
+<p>DataCoolie is an open-source, metadata-driven ETL framework for Python. You define pipeline intent once as JSON, YAML, or Excel metadata and run on Polars, Spark, Microsoft Fabric, Databricks, or AWS Glue without rewriting per-engine code. It handles connections, dataflows, transforms, load strategies, watermarks, and schema hints declaratively.</p>
+</details>
+<details class="question">
+<summary>How is DataCoolie different from dbt, Airflow, or Prefect?</summary>
+<p>DataCoolie focuses on the <strong>ETL execution layer</strong>, not orchestration or SQL transforms. Unlike dbt (SQL-first transforms), DataCoolie runs Python-native dataframe operations. Unlike Airflow/Prefect (workflow schedulers), DataCoolie handles the read → transform → write → watermark lifecycle inside each job. You can use DataCoolie <em>inside</em> an Airflow DAG or Prefect flow. Read the full comparisons: <a href="https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/">DataCoolie vs dbt</a> · <a href="https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/">DataCoolie vs Airflow/Prefect</a>.</p>
+</details>
+<details class="question">
+<summary>Does DataCoolie work with Polars and Spark?</summary>
+<p>Yes. DataCoolie provides a unified <code>BaseEngine[DF]</code> contract. The same metadata runs on <code>PolarsEngine</code> for lightweight local development and <code>SparkEngine</code> for distributed production workloads — no code changes needed. You choose the engine at runtime.</p>
+</details>
+<details class="question">
+<summary>Can I use DataCoolie on Microsoft Fabric?</summary>
+<p>Yes. DataCoolie ships a <code>FabricPlatform</code> that handles OneLake file I/O and Key Vault secrets natively. The <a href="how-to/deploy-to-fabric/">Deploy to Fabric</a> guide walks through notebook setup step by step.</p>
+</details>
+<details class="question">
+<summary>Is DataCoolie free and open source?</summary>
+<p>Yes. DataCoolie is licensed under <a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/LICENSE">AGPL-3.0-or-later</a>. Install from PyPI with <code>pip install datacoolie</code>.</p>
+</details>
+<details class="question">
+<summary>What data formats does DataCoolie support?</summary>
+<p>DataCoolie reads and writes Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro. It reads Excel. It also supports SQL database sources, REST API sources, and custom Python function sources (must return a DataFrame). Format selection is per-dataflow in metadata.</p>
+</details>
+<details class="question">
+<summary>Does DataCoolie support SCD Type 2 and merge/upsert?</summary>
+<p>Yes. DataCoolie has built-in load strategies for <code>append</code>, <code>full_load</code> (overwrite), <code>merge_upsert</code>, <code>merge_overwrite</code>, and <code>scd2</code>. Merge keys, effective columns, and SCD2 behavior are declared in metadata. See <a href="how-to/merge-and-scd2/">Merge &amp; SCD2</a>.</p>
+</details>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
 <p><a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/LICENSE">AGPL-3.0-or-later</a> —
 free and open source. See <a href="contributing/">Contributing</a> for contribution terms.</p>
+<h2 id="community">Community<a class="headerlink" href="#community" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/datacoolie/datacoolie/issues">GitHub Issues</a> — report bugs and request features</li>
+<li><a href="contributing/">Contributing guide</a> — how to contribute code, docs, or ideas</li>
+<li><img alt="⭐" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2b50.svg" title=":star:" /> <a href="https://github.com/datacoolie/datacoolie">Star us on GitHub</a> if DataCoolie saves you time</li>
+</ul>
+<h2 id="built-by">Built by<a class="headerlink" href="#built-by" title="Permanent link">&para;</a></h2>
+<p>DataCoolie is maintained by data engineers who got tired of rewriting the same
+pipeline logic for every new cloud and engine. See the
+<a href="https://github.com/datacoolie/datacoolie/graphs/contributors">contributors page</a>
+for everyone who has helped shape the project.</p>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is DataCoolie?", "acceptedAnswer": {"@type": "Answer", "text": "DataCoolie is an open-source, metadata-driven ETL framework for Python. You define pipeline intent once as JSON, YAML, or Excel metadata and run on Polars, Spark, Microsoft Fabric, Databricks, or AWS Glue without rewriting per-engine code. It handles connections, dataflows, transforms, load strategies, watermarks, and schema hints declaratively."}}, {"@type": "Question", "name": "How is DataCoolie different from dbt, Airflow, or Prefect?", "acceptedAnswer": {"@type": "Answer", "text": "DataCoolie focuses on the ETL execution layer, not orchestration or SQL transforms. Unlike dbt (SQL-first transforms), DataCoolie runs Python-native dataframe operations. Unlike Airflow/Prefect (workflow schedulers), DataCoolie handles the read → transform → write → watermark lifecycle inside each job. You can use DataCoolie inside an Airflow DAG or Prefect flow. Read the full comparisons: DataCoolie vs dbt · DataCoolie vs Airflow/Prefect."}}, {"@type": "Question", "name": "Does DataCoolie work with Polars and Spark?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. DataCoolie provides a unified BaseEngine[DF] contract. The same metadata runs on PolarsEngine for lightweight local development and SparkEngine for distributed production workloads — no code changes needed. You choose the engine at runtime."}}, {"@type": "Question", "name": "Can I use DataCoolie on Microsoft Fabric?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. DataCoolie ships a FabricPlatform that handles OneLake file I/O and Key Vault secrets natively. The Deploy to Fabric guide walks through notebook setup step by step."}}, {"@type": "Question", "name": "Is DataCoolie free and open source?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. DataCoolie is licensed under AGPL-3.0-or-later. Install from PyPI with pip install datacoolie."}}, {"@type": "Question", "name": "What data formats does DataCoolie support?", "acceptedAnswer": {"@type": "Answer", "text": "DataCoolie reads and writes Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro. It reads Excel. It also supports SQL database sources, REST API sources, and custom Python function sources (must return a DataFrame). Format selection is per-dataflow in metadata."}}, {"@type": "Question", "name": "Does DataCoolie support SCD Type 2 and merge/upsert?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. DataCoolie has built-in load strategies for append, full_load (overwrite), merge_upsert, merge_overwrite, and scd2. Merge keys, effective columns, and SCD2 behavior are declared in metadata. See Merge &amp; SCD2."}}]}</script>
+
 
 
 

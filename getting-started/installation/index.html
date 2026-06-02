@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,65 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Install DataCoolie for Python ETL" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/getting-started/installation/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Getting Started",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Install DataCoolie for Python ETL",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/installation/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      
       "@id": "https://datacoolie.github.io/datacoolie/getting-started/installation/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/getting-started/installation/",
       "name": "Install DataCoolie for Python ETL",
+      "headline": "Install DataCoolie for Python ETL",
       "description": "Install DataCoolie with the right extras for Polars, Spark, Delta Lake, Iceberg, cloud SDKs, and metadata backends.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3517,7 +3567,7 @@ in <code>pyproject.toml</code>. If you vendor a custom wheel, install <code>tzda
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">datacoolie</span><span class="o">.</span><span class="n">platform_registry</span><span class="o">.</span><span class="n">names</span><span class="p">()))</span>
 </span></code></pre></div>
 <p>Expected output (with <code>[all]</code>):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>0.1.1
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>0.1.2
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>[&#39;polars&#39;, &#39;spark&#39;]
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>[&#39;aws&#39;, &#39;databricks&#39;, &#39;fabric&#39;, &#39;local&#39;]
 </span></code></pre></div>

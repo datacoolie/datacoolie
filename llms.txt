@@ -4,7 +4,39 @@
 
 DataCoolie lets data engineering teams describe pipeline intent once as metadata
 (JSON / YAML / Excel / database / REST API) and execute on Polars, Spark, Fabric,
-Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.1.
+Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.2.
+
+## Key Features
+
+- **Engine-unified**: Same metadata runs on both Polars and Spark via `BaseEngine[DF]` contract
+- **Cloud-agnostic**: Local, AWS, Microsoft Fabric, and Databricks platforms with zero code changes
+- **Metadata-driven**: Connections, dataflows, transforms, schema hints, partitions, and load strategies are declarative
+- **Right-sized compute**: Use Polars for small/medium jobs, Spark for distributed workloads
+- **Batch-first**: append, full_load, merge_upsert, merge_overwrite, and SCD Type 2 built-in
+- **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support
+- **Plugin everything**: Engines, platforms, sources, destinations, transformers, secret resolvers are all entry-point plugins
+- **Observable by default**: Structured ETLLogger with debug JSONL and analyst Parquet outputs
+
+## When to Use DataCoolie
+
+- Building ETL pipelines that must run on multiple engines (Polars locally, Spark in production)
+- Teams that need cloud portability (Fabric ↔ Databricks ↔ AWS ↔ local)
+- Projects where pipeline configuration should be declarative, not imperative code
+- Replacing per-engine boilerplate with a single metadata-driven framework
+- Data teams that want AI agents to scaffold, validate, and evolve pipelines
+
+## Comparison with Other Tools
+
+- **vs dbt**: DataCoolie is a Python ETL execution layer; dbt is SQL-first transforms. They complement each other.
+- **vs Airflow/Prefect**: DataCoolie handles read→transform→write→watermark inside jobs. Airflow/Prefect orchestrate when jobs run. Use DataCoolie inside Airflow DAGs.
+- **vs custom PySpark/Polars scripts**: DataCoolie replaces the boilerplate patterns you rewrite per-job with declarative metadata.
+
+## Install
+
+```bash
+pip install "datacoolie[polars]"      # Polars engine
+pip install "datacoolie[spark,delta]" # Spark engine with Delta Lake
+```
 
 ## Documentation
 
@@ -17,10 +49,12 @@ Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.1.
 - [Operations](https://datacoolie.github.io/datacoolie/operations/): Production guidance, logging layout, benchmarks, troubleshooting, testing strategy
 - [ADR](https://datacoolie.github.io/datacoolie/adr/): Architecture decision records for engine format dispatch, secret provider split, transformer ordering, watermark contract
 - [Changelog](https://datacoolie.github.io/datacoolie/changelog/): Version history and release notes
+- [Blog](https://datacoolie.github.io/datacoolie/blog/): Architecture posts, tutorials, and release notes
 
 ## Source Code
 
 - [GitHub Repository](https://github.com/datacoolie/datacoolie): Source code, issues, and contributions
+- [PyPI](https://pypi.org/project/datacoolie/): Package index page
 
 ## Optional: Full content
 
@@ -30,3 +64,12 @@ Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.1.
 - [Concepts — Orchestration](https://datacoolie.github.io/datacoolie/concepts/orchestration/)
 - [Reference — Metadata schema](https://datacoolie.github.io/datacoolie/reference/metadata-schema/)
 - [Reference — API Core](https://datacoolie.github.io/datacoolie/reference/api/core/)
+- [How-to — Deploy to Fabric](https://datacoolie.github.io/datacoolie/how-to/deploy-to-fabric/)
+- [How-to — Deploy to Databricks](https://datacoolie.github.io/datacoolie/how-to/deploy-to-databricks/)
+- [How-to — Deploy to AWS Glue](https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/)
+- [How-to — Merge & SCD2](https://datacoolie.github.io/datacoolie/how-to/merge-and-scd2/)
+- [Operations — Benchmarks (Polars vs Spark)](https://datacoolie.github.io/datacoolie/operations/benchmarks/)
+- [Blog — Why We Built DataCoolie](https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/)
+- [Blog — Python ETL Tutorial for Beginners](https://datacoolie.github.io/datacoolie/blog/2026/05/30/python-etl-tutorial-for-beginners--build-your-first-data-pipeline/)
+- [Blog — DataCoolie vs dbt](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/)
+- [Blog — DataCoolie vs Airflow/Prefect](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/)

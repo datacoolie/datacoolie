@@ -69,6 +69,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -94,17 +96,78 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Architecture - DataCoolie" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/blog/category/architecture/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://datacoolie.github.io/datacoolie/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Category",
+          "item": "https://datacoolie.github.io/datacoolie/blog/category/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Architecture - DataCoolie",
+          "item": "https://datacoolie.github.io/datacoolie/blog/category/architecture/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "BlogPosting",
+      
+      
+      "author": {
+        "@type": "Organization",
+        "@id": "https://datacoolie.github.io/datacoolie/#organization",
+        "name": "DataCoolie"
+      },
+      "mainEntityOfPage": { "@id": "https://datacoolie.github.io/datacoolie/blog/category/architecture/" },
+      
       "@id": "https://datacoolie.github.io/datacoolie/blog/category/architecture/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/blog/category/architecture/",
       "name": "Architecture - DataCoolie",
+      "headline": "Architecture - DataCoolie",
       "description": "Metadata-driven ETL framework \u2014 engine-unified, cloud-agnostic, batch-first.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3091,6 +3154,114 @@
       <header class="md-typeset">
         <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
       </header>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-30 00:00:00+00:00">May 30, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="./" class="md-meta__link">Architecture</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="datacoolie-vs-airflow-prefect-etl-framework-vs-orchestrator"><a class="toclink" href="../../2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/">DataCoolie vs Airflow / Prefect — ETL Framework vs Orchestrator</a></h2>
+<p>DataCoolie and Airflow (or Prefect) operate at different levels of the data
+stack. Airflow and Prefect are <strong>workflow orchestrators</strong> — they schedule tasks,
+manage dependencies, and handle retries across an entire pipeline graph.
+DataCoolie is an <strong>ETL execution framework</strong> — it handles the read → transform
+→ write → watermark lifecycle inside each individual task.</p>
+<p>This post explains the difference, when to use each, and how they work together.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="../../2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-30 00:00:00+00:00">May 30, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="./" class="md-meta__link">Architecture</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="datacoolie-vs-dbt-etl-framework-vs-sql-transforms"><a class="toclink" href="../../2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/">DataCoolie vs dbt — ETL Framework vs SQL Transforms</a></h2>
+<p>DataCoolie and dbt solve different problems in the data stack. dbt transforms
+data that is already in your warehouse using SQL models. DataCoolie handles the
+full ETL lifecycle — extracting data from sources, transforming it with
+Python-native engines, and loading it into lakehouses or warehouses.</p>
+<p>This post compares the two fairly, explains when each tool fits best, and shows
+how they complement each other.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="../../2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
       
         <article class="md-post md-post--excerpt">
   <header class="md-post__header">

@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,65 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Spark Quickstart for DataCoolie ETL" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/getting-started/quickstart-spark/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Getting Started",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Spark Quickstart for DataCoolie ETL",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/quickstart-spark/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      
       "@id": "https://datacoolie.github.io/datacoolie/getting-started/quickstart-spark/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/getting-started/quickstart-spark/",
       "name": "Spark Quickstart for DataCoolie ETL",
+      "headline": "Spark Quickstart for DataCoolie ETL",
       "description": "Run a DataCoolie pipeline with the Spark engine and Delta Lake on a local SparkSession to validate the core workflow.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3279,6 +3329,7 @@
 
 
 <h1 id="quickstart-spark">Quickstart · Spark<a class="headerlink" href="#quickstart-spark" title="Permanent link">&para;</a></h1>
+<p><strong>Time</strong>: ~10 minutes (includes JVM startup)</p>
 <p>Same shape as the Polars quickstart, but with a Delta-enabled local <code>SparkSession</code>.</p>
 <p>Choose this path when Spark is already your target runtime or when you want to
 validate the same metadata on a local Spark session before moving to Fabric,
@@ -3321,6 +3372,11 @@ Delta table with watermark.</p>
 </span></code></pre></div>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>run.py
 </span></code></pre></div>
+<p>Expected:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>succeeded=1 failed=0
+</span></code></pre></div>
+<p>You should see <code>succeeded=1 failed=0</code>. If you see an error, check
+<a href="../../operations/troubleshooting/">Troubleshooting</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Delta-enabled SparkSession</p>
 <p>Local Spark needs a Delta-enabled session. The example above configures the
@@ -3330,7 +3386,7 @@ another managed runtime, pass the existing session into
 shared <code>platform</code> pattern.</p>
 </div>
 <h2 id="3-inspect">3. Inspect<a class="headerlink" href="#3-inspect" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;delta&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;data/output/bronze/sales/orders&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;delta&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;data/output/bronze/sales/orders&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </span></code></pre></div>
 <h2 id="differences-vs-the-polars-run">Differences vs the Polars run<a class="headerlink" href="#differences-vs-the-polars-run" title="Permanent link">&para;</a></h2>
 <table>

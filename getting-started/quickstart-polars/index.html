@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,65 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Polars Quickstart — DataCoolie" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/getting-started/quickstart-polars/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Getting Started",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Polars Quickstart \u2014 DataCoolie",
+          "item": "https://datacoolie.github.io/datacoolie/getting-started/quickstart-polars/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      
       "@id": "https://datacoolie.github.io/datacoolie/getting-started/quickstart-polars/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/getting-started/quickstart-polars/",
       "name": "Polars Quickstart \u2014 DataCoolie",
+      "headline": "Polars Quickstart \u2014 DataCoolie",
       "description": "Run a DataCoolie pipeline with the Polars engine on a local machine and see the fastest path from install to working ETL.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3367,6 +3417,7 @@
 
 
 <h1 id="quickstart-polars">Quickstart · Polars<a class="headerlink" href="#quickstart-polars" title="Permanent link">&para;</a></h1>
+<p><strong>Time</strong>: ~5 minutes</p>
 <p>Run a full DataCoolie pipeline on your laptop in under five minutes. No Docker,
 no JVM, no cloud account.</p>
 <p>If you are brand new to DataCoolie, this is the best first run. It removes JVM

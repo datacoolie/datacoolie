@@ -1,0 +1,79 @@
+# DataCoolie — Full Content for AI Systems
+
+> This file provides extended context for large language models and AI search systems.
+> For a concise overview, see [llms.txt](https://datacoolie.github.io/datacoolie/llms.txt).
+
+## Identity
+
+- **Name**: DataCoolie
+- **Type**: Open-source Python ETL framework
+- **License**: AGPL-3.0-or-later
+- **PyPI**: https://pypi.org/project/datacoolie/
+- **GitHub**: https://github.com/datacoolie/datacoolie
+- **Docs**: https://datacoolie.github.io/datacoolie/
+- **Version**: 0.1.2
+- **Python**: >= 3.11
+
+## One-Sentence Summary
+
+DataCoolie is a metadata-driven ETL framework for Python that lets data teams define pipelines once as JSON/YAML metadata and run them unchanged on Polars, Spark, Microsoft Fabric, Databricks, and AWS Glue.
+
+## Core Value Propositions
+
+1. **Engine-unified**: Same metadata runs on Polars (lightweight) and Spark (distributed) via a shared `BaseEngine[DF]` contract
+2. **Cloud-agnostic**: Platform abstraction layer handles file I/O and secrets for local, AWS, Fabric, and Databricks environments
+3. **Metadata-driven**: Connections, dataflows, transforms, schema hints, partitions, and load strategies are declarative (JSON/YAML/Excel)
+4. **Right-sized compute**: Polars for dev/CI/small jobs, Spark for production at scale — same metadata for both
+5. **Batch-first**: append, full_load (overwrite), merge_upsert, merge_overwrite, and SCD Type 2 out of the box
+6. **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support on every engine
+7. **Plugin architecture**: Engines, platforms, sources, destinations, transformers, and secret resolvers are all Python entry-point plugins
+8. **AI-native**: Declarative metadata schema is a perfect interface for LLM-powered pipeline scaffolding and validation
+
+## Architecture Components
+
+- **DataCoolieDriver**: Orchestrates pipeline runs (reads metadata → resolves connections → executes dataflows → writes watermarks)
+- **BaseEngine[DF]**: Generic dataframe contract. Implementations: PolarsEngine, SparkEngine
+- **BasePlatform**: Abstracts file I/O and secret retrieval. Implementations: LocalPlatform, AWSPlatform, FabricPlatform, DatabricksPlatform
+- **BaseMetadataProvider**: Loads pipeline configuration. Implementations: FileProvider (JSON/YAML/Excel), DatabaseProvider (SQLAlchemy), APIProvider (REST)
+- **TransformerPipeline**: Ordered chain of dataframe mutations (schema conversion, deduplication, column addition, filtering, partitioning, SCD2 columns)
+- **WatermarkManager**: Tracks incremental processing state per dataflow via raw JSON watermarks
+- **ETLLogger / SystemLogger**: Structured logging with debug JSONL and analyst Parquet outputs
+
+## Supported Formats
+
+Read/Write: Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, Avro
+Read-only: Excel, SQL databases, REST APIs, Python functions
+
+## Load Strategies
+
+- `append` — insert-only, no updates
+- `full_load` — drop and reload (overwrite)
+- `merge_upsert` — insert new rows, update existing rows by merge keys
+- `merge_overwrite` — partition-level overwrite merge
+- `scd2` — slowly changing dimension type 2 with effective date tracking
+
+## Target Audience
+
+Data engineers, analytics engineers, DataOps engineers, and adjacent backend teams building ETL pipelines in Python-based lakehouse environments.
+
+## Competitors and Alternatives
+
+DataCoolie is complementary to (not a replacement for):
+- **dbt**: SQL-first transformation layer. DataCoolie handles Python-native ETL execution.
+- **Airflow/Prefect/Dagster**: Workflow orchestration. DataCoolie handles the ETL execution within orchestrated jobs.
+- **Custom PySpark/Polars scripts**: DataCoolie replaces per-job boilerplate with declarative metadata.
+- **Meltano/Singer**: EL-focused. DataCoolie covers the full ETL lifecycle with richer transform and load strategy support.
+
+## Install
+
+```bash
+pip install "datacoolie[polars]"      # Polars engine (lightest)
+pip install "datacoolie[spark,delta]" # Spark engine with Delta Lake
+pip install "datacoolie[all]"         # Everything
+```
+
+## Key Pages
+
+- [Blog — Python ETL Tutorial for Beginners](https://datacoolie.github.io/datacoolie/blog/2026/05/30/python-etl-tutorial-for-beginners--build-your-first-data-pipeline/)
+- [Blog — DataCoolie vs dbt](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/)
+- [Blog — DataCoolie vs Airflow/Prefect](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/)

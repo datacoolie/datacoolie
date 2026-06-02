@@ -71,6 +71,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -96,17 +98,58 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Blog" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/blog/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://datacoolie.github.io/datacoolie/blog/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
       "@type": "WebPage",
+      
       "@id": "https://datacoolie.github.io/datacoolie/blog/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/blog/",
       "name": "Blog",
+      "headline": "Blog",
       "description": "Updates, tutorials, and architecture insights from the DataCoolie team.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3098,6 +3141,319 @@
       <header class="md-typeset">
         
       </header>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-30 00:00:00+00:00">May 30, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="category/architecture/" class="md-meta__link">Architecture</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="datacoolie-vs-airflow-prefect-etl-framework-vs-orchestrator"><a class="toclink" href="2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/">DataCoolie vs Airflow / Prefect — ETL Framework vs Orchestrator</a></h2>
+<p>DataCoolie and Airflow (or Prefect) operate at different levels of the data
+stack. Airflow and Prefect are <strong>workflow orchestrators</strong> — they schedule tasks,
+manage dependencies, and handle retries across an entire pipeline graph.
+DataCoolie is an <strong>ETL execution framework</strong> — it handles the read → transform
+→ write → watermark lifecycle inside each individual task.</p>
+<p>This post explains the difference, when to use each, and how they work together.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-30 00:00:00+00:00">May 30, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="category/architecture/" class="md-meta__link">Architecture</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="datacoolie-vs-dbt-etl-framework-vs-sql-transforms"><a class="toclink" href="2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/">DataCoolie vs dbt — ETL Framework vs SQL Transforms</a></h2>
+<p>DataCoolie and dbt solve different problems in the data stack. dbt transforms
+data that is already in your warehouse using SQL models. DataCoolie handles the
+full ETL lifecycle — extracting data from sources, transforming it with
+Python-native engines, and loading it into lakehouses or warehouses.</p>
+<p>This post compares the two fairly, explains when each tool fits best, and shows
+how they complement each other.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-30 00:00:00+00:00">May 30, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="category/tutorial/" class="md-meta__link">Tutorial</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              5 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="python-etl-tutorial-for-beginners-build-your-first-data-pipeline"><a class="toclink" href="2026/05/30/python-etl-tutorial-for-beginners--build-your-first-data-pipeline/">Python ETL Tutorial for Beginners — Build Your First Data Pipeline</a></h2>
+<p>If you work with data, you have probably heard the term "ETL" but never had a
+clear explanation of what it means or how to build one yourself. This tutorial
+starts from zero — no prior ETL experience needed — and walks you through
+building a working data pipeline in Python.</p>
+<p>By the end you will understand what ETL is, why naive approaches break down at
+scale, and how a metadata-driven framework like DataCoolie makes pipelines
+portable, repeatable, and easy to maintain.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="2026/05/30/python-etl-tutorial-for-beginners--build-your-first-data-pipeline/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-29 00:00:00+00:00">May 29, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="category/tutorial/" class="md-meta__link">Tutorial</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="implementing-scd-type-2-in-python-with-delta-lake"><a class="toclink" href="2026/05/29/implementing-scd-type-2-in-python-with-delta-lake/">Implementing SCD Type 2 in Python with Delta Lake</a></h2>
+<p>Slowly Changing Dimension Type 2 (SCD2) is a data warehousing pattern that preserves the full history of dimension changes. When a customer changes their address, SCD2 keeps both the old and new records with effective date ranges — so you can join facts to the correct dimension state at any point in time.</p>
+<p>Implementing SCD2 correctly is harder than it looks. This post shows how DataCoolie handles it declaratively with metadata instead of hand-coded merge logic.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="2026/05/29/implementing-scd-type-2-in-python-with-delta-lake/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-28 00:00:00+00:00">May 28, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="category/tutorial/" class="md-meta__link">Tutorial</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="how-to-build-cloud-agnostic-data-pipelines-in-python"><a class="toclink" href="2026/05/28/how-to-build-cloud-agnostic-data-pipelines-in-python/">How to Build Cloud-Agnostic Data Pipelines in Python</a></h2>
+<p>Moving a data pipeline from one cloud to another usually means rewriting file I/O, secrets management, and authentication code. Platform lock-in — where pipeline code is tightly coupled to a specific cloud's APIs and paths — isn't a theoretical problem. It's the reason data teams maintain parallel codebases for the same business logic.</p>
+<p>This post shows how to build pipelines that run on local machines, AWS Glue, Microsoft Fabric, and Databricks without code changes.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="2026/05/28/how-to-build-cloud-agnostic-data-pipelines-in-python/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
+      
+        <article class="md-post md-post--excerpt">
+  <header class="md-post__header">
+    
+      <nav class="md-post__authors md-typeset">
+        
+          <span class="md-author">
+            <img src="https://github.com/datacoolie.png" alt="DataCoolie Team">
+          </span>
+        
+      </nav>
+    
+    <div class="md-post__meta md-meta">
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="2026-05-26 00:00:00+00:00">May 26, 2026</time></li>
+        
+          <li class="md-meta__item">
+            in
+            
+              <a href="category/benchmark/" class="md-meta__link">Benchmark</a></li>
+        
+        
+          
+          <li class="md-meta__item">
+            
+              3 min read
+            
+          </li>
+        
+        
+      </ul>
+      
+    </div>
+  </header>
+  <div class="md-post__content md-typeset">
+    <h2 id="polars-vs-spark-for-etl-when-to-use-which"><a class="toclink" href="2026/05/26/polars-vs-spark-for-etl--when-to-use-which/">Polars vs Spark for ETL — When to Use Which</a></h2>
+<p>Polars and Spark solve overlapping problems in different ways. Polars is a Rust-backed DataFrame library built for single-node speed. Spark is a JVM-based distributed compute engine built for cluster-scale workloads. Both are excellent — but choosing the wrong one for your workload wastes either money or time.</p>
+<p>DataCoolie runs both <a href="../concepts/engines/">engines</a> on the same metadata, so we tested them side by side. Here's what we found and when to pick each one.</p>
+
+    
+      <nav class="md-post__action">
+        <a href="2026/05/26/polars-vs-spark-for-etl--when-to-use-which/">
+          Continue reading
+        </a>
+      </nav>
+    
+    
+  </div>
+</article>
       
         <article class="md-post md-post--excerpt">
   <header class="md-post__header">

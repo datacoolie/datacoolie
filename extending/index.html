@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,58 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Extending DataCoolie — Plugin Development" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/extending/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Extending DataCoolie \u2014 Plugin Development",
+          "item": "https://datacoolie.github.io/datacoolie/extending/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
       "@type": "WebPage",
+      
       "@id": "https://datacoolie.github.io/datacoolie/extending/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/extending/",
       "name": "Extending DataCoolie \u2014 Plugin Development",
+      "headline": "Extending DataCoolie \u2014 Plugin Development",
       "description": "Build custom sources, destinations, transformers, engines, secret resolvers, and metadata providers as first-class DataCoolie plugins using Python entry points.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3107,6 +3150,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#related-sections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related sections
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3196,6 +3250,12 @@ framework capability.</p>
 </ol>
 <p>Your package doesn't need to import the DataCoolie plugin registry — entry
 points are discovered automatically.</p>
+<h2 id="related-sections">Related sections<a class="headerlink" href="#related-sections" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Need to understand the architecture before building plugins? → <a href="../concepts/architecture/">Concepts — Architecture</a></li>
+<li>Looking for the exact API contracts? → <a href="../reference/">Reference — API</a></li>
+<li>Need test patterns for your custom plugin? → <a href="../operations/testing-strategy/">Operations — Testing strategy</a></li>
+</ul>
 
 
 

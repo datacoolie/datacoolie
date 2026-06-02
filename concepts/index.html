@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,58 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Concepts — How DataCoolie Works" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/concepts/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Concepts \u2014 How DataCoolie Works",
+          "item": "https://datacoolie.github.io/datacoolie/concepts/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
       "@type": "WebPage",
+      
       "@id": "https://datacoolie.github.io/datacoolie/concepts/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/concepts/",
       "name": "Concepts \u2014 How DataCoolie Works",
+      "headline": "Concepts \u2014 How DataCoolie Works",
       "description": "Understand the architecture, metadata model, engine contract, orchestration model, watermarks, logging, and secrets that underpin the DataCoolie ETL framework.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3090,6 +3133,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-these-concepts-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How these concepts connect
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-sections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related sections
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -3118,6 +3191,21 @@
 this way?"</strong> rather than "how do I do X?". For task recipes see
 <a href="../how-to/">How-to</a>; for precise field-level contracts see
 <a href="../reference/">Reference</a>.</p>
+<h2 id="how-these-concepts-connect">How these concepts connect<a class="headerlink" href="#how-these-concepts-connect" title="Permanent link">&para;</a></h2>
+<p>DataCoolie's architecture is layered. At the top sits the
+<a href="metadata-model/"><strong>metadata model</strong></a> — connections, dataflows, and
+transforms defined as JSON, YAML, or Excel. The
+<a href="orchestration/"><strong>DataCoolieDriver</strong></a> reads that metadata and coordinates
+execution. It delegates data processing to an <a href="engines/"><strong>engine</strong></a> (Polars
+or Spark), which uses a <a href="platforms/"><strong>platform</strong></a> (local, AWS, Fabric,
+Databricks) for file I/O and secrets. Between read and write, a
+<a href="transformers-and-pipeline/"><strong>transformer pipeline</strong></a> applies schema hints,
+deduplication, computed columns, and filters. The write step uses a
+<a href="load-strategies/"><strong>load strategy</strong></a> — append, merge, or SCD2. Finally,
+<a href="watermarks/"><strong>watermarks</strong></a> track progress so the next run picks up only
+new data.</p>
+<p>Reading in the order below gives you the full picture, but you can jump to any
+page independently.</p>
 <p>This is the best starting section if you want to understand the workflow,
 terminology, and operating model without running code.</p>
 <p>Start with <a href="architecture/">Architecture</a> if you're new to the framework.
@@ -3135,6 +3223,13 @@ Otherwise jump to the concept you need:</p>
 <li><a href="orchestration/">Orchestration</a> — driver, job distributor, parallel executor, retry handler.</li>
 <li><a href="logging/">Logging</a> — ETL logger vs system logger, <code>LogPurpose</code>, partitioning.</li>
 <li><a href="secrets/">Secrets</a> — provider vs resolver, <code>secrets_ref</code> schema.</li>
+</ul>
+<h2 id="related-sections">Related sections<a class="headerlink" href="#related-sections" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Need task recipes instead of explanations? → <a href="../how-to/">How-to guides</a></li>
+<li>Need exact field names and API signatures? → <a href="../reference/">Reference</a></li>
+<li>Want to add a new engine, source, or transformer? → <a href="../extending/">Extending</a></li>
+<li>Looking for production guidance? → <a href="../operations/">Operations</a></li>
 </ul>
 
 

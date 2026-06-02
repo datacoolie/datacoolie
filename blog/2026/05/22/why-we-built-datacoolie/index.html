@@ -14,6 +14,8 @@
       
       
       
+        <link rel="next" href="../../26/polars-vs-spark-for-etl--when-to-use-which/">
+      
       
         
       
@@ -69,6 +71,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -94,17 +98,94 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Why We Built DataCoolie - DataCoolie" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://datacoolie.github.io/datacoolie/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "2026",
+          "item": "https://datacoolie.github.io/datacoolie/blog/2026/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "05",
+          "item": "https://datacoolie.github.io/datacoolie/blog/2026/05/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "name": "22",
+          "item": "https://datacoolie.github.io/datacoolie/blog/2026/05/22/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 6,
+          "name": "Why We Built DataCoolie - DataCoolie",
+          "item": "https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "BlogPosting",
+      
+      "datePublished": "2026-05-22",
+      
+      
+      "dateModified": "2026-05-22",
+      
+      "author": {
+        "@type": "Organization",
+        "@id": "https://datacoolie.github.io/datacoolie/#organization",
+        "name": "DataCoolie"
+      },
+      "mainEntityOfPage": { "@id": "https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/" },
+      
       "@id": "https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/",
       "name": "Why We Built DataCoolie - DataCoolie",
+      "headline": "Why We Built DataCoolie - DataCoolie",
       "description": "Why we built a metadata-driven, AI-native ETL framework that separates pipeline intent from execution \u2014 and lets LLMs do the boilerplate.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3305,9 +3386,9 @@
 <h2 id="the-problem-we-kept-hitting">The Problem We Kept Hitting<a class="headerlink" href="#the-problem-we-kept-hitting" title="Permanent link">&para;</a></h2>
 <p>Every time a data engineer moves a pipeline from local development to production, they face:</p>
 <ol>
-<li><strong>Engine lock-in</strong> — code written for Polars doesn't run on Spark (and vice versa).</li>
-<li><strong>Platform coupling</strong> — file paths, secrets, and auth differ per cloud.</li>
-<li><strong>Operational drift</strong> — watermarks, partitioning, and load strategies get reimplemented per job.</li>
+<li><strong>Engine lock-in</strong> — code written for Polars doesn't run on Spark (and vice versa). See <a href="../../../../../concepts/engines/">Engines</a>.</li>
+<li><strong>Platform coupling</strong> — file paths, secrets, and auth differ per cloud. See <a href="../../../../../concepts/platforms/">Platforms</a>.</li>
+<li><strong>Operational drift</strong> — <a href="../../../../../concepts/watermarks/">watermarks</a>, partitioning, and <a href="../../../../../concepts/load-strategies/">load strategies</a> get reimplemented per job.</li>
 <li><strong>Configuration sprawl</strong> — environment-specific configs multiply across repos.</li>
 <li><strong>Repetitive boilerplate</strong> — the same patterns (read → transform → merge → watermark) rewritten hundreds of times with minor variations.</li>
 </ol>
@@ -3315,9 +3396,9 @@
 <h2 id="our-approach-metadata-driven-ai-native">Our Approach: Metadata-Driven + AI-Native<a class="headerlink" href="#our-approach-metadata-driven-ai-native" title="Permanent link">&para;</a></h2>
 <p>Instead of encoding pipeline behavior in imperative code, DataCoolie externalizes it as <strong>declarative metadata</strong>:</p>
 <ul>
-<li><strong>Connections</strong> describe where data lives (local paths, S3, ADLS, Delta tables)</li>
+<li><strong><a href="../../../../../concepts/metadata-model/">Connections</a></strong> describe where data lives (local paths, S3, ADLS, Delta tables)</li>
 <li><strong>Dataflows</strong> describe what moves where, with schema hints and load strategies</li>
-<li><strong>Transforms</strong> describe column-level logic in a portable DSL</li>
+<li><strong><a href="../../../../../concepts/transformers-and-pipeline/">Transforms</a></strong> describe column-level logic in a portable DSL</li>
 <li><strong>Operational controls</strong> (watermarks, partitions, maintenance) are declared, not coded</li>
 </ul>
 <p>The same metadata runs on Polars for development and Spark for production — zero code changes.</p>

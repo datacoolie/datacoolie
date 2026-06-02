@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,65 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Deploy to AWS Glue — DataCoolie How-to" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "How To",
+          "item": "https://datacoolie.github.io/datacoolie/how-to/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Deploy to AWS Glue \u2014 DataCoolie How-to",
+          "item": "https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
+      "@type": "TechArticle",
+      "proficiencyLevel": "Beginner",
+      
       "@id": "https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/",
       "name": "Deploy to AWS Glue \u2014 DataCoolie How-to",
+      "headline": "Deploy to AWS Glue \u2014 DataCoolie How-to",
       "description": "Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3330,7 +3380,7 @@
 <strong>End state</strong> · DataCoolie pipeline running as a Glue Spark job writing Delta/Iceberg to S3 with Secrets Manager-backed credentials.</p>
 <h2 id="1-package-the-library">1. Package the library<a class="headerlink" href="#1-package-the-library" title="Permanent link">&para;</a></h2>
 <p>Glue lets you provide a wheel via <code>--additional-python-modules</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>--additional-python-modules datacoolie==0.1.1
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>--additional-python-modules datacoolie==0.1.2
 </span></code></pre></div>
 <p>Then add only the extra Python packages your specific job needs, for example:</p>
 <ul>

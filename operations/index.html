@@ -73,6 +73,8 @@
     
     
     
+      
+    
 
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="SwIvP7tsKoUWYmCY50bG01bDwl6L0xqksA1kV3_LQUE" />
@@ -98,17 +100,58 @@
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Operations — Running DataCoolie in Production" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/operations/" />
+
     <!-- JSON-LD structured data -->
+    
+    
+    
     
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://datacoolie.github.io/datacoolie/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Operations \u2014 Running DataCoolie in Production",
+          "item": "https://datacoolie.github.io/datacoolie/operations/"
+        }
+      ]
+    }
+    </script>
+    
+    
+    
+    
+    
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      
       "@type": "WebPage",
+      
       "@id": "https://datacoolie.github.io/datacoolie/operations/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/operations/",
       "name": "Operations \u2014 Running DataCoolie in Production",
+      "headline": "Operations \u2014 Running DataCoolie in Production",
       "description": "Production guidance for DataCoolie: logging layout and file partitioning, Polars vs Spark benchmarks, troubleshooting common failures, and testing strategy.",
-      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" }
+      "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      "inLanguage": "en",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "DataCoolie"
+      }
     }
     </script>
     
@@ -3129,6 +3172,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#related-sections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related sections
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3192,6 +3246,12 @@ first successful local run, go back to <a href="../getting-started/">Getting sta
 <li>Review the logging output path and ensure the destination directory is
    writable with the expected partition structure.</li>
 </ol>
+<h2 id="related-sections">Related sections<a class="headerlink" href="#related-sections" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Choosing between Polars and Spark? Read the <a href="../blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/">blog post on Polars vs Spark for ETL</a></li>
+<li>Need deployment guides? → <a href="../how-to/deploy-to-fabric/">Deploy to Fabric</a> · <a href="../how-to/deploy-to-databricks/">Deploy to Databricks</a> · <a href="../how-to/deploy-to-aws-glue/">Deploy to AWS Glue</a></li>
+<li>Building custom plugins and need test patterns? → <a href="../extending/">Extending</a></li>
+</ul>
 
 
 
