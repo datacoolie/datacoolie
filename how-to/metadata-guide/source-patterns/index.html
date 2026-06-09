@@ -4351,7 +4351,7 @@ SDK call, in-memory dataset, etc.).</p>
 </span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">  </span><span class="p">}</span>
 </span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>load_orders</code> must accept <code>(engine, source, watermark)</code> and return a DataFrame
+<p><code>load_orders(*args, **kwargs)</code> or <code>load_orders(engine, source, watermark_start, watermark_end, *args, **kwargs)</code> and return a DataFrame
 compatible with the active engine. Read custom arguments from <code>source.configure</code>
 inside your function.</p>
 <p>If you want to restrict which Python functions may be imported from metadata,
