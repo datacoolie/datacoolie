@@ -2,7 +2,7 @@
 
 **Date:** {{ date }}
 **Version:** v{{ version | default("1") }}
-**Discovery Reports:** `.datacoolie/discover/`
+**Discovery Reports:** `{project_name}_dcws/discover/`
 **Platform:** {{ platform }}
 **Status:** Draft — Awaiting Approval
 
@@ -19,7 +19,7 @@
 
 ## Source Registry
 
-| Source | Type | Discovered | Arch Version | Tables | Dataflows | Status |
+| Source | Type | Discovered | Arch Version | Tables | Stage Impact | Status |
 |--------|------|-----------|-------------|--------|-----------|--------|
 | {{ source_registry_rows }} |
 
@@ -50,21 +50,21 @@
 ```mermaid
 flowchart LR
     subgraph Sources
-        S1[{{ source_1 }}]
-        S2[{{ source_2 }}]
+        S1["{{ source_1 }}"]
+        S2["{{ source_2 }}"]
     end
 
     subgraph Bronze
-        B1[{{ source_1 }} tables]
-        B2[{{ source_2 }} tables]
+        B1["{{ source_1 }} tables"]
+        B2["{{ source_2 }} tables"]
     end
 
     subgraph Silver
-        SV1[{{ domain_1 }}]
+        SV1["{{ domain_1 }}"]
     end
 
     subgraph Gold
-        G1[{{ domain_1 }} aggregations]
+        G1["{{ domain_1 }} aggregations"]
     end
 
     S1 --> B1
@@ -106,40 +106,42 @@ flowchart LR
 
 ---
 
-## Dataflow Summary Table
+## Stage Summary Table
 
-| Dataflow | Layer | Source | Destination | Load Type | Engine | Schedule |
-|----------|-------|--------|-------------|-----------|--------|----------|
-| {{ dataflow_summary_rows }} |
+| Stage | Layer Boundary | Source Domains | Target Grain | Load Pattern | Key Strategy | Freshness | Default Engine | Quality Gate |
+|-------|----------------|----------------|--------------|--------------|--------------|-----------|--------|--------------|
+| {{ stage_summary_rows }} |
 
 > This table is always present in the master file regardless of split mode.
 
-### Dataflow Details
+### Stage Contracts
 
-<!-- Inline mode: dataflow details listed here. Split mode: see layers/{layer}.md -->
+<!-- Inline mode: stage contracts listed here. Split mode: see layers/{layer}.md -->
 
-<!-- Repeat for each dataflow: -->
+<!-- Repeat for each stage/layer boundary: -->
 <!--
-#### {{ dataflow_name }}
+#### {{ stage_name }}
 
-- **Layer:** {{ layer }} (bronze / silver / gold)
-- **Source connection:** {{ connection_name }}
-- **Source table / endpoint:** {{ table_or_endpoint }}
-- **Destination:** {{ layer }}/{{ path }}
-- **Load type:** {{ load_type }}
-- **Watermark column:** {{ watermark_column | default("N/A") }}
-- **Merge keys:** {{ merge_keys | default("N/A") }}
-- **Engine:** {{ engine }}
-- **Partition columns:** {{ partition_columns | default("None") }}
-- **Transform logic:** {{ transform_description }}
+- **Layer boundary:** {{ layer_boundary }} (source2bronze / bronze2silver / silver2gold)
+- **Source domains:** {{ source_domains }}
+- **Target grain:** {{ target_grain }}
+- **Load pattern:** {{ load_pattern }}
+- **Change detection:** {{ change_detection }}
+- **Key strategy:** {{ key_strategy }}
+- **Freshness target:** {{ freshness_target }}
+- **Default engine:** {{ engine }} (`polars` or `spark`)
+- **Platform/storage:** {{ platform_storage }}
+- **Partitioning principle:** {{ partitioning_principle }}
+- **Quality gate:** {{ quality_gate }}
+- **Backfill/rollback:** {{ backfill_rollback }}
 -->
 
 <!-- Split mode: replace the above with:
-> **Split mode:** Dataflow details organized by layer:
+> **Split mode:** Stage contracts organized by layer:
 > - [Source details](layers/source.md)
-> - [Bronze dataflows](layers/bronze.md)
-> - [Silver dataflows](layers/silver.md)
-> - [Gold dataflows](layers/gold.md)
+> - [Bronze contracts](layers/bronze.md)
+> - [Silver contracts](layers/silver.md)
+> - [Gold contracts](layers/gold.md)
 -->
 
 ---
@@ -165,11 +167,21 @@ flowchart LR
 
 ## Engine Strategy
 
-| Layer Transition | Engine | Rationale |
-|---|---|---|
-| source → bronze | polars | Lightweight I/O, no cluster overhead |
-| bronze → silver | polars or spark | Simple transforms, data fits in memory |
-| silver → gold | {{ gold_engine }} | {{ gold_engine_rationale }} |
+Engine strategy is a matrix by environment and stage. Each engine value must be one concrete
+runtime engine: `polars` or `spark`. There is no third engine value; using both engines means
+the runner/deploy artifact selects a concrete engine per environment and stage.
+
+| Environment | Stage | Engine | Rationale | Runner/Deploy Impact |
+|---|---|---|---|---|
+| dev | source2bronze | polars | Fast local iteration | Local runner uses PolarsEngine for this stage |
+| dev | bronze2silver | polars | Fast local iteration | Local runner uses PolarsEngine for this stage |
+| dev | silver2gold | polars | Sample/small dev data | Local runner uses PolarsEngine unless Spark parity is required |
+| test | source2bronze | {{ test_s2b_engine }} | {{ test_s2b_engine_rationale }} | Generated test runner/deploy selects this engine |
+| test | bronze2silver | {{ test_b2s_engine }} | {{ test_b2s_engine_rationale }} | Generated test runner/deploy selects this engine |
+| test | silver2gold | {{ test_s2g_engine }} | {{ test_s2g_engine_rationale }} | Generated test runner/deploy selects this engine |
+| prod | source2bronze | {{ prod_s2b_engine }} | {{ prod_s2b_engine_rationale }} | Generated prod runner/deploy selects this engine |
+| prod | bronze2silver | {{ prod_b2s_engine }} | {{ prod_b2s_engine_rationale }} | Generated prod runner/deploy selects this engine |
+| prod | silver2gold | {{ prod_s2g_engine }} | {{ prod_s2g_engine_rationale }} | Generated prod runner/deploy selects this engine |
 
 ---
 
@@ -181,11 +193,23 @@ flowchart LR
 
 ---
 
+## Architecture Amendments
+
+Architecture changes discovered during implementation must be recorded under:
+
+```text
+{project_name}_dcws/architecture/amendments/YYMMDD_<change>.md
+```
+
+Breaking amendments stop downstream work until approved. Non-breaking amendments require lightweight review before continuing.
+
+---
+
 ## Environment Differences
 
 | Aspect | Dev | Test | Prod |
 |---|---|---|---|
-| Engine | polars | mixed | mixed (per stage) |
+| Engine strategy | per Engine Strategy matrix | per Engine Strategy matrix | per Engine Strategy matrix |
 | Storage | local files | cloud (test workspace) | cloud (prod workspace) |
 | Schedule | manual trigger | daily | per stage definition |
 | Data volume | sample (1000 rows) | full | full |
@@ -213,8 +237,9 @@ flowchart LR
 
 ## Approval
 
-> **Reviewer:** Please review the architecture above. Reply with:
-> - `approve` — proceed to metadata generation and provisioning
+> **Reviewer:** Please review the architecture above and record the gate journal under
+> `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`. Reply with:
+> - `approve` — record the architecture gate and allow `source2bronze`
 > - Specific feedback — I will iterate on the design
 
 **Status:** {{ status | default("⏳ Awaiting review") }}

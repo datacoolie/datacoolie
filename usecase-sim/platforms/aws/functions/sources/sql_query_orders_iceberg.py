@@ -14,7 +14,8 @@ from typing import Any, Dict, Optional
 from pyspark.sql import DataFrame
 
 
-def sql_query_orders_iceberg(engine, source, watermark_start: Optional[Dict[str, Any]] = None, watermark_end: Optional[Dict[str, Any]] = None, *args, **kwargs) -> DataFrame:
+def sql_query_orders_iceberg(engine, source, watermark_start: Optional[Dict[str, Any]] = None, watermark_end: Optional[Dict[str, Any]] = None, 
+                             *args, **kwargs) -> DataFrame:
     """Return a filtered subset of the orders_iceberg_overwritten Iceberg table via SQL.
 
     Args:

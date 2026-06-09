@@ -4,7 +4,7 @@ description: >
   Design data platform architecture based on discovery findings.
   Supports incremental source onboarding — add new sources without redoing approved decisions.
   Reads discovery reports and produces a medallion architecture design document
-  with dataflow definitions, engine strategy, infrastructure requirements, and partitioning.
+  with stage-level contracts, engine strategy, infrastructure requirements, and partitioning.
   Use when user says "design architecture", "medallion", "plan layers", "add source",
   "what infrastructure do I need", "how should I structure the pipeline",
   "bronze silver gold", "architecture design", "update architecture",
@@ -22,38 +22,38 @@ Supports two modes:
 
 ## Scope
 
-This skill handles: medallion layer design, dataflow planning, load strategy selection,
+This skill handles: medallion layer design, stage-level workload planning, load strategy selection,
 engine selection, infrastructure requirements, partitioning strategy, environment planning,
 incremental source onboarding, architecture versioning.
 
 Does NOT handle: source discovery, metadata generation, infrastructure provisioning,
-project scaffolding, stage grouping/scheduling (metadata skill responsibility).
+project scaffolding, dataflow object naming, column-level metadata implementation, or platform deploy commands.
 
 ## Prerequisites
 
-- One or more discovery reports exist in `.datacoolie/discover/` (files: `yymmdd_{source-name}.md` + `yymmdd_{source-name}_schema.csv`)
+- One or more discovery reports exist in `{project_name}_dcws/discover/` (files: `yymmdd_{source-name}.md` + `yymmdd_{source-name}_schema.csv`)
 - If no discovery reports exist, prompt user to run source discovery first
 
 ## AI Workflow
 
 ### Step 0: Detect Mode
 
-Check for an existing architecture document in `.datacoolie/architect/`:
+Check for an existing architecture document in `{project_name}_dcws/architecture/`:
 
 | Condition | Mode |
 |-----------|------|
-| No `*_architecture.md` exists | **Create** — build from scratch |
-| `*_architecture.md` exists | **Update** — diff discoveries against Source Registry |
+| No `current.md` exists | **Create** — build from scratch |
+| `current.md` exists | **Update/Amend** — diff discoveries against Source Registry and record any architecture amendment |
 
 In **Update** mode, read the existing architecture and its Source Registry section. Compare
-against current discovery reports in `.datacoolie/discover/` to identify:
+against current discovery reports in `{project_name}_dcws/discover/` to identify:
 - **New sources** — discovery report exists but source not in registry
 - **Modified sources** — discovery report is newer than the arch version date
 - **Retired sources** — source in registry but discovery report removed
 
 ### Step 1: Read Discovery Reports
 
-Read all discovery reports and schema inventories from `.datacoolie/discover/`. For each source:
+Read all discovery reports and schema inventories from `{project_name}_dcws/discover/`. For each source:
 - From `yymmdd_{source-name}_schema.csv`: tables/endpoints, columns/fields, PKs, types, row estimates, FK relationships
 - From `yymmdd_{source-name}.md`: source type (database/API/file/lakehouse), load frequency, CDC availability, access & connectivity, watermark candidates, load strategy recommendations
 
@@ -67,12 +67,12 @@ already-approved decisions. Do NOT re-derive decisions for unchanged sources.
 Use the decision rules below to determine:
 1. Number of medallion layers (2 vs 3)
 2. Load strategy per source table
-3. Engine per dataflow
+3. Engine per stage or layer transition
 4. Infrastructure resources needed
 5. Partitioning approach
 
 **Update mode**: Apply decisions only to new/modified sources. Preserve all existing
-approved dataflow decisions. If new sources affect silver/gold layers (new joins, new
+approved stage decisions. If new sources affect silver/gold layers (new joins, new
 aggregations), propose additions rather than replacements.
 
 ### Step 3: Generate Architecture Document
@@ -81,17 +81,18 @@ aggregations), propose additions rather than replacements.
 Write to:
 
 ```
-.datacoolie/architect/yymmdd_architecture.md
+{project_name}_dcws/architecture/current.md
 ```
 
-**Update mode:** Update the existing architecture document in place:
+**Update mode:** Update the existing architecture document in place only when the change is approved:
 1. Add new sources to Source Registry with status `New`
 2. Mark modified sources as `Modified` in registry
 3. Mark removed sources as `Retired` in registry
-4. Add new dataflows to the Dataflow Summary Table
-5. Add new Dataflow Details (inline or in layer files)
+4. Add or adjust stage-level workload contracts
+5. Avoid dataflow object names and column-level metadata details
 6. Bump the version number
 7. Add a Changelog entry describing what changed
+8. For architecture changes discovered during implementation, write an amendment to `{project_name}_dcws/architecture/amendments/yymmdd_{change}.md`
 
 #### Progressive Split Rules
 
@@ -100,35 +101,36 @@ The architecture starts as a single inline file. Split when it grows too large:
 | Condition | Mode | Action |
 |-----------|------|--------|
 | Total document ≤ ~500 lines | **Inline** | Everything in one file |
-| Total document > ~500 lines | **Layer Split** | Move Dataflow Details to `layers/{layer}.md` files. Master keeps Dataflow Summary Table + pointers to layer files |
+| Total document > ~500 lines | **Layer Split** | Move Stage Contracts to `layers/{layer}.md` files. Master keeps Stage Summary Table + pointers to layer files |
 | Any single layer file > ~300 lines | **Layer+Source Split** | Split that layer into `layers/{layer}/{source}.md` files |
 
 When splitting:
-- Master file always retains: header, Source Registry, Source Overview, Dataflow Summary Table, Infrastructure, Engine Strategy, Partitioning, Changelog, Approval
-- Layer files contain: Dataflow Details for that layer only
+- Master file always retains: header, Source Registry, Source Overview, Stage Summary Table, Infrastructure, Engine Strategy, Partitioning, Changelog, Approval
+- Layer files contain: stage-level contracts for that layer only
 - Use split-mode pointers in master to link to layer files
 
 ### Step 4: Present for Review
 
 Show the architecture document to the user. In Update mode, highlight what changed:
-- New sources and their proposed dataflows
+- New sources and their proposed stage impacts
 - Modified sources and what changed
 - Any impact on silver/gold layers
 
 Ask:
-> "Do you approve this architecture? Reply 'approve' to proceed, or describe changes."
+> "Do you approve this architecture? Reply 'approve' to record the architecture gate, or describe changes."
 
-**GATE**: Do NOT proceed to metadata generation or provisioning without explicit approval.
+**GATE**: Do NOT proceed to init, metadata generation, workload implementation, or provisioning until an approved Markdown gate journal exists under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`.
 Iterate on the document until the user says "approve" or equivalent.
 
 ### Step 5: After Approval
 
 Once approved:
+- Write or update the architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`
 - Update Source Registry statuses: `New` → `Active`, `Modified` → `Active`
 - Inform user of next steps:
-  - Scaffold project structure and generate metadata (connections + dataflows) from the architecture
-  - Validate and lint the generated metadata
-  - Create infrastructure resources
+  - Scaffold `{project_name}_dcws/`
+  - Generate metadata from stage-level contracts and discovery evidence
+  - Implement and validate the next allowed workload stage
 
 ---
 
@@ -173,12 +175,12 @@ Once approved:
 |-----------|--------|-----------|
 | Data volume <10GB per run AND simple transforms | `polars` | Fast, no cluster, low cost |
 | Data volume >10GB per run | `spark` | Distributed processing |
-| Multi-source joins in a single dataflow | `spark` | Better join optimization |
+| Multi-source joins in a single workload stage | `spark` | Better join optimization |
 | Complex window functions / aggregations | `spark` | Native support |
 | File format conversion only (no transforms) | `polars` | I/O bound, Polars excels |
-| Dev environment (any dataflow) | `polars` | Fast iteration, no infra |
+| Dev environment (any workload stage) | `polars` | Fast iteration, no infra |
 
-**Strategy**: Start with Polars everywhere in dev. Only promote to Spark for dataflows
+**Strategy**: Start with Polars everywhere in dev. Only promote to Spark for workload stages
 that demonstrably need it in production.
 
 ### Partitioning Strategy
@@ -187,12 +189,12 @@ Partition only when each resulting partition file would be **>128MB** (Parquet/D
 If partitioning produces files <128MB per partition, skip it — small files add read
 overhead without benefit.
 
-**Bronze (source→bronze) dataflows always partition by ingest date/timestamp**, regardless
+**Bronze (source to bronze) workload stages always partition by ingest date/timestamp**, regardless
 of file size. This is required for watermark-based incremental reads and date-folder pruning.
 
 | Condition | Partition Approach |
 |-----------|-------------------|
-| Bronze / source→bronze dataflow (any table) | Always partition by ingest date (`_ingest_date`) |
+| Bronze / source to bronze workload (any table) | Always partition by ingest date (`_ingest_date`) |
 | Each partition file would be >128MB | Partition by that column |
 | Table has date column + each date bucket >128MB | Partition by date (YYYY-MM-DD or YYYY-MM) |
 | Table has category column + each category >128MB | Partition by category (region, tenant) |
@@ -206,8 +208,8 @@ of file size. This is required for watermark-based incremental reads and date-fo
 |--------------------|--------|-----|-----------|-------|
 | Bronze | Lakehouse | S3 bucket | DBFS/Unity | `./data/bronze/` |
 | Silver | Lakehouse | S3 bucket | DBFS/Unity | `./data/silver/` |
-| Gold | Warehouse or Lakehouse | Redshift/Athena | Unity Catalog | `./data/gold/` |
-| Metadata | — | — | — | `./metadata/` |
+| Gold | Warehouse or Lakehouse | Redshift/S3 bucket | Unity Catalog | `./data/gold/` |
+| Metadata | `{project_name}_dcws/metadata/` | `{project_name}_dcws/metadata/` | `{project_name}_dcws/metadata/` | `{project_name}_dcws/metadata/` |
 
 ### Schedule Heuristics
 
@@ -231,8 +233,8 @@ Key sections:
 2. **Source Registry** — tracked sources with status
 3. **Source Overview** — connection characteristics per source
 4. **Medallion Layers** — purpose and storage per layer
-5. **Dataflow Summary Table** — mapping source→destination with strategy
-6. **Dataflow Details** — per-dataflow deep config (inline or in layer files)
+5. **Stage Summary Table** — mapping stage/layer boundaries with strategy
+6. **Stage Contracts** — load pattern, grain, keys, freshness, quality gate, engine, and platform
 7. **Infrastructure Requirements** — resources to provision per platform
 8. **Engine Strategy** — which engine per layer transition with rationale
 9. **Partitioning Strategy** — partition columns per table
@@ -246,11 +248,13 @@ Key sections:
 
 | Direction | Artifact | Path |
 |-----------|----------|------|
-| Input | Discovery reports (all sources) | `.datacoolie/discover/yymmdd_{source-name}.md` |
-| Input | Schema inventories (all sources) | `.datacoolie/discover/yymmdd_{source-name}_schema.csv` |
-| Input | Existing architecture (update mode) | `.datacoolie/architect/*_architecture.md` |
-| Output | Architecture document (single, spans all sources) | `.datacoolie/architect/yymmdd_architecture.md` |
-| Output | Layer detail files (split mode only) | `.datacoolie/architect/layers/{layer}.md` |
+| Input | Discovery reports (all sources) | `{project_name}_dcws/discover/yymmdd_{source-name}.md` |
+| Input | Schema inventories (all sources) | `{project_name}_dcws/discover/yymmdd_{source-name}_schema.csv` |
+| Input | Existing architecture (update mode) | `{project_name}_dcws/architecture/current.md` |
+| Output | Architecture document (single, spans all sources) | `{project_name}_dcws/architecture/current.md` |
+| Output | Architecture amendment | `{project_name}_dcws/architecture/amendments/yymmdd_{change}.md` |
+| Output | Layer detail files (split mode only) | `{project_name}_dcws/architecture/layers/{layer}.md` |
+| Output | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/yymmdd_architecture-review.md` |
 
 ---
 
@@ -263,4 +267,4 @@ Key sections:
 | User rejects architecture | Ask what to change, iterate until approved |
 | Platform not specified | Ask user which platform (Fabric/AWS/Databricks/Local) |
 | Cannot determine load strategy (no watermark, large table) | Flag as risk, suggest `full_load` with partitioned overwrite |
-| Update mode: existing architecture has no Source Registry | Backfill registry from existing Dataflow Summary Table before proceeding |
+| Update mode: existing architecture has no Source Registry | Backfill registry from existing stage summary before proceeding |

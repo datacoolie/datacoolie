@@ -7,8 +7,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "metadata/**"
-      - "functions/**"
+      - "{project_name}_dcws/metadata/**"
+      - "{project_name}_dcws/functions/**"
       - "databricks.yml"
 
 jobs:
@@ -31,11 +31,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install build
-      - run: cd functions && pip wheel --no-deps -w ../dist . && cd ..
+      - run: cd {project_name}_dcws/functions && pip wheel --no-deps -w ../generated/dist . && cd ../..
       - uses: actions/upload-artifact@v4
         with:
           name: functions-wheel
-          path: dist/*.whl
+          path: {project_name}_dcws/generated/dist/*.whl
 
   deploy:
     needs: package
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: functions-wheel
-          path: dist/
+          path: {project_name}_dcws/generated/dist/
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

@@ -516,7 +516,7 @@ The actual function path goes on `source.python_function`:
 }
 ```
 
-`load_orders` must accept `(engine, source, watermark)` and return a DataFrame
+`load_orders(*args, **kwargs)` or `load_orders(engine, source, watermark_start, watermark_end, *args, **kwargs)` and return a DataFrame
 compatible with the active engine. Read custom arguments from `source.configure`
 inside your function.
 

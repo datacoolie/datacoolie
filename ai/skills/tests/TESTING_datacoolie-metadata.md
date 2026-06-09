@@ -457,9 +457,9 @@ dataflows:
 
 ```sh
 python skills/datacoolie-metadata/scripts/merge.py --base test_base --env prod
-# ✓ Merged 2 connections + 2 dataflows → .datacoolie/generated/metadata.prod.json
+# ✓ Merged 2 connections + 2 dataflows → {project_name}_dcws/generated/prod/metadata.json
 # Check: src.configure.base_path should be /prod/input
-python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); print(next(c for c in d['connections'] if c['name']=='src')['configure']['base_path'])"
+python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/metadata.json')); print(next(c for c in d['connections'] if c['name']=='src')['configure']['base_path'])"
 # /prod/input
 ```
 
@@ -496,7 +496,7 @@ Remove-Item merged_out.json
 ```sh
 python skills/datacoolie-metadata/scripts/merge.py --base test_base --env staging
 # WARNING: No environment overlay found for 'staging' in test_base\environments
-# ✓ Merged 2 connections + 2 dataflows → .datacoolie/generated/metadata.staging.json  (base only)
+# ✓ Merged 2 connections + 2 dataflows → {project_name}_dcws/generated/staging/metadata.json  (base only)
 ```
 
 ### 4.6 Error — base directory not found
@@ -512,7 +512,7 @@ python skills/datacoolie-metadata/scripts/merge.py --base nonexistent --env prod
 ```sh
 python -c "import os; os.makedirs('test_empty', exist_ok=True)"
 python skills/datacoolie-metadata/scripts/merge.py --base test_empty --env prod
-# ERROR: No metadata file found in test_empty (expected metadata.json or connections.json + dataflows.json)
+# ERROR: No metadata file found in test_empty (expected metadata.json, connections.json + dataflows.json, or connections.json + dataflows/*.json)
 # Exit 2
 python -c "import shutil; shutil.rmtree('test_empty')"
 ```
@@ -536,16 +536,16 @@ yaml.dump({
 }, open('test_unified/environments/prod.yaml', 'w'))
 "
 python skills/datacoolie-metadata/scripts/merge.py --base test_unified --env prod
-# ✓ Merged 1 connections + 1 dataflows + 1 schema_hints → .datacoolie/generated/metadata.prod.json
+# ✓ Merged 1 connections + 1 dataflows + 1 schema_hints → {project_name}_dcws/generated/prod/metadata.json
 # Verify: host overridden, filter_expression added
-python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); assert d['connections'][0]['configure']['host'] == 'prod-db.example.com'; assert d['dataflows'][0]['source']['filter_expression'] == 'active = 1'; print('OK: overlay applied')"
+python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/metadata.json')); assert d['connections'][0]['configure']['host'] == 'prod-db.example.com'; assert d['dataflows'][0]['source']['filter_expression'] == 'active = 1'; print('OK: overlay applied')"
 ```
 
 ### 4.9 Unified layout — schema_hints preserved
 
 ```sh
 # Verify schema_hints pass through from test 4.8
-python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); assert len(d['schema_hints']) == 1; assert d['schema_hints'][0]['column_name'] == 'id'; print('OK: schema_hints preserved')"
+python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/metadata.json')); assert len(d['schema_hints']) == 1; assert d['schema_hints'][0]['column_name'] == 'id'; print('OK: schema_hints preserved')"
 ```
 
 ### 4.10 Unified layout — $schema preserved
@@ -561,7 +561,7 @@ json.dump({
 }, open('test_unified/metadata.json', 'w'), indent=2)
 "
 python skills/datacoolie-metadata/scripts/merge.py --base test_unified --env prod
-python -c "import json; d=json.load(open('.datacoolie/generated/metadata.prod.json')); assert '\$schema' in d; print('OK: \$schema preserved')"
+python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/metadata.json')); assert '\$schema' in d; print('OK: \$schema preserved')"
 ```
 
 ### 4.11 Partial split layout error — only connections.json
@@ -573,15 +573,76 @@ os.makedirs('test_partial', exist_ok=True)
 json.dump([{'name': 'conn1'}], open('test_partial/connections.json', 'w'))
 "
 python skills/datacoolie-metadata/scripts/merge.py --base test_partial --env prod
-# ERROR: No metadata file found in test_partial (expected metadata.json or connections.json + dataflows.json)
+# ERROR: No metadata file found in test_partial (expected metadata.json, connections.json + dataflows.json, or connections.json + dataflows/*.json)
 # Exit 2
 python -c "import shutil; shutil.rmtree('test_partial')"
+```
+
+### 4.12 Modular layout — stage file inference
+
+```sh
+python -c "
+import json, os
+os.makedirs('test_modular/dataflows', exist_ok=True)
+os.makedirs('test_modular/environments', exist_ok=True)
+json.dump([{'name':'src','connection_type':'file'}, {'name':'dst','connection_type':'file'}], open('test_modular/connections.json','w'))
+json.dump([{'name':'load_orders','source':{'connection_name':'src'},'destination':{'connection_name':'dst'}}], open('test_modular/dataflows/source2bronze.json','w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_modular --env dev --output modular_out.json
+python -c "import json; d=json.load(open('modular_out.json')); assert d['dataflows'][0]['stage'] == 'source2bronze'; print('OK: stage inferred')"
+```
+
+### 4.13 Modular layout — source2bronze.json accepts sub-stage
+
+```sh
+python -c "
+import json
+json.dump([{'name':'load_sap','stage':'source2bronze_sap','source':{'connection_name':'src'},'destination':{'connection_name':'dst'}}], open('test_modular/dataflows/source2bronze.json','w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_modular --env dev --output modular_out.json
+python -c "import json; d=json.load(open('modular_out.json')); assert d['dataflows'][0]['stage'] == 'source2bronze_sap'; print('OK: sub-stage preserved')"
+```
+
+### 4.14 Nested modular layout — exact stage inference
+
+```sh
+python -c "
+import json, os
+os.remove('test_modular/dataflows/source2bronze.json')
+os.makedirs('test_modular/dataflows/source2bronze', exist_ok=True)
+json.dump([{'name':'load_sap','source':{'connection_name':'src'},'destination':{'connection_name':'dst'}}], open('test_modular/dataflows/source2bronze/sap.json','w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_modular --env dev --output modular_out.json
+python -c "import json; d=json.load(open('modular_out.json')); assert d['dataflows'][0]['stage'] == 'source2bronze_sap'; print('OK: nested stage inferred')"
+```
+
+### 4.15 Nested modular layout — conflicting stage fails
+
+```sh
+python -c "
+import json
+json.dump([{'name':'load_sap','stage':'source2bronze_crm','source':{'connection_name':'src'},'destination':{'connection_name':'dst'}}], open('test_modular/dataflows/source2bronze/sap.json','w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_modular --env dev --output modular_out.json
+# ERROR: Dataflow 'load_sap' in test_modular\dataflows\source2bronze\sap.json has stage 'source2bronze_crm', but nested path requires 'source2bronze_sap'.
+# Exit 2
+```
+
+### 4.16 Generated split output and optional stage manifest
+
+```sh
+python -c "
+import json
+json.dump([{'name':'load_sap','source':{'connection_name':'src'},'destination':{'connection_name':'dst'}}], open('test_modular/dataflows/source2bronze/sap.json','w'))
+"
+python skills/datacoolie-metadata/scripts/merge.py --base test_modular --env dev --output-layout split --emit-stage-manifest
+python -c "import os; assert os.path.exists('{project_name}_dcws/generated/dev/dataflows.json'); assert os.path.exists('{project_name}_dcws/generated/dev/stage_manifest.json'); print('OK: split output')"
 ```
 
 ### Cleanup merge test fixtures
 
 ```sh
-python -c "import shutil; shutil.rmtree('test_unified', True); shutil.rmtree('.datacoolie', True); shutil.rmtree('test_base', True)"
+python -c "import shutil; shutil.rmtree('test_unified', True); shutil.rmtree('{project_name}_dcws', True); shutil.rmtree('test_base', True); shutil.rmtree('test_modular', True)"
 ```
 
 ---
@@ -641,27 +702,27 @@ These are **prompt-level tests** — verify AI behavior follows the Step 0 logic
 
 ### 7.1 Architecture present + approved
 
-- **Setup**: Create `.datacoolie/architect/test_architecture.md` with `Status: Approved`, Source Registry (2 sources), Dataflow Summary Table (3 dataflows)
+- **Setup**: Create `{project_name}_dcws/architecture/current.md` plus an approved architecture gate journal, Source Registry (2 sources), and Stage Summary Table (3 stage contracts)
 - **Prompt**: "Generate metadata for this project"
-- **Verify**: AI pre-populates connections from Source Registry; pre-populates dataflows from Summary Table; does NOT ask about load strategy, connection types, or source names; DOES ask about `secrets_ref`
+- **Verify**: AI pre-populates connections from Source Registry; drafts dataflows from Stage Summary Table and Stage Contracts; does NOT ask about load strategy, connection types, or source names; DOES ask about `secrets_ref`
 
 ### 7.2 Discovery schemas present
 
-- **Setup**: Create `.datacoolie/discover/orders_schema.csv` with columns (id, order_date, amount, customer_id) and `is_pk=true` on id
+- **Setup**: Create `{project_name}_dcws/discover/orders_schema.csv` with columns (id, order_date, amount, customer_id) and `is_pk=true` on id
 - **Prompt**: "Generate metadata for this project"
 - **Verify**: `transform.schema_hints` populated from CSV columns; `id` suggested as `destination.merge_keys` candidate
 
 ### 7.3 No architecture — interactive fallback
 
-- **Setup**: Empty or missing `.datacoolie/` directory
+- **Setup**: Empty or missing `{project_name}_dcws/architecture/` directory
 - **Prompt**: "Generate metadata for this project"
 - **Verify**: AI asks for all details (source types, connection details, load strategies, engine) — current interactive behavior
 
 ### 7.4 Draft architecture — warning
 
-- **Setup**: Create `.datacoolie/architect/test_architecture.md` with `Status: Draft`
+- **Setup**: Create `{project_name}_dcws/architecture/current.md` without an approved architecture gate journal
 - **Prompt**: "Generate metadata"
-- **Verify**: AI warns that architecture is not approved; asks for confirmation before proceeding; if confirmed, pre-populates as usual
+- **Verify**: AI warns that architecture is not approved and requests architecture gate review before architecture-derived metadata generation
 
 ### 7.5 Secrets never from architecture
 

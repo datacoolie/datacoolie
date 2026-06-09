@@ -32,20 +32,21 @@ Read project context from prior phases before starting deployment.
 
 | Artifact | Path | Extract |
 |----------|------|--------|
-| Project config | `.datacoolie/config.yaml` | `project_name`, `engine`, `environments.{env}.platform`, platform-specific config (bucket, workspace, catalog, etc.) |
-| Metadata files | `metadata/*.json` or `metadata/*.yaml` | Dataflow definitions to deploy; validate at least one exists |
-| Functions package | `functions/` | Check if `pyproject.toml` (wheel) or `__init__.py` (zip) exists |
+| Project config | `{project_name}_dcws/config.yaml` | `project.name`, `project.workspace_name`, `environments.{env}.platform`, generated metadata path, platform-specific config (bucket, workspace, catalog, etc.) |
+| Metadata files | `{project_name}_dcws/metadata/` | Authoring metadata to merge for the target environment |
+| Functions package | `{project_name}_dcws/functions/` | Check if `pyproject.toml` (wheel) or `__init__.py` (zip) exists |
 
 **Optional artifacts:**
 
 | Artifact | Path | Extract |
 |----------|------|--------|
-| Architecture document | `.datacoolie/architect/*_architecture.md` | Platform name, environment config — cross-check against `config.yaml` alignment |
-| Environment overlays | `metadata/environments/*.yaml` | Available environments for promotion |
+| Architecture document | `{project_name}_dcws/architecture/current.md` | Platform name, environment config — cross-check against `config.yaml` alignment |
+| Gate journals | `{project_name}_dcws/project_management/phases/*/gate-reviews/*.md` | Required approvals for layer and production promotion |
+| Environment overlays | `{project_name}_dcws/metadata/environments/*.yaml` | Available environments for promotion |
 
-**If `config.yaml` is missing** → ask user for platform, engine, and environment config interactively.
+**If `config.yaml` is missing** → ask user for project name, workspace name, platform, and environment config interactively. Runtime engine is selected from architecture or runner generation context, not top-level project config.
 
-**If `metadata/` is empty** → stop and suggest running `datacoolie-metadata` first.
+**If `{project_name}_dcws/metadata/` is empty** → stop and suggest running `datacoolie-metadata` first.
 
 ### 1. Preflight Checklist
 
@@ -54,8 +55,8 @@ Read project context from prior phases before starting deployment.
 | 1 | Platform CLI installed | Continue | Show platform CLI install docs, stop |
 | 2 | Platform CLI authenticated | Continue | Show login command, stop |
 | 3 | `datacoolie` installed | Continue | `pip install datacoolie` |
-| 4 | `metadata/` has `.json`/`.yaml` files | Continue | Ask user to create metadata first |
-| 5 | `functions/` has `pyproject.toml` or `__init__.py` | Continue | Warn (functions package may not be needed) |
+| 4 | `{project_name}_dcws/metadata/` has unified, split, or modular metadata files | Continue | Ask user to create metadata first |
+| 5 | `{project_name}_dcws/functions/` has `pyproject.toml` or `__init__.py` | Continue | Warn (functions package may not be needed) |
 | 6 | All `secrets_ref` env vars present | Continue | List missing vars, stop |
 | 7 | Target infrastructure exists | Continue | Ask user to provision infrastructure first |
 
@@ -63,8 +64,8 @@ Read project context from prior phases before starting deployment.
 
 1. Determine target platform from user/config
 2. Read reference example from `references/run_{platform}.{ext}.example` to understand datacoolie API patterns
-3. Generate runner file with actual project values from `.datacoolie/config.yaml`
-4. Write to `scripts/run_{platform}.{ext}`
+3. Generate runner file with actual project values from `{project_name}_dcws/config.yaml`
+4. Write to `{project_name}_dcws/generated/run_{platform}.{ext}`
 
 ### 3. Package Functions
 
@@ -72,10 +73,10 @@ AI runs these commands to build a deployable artifact:
 
 ```bash
 # Wheel (preferred — when pyproject.toml exists)
-cd functions/ && pip wheel --no-deps -w ../dist .
+cd {project_name}_dcws/functions/ && pip wheel --no-deps -w ../generated/dist .
 
 # Zip (fallback if no pyproject.toml)
-cd functions/ && python -m zipfile -c ../dist/functions.zip .
+cd {project_name}_dcws/functions/ && python -m zipfile -c ../generated/dist/functions.zip .
 ```
 
 ### 4. Platform Deploy
@@ -91,10 +92,13 @@ Use the current platform CLI to upload artifacts and create/update the job. Key 
 
 Deploy to a different environment using the same workflow with the target environment's config:
 1. Preflight on target environment
-2. Validate and merge metadata for target environment
+2. Validate and merge metadata for target environment into `{project_name}_dcws/generated/{env}/metadata.json` unless split output is explicitly requested
 3. Deploy to target platform
 
-**GATE**: Promotion to `prod` requires explicit user confirmation.
+**GATE**: Promotion or deployment to `prod` requires:
+- approved `source2bronze`, `bronze2silver`, and `silver2gold` gate journals when those layers are in scope
+- approved `production` gate journal under `{project_name}_dcws/project_management/phases/production/gate-reviews/`
+- explicit user confirmation in the current session
 
 ### 6. Generate CI/CD
 
@@ -104,32 +108,57 @@ Deploy to a different environment using the same workflow with the target enviro
 
 ## Configuration
 
-Project config at `.datacoolie/config.yaml`:
+Project config at `{project_name}_dcws/config.yaml`:
 
 ```yaml
-project_name: my-etl-project
-engine: spark
+schema_version: 1
+
+project:
+  name: my-etl-project
+  workspace_name: my_etl_project_dcws
+
+defaults:
+  environment: dev
+  metadata_layout: modular
+
+artifacts:
+  generated_dir: generated
+  metadata_dir: metadata
+  project_management_dir: project_management
 
 environments:
+  dev:
+    platform: local
+    paths:
+      data_root: ./data
+      logs: ./logs
+    generated_metadata: generated/dev/metadata.json
   prod:
     platform: aws
+    generated_metadata: generated/prod/metadata.json
     aws:
       region: ap-southeast-1
       bucket: de-prod-0001
       role_arn: arn:aws:iam::123456789012:role/GlueETLRole
   staging:
     platform: fabric
+    generated_metadata: generated/staging/metadata.json
     fabric:
       workspace: "DataEngineering-Staging"
       lakehouse: "ETL_Lakehouse"
-  dev:
+  sandbox:
     platform: databricks
+    generated_metadata: generated/sandbox/metadata.json
     databricks:
       host: "https://adb-123.azuredatabricks.net"
       catalog: workspace
       schema: default
       volume: datacoolie
 ```
+
+`config.yaml` is a workspace control file. Follow the structure documented in
+`datacoolie-init/templates/project-structure.md`. It must not contain dataflow definitions,
+gate status, secret values, or a top-level runtime engine.
 
 ## Full Deploy Flow
 
@@ -147,7 +176,7 @@ Promotion flow (env → env):
 
 ```
 Preflight (target) → Validate metadata → Merge overlay → Deploy
-→ .datacoolie/promote/yymmdd_promote-{from}-to-{to}.md
+→ {project_name}_dcws/promote/yymmdd_promote-{from}-to-{to}.md
 ```
 
 ## References
@@ -167,8 +196,8 @@ This skill is **knowledge-based** — the AI reads SKILL.md and reference exampl
 
 ## Prerequisites
 
-- Project config at `.datacoolie/config.yaml` (recommended — falls back to interactive)
-- Metadata files in `metadata/` directory
+- Project config at `{project_name}_dcws/config.yaml` (recommended — falls back to interactive)
+- Metadata files in `{project_name}_dcws/metadata/` directory
 - Platform CLI installed and authenticated (per target platform)
 - `datacoolie` installed (`pip install datacoolie`)
 
@@ -176,17 +205,20 @@ This skill is **knowledge-based** — the AI reads SKILL.md and reference exampl
 
 | Direction | Artifact | Path | Required |
 |-----------|----------|------|----------|
-| Input | Project config | `.datacoolie/config.yaml` | Yes — platform, engine, env config |
-| Input | Metadata files | `metadata/*.json` or `metadata/*.yaml` | Yes — at least one dataflow definition |
-| Input | Functions package | `functions/` | No — skipped if absent |
-| Input | Architecture document | `.datacoolie/architect/*_architecture.md` | No — optional platform cross-check |
-| Input | Environment overlays | `metadata/environments/*.yaml` | No — needed for promotion only |
+| Input | Project config | `{project_name}_dcws/config.yaml` | Yes — project, platform, and environment config |
+| Input | Metadata files | `{project_name}_dcws/metadata/` | Yes — unified, split, or modular metadata |
+| Input | Functions package | `{project_name}_dcws/functions/` | No — skipped if absent |
+| Input | Architecture document | `{project_name}_dcws/architecture/current.md` | No — optional platform cross-check |
+| Input | Environment overlays | `{project_name}_dcws/metadata/environments/*.yaml` | No — needed for promotion only |
+| Input | Gate journals | `{project_name}_dcws/project_management/phases/*/gate-reviews/*.md` | Yes for production |
 
 ## Output Contracts
 
 | Artifact | Path | Notes |
 |----------|------|-------|
-| Runner script | `.datacoolie/generated/run_{platform}.{ext}` | Platform-specific runner |
-| Functions artifact | `.datacoolie/generated/dist/functions*.whl` or `functions.zip` | Wheel or zip package |
+| Runner script | `{project_name}_dcws/generated/run_{platform}.{ext}` | Platform-specific runner |
+| Generated metadata | `{project_name}_dcws/generated/{env}/metadata.json` | Default merged runtime metadata |
+| Functions artifact | `{project_name}_dcws/generated/dist/functions*.whl` or `functions.zip` | Wheel or zip package |
 | CI/CD workflow | `.github/workflows/deploy-{platform}.yml` | Step 6 only |
-| Promotion log | `.datacoolie/promote/yymmdd_promote-{from}-to-{to}.md` | Step 5 only |
+| Deploy log | `{project_name}_dcws/deploy/yymmdd_deploy-{env}.md` | Step 4 only |
+| Promotion log | `{project_name}_dcws/promote/yymmdd_promote-{from}-to-{to}.md` | Step 5 only |

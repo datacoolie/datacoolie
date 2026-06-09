@@ -2,8 +2,8 @@
 
 Usage:
     python validate.py <metadata_file> [options]
-    python validate.py metadata/dataflows.json
-    python validate.py metadata/config.yaml --schema-version 0.1.0
+    python validate.py {project_name}_dcws/metadata/dataflows.json
+    python validate.py {project_name}_dcws/metadata/metadata.json --schema-version 0.1.0
     python validate.py --fetch-latest               # refresh bundled schema from GitHub, no file
     python validate.py --fetch-latest config.json   # refresh then validate
 

@@ -1,22 +1,23 @@
-# Bronze Layer — Dataflow Details
+# Bronze Layer - Stage Contract
 
-> Part of [Architecture v{{ version }}](../yymmdd_architecture.md)
+> Part of [Architecture v{{ version }}](../current.md)
 
 <!-- In Level 3 (per-source split), this file covers only {{ source_name }} -->
 
-## Dataflows
+## Stage Contract
 
-<!-- Repeat for each source→bronze dataflow: -->
+<!-- Repeat for each source-to-bronze source domain or workload boundary: -->
 
-### {{ source_name }}.{{ table_name }} → bronze
+### {{ source_name }} to bronze
 
-- **Source connection:** {{ connection_name }}
-- **Source table:** {{ source_table }}
-- **Destination:** bronze/{{ source_name }}/{{ table_name }}/
-- **Load type:** {{ load_type }}
-- **Watermark column:** {{ watermark_column | default("N/A") }}
-- **Merge keys:** {{ merge_keys | default("N/A") }}
+- **Source domain:** {{ source_name }}
+- **Target grain:** {{ target_grain }}
+- **Load pattern:** {{ load_pattern }}
+- **Change detection:** {{ change_detection }}
+- **Key strategy:** {{ key_strategy }}
+- **Freshness target:** {{ freshness_target }}
 - **Engine:** {{ engine }}
-- **Partition columns:** {{ partition_columns | default("_ingest_date") }}
-- **Transform logic:** {{ transform_description | default("Schema enforcement only") }}
-- **Schedule:** {{ schedule }}
+- **Platform/storage:** {{ platform_storage }}
+- **Partitioning principle:** {{ partitioning_principle | default("_ingest_date required") }}
+- **Quality gate:** {{ quality_gate }}
+- **Backfill/rollback:** {{ backfill_rollback }}

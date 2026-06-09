@@ -1,6 +1,6 @@
 # Source: {{ source_name }}
 
-> Part of [Architecture v{{ version }}](../yymmdd_architecture.md)
+> Part of [Architecture v{{ version }}](../current.md)
 
 ## Connection
 

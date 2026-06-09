@@ -17,8 +17,9 @@ Open `datacoolie-init/SKILL.md` and verify:
 - [ ] Step 1 (Gather Missing Details) only asks for values not determined by architecture
 - [ ] Step 2 (Scaffold) describes variable substitution from architecture and user input
 - [ ] Step 3 (Confirm) shows architecture-linked summary example
-- [ ] All supported engines listed: polars, spark, mixed
-- [ ] Mixed engine handling described (different engines per layer)
+- [ ] Supported concrete engines listed: polars, spark
+- [ ] Engine strategy handling described as env+stage matrix, with each value `polars` or `spark`
+- [ ] Config.yaml is documented as workspace control file in AGENTS.md and the init project-structure template
 - [ ] Input contracts reference architecture document (optional)
 - [ ] Output contracts list all generated files with default paths
 - [ ] Scaffold target flexibility documented (current directory vs subdirectory)
@@ -29,12 +30,13 @@ Open `datacoolie-init/SKILL.md` and verify:
 Check `datacoolie-init/templates/project-structure.md`:
 
 - [ ] Variables table documents all substitution points with source and defaults
-- [ ] Directory tree covers: `.datacoolie/config.yaml`, `metadata/metadata.json`, `metadata/environments/`, `functions/`, `scripts/`, `.gitignore`, `requirements.txt`
+- [ ] Directory tree covers: `{project_name}_dcws/AGENTS.md`, `{project_name}_dcws/config.yaml`, `{project_name}_dcws/metadata/connections.json`, `{project_name}_dcws/metadata/schema_hints.json`, `{project_name}_dcws/metadata/dataflows/`, `{project_name}_dcws/metadata/environments/`, `{project_name}_dcws/functions/`, `{project_name}_dcws/generated/`, `{project_name}_dcws/project_management/phases/`, `.gitignore`, `requirements.txt`
 - [ ] Config.yaml has minimal (no-arch) and architecture-aware variants
+- [ ] Config.yaml examples include `schema_version`, `project.name`, `project.workspace_name`, `defaults`, `artifacts`, and `environments`
 - [ ] Config.yaml architecture-aware variant shows Fabric and AWS environment examples
-- [ ] metadata.json skeleton includes `schema_hints` key (not just connections + dataflows)
+- [ ] Modular metadata skeleton includes `connections.json`, `schema_hints.json`, and stage files under `dataflows/`
 - [ ] Environment overlay templates (`dev.yaml`, `prod.yaml`) have commented examples
-- [ ] Runner script has polars, spark, and mixed engine variants
+- [ ] Runner script has concrete polars and spark variants only; env+stage engine strategy is resolved before runner generation
 - [ ] Functions package structure includes `pyproject.toml`, `__init__.py`, `sources.py`
 
 ### 3. Manual Workflow Testing — Basic Scaffolding (No Architecture)
@@ -43,38 +45,42 @@ Ask the AI to scaffold a new project without an architecture document and verify
 
 | Test Case | Prompt | Verify |
 |-----------|--------|--------|
-| Minimal defaults | "Create a datacoolie project called my_project" | All files exist, config.yaml has correct project_name, engine defaults to polars |
-| Polars engine | "Init project acme_etl with polars engine" | config.yaml: `engine: polars`, runner imports PolarsEngine |
-| Spark engine | "Scaffold spark_proj with spark" | config.yaml: `engine: spark`, runner imports SparkEngine |
+| Minimal defaults | "Create a datacoolie project called my_project" | All files exist, config.yaml has correct `project.name`, `project.workspace_name`, and generated runner defaults to PolarsEngine |
+| Polars engine | "Init project acme_etl with polars runner" | Runner imports PolarsEngine; config.yaml has no top-level `engine` |
+| Spark engine | "Scaffold spark_proj with spark runner" | Runner imports SparkEngine and creates/provides SparkSession; config.yaml has no top-level `engine` |
 | Subdirectory mode | "Create proj in a subdirectory" | Files created under `proj/` directory |
 | Root scaffold | "Init project at current directory" | Files created at `.` (no subdirectory) |
 
 ### 4. Manual Workflow Testing — Architecture Consumption
 
-Create a mock `.datacoolie/architect/260531_architecture.md` with known values, then test init:
+Create a mock `{project_name}_dcws/architecture/current.md` plus an approved architecture gate journal with known values, then test init:
 
 | Test Case | Architecture Setup | Prompt | Verify |
 |-----------|-------------------|--------|--------|
-| Single engine (polars) | Engine Strategy: all polars | "Init project acme_etl" | config.yaml: `engine: polars`, runner imports PolarsEngine only, no engine question asked |
-| Mixed engines | Engine Strategy: polars for bronze, spark for gold | "Init project mixed_proj" | config.yaml: `engine: mixed`, runner has both engine imports with stage comments |
+| Single engine (polars) | Engine Strategy: all polars | "Init project acme_etl" | Runner imports PolarsEngine only, no engine question asked, config.yaml has no top-level `engine` |
+| Env/stage engine strategy | Engine Strategy: dev all polars, prod silver/gold spark | "Init project staged_proj" | Generated runner is concrete for the selected target env/stage; config.yaml has no top-level `engine` |
 | Multi-environment | Environment Differences: dev/test/prod | "Init project cloud_proj" | Three environment overlay files, config.yaml has dev + test + prod blocks |
 | Fabric platform | Platform: Fabric, Infrastructure: workspace names | "Init project fabric_proj" | config.yaml prod environment has `platform: fabric` with workspace stubs |
 | AWS platform | Platform: AWS, Infrastructure: bucket/role | "Init project aws_proj" | config.yaml prod environment has `platform: aws` with bucket/role stubs |
-| No architecture | No `.datacoolie/architect/` directory | "Init project basic_proj" | Skill asks for engine and platform interactively, uses defaults |
-| Unapproved architecture | Architecture has `Status: Draft` | "Init project draft_proj" | Skill warns architecture not approved, proceeds after user confirmation |
+| No architecture | No `{project_name}_dcws/architecture/current.md` file | "Init project basic_proj" | Skill asks for engine and platform interactively, uses defaults |
+| Unapproved architecture | Architecture gate journal missing or not `status: approved` | "Init project draft_proj" | Skill stops and requests architecture review before gated scaffolding |
 
 ### 5. Scaffold Output Validation
 
 After any scaffold, verify:
 
-- [ ] `metadata/metadata.json` is valid JSON with `connections`, `dataflows`, `schema_hints` arrays
-- [ ] `metadata/environments/dev.yaml` exists with commented overlay examples
-- [ ] `.datacoolie/config.yaml` has `project_name` and `engine` fields
-- [ ] `scripts/run_local.py` has correct imports for the selected engine
-- [ ] `functions/__init__.py` exists (can be empty)
-- [ ] `functions/sources.py` has the `my_source` function stub with correct kwargs
-- [ ] `functions/pyproject.toml` has correct `{project_name}-functions` name
-- [ ] `.gitignore` includes `__pycache__/`, `.datacoolie/watermarks/`, `.env`
+- [ ] `{project_name}_dcws/AGENTS.md` exists and was not overwritten if pre-existing
+- [ ] `{project_name}_dcws/metadata/connections.json`, `schema_hints.json`, and `dataflows/{stage}.json` are valid JSON arrays
+- [ ] `{project_name}_dcws/metadata/environments/dev.yaml` exists with commented overlay examples
+- [ ] `{project_name}_dcws/config.yaml` has `schema_version: 1`, `project.name`, `project.workspace_name`, and `environments`, and no top-level `engine` field
+- [ ] `{project_name}_dcws/config.yaml` contains no dataflow definitions, gate status, passwords, API keys, or secret values
+- [ ] `{project_name}_dcws/generated/run_local.py` has correct imports for the selected engine
+- [ ] `{project_name}_dcws/functions/__init__.py` exists (can be empty)
+- [ ] `{project_name}_dcws/functions/sources.py` has the `my_source` function stub with correct kwargs
+- [ ] `{project_name}_dcws/functions/pyproject.toml` has correct `{project_name}-functions` name
+- [ ] `{project_name}_dcws/project_management/phases/` has architecture, source2bronze, bronze2silver, silver2gold, and production directories
+- [ ] Each phase has `scope.md`, `notes.md`, `evidence.md`, and `gate-reviews/`
+- [ ] `.gitignore` includes `__pycache__/`, `{project_name}_dcws/watermarks/`, `.env`
 - [ ] `requirements.txt` lists `datacoolie`
 - [ ] No credentials, passwords, or API keys appear in any generated file
 
@@ -82,5 +88,5 @@ After any scaffold, verify:
 
 - [ ] Output directory already exists → AI handles gracefully (warns, continues)
 - [ ] Architecture exists but is empty/malformed → falls back to interactive mode
-- [ ] User says "mixed" engine but no architecture → AI asks which stages use which engine
+- [ ] User asks to use both engines but no architecture → AI asks for env+stage engine strategy; it does not create a third engine value
 - [ ] Project name has spaces or special chars → AI rejects or sanitizes

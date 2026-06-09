@@ -1,20 +1,23 @@
-# Gold Layer — Dataflow Details
+# Gold Layer - Stage Contract
 
-> Part of [Architecture v{{ version }}](../yymmdd_architecture.md)
+> Part of [Architecture v{{ version }}](../current.md)
 
 <!-- In Level 3 (per-domain split), this file covers only {{ domain }} -->
 
-## Dataflows
+## Stage Contract
 
-<!-- Repeat for each silver→gold dataflow: -->
+<!-- Repeat for each silver-to-gold domain or workload boundary: -->
 
-### {{ domain }}.{{ metric_or_view }}
+### {{ domain }} silver to gold
 
-- **Source tables:** {{ source_tables }} (from silver)
-- **Destination:** gold/{{ domain }}/{{ metric_or_view }}/
-- **Load type:** {{ load_type }}
+- **Source domains:** {{ source_domains }}
+- **Target grain:** {{ target_grain }}
+- **Metric/consumer contract:** {{ metric_contract }}
+- **Load pattern:** {{ load_pattern }}
+- **Key strategy:** {{ key_strategy }}
+- **Freshness target:** {{ freshness_target }}
 - **Engine:** {{ engine }}
-- **Partition columns:** {{ partition_columns | default("None") }}
-- **Join logic:** {{ join_description | default("N/A") }}
-- **Aggregation:** {{ aggregation_description | default("N/A") }}
+- **Platform/storage:** {{ platform_storage }}
+- **Quality gate:** {{ quality_gate }}
+- **Backfill/rollback:** {{ backfill_rollback }}
 - **Consumers:** {{ consumers | default("TBD") }}

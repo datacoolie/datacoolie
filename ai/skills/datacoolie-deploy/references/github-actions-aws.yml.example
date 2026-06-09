@@ -7,9 +7,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "metadata/**"
-      - "functions/**"
-      - "scripts/run_aws_glue.py"
+      - "{project_name}_dcws/metadata/**"
+      - "{project_name}_dcws/functions/**"
+      - "{project_name}_dcws/generated/run_aws_glue.py"
 
 env:
   AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
@@ -36,11 +36,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install build
-      - run: cd functions && pip wheel --no-deps -w ../dist . && cd ..
+      - run: cd {project_name}_dcws/functions && pip wheel --no-deps -w ../generated/dist . && cd ../..
       - uses: actions/upload-artifact@v4
         with:
           name: functions-wheel
-          path: dist/*.whl
+          path: {project_name}_dcws/generated/dist/*.whl
 
   deploy:
     needs: package
@@ -51,17 +51,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: functions-wheel
-          path: dist/
+          path: {project_name}_dcws/generated/dist/
 
       # Upload artifacts to S3 first (ScriptLocation must resolve before create/update-job)
       - name: Upload runner script to S3
-        run: aws s3 cp scripts/run_aws_glue.py s3://my-project-bucket/scripts/run_aws_glue.py
+        run: aws s3 cp {project_name}_dcws/generated/run_aws_glue.py s3://my-project-bucket/scripts/run_aws_glue.py
 
       - name: Upload functions wheel to S3
-        run: aws s3 cp dist/ s3://my-project-bucket/libs/ --recursive --exclude "*" --include "*.whl"
+        run: aws s3 cp {project_name}_dcws/generated/dist/ s3://my-project-bucket/libs/ --recursive --exclude "*" --include "*.whl"
 
       - name: Sync metadata to S3
-        run: aws s3 sync metadata/ s3://my-project-bucket/metadata/
+        run: aws s3 sync {project_name}_dcws/metadata/ s3://my-project-bucket/metadata/
 
       - name: Create or update Glue job
         run: |

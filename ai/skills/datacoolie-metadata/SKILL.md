@@ -28,23 +28,20 @@ Does NOT handle: metadata provider implementation, engine runtime, orchestration
 
 Check for upstream outputs before asking the user anything.
 
-**Architecture** — `.datacoolie/architect/*_architecture.md`
+**Architecture** — `{project_name}_dcws/architecture/current.md`
 
-If found and status is `Approved`, extract:
+If found and the architecture gate journal is approved, extract:
 
 | Architecture Section | Extract | Maps To |
 |---------------------|---------|---------|
 | Source Registry | Source names, connection types | `connections[]` entries |
-| Dataflow Summary Table | Dataflow name, layer, load_type, engine | `dataflows[]` skeleton |
-| Dataflow Details → Source | connection_name, table/endpoint | `dataflows[].source` |
-| Dataflow Details → Watermark | watermark_column | `dataflows[].source.watermark_columns` |
-| Dataflow Details → Merge keys | merge_keys | `dataflows[].destination.merge_keys` |
-| Dataflow Details → Partition | partition_columns | `dataflows[].destination.partition_columns` |
+| Stage Summary Table | layer boundary, load pattern, quality gate | `dataflows[]` skeleton and stage grouping |
+| Stage Contracts | grain, keys, freshness, change detection | `dataflows[]` defaults and required user questions |
 | Infrastructure Requirements | Resource names, storage paths | `connections[].configure` stubs |
 
 If found but status is `Draft` → warn user architecture is not approved, proceed after confirmation.
 
-**Discovery schemas** — `.datacoolie/discover/*_schema.csv`
+**Discovery schemas** — `{project_name}_dcws/discover/*_schema.csv`
 
 If found, extract per-table column metadata:
 - `column_name` → `transform.schema_hints[].column_name`
@@ -64,24 +61,36 @@ If neither artifact exists → fall back to interactive mode (Step 1 asks everyt
 
 **If no architecture** — ask for all details (current behavior):
 - Source types, connection details, destination tables, load strategies
-- Engine preference, platform
+- Platform/storage conventions if relevant to connection configuration
 
 ### Step 2: Author Metadata
 
 1. Read [schema-quick-reference.md](./references/schema-quick-reference.md)
 2. **If architecture consumed**: pre-populate from Step 0 extractions:
-   - `connections[]` from Source Registry + Infrastructure Requirements
-   - `dataflows[]` from Dataflow Summary Table + Dataflow Details
-   - `transform.schema_hints[]` from Discovery `_schema.csv` (if available)
-   - `stage` from Dataflow Summary Table layer column using [stage naming convention](#stage-naming-convention)
+  - `connections[]` from Source Registry + Infrastructure Requirements
+  - `dataflows[]` from Stage Summary Table + Stage Contracts
+  - `transform.schema_hints[]` from Discovery `_schema.csv` (if available)
+  - `stage` from the architecture layer boundary using [stage naming convention](#stage-naming-convention)
 3. **If no architecture**: generate from user input (Step 1)
 4. Fill remaining fields: `description`, `group_number`, `execution_order`
 5. Apply `secrets_ref` from user input (Step 1)
 
 ### Step 3: Write
 
-Output to `metadata/metadata.json` (single file, unified format).
-Alternative: separate `metadata/connections.json` + `metadata/dataflows.json` when user chose split layout.
+Default output uses modular stage files:
+
+```text
+{project_name}_dcws/metadata/connections.json
+{project_name}_dcws/metadata/schema_hints.json
+{project_name}_dcws/metadata/dataflows/source2bronze.json
+{project_name}_dcws/metadata/dataflows/bronze2silver.json
+{project_name}_dcws/metadata/dataflows/silver2gold.json
+```
+
+Alternatives:
+- Unified small-project layout: `{project_name}_dcws/metadata/metadata.json`
+- Split medium-project layout: `{project_name}_dcws/metadata/connections.json` + `{project_name}_dcws/metadata/dataflows.json`
+- Nested large-project layout: `{project_name}_dcws/metadata/dataflows/{stage}/{group}.json`
 
 ### Step 4: Validate + Lint
 
@@ -91,17 +100,17 @@ Run `validate.py` then `lint.py` on generated output; fix any reported issues.
 
 Present result to user for review. If architecture was consumed, show the mapping:
 
-> Architecture consumed: `.datacoolie/architect/260531_architecture.md`
+> Architecture consumed: `{project_name}_dcws/architecture/current.md`
 > - 4 connections pre-populated from Source Registry
-> - 12 dataflows pre-populated from Dataflow Summary Table
+> - 12 dataflows drafted from Stage Summary Table and Stage Contracts
 > - 87 schema_hints pre-populated from Discovery schemas
 > - secrets_ref applied from user input
 
 ## Output Format
 
-Default output is a single `metadata/metadata.json` containing `connections[]`, `dataflows[]`, and optionally `schema_hints[]` in one file.
+Default authoring output is modular: `connections.json`, `schema_hints.json`, and one dataflow file per stage under `dataflows/`.
 
-Alternative: separate `metadata/connections.json` + `metadata/dataflows.json` when user chose split layout for environment overlay workflows.
+Unified `metadata.json` remains supported for small projects. Split `connections.json` + `dataflows.json` remains supported for medium projects and environment overlay workflows.
 
 ---
 
@@ -109,33 +118,39 @@ Alternative: separate `metadata/connections.json` + `metadata/dataflows.json` wh
 
 | Direction | Artifact | Path | Required |
 |-----------|----------|------|----------|
-| Input | Architecture document | `.datacoolie/architect/*_architecture.md` | No — falls back to interactive |
-| Input | Discovery schemas | `.datacoolie/discover/*_schema.csv` | No — schema_hints left empty |
+| Input | Architecture document | `{project_name}_dcws/architecture/current.md` | No — falls back to interactive |
+| Input | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/*.md` | Required if architecture exists |
+| Input | Discovery schemas | `{project_name}_dcws/discover/*_schema.csv` | No — schema_hints left empty |
 | Input | User input | Interactive | Yes (if no arch); secrets_ref always |
 
 ## Output Contracts
 
 | Artifact | Default Path | Notes |
 |----------|-------------|-------|
-| Metadata (unified) | `metadata/metadata.json` | Default — connections + dataflows + schema_hints |
-| Metadata (split) | `metadata/connections.json` + `metadata/dataflows.json` | Alternative for overlay workflows |
-| Environment overlays | `metadata/environments/*.yaml` | Created by init, edited by user |
+| Metadata (modular) | `{project_name}_dcws/metadata/connections.json`, `schema_hints.json`, `dataflows/{stage}.json` | Default authoring layout |
+| Metadata (unified) | `{project_name}_dcws/metadata/metadata.json` | Supported for small projects |
+| Metadata (split) | `{project_name}_dcws/metadata/connections.json` + `{project_name}_dcws/metadata/dataflows.json` | Supported for medium projects |
+| Environment overlays | `{project_name}_dcws/metadata/environments/*.yaml` | Created by init, edited by user |
 
 ---
 
 ## Stage Naming Convention
 
-When grouping dataflows into stages (schedulable units), use this naming pattern:
+When grouping dataflows into stages (schedulable units), use these stage names:
 
 ```
-{source_name}_source2bronze       # Raw ingestion from external source
-{domain}_bronze2silver            # Cleanse, deduplicate, conform
-{domain}_silver2gold              # Aggregate, join, serve
+source2bronze       # Raw ingestion from external source
+bronze2silver       # Cleanse, deduplicate, conform
+silver2gold         # Aggregate, join, serve
+source2bronze_sap   # Optional source/domain sub-stage
 ```
 
-Where:
-- `{source_name}` = the connection/system name (e.g., `erp`, `crm`, `api_orders`)
-- `{domain}` = business domain grouping (e.g., `sales`, `finance`, `inventory`)
+Path-derived stage inference applies only under `metadata/dataflows/`:
+
+- `dataflows/source2bronze.json`: missing `stage` becomes `source2bronze`; explicit stage must be `source2bronze` or start with `source2bronze_`.
+- `dataflows/source2bronze/sap.json`: missing `stage` becomes `source2bronze_sap`; explicit stage must exactly match `source2bronze_sap`.
+- The same rules apply to `bronze2silver` and `silver2gold`.
+- Merge fails on conflicting explicit `stage`; it never overwrites silently.
 
 ---
 
@@ -204,12 +219,17 @@ python scripts/merge.py --base <dir> --env <name> [--output <path>]
 - Auto-detects metadata layout in base directory:
   - **Unified**: `metadata.json` (or `.yaml`) — single file with connections + dataflows + schema_hints
   - **Split**: `connections.json` + `dataflows.json` — separate files
-- Split layout checked first; falls back to unified if split files not found
+  - **Modular**: `connections.json` + `schema_hints.json` + `dataflows/{stage}.json`
+  - **Nested modular**: `dataflows/{stage}/{group}.json`
+- Split/modular layouts are checked first; falls back to unified if split files not found
 - Overlay at `environments/{env}.yaml` matched by `name` field
 - Deep merges nested objects (e.g., `configure.base_path`)
 - Unmentioned items pass through unchanged
-- `schema_hints` array preserved in output (from unified layout)
-- Default output: `.datacoolie/generated/metadata.{env}.json`
+- `schema_hints` array preserved in output from unified or `schema_hints.json`
+- Missing `stage` is inferred from modular dataflow paths
+- Default output: `{project_name}_dcws/generated/{env}/metadata.json`
+- Optional split output: `--output-layout split`
+- Optional generated review index: `--emit-stage-manifest`
 
 ## Schema Location
 
@@ -230,11 +250,11 @@ metadata schema reference. Use it when generating, editing, or reviewing metadat
 ## Examples
 
 ```bash
-# Validate single file
-python scripts/validate.py metadata/file/local_use_cases.json
+# Validate unified small-project file
+python scripts/validate.py {project_name}_dcws/metadata/metadata.json
 
 # Validate all metadata in directory
-Get-ChildItem metadata/file/*.json | ForEach-Object { python scripts/validate.py $_ }
+Get-ChildItem {project_name}_dcws/metadata/*.json | ForEach-Object { python scripts/validate.py $_ }
 
 # Lint for production with Spark engine
 python scripts/lint.py metadata.json --engine spark --env prod
@@ -242,9 +262,9 @@ python scripts/lint.py metadata.json --engine spark --env prod
 # Convert JSON to YAML for editing
 python scripts/convert.py metadata.json --to yaml
 
-# Merge base + prod overlay (unified layout — metadata.json auto-detected)
-python scripts/merge.py --base metadata/ --env prod
+# Merge base + prod overlay (unified, split, or modular layout auto-detected)
+python scripts/merge.py --base {project_name}_dcws/metadata/ --env prod
 
-# Merge base + prod overlay (split layout — connections.json + dataflows.json auto-detected)
-python scripts/merge.py --base metadata/ --env prod --output .datacoolie/generated/metadata.prod.json
+# Generate split output and stage index
+python scripts/merge.py --base {project_name}_dcws/metadata/ --env prod --output-layout split --emit-stage-manifest
 ```

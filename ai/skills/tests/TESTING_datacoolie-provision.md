@@ -10,7 +10,7 @@ This skill is **knowledge-based** — the AI reads SKILL.md rules and Terraform 
 
 Open `datacoolie-provision/SKILL.md` and verify:
 
-- [ ] Step 0 reads architecture document (`.datacoolie/architect/*_architecture.md`)
+- [ ] Step 0 reads architecture document (`{project_name}_dcws/architecture/current.md`) and approved architecture gate journal
 - [ ] Step 0 extracts Infrastructure Requirements table → resource list
 - [ ] Step 1 is conditional: arch consumed → ask env/mode only; no arch → ask everything
 - [ ] Step 2 preflight checks: CLI mode → platform CLI; Terraform mode → terraform binary; Local → skip
@@ -49,7 +49,7 @@ Ask the AI to provision for local platform:
 | Dry-run | "Provision local resources for dev" | AI shows what directories would be created, does not create |
 | Confirm | "Provision local resources for dev, confirm" | Directories actually created |
 | Idempotent | Run confirm twice | Second run reports "already exists", no errors |
-| Provision log | After any run | `.datacoolie/provision/YYMMDD_provision-log.md` created with status table |
+| Provision log | After any run | `{project_name}_dcws/provision/YYMMDD_provision-log.md` created with status table |
 
 ### 4. Manual Workflow Testing — Cloud Platforms (dry-run)
 
@@ -79,21 +79,21 @@ Prompt-level tests — verify AI behavior follows Step 0 logic.
 
 ### 6.1 Architecture present + approved
 
-- **Setup**: `.datacoolie/architect/260531_architecture.md` with `Status: Approved` and Infrastructure Requirements table (3 resources: bronze lakehouse, silver lakehouse, gold warehouse)
+- **Setup**: `{project_name}_dcws/architecture/current.md` plus approved architecture gate journal with Infrastructure Requirements table (3 resources: bronze lakehouse, silver lakehouse, gold warehouse)
 - **Prompt**: "Provision resources for dev"
 - **Verify**: AI pre-populates resource list from Infrastructure Requirements; does NOT ask for resource names/types; asks for environment confirmation and mode (CLI/Terraform)
 
 ### 6.2 No architecture — interactive fallback
 
-- **Setup**: Empty or missing `.datacoolie/` directory
+- **Setup**: Empty or missing `{project_name}_dcws/architecture/` directory
 - **Prompt**: "Provision resources"
 - **Verify**: AI asks for all details (resource names, types, platform, environment, mode)
 
 ### 6.3 Draft architecture — warning
 
-- **Setup**: Architecture with `Status: Draft`
+- **Setup**: Architecture exists but architecture gate journal is missing or not `status: approved`
 - **Prompt**: "Provision resources"
-- **Verify**: AI warns architecture is not approved; asks for confirmation; if confirmed, extracts Infrastructure Requirements
+- **Verify**: AI stops and requests architecture review before provisioning
 
 ### 6.4 Architecture has no Infrastructure Requirements table
 

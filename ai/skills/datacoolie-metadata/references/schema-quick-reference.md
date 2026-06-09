@@ -15,6 +15,18 @@ When generating metadata JSON/YAML, follow this structure exactly.
 
 At least one of `connections` or `dataflows` is required. `schema_hints` is optional.
 
+Authoring can be unified (`metadata.json`), split (`connections.json` + `dataflows.json`),
+or modular (`connections.json` + `schema_hints.json` + `dataflows/{stage}.json`). The
+merged runtime output always resolves to this top-level structure unless split output is
+explicitly requested.
+
+For modular files under `dataflows/`, the merge script infers missing `stage` values from
+the path:
+
+- `dataflows/source2bronze.json` -> `source2bronze`
+- `dataflows/source2bronze/sap.json` -> `source2bronze_sap`
+- explicit `stage` values must match the inferred stage family; conflicts fail validation.
+
 ## Connection object
 
 | Field | Type | Required | Description |
@@ -43,7 +55,7 @@ At least one of `connections` or `dataflows` is required. `schema_hints` is opti
 |-------|------|----------|-------------|
 | `name` | string | **yes** | Unique dataflow name |
 | `description` | string\|null | no | Human-readable description |
-| `stage` | string\|null | no | `<source_name>2<destination_name>`, e.g. `source2bronze`, `source_sap2bronze`, `bronze2silver` |
+| `stage` | string\|null | no | Stage or sub-stage, e.g. `source2bronze`, `bronze2silver`, `silver2gold`, `source2bronze_sap` |
 | `group_number` | int\|null | no | Parallel execution group |
 | `execution_order` | int\|null | no | Order within group (lower = first) |
 | `processing_mode` | enum | no | `batch` \| `microbatch` \| `streaming` (default: batch) |

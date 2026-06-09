@@ -19,12 +19,21 @@ Produce discovery reports that capture everything needed to design an ETL archit
 This skill handles: source schema extraction, operational intelligence gathering, discovery report generation.
 Does NOT handle: metadata generation, project scaffolding, architecture design.
 
+## Workspace Resolution
+
+Before writing discovery artifacts:
+
+1. Look for existing `*_dcws/` folders in the current project tree.
+2. If exactly one exists, use it.
+3. If multiple exist, ask which project workspace to use.
+4. If none exists, ask for the project name, normalize it to lowercase snake/kebab-safe text, and create/use `{project_name}_dcws/`.
+
 ## Multi-Source Model
 
 Each source is discovered independently. One discovery run = one source = two output files.
 
 ```
-.datacoolie/discover/
+{project_name}_dcws/discover/
 ├── yymmdd_erp.md                # Discovery report (operational context + recommendations)
 ├── yymmdd_erp_schema.csv        # Schema inventory (CSV — 14 columns)
 ├── yymmdd_crm-api.md
@@ -138,7 +147,7 @@ Questions are at `templates/interview-questions.md`. Key rules:
 2. **User provides source access** → auto-introspect first, write schema file, then interview for remaining gaps
 3. **User cannot provide access** → interview only (schema section filled manually or left for later)
 4. **After both** → AI generates recommendations (load strategy, watermarks, risks)
-5. Write report to `.datacoolie/discover/yymmdd_{source-name}.md`
+5. Write report to `{project_name}_dcws/discover/yymmdd_{source-name}.md`
 6. If more sources to discover → repeat for next source
 7. Inform user: "Discovery complete. Next step: design the architecture based on these reports."
 
@@ -154,8 +163,8 @@ Questions are at `templates/interview-questions.md`. Key rules:
 
 | Artifact | Path | Format |
 |---|---|---|
-| Discovery report | `.datacoolie/discover/yymmdd_{source-name}.md` | Markdown |
-| Schema inventory | `.datacoolie/discover/yymmdd_{source-name}_schema.csv` | CSV (14 columns) |
+| Discovery report | `{project_name}_dcws/discover/yymmdd_{source-name}.md` | Markdown |
+| Schema inventory | `{project_name}_dcws/discover/yymmdd_{source-name}_schema.csv` | CSV (14 columns) |
 
 ## Dependencies
 

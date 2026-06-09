@@ -154,6 +154,17 @@ the same.
 - Build a multi-stage bronze→silver tutorial flow: <https://datacoolie.github.io/datacoolie/getting-started/first-dataflow/>
 - Learn the metadata model field by field: <https://datacoolie.github.io/datacoolie/how-to/metadata-guide/>
 
+## AI-assisted project workflow
+
+DataCoolie AI skills use `{project_name}_dcws/` as the project control folder.
+That workspace contains its own `AGENTS.md`, discovery reports, stage-level
+architecture, metadata, generated deploy artifacts, and project-management gate
+journals.
+
+The canonical workflow contract lives at [ai/AGENTS.md](ai/AGENTS.md). It
+requires human review gates for architecture, `source2bronze`, `bronze2silver`,
+`silver2gold`, and production deployment.
+
 ## Testbed & scenarios
 
 See [usecase-sim/README.md](usecase-sim/README.md) for a ready-made integration

@@ -1,21 +1,23 @@
-# Silver Layer — Dataflow Details
+# Silver Layer - Stage Contract
 
-> Part of [Architecture v{{ version }}](../yymmdd_architecture.md)
+> Part of [Architecture v{{ version }}](../current.md)
 
 <!-- In Level 3 (per-domain split), this file covers only {{ domain }} -->
 
-## Dataflows
+## Stage Contract
 
-<!-- Repeat for each bronze→silver dataflow: -->
+<!-- Repeat for each bronze-to-silver domain or workload boundary: -->
 
-### {{ domain }}.{{ entity_name }}
+### {{ domain }} bronze to silver
 
-- **Source tables:** {{ source_tables }} (from bronze)
-- **Destination:** silver/{{ domain }}/{{ entity_name }}/
-- **Load type:** {{ load_type }}
-- **Watermark column:** {{ watermark_column | default("N/A") }}
-- **Merge keys:** {{ merge_keys | default("N/A") }}
+- **Source domains:** {{ source_domains }}
+- **Target grain:** {{ target_grain }}
+- **Load pattern:** {{ load_pattern }}
+- **Change detection:** {{ change_detection }}
+- **Key strategy:** {{ key_strategy }}
+- **Freshness target:** {{ freshness_target }}
 - **Engine:** {{ engine }}
-- **Partition columns:** {{ partition_columns | default("None") }}
-- **Deduplication:** {{ dedup_columns | default("None") }}
-- **Transform logic:** {{ transform_description }}
+- **Platform/storage:** {{ platform_storage }}
+- **Deduplication contract:** {{ dedup_contract }}
+- **Quality gate:** {{ quality_gate }}
+- **Backfill/rollback:** {{ backfill_rollback }}

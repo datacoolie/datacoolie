@@ -23,7 +23,8 @@ Does NOT handle: source discovery, architecture design, metadata generation, cod
 
 ## Prerequisites
 
-- Approved architecture document at `.datacoolie/architect/*_architecture.md` (recommended — falls back to interactive)
+- Approved architecture document at `{project_name}_dcws/architecture/current.md` (recommended — falls back to interactive)
+- Approved architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/` when architecture exists
 - Platform CLI installed and authenticated (for CLI mode)
 - Terraform installed (for Terraform mode)
 
@@ -39,7 +40,8 @@ Does NOT handle: source discovery, architecture design, metadata generation, cod
 
 ### Step 0: Read Architecture (if available)
 
-Check for an approved architecture document at `.datacoolie/architect/*_architecture.md`.
+Check for an approved architecture document at `{project_name}_dcws/architecture/current.md`.
+Also check the architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`.
 
 **If found and status is `Approved`**, extract from the Infrastructure Requirements table:
 
@@ -51,7 +53,7 @@ Check for an approved architecture document at `.datacoolie/architect/*_architec
 | Infrastructure Requirements → Purpose | Bronze/Silver/Gold/Secrets | Environment naming + layer mapping |
 | Environment Differences table | Dev/Test/Prod config matrix | Environment suffix rules |
 
-**If found but status is `Draft`** → warn user architecture is not approved, proceed after confirmation.
+**If found but the architecture gate is not approved** → stop and request architecture review before provisioning.
 
 **If not found** → fall back to interactive mode (Step 1 asks everything).
 
@@ -82,7 +84,7 @@ Detect user's OS from terminal context → determines script format (`.sh` for L
 
 ### Step 3: Generate
 
-**CLI mode** → Generate an executable script at `.datacoolie/provision/yymmdd_provision.sh` (or `.ps1`).
+**CLI mode** → Generate an executable script at `{project_name}_dcws/provision/yymmdd_provision.sh` (or `.ps1`).
 The script must:
 - Check if each resource already exists before creating (idempotent)
 - Print what it will do before doing it
@@ -95,7 +97,7 @@ If uncertain about current CLI syntax, read [platform-cli-reference.md](./refere
 **Terraform mode:**
 1. Read reference examples from `references/*.tf.example` to understand naming conventions and resource patterns
 2. Generate `.tf` files for the user's specific resources
-3. Write to `.datacoolie/provision/`
+3. Write to `{project_name}_dcws/provision/`
 4. Run `terraform validate` if available, otherwise AI reviews for correctness
 
 ### Step 4: User Reviews and Approves
@@ -109,11 +111,11 @@ Present generated script or `.tf` files. Do NOT execute until user explicitly ap
 
 ### Step 6: Log
 
-Write provision log to `.datacoolie/provision/yymmdd_provision-log.md` using `templates/provision-log.tpl.md`.
+Write provision log to `{project_name}_dcws/provision/yymmdd_provision-log.md` using `templates/provision-log.tpl.md`.
 
 If architecture was consumed, include reference in log:
 
-> Architecture consumed: `.datacoolie/architect/yymmdd_architecture.md`
+> Architecture consumed: `{project_name}_dcws/architecture/current.md`
 > - N resources pre-populated from Infrastructure Requirements
 > - Environment: {env} (suffix: `_{env}`)
 
@@ -137,16 +139,17 @@ Resources are named with environment suffix:
 
 | Direction | Artifact | Path | Required |
 |-----------|----------|------|----------|
-| Input | Architecture document | `.datacoolie/architect/*_architecture.md` | No — falls back to interactive |
+| Input | Architecture document | `{project_name}_dcws/architecture/current.md` | No — falls back to interactive |
+| Input | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/*.md` | Required if architecture exists |
 | Input | User input | Interactive | Yes (if no arch); environment + mode always |
 
 ## Output Contracts
 
 | Artifact | Path |
 |---|---|
-| Provision script | `.datacoolie/provision/yymmdd_provision.sh` (or `.ps1`) |
-| Provision log | `.datacoolie/provision/yymmdd_provision-log.md` |
-| Terraform files | `.datacoolie/provision/*.tf` (Terraform mode only) |
+| Provision script | `{project_name}_dcws/provision/yymmdd_provision.sh` (or `.ps1`) |
+| Provision log | `{project_name}_dcws/provision/yymmdd_provision-log.md` |
+| Terraform files | `{project_name}_dcws/provision/*.tf` (Terraform mode only) |
 
 ## Error Handling
 
