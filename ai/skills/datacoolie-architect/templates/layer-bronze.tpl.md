@@ -1,3 +1,14 @@
+---
+artifact_type: architecture_layer
+project_name: "{{ project_name }}"
+version: 'v{{ version }}'
+layer: bronze
+stage: source2bronze
+source_name: '{{ source_name | default("") }}'
+parent: "../current.md"
+status: draft
+---
+
 # Bronze Layer - Stage Contract
 
 > Part of [Architecture v{{ version }}](../current.md)

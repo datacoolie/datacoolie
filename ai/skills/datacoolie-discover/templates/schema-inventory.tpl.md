@@ -1,11 +1,12 @@
-# Schema Inventory — {{ source_name }}
-
-**Date:** {{ date }}
-**Source:** {{ source_name }}
-**Source type:** {{ database | api | file | lakehouse }}
-**Discovery report:** [{{ date }}_{{ source_name }}.md](./{{ date }}_{{ source_name }}.md)
-
 ---
+artifact_type: schema_inventory
+date: "{{ date }}"
+source_name: "{{ source_name }}"
+source_type: "{{ database | api | file | lakehouse }}"
+discovery_report: "{{ date }}_{{ source_name }}.md"
+---
+
+# Schema Inventory — {{ source_name }}
 
 <!-- Use the section matching your source type. Delete the other. -->
 

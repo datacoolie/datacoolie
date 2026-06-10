@@ -24,7 +24,7 @@ Does NOT handle: source discovery, architecture design, metadata generation, cod
 ## Prerequisites
 
 - Approved architecture document at `{project_name}_dcws/architecture/current.md` (recommended — falls back to interactive)
-- Approved architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/` when architecture exists
+- Latest architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/` is `status: approved` when architecture exists
 - Platform CLI installed and authenticated (for CLI mode)
 - Terraform installed (for Terraform mode)
 
@@ -41,9 +41,12 @@ Does NOT handle: source discovery, architecture design, metadata generation, cod
 ### Step 0: Read Architecture (if available)
 
 Check for an approved architecture document at `{project_name}_dcws/architecture/current.md`.
-Also check the architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`.
+Also check the latest architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`.
+Select the latest journal by frontmatter `reviewed_at`; if missing, use the
+lexicographically greatest filename. Treat the gate as approved only when that
+latest journal has `status: approved`.
 
-**If found and status is `Approved`**, extract from the Infrastructure Requirements table:
+**If `current.md` exists and the latest architecture gate journal is approved**, extract from the Infrastructure Requirements table:
 
 | Architecture Section | Extract | Maps To |
 |---------------------|---------|---------|
@@ -84,6 +87,8 @@ Detect user's OS from terminal context → determines script format (`.sh` for L
 
 ### Step 3: Generate
 
+Create `{project_name}_dcws/provision/` only when writing provision artifacts.
+
 **CLI mode** → Generate an executable script at `{project_name}_dcws/provision/yymmdd_provision.sh` (or `.ps1`).
 The script must:
 - Check if each resource already exists before creating (idempotent)
@@ -112,6 +117,7 @@ Present generated script or `.tf` files. Do NOT execute until user explicitly ap
 ### Step 6: Log
 
 Write provision log to `{project_name}_dcws/provision/yymmdd_provision-log.md` using `templates/provision-log.tpl.md`.
+The log must start with YAML frontmatter for provision metadata.
 
 If architecture was consumed, include reference in log:
 
@@ -140,7 +146,7 @@ Resources are named with environment suffix:
 | Direction | Artifact | Path | Required |
 |-----------|----------|------|----------|
 | Input | Architecture document | `{project_name}_dcws/architecture/current.md` | No — falls back to interactive |
-| Input | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/*.md` | Required if architecture exists |
+| Input | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/*.md` | Required if architecture exists; latest journal by `reviewed_at`, then filename, must be `status: approved` |
 | Input | User input | Interactive | Yes (if no arch); environment + mode always |
 
 ## Output Contracts

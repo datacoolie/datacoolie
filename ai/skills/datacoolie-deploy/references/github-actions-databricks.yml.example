@@ -35,7 +35,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: functions-wheel
-          path: {project_name}_dcws/generated/dist/*.whl
+          path: "{project_name}_dcws/generated/dist/*.whl"
 
   deploy:
     needs: package
@@ -50,10 +50,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: functions-wheel
-          path: {project_name}_dcws/generated/dist/
+          path: "{project_name}_dcws/generated/dist/"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install databricks-cli datacoolie
+      - name: Merge metadata for prod
+        run: python datacoolie/ai/skills/datacoolie-metadata/scripts/merge.py --base {project_name}_dcws/metadata --env prod --output {project_name}_dcws/generated/prod/metadata.json
+      - name: Upload generated artifacts to Databricks volume
+        run: |
+          databricks fs cp {project_name}_dcws/generated/run_databricks.ipynb {databricks_volume_root}/runners/run_databricks.ipynb --overwrite
+          databricks fs cp {project_name}_dcws/generated/prod/metadata.json {databricks_volume_root}/generated/prod/metadata.json --overwrite
+          databricks fs cp {project_name}_dcws/generated/dist/ {databricks_volume_root}/libraries/ --recursive --overwrite
       - name: Deploy Databricks bundle
         run: databricks bundle deploy

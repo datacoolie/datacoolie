@@ -1,10 +1,24 @@
 # Source Introspection Guide
 
-The AI runs these queries and commands directly via terminal. No scripts needed — adapt to any database, file format, or API the user has access to.
+Use the packaged introspection scripts first. This guide is a fallback for unsupported sources,
+driver failures, or manual verification. Do not duplicate database schema discovery logic in a
+temporary script when `scripts/introspect_db.py` can connect.
 
 ## Database Introspection
 
-Connect using `psql`, `mysql`, `sqlcmd`, `sqlplus`, `sqlite3`, or any SQL client available in the terminal. Filter out system schemas (`information_schema`, `pg_catalog`, `sys`, `mysql`, `performance_schema`).
+Preferred command:
+
+```bash
+python scripts/introspect_db.py --url-env DATACOOLIE_DISCOVERY_URL --source <source> --output <schema.csv>
+```
+
+For ODBC-based SQL Server, Azure SQL, and Fabric SQL Database:
+
+```bash
+python scripts/introspect_db.py --odbc-connstr-env DATACOOLIE_ODBC_CONNSTR --source <source> --output <schema.csv>
+```
+
+If the script cannot run, connect using `psql`, `mysql`, `sqlcmd`, `sqlplus`, `sqlite3`, or any SQL client available in the terminal. Filter out system schemas (`information_schema`, `pg_catalog`, `sys`, `mysql`, `performance_schema`).
 
 ### PostgreSQL
 

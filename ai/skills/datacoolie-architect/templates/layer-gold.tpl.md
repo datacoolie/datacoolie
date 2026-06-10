@@ -1,3 +1,14 @@
+---
+artifact_type: architecture_layer
+project_name: "{{ project_name }}"
+version: 'v{{ version }}'
+layer: gold
+stage: silver2gold
+domain: '{{ domain | default("") }}'
+parent: "../current.md"
+status: draft
+---
+
 # Gold Layer - Stage Contract
 
 > Part of [Architecture v{{ version }}](../current.md)

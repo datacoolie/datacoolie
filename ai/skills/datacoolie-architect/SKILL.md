@@ -78,7 +78,7 @@ aggregations), propose additions rather than replacements.
 ### Step 3: Generate Architecture Document
 
 **Create mode:** Fill `templates/architecture.tpl.md` with values from the decision framework.
-Write to:
+Create `{project_name}_dcws/architecture/` only if it does not exist, then write to:
 
 ```
 {project_name}_dcws/architecture/current.md
@@ -119,12 +119,13 @@ Show the architecture document to the user. In Update mode, highlight what chang
 Ask:
 > "Do you approve this architecture? Reply 'approve' to record the architecture gate, or describe changes."
 
-**GATE**: Do NOT proceed to init, metadata generation, workload implementation, or provisioning until an approved Markdown gate journal exists under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`.
+**GATE**: Do NOT proceed to init, metadata generation, workload implementation, or provisioning until the latest Markdown gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/` has YAML frontmatter `status: approved`. Select the latest journal by `reviewed_at`; if missing, use the lexicographically greatest filename.
 Iterate on the document until the user says "approve" or equivalent.
 
 ### Step 5: After Approval
 
 Once approved:
+- Create `{project_name}_dcws/project_management/phases/architecture/` only if missing
 - Write or update the architecture gate journal under `{project_name}_dcws/project_management/phases/architecture/gate-reviews/`
 - Update Source Registry statuses: `New` → `Active`, `Modified` → `Active`
 - Inform user of next steps:
@@ -226,7 +227,9 @@ of file size. This is required for watermark-based incremental reads and date-fo
 
 ## Output Format
 
-The architecture document follows the template at `templates/architecture.tpl.md`.
+The architecture document follows the template at `templates/architecture.tpl.md` and must start
+with YAML frontmatter for document metadata. Split source/layer files under `architecture/layers/`
+also start with YAML frontmatter.
 
 Key sections:
 1. **Overview** — source count, platform, volume estimate

@@ -491,6 +491,17 @@ python -c "import json; d=json.load(open('merged_out.json')); flow1=next(df for 
 Remove-Item merged_out.json
 ```
 
+### 4.4a Schema hints overlay: keyed group and column merge
+
+```sh
+# Verify with unit test coverage:
+# - schema_hints[] groups match by connection_name + schema_name + table_name
+# - missing/null/empty schema_name are the same key
+# - nested hints match by column_name
+# - duplicate or missing schema hint keys fail fast
+python -m pytest -o addopts= ai/skills/tests/unit/test_metadata_merge.py -q
+```
+
 ### 4.5 Missing environment overlay (warning, not error)
 
 ```sh
@@ -527,7 +538,7 @@ os.makedirs('test_unified/environments', exist_ok=True)
 json.dump({
     'connections': [{'name': 'src_db', 'connection_type': 'mssql', 'configure': {'host': 'localhost'}}],
     'dataflows': [{'name': 'load_orders', 'source': {'connection_name': 'src_db', 'object_name': 'orders'}, 'destination': {'object_name': 'bronze_orders'}}],
-    'schema_hints': [{'dataflow_name': 'load_orders', 'column_name': 'id', 'data_type': 'integer'}]
+    'schema_hints': [{'connection_name': 'src_db', 'table_name': 'orders', 'hints': [{'column_name': 'id', 'data_type': 'INTEGER'}]}]
 }, open('test_unified/metadata.json', 'w'), indent=2)
 import yaml
 yaml.dump({
@@ -545,7 +556,7 @@ python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/met
 
 ```sh
 # Verify schema_hints pass through from test 4.8
-python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/metadata.json')); assert len(d['schema_hints']) == 1; assert d['schema_hints'][0]['column_name'] == 'id'; print('OK: schema_hints preserved')"
+python -c "import json; d=json.load(open('{project_name}_dcws/generated/prod/metadata.json')); assert len(d['schema_hints']) == 1; assert d['schema_hints'][0]['hints'][0]['column_name'] == 'id'; print('OK: schema_hints preserved')"
 ```
 
 ### 4.10 Unified layout — $schema preserved
@@ -702,7 +713,7 @@ These are **prompt-level tests** — verify AI behavior follows the Step 0 logic
 
 ### 7.1 Architecture present + approved
 
-- **Setup**: Create `{project_name}_dcws/architecture/current.md` plus an approved architecture gate journal, Source Registry (2 sources), and Stage Summary Table (3 stage contracts)
+- **Setup**: Create `{project_name}_dcws/architecture/current.md` plus latest architecture gate journal with `status: approved`, Source Registry (2 sources), and Stage Summary Table (3 stage contracts)
 - **Prompt**: "Generate metadata for this project"
 - **Verify**: AI pre-populates connections from Source Registry; drafts dataflows from Stage Summary Table and Stage Contracts; does NOT ask about load strategy, connection types, or source names; DOES ask about `secrets_ref`
 
@@ -720,7 +731,7 @@ These are **prompt-level tests** — verify AI behavior follows the Step 0 logic
 
 ### 7.4 Draft architecture — warning
 
-- **Setup**: Create `{project_name}_dcws/architecture/current.md` without an approved architecture gate journal
+- **Setup**: Create `{project_name}_dcws/architecture/current.md` without a latest architecture gate journal with `status: approved`
 - **Prompt**: "Generate metadata"
 - **Verify**: AI warns that architecture is not approved and requests architecture gate review before architecture-derived metadata generation
 

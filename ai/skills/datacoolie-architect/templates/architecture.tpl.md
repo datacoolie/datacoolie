@@ -1,12 +1,15 @@
-# Architecture Design — {{ project_name }}
-
-**Date:** {{ date }}
-**Version:** v{{ version | default("1") }}
-**Discovery Reports:** `{project_name}_dcws/discover/`
-**Platform:** {{ platform }}
-**Status:** Draft — Awaiting Approval
-
 ---
+artifact_type: architecture
+project_name: "{{ project_name }}"
+date: "{{ date }}"
+version: 'v{{ version | default("1") }}'
+discovery_reports: "{project_name}_dcws/discover/"
+platform: "{{ platform }}"
+status: draft
+approval_state: awaiting_approval
+---
+
+# Architecture Design — {{ project_name }}
 
 ## Overview
 

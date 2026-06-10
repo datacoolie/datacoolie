@@ -15,7 +15,7 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "%pip install datacoolie /Volumes/my_catalog/bronze/files/libraries/functions*.whl --force-reinstall"
+    "%pip install datacoolie {databricks_volume_root}/libraries/functions*.whl --force-reinstall"
    ],
    "execution_count": null
   },
@@ -39,8 +39,9 @@
     "from datacoolie.orchestration.driver import DataCoolieDriver\n",
     "from datacoolie.platforms.databricks_platform import DatabricksPlatform\n",
     "\n",
-    "VOLUME_ROOT = \"/Volumes/my_catalog/bronze/files\"\n",
-    "METADATA_PATH = f\"{VOLUME_ROOT}/metadata/use_cases.json\"\n",
+    "ENV = \"prod\"\n",
+    "VOLUME_ROOT = \"{databricks_volume_root}\"\n",
+    "METADATA_PATH = f\"{VOLUME_ROOT}/generated/{ENV}/metadata.json\"\n",
     "BASE_LOG_PATH = f\"{VOLUME_ROOT}/logs/datacoolie\"\n",
     "STAGE = \"\"  # empty = run all stages\n",
     "\n",

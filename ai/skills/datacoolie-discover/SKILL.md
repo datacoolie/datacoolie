@@ -17,7 +17,8 @@ Produce discovery reports that capture everything needed to design an ETL archit
 ## Scope
 
 This skill handles: source schema extraction, operational intelligence gathering, discovery report generation.
-Does NOT handle: metadata generation, project scaffolding, architecture design.
+It may create the minimal workspace folder and workspace `AGENTS.md` when discovery is the first lifecycle action.
+Does NOT handle: metadata generation, full project scaffolding, architecture design.
 
 ## Workspace Resolution
 
@@ -27,6 +28,8 @@ Before writing discovery artifacts:
 2. If exactly one exists, use it.
 3. If multiple exist, ask which project workspace to use.
 4. If none exists, ask for the project name, normalize it to lowercase snake/kebab-safe text, and create/use `{project_name}_dcws/`.
+5. If `{project_name}_dcws/AGENTS.md` is missing, copy it from the canonical `datacoolie/ai/AGENTS.md` source.
+6. Create only `{project_name}_dcws/discover/` before writing discovery artifacts. Do not create architecture, metadata, provision, deploy, promote, or future phase folders from discovery.
 
 ## Multi-Source Model
 
@@ -94,7 +97,18 @@ Template: `templates/schema-inventory.tpl.csv`
 
 Connect to the source and extract schema automatically using the introspection scripts.
 
-**When to use**: User provides a connection string, file path, or API spec.
+**When to use**: User provides a connection string, environment variable containing a
+connection string, file path, or API spec.
+
+For database sources, prefer connection strings over many auth-specific CLI parameters:
+
+- `--url-env` for SQLAlchemy URLs stored in an environment variable
+- `--url` for non-secret local/dev URLs
+- `--odbc-connstr-env` for ODBC connection strings stored in an environment variable
+
+Fabric SQL Database, Azure SQL, and MSSQL are database sources. Use `introspect_db.py`
+with `mssql+pyodbc` / ODBC. Do not implement schema discovery in a temporary script. If shell
+quoting is difficult, use environment variables or a thin wrapper that calls `introspect_db.py`.
 
 #### Introspection Scripts
 
@@ -102,7 +116,7 @@ Located in `scripts/`. Install dependencies first: `pip install -r scripts/requi
 
 | Script | Source Type | Key Args |
 |---|---|---|
-| `introspect_db.py` | Databases (PostgreSQL, MySQL, MSSQL, Oracle, SQLite, Snowflake, BigQuery, Redshift) | `--url`, `--source`, `--schemas`, `--tables`, `--output` |
+| `introspect_db.py` | Databases (PostgreSQL, MySQL, MSSQL, Azure SQL, Fabric SQL Database, Oracle, SQLite, Snowflake, BigQuery, Redshift) | `--url` or `--url-env`, `--odbc-connstr-env`, `--source`, `--schemas`, `--tables`, `--output` |
 | `introspect_files.py structure` | File/folder structure (local, S3, ADLS, GCS) | `--path`, `--output`, `--storage-options` |
 | `introspect_files.py schema` | File schema (Parquet, CSV, JSON, Delta, Avro, ORC, Excel) | `--path`, `--format`, `--source`, `--table`, `--output` |
 | `introspect_api.py` | APIs (OpenAPI JSON/YAML, GraphQL, OData) | `--spec` / `--graphql` / `--odata`, `--source`, `--output` |
@@ -110,10 +124,29 @@ Located in `scripts/`. Install dependencies first: `pip install -r scripts/requi
 
 All scripts output the same 14-column CSV to stdout or `--output` file.
 
+Examples:
+
+```powershell
+$env:DATACOOLIE_DISCOVERY_URL = "postgresql+psycopg2://user:password@host:5432/db"
+python datacoolie/ai/skills/datacoolie-discover/scripts/introspect_db.py `
+  --url-env DATACOOLIE_DISCOVERY_URL `
+  --source erp `
+  --output sales_dcws/discover/260609_erp_schema.csv
+```
+
+```powershell
+$env:DATACOOLIE_ODBC_CONNSTR = "Driver={ODBC Driver 18 for SQL Server};Server=tcp:<server>,1433;Database=<database>;Authentication=ActiveDirectoryServicePrincipal;UID=<client-id>;PWD=<client-secret>;Encrypt=yes;"
+python datacoolie/ai/skills/datacoolie-discover/scripts/introspect_db.py `
+  --odbc-connstr-env DATACOOLIE_ODBC_CONNSTR `
+  --source fabric_sql `
+  --output sales_dcws/discover/260609_fabric_sql_schema.csv
+```
+
 #### Workflow
 
 1. Determine source type (database, file, API, lakehouse catalog)
-2. Run the appropriate introspection script
+2. Run the appropriate introspection script. For databases, use `introspect_db.py`; do not
+   duplicate database introspection logic in ad hoc scripts.
 3. Write output to `yymmdd_{source-name}_schema.csv`
 4. Proceed to interview for remaining sections (data characteristics, load patterns, etc.)
 
@@ -151,6 +184,8 @@ Questions are at `templates/interview-questions.md`. Key rules:
 6. If more sources to discover → repeat for next source
 7. Inform user: "Discovery complete. Next step: design the architecture based on these reports."
 
+Markdown discovery outputs must start with YAML frontmatter for report metadata.
+
 ## Security Policy
 
 - Never store connection strings or credentials in the output report
@@ -163,7 +198,7 @@ Questions are at `templates/interview-questions.md`. Key rules:
 
 | Artifact | Path | Format |
 |---|---|---|
-| Discovery report | `{project_name}_dcws/discover/yymmdd_{source-name}.md` | Markdown |
+| Discovery report | `{project_name}_dcws/discover/yymmdd_{source-name}.md` | Markdown with YAML frontmatter |
 | Schema inventory | `{project_name}_dcws/discover/yymmdd_{source-name}_schema.csv` | CSV (14 columns) |
 
 ## Dependencies

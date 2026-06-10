@@ -1,10 +1,11 @@
-# Discovery Report — {{ source_name }}
-
-**Date:** {{ date }}
-**Source:** {{ source_name }}
-**Status:** In Progress
-
 ---
+artifact_type: discovery_report
+date: "{{ date }}"
+source_name: "{{ source_name }}"
+status: in_progress
+---
+
+# Discovery Report — {{ source_name }}
 
 ## Source Identity
 

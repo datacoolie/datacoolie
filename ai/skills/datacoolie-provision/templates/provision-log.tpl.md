@@ -1,13 +1,15 @@
-# Provision Log — {{ project_name }}
-
-**Date:** {{ date }}
-**Architecture:** {{ architecture_path }}
-**Platform:** {{ platform }}
-**Mode:** {{ mode }}
-**Environment:** {{ env }}
-**Status:** {{ status }}
-
 ---
+artifact_type: provision_log
+project_name: "{{ project_name }}"
+date: "{{ date }}"
+architecture_path: "{{ architecture_path }}"
+platform: "{{ platform }}"
+mode: "{{ mode }}"
+environment: "{{ env }}"
+status: "{{ status }}"
+---
+
+# Provision Log — {{ project_name }}
 
 ## Resources
 

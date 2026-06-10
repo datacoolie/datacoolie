@@ -4,9 +4,10 @@ Reference used by datacoolie-deploy skill to understand Python API patterns.
 Platform: AWS Glue | Engine: spark
 
 Required Glue job parameters:
-  --REGION       AWS region (e.g. ap-southeast-1)
-  --BUCKET       S3 bucket name
-  --STAGE        Comma-separated stage names, empty = run all
+  --REGION         AWS region (e.g. ap-southeast-1)
+  --METADATA_PATH  Merged generated metadata artifact, e.g. s3://bucket/generated/prod/metadata.json
+  --LOG_BASE_PATH  Runtime log base path, e.g. s3://bucket/logs/datacoolie
+  --STAGE          Comma-separated stage names, empty = run all
 """
 
 import sys
@@ -26,14 +27,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 # Glue job parameters
-args = getResolvedOptions(sys.argv, ["JOB_NAME", "REGION", "BUCKET", "STAGE"])
+args = getResolvedOptions(sys.argv, ["JOB_NAME", "REGION", "METADATA_PATH", "LOG_BASE_PATH", "STAGE"])
 
-REGION: str = args.get("REGION", "ap-southeast-1")
-BUCKET: str = args.get("BUCKET", "my-project-bucket")
+REGION: str = args["REGION"]
+METADATA_PATH: str = args["METADATA_PATH"]
+LOG_BASE_PATH: str = args["LOG_BASE_PATH"]
 STAGE: str = args.get("STAGE", "")
-
-METADATA_PATH = f"s3://{BUCKET}/metadata/use_cases.json"
-LOG_BASE_PATH = f"s3://{BUCKET}/logs/datacoolie"
 
 # Spark / Glue context
 sc = SparkContext.getOrCreate()

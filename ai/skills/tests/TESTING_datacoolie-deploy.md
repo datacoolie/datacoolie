@@ -17,7 +17,7 @@ Open `datacoolie-deploy/SKILL.md` and verify:
 - [ ] Step 4 deploys via platform CLI
 - [ ] Step 5 promotion includes explicit confirmation gate for prod
 - [ ] Step 6 generates CI/CD workflows
-- [ ] Configuration section uses `schema_version`, `project`, `defaults`, `artifacts`, and `environments`
+- [ ] Configuration section uses only `schema_version`, `project`, and `environments`
 - [ ] Configuration section states `config.yaml` follows the documented init project-structure template
 - [ ] Input Contracts table exists and matches required inputs
 - [ ] Output Contracts table exists and matches generated artifacts
@@ -40,7 +40,14 @@ Check `datacoolie-deploy/references/`:
 - [ ] Python examples compile
 - [ ] YAML examples parse
 - [ ] Notebook JSON examples parse
-- [ ] Placeholder values map to `{project_name}_dcws/config.yaml` structure
+- [ ] Project/workspace/platform placeholders map to `config.yaml`; runtime path/resource placeholders map to metadata overlays, provision outputs, runner/deploy parameters, variables, or secrets
+
+Check `datacoolie-deploy/templates/`:
+
+| File | Verify |
+|------|--------|
+| `deploy-log.tpl.md` | YAML frontmatter with `artifact_type`, `project_name`, `environment`, `platform`, and `status`; preflight and artifact evidence tables |
+| `promotion-log.tpl.md` | YAML frontmatter with `artifact_type`, `from_environment`, `to_environment`, `status`, and gate snapshot |
 
 ### 3. Manual Workflow Testing (Actionable)
 
@@ -61,9 +68,10 @@ Ask the AI to execute workflow prompts and verify outputs.
 | Platform | Prompt | Verify |
 |----------|--------|--------|
 | Local | Generate local runner | `{project_name}_dcws/generated/run_local.py` exists and is valid Python |
-| AWS Glue | Generate AWS Glue runner for prod | `run_aws_glue.py` contains environment values from config |
+| AWS Glue | Generate AWS Glue runner for prod | `run_aws_glue.py` uses platform target from `config.yaml`; environment-specific values come from metadata overlays or provision context |
 | Fabric | Generate Fabric runner for staging | `run_fabric.ipynb` valid JSON and expected cells |
 | Databricks | Generate Databricks runner | `run_databricks.ipynb` valid JSON and expected root path pattern |
+| Custom runner | Add `{project_name}_dcws/runners/run_local.py`, then generate local runner | Generated runner is copied/rendered from `runners/`; durable edits stay outside `generated/` |
 
 #### 3.3 Functions Packaging
 
@@ -78,6 +86,8 @@ Ask the AI to execute workflow prompts and verify outputs.
 - [ ] Generate AWS workflow → valid YAML under `.github/workflows/`
 - [ ] Generate Fabric workflow → valid YAML under `.github/workflows/`
 - [ ] Generate Databricks workflow → valid YAML under `.github/workflows/`
+- [ ] Deploy log starts with YAML frontmatter and records generated metadata + runner artifact
+- [ ] Promotion log starts with YAML frontmatter and records gate snapshot
 
 ---
 
@@ -95,7 +105,7 @@ Prompt-level checks for Step 0 behavior.
 
 - Setup: metadata exists, `{project_name}_dcws/config.yaml` absent
 - Prompt: Deploy
-- Verify: AI asks for project name, workspace name, platform, and environment config interactively; it does not ask for top-level config engine
+- Verify: AI asks for project name, workspace name, and target platform interactively; it does not ask for runtime paths, generated metadata paths, or top-level config engine
 
 ### 4.3 Missing metadata
 

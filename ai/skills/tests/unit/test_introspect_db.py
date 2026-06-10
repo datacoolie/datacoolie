@@ -4,6 +4,7 @@ Uses mocked SQLAlchemy Inspector to avoid needing a real database.
 """
 import csv
 import io
+from urllib.parse import parse_qs, urlsplit
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -120,6 +121,21 @@ class TestMaskUrl:
         url = "sqlite:///local.db"
         result = introspect_db._mask_url(url)
         assert "local.db" in result
+
+    def test_masks_odbc_password(self):
+        connstr = (
+            "Driver={ODBC Driver 18 for SQL Server};"
+            "Server=tcp:example.database.fabric.microsoft.com,1433;"
+            "Database=warehouse;"
+            "Authentication=ActiveDirectoryServicePrincipal;"
+            "UID=client-id;"
+            "PWD=super-secret;"
+            "Encrypt=yes;"
+        )
+        url = introspect_db._build_odbc_url(connstr)
+        result = introspect_db._mask_url(url)
+        assert "super-secret" not in result
+        assert "***" in result
 
 
 # ---------------------------------------------------------------------------
@@ -306,3 +322,67 @@ class TestParseArgs:
             "--url", "pg://x", "--source", "s", "--schemas", "a,b",
         ])
         assert args.schemas == "a,b"
+
+
+class TestResolveConnectionUrl:
+    def test_url(self):
+        args = introspect_db.parse_args(["--url", "sqlite:///test.db", "--source", "test"])
+        assert introspect_db.resolve_connection_url(args) == "sqlite:///test.db"
+
+    def test_url_env(self, monkeypatch):
+        monkeypatch.setenv("DATACOOLIE_DISCOVERY_URL", "sqlite:///env.db")
+        args = introspect_db.parse_args([
+            "--url-env", "DATACOOLIE_DISCOVERY_URL", "--source", "test",
+        ])
+        assert introspect_db.resolve_connection_url(args) == "sqlite:///env.db"
+
+    def test_odbc_connstr_env(self, monkeypatch):
+        connstr = (
+            "Driver={ODBC Driver 18 for SQL Server};"
+            "Server=tcp:example.database.fabric.microsoft.com,1433;"
+            "Database=warehouse;"
+            "Authentication=ActiveDirectoryServicePrincipal;"
+            "UID=client-id;"
+            "PWD=super-secret;"
+            "Encrypt=yes;"
+        )
+        monkeypatch.setenv("DATACOOLIE_ODBC_CONNSTR", connstr)
+        args = introspect_db.parse_args([
+            "--odbc-connstr-env", "DATACOOLIE_ODBC_CONNSTR", "--source", "fabric_sql",
+        ])
+        url = introspect_db.resolve_connection_url(args)
+        assert url.startswith("mssql+pyodbc:///?odbc_connect=")
+        parsed = parse_qs(urlsplit(url).query)
+        assert parsed["odbc_connect"][0] == connstr
+
+    def test_odbc_connstr_custom_dialect(self):
+        args = introspect_db.parse_args([
+            "--odbc-connstr", "Driver={x};Server=host;",
+            "--dialect", "custom+odbc",
+            "--source", "test",
+        ])
+        assert introspect_db.resolve_connection_url(args).startswith(
+            "custom+odbc:///?odbc_connect="
+        )
+
+    def test_requires_one_connection_source(self):
+        args = introspect_db.parse_args(["--source", "test"])
+        with pytest.raises(ValueError, match="exactly one"):
+            introspect_db.resolve_connection_url(args)
+
+    def test_rejects_multiple_connection_sources(self, monkeypatch):
+        monkeypatch.setenv("DATACOOLIE_DISCOVERY_URL", "sqlite:///env.db")
+        args = introspect_db.parse_args([
+            "--url", "sqlite:///test.db",
+            "--url-env", "DATACOOLIE_DISCOVERY_URL",
+            "--source", "test",
+        ])
+        with pytest.raises(ValueError, match="exactly one"):
+            introspect_db.resolve_connection_url(args)
+
+    def test_missing_env(self):
+        args = introspect_db.parse_args([
+            "--url-env", "DATACOOLIE_MISSING_URL", "--source", "test",
+        ])
+        with pytest.raises(ValueError, match="not set or is empty"):
+            introspect_db.resolve_connection_url(args)

@@ -10,7 +10,7 @@ This skill is **knowledge-based** — the AI reads SKILL.md rules and Terraform 
 
 Open `datacoolie-provision/SKILL.md` and verify:
 
-- [ ] Step 0 reads architecture document (`{project_name}_dcws/architecture/current.md`) and approved architecture gate journal
+- [ ] Step 0 reads architecture document (`{project_name}_dcws/architecture/current.md`) and validates that the latest architecture gate journal is `status: approved`
 - [ ] Step 0 extracts Infrastructure Requirements table → resource list
 - [ ] Step 1 is conditional: arch consumed → ask env/mode only; no arch → ask everything
 - [ ] Step 2 preflight checks: CLI mode → platform CLI; Terraform mode → terraform binary; Local → skip
@@ -38,7 +38,7 @@ Check `datacoolie-provision/templates/`:
 
 | File | Verify |
 |------|--------|
-| `provision-log.tpl.md` | Status table with resource name, type, status (created/failed/skipped), summary counts |
+| `provision-log.tpl.md` | YAML frontmatter with `artifact_type`, `project_name`, `date`, `environment`, and `status`; status table with resource name, type, status (created/failed/skipped), summary counts |
 
 ### 3. Manual Workflow Testing — Local Platform
 
@@ -79,7 +79,7 @@ Prompt-level tests — verify AI behavior follows Step 0 logic.
 
 ### 6.1 Architecture present + approved
 
-- **Setup**: `{project_name}_dcws/architecture/current.md` plus approved architecture gate journal with Infrastructure Requirements table (3 resources: bronze lakehouse, silver lakehouse, gold warehouse)
+- **Setup**: `{project_name}_dcws/architecture/current.md` plus latest architecture gate journal with `status: approved` and Infrastructure Requirements table (3 resources: bronze lakehouse, silver lakehouse, gold warehouse)
 - **Prompt**: "Provision resources for dev"
 - **Verify**: AI pre-populates resource list from Infrastructure Requirements; does NOT ask for resource names/types; asks for environment confirmation and mode (CLI/Terraform)
 
@@ -91,7 +91,7 @@ Prompt-level tests — verify AI behavior follows Step 0 logic.
 
 ### 6.3 Draft architecture — warning
 
-- **Setup**: Architecture exists but architecture gate journal is missing or not `status: approved`
+- **Setup**: Architecture exists but latest architecture gate journal is missing or not `status: approved`
 - **Prompt**: "Provision resources"
 - **Verify**: AI stops and requests architecture review before provisioning
 

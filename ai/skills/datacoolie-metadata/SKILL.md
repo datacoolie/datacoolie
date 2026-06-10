@@ -30,7 +30,11 @@ Check for upstream outputs before asking the user anything.
 
 **Architecture** — `{project_name}_dcws/architecture/current.md`
 
-If found and the architecture gate journal is approved, extract:
+If found and the latest architecture gate journal is approved, extract:
+
+Select the latest architecture gate journal by frontmatter `reviewed_at`; if
+missing, use the lexicographically greatest filename. Treat the gate as approved
+only when that latest journal has `status: approved`.
 
 | Architecture Section | Extract | Maps To |
 |---------------------|---------|---------|
@@ -77,14 +81,13 @@ If neither artifact exists → fall back to interactive mode (Step 1 asks everyt
 
 ### Step 3: Write
 
-Default output uses modular stage files:
+Default output uses modular stage files, created only for stages in scope for the current request.
+Do not create empty future-stage files.
 
 ```text
 {project_name}_dcws/metadata/connections.json
 {project_name}_dcws/metadata/schema_hints.json
-{project_name}_dcws/metadata/dataflows/source2bronze.json
-{project_name}_dcws/metadata/dataflows/bronze2silver.json
-{project_name}_dcws/metadata/dataflows/silver2gold.json
+{project_name}_dcws/metadata/dataflows/{stage}.json
 ```
 
 Alternatives:
@@ -108,7 +111,7 @@ Present result to user for review. If architecture was consumed, show the mappin
 
 ## Output Format
 
-Default authoring output is modular: `connections.json`, `schema_hints.json`, and one dataflow file per stage under `dataflows/`.
+Default authoring output is modular: `connections.json`, `schema_hints.json`, and one dataflow file per in-scope stage under `dataflows/`.
 
 Unified `metadata.json` remains supported for small projects. Split `connections.json` + `dataflows.json` remains supported for medium projects and environment overlay workflows.
 
@@ -119,7 +122,7 @@ Unified `metadata.json` remains supported for small projects. Split `connections
 | Direction | Artifact | Path | Required |
 |-----------|----------|------|----------|
 | Input | Architecture document | `{project_name}_dcws/architecture/current.md` | No — falls back to interactive |
-| Input | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/*.md` | Required if architecture exists |
+| Input | Architecture gate journal | `{project_name}_dcws/project_management/phases/architecture/gate-reviews/*.md` | Required if architecture exists; latest journal by `reviewed_at`, then filename, must be `status: approved` |
 | Input | Discovery schemas | `{project_name}_dcws/discover/*_schema.csv` | No — schema_hints left empty |
 | Input | User input | Interactive | Yes (if no arch); secrets_ref always |
 
@@ -127,10 +130,10 @@ Unified `metadata.json` remains supported for small projects. Split `connections
 
 | Artifact | Default Path | Notes |
 |----------|-------------|-------|
-| Metadata (modular) | `{project_name}_dcws/metadata/connections.json`, `schema_hints.json`, `dataflows/{stage}.json` | Default authoring layout |
+| Metadata (modular) | `{project_name}_dcws/metadata/connections.json`, `schema_hints.json`, `dataflows/{stage}.json` | Default authoring layout; create only in-scope stage files |
 | Metadata (unified) | `{project_name}_dcws/metadata/metadata.json` | Supported for small projects |
 | Metadata (split) | `{project_name}_dcws/metadata/connections.json` + `{project_name}_dcws/metadata/dataflows.json` | Supported for medium projects |
-| Environment overlays | `{project_name}_dcws/metadata/environments/*.yaml` | Created by init, edited by user |
+| Environment overlays | `{project_name}_dcws/metadata/environments/*.yaml` | Created only when environment-specific overrides are needed |
 
 ---
 
@@ -222,10 +225,14 @@ python scripts/merge.py --base <dir> --env <name> [--output <path>]
   - **Modular**: `connections.json` + `schema_hints.json` + `dataflows/{stage}.json`
   - **Nested modular**: `dataflows/{stage}/{group}.json`
 - Split/modular layouts are checked first; falls back to unified if split files not found
-- Overlay at `environments/{env}.yaml` matched by `name` field
-- Deep merges nested objects (e.g., `configure.base_path`)
+- Overlay at `environments/{env}.yaml` contains only fields to change
+- `connections[]` and `dataflows[]` overlay items are matched by `name`
+- `schema_hints[]` overlay groups are matched by `connection_name` + `schema_name` + `table_name`
+- `schema_hints[].hints[]` overlay items are matched by `column_name`
+- Deep merges nested objects; overlay scalars and lists replace the matched field
 - Unmentioned items pass through unchanged
-- `schema_hints` array preserved in output from unified or `schema_hints.json`
+- Missing, empty, and null `schema_name` are treated as the same schema hint key
+- Unsupported overlay top-level keys, missing schema hint keys, and duplicate schema hint keys fail fast
 - Missing `stage` is inferred from modular dataflow paths
 - Default output: `{project_name}_dcws/generated/{env}/metadata.json`
 - Optional split output: `--output-layout split`

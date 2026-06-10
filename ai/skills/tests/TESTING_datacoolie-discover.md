@@ -28,7 +28,7 @@ python run_discover.py --docker
 
 | File | Covers |
 |------|--------|
-| `unit/test_introspect_db.py` | Type mapping, FK map, URL masking, CSV contract, mocked introspection |
+| `unit/test_introspect_db.py` | Type mapping, FK map, URL/ODBC masking, connection env resolution, CSV contract, mocked introspection |
 | `unit/test_introspect_files.py` | Arrow/Delta type mapping, format detection, Parquet/CSV/JSON/Delta schema |
 | `unit/test_introspect_api.py` | OpenAPI parsing, type mapping, $ref resolution, pagination detection |
 
@@ -61,9 +61,12 @@ Ask the AI to discover each source. Verify it runs appropriate SQL and produces 
 
 Verification checklist per source:
 - [ ] AI runs `information_schema` or equivalent queries
+- [ ] For database sources, AI uses `scripts/introspect_db.py` rather than custom schema-discovery scripts
+- [ ] Connection secrets are provided through `--url-env` or `--odbc-connstr-env` when possible
 - [ ] Tables, columns, data types, PKs, and FKs are extracted
 - [ ] Row count estimates are included
 - [ ] Discovery report follows the template format
+- [ ] Discovery report and schema inventory start with YAML frontmatter (`artifact_type`, `date`, `source_name`, `status` or `source_type`)
 
 ### 4. Manual Workflow Testing — Files
 

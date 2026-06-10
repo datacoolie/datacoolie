@@ -1,3 +1,12 @@
+---
+artifact_type: architecture_source
+project_name: "{{ project_name }}"
+version: 'v{{ version }}'
+source_name: "{{ source_name }}"
+parent: "../current.md"
+status: draft
+---
+
 # Source: {{ source_name }}
 
 > Part of [Architecture v{{ version }}](../current.md)

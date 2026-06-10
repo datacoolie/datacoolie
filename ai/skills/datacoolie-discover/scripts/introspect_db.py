@@ -5,6 +5,8 @@ and outputs a standardised CSV matching the datacoolie discover schema contract.
 
 Usage:
     python introspect_db.py --url "postgresql://user:pass@host/db" --source erp
+    python introspect_db.py --url-env DATACOOLIE_DISCOVERY_URL --source erp
+    python introspect_db.py --odbc-connstr-env DATACOOLIE_ODBC_CONNSTR --source fabric_sql
     python introspect_db.py --url "mysql+pymysql://..." --source crm --schemas sales,hr
     python introspect_db.py --url "sqlite:///local.db" --source app --output schema.csv
 """
@@ -12,9 +14,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 import sys
 from typing import Any
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
@@ -285,11 +289,73 @@ def _get_row_estimate(conn, dialect_name: str, schema: str, table: str) -> str:
 # ---------------------------------------------------------------------------
 
 _URL_PASSWORD_RE = re.compile(r"://([^:]+):([^@]+)@")
+_CONNSTR_SECRET_RE = re.compile(
+    r"(?i)((?:^|;)\s*(?:PWD|Password|ClientSecret|Client Secret|Secret|AccessToken|Token)\s*=\s*)[^;]*"
+)
+_SENSITIVE_QUERY_KEYS = {
+    "password",
+    "pwd",
+    "client_secret",
+    "clientsecret",
+    "access_token",
+    "token",
+}
 
 
 def _mask_url(url: str) -> str:
-    """Replace password in a connection URL with '***'."""
-    return _URL_PASSWORD_RE.sub(r"://\1:***@", url)
+    """Replace secrets in a connection URL or encoded ODBC string with '***'."""
+    masked = _URL_PASSWORD_RE.sub(r"://\1:***@", url)
+    try:
+        parts = urlsplit(masked)
+        if parts.query:
+            pairs = parse_qsl(parts.query, keep_blank_values=True)
+            changed = False
+            masked_pairs: list[tuple[str, str]] = []
+            for key, value in pairs:
+                key_lower = key.lower()
+                if key_lower == "odbc_connect":
+                    value = _mask_connection_string(value)
+                    changed = True
+                elif key_lower in _SENSITIVE_QUERY_KEYS:
+                    value = "***"
+                    changed = True
+                masked_pairs.append((key, value))
+            if changed:
+                masked = urlunsplit(
+                    (
+                        parts.scheme,
+                        parts.netloc,
+                        parts.path,
+                        urlencode(masked_pairs, safe="*"),
+                        parts.fragment,
+                    )
+                )
+    except Exception:
+        pass
+    return _mask_connection_string(masked)
+
+
+def _mask_connection_string(connstr: str) -> str:
+    """Mask common secret fields in ODBC-style connection strings."""
+    return _CONNSTR_SECRET_RE.sub(lambda m: f"{m.group(1)}***", connstr)
+
+
+def _build_odbc_url(connstr: str, dialect: str = "mssql+pyodbc") -> str:
+    """Build a SQLAlchemy URL from a raw ODBC connection string."""
+    if not dialect:
+        raise ValueError("--dialect cannot be empty when using ODBC connection strings")
+    if not connstr.strip():
+        raise ValueError("ODBC connection string cannot be empty")
+    return f"{dialect}:///?odbc_connect={quote_plus(connstr)}"
+
+
+def _read_env_value(name: str, label: str) -> str:
+    if not name:
+        raise ValueError(f"{label} environment variable name cannot be empty")
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        raise ValueError(f"Environment variable {name!r} is not set or is empty")
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +380,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Introspect a database and output a standardised schema CSV.",
     )
-    parser.add_argument("--url", required=True, help="SQLAlchemy connection URL")
+    connection = parser.add_argument_group("connection")
+    connection.add_argument("--url", default=None, help="SQLAlchemy connection URL")
+    connection.add_argument(
+        "--url-env",
+        default=None,
+        help="Environment variable containing the SQLAlchemy connection URL",
+    )
+    connection.add_argument(
+        "--odbc-connstr",
+        default=None,
+        help="Raw ODBC connection string. Prefer --odbc-connstr-env when it contains secrets.",
+    )
+    connection.add_argument(
+        "--odbc-connstr-env",
+        default=None,
+        help="Environment variable containing a raw ODBC connection string",
+    )
+    connection.add_argument(
+        "--dialect",
+        default="mssql+pyodbc",
+        help="SQLAlchemy dialect used with ODBC connection strings (default: mssql+pyodbc)",
+    )
     parser.add_argument("--source", required=True, help="Source name for CSV output")
     parser.add_argument(
         "--schemas", default=None,
@@ -329,6 +416,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output CSV file path (default: stdout)",
     )
     return parser.parse_args(argv)
+
+
+def resolve_connection_url(args: argparse.Namespace) -> str:
+    """Resolve connection input into a SQLAlchemy URL."""
+    connection_inputs = [
+        args.url,
+        args.url_env,
+        args.odbc_connstr,
+        args.odbc_connstr_env,
+    ]
+    provided = [value for value in connection_inputs if value]
+    if len(provided) != 1:
+        raise ValueError(
+            "Provide exactly one connection source: --url, --url-env, "
+            "--odbc-connstr, or --odbc-connstr-env"
+        )
+
+    if args.url:
+        return args.url
+    if args.url_env:
+        return _read_env_value(args.url_env, "--url-env")
+    if args.odbc_connstr:
+        return _build_odbc_url(args.odbc_connstr, args.dialect)
+    return _build_odbc_url(
+        _read_env_value(args.odbc_connstr_env, "--odbc-connstr-env"),
+        args.dialect,
+    )
 
 
 def introspect(
@@ -454,10 +568,15 @@ def _introspect_table(
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    try:
+        url = resolve_connection_url(args)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
     schema_filter = [s.strip() for s in args.schemas.split(",")] if args.schemas else None
     table_filter = [t.strip() for t in args.tables.split(",")] if args.tables else None
     introspect(
-        url=args.url,
+        url=url,
         source=args.source,
         schema_filter=schema_filter,
         table_filter=table_filter,

@@ -34,7 +34,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: functions-wheel
-          path: {project_name}_dcws/generated/dist/*.whl
+          path: "{project_name}_dcws/generated/dist/*.whl"
 
   deploy:
     needs: package
@@ -49,14 +49,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: functions-wheel
-          path: {project_name}_dcws/generated/dist/
+          path: "{project_name}_dcws/generated/dist/"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install ms-fabric-cli datacoolie
       - name: Authenticate Fabric CLI
         run: fab auth login -u $FABRIC_CLIENT_ID -p $FABRIC_CLIENT_SECRET --tenant $FABRIC_TENANT_ID
+      - name: Merge metadata for prod
+        run: python datacoolie/ai/skills/datacoolie-metadata/scripts/merge.py --base {project_name}_dcws/metadata --env prod --output {project_name}_dcws/generated/prod/metadata.json
       - name: Upload notebook and wheel to Fabric lakehouse
         run: |
-          fab cp {project_name}_dcws/generated/run_fabric.ipynb {workspace}/{lakehouse}/
-          fab cp {project_name}_dcws/generated/dist/*.whl {workspace}/{lakehouse}/Files/libraries/
+          fab cp {project_name}_dcws/generated/run_fabric.ipynb {fabric_workspace}/{fabric_lakehouse}/
+          fab cp {project_name}_dcws/generated/dist/*.whl {fabric_workspace}/{fabric_lakehouse}/Files/libraries/
+          fab cp {project_name}_dcws/generated/prod/metadata.json {fabric_workspace}/{fabric_lakehouse}/Files/generated/prod/metadata.json

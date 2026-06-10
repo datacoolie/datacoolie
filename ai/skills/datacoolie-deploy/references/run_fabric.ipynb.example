@@ -15,7 +15,7 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "%pip install datacoolie /lakehouse/default/Files/libraries/functions*.whl --force-reinstall"
+    "%pip install datacoolie {fabric_lakehouse_root}/Files/libraries/functions*.whl --force-reinstall"
    ],
    "execution_count": null
   },
@@ -39,8 +39,9 @@
     "from datacoolie.orchestration.driver import DataCoolieDriver\n",
     "from datacoolie.platforms.fabric_platform import FabricPlatform\n",
     "\n",
-    "ROOT_PATH = \"/lakehouse/default\"\n",
-    "METADATA_PATH = f\"{ROOT_PATH}/Files/metadata/use_cases.json\"\n",
+    "ENV = \"prod\"\n",
+    "ROOT_PATH = \"{fabric_lakehouse_root}\"\n",
+    "METADATA_PATH = f\"{ROOT_PATH}/Files/generated/{ENV}/metadata.json\"\n",
     "BASE_LOG_PATH = f\"{ROOT_PATH}/Files/logs/datacoolie\"\n",
     "STAGE = \"\"  # empty = run all stages\n",
     "\n",

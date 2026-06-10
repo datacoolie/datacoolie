@@ -31,10 +31,23 @@ Rules:
 - Do not create a fixed `datacoolie_workspace/` folder for new projects.
 - Existing legacy `datacoolie_workspace/` folders may be read for migration, but new artifacts should use `{project_name}_dcws/`.
 
+Workspace layout is created on demand. Do not create future phase folders or empty placeholder
+files just because they appear in this reference tree.
+
+Minimum bootstrap:
+
 ```text
 {project_name}_dcws/
   AGENTS.md
   config.yaml
+  project_management/
+    status.md
+```
+
+Potential layout after phases run:
+
+```text
+{project_name}_dcws/
   discover/
   architecture/
     current.md
@@ -71,19 +84,61 @@ Rules:
     decisions/
     risks.md
     changelog.md
+  runners/
   generated/
   provision/
   deploy/
   promote/
 ```
 
-`config.yaml` is the workspace control file. It identifies the project, workspace name,
-valid environments, target platform per environment, and generated artifact locations.
+Each skill creates only the directories and artifacts it will read or write for the current
+request. For example, discovery creates `discover/`; architecture creates `architecture/` and
+the `architecture` phase journal area; source2bronze work creates only the source2bronze phase
+management files, metadata files, and generated artifacts it needs.
+
+`config.yaml` is the workspace control file. It identifies only the project, workspace name,
+valid environments, and target platform per environment.
 Follow the structure documented in this file and in `datacoolie-init/templates/project-structure.md`.
 
 `config.yaml` must not contain dataflow definitions, runtime engine strategy, gate approval
-state, passwords, API keys, or secret values. Those belong in `metadata/`, `architecture/`,
-`project_management/`, generated runner/deploy artifacts, or the target platform's secret manager.
+state, workflow defaults, artifact directory names, environment-specific runtime paths, connection
+overrides, generated metadata paths, passwords, API keys, or secret values. Those belong in
+`metadata/`, `metadata/environments/`, `architecture/`, `project_management/`, `runners/`,
+generated runner/deploy artifacts, or the target platform's secret manager.
+
+`runners/` is the optional hand-authored source for durable pipeline entrypoints. Use it when a
+project needs a custom Python runner or notebook that should survive regeneration. `generated/`
+contains derived artifacts only. Users may inspect, run, or temporarily debug files under
+`generated/`, but durable edits must be moved back to metadata, architecture, templates, or
+`runners/`.
+
+## Markdown Artifact Metadata
+
+Markdown files that act as workflow artifacts must start with YAML frontmatter. This lets agents
+identify project state without inferring from body text.
+
+Use frontmatter for state, report, decision, evidence, approval, and log artifacts:
+
+| Path pattern | Required `artifact_type` |
+|---|---|
+| `discover/*.md` | `discovery_report` or `schema_inventory` |
+| `architecture/current.md` | `architecture` |
+| `architecture/amendments/*.md` | `architecture_amendment` |
+| `architecture/layers/*.md` | `architecture_layer` or `architecture_source` |
+| `project_management/status.md` | `project_status` |
+| `project_management/risks.md` | `risk_register` |
+| `project_management/changelog.md` | `changelog` |
+| `project_management/decisions/*.md` | `decision_record` |
+| `project_management/phases/{phase}/scope.md` | `phase_scope` |
+| `project_management/phases/{phase}/notes.md` | `phase_notes` |
+| `project_management/phases/{phase}/evidence.md` | `phase_evidence` |
+| `project_management/phases/{phase}/gate-reviews/*.md` | `gate_review` |
+| `provision/*provision-log.md` | `provision_log` |
+| `deploy/*deploy-*.md` | `deploy_log` |
+| `promote/*promote-*.md` | `promotion_log` |
+
+Reference docs, `SKILL.md`, `README.md`, testing guides, and runtime JSON/YAML metadata files
+do not need Markdown frontmatter unless they become workflow artifacts.
 
 ## Phase Routing
 
@@ -111,6 +166,7 @@ For implementation beyond lifecycle skills, use the relevant engineering skill:
 ## State Detection
 
 Start from the earliest incomplete required phase unless the user explicitly asks to inspect or amend a later phase.
+Missing folders are normal until their owning phase runs.
 
 ```text
 Phase 1 complete: {project_name}_dcws/discover/ has at least one source report and schema inventory.
@@ -128,11 +184,31 @@ Gate approval is determined by the latest Markdown journal under:
 {project_name}_dcws/project_management/phases/{phase}/gate-reviews/
 ```
 
-The journal must have YAML frontmatter with `status: approved`.
+The latest journal is selected by YAML frontmatter `reviewed_at`; if `reviewed_at`
+is missing, use the lexicographically greatest filename. Gate review filenames
+must start with a sortable date prefix such as `YYMMDD_` or `YYYYMMDD_`.
+
+The gate is approved only when the latest journal has YAML frontmatter with
+`status: approved`. If the latest journal is `pending`, `changes_required`, or
+`blocked`, the gate is unresolved even when an older journal was approved.
+`project_management/status.md` can summarize `last_approved_gate`, but it is not
+the approval source of truth.
 Phase notes, review evidence, and delivery state belong under
 `{project_name}_dcws/project_management/phases/{phase}/`. Technical artifacts stay in
 their technical folders such as `architecture/`, `metadata/`, `generated/`, `provision/`,
 and `deploy/`.
+
+Create phase management folders on demand. When starting or updating a phase, create only:
+
+```text
+{project_name}_dcws/project_management/phases/{phase}/scope.md
+{project_name}_dcws/project_management/phases/{phase}/notes.md
+{project_name}_dcws/project_management/phases/{phase}/evidence.md
+{project_name}_dcws/project_management/phases/{phase}/gate-reviews/
+```
+
+Do not pre-create sibling phase folders such as `bronze2silver`, `silver2gold`, or `production`
+until that phase is active.
 
 ## Architecture Contract
 
@@ -180,6 +256,11 @@ Breaking amendments stop downstream work until approved. Non-breaking amendments
 ## Gate Journals
 
 Gate decisions are Markdown journals with YAML frontmatter.
+
+Each gate review file records one review decision. To evaluate a gate, read all
+Markdown files in that gate's `gate-reviews/` folder, select the latest review
+using `reviewed_at` first and filename order second, then use only that file's
+`status`.
 
 ```markdown
 ---
@@ -240,7 +321,7 @@ Architect reads: {project_name}_dcws/discover/*
 Init reads: {project_name}_dcws/architecture/current.md if present
 Metadata reads: {project_name}_dcws/architecture/current.md and {project_name}_dcws/discover/*
 Provision reads: {project_name}_dcws/architecture/current.md
-Deploy reads: {project_name}_dcws/config.yaml, {project_name}_dcws/metadata/, {project_name}_dcws/provision/
+Deploy reads: {project_name}_dcws/config.yaml, {project_name}_dcws/metadata/, {project_name}_dcws/runners/ if present, {project_name}_dcws/provision/
 Promotion reads: {project_name}_dcws/project_management/phases/*/gate-reviews/ and {project_name}_dcws/deploy/
 ```
 
@@ -286,3 +367,4 @@ For a new project:
 - Dry-run and preflight before cloud changes.
 - Write dated, reviewable artifacts.
 - Preserve user changes and do not overwrite existing workspace `AGENTS.md`.
+- If the user starts from a specific phase, create only the bootstrap and current-phase artifacts needed for that request.

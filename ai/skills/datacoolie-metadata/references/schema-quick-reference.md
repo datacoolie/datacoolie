@@ -130,6 +130,11 @@ Top-level `schema_hints` apply across dataflows by connection+table match — di
 
 Required: `connection_name`, `table_name`, `hints`
 
+Environment overlays merge shared schema hints by `connection_name` + `schema_name` +
+`table_name`. Missing, empty, and null `schema_name` are treated as the same key.
+Nested `hints` merge by `column_name`; unmentioned columns stay unchanged, matching
+columns are deep-merged, and new columns are appended.
+
 ```json
 {
   "connection_name": "raw_db",

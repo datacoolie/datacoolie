@@ -35,6 +35,8 @@ from _loaders import load_file
 
 STAGE_ORDER = ("source2bronze", "bronze2silver", "silver2gold")
 SUPPORTED_EXTENSIONS = (".json", ".yaml", ".yml")
+OVERLAY_SECTION_KEYS = ("connections", "dataflows", "schema_hints")
+ALLOWED_OVERLAY_KEYS = {"$schema", *OVERLAY_SECTION_KEYS}
 
 
 def find_file(directory: Path, basename: str) -> Path | None:
@@ -85,6 +87,161 @@ def merge_list_by_name(base_list: list, overlay_list: list) -> list:
             result.append(item)
 
     return result
+
+
+def _error(message: str) -> None:
+    print(f"ERROR: {message}", file=sys.stderr)
+    sys.exit(2)
+
+
+def _normalize_schema_name(value: object) -> str | None:
+    if value is None or value == "":
+        return None
+    return str(value)
+
+
+def _schema_hint_group_key(item: object, label: str, index: int) -> tuple[str, str | None, str]:
+    if not isinstance(item, dict):
+        _error(f"{label}[{index}] must be an object.")
+
+    connection_ref = item.get("connection_name") or item.get("connection_id")
+    table_name = item.get("table_name")
+    if not connection_ref or not table_name:
+        _error(
+            f"{label}[{index}] must include connection_name or connection_id, "
+            "plus table_name."
+        )
+
+    return (str(connection_ref), _normalize_schema_name(item.get("schema_name")), str(table_name))
+
+
+def _schema_hint_key_label(key: tuple[str, str | None, str]) -> str:
+    connection_ref, schema_name, table_name = key
+    schema_display = schema_name if schema_name is not None else "<none>"
+    return f"connection={connection_ref}, schema={schema_display}, table={table_name}"
+
+
+def _schema_hint_column_key(item: object, label: str, index: int) -> str:
+    if not isinstance(item, dict):
+        _error(f"{label}.hints[{index}] must be an object.")
+
+    column_name = item.get("column_name")
+    if not column_name:
+        _error(f"{label}.hints[{index}] must include column_name.")
+    return str(column_name)
+
+
+def _validate_schema_hint_group(group: dict, label: str) -> list:
+    hints = group.get("hints")
+    if hints is None:
+        _error(f"{label} must include hints.")
+    if not isinstance(hints, list):
+        _error(f"{label}.hints must be a list.")
+    return hints
+
+
+def _schema_hint_group_map(items: list, label: str) -> dict[tuple[str, str | None, str], dict]:
+    result = {}
+    for index, item in enumerate(items):
+        key = _schema_hint_group_key(item, label, index)
+        if key in result:
+            _error(f"Duplicate schema_hints group in {label}: {_schema_hint_key_label(key)}.")
+        hints = _validate_schema_hint_group(item, f"{label}[{index}]")
+        _schema_hint_column_map(hints, f"{label}[{index}]")
+        result[key] = item
+    return result
+
+
+def _schema_hint_column_map(items: list, label: str) -> dict[str, dict]:
+    result = {}
+    for index, item in enumerate(items):
+        column_name = _schema_hint_column_key(item, label, index)
+        if column_name in result:
+            _error(f"Duplicate schema_hints column_name '{column_name}' in {label}.hints.")
+        result[column_name] = item
+    return result
+
+
+def merge_schema_hint_columns(base_hints: list, overlay_hints: list, label: str) -> list:
+    """Merge schema hint columns by column_name, preserving base order."""
+    base_map = _schema_hint_column_map(base_hints, f"{label} base")
+    overlay_map = _schema_hint_column_map(overlay_hints, f"{label} overlay")
+
+    for column_name, overlay_hint in overlay_map.items():
+        if column_name in base_map:
+            base_map[column_name] = deep_merge(base_map[column_name], overlay_hint)
+        else:
+            base_map[column_name] = overlay_hint
+
+    result = []
+    seen = set()
+    for item in base_hints:
+        column_name = item["column_name"]
+        result.append(base_map[column_name])
+        seen.add(column_name)
+
+    for column_name, item in overlay_map.items():
+        if column_name not in seen:
+            result.append(item)
+
+    return result
+
+
+def merge_schema_hint_group(base_group: dict, overlay_group: dict, label: str) -> dict:
+    """Merge one schema_hints group, using column_name as the nested hints key."""
+    base_hints = _validate_schema_hint_group(base_group, f"{label} base")
+    overlay_hints = _validate_schema_hint_group(overlay_group, f"{label} overlay")
+
+    merged = deep_merge(
+        {k: v for k, v in base_group.items() if k != "hints"},
+        {k: v for k, v in overlay_group.items() if k != "hints"},
+    )
+    merged["hints"] = merge_schema_hint_columns(base_hints, overlay_hints, label)
+    return merged
+
+
+def merge_schema_hints(base_list: list, overlay_list: list) -> list:
+    """Merge shared schema_hints by connection + schema + table, then column_name."""
+    base_map = _schema_hint_group_map(base_list, "base schema_hints")
+    overlay_map = _schema_hint_group_map(overlay_list, "overlay schema_hints")
+
+    for key, overlay_group in overlay_map.items():
+        if key in base_map:
+            base_map[key] = merge_schema_hint_group(
+                base_map[key],
+                overlay_group,
+                f"schema_hints[{_schema_hint_key_label(key)}]",
+            )
+        else:
+            base_map[key] = overlay_group
+
+    result = []
+    seen = set()
+    for item in base_list:
+        key = _schema_hint_group_key(item, "base schema_hints", len(seen))
+        result.append(base_map[key])
+        seen.add(key)
+
+    for key, item in overlay_map.items():
+        if key not in seen:
+            result.append(item)
+
+    return result
+
+
+def validate_overlay_root(overlay: object, env_file: Path) -> dict:
+    if not isinstance(overlay, dict):
+        _error(f"Environment overlay {env_file} must be a YAML/JSON object.")
+
+    unknown_keys = sorted(set(overlay) - ALLOWED_OVERLAY_KEYS)
+    if unknown_keys:
+        _error(f"Environment overlay {env_file} has unsupported top-level keys: {', '.join(unknown_keys)}.")
+
+    for key in OVERLAY_SECTION_KEYS:
+        if key in overlay and not isinstance(overlay[key], list):
+            _error(f"Environment overlay {env_file} field '{key}' must be a list.")
+
+    return overlay
 
 
 def _items(data: object, key: str) -> list:
@@ -293,6 +450,9 @@ def main():
 
     overlay_connections = []
     overlay_dataflows = []
+    overlay_schema_hints = []
+    overlay_top_level = {}
+    has_overlay_schema_hints = False
 
     if env_file and env_file.exists():
         try:
@@ -301,15 +461,26 @@ def main():
             print(f"ERROR: Failed to parse overlay {env_file}: {e}", file=sys.stderr)
             sys.exit(2)
 
-        if isinstance(overlay, dict):
-            overlay_connections = overlay.get("connections", [])
-            overlay_dataflows = overlay.get("dataflows", [])
+        overlay = validate_overlay_root(overlay, env_file)
+        overlay_connections = overlay.get("connections", [])
+        overlay_dataflows = overlay.get("dataflows", [])
+        if "schema_hints" in overlay:
+            overlay_schema_hints = overlay.get("schema_hints", [])
+            has_overlay_schema_hints = True
+        overlay_top_level = {
+            k: v for k, v in overlay.items() if k not in OVERLAY_SECTION_KEYS
+        }
     else:
         print(f"WARNING: No environment overlay found for '{args.env}' in {args.base / 'environments'}", file=sys.stderr)
 
     # Merge
     merged_connections = merge_list_by_name(connections, overlay_connections)
     merged_dataflows = merge_list_by_name(dataflows, overlay_dataflows)
+    merged_schema_hints = (
+        merge_schema_hints(base_schema_hints, overlay_schema_hints)
+        if has_overlay_schema_hints
+        else base_schema_hints
+    )
     assert_unique_dataflow_names(merged_dataflows)
 
     # Build output — preserve top-level keys from base (e.g., $schema)
@@ -324,30 +495,30 @@ def main():
         for k, v in dataflows_data.items():
             if k not in ("connections", "dataflows", "schema_hints", "items") and k not in merged:
                 merged[k] = v
+    merged = deep_merge(merged, overlay_top_level)
 
     merged["connections"] = merged_connections
     merged["dataflows"] = merged_dataflows
 
-    # Preserve schema_hints from base (overlay doesn't modify schema_hints)
-    if base_schema_hints:
-        merged["schema_hints"] = base_schema_hints
+    if merged_schema_hints:
+        merged["schema_hints"] = merged_schema_hints
 
     if args.output_layout == "split":
         output_dir = args.output or default_generated_dir(args.base, args.env)
         write_json(output_dir / "connections.json", merged_connections)
         write_json(output_dir / "dataflows.json", merged_dataflows)
-        if base_schema_hints:
-            write_json(output_dir / "schema_hints.json", base_schema_hints)
+        if merged_schema_hints:
+            write_json(output_dir / "schema_hints.json", merged_schema_hints)
         if args.emit_stage_manifest:
             write_json(output_dir / "stage_manifest.json", stage_manifest(merged_dataflows))
-        hints_msg = f" + {len(base_schema_hints)} schema_hints" if base_schema_hints else ""
+        hints_msg = f" + {len(merged_schema_hints)} schema_hints" if merged_schema_hints else ""
         print(f"✓ Merged {len(merged_connections)} connections + {len(merged_dataflows)} dataflows{hints_msg} → {output_dir}")
     else:
         output_path = args.output or default_generated_dir(args.base, args.env) / "metadata.json"
         write_json(output_path, merged)
         if args.emit_stage_manifest:
             write_json(output_path.parent / "stage_manifest.json", stage_manifest(merged_dataflows))
-        hints_msg = f" + {len(base_schema_hints)} schema_hints" if base_schema_hints else ""
+        hints_msg = f" + {len(merged_schema_hints)} schema_hints" if merged_schema_hints else ""
         print(f"✓ Merged {len(merged_connections)} connections + {len(merged_dataflows)} dataflows{hints_msg} → {output_path}")
     sys.exit(0)
 
