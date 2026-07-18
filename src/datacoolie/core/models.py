@@ -1389,6 +1389,8 @@ class JobRuntimeInfo(RuntimeInfo):
     total_succeeded: int = 0
     total_failed: int = 0
     total_skipped: int = 0
+    total_running: int = 0
+    total_pending: int = 0
 
     total_rows_read: int = 0
     total_rows_written: int = 0
@@ -1401,3 +1403,5 @@ class JobRuntimeInfo(RuntimeInfo):
 
     total_bytes_added: int = 0
     total_bytes_removed: int = 0
+
+    operation_types: Optional[str | List[str]] = None

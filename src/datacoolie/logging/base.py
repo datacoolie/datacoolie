@@ -307,6 +307,27 @@ class CaptureHandler(logging.Handler):
         # Format outside the lock — no contention during string building.
         return "\n".join(r.format(include_location) for r in records)
 
+    def get_and_clear_jsonl(self) -> str:
+        """Atomically drain captured logs and return as JSONL text.
+
+        Each line is a JSON object produced by :meth:`LogRecord.to_dict`.
+        Returns an empty string when no records are buffered.
+        """
+        with self.lock:
+            if self._storage_mode == StorageMode.FILE.value:
+                records = self._load_from_file()
+                self._records.clear()
+                if self._temp_file and os.path.exists(self._temp_file):
+                    try:
+                        os.remove(self._temp_file)
+                        self._setup_temp_file()
+                    except Exception:
+                        pass
+            else:
+                records = self._records
+                self._records = []
+        return "\n".join(json.dumps(r.to_dict(), default=str) for r in records)
+
     def clear(self) -> None:
         with self.lock:
             self._records.clear()
@@ -470,6 +491,12 @@ class LogManager:
         """Atomically return captured logs as plain text and clear the buffer."""
         if self._capture_handler:
             return self._capture_handler.get_and_clear_formatted_logs(include_location)
+        return ""
+
+    def get_and_clear_captured_jsonl(self) -> str:
+        """Atomically return captured logs as JSONL text and clear the buffer."""
+        if self._capture_handler:
+            return self._capture_handler.get_and_clear_jsonl()
         return ""
 
     def clear_captured_logs(self) -> None:

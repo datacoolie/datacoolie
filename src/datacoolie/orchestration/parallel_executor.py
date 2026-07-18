@@ -32,6 +32,8 @@ class ExecutionResult:
     succeeded: int = 0
     failed: int = 0
     skipped: int = 0
+    running: int = 0
+    pending: int = 0
     errors: Dict[str, str] = field(default_factory=dict)
     duration_seconds: float = 0.0
 
@@ -147,6 +149,7 @@ class ParallelExecutor:
                             f.cancel()
                         break
 
+        agg.pending = agg.total - agg.succeeded - agg.failed - agg.skipped
         agg.duration_seconds = (utc_now() - start).total_seconds()
         return agg
 
@@ -175,6 +178,7 @@ class ParallelExecutor:
             if self._stop_on_error and self._status_of(df_result) == DataFlowStatus.FAILED.value:
                 break
 
+        agg.pending = agg.total - agg.succeeded - agg.failed - agg.skipped
         agg.duration_seconds = (utc_now() - start).total_seconds()
         return agg
 
@@ -241,6 +245,7 @@ class ParallelExecutor:
                     if self._stop_on_error:
                         raise
 
+        agg.pending = agg.total - agg.succeeded - agg.failed - agg.skipped
         agg.duration_seconds = (utc_now() - start).total_seconds()
         return agg
 

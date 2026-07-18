@@ -42,7 +42,7 @@ class TestSystemLogger:
         lgr.close()
 
     def test_flush_appends(self):
-        """flush calls append_file with a .log remote path."""
+        """flush calls append_file with a .jsonl remote path."""
         platform = MagicMock()
         cfg = LogConfig(
             output_path="/logs",
@@ -63,13 +63,13 @@ class TestSystemLogger:
         remote_path = platform.append_file.call_args[0][0]
         assert "system_log" in remote_path
         assert "run_date=" in remote_path
-        assert remote_path.endswith(".log")
-        # filename: system_log_YYYYMMDD_HHMMSS_{job_id}.log
+        assert remote_path.endswith(".jsonl")
+        # filename: system_log_YYYYMMDD_HHMMSS_{job_id}.jsonl
         import re
-        assert re.search(r"system_log_\d{8}_\d{6}_\S+\.log$", remote_path)
+        assert re.search(r"system_log_\d{8}_\d{6}_\S+\.jsonl$", remote_path)
 
     def test_flush_content_plain_text(self, tmp_path):
-        """Appended file contains plain-text log lines (not JSON)."""
+        """Appended file contains JSONL records (one JSON object per line)."""
         platform = LocalPlatform(base_path=str(tmp_path))
         cfg = LogConfig(
             output_path="logs",
@@ -86,12 +86,16 @@ class TestSystemLogger:
 
         lgr.close()
 
-        log_files = list(tmp_path.rglob("*.log"))
+        log_files = list(tmp_path.rglob("*.jsonl"))
+        # Filter to system_log files only (exclude ETL logs if any)
+        log_files = [f for f in log_files if "system_log" in f.name]
         assert len(log_files) == 1
-        text = log_files[0].read_text(encoding="utf-8")
-        assert "hello content test" in text
-        # Plain text — not JSON.
-        assert not text.strip().startswith("{")
+        import json
+        lines = [l for l in log_files[0].read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(lines) >= 1
+        record = json.loads(lines[0])
+        assert "hello content test" in record["msg"]
+        assert "ts" in record and "level" in record and "logger" in record
 
     def test_flush_error_handled(self):
         """If flush fails, no exception propagates."""
@@ -178,11 +182,13 @@ class TestSystemLogger:
         # Wait for timer to fire.
         time.sleep(1.5)
 
-        log_files = list(tmp_path.rglob("*.log"))
+        log_files = list(tmp_path.rglob("*.jsonl"))
+        log_files = [f for f in log_files if "system_log" in f.name]
         # File should exist from the periodic flush.
         assert len(log_files) >= 1
-        text = log_files[0].read_text(encoding="utf-8")
-        assert "timer triggered msg" in text
+        import json
+        lines = [l for l in log_files[0].read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert any("timer triggered msg" in json.loads(l)["msg"] for l in lines)
 
         lgr.close()
 
@@ -249,6 +255,6 @@ class TestSystemLoggerEdgeCases:
         assert platform.append_file.called
         remote = platform.append_file.call_args.args[0]
         assert "run_date=" not in remote
-        assert remote.endswith(".log")
+        assert remote.endswith(".jsonl")
         logger.close()
 

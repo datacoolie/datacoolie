@@ -27,9 +27,21 @@ and cluster setup so you can validate the metadata model first.
 
 ## 1. Create a workspace
 
+Create the workspace and its folders with the commands for your operating
+system.
+
+**Linux or macOS**
+
 ```bash
-mkdir dc-quickstart && cd dc-quickstart
-mkdir -p data/input/orders data/output metadata
+mkdir -p dc-quickstart/data/input/orders dc-quickstart/data/output dc-quickstart/metadata
+cd dc-quickstart
+```
+
+**Windows (PowerShell)**
+
+```powershell
+New-Item -ItemType Directory -Force -Path "dc-quickstart\data\input\orders", "dc-quickstart\data\output", "dc-quickstart\metadata" | Out-Null
+Set-Location dc-quickstart
 ```
 
 ## 2. Seed input data

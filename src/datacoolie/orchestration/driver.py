@@ -410,11 +410,13 @@ class DataCoolieDriver:
         )
 
         logger.info(
-            "ETL complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d (%.1fs)",
+            "ETL complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d, Running: %d, Pending: %d (%.1fs)",
             result.total,
             result.succeeded,
             result.failed,
             result.skipped,
+            result.running,
+            result.pending,
             result.duration_seconds
         )
         return result
@@ -681,11 +683,13 @@ class DataCoolieDriver:
         )
 
         logger.info(
-            "Replay complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d (%.1fs)",
+            "Replay complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d, Running: %d, Pending: %d (%.1fs)",
             result.total,
             result.succeeded,
             result.failed,
             result.skipped,
+            result.running,
+            result.pending,
             result.duration_seconds,
         )
         return result
@@ -875,11 +879,13 @@ class DataCoolieDriver:
         )
 
         logger.info(
-            "Maintenance complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d (%.1fs)",
+            "Maintenance complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d, Running: %d, Pending: %d (%.1fs)",
             result.total,
             result.succeeded,
             result.failed,
             result.skipped,
+            result.running,
+            result.pending,
             result.duration_seconds,
         )
         return result

@@ -2,7 +2,7 @@
 
 ``SystemLogger`` is **not** a logger itself; it configures the global
 :class:`LogManager` to capture logs and periodically appends them to a
-plain-text ``.log`` file in storage via the platform.
+JSONL ``.jsonl`` file in storage via the platform.
 
 Two independent log levels are supported:
 
@@ -47,10 +47,10 @@ _logger = get_logger(__name__)
 
 
 class SystemLogger(BaseLogger):
-    """Captures all framework Python logs and appends them to a ``.log`` file.
+    """Captures all framework Python logs and appends them to a ``.jsonl`` file.
 
-    The file is a plain-text log (one line per record) so operators can read
-    it directly without a JSON parser.  The capture level defaults to
+    Each flushed record is a JSON object (one per line) produced by
+    :meth:`~datacoolie.logging.base.LogRecord.to_dict`.  The capture level defaults to
     ``DEBUG`` so every framework message is recorded regardless of the
     console level set by the Driver.
 
@@ -94,17 +94,17 @@ class SystemLogger(BaseLogger):
             date_stem = now.strftime("%Y%m%d_%H%M%S")
             rc = self._run_config
             job_id = (rc.job_id if rc else None) or "default"
-            self._remote_path = f"{output_path}/system_log_{date_stem}_{job_id}.log"
+            self._remote_path = f"{output_path}/system_log_{date_stem}_{job_id}.jsonl"
         return self._remote_path
 
     def _do_flush(self) -> None:
-        """Drain captured logs and append them to the remote file."""
-        text = self._log_manager.get_and_clear_captured_logs(include_location=True)
-        if not text or not self._config.output_path or not self._platform:
+        """Drain captured logs and append them as JSONL to the remote file."""
+        jsonl = self._log_manager.get_and_clear_captured_jsonl()
+        if not jsonl or not self._config.output_path or not self._platform:
             return
         try:
             full_path = self._ensure_remote_path()
-            self._platform.append_file(full_path, text + "\n")
+            self._platform.append_file(full_path, jsonl + "\n")
         except Exception as exc:
             _logger.error("Failed to flush system logs: %s", exc)
 

@@ -137,6 +137,7 @@ def _build_dataflow_schema() -> Any:
         ("start_time", pa.timestamp('us', tz='UTC')),
         ("end_time", pa.timestamp('us', tz='UTC')),
         ("duration_seconds", pa.float64()),
+        ("overhead_duration_seconds", pa.float64()),
         ("status", pa.string()),
         ("error_message", pa.string()),
         ("retry_attempts", pa.int64()),
@@ -214,6 +215,9 @@ def _build_job_summary_schema() -> Any:
         ("total_succeeded", pa.int64()),
         ("total_failed", pa.int64()),
         ("total_skipped", pa.int64()),
+        ("total_running", pa.int64()),
+        ("total_pending", pa.int64()),
+        ("operation_types", pa.string()),
         ("total_rows_read", pa.int64()),
         ("total_rows_written", pa.int64()),
         ("total_rows_inserted", pa.int64()),
@@ -404,13 +408,23 @@ class ETLLogger(BaseLogger):
         dst = runtime.destination
 
         flat: Dict[str, Any] = {
-            # run identity
+            # overall timing / status
             "dataflow_run_id":  runtime.dataflow_run_id,
             "operation_type":   runtime.operation_type,
             # overall timing / status
             "start_time":       runtime.start_time,
             "end_time":         runtime.end_time,
             "duration_seconds": runtime.duration_seconds,
+            "overhead_duration_seconds": (
+                round(
+                    runtime.duration_seconds
+                    - (src.duration_seconds or 0.0)
+                    - (trn.duration_seconds or 0.0)
+                    - (dst.duration_seconds or 0.0),
+                    6,
+                )
+                if runtime.duration_seconds is not None else None
+            ),
             "status":           runtime.status,
             "error_message":    runtime.error_message,
             "retry_attempts":   runtime.retry_attempts,
@@ -485,6 +499,9 @@ class ETLLogger(BaseLogger):
             "total_succeeded":           ji.total_succeeded,
             "total_failed":              ji.total_failed,
             "total_skipped":             ji.total_skipped,
+            "total_running":             ji.total_running,
+            "total_pending":             ji.total_pending,
+            "operation_types":           _as_json(ji.operation_types) if isinstance(ji.operation_types, list) else ji.operation_types,
             "total_rows_read":           ji.total_rows_read,
             "total_rows_written":        ji.total_rows_written,
             "total_rows_inserted":       ji.total_rows_inserted,
@@ -514,6 +531,10 @@ class ETLLogger(BaseLogger):
             ji.error_message = f"{ji.error_message} {label};" if ji.error_message else f"{label};"
         elif status == DataFlowStatus.SKIPPED.value:
             ji.total_skipped += 1
+        elif status == DataFlowStatus.RUNNING.value:
+            ji.total_running += 1
+        elif status == DataFlowStatus.PENDING.value:
+            ji.total_pending += 1
 
         if runtime.operation_type != ExecutionType.MAINTENANCE.value:
             ji.total_rows_read      += runtime.rows_read
@@ -534,6 +555,9 @@ class ETLLogger(BaseLogger):
 
         stages = list(dict.fromkeys(e["stage"] for e in self._runtime_logs if e.get("stage")))
         ji.stages = stages[0] if len(stages) == 1 else (stages or None)
+
+        op_types = list(dict.fromkeys(e["operation_type"] for e in self._runtime_logs if e.get("operation_type")))
+        ji.operation_types = op_types[0] if len(op_types) == 1 else (op_types or None)
 
         if ji.status == DataFlowStatus.PENDING.value:
             if ji.total_failed > 0:
