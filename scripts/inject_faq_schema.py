@@ -1,4 +1,4 @@
-"""MkDocs hook: inject FAQPage JSON-LD for pages with collapsible FAQ sections.
+"""ProperDocs hook: inject FAQPage JSON-LD for pages with collapsible FAQ sections.
 
 Scans rendered HTML for `??? question "..."` patterns (rendered as <details>
 by pymdownx.details) and injects a FAQPage structured data block.

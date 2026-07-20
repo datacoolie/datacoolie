@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3679,7 +3679,10 @@ writes and the <strong>Strategy</strong> pattern for load-type dispatch.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3697,12 +3700,23 @@ writes and the <strong>Strategy</strong> pattern for load-type dispatch.</p>
 
 
 <a href="#datacoolie.destinations.base.BaseDestinationWriter" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseDestinationWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseDestinationWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="abc.ABC">ABC</span></code>, <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><span title="abc.ABC">ABC</span></code>, <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Abstract destination writer with Template Method lifecycle.</p>
@@ -3717,7 +3731,10 @@ manages timing, error wrapping, runtime info, and maintenance.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3742,6 +3759,7 @@ manages timing, error wrapping, runtime info, and maintenance.</p>
 
         <p>Return runtime information from the most recent write.</p>
 
+
     </div>
 
 </div>
@@ -3754,7 +3772,18 @@ manages timing, error wrapping, runtime info, and maintenance.</p>
 
 
 <a href="#datacoolie.destinations.base.BaseDestinationWriter.run_maintenance" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_maintenance</span><span class="p">(</span><span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">do_compact</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">do_cleanup</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">retention_hours</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="datacoolie.core.models.DestinationRuntimeInfo">DestinationRuntimeInfo</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_maintenance</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">do_compact</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">do_cleanup</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">retention_hours</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="datacoolie.core.models.DestinationRuntimeInfo">DestinationRuntimeInfo</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3781,7 +3810,12 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
                 <code>dataflow</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3866,6 +3900,7 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -3878,7 +3913,17 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
 
 
 <a href="#datacoolie.destinations.base.BaseDestinationWriter.write" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="datacoolie.core.models.DestinationRuntimeInfo">DestinationRuntimeInfo</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="datacoolie.core.models.DestinationRuntimeInfo">DestinationRuntimeInfo</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3907,7 +3952,12 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
                 <code>df</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3923,7 +3973,12 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
                 <code>dataflow</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3972,7 +4027,7 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DestinationError" href="../core/#datacoolie.core.exceptions.DestinationError">DestinationError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DestinationError (datacoolie.core.exceptions.DestinationError)" href="../core/#datacoolie.core.exceptions.DestinationError">DestinationError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3982,6 +4037,7 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4011,6 +4067,7 @@ of dicts, each with an <code>"operation"</code> key (<code>"compact"</code> / <c
               Bases: <code><span title="abc.ABC">ABC</span></code></p>
 
 
+
         <p>Abstract load strategy (Strategy pattern).</p>
 <p>Each strategy knows how to write a DataFrame to a destination path
 using a specific load type (overwrite, append, merge, etc.).</p>
@@ -4023,7 +4080,9 @@ using a specific load type (overwrite, append, merge, etc.).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -4051,9 +4110,11 @@ using a specific load type (overwrite, append, merge, etc.).</p>
     <div class="doc doc-contents ">
 
         <p>The load type this strategy handles (e.g. <code>"overwrite"</code>).</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -4069,7 +4130,28 @@ using a specific load type (overwrite, append, merge, etc.).</p>
   </span>
 
 <a href="#datacoolie.destinations.base.BaseLoadStrategy.execute" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">table_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="n">path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">table_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4093,7 +4175,12 @@ using a specific load type (overwrite, append, merge, etc.).</p>
                 <code>df</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4125,7 +4212,12 @@ using a specific load type (overwrite, append, merge, etc.).</p>
                 <code>dataflow</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4141,7 +4233,12 @@ using a specific load type (overwrite, append, merge, etc.).</p>
                 <code>engine</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4170,6 +4267,7 @@ using a specific load type (overwrite, append, merge, etc.).</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4217,7 +4315,10 @@ are supported.  Maintenance (compact / cleanup) is not applicable.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4235,12 +4336,23 @@ are supported.  Maintenance (compact / cleanup) is not applicable.</p>
 
 
 <a href="#datacoolie.destinations.file_writer.FileWriter" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FileWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FileWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseDestinationWriter" href="#datacoolie.destinations.base.BaseDestinationWriter">BaseDestinationWriter</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseDestinationWriter (datacoolie.destinations.base.BaseDestinationWriter)" href="#datacoolie.destinations.base.BaseDestinationWriter">BaseDestinationWriter</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Destination writer for flat-file formats (Parquet, CSV, JSON, …).</p>
@@ -4257,7 +4369,10 @@ flat files and will raise :class:<code>DestinationError</code> if invoked.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4307,7 +4422,10 @@ load strategy based on <code>dataflow.load_type</code>.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4325,12 +4443,23 @@ load strategy based on <code>dataflow.load_type</code>.</p>
 
 
 <a href="#datacoolie.destinations.delta_writer.DeltaWriter" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DeltaWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DeltaWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseDestinationWriter" href="#datacoolie.destinations.base.BaseDestinationWriter">BaseDestinationWriter</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseDestinationWriter (datacoolie.destinations.base.BaseDestinationWriter)" href="#datacoolie.destinations.base.BaseDestinationWriter">BaseDestinationWriter</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Destination writer for Delta Lake tables.</p>
@@ -4347,7 +4476,10 @@ based on the dataflow's load type.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4398,7 +4530,10 @@ Falls back to path-based operations when no catalog is configured.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4416,12 +4551,23 @@ Falls back to path-based operations when no catalog is configured.</p>
 
 
 <a href="#datacoolie.destinations.iceberg_writer.IcebergWriter" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">IcebergWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">IcebergWriter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseDestinationWriter" href="#datacoolie.destinations.base.BaseDestinationWriter">BaseDestinationWriter</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseDestinationWriter (datacoolie.destinations.base.BaseDestinationWriter)" href="#datacoolie.destinations.base.BaseDestinationWriter">BaseDestinationWriter</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Destination writer for Apache Iceberg tables.</p>
@@ -4436,7 +4582,10 @@ Falls back to path-based operations when no catalog is configured.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4489,7 +4638,10 @@ provide lookup by load-type string.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4511,7 +4663,8 @@ provide lookup by load-type string.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+
 
 
         <p>Append — add new rows to the table.</p>
@@ -4524,7 +4677,10 @@ provide lookup by load-type string.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4555,7 +4711,8 @@ provide lookup by load-type string.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+
 
 
         <p>Merge overwrite — delete + re-insert matching rows.</p>
@@ -4573,7 +4730,10 @@ window.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4604,7 +4764,8 @@ window.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+
 
 
         <p>Merge upsert — insert new rows, update existing by merge keys.</p>
@@ -4617,7 +4778,10 @@ window.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4648,7 +4812,8 @@ window.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+
 
 
         <p>Full overwrite — replace the entire table.</p>
@@ -4661,7 +4826,10 @@ window.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4692,7 +4860,8 @@ window.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code></p>
+
 
 
         <p>Slowly Changing Dimension Type 2.</p>
@@ -4708,7 +4877,10 @@ the staged-updates MERGE pattern.  Requires <code>merge_keys</code> and
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4735,7 +4907,7 @@ the staged-updates MERGE pattern.  Requires <code>merge_keys</code> and
 
 
 <a href="#datacoolie.destinations.load_strategies.get_load_strategy" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_load_strategy</span><span class="p">(</span><span class="n">load_type</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_load_strategy</span><span class="p">(</span><span class="n">load_type</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4785,7 +4957,7 @@ the staged-updates MERGE pattern.  Requires <code>merge_keys</code> and
       <tbody>
           <tr class="doc-section-item">
 <td><code>Matching</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.destinations.base.BaseLoadStrategy" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseLoadStrategy (datacoolie.destinations.base.BaseLoadStrategy)" href="#datacoolie.destinations.base.BaseLoadStrategy">BaseLoadStrategy</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4808,7 +4980,7 @@ the staged-updates MERGE pattern.  Requires <code>merge_keys</code> and
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DestinationError" href="../core/#datacoolie.core.exceptions.DestinationError">DestinationError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DestinationError (datacoolie.core.exceptions.DestinationError)" href="../core/#datacoolie.core.exceptions.DestinationError">DestinationError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4818,6 +4990,7 @@ the staged-updates MERGE pattern.  Requires <code>merge_keys</code> and
           </tr>
       </tbody>
     </table>
+
 
     </div>
 

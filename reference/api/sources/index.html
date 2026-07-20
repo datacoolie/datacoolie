@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3663,7 +3663,10 @@
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3681,12 +3684,23 @@
 
 
 <a href="#datacoolie.sources.base.BaseSourceReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseSourceReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseSourceReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="abc.ABC">ABC</span></code>, <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><span title="abc.ABC">ABC</span></code>, <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Abstract source reader with Template Method lifecycle.</p>
@@ -3702,7 +3716,10 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3727,6 +3744,7 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
 
         <p>Return the new watermark values computed during the last read.</p>
 
+
     </div>
 
 </div>
@@ -3746,6 +3764,7 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
 
         <p>Return runtime information for the most recent read.</p>
 
+
     </div>
 
 </div>
@@ -3758,7 +3777,24 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
 
 
 <a href="#datacoolie.sources.base.BaseSourceReader.read" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.Source" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></span><span class="p">,</span> <span class="n">watermark_start</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">watermark_start_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="n">watermark_end</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">watermark_end_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&lt;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            Source
+
+
+  
+      dataclass
+   (datacoolie.core.models.Source)" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">watermark_start</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">watermark_start_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">watermark_end</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">watermark_end_operator</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3787,7 +3823,12 @@ may also implement :meth:<code>_read_data</code> for the raw read step.</p>
                 <code>source</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.Source" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            Source
+
+
+  
+      dataclass
+   (datacoolie.core.models.Source)" href="../../metadata-schema/#datacoolie.core.models.Source">Source</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3884,7 +3925,12 @@ WHERE clause.  <code>"&lt;"</code> (default) for exclusive upper bound.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3894,7 +3940,12 @@ WHERE clause.  <code>"&lt;"</code> (default) for exclusive upper bound.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3917,7 +3968,7 @@ WHERE clause.  <code>"&lt;"</code> (default) for exclusive upper bound.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.SourceError" href="../core/#datacoolie.core.exceptions.SourceError">SourceError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            SourceError (datacoolie.core.exceptions.SourceError)" href="../core/#datacoolie.core.exceptions.SourceError">SourceError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3927,6 +3978,7 @@ WHERE clause.  <code>"&lt;"</code> (default) for exclusive upper bound.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -3972,7 +4024,10 @@ patterns and optional platform-based folder discovery.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3990,12 +4045,23 @@ patterns and optional platform-based folder discovery.</p>
 
 
 <a href="#datacoolie.sources.file_reader.FileReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FileReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FileReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.sources.base.BaseSourceReader" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSourceReader (datacoolie.sources.base.BaseSourceReader)" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Source reader for flat files (Parquet, CSV, JSON, Avro, etc.).</p>
@@ -4013,7 +4079,10 @@ patterns and optional platform-based folder discovery.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4063,7 +4132,10 @@ watermark-based incremental reads and SQL queries.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4081,12 +4153,23 @@ watermark-based incremental reads and SQL queries.</p>
 
 
 <a href="#datacoolie.sources.delta_reader.DeltaReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DeltaReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DeltaReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.sources.base.BaseSourceReader" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSourceReader (datacoolie.sources.base.BaseSourceReader)" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Source reader for Delta Lake tables.</p>
@@ -4102,7 +4185,10 @@ watermark-based incremental reads and SQL queries.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4153,7 +4239,10 @@ reads when no catalog is configured.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4171,12 +4260,23 @@ reads when no catalog is configured.</p>
 
 
 <a href="#datacoolie.sources.iceberg_reader.IcebergReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">IcebergReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">IcebergReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.sources.base.BaseSourceReader" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSourceReader (datacoolie.sources.base.BaseSourceReader)" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Source reader for Apache Iceberg tables.</p>
@@ -4191,7 +4291,10 @@ Falls back to path-based reads when no catalog is configured.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4241,7 +4344,10 @@ supporting both table and query modes.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4259,12 +4365,23 @@ supporting both table and query modes.</p>
 
 
 <a href="#datacoolie.sources.database_reader.DatabaseReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DatabaseReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DatabaseReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.sources.base.BaseSourceReader" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSourceReader (datacoolie.sources.base.BaseSourceReader)" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Source reader for relational databases.</p>
@@ -4284,7 +4401,10 @@ connectorx/ADBC in Polars, etc.).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4334,7 +4454,10 @@ pagination, authentication, and rate limiting.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4352,12 +4475,23 @@ pagination, authentication, and rate limiting.</p>
 
 
 <a href="#datacoolie.sources.api_reader.APIReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">APIReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">APIReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.sources.base.BaseSourceReader" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSourceReader (datacoolie.sources.base.BaseSourceReader)" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Source reader for HTTP/REST APIs.</p>
@@ -4507,7 +4641,10 @@ and <code>source.configure</code>:</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4577,7 +4714,10 @@ dotted module path, e.g. <code>"mypackage.loaders.load_orders"</code>.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4595,12 +4735,26 @@ dotted module path, e.g. <code>"mypackage.loaders.load_orders"</code>.</p>
 
 
 <a href="#datacoolie.sources.python_function_reader.PythonFunctionReader" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PythonFunctionReader</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="n">allowed_prefixes</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PythonFunctionReader</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">allowed_prefixes</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.sources.base.BaseSourceReader" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSourceReader (datacoolie.sources.base.BaseSourceReader)" href="#datacoolie.sources.base.BaseSourceReader">BaseSourceReader</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Source reader that delegates to a user-defined Python function.</p>
@@ -4627,7 +4781,10 @@ be a fully-qualified dotted path (e.g. <code>"my_module.load_data"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 

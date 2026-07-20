@@ -1,6 +1,6 @@
-"""MkDocs hook: enhance sitemap.xml with changefreq and priority.
+"""ProperDocs hook: enhance sitemap.xml with changefreq and priority.
 
-MkDocs-Material generates a basic sitemap with only <loc> and <lastmod>.
+Material for MkDocs generates a basic sitemap with only <loc> and <lastmod>.
 This hook post-processes the generated sitemap.xml to add <changefreq>
 and <priority> based on URL patterns, improving crawl efficiency signals.
 """

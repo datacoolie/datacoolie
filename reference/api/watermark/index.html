@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3466,7 +3466,10 @@ using the <code>__datetime__</code> sentinel pattern for <code>datetime</code> r
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3492,6 +3495,7 @@ using the <code>__datetime__</code> sentinel pattern for <code>datetime</code> r
               Bases: <code><span title="abc.ABC">ABC</span></code></p>
 
 
+
         <p>Abstract watermark manager.</p>
 <p>Concrete implementations decide <em>where</em> watermarks are stored (file,
 database, API).  The serializer is an internal concern — callers
@@ -3505,7 +3509,10 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3530,6 +3537,7 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
 
         <p>Deserialize a JSON string to a watermark dict.</p>
 
+
     </div>
 
 </div>
@@ -3553,6 +3561,7 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
 
         <p>Return the current watermark for <em>dataflow_id</em>, or <code>None</code>.</p>
 
+
     </div>
 
 </div>
@@ -3569,12 +3578,19 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
   </span>
 
 <a href="#datacoolie.watermark.base.BaseWatermarkManager.save_watermark" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_watermark</span><span class="p">(</span><span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_watermark</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Persist a watermark for <em>dataflow_id</em>.</p>
+
 
     </div>
 
@@ -3594,6 +3610,7 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Serialize a dict watermark to JSON.</p>
+
 
     </div>
 
@@ -3621,6 +3638,7 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
     <div class="doc doc-contents ">
 
 
+
         <p>Serialize / deserialize watermark dictionaries to / from JSON.</p>
 <p><code>datetime</code> values are stored as::</p>
 <div class="language-text highlight"><pre><span></span><code>{&quot;__datetime__&quot;: &quot;2026-02-09T10:30:00+00:00&quot;}
@@ -3635,7 +3653,10 @@ always pass and receive <code>Dict[str, Any]</code>.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3720,6 +3741,7 @@ Empty / null inputs return <code>{}</code>.</p>
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -3798,6 +3820,7 @@ Empty / null inputs return <code>{}</code>.</p>
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -3826,6 +3849,7 @@ Empty / null inputs return <code>{}</code>.</p>
 
         <p>Convenience wrapper for :meth:<code>WatermarkSerializer.serialize</code>.</p>
 
+
     </div>
 
 </div>
@@ -3845,6 +3869,7 @@ Empty / null inputs return <code>{}</code>.</p>
 
         <p>Convenience wrapper for :meth:<code>WatermarkSerializer.deserialize</code>.</p>
 
+
     </div>
 
 </div>
@@ -3857,12 +3882,15 @@ Empty / null inputs return <code>{}</code>.</p>
 
 
 <a href="#datacoolie.watermark.base.is_watermark_empty" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_watermark_empty</span><span class="p">(</span><span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n"><span title="bool">bool</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_watermark_empty</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="bool">bool</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Return <code>True</code> if the watermark is <code>None</code>, empty, or all-<code>None</code> values.</p>
+
 
     </div>
 
@@ -3903,7 +3931,10 @@ metadata and watermark storage, so <code>WatermarkManager</code> simply delegate
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3921,12 +3952,13 @@ metadata and watermark storage, so <code>WatermarkManager</code> simply delegate
 
 
 <a href="#datacoolie.watermark.watermark_manager.WatermarkManager" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WatermarkManager</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.metadata.base.BaseMetadataProvider" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WatermarkManager</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseMetadataProvider (datacoolie.metadata.base.BaseMetadataProvider)" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.watermark.base.BaseWatermarkManager" href="#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseWatermarkManager (datacoolie.watermark.base.BaseWatermarkManager)" href="#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a></code></p>
+
 
 
         <p>Watermark manager backed by a metadata provider.</p>
@@ -3948,7 +3980,7 @@ metadata and watermark storage, so <code>WatermarkManager</code> simply delegate
                 <code>metadata_provider</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.metadata.base.BaseMetadataProvider" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseMetadataProvider (datacoolie.metadata.base.BaseMetadataProvider)" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3970,7 +4002,10 @@ metadata and watermark storage, so <code>WatermarkManager</code> simply delegate
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3995,6 +4030,7 @@ metadata and watermark storage, so <code>WatermarkManager</code> simply delegate
 
         <p>Return the current watermark dict, or <code>None</code>.</p>
 
+
     </div>
 
 </div>
@@ -4007,12 +4043,19 @@ metadata and watermark storage, so <code>WatermarkManager</code> simply delegate
 
 
 <a href="#datacoolie.watermark.watermark_manager.WatermarkManager.save_watermark" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_watermark</span><span class="p">(</span><span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_watermark</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">watermark</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">dataflow_run_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Serialize the watermark dict and persist via the provider.</p>
+
 
     </div>
 

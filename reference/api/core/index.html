@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3872,7 +3872,10 @@
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3890,12 +3893,15 @@
 
 
 <a href="#datacoolie.core.registry.PluginRegistry" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PluginRegistry</span><span class="p">(</span><span class="n">entry_point_group</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">base_class</span><span class="p">:</span> <span class="n"><span title="type">type</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.registry.T">T</span></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PluginRegistry</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">entry_point_group</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">base_class</span><span class="p">:</span> <span class="n"><span title="type">type</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.registry.T">T</span></span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
               Bases: <code><span title="typing.Generic">Generic</span>[<span title="datacoolie.core.registry.T">T</span>]</code></p>
+
 
 
         <p>Generic plugin registry with lazy discovery via entry points.</p>
@@ -3958,7 +3964,10 @@ auto-discovery (e.g. <code>"datacoolie.engines"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3983,6 +3992,7 @@ auto-discovery (e.g. <code>"datacoolie.engines"</code>).</p>
 
         <p>Evict all cached singleton instances.</p>
 <p>Useful in tests to reset state between runs.</p>
+
 
     </div>
 
@@ -4087,7 +4097,7 @@ externally installed plugins are found automatically.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4097,6 +4107,7 @@ externally installed plugins are found automatically.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4203,7 +4214,7 @@ on first creation only.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4213,6 +4224,7 @@ on first creation only.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4233,6 +4245,7 @@ on first creation only.</p>
 
         <p>Check if a plugin is registered (triggers discovery).</p>
 
+
     </div>
 
 </div>
@@ -4251,6 +4264,7 @@ on first creation only.</p>
     <div class="doc doc-contents ">
 
         <p>List all registered plugin names (triggers discovery).</p>
+
 
     </div>
 
@@ -4330,7 +4344,7 @@ on first creation only.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4340,6 +4354,7 @@ on first creation only.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4404,7 +4419,7 @@ on first creation only.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4414,6 +4429,7 @@ on first creation only.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4460,7 +4476,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4478,12 +4497,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.ConfigurationError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ConfigurationError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ConfigurationError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised for invalid or missing configuration.</p>
@@ -4496,7 +4518,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4523,12 +4548,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.DataCoolieError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DataCoolieError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DataCoolieError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
               Bases: <code><span title="Exception">Exception</span></code></p>
+
 
 
         <p>Base exception for all DataCoolie errors.</p>
@@ -4575,7 +4603,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4602,12 +4633,18 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.DataFlowError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DataFlowError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DataFlowError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">stage</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised for dataflow-level execution errors.</p>
@@ -4654,7 +4691,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4681,12 +4721,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.DestinationError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DestinationError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DestinationError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised when writing to a destination fails.</p>
@@ -4699,7 +4742,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4726,12 +4772,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.EngineError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EngineError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EngineError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised for engine-level failures (Spark, Polars).</p>
@@ -4744,7 +4793,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4771,12 +4823,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.MetadataError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MetadataError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MetadataError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised for metadata loading / parsing failures.</p>
@@ -4789,7 +4844,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4816,12 +4874,17 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.PipelineError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PipelineError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">partial_result</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PipelineError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">partial_result</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised when a pipeline step fails, carrying partial runtime results.</p>
@@ -4858,7 +4921,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4885,12 +4951,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.PlatformError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PlatformError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PlatformError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised for platform-specific failures (Fabric, Databricks, AWS).</p>
@@ -4903,7 +4972,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4930,12 +5002,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.SourceError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SourceError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SourceError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised when reading from a data source fails.</p>
@@ -4948,7 +5023,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4975,12 +5053,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.TransformError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TransformError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TransformError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised when a transformation step fails.</p>
@@ -4993,7 +5074,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5020,12 +5104,15 @@ error context.</p>
 
 
 <a href="#datacoolie.core.exceptions.WatermarkError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WatermarkError</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WatermarkError</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">details</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code></p>
+
 
 
         <p>Raised for watermark read / write / parse failures.</p>
@@ -5038,7 +5125,10 @@ error context.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5095,7 +5185,10 @@ to obtain plain strings at I/O boundaries (HTTP auth, JDBC, etc.).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5119,6 +5212,7 @@ to obtain plain strings at I/O boundaries (HTTP auth, JDBC, etc.).</p>
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
               Bases: <code><span title="abc.ABC">ABC</span></code></p>
+
 
 
         <p>Abstract base class for secret providers.</p>
@@ -5166,7 +5260,10 @@ to obtain plain strings at I/O boundaries (HTTP auth, JDBC, etc.).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5190,6 +5287,7 @@ to obtain plain strings at I/O boundaries (HTTP auth, JDBC, etc.).</p>
     <div class="doc doc-contents ">
 
         <p>Evict all cached entries.</p>
+
 
     </div>
 
@@ -5276,7 +5374,7 @@ Defaults to <code>""</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5286,6 +5384,7 @@ Defaults to <code>""</code>.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -5299,7 +5398,9 @@ Defaults to <code>""</code>.</p>
 
 
 <a href="#datacoolie.core.secret_provider.BaseSecretProvider.get_secrets" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_secrets</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span> <span class="n">source</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_secrets</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">keys</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span> <span class="n">source</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5377,6 +5478,7 @@ secret name/ARN for AWS).  Defaults to <code>""</code>.</p>
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -5404,6 +5506,7 @@ secret name/ARN for AWS).  Defaults to <code>""</code>.</p>
     <div class="doc doc-contents ">
 
 
+
         <p>Opaque wrapper that hides secret values from all public access.</p>
 <p><code>str()</code>, <code>repr()</code>, <code>print()</code>, <code>format()</code>, and <code>logging</code>
 all render <code>***</code> instead of the real value.</p>
@@ -5421,7 +5524,10 @@ prevent accidental persistence or cache-key leaks.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5448,7 +5554,17 @@ prevent accidental persistence or cache-key leaks.</p>
 
 
 <a href="#datacoolie.core.secret_provider.resolve_secrets" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resolve_secrets</span><span class="p">(</span><span class="n">connection</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.Connection" href="../../metadata-schema/#datacoolie.core.models.Connection">Connection</a></span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.secret_provider.BaseSecretProvider" href="#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">resolver_lookup</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.secret_resolver.ResolverLookup">ResolverLookup</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resolve_secrets</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">connection</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            Connection
+
+
+  
+      dataclass
+   (datacoolie.core.models.Connection)" href="../../metadata-schema/#datacoolie.core.models.Connection">Connection</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseSecretProvider (datacoolie.core.secret_provider.BaseSecretProvider)" href="#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">resolver_lookup</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.secret_resolver.ResolverLookup">ResolverLookup</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5481,7 +5597,12 @@ platform-native <em>provider</em> handles the request via
                 <code>connection</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.Connection" href="../../metadata-schema/#datacoolie.core.models.Connection">Connection</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            Connection
+
+
+  
+      dataclass
+   (datacoolie.core.models.Connection)" href="../../metadata-schema/#datacoolie.core.models.Connection">Connection</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5497,7 +5618,7 @@ platform-native <em>provider</em> handles the request via
                 <code>provider</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.secret_provider.BaseSecretProvider" href="#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseSecretProvider (datacoolie.core.secret_provider.BaseSecretProvider)" href="#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5541,7 +5662,7 @@ or returns <code>None</code> if the prefix is unrecognized.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5552,6 +5673,7 @@ absent from <code>configure</code>, or a secret cannot be retrieved.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -5565,7 +5687,9 @@ absent from <code>configure</code>, or a secret cannot be retrieved.</p>
 
 
 <a href="#datacoolie.core.secret_provider.unwrap_configure" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">unwrap_configure</span><span class="p">(</span><span class="n">configure</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">unwrap_configure</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">configure</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5574,6 +5698,7 @@ absent from <code>configure</code>, or a secret cannot be retrieved.</p>
 <p>Call this <strong>once</strong> at the I/O boundary (HTTP auth, JDBC connect, etc.)
 to obtain a plain-string dict for external libraries.  The original
 <em>configure</em> dict retains its <code>SecretStr</code> wrappers.</p>
+
 
     </div>
 
@@ -5593,6 +5718,7 @@ to obtain a plain-string dict for external libraries.  The original
     <div class="doc doc-contents ">
 
         <p>Return the raw string if <em>value</em> is a :class:<code>SecretStr</code>, else pass through.</p>
+
 
     </div>
 
@@ -5634,7 +5760,10 @@ dispatched by prefix in <code>secrets_ref</code> source keys (<code>"env:APP_"</
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5659,6 +5788,7 @@ dispatched by prefix in <code>secrets_ref</code> source keys (<code>"env:APP_"</
               Bases: <code><span title="abc.ABC">ABC</span></code></p>
 
 
+
         <p>Abstract base class for pluggable secret resolvers.</p>
 <p>This is the <strong>single interface</strong> that every secret backend implements.
 Subclasses must implement :meth:<code>resolve</code> which fetches a single
@@ -5672,7 +5802,10 @@ secret value given a <em>key</em> and a <em>source</em> argument.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5786,7 +5919,7 @@ source key from <code>secrets_ref</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.DataCoolieError" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataCoolieError (datacoolie.core.exceptions.DataCoolieError)" href="#datacoolie.core.exceptions.DataCoolieError">DataCoolieError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5796,6 +5929,7 @@ source key from <code>secrets_ref</code>.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -5822,7 +5956,8 @@ source key from <code>secrets_ref</code>.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.secret_resolver.BaseSecretResolver" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSecretResolver (datacoolie.core.secret_resolver.BaseSecretResolver)" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code></p>
+
 
 
         <p>Resolve secrets from environment variables.</p>
@@ -5838,7 +5973,10 @@ with source <code>"APP_"</code> and key <code>"DB_PASSWORD"</code> this looks up
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5865,12 +6003,15 @@ with source <code>"APP_"</code> and key <code>"DB_PASSWORD"</code> this looks up
 
 
 <a href="#datacoolie.core.secret_resolver.NativeProviderResolver" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NativeProviderResolver</span><span class="p">(</span><span class="n">provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.secret_provider.BaseSecretProvider" href="#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></span><span class="p">,</span> <span class="o">**</span><span class="n">_</span><span class="p">:</span> <span class="n"><span title="object">object</span></span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NativeProviderResolver</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">provider</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseSecretProvider (datacoolie.core.secret_provider.BaseSecretProvider)" href="#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></span><span class="p">,</span> <span class="o">**</span><span class="n">_</span><span class="p">:</span> <span class="n"><span title="object">object</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.core.secret_resolver.BaseSecretResolver" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseSecretResolver (datacoolie.core.secret_resolver.BaseSecretResolver)" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code></p>
+
 
 
         <p>Adapter that wraps a :class:<code>BaseSecretProvider</code> as a resolver.</p>
@@ -5886,7 +6027,10 @@ interface so that <code>resolve_secrets</code> needs only one code path.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5913,7 +6057,11 @@ interface so that <code>resolve_secrets</code> needs only one code path.</p>
 
 
 <a href="#datacoolie.core.secret_resolver.parse_source" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">parse_source</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">fallback</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.secret_resolver.BaseSecretResolver" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></span><span class="p">,</span> <span class="n">resolver_lookup</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.secret_resolver.ResolverLookup">ResolverLookup</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.secret_resolver.BaseSecretResolver" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">parse_source</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">source</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fallback</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseSecretResolver (datacoolie.core.secret_resolver.BaseSecretResolver)" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">resolver_lookup</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.secret_resolver.ResolverLookup">ResolverLookup</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BaseSecretResolver (datacoolie.core.secret_resolver.BaseSecretResolver)" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5954,7 +6102,7 @@ interface so that <code>resolve_secrets</code> needs only one code path.</p>
                 <code>fallback</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.secret_resolver.BaseSecretResolver" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseSecretResolver (datacoolie.core.secret_resolver.BaseSecretResolver)" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5999,7 +6147,7 @@ unrecognized.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.secret_resolver.BaseSecretResolver" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseSecretResolver (datacoolie.core.secret_resolver.BaseSecretResolver)" href="#datacoolie.core.secret_resolver.BaseSecretResolver">BaseSecretResolver</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6019,6 +6167,7 @@ unrecognized.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 

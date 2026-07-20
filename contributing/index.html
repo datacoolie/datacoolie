@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../feed_rss_updated.xml">
       
       <link rel="icon" href="../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3349,18 +3349,18 @@ environment for DataCoolie.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c"># nested workspace example: ..\.venv\Scripts\Activate.ps1</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c"># standalone repo example: .\.venv\Scripts\Activate.ps1</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">poetry</span> <span class="n">install</span> <span class="p">-</span><span class="n">-only</span> <span class="n">main</span><span class="p">,</span><span class="n">docs</span> <span class="p">-</span><span class="n">-extras</span> <span class="s2">&quot;spark polars db api excel aws iceberg deltalake&quot;</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">mkdocs</span> <span class="n">serve</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">properdocs</span> <span class="n">serve</span>
 </span></code></pre></div>
    Default local docs port is <code>8000</code>. If another project already uses that
    port, run DataCoolie docs on another port, for example:
-   <div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">mkdocs</span> <span class="n">serve</span> <span class="n">-a</span> <span class="n">127</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">1</span><span class="p">:</span><span class="n">8001</span>
+   <div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">properdocs</span> <span class="n">serve</span> <span class="n">-a</span> <span class="n">127</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">1</span><span class="p">:</span><span class="n">8001</span>
 </span></code></pre></div></li>
 <li><strong>Check strict mode passes</strong>:
-   <div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">mkdocs</span> <span class="n">build</span> <span class="p">-</span><span class="n">-strict</span>
+   <div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">properdocs</span> <span class="n">build</span> <span class="p">-</span><span class="n">-strict</span>
 </span></code></pre></div></li>
 <li>Open a PR — the <code>docs</code> GitHub Actions workflow runs
-   <code>mkdocs build --strict</code> on pull requests that touch docs-related files.
-   Pushes to <code>main</code> for those paths deploy <code>latest</code> via <code>mike</code>.</li>
+   <code>properdocs build --strict</code> on pull requests that touch docs-related files.
+   Pushes to <code>main</code> for those paths deploy the site to <code>gh-pages</code>.</li>
 </ol>
 <h2 id="documentation-style">Documentation style<a class="headerlink" href="#documentation-style" title="Permanent link">&para;</a></h2>
 <ul>

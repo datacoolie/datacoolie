@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3768,7 +3768,10 @@ order, tracking runtime info.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3790,7 +3793,13 @@ order, tracking runtime info.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="abc.ABC">ABC</span></code>, <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><span title="abc.ABC">ABC</span></code>, <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Abstract base class for a single transformation step.</p>
@@ -3815,7 +3824,9 @@ priority within the pipeline (lower values execute first).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -3865,6 +3876,7 @@ priority within the pipeline (lower values execute first).</p>
           </tr>
       </tbody>
     </table>
+
     </div>
 
 </div>
@@ -3888,6 +3900,7 @@ priority within the pipeline (lower values execute first).</p>
     <div class="doc doc-contents ">
 
         <p>Human-readable transformer name (class name by default).</p>
+
     </div>
 
 </div>
@@ -3912,9 +3925,11 @@ priority within the pipeline (lower values execute first).</p>
     <div class="doc doc-contents ">
 
         <p>Execution priority (lower = earlier).</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -3930,7 +3945,22 @@ priority within the pipeline (lower values execute first).</p>
   </span>
 
 <a href="#datacoolie.transformers.base.BaseTransformer.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3954,7 +3984,12 @@ priority within the pipeline (lower values execute first).</p>
                 <code>df</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3970,7 +4005,12 @@ priority within the pipeline (lower values execute first).</p>
                 <code>dataflow</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3996,7 +4036,12 @@ priority within the pipeline (lower values execute first).</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4006,6 +4051,7 @@ priority within the pipeline (lower values execute first).</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4028,12 +4074,23 @@ priority within the pipeline (lower values execute first).</p>
 
 
 <a href="#datacoolie.transformers.base.TransformerPipeline" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TransformerPipeline</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TransformerPipeline</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><span title="typing.Generic">Generic</span>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Ordered pipeline of transformers with runtime tracking.</p>
@@ -4049,7 +4106,9 @@ is tracked for observability.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -4070,15 +4129,22 @@ is tracked for observability.</p>
   </span>
 
 <a href="#datacoolie.transformers.base.TransformerPipeline.transformers" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">transformers</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">transformers</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Return transformers sorted by execution order.</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -4090,12 +4156,18 @@ is tracked for observability.</p>
 
 
 <a href="#datacoolie.transformers.base.TransformerPipeline.add_transformer" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_transformer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_transformer</span><span class="p">(</span><span class="n">transformer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Add a transformer to the pipeline.</p>
+
 
     </div>
 
@@ -4116,6 +4188,7 @@ is tracked for observability.</p>
 
         <p>Remove all transformers from the pipeline.</p>
 
+
     </div>
 
 </div>
@@ -4134,6 +4207,7 @@ is tracked for observability.</p>
     <div class="doc doc-contents ">
 
         <p>Return runtime information from the most recent transform.</p>
+
 
     </div>
 
@@ -4177,6 +4251,7 @@ is tracked for observability.</p>
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -4189,7 +4264,22 @@ is tracked for observability.</p>
 
 
 <a href="#datacoolie.transformers.base.TransformerPipeline.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4213,7 +4303,12 @@ is tracked for observability.</p>
                 <code>df</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4229,7 +4324,12 @@ is tracked for observability.</p>
                 <code>dataflow</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4255,7 +4355,12 @@ is tracked for observability.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4278,7 +4383,7 @@ is tracked for observability.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.TransformError" href="../core/#datacoolie.core.exceptions.TransformError">TransformError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            TransformError (datacoolie.core.exceptions.TransformError)" href="../core/#datacoolie.core.exceptions.TransformError">TransformError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4288,6 +4393,7 @@ is tracked for observability.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4335,7 +4441,10 @@ type) is delegated to each engine's :meth:<code>~BaseEngine.cast_column</code>.<
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4353,12 +4462,23 @@ type) is delegated to each engine's :meth:<code>~BaseEngine.cast_column</code>.<
 
 
 <a href="#datacoolie.transformers.schema_converter.SchemaConverter" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SchemaConverter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SchemaConverter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Cast columns per schema hints (order = 10).</p>
@@ -4381,7 +4501,10 @@ type) is delegated to each engine's :meth:<code>~BaseEngine.cast_column</code>.<
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4399,12 +4522,28 @@ type) is delegated to each engine's :meth:<code>~BaseEngine.cast_column</code>.<
 
 
 <a href="#datacoolie.transformers.schema_converter.SchemaConverter.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Apply schema conversions.</p>
+
 
     </div>
 
@@ -4451,7 +4590,10 @@ and <code>ROW_NUMBER</code>-based dedup otherwise.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4469,12 +4611,23 @@ and <code>ROW_NUMBER</code>-based dedup otherwise.</p>
 
 
 <a href="#datacoolie.transformers.deduplicator.Deduplicator" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Deduplicator</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Deduplicator</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Deduplicate DataFrame rows (order = 20).</p>
@@ -4511,7 +4664,10 @@ and <code>ROW_NUMBER</code>-based dedup otherwise.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4529,12 +4685,28 @@ and <code>ROW_NUMBER</code>-based dedup otherwise.</p>
 
 
 <a href="#datacoolie.transformers.deduplicator.Deduplicator.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Apply deduplication if configured.</p>
+
 
     </div>
 
@@ -4581,7 +4753,10 @@ audit columns as the <strong>final</strong> step in the pipeline.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4599,12 +4774,23 @@ audit columns as the <strong>final</strong> step in the pipeline.</p>
 
 
 <a href="#datacoolie.transformers.column_adder.ColumnAdder" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Remove stale system columns and add computed columns (order = 30).</p>
@@ -4625,7 +4811,10 @@ audit columns as the <strong>final</strong> step in the pipeline.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4643,12 +4832,28 @@ audit columns as the <strong>final</strong> step in the pipeline.</p>
 
 
 <a href="#datacoolie.transformers.column_adder.ColumnAdder.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Apply column additions.</p>
+
 
     </div>
 
@@ -4671,12 +4876,25 @@ audit columns as the <strong>final</strong> step in the pipeline.</p>
 
 
 <a href="#datacoolie.transformers.column_adder.SystemColumnAdder" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SystemColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="n">author</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_AUTHOR">DEFAULT_AUTHOR</span></span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SystemColumnAdder</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="n">author</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_AUTHOR">DEFAULT_AUTHOR</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Append system audit columns as the final pipeline step (order = 70).</p>
@@ -4692,7 +4910,10 @@ touches system column names.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4710,12 +4931,28 @@ touches system column names.</p>
 
 
 <a href="#datacoolie.transformers.column_adder.SystemColumnAdder.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Add system audit columns.</p>
+
 
     </div>
 
@@ -4738,12 +4975,23 @@ touches system column names.</p>
 
 
 <a href="#datacoolie.transformers.column_adder.SCD2ColumnAdder" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SCD2ColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SCD2ColumnAdder</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Add SCD2 tracking columns for scd2 load type (order = 60).</p>
@@ -4759,7 +5007,10 @@ insert new versions.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4777,12 +5028,28 @@ insert new versions.</p>
 
 
 <a href="#datacoolie.transformers.column_adder.SCD2ColumnAdder.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Add SCD2 columns if load_type is scd2, otherwise no-op.</p>
+
 
     </div>
 
@@ -4828,7 +5095,10 @@ after column addition but before SCD2 processing.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4846,12 +5116,23 @@ after column addition but before SCD2 processing.</p>
 
 
 <a href="#datacoolie.transformers.row_filter.RowFilter" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RowFilter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RowFilter</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Filter rows by a SQL expression (order = 35).</p>
@@ -4885,7 +5166,10 @@ columns that only exist after :class:<code>ColumnAdder</code> runs.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4903,12 +5187,28 @@ columns that only exist after :class:<code>ColumnAdder</code> runs.</p>
 
 
 <a href="#datacoolie.transformers.row_filter.RowFilter.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Apply the filter expression, or skip when none is configured.</p>
+
 
     </div>
 
@@ -4954,7 +5254,10 @@ destination <code>partition_columns</code> configuration.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4972,12 +5275,23 @@ destination <code>partition_columns</code> configuration.</p>
 
 
 <a href="#datacoolie.transformers.partition_handler.PartitionHandler" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PartitionHandler</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PartitionHandler</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">])</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Generate partition columns from expressions (order = 80).</p>
@@ -4994,7 +5308,10 @@ assumed to already exist in the DataFrame.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5012,12 +5329,28 @@ assumed to already exist in the DataFrame.</p>
 
 
 <a href="#datacoolie.transformers.partition_handler.PartitionHandler.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Add partition columns where expressions are defined.</p>
+
 
     </div>
 
@@ -5075,7 +5408,10 @@ assumed to already exist in the DataFrame.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5093,12 +5429,25 @@ assumed to already exist in the DataFrame.</p>
 
 
 <a href="#datacoolie.transformers.column_name_sanitizer.ColumnNameSanitizer" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ColumnNameSanitizer</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ColumnNameSanitizer</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.transformers.base.BaseTransformer" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseTransformer (datacoolie.transformers.base.BaseTransformer)" href="#datacoolie.transformers.base.BaseTransformer">BaseTransformer</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code></p>
+
 
 
         <p>Rename columns using the chosen case-conversion mode (order = 90).</p>
@@ -5126,7 +5475,12 @@ in the current or a previous run) are skipped.</p>
                 <code>engine</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a>[<a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a>[<a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5165,7 +5519,10 @@ in the current or a previous run) are skipped.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5183,13 +5540,29 @@ in the current or a previous run) are skipped.</p>
 
 
 <a href="#datacoolie.transformers.column_name_sanitizer.ColumnNameSanitizer.transform" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.DF" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="../engines/#datacoolie.engines.base.DF">DF</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Rename columns that are not already clean, then reorder so that
 system / file-info columns appear last.</p>
+
 
     </div>
 
@@ -5230,6 +5603,7 @@ columns such as <code>__created_at</code>) are returned unchanged.</p>
 &quot;__created_at&quot; → &quot;__created_at&quot;  # unchanged
 </code></pre></div>
 
+
     </div>
 
 </div>
@@ -5259,6 +5633,7 @@ columns such as <code>__created_at</code>) are returned unchanged.</p>
 &quot;col@#name&quot;    → &quot;col_name&quot;
 &quot;__created_at&quot; → &quot;__created_at&quot;  # unchanged
 </code></pre></div>
+
 
     </div>
 

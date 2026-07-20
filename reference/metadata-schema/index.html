@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -4455,6 +4455,7 @@ rendered view.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Validated execution parameters for a DataCoolie run.</p>
 
 
@@ -4465,7 +4466,10 @@ rendered view.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4503,6 +4507,7 @@ rendered view.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Endpoint configuration for a data source or destination.</p>
 <p>The <code>configure</code> JSON field stores type-specific settings (host, port,
 read_options, write_options, etc.).  Frequently-used values are
@@ -4516,7 +4521,9 @@ surfaced as computed properties.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -4543,6 +4550,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>Base storage path (e.g. <code>abfss://container@storage/</code>).</p>
+
     </div>
 
 </div>
@@ -4566,6 +4574,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>Database type (mysql, mssql, postgresql, oracle, sqlite).</p>
+
     </div>
 
 </div>
@@ -4589,6 +4598,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>Database authentication type (password, service_principal, managed_identity, access_token).</p>
+
     </div>
 
 </div>
@@ -4612,6 +4622,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>Azure AD tenant ID for service_principal auth.</p>
+
     </div>
 
 </div>
@@ -4635,6 +4646,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>Pre-fetched access token for access_token auth.</p>
+
     </div>
 
 </div>
@@ -4658,6 +4670,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>Explicit URL / connection string from configure.</p>
+
     </div>
 
 </div>
@@ -4681,6 +4694,7 @@ surfaced as computed properties.</p>
     <div class="doc doc-contents ">
 
         <p>JDBC driver class name.</p>
+
     </div>
 
 </div>
@@ -4707,6 +4721,7 @@ surfaced as computed properties.</p>
 <p>When set, the writer always registers a native Delta table via
 Athena DDL (<code>DROP + CREATE EXTERNAL TABLE ... TBLPROPERTIES
 ('table_type'='DELTA')</code>) after every write and maintenance.</p>
+
     </div>
 
 </div>
@@ -4730,6 +4745,7 @@ Athena DDL (<code>DROP + CREATE EXTERNAL TABLE ... TBLPROPERTIES
     <div class="doc doc-contents ">
 
         <p>Generate <code>_symlink_format_manifest/</code> after writes and maintenance.</p>
+
     </div>
 
 </div>
@@ -4754,6 +4770,7 @@ Athena DDL (<code>DROP + CREATE EXTERNAL TABLE ... TBLPROPERTIES
 
         <p>Register a <code>SymlinkTextInputFormat</code> table in Glue after writes.</p>
 <p>Implies :attr:<code>generate_manifest</code>.</p>
+
     </div>
 
 </div>
@@ -4777,6 +4794,7 @@ Athena DDL (<code>DROP + CREATE EXTERNAL TABLE ... TBLPROPERTIES
     <div class="doc doc-contents ">
 
         <p>Prefix for symlink Glue database name.  Default <code>"symlink_"</code>.</p>
+
     </div>
 
 </div>
@@ -4813,9 +4831,11 @@ top-level keys from <code>config</code>, or a nested <code>backward</code> dict.
 <div class="language-text highlight"><pre><span></span><code>config:
   backward: {closing_day: 10}
 </code></pre></div>
+
     </div>
 
 </div>
+
 
 
 
@@ -4837,6 +4857,7 @@ top-level keys from <code>config</code>, or a nested <code>backward</code> dict.
 construction time), this always overwrites — call after secret
 resolution when <code>configure</code> values have been resolved from vault
 keys to real values.</p>
+
 
     </div>
 
@@ -4870,6 +4891,7 @@ keys to real values.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Read-side pipeline configuration.</p>
 
 
@@ -4880,7 +4902,9 @@ keys to real values.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -4907,6 +4931,7 @@ keys to real values.</p>
     <div class="doc doc-contents ">
 
         <p>Namespace without the table: <code>catalog.database.schema</code>.</p>
+
     </div>
 
 </div>
@@ -4930,6 +4955,7 @@ keys to real values.</p>
     <div class="doc doc-contents ">
 
         <p>Merged read options: connection defaults + source overrides.</p>
+
     </div>
 
 </div>
@@ -4964,9 +4990,11 @@ is present, falls back to the connection's value.</p>
   # or closing-day strategy
   backward: {closing_day: 10}
 </code></pre></div>
+
     </div>
 
 </div>
+
 
 
 
@@ -4998,6 +5026,7 @@ is present, falls back to the connection's value.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Write-side pipeline configuration.</p>
 
 
@@ -5008,7 +5037,9 @@ is present, falls back to the connection's value.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -5035,6 +5066,7 @@ is present, falls back to the connection's value.</p>
     <div class="doc doc-contents ">
 
         <p>Namespace without the table: <code>catalog.database.schema</code>.</p>
+
     </div>
 
 </div>
@@ -5086,7 +5118,7 @@ for case-insensitive equivalence.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.exceptions.ConfigurationError" href="../api/core/#datacoolie.core.exceptions.ConfigurationError">ConfigurationError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ConfigurationError (datacoolie.core.exceptions.ConfigurationError)" href="../api/core/#datacoolie.core.exceptions.ConfigurationError">ConfigurationError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5097,6 +5129,7 @@ catalog/database registration nor a storage path.</p>
           </tr>
       </tbody>
     </table>
+
     </div>
 
 </div>
@@ -5120,6 +5153,7 @@ catalog/database registration nor a storage path.</p>
     <div class="doc doc-contents ">
 
         <p>Merged write options: connection defaults + destination overrides.</p>
+
     </div>
 
 </div>
@@ -5143,6 +5177,7 @@ catalog/database registration nor a storage path.</p>
     <div class="doc doc-contents ">
 
         <p>Return merge keys extended with partition columns.</p>
+
     </div>
 
 </div>
@@ -5168,6 +5203,7 @@ catalog/database registration nor a storage path.</p>
         <p>SQL expression used as <code>__valid_from</code> for SCD2 loads.</p>
 <p>Read from <code>destination.configure["scd2_effective_column"]</code>.
 Returns <code>None</code> when not set (non-SCD2 destinations).</p>
+
     </div>
 
 </div>
@@ -5196,9 +5232,11 @@ watermark window (watermark_effective → new_watermark) instead of
 doing key-based delete.  This handles source-side deletions.</p>
 <p>Requires <code>date_backward</code> on the source to ensure the read window
 covers the delete scope.</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -5230,6 +5268,7 @@ covers the delete scope.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Transformation rules applied between source read and destination write.</p>
 
 
@@ -5240,7 +5279,9 @@ covers the delete scope.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -5274,6 +5315,7 @@ Defaults to <code>True</code>.</p>
   configure:
     convert_timestamp_ntz: false
 </code></pre></div>
+
     </div>
 
 </div>
@@ -5304,9 +5346,11 @@ Defaults to <code>False</code>.</p>
   configure:
     deduplicate_by_rank: true
 </code></pre></div>
+
     </div>
 
 </div>
+
 
 
 
@@ -5318,12 +5362,15 @@ Defaults to <code>False</code>.</p>
 
 
 <a href="#datacoolie.core.models.Transform.deduplicate_column_names" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">deduplicate_column_names</span><span class="p">(</span><span class="n">merge_keys</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">deduplicate_column_names</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">merge_keys</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Return dedup columns, falling back to <em>merge_keys</em>.</p>
+
 
     </div>
 
@@ -5357,6 +5404,7 @@ Defaults to <code>False</code>.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Complete ETL pipeline configuration.</p>
 <p>Composes :class:<code>Source</code>, :class:<code>Destination</code>, and :class:<code>Transform</code>.</p>
 
@@ -5368,7 +5416,9 @@ Defaults to <code>False</code>.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -5397,6 +5447,7 @@ Defaults to <code>False</code>.</p>
         <p>Watermark window for range-based replace.</p>
 <p>Set by the driver after source read.  Maps column names to
 <code>(lower_bound, upper_bound)</code> tuples.</p>
+
     </div>
 
 </div>
@@ -5422,9 +5473,11 @@ Defaults to <code>False</code>.</p>
         <p>Columns used to order rows during deduplication.</p>
 <p>Returns <code>transform.latest_data_columns</code> when set, otherwise
 falls back to <code>source.watermark_columns</code>.</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -5445,6 +5498,7 @@ falls back to <code>source.watermark_columns</code>.</p>
 <p>Called automatically in <code>__post_init__</code> to fail fast at
 metadata load time.</p>
 
+
     </div>
 
 </div>
@@ -5457,7 +5511,9 @@ metadata load time.</p>
 
 
 <a href="#datacoolie.core.models.DataFlow.apply_watermark_window" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_watermark_window</span><span class="p">(</span><span class="n">source_runtime</span><span class="p">:</span> <span class="s1">&#39;SourceRuntimeInfo&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_watermark_window</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">source_runtime</span><span class="p">:</span> <span class="s2">&quot;SourceRuntimeInfo&quot;</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5466,6 +5522,7 @@ metadata load time.</p>
 <p>Computes the (watermark_effective, watermark_after) window per
 column when <code>replace_by_watermark</code> is active and both bounds
 are available.  Otherwise leaves the window as <code>None</code>.</p>
+
 
     </div>
 
@@ -5493,10 +5550,17 @@ are available.  Otherwise leaves the window as <code>None</code>.</p>
   </span>
 
 <a href="#datacoolie.core.models.ReplayConfig" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ReplayConfig</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">chunk_interval</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">save_watermark</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">chunk_column</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ReplayConfig</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">end</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">chunk_interval</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">save_watermark</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">chunk_column</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
+
 
 
         <p>Configuration for replaying a bounded time range in chunks.</p>
@@ -5638,7 +5702,10 @@ the desired chunking dimension.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5675,6 +5742,7 @@ the desired chunking dimension.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Column-level type hint for schema conversion.</p>
 
 
@@ -5685,7 +5753,10 @@ the desired chunking dimension.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5722,6 +5793,7 @@ the desired chunking dimension.</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Partition column definition.</p>
 <p><code>expression</code> is an optional SQL expression used to derive the partition
 value (e.g. <code>"year(event_date)"</code>).</p>
@@ -5734,7 +5806,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5771,6 +5846,7 @@ value (e.g. <code>"year(event_date)"</code>).</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Computed column added during the transform phase.</p>
 
 
@@ -5781,7 +5857,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5814,6 +5893,7 @@ value (e.g. <code>"year(event_date)"</code>).</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Supported load (write) strategies.</p>
 
 
@@ -5824,7 +5904,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5856,6 +5939,7 @@ value (e.g. <code>"year(event_date)"</code>).</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Supported data formats.</p>
 
 
@@ -5866,7 +5950,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5898,6 +5985,7 @@ value (e.g. <code>"year(event_date)"</code>).</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Connection endpoint categories.</p>
 
 
@@ -5908,7 +5996,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5940,6 +6031,7 @@ value (e.g. <code>"year(event_date)"</code>).</p>
     <div class="doc doc-contents first">
 
 
+
         <p>ETL processing modes.</p>
 
 
@@ -5950,7 +6042,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5982,6 +6077,7 @@ value (e.g. <code>"year(event_date)"</code>).</p>
     <div class="doc doc-contents first">
 
 
+
         <p>Dataflow execution statuses.</p>
 
 
@@ -5992,7 +6088,10 @@ value (e.g. <code>"year(event_date)"</code>).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 

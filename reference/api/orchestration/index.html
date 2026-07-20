@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3599,7 +3599,9 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -3620,13 +3622,24 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
   </span>
 
 <a href="#datacoolie.orchestration.driver.DEFAULT_TRANSFORMERS" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DEFAULT_TRANSFORMERS</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;schema_converter&#39;</span><span class="p">,</span> <span class="s1">&#39;deduplicator&#39;</span><span class="p">,</span> <span class="s1">&#39;column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;row_filter&#39;</span><span class="p">,</span> <span class="s1">&#39;scd2_column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;system_column_adder&#39;</span><span class="p">,</span> <span class="s1">&#39;partition_handler&#39;</span><span class="p">,</span> <span class="s1">&#39;column_name_sanitizer&#39;</span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DEFAULT_TRANSFORMERS</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;schema_converter&quot;</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;deduplicator&quot;</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;column_adder&quot;</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;row_filter&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;scd2_column_adder&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;system_column_adder&quot;</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;partition_handler&quot;</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;column_name_sanitizer&quot;</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
     </div>
 
 </div>
+
 
 
 <div class="doc doc-object doc-class">
@@ -3638,10 +3651,36 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.metadata.base.BaseMetadataProvider" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">watermark_manager</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.watermark.base.BaseWatermarkManager" href="../watermark/#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataCoolieRunConfig" href="../../metadata-schema/#datacoolie.core.models.DataCoolieRunConfig">DataCoolieRunConfig</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">secret_provider</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.secret_provider.BaseSecretProvider" href="../core/#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">system_logger</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.SystemLogger" href="../logging/#datacoolie.logging.system_logger.SystemLogger">SystemLogger</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">etl_logger</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.ETLLogger" href="../logging/#datacoolie.logging.etl_logger.ETLLogger">ETLLogger</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">base_log_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">log_config</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.LogConfig" href="../logging/#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DataCoolieDriver</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">engine</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">metadata_provider</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n"><a class="autorefs autorefs-internal" title="            BaseMetadataProvider (datacoolie.metadata.base.BaseMetadataProvider)" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a></span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">watermark_manager</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n"><a class="autorefs autorefs-internal" title="            BaseWatermarkManager (datacoolie.watermark.base.BaseWatermarkManager)" href="../watermark/#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a></span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataCoolieRunConfig
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataCoolieRunConfig)" href="../../metadata-schema/#datacoolie.core.models.DataCoolieRunConfig">DataCoolieRunConfig</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">secret_provider</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BaseSecretProvider (datacoolie.core.secret_provider.BaseSecretProvider)" href="../core/#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">system_logger</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            SystemLogger (datacoolie.logging.SystemLogger)" href="../logging/#datacoolie.logging.system_logger.SystemLogger">SystemLogger</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">etl_logger</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            ETLLogger (datacoolie.logging.ETLLogger)" href="../logging/#datacoolie.logging.etl_logger.ETLLogger">ETLLogger</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">base_log_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">log_config</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogConfig
+
+
+  
+      dataclass
+   (datacoolie.logging.LogConfig)" href="../logging/#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
 
 
         <p>Main orchestration class for DataCoolie ETL pipelines.</p>
@@ -3670,7 +3709,7 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
                 <code>engine</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.engines.base.BaseEngine" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            BaseEngine (datacoolie.engines.base.BaseEngine)" href="../engines/#datacoolie.engines.base.BaseEngine">BaseEngine</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3686,7 +3725,7 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
                 <code>platform</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3702,7 +3741,7 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
                 <code>metadata_provider</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.metadata.base.BaseMetadataProvider" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            BaseMetadataProvider (datacoolie.metadata.base.BaseMetadataProvider)" href="../metadata/#datacoolie.metadata.base.BaseMetadataProvider">BaseMetadataProvider</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3718,7 +3757,7 @@ result = driver.run(stage=&quot;bronze2silver&quot;)
                 <code>watermark_manager</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.watermark.base.BaseWatermarkManager" href="../watermark/#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            BaseWatermarkManager (datacoolie.watermark.base.BaseWatermarkManager)" href="../watermark/#datacoolie.watermark.base.BaseWatermarkManager">BaseWatermarkManager</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3736,7 +3775,12 @@ watermark_manager.WatermarkManager</code> is created automatically.</p>
                 <code>config</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataCoolieRunConfig" href="../../metadata-schema/#datacoolie.core.models.DataCoolieRunConfig">DataCoolieRunConfig</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            DataCoolieRunConfig
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataCoolieRunConfig)" href="../../metadata-schema/#datacoolie.core.models.DataCoolieRunConfig">DataCoolieRunConfig</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3752,7 +3796,7 @@ watermark_manager.WatermarkManager</code> is created automatically.</p>
                 <code>secret_provider</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.secret_provider.BaseSecretProvider" href="../core/#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            BaseSecretProvider (datacoolie.core.secret_provider.BaseSecretProvider)" href="../core/#datacoolie.core.secret_provider.BaseSecretProvider">BaseSecretProvider</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3769,7 +3813,7 @@ If not provided, the resolved platform is used as the default provider.</p>
                 <code>system_logger</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.logging.SystemLogger" href="../logging/#datacoolie.logging.system_logger.SystemLogger">SystemLogger</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            SystemLogger (datacoolie.logging.SystemLogger)" href="../logging/#datacoolie.logging.system_logger.SystemLogger">SystemLogger</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3785,7 +3829,7 @@ If not provided, the resolved platform is used as the default provider.</p>
                 <code>etl_logger</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.logging.ETLLogger" href="../logging/#datacoolie.logging.etl_logger.ETLLogger">ETLLogger</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            ETLLogger (datacoolie.logging.ETLLogger)" href="../logging/#datacoolie.logging.etl_logger.ETLLogger">ETLLogger</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3820,7 +3864,12 @@ Takes precedence over <code>log_config.output_path</code>.</p>
                 <code>log_config</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.logging.LogConfig" href="../logging/#datacoolie.logging.base.LogConfig">LogConfig</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            LogConfig
+
+
+  
+      dataclass
+   (datacoolie.logging.LogConfig)" href="../logging/#datacoolie.logging.base.LogConfig">LogConfig</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3847,7 +3896,10 @@ is used as the base directory.  All other fields (<code>log_level</code>,
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3872,6 +3924,7 @@ is used as the base directory.  All other fields (<code>log_level</code>,
 
         <p>Close driver and flush logs. Safe to call multiple times.</p>
 
+
     </div>
 
 </div>
@@ -3884,7 +3937,16 @@ is used as the base directory.  All other fields (<code>log_level</code>,
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver.load_dataflows" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">active_only</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">attach_schema_hints</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_dataflows</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">stage</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">active_only</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">attach_schema_hints</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3968,7 +4030,12 @@ is used as the base directory.  All other fields (<code>log_level</code>,
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3978,6 +4045,7 @@ is used as the base directory.  All other fields (<code>log_level</code>,
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -3991,7 +4059,15 @@ is used as the base directory.  All other fields (<code>log_level</code>,
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver.load_maintenance_dataflows" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_maintenance_dataflows</span><span class="p">(</span><span class="n">connection</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">active_only</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_maintenance_dataflows</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">connection</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">active_only</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4066,7 +4142,12 @@ or a list.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4076,6 +4157,7 @@ or a list.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4089,12 +4171,27 @@ or a list.</p>
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">stage</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Alias for :meth:<code>run_dataflow</code>.</p>
+
 
     </div>
 
@@ -4108,7 +4205,21 @@ or a list.</p>
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver.run_dataflow" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_dataflow</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_dataflow</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">stage</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4153,7 +4264,12 @@ Can be called multiple times within the same job session
                 <code>dataflows</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4197,7 +4313,12 @@ Can be called multiple times within the same job session
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4207,6 +4328,7 @@ Can be called multiple times within the same job session
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4220,7 +4342,22 @@ Can be called multiple times within the same job session
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver.run_maintenance" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_maintenance</span><span class="p">(</span><span class="n">connection</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">do_compact</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">do_cleanup</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_maintenance</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">connection</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">do_compact</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">do_cleanup</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4263,7 +4400,12 @@ or a list.</p>
                 <code>dataflows</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4323,7 +4465,12 @@ formats only.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4333,6 +4480,7 @@ formats only.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4346,7 +4494,31 @@ formats only.</p>
 
 
 <a href="#datacoolie.orchestration.driver.DataCoolieDriver.run_replay" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]],</span> <span class="n">replay</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.ReplayConfig" href="../../metadata-schema/#datacoolie.core.models.ReplayConfig">ReplayConfig</a></span><span class="p">,</span> <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_replay</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">replay</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            ReplayConfig
+
+
+  
+      dataclass
+   (datacoolie.core.models.ReplayConfig)" href="../../metadata-schema/#datacoolie.core.models.ReplayConfig">ReplayConfig</a></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">column_name_mode</span><span class="p">:</span> <span class="n"><span title="typing.Union">Union</span></span><span class="p">[</span><span class="n"><span title="datacoolie.core.constants.ColumnCaseMode">ColumnCaseMode</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.ColumnCaseMode.LOWER">LOWER</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4375,7 +4547,17 @@ is set explicitly.</p>
                 <code>dataflows</code>
             </td>
             <td>
-                  <code><span title="typing.Union">Union</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>, <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
+                  <code><span title="typing.Union">Union</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>, <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4391,7 +4573,12 @@ is set explicitly.</p>
                 <code>replay</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.core.models.ReplayConfig" href="../../metadata-schema/#datacoolie.core.models.ReplayConfig">ReplayConfig</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ReplayConfig
+
+
+  
+      dataclass
+   (datacoolie.core.models.ReplayConfig)" href="../../metadata-schema/#datacoolie.core.models.ReplayConfig">ReplayConfig</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4433,7 +4620,12 @@ is set explicitly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4443,7 +4635,12 @@ is set explicitly.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4453,7 +4650,12 @@ is set explicitly.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4463,6 +4665,7 @@ is set explicitly.</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4518,7 +4721,10 @@ a group.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4542,6 +4748,7 @@ a group.</p>
     <div class="doc doc-contents ">
 
 
+
         <p>Distribute dataflows across parallel jobs.</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>distributor = JobDistributor(job_num=4, job_index=0)
@@ -4557,7 +4764,10 @@ groups = distributor.group_dataflows(my_dataflows)
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4575,7 +4785,19 @@ groups = distributor.group_dataflows(my_dataflows)
 
 
 <a href="#datacoolie.orchestration.job_distributor.JobDistributor.filter_dataflows" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">filter_dataflows</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n">active_only</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">filter_dataflows</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n">active_only</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4599,7 +4821,12 @@ groups = distributor.group_dataflows(my_dataflows)
                 <code>dataflows</code>
             </td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4641,7 +4868,12 @@ groups = distributor.group_dataflows(my_dataflows)
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4651,6 +4883,7 @@ groups = distributor.group_dataflows(my_dataflows)
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4664,7 +4897,19 @@ groups = distributor.group_dataflows(my_dataflows)
 
 
 <a href="#datacoolie.orchestration.job_distributor.JobDistributor.get_grouped_dataflows" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_grouped_dataflows</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_grouped_dataflows</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4683,7 +4928,12 @@ groups = distributor.group_dataflows(my_dataflows)
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Dict">Dict</span>[<span title="int">int</span>, <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
+                  <code><span title="typing.Dict">Dict</span>[<span title="int">int</span>, <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4693,6 +4943,7 @@ groups = distributor.group_dataflows(my_dataflows)
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4706,12 +4957,25 @@ groups = distributor.group_dataflows(my_dataflows)
 
 
 <a href="#datacoolie.orchestration.job_distributor.JobDistributor.get_independent_dataflows" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_independent_dataflows</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_independent_dataflows</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Return dataflows with no group (<code>group_number is None</code>).</p>
+
 
     </div>
 
@@ -4725,7 +4989,19 @@ groups = distributor.group_dataflows(my_dataflows)
 
 
 <a href="#datacoolie.orchestration.job_distributor.JobDistributor.group_dataflows" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">group_dataflows</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">],</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">group_dataflows</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">],</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4746,7 +5022,12 @@ groups = distributor.group_dataflows(my_dataflows)
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Dict">Dict</span>[<span title="typing.Optional">Optional</span>[<span title="int">int</span>], <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
+                  <code><span title="typing.Dict">Dict</span>[<span title="typing.Optional">Optional</span>[<span title="int">int</span>], <span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4756,6 +5037,7 @@ groups = distributor.group_dataflows(my_dataflows)
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -4769,13 +5051,19 @@ groups = distributor.group_dataflows(my_dataflows)
 
 
 <a href="#datacoolie.orchestration.job_distributor.JobDistributor.should_process" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">should_process</span><span class="p">(</span><span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="bool">bool</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">should_process</span><span class="p">(</span><span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="bool">bool</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Check whether this job should process the given dataflow.</p>
 <p>Uses <code>group_number</code> when set, otherwise hash-based distribution.</p>
+
 
     </div>
 
@@ -4822,7 +5110,10 @@ stop-on-error semantics.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4844,10 +5135,20 @@ stop-on-error semantics.</p>
   </span>
 
 <a href="#datacoolie.orchestration.parallel_executor.ExecutionResult" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ExecutionResult</span><span class="p">(</span><span class="n">total</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">succeeded</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">failed</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">skipped</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="dict">dict</span></span><span class="p">(),</span> <span class="n">duration_seconds</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ExecutionResult</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">total</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">succeeded</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">failed</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">skipped</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">running</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">pending</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">errors</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="dict">dict</span></span><span class="p">(),</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">duration_seconds</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
 
 
         <p>Lightweight statistics container for a parallel execution run.</p>
@@ -4862,7 +5163,9 @@ only tracks counters and errors.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -4889,9 +5192,11 @@ only tracks counters and errors.</p>
     <div class="doc doc-contents ">
 
         <p>Percentage of runs that succeeded.</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -4912,10 +5217,14 @@ only tracks counters and errors.</p>
 
 
 <a href="#datacoolie.orchestration.parallel_executor.ParallelExecutor" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ParallelExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stop_on_error</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ParallelExecutor</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">max_workers</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">stop_on_error</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
 
 
         <p>Thread-based parallel executor for dataflows.</p>
@@ -4941,7 +5250,10 @@ result = executor.execute(dataflows, process_fn)
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4959,7 +5271,28 @@ result = executor.execute(dataflows, process_fn)
 
 
 <a href="#datacoolie.orchestration.parallel_executor.ParallelExecutor.execute" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n">process_fn</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">process_fn</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4983,7 +5316,12 @@ result = executor.execute(dataflows, process_fn)
                 <code>dataflows</code>
             </td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4999,7 +5337,12 @@ result = executor.execute(dataflows, process_fn)
                 <code>process_fn</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span>[[<a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>], <span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span>]</code>
+                  <code><span title="typing.Callable">Callable</span>[[<a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a>], <span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5042,7 +5385,12 @@ result = executor.execute(dataflows, process_fn)
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5052,6 +5400,7 @@ result = executor.execute(dataflows, process_fn)
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -5065,12 +5414,34 @@ result = executor.execute(dataflows, process_fn)
 
 
 <a href="#datacoolie.orchestration.parallel_executor.ParallelExecutor.execute_sequential" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute_sequential</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n">process_fn</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute_sequential</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">process_fn</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Execute <em>dataflows</em> one by one (for grouped / ordered execution).</p>
+
 
     </div>
 
@@ -5084,7 +5455,28 @@ result = executor.execute(dataflows, process_fn)
 
 
 <a href="#datacoolie.orchestration.parallel_executor.ParallelExecutor.execute_with_groups" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute_with_groups</span><span class="p">(</span><span class="n">groups</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">],</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]],</span> <span class="n">process_fn</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.orchestration.parallel_executor.ExecutionResult" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute_with_groups</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">groups</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">],</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">process_fn</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[[</span><span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionResult
+
+
+  
+      dataclass
+   (datacoolie.orchestration.parallel_executor.ExecutionResult)" href="#datacoolie.orchestration.parallel_executor.ExecutionResult">ExecutionResult</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5095,6 +5487,7 @@ result = executor.execute(dataflows, process_fn)
 <li>Numbered groups → items within a group run sequentially;
   different groups run in parallel.</li>
 </ul>
+
 
     </div>
 
@@ -5145,7 +5538,10 @@ result = handler.execute(my_function, arg1, arg2)
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5163,10 +5559,16 @@ result = handler.execute(my_function, arg1, arg2)
 
 
 <a href="#datacoolie.orchestration.retry_handler.RetryHandler" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RetryHandler</span><span class="p">(</span><span class="n">retry_count</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">retry_delay</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span> <span class="n">backoff_multiplier</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">max_delay</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RetryHandler</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">retry_count</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">retry_delay</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">backoff_multiplier</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">max_delay</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
 
 
         <p>Retry logic with configurable exponential backoff.</p>
@@ -5261,7 +5663,9 @@ result = handler.execute(my_function, arg1, arg2)
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
 
 
 
@@ -5288,9 +5692,11 @@ result = handler.execute(my_function, arg1, arg2)
     <div class="doc doc-contents ">
 
         <p>Total attempts = 1 (initial) + retry_count.</p>
+
     </div>
 
 </div>
+
 
 
 
@@ -5363,6 +5769,7 @@ result = handler.execute(my_function, arg1, arg2)
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -5375,7 +5782,9 @@ result = handler.execute(my_function, arg1, arg2)
 
 
 <a href="#datacoolie.orchestration.retry_handler.RetryHandler.execute" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n"><span title="datacoolie.orchestration.retry_handler.T">T</span></span><span class="p">],</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="datacoolie.orchestration.retry_handler.T">T</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">func</span><span class="p">:</span> <span class="n"><span title="typing.Callable">Callable</span></span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n"><span title="datacoolie.orchestration.retry_handler.T">T</span></span><span class="p">],</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="datacoolie.orchestration.retry_handler.T">T</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5501,6 +5910,7 @@ result = handler.execute(my_function, arg1, arg2)
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -5546,7 +5956,10 @@ work across dataflows without pulling logic into the driver or model layer.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5564,7 +5977,19 @@ work across dataflows without pulling logic into the driver or model layer.</p>
 
 
 <a href="#datacoolie.orchestration.utils.dedupe_by_destination" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">dedupe_by_destination</span><span class="p">(</span><span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">dedupe_by_destination</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflows</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5579,6 +6004,7 @@ deterministic across runs regardless of metadata ordering.</p>
 <p>Dataflows whose :attr:<code>~datacoolie.core.models.Destination.destination_key</code>
 cannot be computed are skipped with a warning rather than aborting
 the whole run.</p>
+
 
     </div>
 

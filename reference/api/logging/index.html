@@ -26,7 +26,7 @@
         <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../../feed_rss_updated.xml">
       
       <link rel="icon" href="../../../images/logos/datacoolie-icon-circle-dark_32x32.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
@@ -3789,7 +3789,10 @@ logger.info(&quot;Processing started&quot;)
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3807,12 +3810,21 @@ logger.info(&quot;Processing started&quot;)
 
 
 <a href="#datacoolie.logging.base.BaseLogger" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseLogger</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.base.LogConfig" href="#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseLogger</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            LogConfig
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogConfig)" href="#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
               Bases: <code><span title="abc.ABC">ABC</span></code></p>
+
 
 
         <p>Abstract base for persistent loggers (system, ETL).</p>
@@ -3830,7 +3842,10 @@ is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3855,6 +3870,7 @@ is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em>
 
         <p>Flush and release resources.</p>
 
+
     </div>
 
 </div>
@@ -3878,6 +3894,7 @@ is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em>
 
         <p>Flush buffered entries to persistent storage.</p>
 
+
     </div>
 
 </div>
@@ -3899,12 +3916,15 @@ is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em>
 
 
 <a href="#datacoolie.logging.base.CaptureHandler" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CaptureHandler</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="n"><span title="logging.DEBUG">DEBUG</span></span><span class="p">,</span> <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CaptureHandler</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">level</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="n"><span title="logging.DEBUG">DEBUG</span></span><span class="p">,</span> <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
               Bases: <code><span title="logging.Handler">Handler</span></code></p>
+
 
 
         <p>Captures Python log records for later persistence.</p>
@@ -3920,7 +3940,10 @@ acquires it before calling :meth:<code>emit</code>.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -3938,7 +3961,9 @@ acquires it before calling :meth:<code>emit</code>.</p>
 
 
 <a href="#datacoolie.logging.base.CaptureHandler.get_and_clear_formatted_logs" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_formatted_logs</span><span class="p">(</span><span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_formatted_logs</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3946,6 +3971,29 @@ acquires it before calling :meth:<code>emit</code>.</p>
         <p>Atomically drain captured logs and return as formatted text.</p>
 <p>Minimises lock hold time: swaps/clears the buffer under the lock,
 then formats the text outside the lock.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.CaptureHandler.get_and_clear_jsonl" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_and_clear_jsonl</span>
+
+
+<a href="#datacoolie.logging.base.CaptureHandler.get_and_clear_jsonl" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_jsonl</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Atomically drain captured logs and return as JSONL text.</p>
+<p>Each line is a JSON object produced by :meth:<code>LogRecord.to_dict</code>.
+Returns an empty string when no records are buffered.</p>
+
 
     </div>
 
@@ -3975,6 +4023,7 @@ then formats the text outside the lock.</p>
               Bases: <code><span title="logging.Filter">Filter</span></code></p>
 
 
+
         <p>Inject the current <code>dataflow_id</code> from :mod:<code>contextvars</code> into every log record.</p>
 <p>Attach to handlers (not loggers) so it applies to all propagated messages.</p>
 
@@ -3986,7 +4035,10 @@ then formats the text outside the lock.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4017,10 +4069,19 @@ then formats the text outside the lock.</p>
   </span>
 
 <a href="#datacoolie.logging.base.LogConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LogConfig</span><span class="p">(</span><span class="n">log_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">file_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.DEBUG">DEBUG</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">output_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">partition_by_date</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">partition_pattern</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_PARTITION_PATTERN">DEFAULT_PARTITION_PATTERN</span></span><span class="p">,</span> <span class="n">flush_interval_seconds</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">60</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LogConfig</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">log_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">file_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.DEBUG">DEBUG</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">partition_by_date</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">partition_pattern</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_PARTITION_PATTERN">DEFAULT_PARTITION_PATTERN</span></span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">flush_interval_seconds</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
 
 
         <p>Configuration dataclass for loggers.</p>
@@ -4033,7 +4094,10 @@ then formats the text outside the lock.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4067,6 +4131,7 @@ then formats the text outside the lock.</p>
               Bases: <code><span title="str">str</span></code>, <code><span title="enum.Enum">Enum</span></code></p>
 
 
+
         <p>Standard logging levels.</p>
 
 
@@ -4077,7 +4142,10 @@ then formats the text outside the lock.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4110,6 +4178,7 @@ then formats the text outside the lock.</p>
     <div class="doc doc-contents ">
 
 
+
         <p>Singleton that configures Python logging with capture support.</p>
 
 
@@ -4120,7 +4189,10 @@ then formats the text outside the lock.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4138,7 +4210,15 @@ then formats the text outside the lock.</p>
 
 
 <a href="#datacoolie.logging.base.LogManager.configure" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">configure</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">file_level</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">capture_logs</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">console_output</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">format_string</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">force</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">configure</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">file_level</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">capture_logs</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">console_output</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">format_string</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">force</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4277,6 +4357,27 @@ framework messages regardless of the console level.</p>
       </tbody>
     </table>
 
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.LogManager.get_and_clear_captured_jsonl" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_and_clear_captured_jsonl</span>
+
+
+<a href="#datacoolie.logging.base.LogManager.get_and_clear_captured_jsonl" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_jsonl</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Atomically return captured logs as JSONL text and clear the buffer.</p>
+
+
     </div>
 
 </div>
@@ -4289,12 +4390,15 @@ framework messages regardless of the console level.</p>
 
 
 <a href="#datacoolie.logging.base.LogManager.get_and_clear_captured_logs" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_logs</span><span class="p">(</span><span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_logs</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Atomically return captured logs as plain text and clear the buffer.</p>
+
 
     </div>
 
@@ -4314,6 +4418,7 @@ framework messages regardless of the console level.</p>
     <div class="doc doc-contents ">
 
         <p>Create (or reuse) a child logger under the framework root.</p>
+
 
     </div>
 
@@ -4337,6 +4442,7 @@ framework messages regardless of the console level.</p>
     <div class="doc doc-contents ">
 
         <p>Reset the singleton (primarily for testing).</p>
+
 
     </div>
 
@@ -4363,10 +4469,21 @@ framework messages regardless of the console level.</p>
   </span>
 
 <a href="#datacoolie.logging.base.LogRecord" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LogRecord</span><span class="p">(</span><span class="n">timestamp</span><span class="p">:</span> <span class="n"><span title="datetime.datetime">datetime</span></span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">logger_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">func_name</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">line_no</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exc_info</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LogRecord</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">timestamp</span><span class="p">:</span> <span class="n"><span title="datetime.datetime">datetime</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">message</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">module</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">func_name</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">line_no</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">exc_info</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">dataflow_id</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
 
 
         <p>Captured log entry.</p>
@@ -4379,7 +4496,10 @@ framework messages regardless of the console level.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4408,6 +4528,7 @@ framework messages regardless of the console level.</p>
 
         <p>Reconstruct a LogRecord from a dict produced by :meth:<code>to_dict</code>.</p>
 
+
     </div>
 
 </div>
@@ -4426,6 +4547,7 @@ framework messages regardless of the console level.</p>
     <div class="doc doc-contents ">
 
         <p>Serialize to a JSON-compatible dictionary.</p>
+
 
     </div>
 
@@ -4455,6 +4577,7 @@ framework messages regardless of the console level.</p>
               Bases: <code><span title="str">str</span></code>, <code><span title="enum.Enum">Enum</span></code></p>
 
 
+
         <p>Temporary storage mode for log buffering.</p>
 
 
@@ -4465,7 +4588,10 @@ framework messages regardless of the console level.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4492,13 +4618,18 @@ framework messages regardless of the console level.</p>
 
 
 <a href="#datacoolie.logging.base.format_partition_path" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">format_partition_path</span><span class="p">(</span><span class="n">base_path</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">run_date</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="datetime.datetime">datetime</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_PARTITION_PATTERN">DEFAULT_PARTITION_PATTERN</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">format_partition_path</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">base_path</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">run_date</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="datetime.datetime">datetime</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">pattern</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_PARTITION_PATTERN">DEFAULT_PARTITION_PATTERN</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Append a partition folder to <em>base_path</em> using <em>pattern</em>.</p>
 <p>Supported placeholders: <code>{year}</code>, <code>{month}</code>, <code>{day}</code>, <code>{hour}</code>.</p>
+
 
     </div>
 
@@ -4575,6 +4706,7 @@ its handlers (console + capture).</p>
       </tbody>
     </table>
 
+
     </div>
 
 </div>
@@ -4633,7 +4765,10 @@ Datetime columns use ``timestamp[us, tz=UTC]`` for native query support.
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4651,12 +4786,21 @@ Datetime columns use ``timestamp[us, tz=UTC]`` for native query support.
 
 
 <a href="#datacoolie.logging.etl_logger.ETLLogger" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ETLLogger</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.base.LogConfig" href="#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ETLLogger</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            LogConfig
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogConfig)" href="#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.logging.base.BaseLogger" href="#datacoolie.logging.base.BaseLogger">BaseLogger</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLogger (datacoolie.logging.base.BaseLogger)" href="#datacoolie.logging.base.BaseLogger">BaseLogger</a></code></p>
+
 
 
         <p>Structured ETL execution logger — accumulate-then-flush.</p>
@@ -4673,7 +4817,10 @@ the logger appends debug JSONL and writes analyst Parquet.</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4698,6 +4845,7 @@ the logger appends debug JSONL and writes analyst Parquet.</p>
 
         <p>Write all accumulated logs to storage (no-op if nothing logged).</p>
 
+
     </div>
 
 </div>
@@ -4710,7 +4858,14 @@ the logger appends debug JSONL and writes analyst Parquet.</p>
 
 
 <a href="#datacoolie.logging.etl_logger.ETLLogger.log" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">log</span><span class="p">(</span><span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.core.models.DataFlow" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="n">runtime_info</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">log</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataflow</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DataFlow
+
+
+  
+      dataclass
+   (datacoolie.core.models.DataFlow)" href="../../metadata-schema/#datacoolie.core.models.DataFlow">DataFlow</a></span><span class="p">,</span> <span class="n">runtime_info</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.models.DataFlowRuntimeInfo">DataFlowRuntimeInfo</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4718,6 +4873,7 @@ the logger appends debug JSONL and writes analyst Parquet.</p>
         <p>Record one dataflow or maintenance execution result.</p>
 <p>Stream-writes a JSONL line to a local temp file and updates
 the session-level :attr:<code>_job_info</code> counters.</p>
+
 
     </div>
 
@@ -4740,12 +4896,16 @@ the session-level :attr:<code>_job_info</code> counters.</p>
 
 
 <a href="#datacoolie.logging.etl_logger.create_etl_logger" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_etl_logger</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.etl_logger.ETLLogger" href="#datacoolie.logging.etl_logger.ETLLogger">ETLLogger</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_etl_logger</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            ETLLogger (datacoolie.logging.etl_logger.ETLLogger)" href="#datacoolie.logging.etl_logger.ETLLogger">ETLLogger</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Create an :class:<code>ETLLogger</code> with common configuration.</p>
+
 
     </div>
 
@@ -4774,7 +4934,7 @@ the session-level :attr:<code>_job_info</code> counters.</p>
         <p>System logger — captures and persists Python log output.</p>
 <p><code>SystemLogger</code> is <strong>not</strong> a logger itself; it configures the global
 :class:<code>LogManager</code> to capture logs and periodically appends them to a
-plain-text <code>.log</code> file in storage via the platform.</p>
+JSONL <code>.jsonl</code> file in storage via the platform.</p>
 <p>Two independent log levels are supported:</p>
 <ul>
 <li><code>log_level</code> — controls the console stream (what operators see live).</li>
@@ -4803,7 +4963,10 @@ with SystemLogger(config, platform) as sys_log:
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4821,17 +4984,26 @@ with SystemLogger(config, platform) as sys_log:
 
 
 <a href="#datacoolie.logging.system_logger.SystemLogger" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SystemLogger</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.base.LogConfig" href="#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SystemLogger</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            LogConfig
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogConfig)" href="#datacoolie.logging.base.LogConfig">LogConfig</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="datacoolie.logging.base.BaseLogger" href="#datacoolie.logging.base.BaseLogger">BaseLogger</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="            BaseLogger (datacoolie.logging.base.BaseLogger)" href="#datacoolie.logging.base.BaseLogger">BaseLogger</a></code></p>
 
 
-        <p>Captures all framework Python logs and appends them to a <code>.log</code> file.</p>
-<p>The file is a plain-text log (one line per record) so operators can read
-it directly without a JSON parser.  The capture level defaults to
+
+        <p>Captures all framework Python logs and appends them to a <code>.jsonl</code> file.</p>
+<p>Each flushed record is a JSON object (one per line) produced by
+:meth:<code>~datacoolie.logging.base.LogRecord.to_dict</code>.  The capture level defaults to
 <code>DEBUG</code> so every framework message is recorded regardless of the
 console level set by the Driver.</p>
 <p>Periodic flushing is driven by the :class:<code>BaseLogger</code> daemon timer.
@@ -4856,7 +5028,12 @@ A final flush is performed on :meth:<code>close</code>.</p>
                 <code>config</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="datacoolie.logging.base.LogConfig" href="#datacoolie.logging.base.LogConfig">LogConfig</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            LogConfig
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogConfig)" href="#datacoolie.logging.base.LogConfig">LogConfig</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4873,7 +5050,7 @@ flush_interval_seconds, etc.).</p>
                 <code>platform</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4895,7 +5072,10 @@ flush_interval_seconds, etc.).</p>
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -4920,6 +5100,7 @@ flush_interval_seconds, etc.).</p>
 
         <p>Flush remaining captured logs to storage.</p>
 
+
     </div>
 
 </div>
@@ -4941,7 +5122,13 @@ flush_interval_seconds, etc.).</p>
 
 
 <a href="#datacoolie.logging.system_logger.create_system_logger" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_system_logger</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">log_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">file_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.DEBUG">DEBUG</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="datacoolie.logging.system_logger.SystemLogger" href="#datacoolie.logging.system_logger.SystemLogger">SystemLogger</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_system_logger</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">log_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">file_level</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.LogLevel.DEBUG">DEBUG</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span></span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            SystemLogger (datacoolie.logging.system_logger.SystemLogger)" href="#datacoolie.logging.system_logger.SystemLogger">SystemLogger</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5014,7 +5201,7 @@ everything regardless of console level).</p>
                 <code>platform</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="datacoolie.platforms.base.BasePlatform" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="            BasePlatform (datacoolie.platforms.base.BasePlatform)" href="../platforms/#datacoolie.platforms.base.BasePlatform">BasePlatform</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5043,6 +5230,7 @@ everything regardless of console level).</p>
           </tr>
       </tbody>
     </table>
+
 
     </div>
 
@@ -5087,7 +5275,10 @@ finally:
 
 
 
-  <div class="doc doc-children">
+
+
+<div class="doc doc-children">
+
 
 
 
@@ -5112,6 +5303,7 @@ finally:
 
         <p>Restore the previous dataflow ID value.</p>
 
+
     </div>
 
 </div>
@@ -5131,6 +5323,7 @@ finally:
 
         <p>Return the current dataflow ID (empty string when unset).</p>
 
+
     </div>
 
 </div>
@@ -5149,6 +5342,7 @@ finally:
     <div class="doc doc-contents ">
 
         <p>Set the current dataflow ID and return a reset token.</p>
+
 
     </div>
 
