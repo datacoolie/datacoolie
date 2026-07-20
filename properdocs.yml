@@ -96,7 +96,6 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 hooks:
-  - docs/scripts/suppress_mkdocstrings_warnings.py
   - docs/scripts/copy_schema_files.py
   - docs/scripts/inject_faq_schema.py
   - docs/scripts/enhance_sitemap.py

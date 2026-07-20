@@ -1,4 +1,4 @@
-"""MkDocs hook: copy JSON Schema files from ai/skills/ into docs/schema/ at build time.
+"""ProperDocs hook: copy JSON Schema files from ai/skills/ into docs/schema/ at build time.
 
 Single source of truth lives in:
   ai/skills/datacoolie-metadata/schemas/<version>/metadata.schema.json

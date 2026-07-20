@@ -30,20 +30,20 @@ environment for DataCoolie.
    # nested workspace example: ..\.venv\Scripts\Activate.ps1
    # standalone repo example: .\.venv\Scripts\Activate.ps1
    poetry install --only main,docs --extras "spark polars db api excel aws iceberg deltalake"
-   poetry run mkdocs serve
+   poetry run properdocs serve
    ```
    Default local docs port is `8000`. If another project already uses that
    port, run DataCoolie docs on another port, for example:
    ```powershell
-   poetry run mkdocs serve -a 127.0.0.1:8001
+   poetry run properdocs serve -a 127.0.0.1:8001
    ```
 3. **Check strict mode passes**:
    ```powershell
-   poetry run mkdocs build --strict
+   poetry run properdocs build --strict
    ```
 4. Open a PR — the `docs` GitHub Actions workflow runs
-   `mkdocs build --strict` on pull requests that touch docs-related files.
-   Pushes to `main` for those paths deploy `latest` via `mike`.
+   `properdocs build --strict` on pull requests that touch docs-related files.
+   Pushes to `main` for those paths deploy the site to `gh-pages`.
 
 ## Documentation style
 

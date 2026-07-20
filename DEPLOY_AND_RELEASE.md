@@ -24,7 +24,7 @@ That standalone repository should contain this project as its root, including:
 - `.github/workflows/docs.yml`
 - `.github/workflows/publish-pypi.yml`
 - `.github/workflows/release.yml`
-- `mkdocs.yml`
+- `properdocs.yml`
 - `pyproject.toml`
 - `src/datacoolie/`
 - `docs/`
@@ -145,7 +145,7 @@ Before the first release, confirm these files exist in the standalone repo:
 - `.github/workflows/docs.yml`
 - `.github/workflows/publish-pypi.yml`
 - `.github/workflows/release.yml`
-- `mkdocs.yml`
+- `properdocs.yml`
 - `pyproject.toml`
 - `README.md`
 - `docs/changelog.md`
@@ -248,7 +248,7 @@ Run these commands before creating the release tag.
 ```bash
 poetry check
 poetry build
-poetry run mkdocs build --strict
+poetry run properdocs build --strict
 poetry run pytest tests/ --tb=short
 ```
 
@@ -256,7 +256,7 @@ poetry run pytest tests/ --tb=short
 
 ```bash
 python -m build
-python -m mkdocs build --strict
+python -m properdocs build --strict
 python -m pytest tests/ --tb=short
 ```
 
@@ -349,7 +349,7 @@ Avoid these mistakes:
 - updating `pyproject.toml` but forgetting `src/datacoolie/__init__.py`
 - tagging before local validation passes
 - using manual workflow runs as the normal production release path
-- leaving `mkdocs.yml` or workflow paths with workspace-only prefixes
+- leaving `properdocs.yml` or workflow paths with workspace-only prefixes
 - assuming GitHub account association on PyPI automatically enables publishing
 - using PyPI API tokens when Trusted Publisher is already configured
 - manually treating GitHub Releases as the main Python package distribution channel

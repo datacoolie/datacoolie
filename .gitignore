@@ -11,7 +11,7 @@ derby.log
 # Ivy cache for Spark JAR dependencies (usecase-sim/runner/spark-jars/)
 **/spark-jars/
 
-# Local virtual environments and MkDocs build output.
+# Local virtual environments and ProperDocs build output.
 # Standard convention: use a single `.venv/` at the root of the active
 # checkout. `.docs-venv/` remains ignored only as a legacy scratch env.
 .venv/
@@ -30,3 +30,4 @@ build/
 .pytest_cache/
 .mypy_cache/
 .pip-cache/
+plans/

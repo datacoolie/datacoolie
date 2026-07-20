@@ -5,16 +5,22 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "src/**"
+      - "ai/skills/datacoolie-metadata/schemas/**"
       - "overrides/**"
-      - "mkdocs.yml"
+      - "properdocs.yml"
       - "pyproject.toml"
+      - "poetry.lock"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
+      - "src/**"
+      - "ai/skills/datacoolie-metadata/schemas/**"
       - "overrides/**"
-      - "mkdocs.yml"
+      - "properdocs.yml"
       - "pyproject.toml"
+      - "poetry.lock"
       - ".github/workflows/docs.yml"
 
 permissions:
@@ -59,7 +65,7 @@ jobs:
           fi
 
       - name: Build docs (strict)
-        run: poetry run mkdocs build --strict
+        run: poetry run properdocs build --strict
 
       - name: Configure git
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -69,4 +75,4 @@ jobs:
 
       - name: Deploy to gh-pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: poetry run mkdocs gh-deploy --force
+        run: poetry run properdocs gh-deploy --force
