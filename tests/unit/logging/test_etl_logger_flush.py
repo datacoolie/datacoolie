@@ -68,6 +68,8 @@ class TestDebugJsonlFlush:
         # No parquet uploaded.
         upload_paths = [str(call.args[1]) for call in platform.upload_file.call_args_list]
         assert not any(path.endswith(".parquet") for path in upload_paths)
+        outcomes = {item.name: item.status for item in logger.terminal_outcomes}
+        assert outcomes["analyst_dataflow_parquet"] == "skipped"
 
     def test_repeated_close_is_idempotent(self):
         logger, platform = make_logger(flush_interval_seconds=0)

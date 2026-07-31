@@ -53,6 +53,7 @@ from datacoolie.logging.base import (
     BaseLogger,
     LogConfig,
     _FlushOperation,
+    _FlushSkipped,
     format_partition_path,
     get_logger,
 )
@@ -613,6 +614,7 @@ class ETLLogger(BaseLogger):
                 _FlushOperation(
                     "debug_jsonl",
                     lambda: self._append_text(debug_path, debug_content),
+                    path=debug_path,
                 )
             )
 
@@ -621,6 +623,7 @@ class ETLLogger(BaseLogger):
             _FlushOperation(
                 "analyst_job_jsonl",
                 lambda: self._append_text(job_path, job_content),
+                path=job_path,
             )
         )
 
@@ -632,6 +635,7 @@ class ETLLogger(BaseLogger):
                     runtime_logs,
                     dataflow_path,
                 ),
+                path=dataflow_path,
             )
         )
         return tuple(operations)
@@ -729,7 +733,7 @@ class ETLLogger(BaseLogger):
             import pyarrow.parquet as pq
         except ImportError:
             _logger.warning("pyarrow not installed — Parquet output skipped.")
-            return
+            raise _FlushSkipped("pyarrow is not installed") from None
 
         schema = _build_dataflow_schema(pa)
         self._write_parquet_file(
@@ -799,6 +803,9 @@ class ETLLogger(BaseLogger):
     # ------------------------------------------------------------------
 
     def _cleanup(self) -> None:
+        for outcome in self._terminal_outcomes:
+            if outcome.status == "succeeded" and outcome.path:
+                _logger.info("ETL log pushed: %s", outcome.path)
         super()._cleanup()
         with self._state_lock:
             self._runtime_logs.clear()

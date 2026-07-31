@@ -576,6 +576,11 @@ class _FlushOperation:
 
     name: str
     execute: Callable[[], None]
+    path: Optional[str] = None
+
+
+class _FlushSkipped(Exception):
+    """Signal that an optional terminal sink was intentionally not written."""
 
 
 @dataclass(frozen=True)
@@ -585,6 +590,7 @@ class _FlushOutcome:
     name: str
     status: str
     error: Optional[Exception] = None
+    path: Optional[str] = None
 
 
 class BaseLogger(ABC):
@@ -752,10 +758,25 @@ class BaseLogger(ABC):
         def run(index: int, operation: _FlushOperation) -> None:
             try:
                 operation.execute()
+            except _FlushSkipped:
+                results[index] = _FlushOutcome(
+                    operation.name,
+                    "skipped",
+                    path=operation.path,
+                )
             except Exception as exc:
-                results[index] = _FlushOutcome(operation.name, "failed", exc)
+                results[index] = _FlushOutcome(
+                    operation.name,
+                    "failed",
+                    error=exc,
+                    path=operation.path,
+                )
             else:
-                results[index] = _FlushOutcome(operation.name, "succeeded")
+                results[index] = _FlushOutcome(
+                    operation.name,
+                    "succeeded",
+                    path=operation.path,
+                )
             finally:
                 completed[index].set()
 
@@ -778,10 +799,11 @@ class BaseLogger(ABC):
                 outcome = _FlushOutcome(
                     operation.name,
                     "timed_out",
-                    TimeoutError(
+                    error=TimeoutError(
                         f"{operation.name} did not finish within "
                         f"{self._config.close_timeout_seconds:g} seconds"
                     ),
+                    path=operation.path,
                 )
             outcomes.append(outcome)
             if outcome.error is not None:

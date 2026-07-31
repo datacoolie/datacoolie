@@ -1386,6 +1386,21 @@ class TestDriverHelperBranches:
         d, *_ = _make_driver(system_logger=good, etl_logger=bad)
         d._flush_logs()  # should not raise
 
+    def test_flush_logs_closes_etl_before_system(self):
+        close_order = []
+        system_logger = MagicMock()
+        etl_logger = MagicMock()
+        etl_logger.close.side_effect = lambda: close_order.append("etl")
+        system_logger.close.side_effect = lambda: close_order.append("system")
+
+        driver, *_ = _make_driver(
+            system_logger=system_logger,
+            etl_logger=etl_logger,
+        )
+        driver.close()
+
+        assert close_order == ["etl", "system"]
+
 
 # ============================================================================
 # Phase G — deep-copy DataFlow isolation

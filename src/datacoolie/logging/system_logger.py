@@ -139,6 +139,7 @@ class SystemLogger(BaseLogger):
             _FlushOperation(
                 "system_jsonl",
                 lambda: platform.append_file(path, content),
+                path=path,
             ),
         )
 
@@ -147,12 +148,13 @@ class SystemLogger(BaseLogger):
     # ------------------------------------------------------------------
 
     def _cleanup(self) -> None:
-        if self._remote_path and any(
-            outcome.name == "system_jsonl"
-            and outcome.status == "succeeded"
-            for outcome in self._terminal_outcomes
-        ):
-            _logger.info("System log pushed: %s", self._remote_path)
+        for outcome in self._terminal_outcomes:
+            if (
+                outcome.name == "system_jsonl"
+                and outcome.status == "succeeded"
+                and outcome.path
+            ):
+                _logger.info("System log pushed: %s", outcome.path)
         super()._cleanup()
         self._log_manager.cleanup()
 

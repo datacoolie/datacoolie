@@ -10,8 +10,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from datacoolie.logging.base import LogConfig, LogManager, StorageMode
+from datacoolie.logging.etl_logger import ETLLogger
 from datacoolie.logging.system_logger import SystemLogger, create_system_logger
 from datacoolie.platforms.local_platform import LocalPlatform
+from tests.unit.logging.support import make_dataflow, make_runtime
 
 
 class TestSystemLogger:
@@ -85,6 +87,35 @@ class TestSystemLogger:
 
         assert lgr.terminal_outcomes[0].status == "failed"
         assert "System log pushed:" not in capsys.readouterr().err
+
+    def test_system_final_payload_contains_etl_push_info(self):
+        platform = MagicMock()
+        system_logger = SystemLogger(
+            LogConfig(output_path="/logs/system", flush_interval_seconds=0),
+            platform,
+        )
+        etl_logger = ETLLogger(
+            LogConfig(output_path="/logs/etl", flush_interval_seconds=0),
+            platform,
+        )
+        etl_logger.log(make_dataflow("a"), make_runtime("a"))
+
+        etl_logger.close()
+        successful_etl_paths = [
+            outcome.path
+            for outcome in etl_logger.terminal_outcomes
+            if outcome.status == "succeeded" and outcome.path
+        ]
+        system_logger.close()
+
+        system_payload = next(
+            call.args[1]
+            for call in platform.append_file.call_args_list
+            if "system_log_" in call.args[0]
+        )
+        assert successful_etl_paths
+        for path in successful_etl_paths:
+            assert f"ETL log pushed: {path}" in system_payload
 
     def test_flush_content_plain_text(self, tmp_path):
         """Appended file contains JSONL records (one JSON object per line)."""
