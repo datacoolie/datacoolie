@@ -91,6 +91,11 @@ class IcebergWriter(BaseDestinationWriter[DF]):
         errors: List[str] = []
 
         table_exists = self._engine.exists(table_name=table_name, path=path, fmt=fmt)
+        logger.debug(
+            "Iceberg maintenance — location=%s, table_exists=%s, do_compact=%s, "
+            "do_cleanup=%s, retention_hours=%d",
+            location, table_exists, do_compact, do_cleanup, retention_hours,
+        )
 
         if do_compact:
             sub_results.append(self._run_op(

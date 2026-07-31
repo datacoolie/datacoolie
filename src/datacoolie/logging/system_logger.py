@@ -97,19 +97,25 @@ class SystemLogger(BaseLogger):
             self._remote_path = f"{output_path}/system_log_{date_stem}_{job_id}.jsonl"
         return self._remote_path
 
-    def _do_flush(self) -> None:
-        """Drain captured logs and append them as JSONL to the remote file."""
+    def _do_flush(self) -> bool:
+        """Drain captured logs and append them as JSONL to the remote file.
+
+        Returns ``True`` when bytes were actually written to storage.
+        """
         jsonl = self._log_manager.get_and_clear_captured_jsonl()
         if not jsonl or not self._config.output_path or not self._platform:
-            return
+            return False
         try:
             full_path = self._ensure_remote_path()
             self._platform.append_file(full_path, jsonl + "\n")
+            return True
         except Exception as exc:
             _logger.error("Failed to flush system logs: %s", exc)
+            return False
 
     def _on_periodic_flush(self) -> None:  # noqa: D102
-        self._do_flush()
+        if self._do_flush():
+            _logger.debug("System logs periodic flush: %s", self._remote_path)
 
     def flush(self) -> None:
         """Flush remaining captured logs to storage."""

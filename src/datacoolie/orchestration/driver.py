@@ -492,11 +492,11 @@ class DataCoolieDriver:
             error_message = str(exc)
             if exc.partial_result:
                 source_runtime, transform_runtime, dest_runtime, _ = exc.partial_result
-            logger.error("Failed (final): %s", exc, exc_info=exc.__cause__)
+            logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         except Exception as exc:
             status = DataFlowStatus.FAILED
             error_message = str(exc)
-            logger.error("Failed (final): %s", exc, exc_info=exc.__cause__)
+            logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         finally:
             clear_dataflow_id(ctx_token)
 
@@ -519,7 +519,7 @@ class DataCoolieDriver:
             try:
                 self._etl_logger.log(dataflow=dataflow, runtime_info=runtime)
             except Exception as exc:
-                logger.warning("Failed to log ETL result", exc_info=exc.__cause__)
+                logger.warning("Failed to log ETL result", exc_info=exc.__cause__ or exc)
 
         return runtime
 
@@ -575,6 +575,10 @@ class DataCoolieDriver:
         transform_runtime: Optional[TransformRuntimeInfo] = None
         dest_runtime: Optional[DestinationRuntimeInfo] = None
 
+        reader: Optional[BaseSourceReader] = None
+        pipeline: Optional[TransformerPipeline] = None
+        writer: Optional[BaseDestinationWriter] = None
+
         try:
             # Read source
             # Resolve secrets before creating reader/writer
@@ -615,6 +619,16 @@ class DataCoolieDriver:
                         dataflow_run_id=dataflow_run_id,
                     )
         except Exception as exc:
+            # Recover partial runtime info from whichever component was active
+            # when the failure occurred.  Readers/transformers/writers populate
+            # their runtime info (with FAILED status and error details) even on
+            # error, so prefer those over the default-None placeholders.
+            if source_runtime is None and reader is not None:
+                source_runtime = reader.get_runtime_info()
+            if transform_runtime is None and pipeline is not None:
+                transform_runtime = pipeline.get_runtime_info()
+            if dest_runtime is None and writer is not None:
+                dest_runtime = writer.get_runtime_info()
             raise PipelineError(
                 str(exc),
                 partial_result=(source_runtime, transform_runtime, dest_runtime, DataFlowStatus.FAILED),
@@ -655,9 +669,8 @@ class DataCoolieDriver:
             column_name_mode: Column name case-conversion mode.
 
         Returns:
-            :class:`ExecutionResult` where each counter entry represents one
-            chunk (not one dataflow).  Use :meth:`_process_replay` directly
-            to obtain the per-chunk :class:`DataFlowRuntimeInfo` list.
+            :class:`ExecutionResult` whose counters represent outer
+            dataflows. Each dataflow aggregates its sequential chunk results.
         """
         logger.info("Starting replay run")
 
@@ -925,11 +938,11 @@ class DataCoolieDriver:
             error_msg = str(exc)
             if exc.partial_result:
                 dest_runtime = exc.partial_result
-            logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__)
+            logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         except Exception as exc:
             status = DataFlowStatus.FAILED.value
             error_msg = str(exc)
-            logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__)
+            logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         finally:
             clear_dataflow_id(ctx_token)
 
@@ -964,7 +977,7 @@ class DataCoolieDriver:
                     runtime_info=runtime,
                 )
             except Exception as exc:
-                logger.warning("Failed to log maintenance result", exc_info=exc.__cause__)
+                logger.warning("Failed to log maintenance result", exc_info=exc.__cause__ or exc)
 
         return runtime
 
@@ -1008,10 +1021,13 @@ class DataCoolieDriver:
             ) from exc
 
         logger.info(
-            "Maintenance %s — files_added=%d, files_removed=%d",
+            "Maintenance %s — files_added=%d, files_removed=%d, bytes_added=%d, bytes_removed=%d, duration=%.1fs",
             dest_runtime.status,
             dest_runtime.files_added,
             dest_runtime.files_removed,
+            dest_runtime.bytes_added,
+            dest_runtime.bytes_removed,
+            dest_runtime.duration_seconds,
         )
 
         return dest_runtime

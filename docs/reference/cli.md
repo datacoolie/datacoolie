@@ -35,7 +35,7 @@ Source-specific flags:
 |---|---|
 | `file` | `--metadata-path` |
 | `database` | `--metadata-db-connection-string` + `--metadata-workspace-id` |
-| `api` | `--metadata-api-url` + `--metadata-workspace-id` |
+| `api` | `--metadata-api-url` + `--metadata-workspace-id`; `--metadata-api-key` is optional and defaults to empty |
 
 Common optional flags include `--platform`, `--column-name-mode`, `--dry-run`,
 `--storage-options KEY=VALUE`, `--log-path`, `--max-workers`,
@@ -50,6 +50,7 @@ Common optional flags include `--platform`, `--column-name-mode`, `--dry-run`,
 | `--storage-options KEY=VALUE` | Repeatable — e.g. `AWS_REGION=us-east-1` |
 | `--log-path` | Output directory for ETL and system logs |
 | `--max-workers` | Integer — overrides `DataCoolieRunConfig.max_workers` |
+| `--metadata-api-key` | API key sent by `APIClient` for API metadata |
 | `--skip-api-sources` | Flag — skip dataflows whose source `connection_type` is `api` |
 | `--catalog-preset` | `local` (default) · `unity_catalog` |
 | `--iceberg-catalog-uri` | Catalog URI for Iceberg |
@@ -113,8 +114,17 @@ Common optional flags include `--platform`, `--connection`, `--retention-hours`,
 
 Maintenance behavior toggles:
 
+- `--do-compact` explicitly enables compaction (already the default).
 - `--no-compact` disables compaction.
+- `--do-cleanup` explicitly enables cleanup (already the default).
 - `--no-cleanup` disables cleanup.
+
+!!! warning "Maintenance `--dry-run` is not currently effective"
+    `maintenance.py` accepts the flag and puts it in `DataCoolieRunConfig`,
+    but `DataCoolieDriver.run_maintenance()` does not branch on `dry_run`.
+    Use `driver.load_maintenance_dataflows(...)` for read-only target
+    inspection or run against a non-production target; do not rely on
+    `--dry-run` to prevent maintenance side effects.
 
 Spark-only optional flags: `--app-name` and repeatable `--spark-config KEY=VALUE`.
 
@@ -139,6 +149,13 @@ Selection flags are mutually exclusive:
 - `--priority P0|P1|P2`
 
 Optional flag: `--scenarios-path` to point at a different scenario catalog.
+
+Default timeouts are 300 seconds for Polars scenarios, 450 seconds for Spark,
+and 600 seconds for maintenance; a scenario can override this with
+`timeout_seconds`. On timeout the dispatcher sends a graceful cancellation
+signal, allows 120 seconds for the child to close the driver and flush logs,
+then hard-kills it if necessary. A timed-out scenario is reported with exit
+code `124`.
 
 ## `run_perf_benchmark.py`
 
@@ -165,5 +182,5 @@ Under `usecase-sim/scripts/`:
 | `generate_perf_data.py` | Larger dataset for benchmarks. |
 | `reset_data.py`, `reset_perf_data.py`, `reset_watermarks.py` | Clean slate between runs. |
 
-See the [usecase-sim README](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/README.md)
+See the [usecase-sim README](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/README.md)
 for the full set and invocation examples.

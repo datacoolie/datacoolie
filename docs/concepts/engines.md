@@ -15,7 +15,7 @@ methods take a `fmt=` parameter so Delta and Iceberg share the same surface.
 from datacoolie.engines.base import BaseEngine
 
 class SparkEngine(BaseEngine[pyspark.sql.DataFrame]): ...
-class PolarsEngine(BaseEngine[polars.DataFrame]):      ...
+class PolarsEngine(BaseEngine[polars.LazyFrame]):     ...
 ```
 
 Sources, destinations, and transformers are parameterised by the same `DF`, so
@@ -77,13 +77,13 @@ connectorx. Extend the set when adding new driver-specific keys.
 
 An engine is useless without a platform. There are three valid states:
 
-1. Construct engine with platform: `SparkEngine(spark, platform=p)`.
+1. Construct engine with platform:
+   `SparkEngine(spark_session=spark, platform=p)`.
 2. Attach later: `engine.set_platform(p)` before the driver runs.
 3. Let the driver attach: pass `platform=` to `DataCoolieDriver(...)`.
 
-For Spark, the explicit form `SparkEngine(spark_session=spark, platform=p)` is
-the current constructor name; the positional call works too, but the keyword is
-clearer in docs.
+The Spark constructor parameter is named `spark_session`; a positional call
+also works.
 
 The driver guards against mismatched platform types to prevent silent
 "works on my laptop, fails in Fabric" bugs.

@@ -17,11 +17,11 @@ DataCoolie produces two independent log streams.
 │   │       └── __run_date=yyyy-mm-dd/job_<stem>.jsonl          ← appended
 │   └── analyst/
 │       ├── job_run_log/
-│       │   └── __run_date=yyyy-mm-dd/job_run_log.jsonl         ← shared daily file, appended
+│       │   └── __run_date=yyyy-mm-dd/job_run_log_<yyyyMMdd>.jsonl ← shared daily file
 │       └── dataflow_run_log/
 │           └── __run_date=yyyy-mm-dd/dataflow_<stem>.parquet   ← per-run file
 └── system_logs/
-    └── __run_date=yyyy-mm-dd/system_log_<job_id>.log          ← plain text, appended
+    └── __run_date=yyyy-mm-dd/system_log_<timestamp>_<job_id>.jsonl
 ```
 
 ## Two loggers, two purposes
@@ -29,7 +29,7 @@ DataCoolie produces two independent log streams.
 | | `ETLLogger` | `SystemLogger` |
 |---|---|---|
 | Written by | Driver, Stage, DataFlow, Watermark manager | Everywhere — platform, engines, sources, destinations, transformers |
-| Format | Debug JSONL + analyst JSONL/Parquet | Plain text `.log`, one line per record |
+| Format | Debug JSONL + analyst JSONL/Parquet | JSONL, one `LogRecord` per line |
 | Purpose | Execution analytics, dashboards, troubleshooting | Operational debugging |
 | Retention | Long-term (feeds dashboards) | Short-term (rotate aggressively) |
 | Flush | Periodic `append_file` + final on close | Periodic `append_file` (timer) + final on close |
@@ -40,7 +40,7 @@ DataCoolie produces two independent log streams.
 
 - **`log_level`** (default `INFO`) — what is printed to the console.  Set by
   the Driver configuration.
-- **`file_level`** (default `DEBUG`) — what is captured to the `.log` file.
+- **`file_level`** (default `DEBUG`) — what is captured to the JSONL file.
   Captures all framework messages regardless of the console level, acting as a
   "black box recorder" for post-mortem diagnosis.
 
@@ -51,7 +51,7 @@ DataCoolie produces two independent log streams.
 | `job_run_log` | JSONL | Day (shared, appended) | Read one file per day for job history |
 | `dataflow_run_log` | Parquet (Snappy) | Job run | Scan with Spark / Polars / Athena |
 
-The `job_run_log.jsonl` is a **shared daily file**: every job run on the same
+The dated `job_run_log_<yyyyMMdd>.jsonl` is a **shared daily file**: every job run on the same
 date appends its summary line to the same file.  This makes it efficient to
 query recent job history without listing many small per-run files.  It is also
 hive-partition compatible (`__run_date=yyyy-mm-dd`) so Spark / Polars can
@@ -63,7 +63,7 @@ ETL logs are partitioned by **purpose** and **log type**, then by run date:
 
 ```
 etl_logs/analyst/dataflow_run_log/__run_date=2026-01-03/dataflow_<stem>.parquet
-etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log.jsonl
+etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log_20260103.jsonl
 ```
 
 Query them directly with Spark / Polars / Athena.
@@ -91,6 +91,8 @@ purpose folder. `LogPurpose.DEBUG.value == "debug_json"`.
 - Build a dashboard from `etl_logs/analyst/dataflow_run_log/` and
   `etl_logs/analyst/job_run_log/`.
 - Alert on `dataflow_run_log.status = "failed"`.
+- Failed dataflow rows preserve any source, transformer, and destination
+  runtime information available before the exception.
 - If you run negative tests on purpose, suppress them with your own scenario or
   job naming convention; the current runner does not automatically mark a
   failure as expected.

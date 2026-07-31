@@ -25,28 +25,43 @@ class MyFormatReader(BaseSourceReader):
         *,
         watermark_end: Optional[Dict[str, Any]] = None,
     ):
-        conn = source.connection
-        path = f"{conn.base_path}/{source.schema_name}/{source.table}"
+        self._set_source_action(
+            {"reader": type(self).__name__, "path": source.path}
+        )
 
         # Read the full dataset (or push the watermark predicate down here)
-        df = self._read_data(source, source.configure)
+        df = self._read_data(source)
 
         # Apply watermark filter in memory when push-down is not supported
-        if source.watermark_columns and watermark_start:
+        if source.watermark_columns and (watermark_start or watermark_end):
             df = self._apply_watermark_filter(
-                df, source.watermark_columns, watermark_start, watermark_end
+                df,
+                source.watermark_columns,
+                watermark_start or {},
+                watermark_end,
             )
-        return df
+
+        df = self._apply_filter_expression(df, source)
+        return self._finalize_read(
+            df,
+            source.watermark_columns,
+            type(self).__name__,
+            source.path or source.full_table_name or source.table or "myfmt source",
+        )
 
     def _read_data(self, source: Source, configure: Optional[Dict[str, Any]] = None):
-        conn = source.connection
-        path = f"{conn.base_path}/{source.schema_name}/{source.table}"
-        return self._engine.read_path(path, fmt="myfmt", options=conn.read_options)
+        if not source.path:
+            raise ValueError("MyFormatReader requires a path")
+        return self._engine.read_path(
+            source.path,
+            fmt="myfmt",
+            options=source.read_options or None,
+        )
 ```
 
 The framework calls the public `read(source, watermark_start, *, watermark_start_operator, watermark_end, watermark_end_operator)` method;
 subclasses implement `_read_internal(source, watermark_start, *, watermark_end)` and
-optionally `_read_data(source, configure)` with format-specific logic.  Never
+and `_read_data(source, configure)` with format-specific logic. Never
 override `read` directly — the base class wraps it with timing, error handling,
 and runtime-info collection.
 
@@ -98,9 +113,9 @@ def _read_data(self, source: Source, configure=None):
         query = f"SELECT * FROM src WHERE {wm_col} > :wm"
         return self._engine.read_database(
             query=query,
-            options={**conn.read_options, "params": {"wm": (configure or {}).get(wm_col)}},
+            options={**source.read_options, "params": {"wm": (configure or {}).get(wm_col)}},
         )
-    return self._engine.read_path(source.table, fmt="myfmt", options=conn.read_options)
+    return self._engine.read_path(source.path, fmt="myfmt", options=source.read_options)
 ```
 
 ## Testing

@@ -1,5 +1,5 @@
 """File-based metadata provider — reads connections, dataflows, and schema hints
-from YAML, JSON, or Excel (.xlsx / .xls) configuration files.
+from YAML, JSON, or Excel ``.xlsx`` configuration files.
 
 ``FileProvider`` is the primary standalone / development metadata backend.
 Watermark state is stored as JSON files on the platform's file system.
@@ -13,7 +13,7 @@ Supported formats
 
     connections:
       - name: bronze_adls
-        connection_type: file
+        connection_type: lakehouse
         format: delta
         configure:
           base_path: abfss://bronze@storage/
@@ -21,7 +21,7 @@ Supported formats
 
       - name: source_erp
         connection_type: database
-        format: jdbc
+        format: sql
         database: ERP
         configure:
           host: erp-server.example.com
@@ -55,7 +55,7 @@ Supported formats
             data_type: DATE
             format: yyyy-MM-dd
 
-**Excel (.xlsx / .xls)** — flat workbook with three sheets:
+**Excel (.xlsx)** — flat workbook with three sheets:
 
 *connections* sheet — one row per connection:
 
@@ -64,8 +64,8 @@ Supported formats
   Nested ``configure`` via ``configure_*`` columns (e.g. ``configure_base_path``, ``configure_host``,
     ``configure_use_schema_hint``)
   ``catalog`` and ``database`` are top-level columns (not ``configure_catalog`` or ``configure_database``)
-  ``secrets_ref``: JSON column mapping config field names to vault key names
-    (e.g. ``{"password": "vault/db-pass", "api_key": "vault/api-key"}``)
+  ``secrets_ref``: JSON object mapping source identifiers to lists of
+    ``configure`` field names (e.g. ``{"env:": ["password", "api_key"]}``)
 
 *dataflows* sheet — one row per dataflow:
 
@@ -304,7 +304,7 @@ class FileProvider(BaseMetadataProvider):
 
     @classmethod
     def _parse_excel(cls, path: str) -> Dict[str, Any]:
-        """Parse an Excel workbook (.xlsx/.xls) into the standard config dict.
+        """Parse an Excel workbook into the standard config dict.
 
         Expected sheets: ``connections``, ``dataflows``, ``schema_hints``
         (all optional — missing sheets are treated as empty lists).

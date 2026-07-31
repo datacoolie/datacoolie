@@ -74,7 +74,7 @@ The key insight is: **you don't have to choose permanently.** DataCoolie's metad
 engine = PolarsEngine(platform=LocalPlatform())
 
 # Production — distributed
-engine = SparkEngine(spark=spark, platform=FabricPlatform())
+engine = SparkEngine(spark_session=spark, platform=FabricPlatform())
 ```
 
 Same metadata. Same load strategies. Same watermarks. Different engine.

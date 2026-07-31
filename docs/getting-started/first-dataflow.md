@@ -62,7 +62,7 @@ Replace `metadata/orders.json` from the quickstart with the two-stage version:
       "source":      {"connection_name": "local_bronze", "schema_name": "sales", "table": "orders"},
       "destination": {"connection_name": "local_silver", "schema_name": "sales", "table": "orders_daily_totals",
                       "load_type": "overwrite",
-                      "partition_columns": [{"column": "order_date", "expression": "date(updated_at)"}]}
+                      "partition_columns": [{"column": "order_date", "expression": "CAST(updated_at AS DATE)"}]}
     }
   ]
 }
@@ -106,10 +106,11 @@ metadata, run the two stages in separate `driver.run(...)` calls instead.
 ## 3. Inspect the watermark
 
 If you do not pass `watermark_base_path` to `FileProvider`, watermark files
-default to the metadata directory: `metadata/watermarks/<stage>_<name>_<dataflow_id>/watermark.json`.
+default to the metadata directory:
+`metadata/watermarks/<stage>_<name>_<dataflow_id>/watermark_value.json`.
 
 ```bash
-cat metadata/watermarks/*/watermark.json
+cat metadata/watermarks/*/watermark_value.json
 ```
 
 You should see `{"updated_at": {"__datetime__": "2026-04-03T09:15:00+00:00"}}`.

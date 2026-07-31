@@ -36,7 +36,9 @@ Databricks, or AWS platforms.
 - **Cloud-agnostic** — `local`, `aws`, `fabric`, `databricks` platforms abstract file I/O and secrets.
 - **Lakehouse-native** — first-class Delta Lake and Apache Iceberg via `fmt="delta"` / `fmt="iceberg"`.
 - **Operationally complete** — watermarks, schema hints, partitions, load strategies, logging, and maintenance are built in.
-- **Plugin everything** — engines, platforms, sources, destinations, transformers, and secret resolvers are all entry-point plugins.
+- **Extensible components** — engines, platforms, sources, destinations,
+  transformers, and secret resolvers use registries with Python entry-point
+  discovery; built-ins are also registered in-process.
 
 ## Start here
 
@@ -144,8 +146,9 @@ with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:
 python run_quickstart.py
 ```
 
-Swap `PolarsEngine` for `SparkEngine(spark, ...)` or `LocalPlatform()` for
-`AwsPlatform` / `FabricPlatform` / `DatabricksPlatform` — the metadata stays
+Swap `PolarsEngine` for `SparkEngine(spark_session=spark, ...)` or
+`LocalPlatform()` for `AWSPlatform` / `FabricPlatform` /
+`DatabricksPlatform` — the metadata stays
 the same.
 
 ## What to do next

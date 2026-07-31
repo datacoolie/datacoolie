@@ -20,7 +20,9 @@ This picks up the current default pytest options from `pyproject.toml`:
 - `-n auto`
 - `--dist loadgroup`
 - `-m "not spark"`
+- `--strict-markers`
 - `--tb=short`
+- `-q`
 - `--import-mode=importlib`
 
 So the default run is a parallel **non-spark** test run. It does not execute
@@ -39,25 +41,12 @@ the Spark-marked tests unless you override the marker selection explicitly.
 python -m pytest -m "not slow and not integration and not spark"
 ```
 
-## Coverage gate
+## Coverage
 
-The repo-wide coverage gate in `pyproject.toml` is **85%**, with branch
-coverage enabled:
-
-```toml
-[tool.coverage.report]
-fail_under = 85
-show_missing = true
-```
-
-Coverage is collected for `src/datacoolie`, with these files omitted from the
-repo-wide gate:
-
-- `src/datacoolie/engines/spark_engine.py`
-- `src/datacoolie/engines/spark_session_builder.py`
-
-Some focused local test commands may use stricter `--cov-fail-under=100`
-targets for individual packages, but that is not the current global gate.
+The current `pyproject.toml` does **not** configure `pytest-cov`, branch
+coverage, omissions, or a repository-wide failure threshold. Run coverage
+explicitly when needed, and do not treat a normal `python -m pytest` result as
+a coverage gate.
 
 ## Parallel execution contract
 

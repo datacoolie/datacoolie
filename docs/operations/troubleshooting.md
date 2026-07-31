@@ -43,7 +43,7 @@ succession from an external scheduler. Serialise the scheduler side.
 Some scenarios (database metadata, API metadata) require Docker. Run:
 
 ```powershell
-docker compose -f datacoolie/usecase-sim/docker/docker-compose.yml up -d
+python usecase-sim/scripts/setup_platform.py
 ```
 
 Then re-run the scenario.
@@ -54,19 +54,21 @@ A containerized PySpark environment is available for running Spark-based
 scenarios without installing Spark locally:
 
 ```powershell
-docker compose -f datacoolie/usecase-sim/docker/docker-compose.yml up spark -d
-docker exec -it datacoolie-spark bash
-# Inside container:
-python /app/runner/run_scenario.py --scenario spark_local
+python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+python usecase-sim/runner/run_scenario.py --scenario local_spark_file
 ```
 
-The `Dockerfile.spark` image includes PySpark, Delta Lake, and the DataCoolie
-package pre-installed.
+When the `datacoolie-spark` container is running, `run_scenario.py`
+automatically executes Spark scenarios in it. The repository is mounted at
+`/datacoolie`.
 
-## `fmt='parquet'` Iceberg writes not appearing in Athena
+## Iceberg writes do not appear in the expected catalog
 
-Iceberg needs Glue catalog registration. Set `register_symlink_table = true`
-or use the engine's `register_iceberg_table` helper explicitly.
+An Iceberg connection must use `"format": "iceberg"` and point at the catalog
+that readers query. Local scenarios use the Iceberg REST catalog; AWS scenarios
+use a Glue-backed catalog and need the corresponding Iceberg runtime and IAM
+permissions. Delta-only symlink options (`generate_manifest` and
+`register_symlink_table`) do not register Iceberg tables.
 
 ## `WatermarkManager` throws on first run
 

@@ -11,8 +11,9 @@ description: Connect DataCoolie to an API-backed metadata service for connection
 ## Reference implementation
 
 A ready-to-run Flask server lives at
-[`usecase-sim/docker/pg_api_metadata_server.py`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/docker/pg_api_metadata_server.py).
-It reads canonical JSON metadata and serves the endpoints DataCoolie expects.
+[`usecase-sim/docker/pg_api_metadata_server.py`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/docker/pg_api_metadata_server.py).
+It reads the PostgreSQL metadata schema populated by `setup_metadata.py` and
+serves the endpoints DataCoolie expects.
 
 Use it as an integration target or as a starting point for your own service.
 
@@ -47,8 +48,9 @@ provider = APIClient(
 
 ## Caching
 
-Set `enable_cache=True` (the default) to avoid re-fetching `connections` / `dataflows` on every
-call. The client invalidates the cache whenever a watermark update succeeds.
+Set `enable_cache=True` (the default) to avoid re-fetching connections,
+dataflows, and schema hints on every call. Watermark reads/writes go directly
+to the API; a successful watermark update does not clear the metadata cache.
 
 ## Related
 

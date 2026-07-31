@@ -55,7 +55,8 @@ class ParallelExecutor:
     Features:
         * Configurable ``max_workers``.
         * ``stop_on_error`` cancels remaining work on first failure.
-        * ``execute_with_groups`` respects sequential ordering within groups.
+        * ``execute_with_groups`` respects ascending execution-order buckets
+          within groups and parallelises ties.
 
     Example::
 
@@ -195,8 +196,8 @@ class ParallelExecutor:
         """Execute respecting group ordering.
 
         * ``None`` group → individual items run in parallel.
-        * Numbered groups → items within a group run sequentially;
-          different groups run in parallel.
+        * Numbered groups → execution-order buckets run sequentially; items
+          sharing one order run in parallel. Different groups run in parallel.
         """
         independent = groups.get(None, [])
         grouped = {k: v for k, v in groups.items() if k is not None}

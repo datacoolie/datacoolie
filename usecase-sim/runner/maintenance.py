@@ -33,6 +33,7 @@ from _runner_utils import (
     MINIO_STORAGE_OPTIONS,
     build_iceberg_rest_catalog,
     build_spark_session,
+    install_graceful_shutdown,
     setup_platform,
 )
 
@@ -157,6 +158,8 @@ def main() -> None:
         config=config,
         base_log_path=args.log_path,
     )
+
+    install_graceful_shutdown(driver, logger)
 
     try:
         maintenance_dfs = driver.load_maintenance_dataflows(connection=args.connection)

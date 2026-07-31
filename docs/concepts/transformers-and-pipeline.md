@@ -58,7 +58,7 @@ is a PII masker at 40 or a validator at 50. See
 - no call → default: record `ClassName`
 
 The tracking label ends up in `TransformRuntimeInfo.transformers_applied` and
-is surfaced by `ETLLogger` as a column on every `dataflow_entry`.
+is surfaced by `ETLLogger` as a column on every `dataflow_run_log` row.
 
 ## Failure semantics
 

@@ -13,7 +13,7 @@ description: Configure DataCoolie merge keys, upserts, and slowly changing dimen
 ```json
 {
   "destination": {
-    "connection": "bronze",
+    "connection_name": "bronze",
     "schema_name": "sales",
     "table": "customers",
     "load_type": "merge_upsert",
@@ -71,11 +71,12 @@ On write the engine's `scd2_*` method runs a two-step MERGE:
    `__valid_to = source.__valid_from` and `__is_current = false`.
 2. **Append step** — insert all source rows as new versions.
 
-There is **no stored hash column**. Change detection is driven by the
-effective-date column you nominate — if the source delivers a row with a
-newer `updated_at` than the current version, a new version is created. If it
-delivers a row with an equal or older `updated_at`, the late-arrival guard
-skips the close step.
+There is **no stored hash column**. The close step only closes a current row
+when the incoming effective time is strictly newer. The append step then
+inserts **every incoming source row**. Therefore upstream selection and
+deduplication must prevent equal/older effective times from reaching this
+strategy; otherwise an older row is appended as another current version while
+the existing current row remains open.
 
 ### Reading "current state only"
 

@@ -88,7 +88,8 @@ spark.read.format("delta").load("data/output/bronze/sales/orders").show()
 |---|---|---|
 | Startup | <1 s | 10–30 s (JVM warm-up) |
 | In-memory datetime dtype | `Datetime` | `timestamp` / `timestamp_ntz` |
-| Scale ceiling | single node, ~10 GB | cluster, TB+ |
+| Execution model | single process / node | distributed Spark cluster |
+| Practical scale | depends on memory, data shape, and operations | depends on cluster resources, partitioning, and shuffle |
 | Delta backend | `delta-rs` | Spark + `delta-spark` |
 
 Both produce **the same Delta table** on disk and record compatible

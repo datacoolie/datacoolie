@@ -125,7 +125,7 @@ from datacoolie.engines.spark_engine import SparkEngine
 from datacoolie.platforms.fabric_platform import FabricPlatform
 
 platform = FabricPlatform()
-engine = SparkEngine(spark=spark, platform=platform)
+engine = SparkEngine(spark_session=spark, platform=platform)
 provider = FileProvider(config_path="metadata.json", platform=platform)
 
 with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:

@@ -34,7 +34,7 @@ from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
 
 platform = FabricPlatform()           # uses notebookutils under the hood
-engine = SparkEngine(spark, platform=platform)   # `spark` is the built-in SparkSession
+engine = SparkEngine(spark_session=spark, platform=platform)  # Fabric's SparkSession
 metadata = FileProvider(config_path="Files/metadata/orders.json", platform=platform)
 
 with DataCoolieDriver(engine=engine, metadata_provider=metadata, base_log_path="Files/logs") as driver:
@@ -90,4 +90,4 @@ cell before native Python execution starts:
 Use the Fabric platform guide in usecase-sim for the current sample notebooks,
 metadata file, and setup notes:
 
-- [`README.md`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/platforms/fabric/README.md)
+- [`README.md`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/platforms/fabric/README.md)

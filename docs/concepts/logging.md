@@ -6,9 +6,9 @@ description: Understand SystemLogger and ETLLogger outputs, file layouts, event 
 # Logging
 
 **TL;DR** Two orthogonal loggers. `SystemLogger` captures framework Python logs
-as plain-text `.log` files for operators. `ETLLogger` writes structured execution
-logs in two forms: debug JSONL (appended per run) and analyst outputs (JSONL for
-job summaries, Parquet for dataflow detail).
+as structured JSONL for operators. `ETLLogger` writes structured execution logs
+in two forms: debug JSONL (appended per run) and analyst outputs (JSONL for job
+summaries, Parquet for dataflow detail).
 
 ## `SystemLogger`
 
@@ -17,10 +17,11 @@ job summaries, Parquet for dataflow detail).
     - `log_level` — controls what is printed to the console (default `INFO`).
     - `file_level` — controls what is captured to the file (default `DEBUG`,
       capturing all framework messages regardless of console level).
-- Writes plain-text `.log` files: one line per record,
-  format `timestamp - LEVEL - logger [dataflow_id] - message`.
-- Filename: `system_log_<job_id>.log` under the configured `output_path`,
-  optionally date-partitioned.
+- Writes one JSON object per line using `LogRecord.to_dict()`. Core keys are
+  `ts`, `level`, `logger`, and `msg`; source-location, `dataflow_id`, and
+  exception fields are included when available.
+- Filename: `system_log_<YYYYMMDD_HHMMSS>_<job_id>.jsonl` under the configured
+  `output_path`, optionally date-partitioned.
 - **Periodic flush** via background timer — appends new records to the remote
   file using `platform.append_file()` at each interval.  Final remaining
   records are appended on `close()`.
@@ -47,7 +48,7 @@ job summaries, Parquet for dataflow detail).
 
 | Log type | Format | Path | Flush strategy |
 |---|---|---|---|
-| `job_run_log` | JSONL (one line per job run) | `analyst/job_run_log/__run_date=.../job_run_log.jsonl` | `append_file` on close |
+| `job_run_log` | JSONL (one line per job run) | `analyst/job_run_log/__run_date=.../job_run_log_<yyyyMMdd>.jsonl` | `append_file` on close |
 | `dataflow_run_log` | Parquet (one row per dataflow) | `analyst/dataflow_run_log/__run_date=.../dataflow_<stem>.parquet` | `upload_file` on close |
 
 The `job_run_log` file is a **shared daily file** — multiple job runs on the
@@ -71,14 +72,19 @@ Row shape (dataflow entry):
   "start_time": "2026-04-20T08:00:00+00:00",
   "end_time": "2026-04-20T08:00:09+00:00",
   "duration_seconds": 9.0,
+  "overhead_duration_seconds": 0.2,
   "destination_load_type": "merge",
   "destination_operation_type": null
 }
 ```
 
 `job_run_log` summary rows aggregate session totals such as
-`total_dataflows`, `total_succeeded`, `total_failed`, and
-`total_rows_written`.
+`total_dataflows`, `total_succeeded`, `total_failed`, `total_running`,
+`total_pending`, `total_rows_written`, and `operation_types`.
+
+If a source, transformer, or destination fails, the dataflow row keeps the
+available phase-level status, error, and partial timing information collected
+before the exception.
 
 ## `LogPurpose`
 
@@ -112,6 +118,8 @@ Enum that controls the output folder and intended audience:
   (default: `__run_date={year}-{month}-{day}`)
 - `flush_interval_seconds` — how often to upload pending buffers
 - `storage_mode` — `memory` / `file` for temporary buffering before upload
+
+`LogConfig` normalises path separators in `output_path` when it is created.
 
 ## Related
 

@@ -111,14 +111,16 @@ class BaseSourceReader(ABC, Generic[DF]):
             self._runtime_info.watermark_after = dict(self._new_watermark) if self._new_watermark else None
             return df
 
-        except SourceError:
+        except SourceError as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
+            logger.error("Source read failed: %s", exc, exc_info=exc.__cause__ or exc)
             raise
         except Exception as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.error_message = str(exc)
+            logger.error("Source read failed: %s", exc, exc_info=exc.__cause__ or exc)
             raise SourceError(
                 f"Failed to read source: {exc}",
                 details={"source_table": source.full_table_name, "source_path": source.path},

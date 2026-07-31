@@ -74,8 +74,8 @@ of these hooks — do not re-implement them.
   asks for them.
 - **Honour `stage` filtering** — accept single string, comma-separated
   string, or list.
-- **Be thread-safe** — `DataCoolieDriver` may call concurrent `get_dataflows`
-  from `ParallelExecutor` workers.
+- **Be thread-safe for watermark access and shared resources** — parallel
+  dataflows can read or update watermarks through one provider instance.
 
 ## Schema-hint attachment
 
@@ -94,4 +94,4 @@ Mirror `tests/unit/metadata/`:
 - `get_connections` with zero / one / many connections.
 - `get_dataflows` with stage filter combinations.
 - Watermark round-trip: write "null", write a real JSON, overwrite.
-- Concurrent `get_dataflows` from two threads — no shared mutable state.
+- Concurrent watermark reads/updates and cache access.

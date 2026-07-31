@@ -75,7 +75,10 @@ with driver:
     result = driver.run(stage="bronze2silver")
 ```
 
-Nothing is read or written. Logs show what *would* have happened.
+Nothing is read or written. Metadata is loaded and filtered, and logs show the
+selected targets. Backend connectivity and transform expressions are not
+validated. `result.total` reports how many targets were selected; the current
+dry-run path leaves every status counter, including `pending`, at zero.
 
 ## Sharded across workers
 
@@ -95,7 +98,7 @@ Use this for horizontal scaling across cluster tasks. See [Orchestration](../con
 | `max_workers` | `8` | Thread pool size for concurrent dataflow execution |
 | `stop_on_error` | `False` | Halt remaining dataflows on first failure |
 | `retry_count` | `0` | Number of retry attempts per failed dataflow |
-| `retry_delay` | `5.0` | Seconds between retry attempts |
+| `retry_delay` | `5.0` | Base retry delay; doubles per retry, capped at 60 seconds |
 | `dry_run` | `False` | Plan without reading or writing |
 | `retention_hours` | `168` | VACUUM retention for maintenance (7 days) |
 | `allowed_function_prefixes` | `[]` | Restrict which Python modules can be imported by function sources |
@@ -107,7 +110,9 @@ Use this for horizontal scaling across cluster tasks. See [Orchestration](../con
 | `total` | Dataflows submitted for execution |
 | `succeeded` | Completed with `status == "succeeded"` |
 | `failed` | Raised an exception (after all retries exhausted) |
-| `skipped` | Not executed (dry-run, or short-circuited by `stop_on_error`) |
+| `skipped` | Explicitly skipped, for example after a `stop_on_error` short-circuit |
+| `running` | Currently executing when a live aggregate is inspected |
+| `pending` | Not completed after executor processing (for example, work left after an early stop) |
 
 ## Other execution modes
 

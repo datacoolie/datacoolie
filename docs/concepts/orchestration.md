@@ -26,7 +26,8 @@ with DataCoolieDriver(
 
 Key behaviours:
 
-- **Constructor injection** for every dependency — no global state.
+- **Constructor injection** for runtime dependencies. Plugin registries are
+  process-level registries populated when `datacoolie` is imported.
 - **Auto-creates `WatermarkManager`** when a metadata provider is supplied and
   no manager is passed.
 - **Auto-creates loggers** under `base_log_path/{system,etl}_logs` when you
@@ -37,12 +38,13 @@ Key behaviours:
 
 ## Job distribution
 
-`JobDistributor` is a hash-based sharder for horizontally scaling a single
+`JobDistributor` is a deterministic sharder for horizontally scaling a single
 metadata set across multiple worker processes or cluster tasks:
 
 ```python
 config = DataCoolieRunConfig(job_num=4, job_index=2)
-# → this worker picks up dataflows where hash(dataflow.id) % 4 == 2
+# group_number set: group_number % 4 == 2
+# group_number absent: MD5(dataflow_id) % 4 == 2
 ```
 
 Use this when running four Spark jobs in parallel to split 1000 dataflows
@@ -57,14 +59,21 @@ Polars both release the GIL during I/O and compute). `ExecutionResult` fields:
 - `succeeded` — finished with `status == "succeeded"`
 - `failed` — raised
 - `skipped` — not executed (e.g. after `stop_on_error=True` short-circuit)
+- `running` — currently executing when a live aggregate is inspected
+- `pending` — selected but not completed
+
+Different `group_number` buckets are dispatched concurrently. Within one
+group, lower `execution_order` buckets complete first; dataflows with the same
+`execution_order` run in parallel.
 
 
 ## Retry
 
 `RetryHandler` wraps each dataflow with:
 
-- `retry_count` attempts
-- `retry_delay` seconds (fixed delay between attempts)
+- `retry_count` retries after the initial attempt
+- `retry_delay` as the base delay; delay doubles on each retry and is capped at
+  60 seconds
 
 If all attempts fail the error is recorded and the executor moves on (or
 stops, per `stop_on_error`).
@@ -87,9 +96,11 @@ See [How-to · Maintenance](../how-to/maintenance-vacuum-optimize.md).
 
 ## Dry run
 
-`DataCoolieRunConfig(dry_run=True)` logs what *would* happen without reads,
-writes, or watermark updates. Useful for validating new metadata before the
-first real run.
+`DataCoolieRunConfig(dry_run=True)` loads and filters metadata, then logs the
+selected targets without reads, writes, or watermark updates. It does not
+validate backend connectivity or execute transforms. Returned targets remain
+unclassified: `ExecutionResult.total` is set, while all status counters
+(`succeeded`, `failed`, `skipped`, `running`, `pending`) remain zero.
 
 ## Replay / backfill
 

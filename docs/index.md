@@ -151,8 +151,9 @@ with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:
 python run_quickstart.py
 ```
 
-Swap `PolarsEngine` for `SparkEngine(spark, ...)` or `LocalPlatform()` for
-`AwsPlatform` / `FabricPlatform` / `DatabricksPlatform` — the metadata stays
+Swap `PolarsEngine` for `SparkEngine(spark_session=spark, ...)` or
+`LocalPlatform()` for `AWSPlatform` / `FabricPlatform` /
+`DatabricksPlatform` — the metadata stays
 the same.
 
 ## What DataCoolie gives you
@@ -165,7 +166,7 @@ the same.
 | **Right-sized compute** | Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it. |
 | **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap. |
 | **Lakehouse-native** | First-class Delta Lake and Apache Iceberg, selected by `delta` / `iceberg` on every engine method. |
-| **Plugin everything** | Engines, platforms, sources, destinations, transformers, and secret resolvers are all [entry-point plugins](reference/plugin-entry-points.md). |
+| **Extensible components** | Engines, platforms, sources, destinations, transformers, and secret resolvers use registries with [entry-point discovery](reference/plugin-entry-points.md); built-ins are also registered in-process. |
 | **Observable by default** | Structured `ETLLogger` (dataflow entries + job summary) and `SystemLogger` ship with the framework. |
 
 ## Where to next
@@ -235,7 +236,7 @@ registry of every built-in plugin.
     Yes. DataCoolie ships a `FabricPlatform` that handles OneLake file I/O and Key Vault secrets natively. The [Deploy to Fabric](how-to/deploy-to-fabric.md) guide walks through notebook setup step by step.
 
 ??? question "Is DataCoolie free and open source?"
-    Yes. DataCoolie is licensed under [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/LICENSE). Install from PyPI with `pip install datacoolie`.
+    Yes. DataCoolie is licensed under [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE). Install from PyPI with `pip install datacoolie`.
 
 ??? question "What data formats does DataCoolie support?"
     DataCoolie reads and writes Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro. It reads Excel. It also supports SQL database sources, REST API sources, and custom Python function sources (must return a DataFrame). Format selection is per-dataflow in metadata.
@@ -245,7 +246,7 @@ registry of every built-in plugin.
 
 ## License
 
-[AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/LICENSE) —
+[AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE) —
 free and open source. See [Contributing](contributing.md) for contribution terms.
 
 ## Community

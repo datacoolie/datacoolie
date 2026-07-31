@@ -35,9 +35,14 @@ common source of commit failures in Delta.
 the driver:
 
 ```python
-from datacoolie import DataCoolieDriver, DataCoolieRunConfig
+from datacoolie.core.models import DataCoolieRunConfig
+from datacoolie.orchestration.driver import DataCoolieDriver
 
-driver = DataCoolieDriver(config=DataCoolieRunConfig(retention_hours=72))
+driver = DataCoolieDriver(
+    engine=engine,
+    metadata_provider=metadata,
+    config=DataCoolieRunConfig(retention_hours=72),
+)
 ```
 
 ## How deduplication works

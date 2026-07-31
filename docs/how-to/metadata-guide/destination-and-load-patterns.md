@@ -242,6 +242,11 @@ adds three audit columns to every version row:
     [maintenance (vacuum/optimize)](../maintenance-vacuum-optimize.md)
     regularly.
 
+!!! warning "Only send strictly newer versions"
+    The close step ignores equal/older `scd2_effective_column` values, but the
+    append step inserts every incoming row. Filter and deduplicate upstream so
+    an older value cannot create a second open current version.
+
   !!! info "First load falls back to overwrite"
     On the first run, DataCoolie creates the destination table first and then
     switches to SCD2 versioning on subsequent runs.

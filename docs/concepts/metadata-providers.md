@@ -36,7 +36,8 @@ See [Watermarks](watermarks.md) and [ADR-0004](../adr/0004-raw-json-watermark-co
 - Canonical source is **JSON**; YAML and Excel are generated equivalents.
 - One file per use case is the convention (`orders_csv_to_parquet.{json,yaml,xlsx}`).
 - Blank `is_active` in Excel means **unset** (not `False`). Generators preserve this nuance.
-- Watermarks default to `{config_dir}/watermarks/{stage}_{name}_{dataflow_id}/watermark.json`.
+- Watermarks default to
+  `{config_dir}/watermarks/{stage}_{name}_{dataflow_id}/watermark_value.json`.
   If `stage` or `name` is missing, the folder falls back to `{dataflow_id}`.
 
 ## Database provider

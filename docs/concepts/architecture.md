@@ -8,9 +8,9 @@ description: Understand the DataCoolie architecture, plugin roles, control flow,
 **TL;DR** Think of DataCoolie as a **conductor** (the `DataCoolieDriver`) and an
 **orchestra of swappable musicians** (plugins). The conductor reads sheet music
 (metadata), tells each musician when to play, and writes the recording
-(watermarks + logs). Every musician implements a single abstract base class and
-is discovered through Python **entry points** — swap one out without touching
-the conductor.
+(watermarks + logs). Each extension implements an abstract base class. Built-ins
+are registered when `datacoolie` is imported, while installed extensions are
+discovered through Python **entry points**.
 
 ## The mental model
 
@@ -82,15 +82,16 @@ flowchart TB
 
 Key invariants:
 
-- **Driver ↔ bases only** — never imports `SparkEngine`, `DeltaSourceReader`,
+- **Driver ↔ bases only** — never imports `SparkEngine`, `DeltaReader`,
   etc.
 - **Engine owns the platform** — `engine.platform.list_files(...)` is the *only* way
   plugins touch the filesystem.
 - **Secret provider is abstract too** — `DataCoolieDriver` accepts an explicit
   `secret_provider`; otherwise it falls back to `engine.platform` because
   `BasePlatform` subclasses `BaseSecretProvider`.
-- **Sources, transformers, destinations are typed by engine**, so
-  `mypy --strict` rejects e.g. a Polars DataFrame passed to a Spark writer.
+- **Sources, transformers, destinations are generic over the engine DataFrame
+  type**, which lets a type checker catch mismatches in correctly typed plugin
+  and application code.
 - **Watermark manager wraps the metadata provider** — provider returns raw JSON
   text, manager parses `Dict[str, Any]`. See
   [ADR-0004](../adr/0004-raw-json-watermark-contract.md).
@@ -143,11 +144,12 @@ Inside the driver, three helpers split the work:
 | Engine | `DF` binds to | Why it matters |
 |---|---|---|
 | `SparkEngine` | `pyspark.sql.DataFrame` | `mypy --strict` sees Spark-only methods (`.withColumn`, …) |
-| `PolarsEngine` | `polars.DataFrame` | `mypy --strict` sees Polars-only methods (`.with_columns`, …) |
+| `PolarsEngine` | `polars.LazyFrame` | `mypy --strict` sees Polars-only methods (`.with_columns`, …) |
 
-Sources, destinations, and transformers carry the same `DF` parameter — so
-mixing a Polars source with a Spark destination is a **compile-time error**,
-not a 2 AM runtime crash.
+Sources, destinations, and transformers carry the same `DF` parameter. This
+improves static checking for plugin implementations; the non-generic driver
+still relies on registry wiring and runtime contracts, so it is not a universal
+compile-time guarantee for arbitrary dynamically loaded combinations.
 
 The `fmt=` parameter on engine methods (`read_table(fmt="delta")`,
 `merge_to_table(..., fmt="iceberg")`, `table_exists_by_name(*, fmt="delta")`)
@@ -157,7 +159,7 @@ unifies Delta Lake and Apache Iceberg at the engine level. See
 ## Plugin boundary: how swap-ability actually works
 
 Every role has a global registry declared in
-[`datacoolie/__init__.py`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/src/datacoolie/__init__.py):
+[`datacoolie/__init__.py`](https://github.com/datacoolie/datacoolie/blob/main/src/datacoolie/__init__.py):
 
 ```python
 engine_registry:      PluginRegistry[BaseEngine]      = PluginRegistry("datacoolie.engines", BaseEngine)
@@ -169,14 +171,15 @@ resolver_registry:    PluginRegistry[BaseSecretResolver]    = PluginRegistry("da
 ```
 
 Secret providers are typically supplied by platforms, so there is no separate
-provider registry. Resolver plugins extend placeholder syntaxes; the provider
-role is satisfied by the active platform unless you inject a different
+provider registry. Resolver plugins handle prefixed `secrets_ref` sources; the
+provider role is satisfied by the active platform unless you inject a different
 `BaseSecretProvider` into the driver.
 
-A `PluginRegistry` is lazy: on the first `.get("spark")` call it scans the
-matching **`pyproject.toml` entry-point group** (`datacoolie.engines`, …) and
-imports only that one plugin. A third-party package can ship a plugin by
-declaring:
+DataCoolie registers importable built-ins eagerly during package import.
+`PluginRegistry` also performs lazy entry-point discovery: the first
+`.get(...)`, `.list_plugins()`, or `.is_available(...)` call scans the matching
+installed entry-point group (`datacoolie.engines`, …). A third-party package
+can ship a plugin by declaring:
 
 ```toml
 [project.entry-points."datacoolie.engines"]

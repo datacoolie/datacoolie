@@ -38,6 +38,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import signal
 import sys
 from typing import Any
 
@@ -509,6 +510,47 @@ def build_iceberg_rest_catalog(
 # Shared runner execution helper
 # ---------------------------------------------------------------------------
 
+def install_graceful_shutdown(driver, logger: logging.Logger) -> None:
+    """Flush + push logs before the process exits on a cancellation signal.
+
+    Real platforms (Fabric, Databricks, Spark-on-K8s/YARN) cancel a job with a
+    *graceful* signal — ``SIGTERM`` (Fabric reports exit code 143) or a notebook
+    interrupt — and expect the job to clean up within a grace window.  Python's
+    default ``SIGTERM`` handler exits immediately **without** running
+    ``finally``/``atexit``, so ``driver.close()`` (which aggregates and pushes
+    logs) would otherwise be skipped.
+
+    This installs handlers for ``SIGINT`` / ``SIGTERM`` (and ``SIGBREAK`` /
+    CTRL_BREAK on Windows) that call ``driver.close()`` exactly once, then
+    re-raise ``SystemExit`` so the caller's normal ``finally`` blocks (e.g.
+    ``spark.stop``) still run.
+    """
+    state = {"triggered": False}
+
+    def _handler(signum, _frame):  # noqa: ANN001
+        if state["triggered"]:
+            return
+        state["triggered"] = True
+        logger.warning(
+            "Cancellation signal %s received - flushing logs before exit ...", signum,
+        )
+        try:
+            driver.close()
+        except Exception:
+            logger.exception("driver.close() failed during graceful shutdown")
+        raise SystemExit(128 + signum)
+
+    for _name in ("SIGINT", "SIGTERM", "SIGBREAK"):
+        _sig = getattr(signal, _name, None)
+        if _sig is None:
+            continue
+        try:
+            signal.signal(_sig, _handler)
+        except (ValueError, OSError):
+            # Not in the main thread, or unsupported on this platform.
+            pass
+
+
 def run_and_report(
     driver,
     stage: str,
@@ -530,6 +572,8 @@ def run_and_report(
             connection_type is ``"api"`` before execution.
     """
     from datacoolie.core import ColumnCaseMode
+
+    install_graceful_shutdown(driver, logger)
 
     try:
         dataflows = None
@@ -613,6 +657,8 @@ def replay_and_report(
         cleanup_fn: Optional callable invoked in the ``finally`` block.
     """
     from datacoolie.core import ColumnCaseMode, ReplayConfig
+
+    install_graceful_shutdown(driver, logger)
 
     chunk_interval = parse_chunk_interval(replay_chunk_interval) or None
 

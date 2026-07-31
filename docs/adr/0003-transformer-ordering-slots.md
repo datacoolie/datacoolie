@@ -43,8 +43,9 @@ Each transformer declares an **integer `order`**. Slots:
 | 90 | `ColumnNameSanitizer` |
 | 100+ | Reserved (future framework post-sanitize work) |
 
-`build_pipeline` sorts by `order`; ties broken by class name for
-determinism.
+`TransformerPipeline.transform()` uses Python's stable sort by `order`.
+Transformers with the same order retain their insertion order, so plugins
+should choose distinct slots when their relative order matters.
 
 ## Consequences
 

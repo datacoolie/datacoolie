@@ -30,8 +30,8 @@ first successful local run, go back to [Getting started](../getting-started/inde
   diagnose them: watermark staleness, metadata provider errors, merge key
   mismatches, platform credential issues, and partition path conflicts.
 - [Testing strategy](testing-strategy.md) — How the DataCoolie test suite is
-  structured, coverage gates, mock engine patterns, and how to add tests for
-  custom plugins.
+  structured, which markers/default options apply, and the fact that no global
+  coverage gate is currently configured.
 
 ## Quick checklist
 

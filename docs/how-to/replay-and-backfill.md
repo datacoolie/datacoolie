@@ -9,7 +9,8 @@ description: Re-process a bounded historical time range in sequential calendar-a
 **End state** · A completed historical replay of a bounded date range, with optional resume support.
 
 `driver.run_replay()` re-processes a bounded window of historical data in
-sequential chunks without disturbing the production watermark.  Use it to:
+sequential chunks. By default it leaves the production watermark untouched;
+`save_watermark=True` intentionally advances it for resume support. Use it to:
 
 - **Backfill** a new destination table from historical source data.
 - **Repair** a corrupt range after a source system issue.
@@ -33,7 +34,7 @@ with DataCoolieDriver(engine=engine, platform=platform, metadata_provider=metada
     dataflows = driver.load_dataflows(stage="bronze2silver")
     result = driver.run_replay(dataflows=dataflows, replay=replay)
 
-print(f"Chunks: succeeded={result.succeeded}, failed={result.failed}")
+print(f"Dataflows: succeeded={result.succeeded}, failed={result.failed}")
 ```
 
 This replays January, February, and March 2025 as three independent chunks:
@@ -150,10 +151,10 @@ filter is preserved:
 }
 ```
 
-During replay, the effective WHERE clause for each chunk becomes:
+For a database source, the effective predicate for each chunk is:
 ```sql
-updated_at >= '<lower>'
-  AND (status = 'active') AND (updated_at < '<upper>')
+(updated_at >= '<lower>' AND updated_at < '<upper>')
+  AND (status = 'active')
 ```
 
 ---
@@ -165,11 +166,14 @@ updated_at >= '<lower>'
   further chunks for that dataflow but does not affect other dataflows.
 - Each chunk records a separate `DataFlowRuntimeInfo` in the ETL log with
   `operation_type = "replay"`.
-- `ExecutionResult.succeeded` / `failed` counts **chunks**, not dataflows.
+- Each chunk produces a separate ETL log row.
+- `ExecutionResult.total` / `succeeded` / `failed` count the outer
+  **dataflows**, because `_process_replay` aggregates its chunks into one
+  `DataFlowRuntimeInfo` before returning to `ParallelExecutor`.
 
 ---
 
-## Full example: quarterly backfill
+## Full example: one-year backfill
 
 ```python
 from datetime import date
@@ -192,7 +196,7 @@ with DataCoolieDriver(
     dataflows = driver.load_dataflows(stage="bronze2silver")
     result = driver.run_replay(dataflows=dataflows, replay=replay)
 
-print(f"Total chunks: {result.total}")
+print(f"Total dataflows: {result.total}")
 print(f"Succeeded:    {result.succeeded}")
 print(f"Failed:       {result.failed}")
 ```

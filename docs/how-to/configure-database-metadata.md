@@ -43,7 +43,8 @@ Use `usecase-sim/scripts/setup_metadata.py --targets db:postgresql` as a
 reference implementation. It:
 
 1. Creates the schema via dialect-specific DDL.
-2. Parses every canonical JSON metadata file.
+2. Parses the selected canonical JSON metadata file (`--json`, which defaults
+   to `usecase-sim/metadata/file/local_use_cases.json`).
 3. `INSERT`s connections, dataflows, and children under a single transaction.
 
 ## Concurrency notes
@@ -51,8 +52,9 @@ reference implementation. It:
 - `DatabaseProvider` opens **one short-lived connection per operation**. It
   does not pin a session across the driver's parallel execution. Safe with
   `max_workers > 1`.
-- Watermarks are written with `SELECT ... FOR UPDATE` on dialects that support
-  it, otherwise an optimistic upsert.
+- Watermarks use an update-first upsert: one `UPDATE` rotates
+  `previous_value`, a missing row is inserted, and a concurrent insert race is
+  retried with `UPDATE`. Transient deadlock/serialization failures are retried.
 
 ## Related
 

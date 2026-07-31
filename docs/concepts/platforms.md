@@ -26,8 +26,8 @@ across six groups:
 | Secrets | `_fetch_secret` (inherited from `BaseSecretProvider`) |
 
 Platforms also expose `FileInfo` (frozen dataclass: `name`, `path`,
-`modification_time`, `size`, `is_dir`) and normalise paths on instance
-creation.
+`modification_time`, `size`, `is_dir`). `FileInfo` normalises its `path` when
+the value object is created.
 
 ## Built-in platforms
 
@@ -49,7 +49,7 @@ discovery.
 step. When you construct a driver:
 
 ```python
-DataCoolieDriver(engine=engine, ...)
+DataCoolieDriver(engine=engine, metadata_provider=metadata)
 # no secret_provider= → engine.platform is used as the default.
 ```
 
@@ -66,17 +66,18 @@ See [Secrets](secrets.md) and [ADR-0002](../adr/0002-secret-provider-resolver-sp
 - No trailing slash on directories
 - Scheme preserved (`abfss://`, `s3://`, `file://`)
 
-This means you can safely do string comparisons between paths returned by
-`list_files` and paths you built with `os.path.join`-equivalents — the framework
-guarantees a single canonical form.
+This gives `FileInfo.path` a consistent form. Other path-bearing models
+normalise their own fields; arbitrary caller-created strings are not
+automatically canonicalised.
 
 ## Concurrency notes
 
-- `AWSPlatform` uses a thread-local `boto3` session so parallel dataflows don't
-  share auth state.
-- `FabricPlatform` relies on `notebookutils`, which is safe across threads for
-  reads but serialises writes internally.
-- `LocalPlatform` is thread-safe — all operations use `pathlib` atomic APIs.
+- `AWSPlatform` lazily caches one `boto3.Session` and one S3 client on the
+  platform instance.
+- The driver can share one platform instance across worker threads. Backend SDK
+  behaviour still applies, and callers must coordinate conflicting writes to
+  the same path.
+- No platform API promises that a multi-step operation is atomic.
 
 ## Related
 

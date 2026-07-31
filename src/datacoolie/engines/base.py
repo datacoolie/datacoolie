@@ -1,8 +1,8 @@
 """Abstract base class for DataFrame engines.
 
 ``BaseEngine[DF]`` is a generic ABC parameterised by DataFrame type.
-Concrete implementations (Spark, Polars) bind ``DF`` to their native
-DataFrame class.
+Concrete implementations bind ``DF`` to their native frame type (Spark
+``DataFrame`` or Polars ``LazyFrame``).
 
 Section layout
 --------------
@@ -50,7 +50,7 @@ class BaseEngine(ABC, Generic[DF]):
     """Engine abstraction for DataFrame-based read / write / transform.
 
     Type parameter *DF* is the concrete DataFrame class
-    (e.g. ``pyspark.sql.DataFrame`` or ``polars.DataFrame``).
+    (e.g. ``pyspark.sql.DataFrame`` or ``polars.LazyFrame``).
     """
 
     # ==================================================================

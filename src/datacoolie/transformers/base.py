@@ -178,16 +178,18 @@ class TransformerPipeline(Generic[DF]):
             self._runtime_info.transformers_applied = applied
             return result
 
-        except TransformError:
+        except TransformError as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.transformers_applied = applied
+            logger.error("Transformer pipeline failed: %s", exc, exc_info=exc.__cause__ or exc)
             raise
         except Exception as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.transformers_applied = applied
             self._runtime_info.error_message = str(exc)
+            logger.error("Transformer pipeline failed: %s", exc, exc_info=exc.__cause__ or exc)
             raise TransformError(
                 f"Transformer pipeline failed: {exc}",
                 details={"applied": applied},

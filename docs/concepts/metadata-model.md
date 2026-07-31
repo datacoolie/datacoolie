@@ -5,9 +5,9 @@ description: See how DataCoolie models connections, sources, destinations, trans
 
 # Metadata model
 
-**TL;DR** DataCoolie is driven by four top-level models — `Connection`,
-`DataFlow` (with nested `Source`, `Destination`, `Transform`), and
-`DataCoolieRunConfig`. All are `CompatModel`-backed dataclasses from
+**TL;DR** DataCoolie is driven by `Connection`, `DataFlow` (with nested
+`Source`, `Destination`, and `Transform`), `SchemaHint`, and
+`DataCoolieRunConfig`. These are `CompatModel`-backed dataclasses from
 `datacoolie.core.models`.
 
 ## Mental model
@@ -31,7 +31,7 @@ transforms are **dataflow-scoped**.
 
 Execution parameters independent of any single dataflow: `job_id`, `job_num`,
 `job_index`, `max_workers`, `retry_count`, `retry_delay`, `stop_on_error`,
-`dry_run`. The driver creates one of these per invocation.
+`dry_run`. A driver receives one configuration object at construction time.
 
 ### `Connection`
 
@@ -52,9 +52,10 @@ Model validation **cross-checks** `format` against `connection_type` using
 
 One logical ETL unit. Fields:
 
-- `name`, `stage` (free-form string; any filter passed to `driver.run(stage=…)` matches exactly)
+- `name`, `stage` (free-form string; filters passed to `driver.run(stage=…)`
+  match stage values)
 - `source`, `destination`, `transform` (nested models)
-- `is_active`
+- `is_active`, `processing_mode`, `group_number`, and `execution_order`
 
 Computed properties: `deduplicate_columns` (from `transform.deduplicate_column_names(merge_keys)`), `order_columns` (from `transform.latest_data_columns` or `source.watermark_columns`).
 

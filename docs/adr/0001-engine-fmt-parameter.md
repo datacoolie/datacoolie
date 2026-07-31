@@ -27,11 +27,14 @@ Format-aware methods accept a **`fmt` string** parameter. The engine
 dispatches internally:
 
 ```python
-def read_path(self, path: str, fmt: str, options=None):
-def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
-def read_table(self, table_name: str, fmt: str = "delta", options=None):
-def merge_to_table(self, df, table_name, merge_keys, fmt: str = "delta", options=None):
-def table_exists_by_name(self, table_name: str, *, fmt: str = "delta") -> bool:
+def read_path(self, path: str, fmt: str, options=None): ...
+def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None): ...
+def read_table(self, table_name: str, fmt: str = "delta", options=None): ...
+def merge_to_table(
+    self, df, table_name, merge_keys, fmt: str,
+    partition_columns=None, options=None,
+): ...
+def table_exists_by_name(self, table_name: str, *, fmt: str = "delta") -> bool: ...
 ```
 
 `table_exists_by_name` uses **keyword-only** `fmt` — defensive because
@@ -44,5 +47,5 @@ Supported `fmt` values are listed in `datacoolie.core.constants.Format`.
 - Adding a new format is a **single engine change** plus destination/source
   plugins.
 - Removes ~500 lines of dispatch boilerplate from destinations/sources.
-- `fmt` is now the canonical term throughout docstrings, logs, and metadata
-  — never "format" or "type".
+- Engine method signatures use `fmt`; persistent connection metadata continues
+  to use the field name `format`.

@@ -13,7 +13,7 @@ description: Configure DataCoolie partition columns and column-name sanitization
 ```json
 "destination": {
   "partition_columns": [
-    {"column": "order_date", "expression": "date(updated_at)"},
+    {"column": "order_date", "expression": "CAST(updated_at AS DATE)"},
     {"column": "region"}
   ]
 }
@@ -57,10 +57,15 @@ Runs last (order 90) via `ColumnNameSanitizer`. Actions:
 
 - Lowercase by default (`ColumnCaseMode.LOWER`).
 - Replace spaces, dots, dashes with underscores.
-- Strip leading digits or invalid characters.
+- Replace invalid characters, collapse/trim underscores, and prefix names that
+  begin with a digit with `_`.
+- Leave names already beginning with `_` unchanged.
 
-Override by subclassing `DataCoolieDriver` and setting
-`self._column_name_mode`.
+Choose snake case per run:
+
+```python
+result = driver.run(stage="bronze2silver", column_name_mode="snake")
+```
 
 ## Gotchas
 

@@ -397,8 +397,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_csv",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__json",
@@ -412,8 +411,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_json",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__jsonl",
@@ -427,8 +425,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_jsonl",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__parquet",
@@ -442,8 +439,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_parquet",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__avro",
@@ -457,8 +453,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_avro",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__excel",
@@ -472,8 +467,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_excel",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__delta",
@@ -489,8 +483,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_delta",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read__iceberg",
@@ -506,8 +499,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_iceberg",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_db__sqlite",
@@ -521,8 +513,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_sqlite",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_db__postgres",
@@ -536,8 +527,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_postgres",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_db__mysql",
@@ -551,8 +541,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_mysql",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_db__mssql",
@@ -566,8 +555,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_mssql",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_db__oracle",
@@ -581,8 +569,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_oracle",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "write__csv",
@@ -596,8 +583,7 @@
         "connection_name": "local_csv_dest",
         "table": "orders_write_csv",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "write__json",
@@ -611,8 +597,7 @@
         "connection_name": "local_json_dest",
         "table": "orders_write_json",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "write__jsonl",
@@ -626,8 +611,7 @@
         "connection_name": "local_jsonl_dest",
         "table": "orders_write_jsonl",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "write__avro",
@@ -641,8 +625,7 @@
         "connection_name": "local_avro_dest",
         "table": "orders_write_avro",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "write__parquet",
@@ -656,8 +639,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_write_parquet",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__full_load",
@@ -673,8 +655,7 @@
         "connection_name": "local_delta_dest",
         "table": "orders_full_load",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__overwrite",
@@ -690,8 +671,7 @@
         "connection_name": "local_delta_dest",
         "table": "orders_overwritten",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__append",
@@ -710,8 +690,7 @@
         "connection_name": "local_delta_dest",
         "table": "orders_appended",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__merge_upsert",
@@ -733,8 +712,7 @@
         "merge_keys": [
           "order_id"
         ]
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__merge_overwrite",
@@ -756,8 +734,7 @@
         "merge_keys": [
           "order_date"
         ]
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__merge_upsert_no_watermark",
@@ -768,14 +745,6 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_delta_dest",
-        "table": "orders_merged_nwm",
-        "load_type": "merge_upsert",
-        "merge_keys": [
-          "order_id"
-        ]
       },
       "transform": {
         "deduplicate_columns": [
@@ -797,6 +766,14 @@
             "scale": 2
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
       }
     },
     {
@@ -808,11 +785,6 @@
       "source": {
         "connection_name": "local_json_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_iceberg_dest",
-        "table": "orders_from_json",
-        "load_type": "full_load"
       },
       "transform": {
         "schema_hints": [
@@ -832,6 +804,11 @@
             "data_type": "INTEGER"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_from_json",
+        "load_type": "full_load"
       }
     },
     {
@@ -843,6 +820,15 @@
       "source": {
         "connection_name": "local_parquet_source",
         "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
       },
       "destination": {
         "connection_name": "local_iceberg_dest",
@@ -856,15 +842,6 @@
           {
             "column": "order_month",
             "expression": "EXTRACT(MONTH FROM order_date)"
-          }
-        ]
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
           }
         ]
       }
@@ -882,6 +859,15 @@
           "__file_modification_time"
         ]
       },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
       "destination": {
         "connection_name": "local_iceberg_dest",
         "table": "orders_merge_upsert",
@@ -893,15 +879,6 @@
           {
             "column": "order_year",
             "expression": "EXTRACT(YEAR FROM order_date)"
-          }
-        ]
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
           }
         ]
       }
@@ -919,6 +896,15 @@
           "__file_modification_time"
         ]
       },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
       "destination": {
         "connection_name": "local_iceberg_dest",
         "table": "orders_merge_overwrite",
@@ -934,15 +920,6 @@
           {
             "column": "order_month",
             "expression": "EXTRACT(MONTH FROM order_date)"
-          }
-        ]
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
           }
         ]
       }
@@ -964,8 +941,7 @@
         "connection_name": "local_iceberg_dest",
         "table": "orders_appended",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "schema__date_format",
@@ -975,11 +951,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_date",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -988,6 +959,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_date",
+        "load_type": "overwrite"
       }
     },
     {
@@ -998,11 +974,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_timestamp",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -1010,6 +981,11 @@
             "data_type": "TIMESTAMP"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_timestamp",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1020,11 +996,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_decimal",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -1034,6 +1005,11 @@
             "scale": 2
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_decimal",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1043,11 +1019,6 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_numeric",
-        "load_type": "overwrite"
       },
       "transform": {
         "schema_hints": [
@@ -1064,6 +1035,11 @@
             "data_type": "DOUBLE"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_numeric",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1078,8 +1054,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_schema_global",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "dedup__row_number",
@@ -1089,11 +1064,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_dedup_row_number",
-        "load_type": "overwrite"
-      },
       "transform": {
         "deduplicate_columns": [
           "order_id"
@@ -1101,6 +1071,11 @@
         "latest_data_columns": [
           "modified_at"
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_row_number",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1111,21 +1086,21 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_dedup_rank",
-        "load_type": "overwrite"
-      },
       "transform": {
-        "configure": {
-          "deduplicate_by_rank": true
-        },
         "deduplicate_columns": [
           "order_id"
         ],
         "latest_data_columns": [
           "modified_at"
-        ]
+        ],
+        "configure": {
+          "deduplicate_by_rank": true
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_rank",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1136,15 +1111,15 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_dedup_no_order",
-        "load_type": "overwrite"
-      },
       "transform": {
         "deduplicate_columns": [
           "order_id"
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_no_order",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1154,11 +1129,6 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_addcols_literal",
-        "load_type": "overwrite"
       },
       "transform": {
         "additional_columns": [
@@ -1171,6 +1141,11 @@
             "expression": "'usecase_sim'"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_addcols_literal",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1180,11 +1155,6 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_addcols_expr",
-        "load_type": "overwrite"
       },
       "transform": {
         "additional_columns": [
@@ -1203,6 +1173,11 @@
             "data_type": "DATE"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_addcols_expr",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1213,13 +1188,13 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
+      "transform": {
+        "filter_expression": "amount > 100"
+      },
       "destination": {
         "connection_name": "local_parquet_dest",
         "table": "orders_filter_simple",
         "load_type": "overwrite"
-      },
-      "transform": {
-        "filter_expression": "amount > 100"
       }
     },
     {
@@ -1230,11 +1205,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_filter_compound",
-        "load_type": "overwrite"
-      },
       "transform": {
         "filter_expression": "status != 'cancelled' AND amount > 0",
         "schema_hints": [
@@ -1244,6 +1214,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_filter_compound",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1259,8 +1234,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_transform_filter_simple",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "filter__transform_date",
@@ -1271,11 +1245,6 @@
         "table": "sample",
         "filter_expression": "region = 'North' AND amount < 1000"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_transform_filter_date",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -1284,6 +1253,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_transform_filter_date",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1295,19 +1269,19 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_row_filter_computed",
-        "load_type": "overwrite"
-      },
       "transform": {
+        "filter_expression": "amount_double > 100.0",
         "additional_columns": [
           {
             "column": "amount_double",
             "expression": "CAST(amount AS DOUBLE)"
           }
-        ],
-        "filter_expression": "amount_double > 100.0"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_row_filter_computed",
+        "load_type": "overwrite"
       }
     },
     {
@@ -1319,13 +1293,13 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
+      "transform": {
+        "filter_expression": "region = 'North' AND quantity > 1"
+      },
       "destination": {
         "connection_name": "local_parquet_dest",
         "table": "orders_row_filter_simple",
         "load_type": "overwrite"
-      },
-      "transform": {
-        "filter_expression": "region = 'North' AND quantity > 1"
       }
     },
     {
@@ -1335,6 +1309,15 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
       },
       "destination": {
         "connection_name": "local_delta_dest",
@@ -1346,15 +1329,6 @@
             "expression": "EXTRACT(YEAR FROM order_date)"
           }
         ]
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
-          }
-        ]
       }
     },
     {
@@ -1364,6 +1338,15 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
       },
       "destination": {
         "connection_name": "local_delta_dest",
@@ -1377,15 +1360,6 @@
           {
             "column": "order_year",
             "expression": "EXTRACT(YEAR FROM order_date)"
-          }
-        ]
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
           }
         ]
       }
@@ -1405,8 +1379,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_file_mtime",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark__file_mtime_multi_col",
@@ -1424,8 +1397,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_file_multi",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark__data_col",
@@ -1444,8 +1416,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_data_col",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark_db__postgres",
@@ -1462,8 +1433,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_postgres",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark_db__oracle",
@@ -1480,8 +1450,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_oracle",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark_db__mysql",
@@ -1498,8 +1467,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_mysql",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark_db__mssql",
@@ -1516,8 +1484,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_mssql",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark_db__sqlite",
@@ -1534,8 +1501,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_sqlite",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "backward__days",
@@ -1557,8 +1523,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_backward_days",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "backward__months_closing_day",
@@ -1581,8 +1546,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_backward_months",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "python_fn__delta_sql",
@@ -1599,8 +1563,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_sql_result",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "python_fn__iceberg_sql",
@@ -1617,8 +1580,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_sql_result_iceberg",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "python_fn__custom_load",
@@ -1633,8 +1595,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_function",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_auth__none",
@@ -1651,8 +1612,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_none",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_auth__bearer",
@@ -1670,8 +1630,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_bearer",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_auth__api_key",
@@ -1689,8 +1648,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_apikey",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_auth__basic",
@@ -1708,8 +1666,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_basic",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_auth__oauth2",
@@ -1727,8 +1684,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_oauth2",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_auth__oauth2_basic_method",
@@ -1746,8 +1702,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_oauth2_basic",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_page__none",
@@ -1764,8 +1719,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_page_none",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_page__offset",
@@ -1785,8 +1739,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_page_offset",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_page__cursor",
@@ -1807,8 +1760,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_page_cursor",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_page__next_link",
@@ -1829,8 +1781,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_page_next_link",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_request__post_body",
@@ -1852,8 +1803,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_post_body",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_request__static_params",
@@ -1876,8 +1826,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_static_params",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_request__nested_data_path",
@@ -1897,8 +1846,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_nested",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_request__server_filter",
@@ -1921,8 +1869,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_server_filter",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_request__rate_limit",
@@ -1943,8 +1890,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_rate_limit",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_request__max_pages",
@@ -1965,8 +1911,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_max_pages",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__iso",
@@ -1993,8 +1938,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_iso",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__date_fmt",
@@ -2021,8 +1965,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_date",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__timestamp_ms",
@@ -2049,8 +1992,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_ts_ms",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__body",
@@ -2078,8 +2020,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_body",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__tz_conn",
@@ -2106,8 +2047,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_tz_conn",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__tz_src_override",
@@ -2135,8 +2075,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_tz_src",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__exclusive_offset",
@@ -2163,8 +2102,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_excl",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_range__day_interval",
@@ -2194,8 +2132,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_range_day",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_range__month_interval",
@@ -2225,8 +2162,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_range_month",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_range__year_interval",
@@ -2256,8 +2192,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_range_year",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_range__multi_worker",
@@ -2287,8 +2222,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_range_multi",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_range__with_bearer",
@@ -2318,8 +2252,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_range_bearer",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "date_folder__dest_partition",
@@ -2333,8 +2266,7 @@
         "connection_name": "local_parquet_date_folder_dest",
         "table": "orders_dated_dest",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "date_folder__src_partition",
@@ -2351,8 +2283,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_dated_src",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "hive_partition__source",
@@ -2366,8 +2297,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_from_hive",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__timestamp",
@@ -2394,8 +2324,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_timestamp",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__datetime",
@@ -2422,8 +2351,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_datetime",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_wm__datetime_ms",
@@ -2450,8 +2378,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_wm_datetime_ms",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "api_page__offset_concurrent",
@@ -2473,8 +2400,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_api_offset_concurrent",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__scd2",
@@ -2499,8 +2425,7 @@
         "configure": {
           "scd2_effective_column": "modified_at"
         }
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__merge_overwrite_rbw",
@@ -2520,6 +2445,15 @@
           }
         }
       },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
       "destination": {
         "connection_name": "local_delta_dest",
         "table": "orders_merge_overwrite_rbw",
@@ -2530,15 +2464,6 @@
         "configure": {
           "replace_by_watermark": true
         }
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
-          }
-        ]
       }
     },
     {
@@ -2552,11 +2477,6 @@
         "connection_name": "local_parquet_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_delta_dest",
-        "table": "orders_schema_evolve",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -2565,6 +2485,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
       }
     },
     {
@@ -2577,11 +2502,6 @@
       "source": {
         "connection_name": "local_parquet_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_delta_dest",
-        "table": "orders_schema_evolve",
-        "load_type": "append"
       },
       "transform": {
         "additional_columns": [
@@ -2601,6 +2521,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
       }
     },
     {
@@ -2618,8 +2543,7 @@
         "connection_name": "local_delta_dest",
         "table": "orders_read_delta_schema_evolve",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_delta__schema_evolve_fewer_cols",
@@ -2632,11 +2556,6 @@
         "connection_name": "local_parquet_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_delta_dest",
-        "table": "orders_schema_evolve",
-        "load_type": "append"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -2645,6 +2564,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
       }
     },
     {
@@ -2662,8 +2586,7 @@
         "connection_name": "local_delta_dest",
         "table": "orders_read_delta_schema_evolve_fewer",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_iceberg__scd2",
@@ -2688,8 +2611,7 @@
         "configure": {
           "scd2_effective_column": "modified_at"
         }
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_iceberg__merge_overwrite_rbw",
@@ -2708,6 +2630,15 @@
             "days": 7
           }
         }
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
       },
       "destination": {
         "connection_name": "local_iceberg_dest",
@@ -2729,15 +2660,6 @@
         "configure": {
           "replace_by_watermark": true
         }
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
-          }
-        ]
       }
     },
     {
@@ -2752,8 +2674,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_sqlite_query",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_delta__query",
@@ -2770,8 +2691,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_delta_query",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_delta__scd2",
@@ -2787,8 +2707,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_delta_scd2",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_iceberg__query",
@@ -2804,8 +2723,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_iceberg_query",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "read_iceberg__scd2",
@@ -2821,8 +2739,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_read_iceberg_scd2",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "combined__dedup_schema_addcols_partition",
@@ -2832,23 +2749,18 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_delta_dest",
-        "table": "orders_combined",
-        "load_type": "overwrite",
-        "partition_columns": [
-          {
-            "column": "order_year",
-            "expression": "EXTRACT(YEAR FROM order_date)"
-          }
-        ]
-      },
       "transform": {
         "deduplicate_columns": [
           "order_id"
         ],
         "latest_data_columns": [
           "modified_at"
+        ],
+        "additional_columns": [
+          {
+            "column": "etl_batch",
+            "expression": "'combined_test'"
+          }
         ],
         "schema_hints": [
           {
@@ -2862,11 +2774,16 @@
             "precision": 18,
             "scale": 2
           }
-        ],
-        "additional_columns": [
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_combined",
+        "load_type": "overwrite",
+        "partition_columns": [
           {
-            "column": "etl_batch",
-            "expression": "'combined_test'"
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
           }
         ]
       }
@@ -2879,11 +2796,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_string",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -2895,6 +2807,11 @@
             "data_type": "STRING"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_string",
+        "load_type": "overwrite"
       }
     },
     {
@@ -2905,11 +2822,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_dedup_composite",
-        "load_type": "overwrite"
-      },
       "transform": {
         "deduplicate_columns": [
           "order_id",
@@ -2918,6 +2830,11 @@
         "latest_data_columns": [
           "modified_at"
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_dedup_composite",
+        "load_type": "overwrite"
       }
     },
     {
@@ -2927,11 +2844,6 @@
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_hint_inactive",
-        "load_type": "overwrite"
       },
       "transform": {
         "schema_hints": [
@@ -2946,6 +2858,11 @@
             "is_active": false
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_hint_inactive",
+        "load_type": "overwrite"
       }
     },
     {
@@ -2956,21 +2873,21 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_no_ntz",
-        "load_type": "overwrite"
-      },
       "transform": {
-        "configure": {
-          "convert_timestamp_ntz": false
-        },
         "schema_hints": [
           {
             "column_name": "modified_at",
             "data_type": "TIMESTAMP"
           }
-        ]
+        ],
+        "configure": {
+          "convert_timestamp_ntz": false
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_no_ntz",
+        "load_type": "overwrite"
       }
     },
     {
@@ -2981,11 +2898,6 @@
         "connection_name": "local_csv_no_hint",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_skip",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -2994,6 +2906,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_skip",
+        "load_type": "overwrite"
       }
     },
     {
@@ -3004,11 +2921,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_boolean",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -3016,6 +2928,11 @@
             "data_type": "BOOLEAN"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_boolean",
+        "load_type": "overwrite"
       }
     },
     {
@@ -3026,11 +2943,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_bigint",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -3038,6 +2950,11 @@
             "data_type": "BIGINT"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_bigint",
+        "load_type": "overwrite"
       }
     },
     {
@@ -3048,11 +2965,6 @@
         "connection_name": "local_csv_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_parquet_dest",
-        "table": "orders_schema_ntz",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -3060,6 +2972,11 @@
             "data_type": "DATETIME"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_ntz",
+        "load_type": "overwrite"
       }
     },
     {
@@ -3082,8 +2999,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_backward_hours",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "backward__years",
@@ -3105,8 +3021,7 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_backward_years",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "write__json_to_jsonl",
@@ -3120,8 +3035,7 @@
         "connection_name": "local_jsonl_dest",
         "table": "orders_json_to_jsonl",
         "load_type": "full_load"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_iceberg__append_partitioned",
@@ -3137,6 +3051,15 @@
           "__file_modification_time"
         ]
       },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
       "destination": {
         "connection_name": "local_iceberg_dest",
         "table": "orders_appended_part",
@@ -3145,15 +3068,6 @@
           {
             "column": "order_year",
             "expression": "EXTRACT(YEAR FROM order_date)"
-          }
-        ]
-      },
-      "transform": {
-        "schema_hints": [
-          {
-            "column_name": "order_date",
-            "data_type": "DATE",
-            "format": "yyyy-MM-dd"
           }
         ]
       }
@@ -3167,14 +3081,6 @@
       "source": {
         "connection_name": "local_parquet_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_iceberg_dest",
-        "table": "orders_merged_nwm",
-        "load_type": "merge_upsert",
-        "merge_keys": [
-          "order_id"
-        ]
       },
       "transform": {
         "deduplicate_columns": [
@@ -3196,6 +3102,14 @@
             "scale": 2
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
       }
     },
     {
@@ -3209,11 +3123,6 @@
         "connection_name": "local_parquet_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_iceberg_dest",
-        "table": "orders_schema_evolve",
-        "load_type": "overwrite"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -3222,6 +3131,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
       }
     },
     {
@@ -3234,11 +3148,6 @@
       "source": {
         "connection_name": "local_parquet_source",
         "table": "sample"
-      },
-      "destination": {
-        "connection_name": "local_iceberg_dest",
-        "table": "orders_schema_evolve",
-        "load_type": "append"
       },
       "transform": {
         "additional_columns": [
@@ -3258,6 +3167,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
       }
     },
     {
@@ -3275,8 +3189,7 @@
         "connection_name": "local_iceberg_dest",
         "table": "orders_read_schema_evolve",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "load_iceberg__schema_evolve_fewer_cols",
@@ -3289,11 +3202,6 @@
         "connection_name": "local_parquet_source",
         "table": "sample"
       },
-      "destination": {
-        "connection_name": "local_iceberg_dest",
-        "table": "orders_schema_evolve",
-        "load_type": "append"
-      },
       "transform": {
         "schema_hints": [
           {
@@ -3302,6 +3210,11 @@
             "format": "yyyy-MM-dd"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
       }
     },
     {
@@ -3319,8 +3232,7 @@
         "connection_name": "local_iceberg_dest",
         "table": "orders_read_schema_evolve_fewer",
         "load_type": "overwrite"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "watermark_iceberg__data_col",
@@ -3339,14 +3251,13 @@
         "connection_name": "local_parquet_dest",
         "table": "orders_wm_iceberg_data_col",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "streaming__append",
-      "is_active": false,
       "stage": "streaming_deferred",
       "processing_mode": "streaming",
+      "is_active": false,
       "source": {
         "connection_name": "local_csv_source",
         "table": "sample"
@@ -3355,8 +3266,7 @@
         "connection_name": "local_delta_dest",
         "table": "orders_streaming",
         "load_type": "append"
-      },
-      "transform": {}
+      }
     },
     {
       "name": "replay__orders",
@@ -3368,11 +3278,6 @@
         "watermark_columns": [
           "modified_at"
         ]
-      },
-      "destination": {
-        "connection_name": "local_delta_dest",
-        "table": "orders_replay",
-        "load_type": "append"
       },
       "transform": {
         "schema_hints": [
@@ -3390,6 +3295,11 @@
             "data_type": "INTEGER"
           }
         ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_replay",
+        "load_type": "append"
       }
     }
   ],

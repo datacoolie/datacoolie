@@ -37,11 +37,12 @@ Sentinels handled by `WatermarkSerializer`:
 
 Everything else is plain JSON (ints, floats, strings, nested dicts, lists).
 
-## Read-side push-down
+## Read-side filtering
 
 Source readers apply the watermark **during** the read when possible:
 
-- **Parquet / Delta / Iceberg** — predicate pushdown on the watermark column.
+- **Parquet / Delta / Iceberg** — read through the engine, then apply the
+  engine's DataFrame watermark filter.
 - **Database (JDBC / connectorx)** — appended `WHERE watermark_col > ...`.
 - **API** — injected into request params/body via `source.configure`
   keys such as `watermark_param_mapping`, `watermark_to_param`,
@@ -52,7 +53,7 @@ Source readers apply the watermark **during** the read when possible:
 
 By default the comparison is `>` (strict greater-than), meaning "only rows
 newer than the last saved value".  During **replay**, the driver passes
-`watermark_operator=">="` (inclusive) so that the lower-bound chunk boundary is
+`watermark_start_operator=">="` (inclusive) so that the lower-bound chunk boundary is
 included in the read.  Source readers forward this operator to the engine's
 `apply_watermark_filter` method.
 

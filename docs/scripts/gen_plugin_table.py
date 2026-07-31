@@ -46,14 +46,14 @@ def _render(plugins: dict[str, dict[str, str]]) -> str:
     out.append("---\n\n")
     out.append("# Plugin entry points\n")
     out.append(
-        "DataCoolie discovers built-in and third-party plugins through "
+        "DataCoolie registers built-ins in-process and also discovers installed plugins through "
         "[Python entry points](https://packaging.python.org/en/latest/specifications/entry-points/). "
-        "The tables below are **generated from `pyproject.toml`** at docs-build time — they are "
-        "always in sync with the installed package.\n"
+        "The tables below are **generated from this repository's `pyproject.toml`** at docs-build "
+        "time and show its packaged entry-point declarations.\n"
     )
     out.append(
         "To ship your own plugin, declare the matching entry-point group in your package's "
-        "`pyproject.toml`; DataCoolie will pick it up on next import.\n"
+        "`pyproject.toml`; DataCoolie discovers it on the first registry lookup.\n"
     )
     for group, title in GROUPS:
         entries = plugins.get(group, {})
@@ -67,6 +67,12 @@ def _render(plugins: dict[str, dict[str, str]]) -> str:
             target = entries[name]
             out.append(f"\n| `{name}` | `{target}` |")
         out.append("\n")
+    out.append(
+        "\n## In-process-only built-ins\n\n"
+        "`row_filter` is registered directly by `datacoolie.__init__` and is part of the "
+        "default transformer pipeline, but it is not currently declared in the packaged "
+        "`datacoolie.transformers` entry-point group above.\n"
+    )
     return "".join(out)
 
 

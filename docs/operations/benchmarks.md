@@ -6,13 +6,13 @@ description: Compare DataCoolie Polars and Spark benchmark results, workload pro
 # Benchmarks
 
 DataCoolie ships a reproducible benchmark harness under
-[`usecase-sim/runner/run_perf_benchmark.py`](https://github.com/datacoolie/closed-loop/blob/main/datacoolie/usecase-sim/runner/run_perf_benchmark.py).
+[`usecase-sim/runner/run_perf_benchmark.py`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/runner/run_perf_benchmark.py).
 
 ## Running
 
 ```powershell
-python datacoolie/usecase-sim/runner/run_perf_benchmark.py --engine polars
-python datacoolie/usecase-sim/runner/run_perf_benchmark.py --engine spark
+python usecase-sim/runner/run_perf_benchmark.py --engine polars
+python usecase-sim/runner/run_perf_benchmark.py --engine spark
 ```
 
 Outputs JSON results to `datacoolie/benchmark_results/`:
@@ -34,7 +34,7 @@ sized to match typical ingestion workloads. Per-run metrics:
 
 ## Published report
 
-See [`benchmark_results/perf_report.md`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/benchmark_results/perf_report.md)
+See [`benchmark_results/perf_report.md`](https://github.com/datacoolie/datacoolie/blob/main/benchmark_results/perf_report.md)
 for the last committed run.
 
 ## Interpretation caveats

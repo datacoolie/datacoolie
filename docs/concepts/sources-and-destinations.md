@@ -40,10 +40,11 @@ for the generated table):
 optional upper ceiling for replay chunks; `watermark_end_operator` defaults
 to `"<"` (exclusive).
 
-The source reader is also responsible for **watermark push-down** — applying
-the watermark predicate *during* the read when the backend supports it (e.g.
-parquet predicate pushdown, JDBC WHERE clause). If pushdown is not possible the
-reader returns the full DataFrame and the framework filters afterwards.
+The source reader is responsible for watermark filtering. Database readers
+push a `WHERE` clause into SQL and API readers can map bounds into request
+parameters. File, Delta, Iceberg, and function readers apply the active
+engine's DataFrame filter after reading (file readers can additionally prune
+date folders or files by modification time).
 
 ### `filter_expression` (post-read filter)
 

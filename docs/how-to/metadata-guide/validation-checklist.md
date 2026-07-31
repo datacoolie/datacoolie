@@ -198,18 +198,23 @@ schema.
 ## 8. Load and run a quick smoke test
 
 Before a full production run, test with a small subset. The quickest way is to
-use `dry_run=True` — the driver validates and plans without writing anything:
+use `dry_run=True` to confirm metadata loading and selection without reading or
+writing. It does not test backend connectivity or transform expressions:
 
 ```python
 from datacoolie.core.models import DataCoolieRunConfig
 from datacoolie.orchestration.driver import DataCoolieDriver
 
-with DataCoolieDriver(engine=engine, metadata_provider=metadata) as driver:
-    result = driver.run(stage="ingest", run_config=DataCoolieRunConfig(dry_run=True))
+with DataCoolieDriver(
+    engine=engine,
+    metadata_provider=metadata,
+    config=DataCoolieRunConfig(dry_run=True),
+) as driver:
+    result = driver.run(stage="ingest")
 
 print(result)
-# ExecutionResult(total=1, succeeded=0, failed=0, skipped=1)
-# Skipped = dry run; no write attempted.
+# ExecutionResult(total=1, succeeded=0, failed=0, skipped=0, running=0, pending=0)
+# total = selected for dry run; no status is assigned because nothing executes.
 ```
 
 Or validate the metadata load alone:

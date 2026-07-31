@@ -556,6 +556,11 @@ class DeltaWriter(BaseDestinationWriter[DF]):
         errors: List[str] = []
         table_exists = self._engine.exists(table_name=table_name, path=path, fmt=fmt)
         aws_state = self._capture_aws_state(dataflow)
+        logger.debug(
+            "Delta maintenance — location=%s, table_exists=%s, do_compact=%s, "
+            "do_cleanup=%s, retention_hours=%d",
+            location, table_exists, do_compact, do_cleanup, retention_hours,
+        )
 
         if do_compact:
             sub_results.append(self._run_op(

@@ -31,8 +31,11 @@ from datacoolie.platforms.databricks_platform import DatabricksPlatform
 from datacoolie.metadata.database_provider import DatabaseProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
 
-engine = SparkEngine(spark, platform=DatabricksPlatform())
-metadata = DatabaseProvider(connection_string="jdbc:postgresql://…", workspace_id="your-workspace-id")
+engine = SparkEngine(spark_session=spark, platform=DatabricksPlatform())
+metadata = DatabaseProvider(
+    connection_string="postgresql+psycopg2://user:password@host:5432/metadata",
+    workspace_id="your-workspace-id",
+)
 
 with DataCoolieDriver(engine=engine, metadata_provider=metadata,
                      base_log_path="/Volumes/main/logs/datacoolie") as driver:
@@ -97,8 +100,8 @@ The checked-in usecase-sim assets are notebook-based, so this repo verifies the
 Workflow / notebook-task path rather than a raw Jobs API payload. In practice,
 wrap the notebook as a Databricks Workflow job with:
 
-- Spark version ≥ 13.3 LTS
-- Python 3.11 (Databricks DBR 14+)
+- a runtime whose Python version satisfies DataCoolie's `>=3.11,<4.0`
+- Spark/Delta versions compatible with the job's chosen table format
 - `datacoolie` as a cluster library, plus only the extra Python packages your
   metadata source or table format actually needs
 
@@ -111,4 +114,4 @@ repo-specific Jobs API JSON example checked in today.
 Use the Databricks platform guide in usecase-sim for the current sample
 notebooks, metadata file, and setup notes:
 
-- [`README.md`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/platforms/databricks/README.md)
+- [`README.md`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/platforms/databricks/README.md)

@@ -62,6 +62,10 @@ The engine's `scd2_to_path` / `scd2_to_table` then runs a two-step MERGE:
    `__valid_to = source.__valid_from` and `__is_current = false`.
 2. **Append step** — insert all source rows as new versions.
 
+Because the late-arrival guard applies only to the close step, equal or older
+effective timestamps are still appended. Filter/deduplicate upstream so each
+key advances strictly beyond its current `__valid_from`.
+
 No hash column is stored; versioning is driven entirely by the effective-date
 column you nominate. See [How-to · Merge & SCD2](../how-to/merge-and-scd2.md)
 for a worked example.

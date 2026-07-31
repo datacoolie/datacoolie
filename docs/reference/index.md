@@ -26,11 +26,11 @@ their source `.md` files checked into `docs/reference/`.
 ## Configuration contracts
 
 - [Metadata schema](metadata-schema.md) — **generated** from `datacoolie.core.models`.
-  Covers the full field-level schema for `Connection`, `Dataflow`, `Transform`,
+  Covers the full field-level schema for `Connection`, `DataFlow`, `Transform`,
   schema hints, load strategies, watermark config, and partition config.
-- [Plugin entry points](plugin-entry-points.md) — **generated** from `pyproject.toml`.
-  Lists all registered entry-point groups for sources, destinations, transformers,
-  engines, and secret resolvers.
+- [Plugin entry points](plugin-entry-points.md) — **generated** from
+  `pyproject.toml`. Lists packaged entry-point declarations; in-process-only
+  built-ins are called out separately.
 - [Environment variables](environment-variables.md) — runtime overrides that
   DataCoolie reads from the process environment.
 - [CLI](cli.md) — runner scripts available under `usecase-sim/runner/`.

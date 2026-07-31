@@ -16,7 +16,7 @@ from datacoolie.core.models import DataFlow
 
 
 class PiiMaskerTransformer(BaseTransformer):
-    # Slots 40-60 are reserved for user plugins. Pick one.
+    # Slots 40-50 are reserved for user plugins. Pick one.
     ORDER = 45
 
     @property
@@ -24,14 +24,16 @@ class PiiMaskerTransformer(BaseTransformer):
         return self.ORDER
 
     def transform(self, df, dataflow: DataFlow):
-        cfg = (dataflow.transform and dataflow.transform.additional.get("pii_mask")) or {}
+        cfg = dataflow.transform.configure.get("pii_mask", {})
         cols = cfg.get("columns", [])
         if not cols:
             self._mark_skipped()
             return df
 
         for c in cols:
-            df = self._engine.add_column(df, c, f"sha2({c}, 256)")
+            df = self._engine.add_column(
+                df, c, f"CASE WHEN {c} IS NULL THEN NULL ELSE '***' END"
+            )
 
         self._mark_applied(f"cols={len(cols)}")
         return df
@@ -46,18 +48,28 @@ pii_masker = "mypkg.transformers:PiiMaskerTransformer"
 
 ## Opt in from metadata
 
-The driver's `DEFAULT_TRANSFORMERS` list does not include your plugin. To
-use it:
+Registering a transformer makes it resolvable, but does not add it to the
+driver's `DEFAULT_TRANSFORMERS`. Use the documented driver extension hook:
 
 ```python
-driver = DataCoolieDriver(engine=engine, metadata_provider=metadata)
-driver._create_transformer_pipeline = lambda: build_pipeline(
-    engine,
-    names=["schema_converter", "deduplicator", "pii_masker", "system_column_adder", "column_name_sanitizer"],
-)
+from datacoolie import transformer_registry
+from datacoolie.orchestration.driver import DataCoolieDriver
+
+
+class PiiDriver(DataCoolieDriver):
+    def _create_transformer_pipeline(self):
+        pipeline = super()._create_transformer_pipeline()
+        pipeline.add_transformer(
+            transformer_registry.get("pii_masker", engine=self._engine)
+        )
+        return pipeline
+
+
+driver = PiiDriver(engine=engine, metadata_provider=metadata)
 ```
 
-Or subclass `DataCoolieDriver` and override `_create_transformer_pipeline`.
+`TransformerPipeline` sorts the combined list by each transformer's `order`
+when it runs.
 
 ## Order slot cheat-sheet
 
@@ -66,8 +78,10 @@ Or subclass `DataCoolieDriver` and override `_create_transformer_pipeline`.
 | 0–9 | Reserved for future framework pre-cast work |
 | **10** | `SchemaConverter` |
 | **20** | `Deduplicator` |
-| **30** | `ColumnAdder`, `SCD2ColumnAdder` |
-| **40–60** | **Your plugins** |
+| **30** | `ColumnAdder` |
+| **35** | `RowFilter` |
+| **40–50** | **Your plugins** |
+| **60** | `SCD2ColumnAdder` |
 | **70** | `SystemColumnAdder` |
 | **80** | `PartitionHandler` |
 | **90** | `ColumnNameSanitizer` |

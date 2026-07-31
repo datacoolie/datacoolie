@@ -60,21 +60,26 @@ pip install "datacoolie[all]"
 | `delta-spark` | `delta-spark>=3.0` | Spark + Delta Lake. |
 | `deltalake` | `deltalake>=0.15` | Polars + Delta Lake (delta-rs). |
 | `iceberg` | `pyiceberg>=0.6` | Apache Iceberg tables (any engine). |
-| `aws` | `boto3>=1.28` | `AWSPlatform` (S3, Secrets Manager, Glue). |
+| `boto3` | `boto3>=1.28` | AWS SDK only. |
 | `api` | `httpx>=0.24` | `APIReader` and the API metadata provider. |
 | `db` | `sqlalchemy>=2.0` | `DatabaseProvider` for metadata stored in an RDBMS. |
 | `excel` | `fastexcel`, `openpyxl` | Reading Excel files as sources or metadata. |
+| `fabric-spark` / `fabric-polars` | One selected engine bundle | Fabric with only the selected engine. |
 | `fabric` | spark + delta-spark + polars + deltalake | Microsoft Fabric notebooks / Spark pools. |
+| `databricks-spark` / `databricks-polars` | One selected engine bundle | Databricks with only the selected engine. |
 | `databricks` | spark + delta-spark + polars + deltalake | Databricks Runtime. |
+| `aws-spark` | `boto3` | AWS/Glue Spark; Spark and Delta are supplied by the Glue runtime. |
+| `aws-polars` | polars + Delta + Iceberg + `boto3` | AWS with Polars. |
+| `aws` | same as `aws-polars` | Full packaged AWS bundle; Spark/Delta Spark remain runtime-provided. |
 | `all` | everything above | Kitchen-sink local dev. |
 
 ## System requirements
 
 | Component | Minimum | Notes |
 |---|---|---|
-| Python | **3.11** | Strict — the framework uses PEP 604 unions and `TypeVar` defaults. |
-| Java | **17** for Spark | Only required when using `SparkEngine`. |
-| RAM | 4 GB (Polars) · 8 GB (Spark) | Per executor; scale with your data. |
+| Python | **3.11+**, below 4.0 | Enforced by package metadata. |
+| Java | Compatible with your installed PySpark runtime | Only required when using `SparkEngine`; the simulator image uses Java 17. |
+| RAM | — | Size for the engine, workload, partitions, and concurrency. |
 | Disk | — | Depends on your lakehouse layout. |
 
 !!! warning "Windows timezones"
@@ -89,9 +94,9 @@ import datacoolie
 
 print(datacoolie.__version__)
 
-# Listing registered plugins proves the install wired up entry points.
-print(sorted(datacoolie.engine_registry.names()))
-print(sorted(datacoolie.platform_registry.names()))
+# Includes import-registered built-ins and discovered installed entry points.
+print(datacoolie.engine_registry.list_plugins())
+print(datacoolie.platform_registry.list_plugins())
 ```
 
 Expected output (with `[all]`):

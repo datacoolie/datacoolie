@@ -5,7 +5,7 @@ description: "Contributor guide for DataCoolie: project setup, code quality rule
 
 # Contributing
 
-Full guidelines live in [`CONTRIBUTING.md`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/CONTRIBUTING.md)
+Full guidelines live in [`CONTRIBUTING.md`](https://github.com/datacoolie/datacoolie/blob/main/CONTRIBUTING.md)
 at the repository root. This page summarises the parts most relevant to
 documentation.
 

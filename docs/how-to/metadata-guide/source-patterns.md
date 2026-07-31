@@ -211,8 +211,8 @@ Same shape for Iceberg, just change `format`:
 | Path-based local/cloud table | `configure.base_path` + `schema_name` + `table` |
 | Registered metastore table | `catalog`, `database`, optional `schema_name`, `table` |
 
-Delta and Iceberg both support predicate push-down for watermarks when the
-engine supports it.
+Delta and Iceberg readers apply watermark bounds through the engine's
+DataFrame filter after the table read.
 
 ---
 
@@ -546,7 +546,7 @@ Behavior differs by source family:
 
 | Source family | Watermark behavior |
 |---------------|--------------------|
-| Parquet / Delta / Iceberg | Predicate push-down during read |
+| Parquet / Delta / Iceberg | Engine DataFrame filter after read |
 | Database | `WHERE` clause pushed to SQL |
 | API | Injected into request params/body when configured |
 | CSV / JSON / Excel | Read then filter in the engine |

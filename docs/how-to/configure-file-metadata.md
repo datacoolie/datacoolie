@@ -113,8 +113,22 @@ platform = LocalPlatform()
 provider = FileProvider(config_path="metadata/file/orders_csv_to_parquet_full_load.json", platform=platform)
 ```
 
-`FileProvider` detects format by extension (`.json`, `.yaml`, `.xlsx`). Pass
-a single metadata file — one `config_path` per `FileProvider` instance.
+`FileProvider` detects JSON, `.yaml`/`.yml`, and Excel paths. Use `.xlsx`;
+the implementation routes `.xls` to `openpyxl`, which does not read the
+legacy binary `.xls` format, so convert legacy workbooks first. The
+`config_path` is primary; optional `connections_path` and
+`schema_hints_path` files replace those sections, and `watermark_base_path`
+overrides the default sibling `watermarks/` location:
+
+```python
+provider = FileProvider(
+    config_path="metadata/dataflows.yaml",
+    connections_path="metadata/connections.json",
+    schema_hints_path="metadata/schema_hints.xlsx",
+    watermark_base_path="state/watermarks",
+    platform=platform,
+)
+```
 
 ## Generating YAML + Excel from JSON
 

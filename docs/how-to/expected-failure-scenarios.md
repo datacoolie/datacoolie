@@ -20,6 +20,8 @@ The current `usecase-sim` runner does **not** read scenario metadata such as
   process exit code.
 - `usecase-sim/runner/run.py` exits `0` on success and `2` on execution
   failure.
+- `usecase-sim/runner/run_scenario.py` returns `124` for a timeout, even when
+  the child exits during its graceful shutdown window.
 - `usecase-sim/scenarios/scenarios.json` does not currently define a built-in
   expected-failure schema.
 
@@ -63,6 +65,10 @@ If you use `run_scenario.py`, inspect the per-scenario console log written to
 ## Recording failures in ETL logs
 
 Failed runs still produce `dataflow_run_log` rows with `status = "failed"`.
+The row retains source, transform, or destination status, error details, and
+partial timings that were available before the exception. On a scenario
+timeout, the runner first signals the child and gives it 120 seconds to call
+`driver.close()` and flush logs before hard-killing it.
 The current logging pipeline does not mark a failure as "expected"
 automatically, so downstream dashboards need a separate convention if you want
 to suppress alerts for negative tests.

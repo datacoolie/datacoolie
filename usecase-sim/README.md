@@ -1,21 +1,21 @@
 # usecase-sim — DataCoolie Testbed & Scenarios
 
 End-to-end integration testbed and executable demo for the `datacoolie` ETL framework.
-Exercises every combination of `{polars, spark}` × `{file, database, api}` metadata
-sources × `{local, aws}` storage platforms, plus lakehouse maintenance
+Exercises the local `{polars, spark}` × `{file, database, api}` matrix,
+selected AWS-platform file scenarios, and lakehouse maintenance
 (compact / cleanup). A companion `docker-compose` stack provides realistic
 backends (Postgres/MySQL/MSSQL/Oracle, MinIO, Iceberg REST, Trino, a mock REST
 API, and a metadata REST API).
 
 > Examples use PowerShell syntax. Bash users: drop the leading `.\` on venv
 > paths and swap `\` for `/` in file arguments. All commands assume the working
-> directory is `datacoolie/` (repo: `datacoolie/datacoolie/`).
+> directory is the standalone repository root.
 
 ---
 
 ## 1. What is usecase-sim?
 
-- **Library under test:** the `datacoolie` package in `datacoolie/src/datacoolie/`.
+- **Library under test:** the `datacoolie` package in `src/datacoolie/`.
 - **What it exercises:** 24 named scenarios that combine 2 engines, 3 metadata
   sources, 2 storage platforms, and lakehouse maintenance.
 - **Why it exists:** one-command regression coverage for ETL behaviour across
@@ -27,11 +27,11 @@ API, and a metadata REST API).
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Python | ≥ 3.11 | Tested on 3.11.9 (Windows) |
+| Python | ≥ 3.11, < 4.0 | Matches package metadata |
 | Virtualenv | — | Recommended at the active checkout root as `.venv` |
-| `datacoolie` extras | `[polars,spark]` | Installed editable from repo root |
-| Docker Desktop | optional | Only required for P1 / P2 scenarios |
-| Java 17 | for Spark | Only required for `spark_*` scenarios |
+| `datacoolie` extras | `[all]` recommended | Installed editable from repo root |
+| Docker Desktop | required for the checked-in full matrix | Provides external stores/APIs and the recommended Windows Spark runtime |
+| Java 17 | for host Spark | Not needed when Spark runs in the provided container |
 
 Install into a fresh checkout-root venv:
 
@@ -39,7 +39,7 @@ Install into a fresh checkout-root venv:
 # From the checkout root
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e .\datacoolie[polars,spark]
+pip install -e ".[all]"
 ```
 
 ---
@@ -60,8 +60,9 @@ usecase-sim/
 ├── data/          # Generated inputs/outputs (gitignored)
 ├── logs/          # Framework logs (system_logs/, etl_logs/) + scenarios/ console logs (gitignored)
 └── platforms/
-    ├── databricks/  # DEFERRED
-    └── fabric/      # Prepared metadata + notebook samples (runner integration deferred)
+    ├── aws/          # Glue/local AWS samples; dispatcher integration remains separate
+    ├── databricks/  # Prepared metadata + notebook samples
+    └── fabric/      # Prepared metadata + notebook samples
 ```
 
 ---
@@ -73,10 +74,9 @@ target, generate every input dataset, and run every scenario. Takes a few
 minutes cold but has no "is service X up?" guesswork.
 
 ```powershell
-# From the inner package directory
-cd datacoolie
+# From the repository root
 
-# 1. Start all 10 containers and wait for ports (≈ 60 s cold, 10 s warm)
+# 1. Start all 11 services and wait for exposed ports (≈ 60 s cold, 10 s warm)
 python usecase-sim/scripts/setup_platform.py
 
 # 2. Seed metadata into file + every DB dialect + api-db
@@ -101,7 +101,7 @@ Or, for a first sanity check after step 3:
 
 ```powershell
 python usecase-sim/runner/run_scenario.py --scenario local_polars_file
-# ETL complete — Success: 121, Failed: 0, Skipped: 0
+# Result — total: <selected>, succeeded: <selected>, failed: 0, skipped: 0
 # Total: 1 | PASS: 1 | FAIL: 0
 ```
 
@@ -116,22 +116,21 @@ python usecase-sim/scripts/setup_platform.py --down --volumes
 
 ### Running only what you need
 
-Once the full path works, you can trim. Minimum required services per scenario
-tier:
+Once the full path works, you can trim by looking at the **selected dataflows**,
+not only the scenario priority. Most file/database/API scenarios use
+`stage: ""`, so they execute the broad `local_use_cases` metadata set and can
+touch database sources, the mock API, MinIO, and Iceberg in one run. Starting
+the full stack is the reliable default.
 
-| Tier | Services |
-|---|---|
-| P0 `*_file` (polars / spark) | `minio` + `iceberg-rest` (+ `mock-api` if not skipping API sources) |
-| P1 database — SQLite | none |
-| P1 database — `postgres` / `mysql` / `mssql` / `oracle` | the matching container |
-| P1 api | `postgres` + `metadata-api` |
-| P1 / P2 iceberg maintenance | `minio` + `iceberg-rest` |
-| P2 `aws_*` | `minio` + `iceberg-rest` |
+Narrow-stage replay scenarios and connection-filtered maintenance scenarios
+need only the backends their selected dataflows touch. Iceberg maintenance
+needs `minio` + `iceberg-rest`; API metadata needs `postgres` +
+`metadata-api`. Spark scenarios can run on a host JVM, but on Windows the
+dispatcher uses the running `spark` container when available.
 
-> The runner eagerly builds an Iceberg REST catalog for every Polars `*_file`
-> scenario, so `iceberg-rest` and `minio` are hard requirements even when no
-> Iceberg stage runs. If you want a smaller stack, target a different scenario
-> family (database / api / maintenance).
+`run.py` also builds an Iceberg REST catalog for every Polars invocation,
+regardless of metadata-source family. With the default local catalog, keep
+`iceberg-rest` and `minio` available for the checked-in Polars matrix.
 
 > `setup_metadata.py` with no args defaults to `file,db:sqlite,db:postgresql`
 > and therefore needs the `postgres` container. Narrow `--targets` when
@@ -168,7 +167,8 @@ python usecase-sim/runner/run_scenario.py --all
 | Concern | Handling |
 |---|---|
 | Spark JVM cooldown | 6 s pause + stale `spark-warehouse/` + `metastore_db/` wipe between Spark scenarios |
-| Timeouts | 300 s (spark), 180 s (polars), 600 s (maintenance); override per scenario via `"timeout_seconds"` |
+| Timeouts | 450 s (spark), 300 s (polars), 600 s (maintenance); override per scenario via `"timeout_seconds"` |
+| Cancellation | On timeout, signal the child, allow 120 s for `driver.close()` and log flush, then hard-kill if needed |
 | Exit code | `0` iff every scenario passed |
 
 ### Direct runner invocation (advanced)
@@ -189,7 +189,7 @@ python usecase-sim/runner/run.py `
 
 Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 
-### P0 — local filesystem I/O (still needs `minio` + `iceberg-rest`)
+### P0 — fast regression set (not necessarily Docker-free)
 
 | Key | Engine | Source | Notes |
 |---|---|---|---|
@@ -228,8 +228,8 @@ Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 | `aws_spark_delta_maintenance` | spark | maintenance | minio |
 | `aws_spark_iceberg_maintenance` | spark | maintenance | minio + iceberg-rest |
 
-> All four P0 scenarios require `minio` + `iceberg-rest` because the Polars
-> runner eagerly builds an Iceberg REST catalog. `local_polars_file` and
+> P0 is a priority label, not an isolation guarantee. Scenarios with
+> `stage: ""` can touch the broad metadata set. `local_polars_file` and
 > `local_polars_file_yaml` additionally need `mock-api` on port 8082 for their
 > API-source dataflows; the `_excel` and `_spark_file` variants set
 > `skip_api_sources: true` and therefore avoid that dependency.
@@ -257,7 +257,7 @@ Unified ETL runner. Dispatches any `(engine × metadata-source)` combination.
 | `--metadata-workspace-id` | db/api | — | Workspace ID |
 | `--stage` | ✓ | — | Stage name(s); `""` runs all stages |
 | `--column-name-mode` | | `lower` | `lower` \| `snake` |
-| `--dry-run` | | off | Skip writes |
+| `--dry-run` | | off | Load/select metadata only; skip reads, transforms, writes, and watermarks |
 | `--storage-options KEY=VALUE` | | `[]` | Repeatable; passed to Polars / object store |
 | `--iceberg-catalog-uri` | | `None` | Override Iceberg REST URI |
 | `--catalog-preset` | | `local` | `local` \| `unity_catalog` |
@@ -286,7 +286,7 @@ Compact + cleanup for Delta and Iceberg tables.
 | `--do-compact` / `--no-compact` | | on | Enable/disable compaction |
 | `--do-cleanup` / `--no-cleanup` | | on | Enable/disable cleanup |
 | `--retention-hours` | | `168` | File retention window |
-| `--dry-run` | | off | Dry-run mode |
+| `--dry-run` | | off | Accepted and passed into run config, but current `run_maintenance()` does not enforce it; do not use as a safety switch |
 | `--storage-options KEY=VALUE` | | `[]` | Repeatable |
 | `--catalog-preset` | | `local` | `local` \| `unity_catalog` |
 | `--iceberg-catalog-uri` | | `None` | Override Iceberg REST URI |
@@ -311,6 +311,12 @@ The dispatcher writes three kinds of logs under `usecase-sim/logs/`:
 - `logs/scenarios/run_scenario.log` — dispatcher's own log (which scenarios ran, commands, pass/fail summary).
 - `logs/scenarios/<name>.console.log` — full stdout+stderr tee of each scenario's child process (also streamed live to the terminal).
 
+On graceful cancellation the child handles `SIGINT`, `SIGTERM`, or Windows
+`SIGBREAK`, closes the driver to flush framework logs, and exits. The
+dispatcher still reports a timeout as exit code `124`; after the 120-second
+grace period it hard-kills a child that has not exited. AWS scenarios send
+framework logs to `s3://datacoolie-test/logs`.
+
 ### `runner/_runner_utils.py`
 
 Shared factory module. Key exports:
@@ -321,7 +327,8 @@ Shared factory module. Key exports:
 - `run_and_report(driver, stage, ...)` — runs the driver, logs the result, optionally stops Spark.
 - `replay_and_report(driver, stage, ..., replay_start, replay_end, replay_chunk_interval, ...)` — runs `driver.run_replay()` with a `ReplayConfig` built from the supplied arguments.
 
-Three catalog presets are supported:
+Two catalog presets are supported; `unity_catalog` has two deployment/auth
+forms:
 
 | Preset | `--iceberg-catalog-uri` default | Auth |
 |---|---|---|
@@ -439,7 +446,7 @@ Notes:
 
 ## 9. Docker stack (P1 / P2)
 
-`usecase-sim/docker/docker-compose.yml` brings up a 10-service stack. All
+`usecase-sim/docker/docker-compose.yml` defines an 11-service stack. All
 credentials are hardcoded — intended for local dev only.
 
 | Service | Port(s) | Credentials | Purpose |
@@ -623,11 +630,9 @@ python usecase-sim/runner/maintenance.py `
     --retention-hours 168
 ```
 
-**Known sharp edge.** Two maintenance dataflows writing to the same physical
-Delta path (e.g. both pointing at `orders_schema_evolve`) can race and surface
-as *"concurrent transaction deleted the same data your transaction deletes"*.
-This is a concurrency property of the lakehouse format, not a usecase-sim
-bug — serialise such jobs or point them at distinct paths.
+The driver deduplicates maintenance targets by physical destination within one
+run. Separate scheduler invocations can still race on the same Delta path;
+serialise those external jobs or use distinct targets.
 
 ---
 
@@ -648,7 +653,7 @@ python usecase-sim/runner/run_perf_benchmark.py --report-only
 
 Notes:
 
-- Run all benchmark commands from the inner `datacoolie/` directory.
+- Run all benchmark commands from the repository root.
 - `--reset` calls `usecase-sim/scripts/reset_perf_data.py` and clears perf outputs only. It does not delete generated inputs or `benchmark_results/`.
 - Each engine run writes one JSON file to `./benchmark_results/` and also regenerates `perf_report.md` from whatever result files already exist.
 - `--report-only` is the clean way to rebuild the final comparison after both engine runs finish.
@@ -672,11 +677,12 @@ Notes:
 
 ---
 
-## 15. Deferred platforms
+## 15. Platform-specific assets
 
-Databricks runner integration is planned but not implemented in this testbed.
-Fabric runner integration is also deferred, but prepared Fabric assets are now
-available in this repository.
+The central `scenarios.json` dispatcher covers local and AWS-compatible
+scenarios. Native Fabric and Databricks execution remains notebook-based and
+is not integrated into that dispatcher. AWS has separate Glue/local sample
+scripts under `platforms/aws/`.
 
 Fabric assets:
 
@@ -684,6 +690,20 @@ Fabric assets:
 - [`platforms/fabric/fabric_use_cases.json`](platforms/fabric/fabric_use_cases.json)
 - [`platforms/fabric/sample_fabric_spark.ipynb`](platforms/fabric/sample_fabric_spark.ipynb)
 - [`platforms/fabric/sample_fabric_polars.ipynb`](platforms/fabric/sample_fabric_polars.ipynb)
+
+Databricks assets:
+
+- [`platforms/databricks/README.md`](platforms/databricks/README.md)
+- [`platforms/databricks/databricks_use_cases.json`](platforms/databricks/databricks_use_cases.json)
+- [`platforms/databricks/sample_databricks_spark.ipynb`](platforms/databricks/sample_databricks_spark.ipynb)
+- [`platforms/databricks/sample_databricks_polars.ipynb`](platforms/databricks/sample_databricks_polars.ipynb)
+
+AWS assets:
+
+- [`platforms/aws/README.md`](platforms/aws/README.md)
+- [`platforms/aws/aws_glue_use_cases.json`](platforms/aws/aws_glue_use_cases.json)
+- [`platforms/aws/sample_aws_glue_spark.py`](platforms/aws/sample_aws_glue_spark.py)
+- [`platforms/aws/sample_aws_local_polars.py`](platforms/aws/sample_aws_local_polars.py)
 
 Deferred status details:
 

@@ -38,7 +38,7 @@ from datacoolie.orchestration.driver import DataCoolieDriver
 
 spark = GlueContext(SparkContext.getOrCreate()).spark_session
 platform = AWSPlatform(region="us-east-1")
-engine = SparkEngine(spark, platform=platform)
+engine = SparkEngine(spark_session=spark, platform=platform)
 metadata = FileProvider(config_path="s3://my-bucket/metadata/orders.json", platform=platform)
 
 with DataCoolieDriver(engine=engine, metadata_provider=metadata,
@@ -108,14 +108,14 @@ checked-in Glue sample.
 
 ## 6. Iceberg alternative
 
-If you would rather use Iceberg than Delta on Glue, switch the connection to
-`fmt="iceberg"`, set `catalog="glue_catalog"`, and keep a real Glue database
+If you would rather use Iceberg than Delta on Glue, set the connection's
+`format` to `"iceberg"`, set `catalog="glue_catalog"`, and keep a real Glue database
 name (the AWS sample metadata uses `database="datacoolie"`). This skips the
 Athena-native Delta registration path entirely and uses Glue Catalog-backed
 Iceberg tables instead.
 
 For Spark jobs, include the Glue Iceberg runtime/JARs. For Python Shell jobs,
-the checked-in `sample_aws_glue_polars.py` uses `pyiceberg`, and Glue catalog
+the checked-in `sample_aws_local_polars.py` uses `pyiceberg`, and Glue catalog
 support requires `PYICEBERG_CATALOG__GLUE__TYPE=glue` plus the appropriate Glue
 permissions.
 
@@ -124,4 +124,4 @@ permissions.
 Use the AWS platform guide in usecase-sim for the current sample scripts,
 metadata file, and setup notes:
 
-- [`README.md`](https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/platforms/aws/README.md)
+- [`README.md`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/platforms/aws/README.md)

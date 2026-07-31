@@ -5,11 +5,12 @@ description: Build a custom DataCoolie engine plugin that implements the BaseEng
 
 # Write an engine
 
-**Prerequisites** · You have a DataFrame library you want to run DataCoolie pipelines on · you're ready to implement ~40 abstract methods.
+**Prerequisites** · You have a DataFrame library you want to run DataCoolie pipelines on · you're ready to implement the full engine contract.
 **End state** · A new engine that passes the engine conformance tests and can be selected via `create_engine("mylib")`.
 
 !!! warning "Large surface area"
-    `BaseEngine` has ~40 abstract methods. Expect a multi-week effort. Start
+    The current `BaseEngine` has 49 abstract methods. Expect a substantial
+    implementation and conformance effort. Start
     by copying `datacoolie.engines.polars_engine.PolarsEngine` as a template —
     it's the smaller of the two built-ins.
 
@@ -46,8 +47,8 @@ class MyLibEngine(BaseEngine[mylib.DataFrame]):
     # --- Merge ---
     def merge_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None): ...
     def merge_overwrite_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None): ...
-    def merge_to_table(self, df, table_name, merge_keys, fmt="delta", options=None): ...
-    def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", options=None): ...
+    def merge_to_table(self, df, table_name, merge_keys, fmt, partition_columns=None, options=None): ...
+    def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None): ...
 
     # --- Transform, system columns, metrics, maintenance, SCD2 ---
     # (see BaseEngine for the full list)
@@ -61,7 +62,10 @@ signatures:
 
 ```python
 def read_table(self, table_name: str, fmt: str = "delta", options=None): ...
-def merge_to_table(self, df, table_name, merge_keys, fmt: str = "delta", options=None): ...
+def merge_to_table(
+    self, df, table_name, merge_keys, fmt: str,
+    partition_columns=None, options=None,
+): ...
 def table_exists_by_name(self, table_name: str, *, fmt: str = "delta") -> bool: ...
 ```
 
@@ -85,8 +89,8 @@ Run the framework's engine tests against your implementation. At minimum:
   engine methods.
 - The full `tests/unit/destinations/` suite.
 
-For reference the Polars engine ships 73 dedicated tests; expect similar
-coverage for a new engine.
+Use the built-in Polars and Spark implementations as behavioural references;
+do not infer conformance from an implementation-specific test count.
 
 ## `delete_by_window` — Range-based delete
 

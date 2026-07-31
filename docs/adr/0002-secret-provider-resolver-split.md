@@ -9,36 +9,33 @@ description: Why DataCoolie separates secret storage access from secret value re
 
 ## Context
 
-Original design had a single `SecretResolver` that both parsed placeholder
-strings and fetched values. Adding a new placeholder syntax (e.g.
-`vault:…`) required reimplementing the fetch logic even when the underlying
-backend was the same as an existing one.
-
-Conversely, swapping backends (local env → Key Vault → Secrets Manager)
-required touching the placeholder parser.
+Secret lookup needs a platform-native fallback and an explicit way to select
+other backends from metadata without hard-coding them into the driver.
 
 ## Decision
 
 Two responsibilities, two abstractions:
 
 - **`BaseSecretProvider`** — *fetches* a secret from a backend
-  (`fetch_secret(source, field) -> str`). Implemented by each platform
+  (`get_secret(key, source) -> str`, backed by `_fetch_secret`). Implemented by each platform
   (Fabric, Databricks, AWS, Local).
-- **`BaseSecretResolver`** — *parses* a placeholder string and decides which
-  provider call to make (`matches(value) -> bool`, `resolve(value,
-  provider) -> str`).
+- **`BaseSecretResolver`** — resolves a key for a source argument
+  (`resolve(key, source) -> str`).
 
-Resolvers discovered via the `datacoolie.resolvers` entry-point group.
-Providers are chosen by the active platform (no plugin lookup).
+`secrets_ref` sources of the form `<prefix>:<argument>` select a registered
+resolver by prefix. Unrecognised or unprefixed sources use
+`NativeProviderResolver`, which adapts the active platform provider. Resolvers
+are discovered via `datacoolie.resolvers`; providers are constructor-selected
+through the active platform.
 
 ## Consequences
 
-- Adding a new placeholder syntax = one class.
+- Adding a new resolver prefix/backend integration = one class.
 - Adding a new backend = one class.
-- `EnvResolver` is the special case: resolves `env:FOO` from `os.environ`
-  directly without hitting a provider.
-- Users with legacy `SecretResolver` subclasses must migrate — we
-  deliberately broke the API.
+- `EnvResolver` resolves a configure key through `os.environ` using the
+  source argument as a prefix.
+- Resolver instances are cached as singletons by the driver registry lookup
+  and are constructed without arguments.
 
 ## Related
 

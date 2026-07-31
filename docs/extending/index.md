@@ -18,7 +18,7 @@ framework capability.
 | Write a new format/target | `BaseDestinationWriter[DF]` | `datacoolie.destinations` | [Write a destination](writing-a-destination.md) |
 | Transform rows before write | `BaseTransformer[DF]` | `datacoolie.transformers` | [Write a transformer](writing-a-transformer.md) |
 | Add a DataFrame library | `BaseEngine[DF]` | `datacoolie.engines` | [Write an engine](writing-an-engine.md) |
-| Resolve a new placeholder syntax | `BaseSecretResolver` | `datacoolie.resolvers` | [Write a secret resolver](writing-a-secret-resolver.md) |
+| Resolve a new `secrets_ref` source prefix | `BaseSecretResolver` | `datacoolie.resolvers` | [Write a secret resolver](writing-a-secret-resolver.md) |
 | Serve metadata from a new backend | `BaseMetadataProvider` | *(constructor-injected — no entry point)* | [Write a metadata provider](writing-a-metadata-provider.md) |
 
 ## The contract pattern

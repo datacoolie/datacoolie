@@ -11,9 +11,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import shutil
+import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -57,6 +60,12 @@ SPARK_CLEANUP_DIRS = [
     DATACOOLIE_ROOT / "metastore_db",
 ]
 SPARK_COOLDOWN_SECS = 6
+
+# Grace window (seconds) a cancelled child gets to flush + push logs AND tear
+# down Spark/JVM before a hard kill. Spark session shutdown alone can take
+# 30-60s, so this is deliberately generous; a healthy child exits as soon as
+# teardown finishes and does not wait the full window.
+GRACEFUL_SHUTDOWN_SECS = 120
 
 # Default per-scenario timeouts (seconds). Override via scenario["timeout_seconds"].
 DEFAULT_TIMEOUTS = {
@@ -193,6 +202,9 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
         # absolute paths are converted to their container equivalents.
         script_path = _to_container_path(script)
         container_log = CONTAINER_ROOT + "/usecase-sim/logs"
+        # AWS-platform loggers route through AWSPlatform, which needs an s3:// URI;
+        # only local-platform loggers write to the container filesystem path.
+        docker_log = AWS_LOG_PATH if platform == "aws" else container_log
         # `-e` sets PYTHONUNBUFFERED so tee streams work the same as -u on the host.
         cmd = [
             "docker", "exec", "-e", "PYTHONUNBUFFERED=1",
@@ -200,7 +212,7 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
             "python3", script_path,
             "--engine", scenario["engine"],
             "--platform", platform,
-            "--log-path", container_log,
+            "--log-path", docker_log,
         ]
     else:
         # `-u` forces unbuffered stdout in the child so the tee streams live.
@@ -286,8 +298,57 @@ def _pre_clean_paths(scenario: dict) -> None:
 # ---------------------------------------------------------------------------
 # Subprocess tee runner
 # ---------------------------------------------------------------------------
+def _send_cancel_signal(proc: subprocess.Popen, cmd: list[str], is_docker: bool) -> None:
+    """Send a *graceful* cancel signal so the child can flush + push its logs.
+
+    Mirrors real-platform cancellation (SIGTERM). Never hard-kills here — the
+    caller owns the grace window and the hard-kill fallback.
+    """
+    try:
+        if is_docker:
+            # Signal only the target process *inside* the shared container —
+            # never ``docker stop`` the container itself (other scenarios reuse
+            # it).  Best-effort; falls back to killing the local exec client.
+            marker = next(
+                (Path(a).name for a in cmd if a.endswith(".py")), "run.py",
+            )
+            try:
+                subprocess.run(
+                    ["docker", "exec", DOCKER_SPARK_CONTAINER,
+                     "pkill", "-TERM", "-f", marker],
+                    timeout=10, capture_output=True, text=True,
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass
+        elif os.name == "nt":
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            proc.send_signal(signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
+
+
 def _run_with_tee(cmd: list[str], console_log: Path, timeout: int) -> tuple[int, str]:
-    """Run `cmd`, stream stdout to terminal + `console_log`, enforce `timeout`."""
+    """Run `cmd`, stream stdout to terminal + `console_log`, enforce `timeout`.
+
+    A watchdog thread owns cancellation timing (soft timeout → graceful signal →
+    grace window → hard kill) using ``proc.wait`` only.  The main thread keeps
+    draining stdout the whole time so the child never blocks writing to a full
+    pipe while it flushes logs and tears down Spark/JVM on cancel.
+    """
+    is_docker = cmd[:2] == ["docker", "exec"]
+    # Put the child in its own process group so a graceful cancel signal
+    # (CTRL_BREAK on Windows / SIGTERM on POSIX) can be delivered without
+    # also hitting this parent runner.
+    popen_kwargs: dict = {}
+    if os.name == "nt":
+        if not is_docker:
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    timed_out = threading.Event()
+
     with open(console_log, "w", encoding="utf-8") as log_fh:
         proc = subprocess.Popen(
             cmd,
@@ -298,22 +359,49 @@ def _run_with_tee(cmd: list[str], console_log: Path, timeout: int) -> tuple[int,
             encoding="utf-8",
             errors="replace",
             cwd=str(DATACOOLIE_ROOT),
+            **popen_kwargs,
         )
-        deadline = time.monotonic() + timeout
-        try:
-            for line in proc.stdout:  # type: ignore[union-attr]
-                sys.stdout.write(line)
-                sys.stdout.flush()
-                log_fh.write(line)
-                if time.monotonic() > deadline:
-                    proc.kill()
-                    proc.wait()
-                    return 124, f"FAIL (timeout after {timeout}s)"
-            rc = proc.wait(timeout=max(1.0, deadline - time.monotonic()))
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
-            return 124, f"FAIL (timeout after {timeout}s)"
+
+        def _watchdog() -> None:
+            # Wait out the soft timeout; if the child finishes first, do nothing.
+            try:
+                proc.wait(timeout=timeout)
+                return
+            except subprocess.TimeoutExpired:
+                pass
+            timed_out.set()
+            logger.warning(
+                "  [cancel] timeout after %ss - sending graceful signal (grace=%ss)",
+                timeout, GRACEFUL_SHUTDOWN_SECS,
+            )
+            _send_cancel_signal(proc, cmd, is_docker)
+            # Give the child time to flush + push logs and tear down cleanly.
+            try:
+                proc.wait(timeout=GRACEFUL_SHUTDOWN_SECS)
+                logger.info("  [cancel] child flushed and exited within grace window")
+            except subprocess.TimeoutExpired:
+                logger.warning(
+                    "  [cancel] child did not exit within %ss - hard kill",
+                    GRACEFUL_SHUTDOWN_SECS,
+                )
+                proc.kill()
+
+        watchdog = threading.Thread(target=_watchdog, daemon=True)
+        watchdog.start()
+
+        # Drain stdout continuously until the child exits (pipe closes). This
+        # keeps the pipe empty so a cancelled child can keep logging/tearing
+        # down without blocking on a full stdout buffer.
+        for line in proc.stdout:  # type: ignore[union-attr]
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            log_fh.write(line)
+
+        rc = proc.wait()
+        watchdog.join(timeout=5)
+
+    if timed_out.is_set():
+        return 124, f"FAIL (timeout after {timeout}s)"
     return rc, ("PASS" if rc == 0 else f"FAIL (exit {rc})")
 
 

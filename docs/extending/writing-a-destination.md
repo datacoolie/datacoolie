@@ -11,48 +11,52 @@ description: Build a custom DataCoolie destination plugin that writes engine dat
 ## Minimal writer
 
 ```python
-from typing import Optional
+from typing import Any, Dict, List
 
 from datacoolie.destinations.base import BaseDestinationWriter
-from datacoolie.core.models import DataFlow, DestinationRuntimeInfo
+from datacoolie.core.exceptions import DestinationError
+from datacoolie.core.models import DataFlow
 from datacoolie.core.constants import LoadType
 
 
 class MyDestinationWriter(BaseDestinationWriter):
     def _write_internal(self, df, dataflow: DataFlow) -> None:
         dest = dataflow.destination
-        conn = dataflow.destination.connection
-        path = f"{conn.base_path}/{dest.schema_name}/{dest.table}"
+        conn = dest.connection
+        path = dest.path
+        if not path:
+            raise DestinationError("MyDestinationWriter requires a destination path")
 
-        mode = dest.load_type
+        mode = dataflow.load_type
         if mode in (LoadType.APPEND.value, LoadType.OVERWRITE.value, LoadType.FULL_LOAD.value):
             self._engine.write_to_path(
                 df, path,
                 mode="overwrite" if mode != LoadType.APPEND.value else "append",
                 fmt="myfmt",
-                partition_columns=[p.column for p in (dest.partition_columns or [])],
-                options=conn.write_options,
+                partition_columns=dest.partition_column_names,
+                options=dest.write_options or None,
             )
         elif mode == LoadType.MERGE_UPSERT.value:
             self._engine.merge_to_path(df, path, merge_keys=dest.merge_keys, fmt="myfmt")
         else:
             raise NotImplementedError(f"LoadType {mode!r} not supported by MyDestinationWriter")
 
-    def run_maintenance(
+    def _maintain_internal(
         self,
         dataflow: DataFlow,
         *,
-        do_compact: bool = True,
-        do_cleanup: bool = True,
-        retention_hours: Optional[int] = None,
-    ) -> DestinationRuntimeInfo:
-        # Optional — override only if your format supports OPTIMIZE / VACUUM.
-        return DestinationRuntimeInfo(status="not_supported")
+        do_compact: bool,
+        do_cleanup: bool,
+        retention_hours: int,
+    ) -> tuple[List[Dict[str, Any]], List[str]]:
+        raise DestinationError("Maintenance is not supported for myfmt")
 ```
 
 The framework calls the public `write(df, dataflow)` method; subclasses
-implement `_write_internal`. The base class wraps it with timing, error
-handling, and `DestinationRuntimeInfo` population.
+implement `_write_internal` and `_maintain_internal`. The base class wraps both
+paths with timing, error handling, and `DestinationRuntimeInfo` population.
+Raise `DestinationError` from `_maintain_internal` when the format has no
+maintenance operations.
 
 ## Register
 

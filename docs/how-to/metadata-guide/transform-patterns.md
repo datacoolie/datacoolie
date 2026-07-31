@@ -15,11 +15,12 @@ built-in transformer pipeline, which runs between read and write in this order:
 |-------|-------------|--------------|
 | 10 | `SchemaConverter` | `transform.schema_hints` |
 | 20 | `Deduplicator` | `transform.deduplicate_columns` |
-| 30 | `ColumnAdder` | `transform.additional_columns` || 35 | `RowFilter` | `transform.filter_expression` |
+| 30 | `ColumnAdder` | `transform.additional_columns` |
+| 35 | `RowFilter` | `transform.filter_expression` |
 | 60 | `SCD2ColumnAdder` | `destination.load_type = "scd2"` |
 | 70 | `SystemColumnAdder` | Always (adds `__created_at`, `__updated_at`, `__updated_by`) |
 | 80 | `PartitionHandler` | `destination.partition_columns` |
-| 90 | `ColumnNameSanitizer` | Always (lowercases column names) |
+| 90 | `ColumnNameSanitizer` | Always (`lower` by default; configurable as `snake`) |
 
 !!! info "System columns are always added"
     `__created_at`, `__updated_at`, and `__updated_by` are added to **every**
@@ -411,9 +412,10 @@ Example:
 
 ## Final step: column-name sanitization
 
-After all configured transforms run, `ColumnNameSanitizer` lowercases column
-names. Plan for lowercase destination columns even when the source used mixed
-case, quoted identifiers, or API keys like `CustomerID`.
+After all configured transforms run, `ColumnNameSanitizer` applies the
+driver's `column_name_mode`: `lower` by default, or `snake` when requested.
+Plan for normalised destination columns when the source uses mixed case,
+quoted identifiers, or API keys like `CustomerID`.
 
 ---
 
@@ -453,7 +455,7 @@ case, quoted identifiers, or API keys like `CustomerID`.
     ],
     "configure": {
       "convert_timestamp_ntz": true
-    ]
+    }
   }
 }
 ```
@@ -470,7 +472,7 @@ case, quoted identifiers, or API keys like `CustomerID`.
 | `date()` function fails on Polars | Polars SQL doesn't support `date(col)` | Use `CAST(col AS DATE)` |
 | Partition column missing | `expression` references a column that doesn't exist yet | Cast or add the column via `schema_hints` or `additional_columns` first |
 | `__updated_at` not found in `additional_columns` | System columns are added later in the pipeline | Do not reference system columns in `additional_columns` |
-| Destination columns are unexpectedly lowercase | `ColumnNameSanitizer` runs at the end of every pipeline | Expect lowercase output column names |
+| Destination columns are unexpectedly lowercase | `ColumnNameSanitizer` runs at the end and defaults to `lower` | Expect lowercase output or run with `column_name_mode="snake"` |
 
 ---
 

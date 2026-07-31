@@ -136,14 +136,16 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
             return self._runtime_info
 
-        except DestinationError:
+        except DestinationError as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
+            logger.error("Destination write failed: %s", exc, exc_info=exc.__cause__ or exc)
             raise
         except Exception as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.error_message = str(exc)
+            logger.error("Destination write failed: %s", exc, exc_info=exc.__cause__ or exc)
             raise DestinationError(
                 f"Failed to write destination: {exc}",
                 details={"table_name": table_name, "path": dest_path, "load_type": dataflow.load_type},
@@ -198,6 +200,12 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         hours = retention_hours if retention_hours is not None else DEFAULT_RETENTION_HOURS
 
+        logger.debug(
+            "Maintenance start — table=%s, path=%s, format=%s, do_compact=%s, "
+            "do_cleanup=%s, retention_hours=%d",
+            dest_table_name, dest_path, dest_fmt, do_compact, do_cleanup, hours,
+        )
+
         sub_results: List[Dict[str, Any]] = []
         errors: List[str] = []
         try:
@@ -209,10 +217,19 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             )
         except Exception as exc:
             errors.append(str(exc))
-            logger.error("Maintenance failed for %s: %s", dest_table_name or dest_path, exc)
+            logger.error("Maintenance failed for %s: %s", dest_table_name or dest_path, exc, exc_info=exc.__cause__ or exc)
         any_succeeded = any(
             entry.get("status") == DataFlowStatus.SUCCEEDED.value for entry in sub_results
         )
+        if sub_results:
+            logger.debug(
+                "Maintenance sub-operations — %s",
+                ", ".join(
+                    f"{e.get('operation')}={e.get('status')}"
+                    f"({e.get('duration_seconds', 0):.2f}s)"
+                    for e in sub_results
+                ),
+            )
 
         # Fetch history once — enrich sub-results + store raw history
         try:
@@ -280,6 +297,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         try:
             if table_exists:
+                logger.debug("%s starting at %s", op_name.capitalize(), location)
                 fn()
                 status = DataFlowStatus.SUCCEEDED.value
             else:
@@ -288,13 +306,16 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             status = DataFlowStatus.FAILED.value
             error_message = str(exc)
             errors.append(f"{op_name.capitalize()}: {error_message}")
-            logger.error("%s failed for %s: %s", op_name.capitalize(), location, exc)
+            logger.error("%s failed for %s: %s", op_name.capitalize(), location, exc, exc_info=exc.__cause__ or exc)
 
         end = utc_now()
+        duration = (end - start).total_seconds()
+        if status == DataFlowStatus.SUCCEEDED.value:
+            logger.debug("%s succeeded at %s (%.2fs)", op_name.capitalize(), location, duration)
         return {
             "operation": op_name,
             "status": status,
-            "duration_seconds": (end - start).total_seconds(),
+            "duration_seconds": duration,
             "error_message": error_message,
         }
 

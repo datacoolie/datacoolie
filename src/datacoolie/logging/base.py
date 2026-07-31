@@ -35,6 +35,7 @@ from datacoolie.core.constants import DEFAULT_AUTHOR, DEFAULT_PARTITION_PATTERN
 from datacoolie.core.models import DataCoolieRunConfig
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.utils.helpers import utc_now
+from datacoolie.utils.path_utils import normalize_path
 
 
 class DataflowContextFilter(logging.Filter):
@@ -111,6 +112,11 @@ class LogConfig:
     def __post_init__(self) -> None:
         self.log_level = self.log_level.upper()
         self.file_level = self.file_level.upper()
+        # Canonicalise storage paths to forward-slash separators so that
+        # OS-native inputs (e.g. Windows backslashes) do not produce mixed
+        # separators when child paths are appended downstream.
+        if self.output_path:
+            self.output_path = normalize_path(self.output_path)
 
 
 # ============================================================================
