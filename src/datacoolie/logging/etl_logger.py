@@ -53,7 +53,6 @@ from datacoolie.logging.base import (
     BaseLogger,
     LogConfig,
     _FlushOperation,
-    _FlushSkipped,
     format_partition_path,
     get_logger,
 )
@@ -572,14 +571,13 @@ class ETLLogger(BaseLogger):
             for entry in records
         )
         full_path = self._ensure_debug_remote_path()
-        self._platform.append_file(full_path, content)
+        self._append_text(full_path, content, final=False)
         with self._state_lock:
             if not self._is_closed:
                 self._debug_flushed_count = max(
                     self._debug_flushed_count,
                     end,
                 )
-        _logger.debug("Debug JSONL periodic flush: %s", full_path)
 
     # ------------------------------------------------------------------
     # Terminal snapshot
@@ -613,8 +611,11 @@ class ETLLogger(BaseLogger):
             operations.append(
                 _FlushOperation(
                     "debug_jsonl",
-                    lambda: self._append_text(debug_path, debug_content),
-                    path=debug_path,
+                    lambda: self._append_text(
+                        debug_path,
+                        debug_content,
+                        final=True,
+                    ),
                 )
             )
 
@@ -622,8 +623,11 @@ class ETLLogger(BaseLogger):
         operations.append(
             _FlushOperation(
                 "analyst_job_jsonl",
-                lambda: self._append_text(job_path, job_content),
-                path=job_path,
+                lambda: self._append_text(
+                    job_path,
+                    job_content,
+                    final=True,
+                ),
             )
         )
 
@@ -635,7 +639,6 @@ class ETLLogger(BaseLogger):
                     runtime_logs,
                     dataflow_path,
                 ),
-                path=dataflow_path,
             )
         )
         return tuple(operations)
@@ -678,11 +681,19 @@ class ETLLogger(BaseLogger):
         )
         return "\n".join(lines) + "\n"
 
-    def _append_text(self, path: str, content: str) -> None:
-        """Append a prepared immutable text payload."""
+    def _append_text(
+        self,
+        path: str,
+        content: str,
+        *,
+        final: bool,
+    ) -> None:
+        """Append text and report periodic/final persistence at its log level."""
         if self._platform is None:
             return
         self._platform.append_file(path, content)
+        log = _logger.info if final else _logger.debug
+        log("ETL log pushed: %s", path)
 
     def _build_analyst_job_payload(
         self,
@@ -733,7 +744,7 @@ class ETLLogger(BaseLogger):
             import pyarrow.parquet as pq
         except ImportError:
             _logger.warning("pyarrow not installed — Parquet output skipped.")
-            raise _FlushSkipped("pyarrow is not installed") from None
+            return
 
         schema = _build_dataflow_schema(pa)
         self._write_parquet_file(
@@ -793,7 +804,7 @@ class ETLLogger(BaseLogger):
         try:
             pq.write_table(table, tmp_path, compression="snappy")
             self._platform.upload_file(tmp_path, full_path)
-            _logger.debug("Parquet written: %s", full_path)
+            _logger.info("ETL log pushed: %s", full_path)
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
@@ -803,9 +814,6 @@ class ETLLogger(BaseLogger):
     # ------------------------------------------------------------------
 
     def _cleanup(self) -> None:
-        for outcome in self._terminal_outcomes:
-            if outcome.status == "succeeded" and outcome.path:
-                _logger.info("ETL log pushed: %s", outcome.path)
         super()._cleanup()
         with self._state_lock:
             self._runtime_logs.clear()

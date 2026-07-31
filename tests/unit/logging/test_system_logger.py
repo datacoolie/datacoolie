@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -71,7 +72,9 @@ class TestSystemLogger:
         # filename: system_log_YYYYMMDD_HHMMSS_{job_id}.jsonl
         import re
         assert re.search(r"system_log_\d{8}_\d{6}_\S+\.jsonl$", remote_path)
-        assert f"System log pushed: {remote_path}" in capsys.readouterr().err
+        console_output = capsys.readouterr().err
+        assert "[INFO]" in console_output
+        assert f"System log pushed: {remote_path}" in console_output
         assert "System log pushed:" not in uploaded_content
 
     def test_failed_terminal_push_does_not_report_success(self, capsys):
@@ -102,9 +105,13 @@ class TestSystemLogger:
 
         etl_logger.close()
         successful_etl_paths = [
-            outcome.path
-            for outcome in etl_logger.terminal_outcomes
-            if outcome.status == "succeeded" and outcome.path
+            call.args[0]
+            for call in platform.append_file.call_args_list
+            if call.args[0].startswith("/logs/etl/")
+        ] + [
+            call.args[1]
+            for call in platform.upload_file.call_args_list
+            if call.args[1].startswith("/logs/etl/")
         ]
         system_logger.close()
 
@@ -114,6 +121,18 @@ class TestSystemLogger:
             if "system_log_" in call.args[0]
         )
         assert successful_etl_paths
+        system_rows = [
+            json.loads(line)
+            for line in system_payload.splitlines()
+            if line.strip()
+        ]
+        etl_push_rows = [
+            row
+            for row in system_rows
+            if row["msg"].startswith("ETL log pushed: ")
+        ]
+        assert etl_push_rows
+        assert all(row["level"] == "INFO" for row in etl_push_rows)
         for path in successful_etl_paths:
             assert f"ETL log pushed: {path}" in system_payload
 
@@ -139,7 +158,6 @@ class TestSystemLogger:
         # Filter to system_log files only (exclude ETL logs if any)
         log_files = [f for f in log_files if "system_log" in f.name]
         assert len(log_files) == 1
-        import json
         lines = [
             line
             for line in log_files[0].read_text(encoding="utf-8").splitlines()
@@ -288,7 +306,6 @@ class TestSystemLogger:
         log_files = [f for f in log_files if "system_log" in f.name]
         # File should exist from the periodic flush.
         assert len(log_files) >= 1
-        import json
         lines = [
             line
             for line in log_files[0].read_text(encoding="utf-8").splitlines()

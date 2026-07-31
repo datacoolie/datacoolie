@@ -68,8 +68,6 @@ class TestDebugJsonlFlush:
         # No parquet uploaded.
         upload_paths = [str(call.args[1]) for call in platform.upload_file.call_args_list]
         assert not any(path.endswith(".parquet") for path in upload_paths)
-        outcomes = {item.name: item.status for item in logger.terminal_outcomes}
-        assert outcomes["analyst_dataflow_parquet"] == "skipped"
 
     def test_repeated_close_is_idempotent(self):
         logger, platform = make_logger(flush_interval_seconds=0)
@@ -124,9 +122,16 @@ class TestPeriodicFlush:
         logger.log(make_dataflow("b"), make_runtime("b"))
 
         # Directly invoke the periodic flush hook (same as timer would call).
-        logger._on_periodic_flush()
+        with patch("datacoolie.logging.etl_logger._logger") as internal_log:
+            logger._on_periodic_flush()
 
         assert platform.append_file.call_count >= 1
+        periodic_path = platform.append_file.call_args_list[0].args[0]
+        internal_log.debug.assert_called_once_with(
+            "ETL log pushed: %s",
+            periodic_path,
+        )
+        internal_log.info.assert_not_called()
         logger.close()
 
     def test_periodic_flush_noop_without_platform_or_output(self):
