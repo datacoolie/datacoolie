@@ -22,20 +22,27 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import tempfile
 import threading
+import time
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from datacoolie.core.constants import DEFAULT_AUTHOR, DEFAULT_PARTITION_PATTERN
 from datacoolie.core.models import DataCoolieRunConfig
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.utils.helpers import utc_now
 from datacoolie.utils.path_utils import normalize_path
+
+
+_diagnostic_logger = logging.getLogger("datacoolie.logging.internal")
+_diagnostic_logger.propagate = False
 
 
 class DataflowContextFilter(logging.Filter):
@@ -108,6 +115,7 @@ class LogConfig:
     partition_by_date: bool = True
     partition_pattern: str = DEFAULT_PARTITION_PATTERN
     flush_interval_seconds: int = 60
+    close_timeout_seconds: float = 10.0
 
     def __post_init__(self) -> None:
         self.log_level = self.log_level.upper()
@@ -117,6 +125,13 @@ class LogConfig:
         # separators when child paths are appended downstream.
         if self.output_path:
             self.output_path = normalize_path(self.output_path)
+        if (
+            not math.isfinite(self.close_timeout_seconds)
+            or self.close_timeout_seconds <= 0
+        ):
+            raise ValueError(
+                "close_timeout_seconds must be a positive finite number"
+            )
 
 
 # ============================================================================
@@ -217,7 +232,8 @@ class CaptureHandler(logging.Handler):
         temp_dir = tempfile.gettempdir()
         ts = utc_now().strftime("%Y%m%d_%H%M%S")
         self._temp_file = os.path.join(
-            temp_dir, f"datacoolie_capture_{ts}_{os.getpid()}.tmp"
+            temp_dir,
+            f"datacoolie_capture_{ts}_{os.getpid()}_{uuid.uuid4().hex}.tmp",
         )
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -260,7 +276,11 @@ class CaptureHandler(logging.Handler):
                 return self._load_from_file()
             return list(self._records)
 
-    def _load_from_file(self) -> List[LogRecord]:
+    def _load_from_file(
+        self,
+        *,
+        raise_on_error: bool = False,
+    ) -> List[LogRecord]:
         records = list(self._records)
         if self._temp_file and os.path.exists(self._temp_file):
             try:
@@ -280,7 +300,8 @@ class CaptureHandler(logging.Handler):
                                     )
                                 )
             except Exception:
-                pass
+                if raise_on_error:
+                    raise
         return records
 
     def get_formatted_logs(self, include_location: bool = False) -> str:
@@ -290,49 +311,40 @@ class CaptureHandler(logging.Handler):
                 return "\n".join(r.format(include_location) for r in records)
             return "\n".join(r.format(include_location) for r in self._records)
 
-    def get_and_clear_formatted_logs(self, include_location: bool = False) -> str:
-        """Atomically drain captured logs and return as formatted text.
+    def begin_jsonl_batch(self) -> List[LogRecord]:
+        """Atomically detach a batch for transactional remote delivery.
 
-        Minimises lock hold time: swaps/clears the buffer under the lock,
-        then formats the text outside the lock.
+        The caller must invoke :meth:`rollback_batch` when delivery fails.
+        File-backed records are detached only after the active spool can be
+        removed; an inability to rotate the spool is surfaced to the caller so
+        records are never acknowledged prematurely.
         """
         with self.lock:
             if self._storage_mode == StorageMode.FILE.value:
-                records = self._load_from_file()
-                self._records.clear()
+                records = self._load_from_file(raise_on_error=True)
                 if self._temp_file and os.path.exists(self._temp_file):
-                    try:
-                        os.remove(self._temp_file)
-                        self._setup_temp_file()
-                    except Exception:
-                        pass
-            else:
-                # Swap list — O(1) under the lock.
-                records = self._records
-                self._records = []
-        # Format outside the lock — no contention during string building.
-        return "\n".join(r.format(include_location) for r in records)
+                    os.remove(self._temp_file)
+                    self._setup_temp_file()
+                self._records.clear()
+                return records
 
-    def get_and_clear_jsonl(self) -> str:
-        """Atomically drain captured logs and return as JSONL text.
+            records = self._records
+            self._records = []
+            return records
 
-        Each line is a JSON object produced by :meth:`LogRecord.to_dict`.
-        Returns an empty string when no records are buffered.
-        """
+    def rollback_batch(self, records: List[LogRecord]) -> None:
+        """Restore a failed delivery batch ahead of newer records."""
+        if not records:
+            return
         with self.lock:
-            if self._storage_mode == StorageMode.FILE.value:
-                records = self._load_from_file()
-                self._records.clear()
-                if self._temp_file and os.path.exists(self._temp_file):
-                    try:
-                        os.remove(self._temp_file)
-                        self._setup_temp_file()
-                    except Exception:
-                        pass
-            else:
-                records = self._records
-                self._records = []
-        return "\n".join(json.dumps(r.to_dict(), default=str) for r in records)
+            self._records = list(records) + self._records
+
+    @staticmethod
+    def batch_to_jsonl(records: List[LogRecord]) -> str:
+        """Serialize a detached batch using the persisted JSONL contract."""
+        return "\n".join(
+            json.dumps(record.to_dict(), default=str) for record in records
+        )
 
     def clear(self) -> None:
         with self.lock:
@@ -435,6 +447,11 @@ class LogManager:
 
         for h in root.handlers[:]:
             root.removeHandler(h)
+            if isinstance(h, CaptureHandler):
+                h.cleanup()
+            h.close()
+        self._capture_handler = None
+        self._console_handler = None
 
         fmt = format_string or "%(asctime)s [%(levelname)s] %(name)s - [%(dataflow_id)s] - %(message)s"
         formatter = logging.Formatter(fmt)
@@ -493,25 +510,41 @@ class LogManager:
             return self._capture_handler.get_formatted_logs(include_location)
         return ""
 
-    def get_and_clear_captured_logs(self, include_location: bool = False) -> str:
-        """Atomically return captured logs as plain text and clear the buffer."""
+    def begin_captured_jsonl_batch(self) -> List[LogRecord]:
+        """Detach the current capture batch for transactional delivery."""
         if self._capture_handler:
-            return self._capture_handler.get_and_clear_formatted_logs(include_location)
-        return ""
+            return self._capture_handler.begin_jsonl_batch()
+        return []
 
-    def get_and_clear_captured_jsonl(self) -> str:
-        """Atomically return captured logs as JSONL text and clear the buffer."""
+    def rollback_captured_batch(self, records: List[LogRecord]) -> None:
+        """Restore a failed transactional capture batch."""
         if self._capture_handler:
-            return self._capture_handler.get_and_clear_jsonl()
-        return ""
+            self._capture_handler.rollback_batch(records)
+
+    @staticmethod
+    def captured_batch_to_jsonl(records: List[LogRecord]) -> str:
+        """Serialize a detached capture batch as persisted JSONL."""
+        return CaptureHandler.batch_to_jsonl(records)
 
     def clear_captured_logs(self) -> None:
         if self._capture_handler:
             self._capture_handler.clear()
 
     def cleanup(self) -> None:
-        if self._capture_handler:
-            self._capture_handler.cleanup()
+        root = logging.getLogger(self._root_logger_name)
+        owned_handlers = (
+            self._capture_handler,
+            self._console_handler,
+        )
+        for handler in owned_handlers:
+            if handler is None:
+                continue
+            root.removeHandler(handler)
+            if isinstance(handler, CaptureHandler):
+                handler.cleanup()
+            handler.close()
+        self._capture_handler = None
+        self._console_handler = None
 
 
 # Module-level convenience -------------------------------------------------
@@ -537,30 +570,46 @@ def get_logger(name: str) -> logging.Logger:
 # ============================================================================
 
 
+@dataclass(frozen=True)
+class _FlushOperation:
+    """One terminal sink attempt built from immutable inputs."""
+
+    name: str
+    execute: Callable[[], None]
+
+
+@dataclass(frozen=True)
+class _FlushOutcome:
+    """Observed result of one terminal sink attempt."""
+
+    name: str
+    status: str
+    error: Optional[Exception] = None
+
+
 class BaseLogger(ABC):
     """Abstract base for persistent loggers (system, ETL).
 
-    Provides configuration, lifecycle management, periodic flush timer,
-    and context-manager support.  Subclasses implement :meth:`flush` and
-    optionally override :meth:`_on_periodic_flush` for incremental behavior.
-
-    The periodic timer is started automatically when *flush_interval_seconds*
-    is positive **and** both *output_path* and *platform* are configured.
+    Provides configuration, explicit activation, periodic scheduling,
+    bounded terminal sink attempts, failure isolation, and cleanup ordering.
+    Children define what periodic and terminal operations persist.
     """
+
+    _periodic_sink_name = "periodic"
 
     def __init__(self, config: LogConfig, platform: Optional[BasePlatform] = None) -> None:
         self._config = config
         self._platform = platform
+        self._is_active = False
         self._is_closed = False
+        self._is_closing = False
         self._run_config: Optional[DataCoolieRunConfig] = None
-        # Periodic flush: single daemon thread using Event.wait(timeout)
+        self._flush_lock = threading.RLock()
+        self._close_lock = threading.Lock()
+        self._last_flush_error: Optional[Exception] = None
+        self._terminal_outcomes: tuple[_FlushOutcome, ...] = ()
         self._stop_event = threading.Event()
         self._flush_thread: Optional[threading.Thread] = None
-        if self._should_start_timer():
-            self._flush_thread = threading.Thread(
-                target=self._flush_loop, daemon=True,
-            )
-            self._flush_thread.start()
 
     # ------------------------------------------------------------------
     # Periodic flush timer
@@ -574,6 +623,34 @@ class BaseLogger(ABC):
             and self._platform is not None
         )
 
+    def activate(self) -> None:
+        """Activate periodic persistence after Driver configuration is complete."""
+        with self._close_lock:
+            if self._is_active or self._is_closing or self._is_closed:
+                return
+            self._is_active = True
+            if not self._should_start_timer():
+                return
+            self._stop_event.clear()
+            self._flush_thread = threading.Thread(
+                target=self._flush_loop,
+                name=f"{type(self).__name__}-flush",
+                daemon=True,
+            )
+            self._flush_thread.start()
+
+    def _stop_periodic_flush(self) -> bool:
+        """Stop scheduling and report whether the worker actually exited."""
+        self._stop_event.set()
+        thread = self._flush_thread
+        if thread is None:
+            return True
+        thread.join(timeout=min(2.0, self._config.close_timeout_seconds))
+        if not thread.is_alive():
+            self._flush_thread = None
+            return True
+        return False
+
     def _flush_loop(self) -> None:
         """Single daemon thread — sleeps until interval elapses or stop is signalled."""
         interval = self._config.flush_interval_seconds
@@ -581,13 +658,44 @@ class BaseLogger(ABC):
             self._on_periodic_flush()
 
     def _on_periodic_flush(self) -> None:
-        """Called by the periodic timer.
+        """Run the child periodic hook through the common failure boundary."""
+        if self._is_closing or self._is_closed:
+            return
+        self._execute_flush(self._flush_periodic, reason="periodic")
 
-        The default implementation calls :meth:`flush`.  Override in
-        subclasses that need incremental behavior distinct from the
-        final flush (e.g. appending only new bytes).
+    def _flush_periodic(self) -> None:
+        """Persist a periodic checkpoint.
+
+        Children override this when they have a periodic sink.
         """
-        self.flush()
+        return
+
+    def _execute_flush(
+        self,
+        operation: Callable[[], None],
+        *,
+        reason: str,
+    ) -> bool:
+        """Serialize a flush and keep logging failures out of pipeline control."""
+        with self._flush_lock:
+            if self._is_closed:
+                return False
+            try:
+                operation()
+            except Exception as exc:
+                if not self._is_closed:
+                    self._last_flush_error = exc
+                _diagnostic_logger.warning(
+                    "%s %s flush failed: %s",
+                    type(self).__name__,
+                    reason,
+                    exc,
+                    exc_info=True,
+                )
+                return False
+            if not self._is_closed:
+                self._last_flush_error = None
+            return True
 
     # ------------------------------------------------------------------
     # Properties / lifecycle
@@ -605,22 +713,134 @@ class BaseLogger(ABC):
     def is_closed(self) -> bool:
         return self._is_closed
 
+    @property
+    def is_active(self) -> bool:
+        return self._is_active
+
+    @property
+    def last_flush_error(self) -> Optional[Exception]:
+        """Most recent flush failure, cleared after a successful flush."""
+        return self._last_flush_error
+
+    @property
+    def terminal_outcomes(self) -> tuple[_FlushOutcome, ...]:
+        """Internal per-sink results retained for post-close diagnostics."""
+        return self._terminal_outcomes
+
     def set_run_config(self, run_config: DataCoolieRunConfig) -> None:
         self._run_config = run_config
 
     @abstractmethod
-    def flush(self) -> None:
-        """Flush buffered entries to persistent storage."""
+    def _build_final_operations(
+        self,
+        *,
+        periodic_in_flight: bool,
+    ) -> Sequence[_FlushOperation]:
+        """Build terminal sink attempts from child-owned immutable payloads."""
+
+    def _execute_terminal_operations(
+        self,
+        operations: Sequence[_FlushOperation],
+    ) -> tuple[_FlushOutcome, ...]:
+        """Attempt all terminal sinks and wait no longer than one common deadline."""
+        if not operations:
+            return ()
+
+        results: list[Optional[_FlushOutcome]] = [None] * len(operations)
+        completed = [threading.Event() for _ in operations]
+
+        def run(index: int, operation: _FlushOperation) -> None:
+            try:
+                operation.execute()
+            except Exception as exc:
+                results[index] = _FlushOutcome(operation.name, "failed", exc)
+            else:
+                results[index] = _FlushOutcome(operation.name, "succeeded")
+            finally:
+                completed[index].set()
+
+        for index, operation in enumerate(operations):
+            threading.Thread(
+                target=run,
+                args=(index, operation),
+                name=f"{type(self).__name__}-{operation.name}-close",
+                daemon=True,
+            ).start()
+
+        deadline = time.monotonic() + self._config.close_timeout_seconds
+        for event in completed:
+            event.wait(timeout=max(0.0, deadline - time.monotonic()))
+
+        outcomes: list[_FlushOutcome] = []
+        for index, operation in enumerate(operations):
+            outcome = results[index]
+            if outcome is None:
+                outcome = _FlushOutcome(
+                    operation.name,
+                    "timed_out",
+                    TimeoutError(
+                        f"{operation.name} did not finish within "
+                        f"{self._config.close_timeout_seconds:g} seconds"
+                    ),
+                )
+            outcomes.append(outcome)
+            if outcome.error is not None:
+                _diagnostic_logger.warning(
+                    "%s terminal sink %s %s: %s",
+                    type(self).__name__,
+                    outcome.name,
+                    outcome.status,
+                    outcome.error,
+                )
+
+        errors = [outcome.error for outcome in outcomes if outcome.error]
+        self._last_flush_error = errors[-1] if errors else None
+        return tuple(outcomes)
 
     def close(self) -> None:
-        """Flush and release resources."""
-        if self._is_closed:
-            return
-        try:
-            self.flush()
-        finally:
-            self._cleanup()
-            self._is_closed = True
+        """Attempt terminal sinks within a bound, then release all logger state."""
+        with self._close_lock:
+            if self._is_closed:
+                return
+            self._is_closing = True
+            periodic_stopped = self._stop_periodic_flush()
+            try:
+                periodic_outcomes: tuple[_FlushOutcome, ...] = ()
+                if not periodic_stopped:
+                    error = TimeoutError(
+                        f"{self._periodic_sink_name} remained in flight during close"
+                    )
+                    periodic_outcomes = (
+                        _FlushOutcome(
+                            self._periodic_sink_name,
+                            "timed_out",
+                            error,
+                        ),
+                    )
+                    _diagnostic_logger.warning(
+                        "%s periodic sink %s timed_out: %s",
+                        type(self).__name__,
+                        self._periodic_sink_name,
+                        error,
+                    )
+                operations = self._build_final_operations(
+                    periodic_in_flight=not periodic_stopped,
+                )
+                self._terminal_outcomes = (
+                    periodic_outcomes
+                    + self._execute_terminal_operations(operations)
+                )
+                errors = [
+                    outcome.error
+                    for outcome in self._terminal_outcomes
+                    if outcome.error is not None
+                ]
+                self._last_flush_error = errors[-1] if errors else None
+            finally:
+                self._cleanup()
+                self._is_active = False
+                self._is_closed = True
+                self._is_closing = False
 
     def _cleanup(self) -> None:
         """Stop the periodic flush thread and release resources.
@@ -628,9 +848,7 @@ class BaseLogger(ABC):
         Subclasses should call ``super()._cleanup()``.
         """
         self._stop_event.set()
-        if self._flush_thread is not None:
-            self._flush_thread.join(timeout=2.0)
-            self._flush_thread = None
+        self._flush_thread = None
 
     def __enter__(self) -> "BaseLogger":
         return self

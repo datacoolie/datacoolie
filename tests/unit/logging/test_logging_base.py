@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -18,6 +20,7 @@ from datacoolie.logging.base import (
     LogManager,
     LogRecord,
     StorageMode,
+    _FlushOperation,
     format_partition_path,
     get_logger,
 )
@@ -154,6 +157,16 @@ class TestLogRecord:
 
 
 class TestCaptureHandler:
+    def test_file_mode_handlers_use_distinct_spool_paths(self):
+        first = CaptureHandler(storage_mode=StorageMode.FILE.value)
+        second = CaptureHandler(storage_mode=StorageMode.FILE.value)
+
+        try:
+            assert first._temp_file != second._temp_file
+        finally:
+            first.cleanup()
+            second.cleanup()
+
     def test_memory_mode(self):
         handler = CaptureHandler(storage_mode=StorageMode.MEMORY.value)
         lgr = logging.getLogger("test.capture.mem")
@@ -227,38 +240,6 @@ class TestCaptureHandler:
 
         text = handler.get_formatted_logs()
         assert "file message" in text
-
-        handler.cleanup()
-        lgr.removeHandler(handler)
-
-    def test_get_and_clear_formatted_logs_memory(self):
-        handler = CaptureHandler(storage_mode=StorageMode.MEMORY.value)
-        lgr = logging.getLogger("test.capture.getandclear.mem")
-        lgr.addHandler(handler)
-        lgr.setLevel(logging.DEBUG)
-
-        lgr.info("alpha")
-        lgr.warning("beta")
-
-        text = handler.get_and_clear_formatted_logs()
-        assert "alpha" in text
-        assert "beta" in text
-        # Buffer cleared atomically.
-        assert handler.get_records() == []
-
-        lgr.removeHandler(handler)
-
-    def test_get_and_clear_formatted_logs_file(self):
-        handler = CaptureHandler(storage_mode=StorageMode.FILE.value)
-        lgr = logging.getLogger("test.capture.getandclear.file")
-        lgr.addHandler(handler)
-        lgr.setLevel(logging.DEBUG)
-
-        lgr.error("gamma")
-
-        text = handler.get_and_clear_formatted_logs()
-        assert "gamma" in text
-        assert handler.get_records() == []
 
         handler.cleanup()
         lgr.removeHandler(handler)
@@ -370,24 +351,6 @@ class TestLogManager:
         mgr.configure(capture_logs=False)
         assert mgr.get_captured_logs() == ""
 
-    def test_get_and_clear_captured_logs(self):
-        mgr = LogManager.get_instance()
-        mgr.configure(capture_logs=True, console_output=False)
-        lgr = mgr.get_logger("test.getandclear")
-        lgr.info("line one")
-        lgr.warning("line two")
-        text = mgr.get_and_clear_captured_logs()
-        assert "line one" in text
-        assert "line two" in text
-        # Buffer is now empty.
-        assert mgr.get_captured_logs() == ""
-
-    def test_get_and_clear_captured_logs_no_handler(self):
-        mgr = LogManager.get_instance()
-        mgr.configure(capture_logs=False)
-        assert mgr.get_and_clear_captured_logs() == ""
-
-
 # ============================================================================
 # get_logger (module-level convenience)
 # ============================================================================
@@ -454,7 +417,10 @@ class _StubLogger(BaseLogger):
         super().__init__(config, platform)
         self.flushed = False
 
-    def flush(self):
+    def _build_final_operations(self, *, periodic_in_flight):
+        return (_FlushOperation("stub", self._mark_flushed),)
+
+    def _mark_flushed(self):
         self.flushed = True
 
 
@@ -528,6 +494,8 @@ class TestBaseLogger:
 
         cfg = LogConfig(output_path="/logs", flush_interval_seconds=60)
         lgr = _StubLogger(cfg, platform=MagicMock())
+        assert lgr._flush_thread is None
+        lgr.activate()
         assert lgr._flush_thread is not None
         assert lgr._flush_thread.daemon is True
         lgr.close()
@@ -537,12 +505,14 @@ class TestBaseLogger:
 
         cfg = LogConfig(output_path=None, flush_interval_seconds=60)
         lgr = _StubLogger(cfg, platform=MagicMock())
+        lgr.activate()
         assert lgr._flush_thread is None
         lgr.close()
 
     def test_timer_not_started_without_platform(self):
         cfg = LogConfig(output_path="/logs", flush_interval_seconds=60)
         lgr = _StubLogger(cfg, platform=None)
+        lgr.activate()
         assert lgr._flush_thread is None
         lgr.close()
 
@@ -551,6 +521,7 @@ class TestBaseLogger:
 
         cfg = LogConfig(output_path="/logs", flush_interval_seconds=0)
         lgr = _StubLogger(cfg, platform=MagicMock())
+        lgr.activate()
         assert lgr._flush_thread is None
         lgr.close()
 
@@ -559,19 +530,101 @@ class TestBaseLogger:
 
         cfg = LogConfig(output_path="/logs", flush_interval_seconds=60)
         lgr = _StubLogger(cfg, platform=MagicMock())
+        lgr.activate()
         assert lgr._flush_thread is not None
         lgr.close()
         assert lgr._stop_event.is_set()
 
-    def test_on_periodic_flush_calls_flush_by_default(self):
+    def test_on_periodic_flush_is_noop_by_default(self):
         from unittest.mock import MagicMock
 
         cfg = LogConfig(flush_interval_seconds=0)
         lgr = _StubLogger(cfg, platform=MagicMock())
         lgr._on_periodic_flush()
-        assert lgr.flushed is True
+        assert lgr.flushed is False
         lgr.close()
 
+    def test_close_does_not_wait_for_blocked_periodic_flush(self):
+        class BlockingLogger(BaseLogger):
+            def __init__(self):
+                super().__init__(
+                    LogConfig(
+                        output_path="/logs",
+                        flush_interval_seconds=0.01,
+                        close_timeout_seconds=0.05,
+                    ),
+                    platform=MagicMock(),
+                )
+                self.periodic_started = threading.Event()
+                self.release_periodic = threading.Event()
+                self.periodic_in_flight = None
+
+            def _flush_periodic(self):
+                self.periodic_started.set()
+                assert self.release_periodic.wait(timeout=2)
+
+            def _build_final_operations(self, *, periodic_in_flight):
+                self.periodic_in_flight = periodic_in_flight
+                return ()
+
+        logger = BlockingLogger()
+        logger.activate()
+        assert logger.periodic_started.wait(timeout=2)
+
+        started = time.monotonic()
+        logger.close()
+        elapsed = time.monotonic() - started
+        assert elapsed < 0.3
+        assert logger.periodic_in_flight is True
+        assert logger.is_closed
+        assert logger.terminal_outcomes[0].status == "timed_out"
+        logger.release_periodic.set()
+
+    def test_flush_failure_is_fail_open_and_observable(self):
+        class FailingLogger(BaseLogger):
+            def _build_final_operations(self, *, periodic_in_flight):
+                return (
+                    _FlushOperation(
+                        "failing",
+                        lambda: (_ for _ in ()).throw(
+                            RuntimeError("storage unavailable")
+                        ),
+                    ),
+                )
+
+        logger = FailingLogger(LogConfig(flush_interval_seconds=0))
+        logger.close()
+
+        assert isinstance(logger.last_flush_error, RuntimeError)
+        assert str(logger.last_flush_error) == "storage unavailable"
+        assert logger.terminal_outcomes[0].status == "failed"
+
+    def test_terminal_operations_share_one_close_deadline(self):
+        release = threading.Event()
+
+        class SlowLogger(BaseLogger):
+            def _build_final_operations(self, *, periodic_in_flight):
+                def wait_forever():
+                    release.wait(timeout=2)
+
+                return (
+                    _FlushOperation("one", wait_forever),
+                    _FlushOperation("two", wait_forever),
+                )
+
+        logger = SlowLogger(
+            LogConfig(flush_interval_seconds=0, close_timeout_seconds=0.05)
+        )
+        started = time.monotonic()
+        logger.close()
+        elapsed = time.monotonic() - started
+        release.set()
+
+        assert elapsed < 0.3
+        assert [item.status for item in logger.terminal_outcomes] == [
+            "timed_out",
+            "timed_out",
+        ]
 
 class TestLogConfigPartitionPattern:
     def test_default_partition_pattern(self):
@@ -581,6 +634,11 @@ class TestLogConfigPartitionPattern:
     def test_custom_partition_pattern(self):
         cfg = LogConfig(partition_pattern="year={year}/month={month}/day={day}/hour={hour}")
         assert cfg.partition_pattern == "year={year}/month={month}/day={day}/hour={hour}"
+
+    @pytest.mark.parametrize("value", [0, -1, float("inf"), float("nan")])
+    def test_close_timeout_must_be_positive_and_finite(self, value):
+        with pytest.raises(ValueError, match="close_timeout_seconds"):
+            LogConfig(close_timeout_seconds=value)
 
 
 # ============================================================================
@@ -850,45 +908,3 @@ class TestLogRecordDataflowId:
         )
         d = rec.to_dict()
         assert d.get('dataflow_id') == 'df-123'
-
-
-class TestInMemoryLogStoreSwapList:
-    """Cover lines 307-308: get_and_clear_formatted_logs() swap list path."""
-
-    def test_get_and_clear_returns_records_and_clears(self) -> None:
-        """Lines 307-308: swap list when storage_mode is MEMORY."""
-        import logging
-        from datacoolie.logging.base import CaptureHandler
-        handler = CaptureHandler(storage_mode='memory')
-        # Emit a record
-        record = logging.LogRecord(
-            name='test', level=logging.INFO,
-            pathname='', lineno=0, msg='hello world',
-            args=(), exc_info=None,
-        )
-        handler.emit(record)
-        result = handler.get_and_clear_formatted_logs()
-        assert 'hello world' in result
-        # After clear, should be empty
-        result2 = handler.get_and_clear_formatted_logs()
-        assert result2 == ''
-
-    def test_file_mode_remove_exception_swallowed(self) -> None:
-        """Lines 307-308: except Exception pass when os.remove fails in FILE mode."""
-        import logging
-        import os
-        from unittest.mock import patch
-        from datacoolie.logging.base import CaptureHandler
-        handler = CaptureHandler(storage_mode='file')
-        record = logging.LogRecord(
-            name='test', level=logging.INFO,
-            pathname='', lineno=0, msg='file mode test',
-            args=(), exc_info=None,
-        )
-        handler.emit(record)
-        # Make os.path.exists return True but os.remove raise
-        with patch('os.path.exists', return_value=True), \
-             patch('os.remove', side_effect=OSError('cannot remove')):
-            result = handler.get_and_clear_formatted_logs()
-        # Should still return content without raising
-        assert isinstance(result, str)

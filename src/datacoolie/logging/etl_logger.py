@@ -38,8 +38,9 @@ import json
 import os
 import re
 import tempfile
+import threading
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TextIO
+from typing import Any, Dict, List, Optional, Sequence
 
 from datacoolie.core.constants import DataFlowStatus, ExecutionType, LogPurpose, LogType
 from datacoolie.core.models import (
@@ -51,6 +52,7 @@ from datacoolie.core.models import (
 from datacoolie.logging.base import (
     BaseLogger,
     LogConfig,
+    _FlushOperation,
     format_partition_path,
     get_logger,
 )
@@ -67,16 +69,8 @@ _logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _build_dataflow_schema() -> Any:
-    """Build the PyArrow schema for the dataflow runtime Parquet.
-
-    Returns ``None`` if PyArrow is not installed.
-    """
-    try:
-        import pyarrow as pa
-    except ImportError:
-        return None
-
+def _build_dataflow_schema(pa: Any) -> Any:
+    """Build the PyArrow schema for the dataflow runtime Parquet."""
     return pa.schema([
         # entry markers
         ("_type", pa.string()),
@@ -179,57 +173,6 @@ def _build_dataflow_schema() -> Any:
     ])
 
 
-def _build_job_summary_schema() -> Any:
-    """Build the PyArrow schema for the job summary Parquet.
-
-    Returns ``None`` if PyArrow is not installed.
-    """
-    try:
-        import pyarrow as pa
-    except ImportError:
-        return None
-
-    return pa.schema([
-        ("_type", pa.string()),
-        ("job_id", pa.string()),
-        ("job_num", pa.int64()),
-        ("job_index", pa.int64()),
-        ("workspace_id", pa.string()),
-        ("stages", pa.string()),
-        ("engine_name", pa.string()),
-        ("platform_name", pa.string()),
-        ("metadata_provider_name", pa.string()),
-        ("watermark_manager_name", pa.string()),
-        ("max_workers", pa.int64()),
-        ("stop_on_error", pa.bool_()),
-        ("retry_count", pa.int64()),
-        ("retry_delay", pa.float64()),
-        ("dry_run", pa.bool_()),
-        ("retention_hours", pa.int64()),
-        ("start_time", pa.timestamp('us', tz='UTC')),
-        ("end_time", pa.timestamp('us', tz='UTC')),
-        ("duration_seconds", pa.float64()),
-        ("status", pa.string()),
-        ("error_message", pa.string()),
-        ("total_dataflows", pa.int64()),
-        ("total_succeeded", pa.int64()),
-        ("total_failed", pa.int64()),
-        ("total_skipped", pa.int64()),
-        ("total_running", pa.int64()),
-        ("total_pending", pa.int64()),
-        ("operation_types", pa.string()),
-        ("total_rows_read", pa.int64()),
-        ("total_rows_written", pa.int64()),
-        ("total_rows_inserted", pa.int64()),
-        ("total_rows_updated", pa.int64()),
-        ("total_rows_deleted", pa.int64()),
-        ("total_files_added", pa.int64()),
-        ("total_files_removed", pa.int64()),
-        ("total_bytes_added", pa.int64()),
-        ("total_bytes_removed", pa.int64()),
-    ])
-
-
 # ============================================================================
 # ETLLogger
 # ============================================================================
@@ -240,9 +183,11 @@ class ETLLogger(BaseLogger):
 
     All :meth:`log` calls accumulate entries in memory.  A single
     :class:`~datacoolie.core.models.JobRuntimeInfo` tracks session-level
-    aggregates.  On :meth:`flush` (called automatically by :meth:`close`)
-    the logger appends debug JSONL and writes analyst Parquet.
+    aggregates. On :meth:`close`, the logger appends debug JSONL and writes
+    analyst JSONL and Parquet from one terminal snapshot.
     """
+
+    _periodic_sink_name = "debug_jsonl"
 
     def __init__(
         self,
@@ -253,18 +198,18 @@ class ETLLogger(BaseLogger):
         self._runtime_logs: List[Dict[str, Any]] = []
         self._job_info: JobRuntimeInfo = JobRuntimeInfo(start_time=utc_now())
         self._component_names: Dict[str, Optional[str]] = {}
-        self._debug_temp_file: Optional[str] = None
-        self._debug_temp_handle: Optional[TextIO] = None  # open file handle
         self._debug_remote_path: Optional[str] = None
-        self._debug_flush_offset: int = 0
+        self._debug_flushed_count = 0
+        self._state_lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def set_run_config(self, run_config: DataCoolieRunConfig) -> None:
-        super().set_run_config(run_config)
-        self._apply_run_config()
+        with self._state_lock:
+            super().set_run_config(run_config)
+            self._apply_run_config()
 
     def set_component_names(
         self,
@@ -273,13 +218,14 @@ class ETLLogger(BaseLogger):
         metadata_provider_name: Optional[str] = None,
         watermark_manager_name: Optional[str] = None,
     ) -> None:
-        self._component_names = {
-            "engine_name": engine_name,
-            "platform_name": platform_name,
-            "metadata_provider_name": metadata_provider_name,
-            "watermark_manager_name": watermark_manager_name,
-        }
-        self._apply_component_names()
+        with self._state_lock:
+            self._component_names = {
+                "engine_name": engine_name,
+                "platform_name": platform_name,
+                "metadata_provider_name": metadata_provider_name,
+                "watermark_manager_name": watermark_manager_name,
+            }
+            self._apply_component_names()
 
     def _apply_run_config(self) -> None:
         rc = self._run_config
@@ -306,15 +252,20 @@ class ETLLogger(BaseLogger):
     ) -> None:
         """Record one dataflow or maintenance execution result.
 
-        Stream-writes a JSONL line to a local temp file and updates
-        the session-level :attr:`_job_info` counters.
+        Updates the in-memory source of truth and session aggregates.
         """
-        if self._is_closed:
+        if self._is_closed or self._is_closing:
             return
         entry = self._build_entry(dataflow, runtime_info)
-        self._runtime_logs.append(entry)
-        self._update_job_runtime(runtime_info, dataflow.name or dataflow.dataflow_id)
-        self._stream_write_entry(entry)
+        with self._close_lock:
+            if self._is_closed or self._is_closing:
+                return
+            with self._state_lock:
+                self._runtime_logs.append(entry)
+                self._update_job_runtime(
+                    runtime_info,
+                    dataflow.name or dataflow.dataflow_id,
+                )
 
     # ------------------------------------------------------------------
     # Entry construction
@@ -550,102 +501,140 @@ class ETLLogger(BaseLogger):
 
     def _build_job_summary(self) -> Dict[str, Any]:
         """Construct the final job summary dict for JSONL and Parquet output."""
-        ji = self._job_info
-        ji.end_time = utc_now()
+        with self._state_lock:
+            ji = self._job_info
+            ji.end_time = utc_now()
 
-        stages = list(dict.fromkeys(e["stage"] for e in self._runtime_logs if e.get("stage")))
-        ji.stages = stages[0] if len(stages) == 1 else (stages or None)
-
-        op_types = list(dict.fromkeys(e["operation_type"] for e in self._runtime_logs if e.get("operation_type")))
-        ji.operation_types = op_types[0] if len(op_types) == 1 else (op_types or None)
-
-        if ji.status == DataFlowStatus.PENDING.value:
-            if ji.total_failed > 0:
-                ji.status = DataFlowStatus.FAILED.value
-            elif ji.total_succeeded > 0:
-                ji.status = DataFlowStatus.SUCCEEDED.value
-            elif ji.total_skipped > 0:
-                ji.status = DataFlowStatus.SKIPPED.value
-
-        return self._flatten_job_runtime(ji)
-
-    # ------------------------------------------------------------------
-    # Stream-write helpers
-    # ------------------------------------------------------------------
-
-    def _stream_write_entry(self, entry: Dict[str, Any]) -> None:
-        """Append a single JSONL line to the local temp file.
-
-        Keeps the file handle open to avoid open/close syscalls per entry.
-        """
-        if not self._config.output_path:
-            return
-        try:
-            if self._debug_temp_handle is None:
-                fd, self._debug_temp_file = tempfile.mkstemp(suffix=".jsonl")
-                os.close(fd)
-                self._debug_temp_handle = open(  # noqa: SIM115
-                    self._debug_temp_file, "a", encoding="utf-8",
+            stages = list(
+                dict.fromkeys(
+                    entry["stage"]
+                    for entry in self._runtime_logs
+                    if entry.get("stage")
                 )
-            self._debug_temp_handle.write(
-                json.dumps(entry, default=_json_default) + "\n"
             )
-            self._debug_temp_handle.flush()
-        except Exception:
-            _logger.error("Failed to write log entry to temp file: %s", entry, exc_info=True)
+            ji.stages = stages[0] if len(stages) == 1 else (stages or None)
 
-    def _on_periodic_flush(self) -> None:  # noqa: D102
-        self._periodic_flush()
+            op_types = list(
+                dict.fromkeys(
+                    entry["operation_type"]
+                    for entry in self._runtime_logs
+                    if entry.get("operation_type")
+                )
+            )
+            ji.operation_types = (
+                op_types[0] if len(op_types) == 1 else (op_types or None)
+            )
+
+            if ji.status == DataFlowStatus.PENDING.value:
+                if ji.total_failed > 0:
+                    ji.status = DataFlowStatus.FAILED.value
+                elif ji.total_succeeded > 0:
+                    ji.status = DataFlowStatus.SUCCEEDED.value
+                elif ji.total_skipped > 0:
+                    ji.status = DataFlowStatus.SKIPPED.value
+
+            return self._flatten_job_runtime(ji)
+
+    # ------------------------------------------------------------------
+    # Debug checkpoints
+    # ------------------------------------------------------------------
 
     def _ensure_debug_remote_path(self) -> str:
         """Return (and lazily compute) the single remote JSONL path."""
-        if self._debug_remote_path is None:
-            now = utc_now()
-            path = self._partition_path(
-                LogPurpose.DEBUG.value, LogType.JOB_RUN_LOG.value, now,
-            )
-            self._debug_remote_path = f"{path}/job_{self._file_stem(now)}.jsonl"
-        return self._debug_remote_path
+        with self._state_lock:
+            if self._debug_remote_path is None:
+                now = utc_now()
+                path = self._partition_path(
+                    LogPurpose.DEBUG.value,
+                    LogType.JOB_RUN_LOG.value,
+                    now,
+                )
+                self._debug_remote_path = (
+                    f"{path}/job_{self._file_stem(now)}.jsonl"
+                )
+            return self._debug_remote_path
 
-    def _periodic_flush(self) -> None:
-        """Append only new bytes from the temp JSONL to the remote path."""
-        if not self._debug_temp_file or not os.path.exists(self._debug_temp_file):
+    def _flush_periodic(self) -> None:
+        """Append records after the committed debug cursor."""
+        if not self._platform or not self._config.output_path:
             return
-        if not self._platform:
+
+        with self._state_lock:
+            start = self._debug_flushed_count
+            end = len(self._runtime_logs)
+            records = tuple(self._runtime_logs[start:end])
+
+        if not records:
             return
-        try:
-            # Ensure buffered writes are on disk before reading.
-            if self._debug_temp_handle is not None:
-                self._debug_temp_handle.flush()
-            with open(self._debug_temp_file, "rb") as f:
-                f.seek(self._debug_flush_offset)
-                raw = f.read()
-            if not raw:
-                return
-            full_path = self._ensure_debug_remote_path()
-            self._platform.append_file(full_path, raw.decode("utf-8"))
-            self._debug_flush_offset += len(raw)
-            _logger.debug("Debug JSONL periodic flush: %s", full_path)
-        except Exception as exc:
-            _logger.error("Failed periodic flush: %s", exc)
+        content = "".join(
+            json.dumps(entry, default=_json_default) + "\n"
+            for entry in records
+        )
+        full_path = self._ensure_debug_remote_path()
+        self._platform.append_file(full_path, content)
+        with self._state_lock:
+            if not self._is_closed:
+                self._debug_flushed_count = max(
+                    self._debug_flushed_count,
+                    end,
+                )
+        _logger.debug("Debug JSONL periodic flush: %s", full_path)
 
     # ------------------------------------------------------------------
-    # Flush (called once at session end)
+    # Terminal snapshot
     # ------------------------------------------------------------------
 
-    def flush(self) -> None:
-        """Write all accumulated logs to storage (no-op if nothing logged)."""
-        if not self._config.output_path or not self._platform or not self._runtime_logs:
-            return
-        try:
-            now     = utc_now()
-            stem    = self._file_stem(now)
+    def _build_final_operations(
+        self,
+        *,
+        periodic_in_flight: bool,
+    ) -> Sequence[_FlushOperation]:
+        """Build independent terminal sinks from one complete job snapshot."""
+        if not self._config.output_path or not self._platform:
+            return ()
+
+        with self._state_lock:
+            if not self._runtime_logs:
+                return ()
+            runtime_logs = tuple(self._runtime_logs)
+            debug_start = min(self._debug_flushed_count, len(runtime_logs))
             summary = self._build_job_summary()
-            self._write_debug_jsonl(summary)
-            self._write_analyst_outputs(summary, stem, now)
-            _logger.info("ETL logs saved: %s", self._config.output_path)
-        except Exception as exc:
-            _logger.error("Failed to flush ETL logs: %s", exc)
+            now = utc_now()
+            stem = self._file_stem(now)
+
+        operations: list[_FlushOperation] = []
+        if not periodic_in_flight:
+            debug_path = self._ensure_debug_remote_path()
+            debug_content = self._build_debug_content(
+                runtime_logs[debug_start:],
+                summary,
+            )
+            operations.append(
+                _FlushOperation(
+                    "debug_jsonl",
+                    lambda: self._append_text(debug_path, debug_content),
+                )
+            )
+
+        job_path, job_content = self._build_analyst_job_payload(summary, now)
+        operations.append(
+            _FlushOperation(
+                "analyst_job_jsonl",
+                lambda: self._append_text(job_path, job_content),
+            )
+        )
+
+        dataflow_path = self._build_analyst_dataflow_path(stem, now)
+        operations.append(
+            _FlushOperation(
+                "analyst_dataflow_parquet",
+                lambda: self._write_analyst_dataflow_output(
+                    runtime_logs,
+                    dataflow_path,
+                ),
+            )
+        )
+        return tuple(operations)
 
     # ------------------------------------------------------------------
     # Storage writers
@@ -667,51 +656,36 @@ class ETLLogger(BaseLogger):
             path = format_partition_path(path, run_date, pattern=self._config.partition_pattern)
         return path
 
-    def _write_debug_jsonl(
+    @staticmethod
+    def _build_debug_content(
+        runtime_logs: Sequence[Dict[str, Any]],
+        summary: Dict[str, Any],
+    ) -> str:
+        """Serialize remaining debug rows and the terminal summary."""
+        lines = [
+            json.dumps(entry, default=_json_default)
+            for entry in runtime_logs
+        ]
+        lines.append(
+            json.dumps(
+                {"_type": LogType.JOB_RUN_LOG.value, **summary},
+                default=_json_default,
+            )
+        )
+        return "\n".join(lines) + "\n"
+
+    def _append_text(self, path: str, content: str) -> None:
+        """Append a prepared immutable text payload."""
+        if self._platform is None:
+            return
+        self._platform.append_file(path, content)
+
+    def _build_analyst_job_payload(
         self,
         summary: Dict[str, Any],
-    ) -> None:
-        full_path = self._ensure_debug_remote_path()
-
-        # Append job summary as the final line of the JSONL file.
-        summary_line = {"_type": LogType.JOB_RUN_LOG.value, **summary}
-        summary_text = json.dumps(summary_line, default=_json_default) + "\n"
-
-        if self._debug_temp_file and os.path.exists(self._debug_temp_file):
-            try:
-                # Write summary via the open handle, then close before reading.
-                if self._debug_temp_handle is not None:
-                    self._debug_temp_handle.write(summary_text)
-                    self._debug_temp_handle.close()
-                    self._debug_temp_handle = None
-                else:
-                    with open(self._debug_temp_file, "a", encoding="utf-8") as f:
-                        f.write(summary_text)
-                # Read all bytes not yet flushed (dataflow entries + summary).
-                with open(self._debug_temp_file, "rb") as f:
-                    f.seek(self._debug_flush_offset)
-                    remaining_raw = f.read()
-                if remaining_raw:
-                    self._platform.append_file(full_path, remaining_raw.decode("utf-8"))
-                _logger.debug("Debug JSONL written: %s", full_path)
-            finally:
-                self._remove_debug_temp()
-        else:
-            # Fallback: build content from in-memory entries and append.
-            lines = [json.dumps(e, default=_json_default) for e in self._runtime_logs]
-            lines.append(json.dumps(summary_line, default=_json_default))
-            content = "\n".join(lines) + "\n"
-            self._platform.append_file(full_path, content)
-            _logger.debug("Debug JSONL written (fallback): %s", full_path)
-
-    def _write_analyst_outputs(
-        self,
-        summary: Dict[str, Any],
-        stem: str,
         run_date: datetime,
-    ) -> None:
-        """Write analyst outputs: job_run_log as JSONL (append), dataflow_run_log as Parquet."""
-        # -- job_run_log: one JSONL line per job run, appended to shared daily file --
+    ) -> tuple[str, str]:
+        """Build the existing analyst job-summary path and JSONL row."""
         summary_row: Dict[str, Any] = {"_type": LogType.JOB_RUN_LOG.value, **summary}
         job_log_dir = self._partition_path(
             LogPurpose.ANALYST.value, LogType.JOB_RUN_LOG.value, run_date,
@@ -727,14 +701,28 @@ class ETLLogger(BaseLogger):
         date_stem = re.sub(r"\D", "", _pf)
         job_log_path = f"{job_log_dir}/job_run_log_{date_stem}.jsonl"
         job_line = json.dumps(summary_row, default=_json_default) + "\n"
-        try:
-            self._platform.append_file(job_log_path, job_line)
-            _logger.debug("Analyst job_run_log appended: %s", job_log_path)
-        except Exception as exc:
-            _logger.error("Failed to write analyst job_run_log: %s", exc, exc_info=True)
+        return job_log_path, job_line
 
-        # -- dataflow_run_log: per-run Parquet (unchanged) --
-        if not self._runtime_logs:
+    def _build_analyst_dataflow_path(
+        self,
+        stem: str,
+        run_date: datetime,
+    ) -> str:
+        """Build the existing per-run analyst Parquet path."""
+        path = self._partition_path(
+            LogPurpose.ANALYST.value,
+            LogType.DATAFLOW_RUN_LOG.value,
+            run_date,
+        )
+        return f"{path}/dataflow_{stem}.parquet"
+
+    def _write_analyst_dataflow_output(
+        self,
+        runtime_logs: Sequence[Dict[str, Any]],
+        full_path: str,
+    ) -> None:
+        """Upload the existing analyst dataflow Parquet artifact."""
+        if not runtime_logs:
             return
         try:
             import pyarrow as pa
@@ -743,36 +731,57 @@ class ETLLogger(BaseLogger):
             _logger.warning("pyarrow not installed — Parquet output skipped.")
             return
 
-        path = self._partition_path(
-            LogPurpose.ANALYST.value, LogType.DATAFLOW_RUN_LOG.value, run_date,
+        schema = _build_dataflow_schema(pa)
+        self._write_parquet_file(
+            runtime_logs,
+            full_path,
+            pa,
+            pq,
+            schema=schema,
         )
-        full_path = f"{path}/dataflow_{stem}.parquet"
-        schema = _build_dataflow_schema()
-        self._write_parquet_file(self._runtime_logs, full_path, pa, pq, schema=schema)
 
     def _write_parquet_file(
         self,
-        data: List[Dict[str, Any]],
+        data: Sequence[Dict[str, Any]],
         full_path: str,
         pa: Any,
         pq: Any,
         schema: Any = None,
     ) -> None:
-        # Arrow requires all values to be scalars — serialize dict/list columns.
-        sanitized = [
-            {k: json.dumps(v, default=_json_default) if isinstance(v, (dict, list)) else v for k, v in row.items()}
-            for row in data
-        ]
-
         if schema:
-            # Only keep columns that exist in the schema; fill missing with None
-            schema_names = set(f.name for f in schema)
-            sanitized = [
-                {k: v for k, v in row.items() if k in schema_names}
-                for row in sanitized
+            schema_names = tuple(field.name for field in schema)
+            schema_name_set = set(schema_names)
+            unknown_keys = set().union(*(row.keys() for row in data)) - schema_name_set
+            if unknown_keys:
+                _logger.warning(
+                    "ETL Parquet projection omitted %d unknown field(s): %s",
+                    len(unknown_keys),
+                    ", ".join(sorted(unknown_keys)),
+                )
+            projected = [
+                {
+                    name: (
+                        json.dumps(value, default=_json_default)
+                        if isinstance(value := row.get(name), (dict, list))
+                        else value
+                    )
+                    for name in schema_names
+                }
+                for row in data
             ]
-            table = pa.Table.from_pylist(sanitized, schema=schema)
+            table = pa.Table.from_pylist(projected, schema=schema)
         else:
+            sanitized = [
+                {
+                    key: (
+                        json.dumps(value, default=_json_default)
+                        if isinstance(value, (dict, list))
+                        else value
+                    )
+                    for key, value in row.items()
+                }
+                for row in data
+            ]
             table = pa.Table.from_pylist(sanitized)
 
         with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
@@ -781,8 +790,6 @@ class ETLLogger(BaseLogger):
             pq.write_table(table, tmp_path, compression="snappy")
             self._platform.upload_file(tmp_path, full_path)
             _logger.debug("Parquet written: %s", full_path)
-        except Exception as exc:
-            _logger.error("Failed to write Parquet file: %s", exc, exc_info=True)
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
@@ -791,28 +798,15 @@ class ETLLogger(BaseLogger):
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def _remove_debug_temp(self) -> None:
-        if self._debug_temp_handle is not None:
-            try:
-                self._debug_temp_handle.close()
-            except Exception:
-                pass
-            self._debug_temp_handle = None
-        if self._debug_temp_file and os.path.exists(self._debug_temp_file):
-            try:
-                os.remove(self._debug_temp_file)
-            except Exception as exc:
-                _logger.debug("Could not remove temp debug file: %s", exc)
-        self._debug_temp_file = None
-
     def _cleanup(self) -> None:
         super()._cleanup()
-        self._runtime_logs.clear()
-        self._remove_debug_temp()
-        self._debug_remote_path = None
-        self._job_info = JobRuntimeInfo(start_time=utc_now())
-        self._apply_run_config()
-        self._apply_component_names()
+        with self._state_lock:
+            self._runtime_logs.clear()
+            self._debug_remote_path = None
+            self._debug_flushed_count = 0
+            self._job_info = JobRuntimeInfo(start_time=utc_now())
+            self._apply_run_config()
+            self._apply_component_names()
 
 
 # ============================================================================

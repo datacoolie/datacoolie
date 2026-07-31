@@ -215,6 +215,10 @@ class DataCoolieDriver:
                 metadata_provider_name=type(self._metadata_provider).__name__,
                 watermark_manager_name=type(self._watermark_manager).__name__,
             )
+        if self._system_logger:
+            self._system_logger.activate()
+        if self._etl_logger:
+            self._etl_logger.activate()
 
         # -- Execution components ---------------------------------------
         self._distributor = JobDistributor(

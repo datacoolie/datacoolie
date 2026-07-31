@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,8 +15,6 @@ from datacoolie.core.models import DataCoolieRunConfig, DataFlowRuntimeInfo, Des
 from datacoolie.logging.base import LogConfig, LogManager
 from datacoolie.logging.etl_logger import (
     ETLLogger,
-    _build_dataflow_schema,
-    _build_job_summary_schema,
     create_etl_logger,
 )
 
@@ -57,6 +58,31 @@ class TestETLLoggerCore:
         logger, _ = make_logger()
         logger.close()
         logger.log(make_dataflow(), make_runtime())
+        assert logger._runtime_logs == []
+
+    def test_entry_built_during_close_is_discarded(self, monkeypatch):
+        logger, _ = make_logger()
+        build_started = threading.Event()
+        release_build = threading.Event()
+        original_build = logger._build_entry
+
+        def blocking_build(dataflow, runtime):
+            build_started.set()
+            assert release_build.wait(timeout=2)
+            return original_build(dataflow, runtime)
+
+        monkeypatch.setattr(logger, "_build_entry", blocking_build)
+        worker = threading.Thread(
+            target=logger.log,
+            args=(make_dataflow(), make_runtime()),
+        )
+        worker.start()
+        assert build_started.wait(timeout=2)
+
+        logger.close()
+        release_build.set()
+        worker.join(timeout=2)
+
         assert logger._runtime_logs == []
 
     def test_set_run_config_updates_job_info(self):
@@ -172,37 +198,13 @@ class TestLifecycleAndFactory:
     def test_flush_noop_when_missing_requirements(self):
         logger = ETLLogger(LogConfig(output_path=None), platform=MagicMock())
         logger.log(make_dataflow(), make_runtime())
-        logger.flush()  # no-op
         logger.close()
+        assert logger.terminal_outcomes == ()
 
 
 # ============================================================================
 # Additional edge cases (merged from test_etl_logger_edge_cases.py)
 # ============================================================================
-
-
-class TestSchemaBuilderImportErrorPaths:
-    def test_build_dataflow_schema_returns_none_when_pyarrow_missing(self):
-        real_import = __import__
-
-        def _import(name, *args, **kwargs):
-            if name == "pyarrow":
-                raise ImportError("missing")
-            return real_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=_import):
-            assert _build_dataflow_schema() is None
-
-    def test_build_job_summary_schema_returns_none_when_pyarrow_missing(self):
-        real_import = __import__
-
-        def _import(name, *args, **kwargs):
-            if name == "pyarrow":
-                raise ImportError("missing")
-            return real_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=_import):
-            assert _build_job_summary_schema() is None
 
 
 class TestAggregationEdgeCases:
@@ -239,4 +241,31 @@ class TestAggregationEdgeCases:
         logger, _ = make_logger()
         summary = logger._build_job_summary()
         assert summary["status"] == DataFlowStatus.PENDING.value
+        logger.close()
+
+    def test_concurrent_logging_keeps_exact_counters_and_rows(self):
+        logger = ETLLogger(
+            LogConfig(output_path=None, flush_interval_seconds=0),
+            platform=None,
+        )
+        dataflow = make_dataflow("concurrent")
+        runtime = make_runtime(
+            "concurrent",
+            rows_read=1,
+            rows_written=1,
+        )
+        previous_interval = sys.getswitchinterval()
+        sys.setswitchinterval(1e-6)
+        try:
+            with ThreadPoolExecutor(max_workers=32) as pool:
+                list(pool.map(lambda _: logger.log(dataflow, runtime), range(3000)))
+        finally:
+            sys.setswitchinterval(previous_interval)
+
+        summary = logger._build_job_summary()
+        assert len(logger._runtime_logs) == 3000
+        assert summary["total_dataflows"] == 3000
+        assert summary["total_succeeded"] == 3000
+        assert summary["total_rows_read"] == 3000
+        assert summary["total_rows_written"] == 3000
         logger.close()

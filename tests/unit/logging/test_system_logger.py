@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from datacoolie.logging.base import LogConfig, LogLevel, LogManager, StorageMode
+from datacoolie.logging.base import LogConfig, LogManager, StorageMode
 from datacoolie.logging.system_logger import SystemLogger, create_system_logger
 from datacoolie.platforms.local_platform import LocalPlatform
 
@@ -28,21 +29,21 @@ class TestSystemLogger:
         assert mgr.capture_handler is not None
         lgr.close()
 
-    def test_flush_no_output_path(self):
-        """flush does nothing when output_path is not set."""
+    def test_close_no_output_path(self):
+        """close does nothing when output_path is not set."""
         lgr = SystemLogger(LogConfig())
-        lgr.flush()  # should not raise
         lgr.close()
+        assert lgr.terminal_outcomes == ()
 
-    def test_flush_no_platform(self):
-        """flush does nothing when platform is not set."""
+    def test_close_no_platform(self):
+        """close does nothing when platform is not set."""
         cfg = LogConfig(output_path="/logs")
         lgr = SystemLogger(cfg, platform=None)
-        lgr.flush()  # should not raise
         lgr.close()
+        assert lgr.terminal_outcomes == ()
 
-    def test_flush_appends(self):
-        """flush calls append_file with a .jsonl remote path."""
+    def test_close_appends(self):
+        """close calls append_file with a .jsonl remote path."""
         platform = MagicMock()
         cfg = LogConfig(
             output_path="/logs",
@@ -57,7 +58,7 @@ class TestSystemLogger:
         child = get_logger("test.flush")
         child.info("some captured message")
 
-        lgr.flush()
+        lgr.close()
 
         platform.append_file.assert_called_once()
         remote_path = platform.append_file.call_args[0][0]
@@ -91,18 +92,30 @@ class TestSystemLogger:
         log_files = [f for f in log_files if "system_log" in f.name]
         assert len(log_files) == 1
         import json
-        lines = [l for l in log_files[0].read_text(encoding="utf-8").splitlines() if l.strip()]
+        lines = [
+            line
+            for line in log_files[0].read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
         assert len(lines) >= 1
         record = json.loads(lines[0])
         assert "hello content test" in record["msg"]
         assert "ts" in record and "level" in record and "logger" in record
 
-    def test_flush_error_handled(self):
-        """If flush fails, no exception propagates."""
+    @pytest.mark.parametrize(
+        "storage_mode",
+        [StorageMode.MEMORY.value, StorageMode.FILE.value],
+    )
+    def test_periodic_error_retains_batch_for_retry(self, storage_mode):
+        """A definite periodic failure retains records for a later interval."""
         platform = MagicMock()
-        platform.append_file.side_effect = RuntimeError("write fail")
+        platform.append_file.side_effect = [RuntimeError("write fail"), None]
 
-        cfg = LogConfig(output_path="/logs", flush_interval_seconds=0)
+        cfg = LogConfig(
+            output_path="/logs",
+            storage_mode=storage_mode,
+            flush_interval_seconds=0,
+        )
         lgr = SystemLogger(cfg, platform=platform)
         from datacoolie.core.models import DataCoolieRunConfig
         lgr.set_run_config(DataCoolieRunConfig(job_id="j"))
@@ -111,8 +124,31 @@ class TestSystemLogger:
         child = get_logger("test.flush.err")
         child.info("msg")
 
-        # Should not raise
-        lgr.flush()
+        lgr._on_periodic_flush()
+        assert isinstance(lgr.last_flush_error, RuntimeError)
+        pending = lgr._log_manager.capture_handler.get_records()
+        assert [record.message for record in pending] == ["msg"]
+
+        lgr._on_periodic_flush()
+        assert lgr.last_flush_error is None
+        assert platform.append_file.call_count == 2
+        retry_payload = platform.append_file.call_args_list[1].args[1]
+        assert retry_payload.count('"msg": "msg"') == 1
+        lgr.close()
+
+    def test_periodic_flush_does_not_capture_its_own_success(self):
+        platform = MagicMock()
+        lgr = SystemLogger(
+            LogConfig(output_path="/logs", flush_interval_seconds=0),
+            platform,
+        )
+        from datacoolie.logging.base import get_logger
+
+        get_logger("test.periodic.feedback").info("one event")
+        lgr._on_periodic_flush()
+
+        assert platform.append_file.call_count == 1
+        assert lgr._log_manager.get_captured_logs() == ""
         lgr.close()
 
     def test_cleanup_clears_captured(self):
@@ -123,10 +159,27 @@ class TestSystemLogger:
         from datacoolie.logging.base import get_logger
         child = get_logger("test.cleanup")
         child.info("msg")
-        # get_and_clear is used on flush; call _cleanup directly to test clear.
-        lgr._log_manager.clear_captured_logs()
-        assert mgr.get_captured_logs() == ""
+        assert "msg" in mgr.get_captured_logs()
         lgr._cleanup()
+        assert mgr.get_captured_logs() == ""
+
+    def test_close_detaches_owned_capture_handler(self):
+        lgr = SystemLogger(
+            LogConfig(storage_mode=StorageMode.MEMORY.value),
+        )
+        mgr = LogManager.get_instance()
+        handler = mgr.capture_handler
+        assert handler is not None
+        assert handler in logging.getLogger("DataCoolie").handlers
+
+        lgr.close()
+        from datacoolie.logging.base import get_logger
+
+        get_logger("test.after_close").info("must not be captured")
+
+        assert handler not in logging.getLogger("DataCoolie").handlers
+        assert handler.get_records() == []
+        assert mgr.capture_handler is None
 
     def test_context_manager(self):
         platform = MagicMock()
@@ -174,6 +227,7 @@ class TestSystemLogger:
         lgr = SystemLogger(cfg, platform=platform)
         from datacoolie.core.models import DataCoolieRunConfig
         lgr.set_run_config(DataCoolieRunConfig(job_id="timer-job"))
+        lgr.activate()
 
         from datacoolie.logging.base import get_logger
         child = get_logger("test.timer")
@@ -187,10 +241,49 @@ class TestSystemLogger:
         # File should exist from the periodic flush.
         assert len(log_files) >= 1
         import json
-        lines = [l for l in log_files[0].read_text(encoding="utf-8").splitlines() if l.strip()]
-        assert any("timer triggered msg" in json.loads(l)["msg"] for l in lines)
+        lines = [
+            line
+            for line in log_files[0].read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert any(
+            "timer triggered msg" in json.loads(line)["msg"]
+            for line in lines
+        )
 
         lgr.close()
+
+    def test_blocked_periodic_flush_cannot_hang_close(self):
+        platform = MagicMock()
+        append_started = threading.Event()
+        release_append = threading.Event()
+
+        def append_file(_path, _content):
+            append_started.set()
+            release_append.wait(timeout=2)
+
+        platform.append_file.side_effect = append_file
+        lgr = SystemLogger(
+            LogConfig(
+                output_path="/logs",
+                flush_interval_seconds=0.01,
+                close_timeout_seconds=0.05,
+            ),
+            platform,
+        )
+        lgr.activate()
+        logging.getLogger("DataCoolie.test.blocked").info("blocked")
+        assert append_started.wait(timeout=2)
+
+        started = time.monotonic()
+        lgr.close()
+        elapsed = time.monotonic() - started
+        release_append.set()
+
+        assert elapsed < 0.3
+        assert lgr.terminal_outcomes[0].name == "system_jsonl"
+        assert lgr.terminal_outcomes[0].status == "timed_out"
+        assert LogManager.get_instance().capture_handler is None
 
 
 # ============================================================================
@@ -251,10 +344,9 @@ class TestSystemLoggerEdgeCases:
         child = logging.getLogger("DataCoolie.test.system.no_partition")
         child.info("hello")
 
-        logger.flush()
+        logger.close()
         assert platform.append_file.called
         remote = platform.append_file.call_args.args[0]
         assert "run_date=" not in remote
         assert remote.endswith(".jsonl")
-        logger.close()
 

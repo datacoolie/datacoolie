@@ -1,10 +1,9 @@
-"""Parquet-focused tests for ETLLogger output and schema behavior."""
+"""Parquet-focused tests for ETLLogger output behavior."""
 
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,7 +29,7 @@ class TestAnalystParquetOutput:
         LogManager.reset()
 
     def test_writes_dataflow_parquet_and_job_jsonl(self, tmp_path):
-        pyarrow = pytest.importorskip("pyarrow")
+        pytest.importorskip("pyarrow")
         pq = pytest.importorskip("pyarrow.parquet")
 
         logger, _ = make_real_logger(tmp_path)
@@ -47,19 +46,24 @@ class TestAnalystParquetOutput:
         job_parquet_files = [f for f in parquet_files if f.name.startswith("job_")]
         assert len(job_parquet_files) == 0
 
-        dtable = pq.read_table(dataflow_files[0])
-        non_ts_names = [f.name for f in dtable.schema if not pyarrow.types.is_timestamp(f.type)]
-        rows = dtable.select(non_ts_names).to_pydict()
-        assert "job_status" not in rows
-        assert None in set(rows["operation_type"])
-        assert ExecutionType.MAINTENANCE.value in set(rows["operation_type"])
-        assert dtable.schema.field("source_rows_read").type == pyarrow.int64()
-        assert dtable.schema.field("start_time").type == pyarrow.timestamp("us", tz="UTC")
+        rows = pq.read_table(dataflow_files[0]).to_pylist()
+        assert len(rows) == 2
+        assert "job_status" not in rows[0]
+        operation_types = {row["operation_type"] for row in rows}
+        assert None in operation_types
+        assert ExecutionType.MAINTENANCE.value in operation_types
 
         # job_run_log: JSONL in analyst folder
         analyst_jsonl = [f for f in tmp_path.rglob("*.jsonl") if "analyst" in str(f)]
         assert len(analyst_jsonl) == 1
-        lines = [json.loads(l) for l in analyst_jsonl[0].read_text(encoding="utf-8").strip().split("\n") if l.strip()]
+        lines = [
+            json.loads(line)
+            for line in analyst_jsonl[0]
+            .read_text(encoding="utf-8")
+            .strip()
+            .split("\n")
+            if line.strip()
+        ]
         assert len(lines) == 1
         assert lines[0]["_type"] == "job_run_log"
         assert lines[0]["total_dataflows"] == 2
@@ -126,35 +130,7 @@ class TestWriteHelpersEdgeCases:
     def teardown_method(self):
         LogManager.reset()
 
-    def test_write_debug_jsonl_fallback_uses_append_file(self):
-        from tests.unit.logging.support import make_logger
-
-        logger, platform = make_logger()
-        logger.log(make_dataflow("a"), make_runtime("a"))
-        logger._remove_debug_temp()  # force fallback (no temp file)
-
-        logger._write_debug_jsonl({"job_id": "j1"})
-        platform.append_file.assert_called()
-        logger.close()
-
-    def test_write_analyst_outputs_only_job_jsonl_when_no_runtime_logs(self, tmp_path):
-        platform = LocalPlatform(base_path=str(tmp_path))
-        logger = ETLLogger(LogConfig(output_path="logs"), platform)
-        logger._runtime_logs = []
-
-        summary = {"job_id": "j1", "total_dataflows": 0}
-        logger._write_analyst_outputs(summary, "stem", datetime.now(timezone.utc))
-
-        # No dataflow parquet when there are no runtime logs.
-        parquet_files = list(tmp_path.rglob("*.parquet"))
-        assert not any(path.name.startswith("dataflow_") for path in parquet_files)
-
-        # job_run_log JSONL should still be written.
-        analyst_jsonl = [f for f in tmp_path.rglob("*.jsonl") if "analyst" in str(f)]
-        assert len(analyst_jsonl) == 1
-        logger.close()
-
-    def test_write_parquet_file_handles_write_exception(self):
+    def test_write_parquet_file_surfaces_write_exception_to_flush_boundary(self):
         pa = pytest.importorskip("pyarrow")
 
         class BadPQ:
@@ -168,7 +144,14 @@ class TestWriteHelpersEdgeCases:
         base = Path(tempfile.mkdtemp())
         platform = LocalPlatform(base_path=str(base))
         logger = ETLLogger(LogConfig(output_path="logs"), platform)
-        logger._write_parquet_file([{"a": 1}], "logs/analyst/x.parquet", pa, BadPQ(), schema=None)
+        with pytest.raises(RuntimeError, match="pq write error"):
+            logger._write_parquet_file(
+                [{"a": 1}],
+                "logs/analyst/x.parquet",
+                pa,
+                BadPQ(),
+                schema=None,
+            )
         logger.close()
 
     def test_write_parquet_file_finally_branch_when_tmp_already_removed(self):
@@ -190,15 +173,4 @@ class TestWriteHelpersEdgeCases:
 
         logger = ETLLogger(LogConfig(output_path="logs"), platform)
         logger._write_parquet_file([{"a": 1}], "logs/analyst/x.parquet", pa, pq, schema=None)
-        logger.close()
-
-    def test_remove_debug_temp_swallow_remove_error(self, tmp_path, monkeypatch):
-        logger = ETLLogger(LogConfig(output_path="/logs"), platform=MagicMock())
-        fp = tmp_path / "debug.jsonl"
-        fp.write_text("{}\n", encoding="utf-8")
-        logger._debug_temp_file = str(fp)
-
-        monkeypatch.setattr("os.remove", lambda *_: (_ for _ in ()).throw(OSError("denied")))
-        logger._remove_debug_temp()
-        assert logger._debug_temp_file is None
         logger.close()

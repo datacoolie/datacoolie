@@ -29,7 +29,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
 from datacoolie.logging.base import (
     LogLevel,
@@ -37,6 +37,7 @@ from datacoolie.logging.base import (
     LogConfig,
     LogManager,
     StorageMode,
+    _FlushOperation,
     format_partition_path,
     get_logger,
 )
@@ -64,6 +65,8 @@ class SystemLogger(BaseLogger):
             flush_interval_seconds, etc.).
         platform: Platform for file operations.
     """
+
+    _periodic_sink_name = "system_jsonl"
 
     def __init__(self, config: LogConfig, platform: Optional[BasePlatform] = None) -> None:
         super().__init__(config, platform)
@@ -97,31 +100,47 @@ class SystemLogger(BaseLogger):
             self._remote_path = f"{output_path}/system_log_{date_stem}_{job_id}.jsonl"
         return self._remote_path
 
-    def _do_flush(self) -> bool:
-        """Drain captured logs and append them as JSONL to the remote file.
+    def _flush_periodic(self) -> None:
+        """Append one transactional periodic batch."""
+        if not self._config.output_path or not self._platform:
+            return
 
-        Returns ``True`` when bytes were actually written to storage.
-        """
-        jsonl = self._log_manager.get_and_clear_captured_jsonl()
-        if not jsonl or not self._config.output_path or not self._platform:
-            return False
+        batch = self._log_manager.begin_captured_jsonl_batch()
+        if not batch:
+            return
+        jsonl = self._log_manager.captured_batch_to_jsonl(batch)
         try:
             full_path = self._ensure_remote_path()
             self._platform.append_file(full_path, jsonl + "\n")
-            return True
-        except Exception as exc:
-            _logger.error("Failed to flush system logs: %s", exc)
-            return False
+        except Exception:
+            self._log_manager.rollback_captured_batch(batch)
+            raise
 
-    def _on_periodic_flush(self) -> None:  # noqa: D102
-        if self._do_flush():
-            _logger.debug("System logs periodic flush: %s", self._remote_path)
+    def _build_final_operations(
+        self,
+        *,
+        periodic_in_flight: bool,
+    ) -> Sequence[_FlushOperation]:
+        """Detach one terminal batch unless its sink is already in flight."""
+        if (
+            periodic_in_flight
+            or not self._config.output_path
+            or not self._platform
+        ):
+            return ()
 
-    def flush(self) -> None:
-        """Flush remaining captured logs to storage."""
-        self._do_flush()
-        if self._remote_path and self._config.output_path and self._platform:
-            _logger.info("System logs saved: %s", self._remote_path)
+        batch = self._log_manager.begin_captured_jsonl_batch()
+        if not batch:
+            return ()
+        content = self._log_manager.captured_batch_to_jsonl(batch) + "\n"
+        path = self._ensure_remote_path()
+        platform = self._platform
+        return (
+            _FlushOperation(
+                "system_jsonl",
+                lambda: platform.append_file(path, content),
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -129,7 +148,7 @@ class SystemLogger(BaseLogger):
 
     def _cleanup(self) -> None:
         super()._cleanup()
-        self._log_manager.clear_captured_logs()
+        self._log_manager.cleanup()
 
 
 def create_system_logger(

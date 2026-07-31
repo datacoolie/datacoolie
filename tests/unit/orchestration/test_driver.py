@@ -189,6 +189,8 @@ class TestDataCoolieDriverLoggers:
         assert d._system_logger.run_config is d.config
         assert d._etl_logger.run_config is d.config
         assert d._etl_logger._job_info.job_id == d.job_id
+        assert d._system_logger.is_active
+        assert d._etl_logger.is_active
 
     def test_explicit_system_logger_not_replaced_by_base_log_path(self):
         """Explicit system_logger takes precedence; only etl_logger is auto-created."""
@@ -218,6 +220,8 @@ class TestDataCoolieDriverLoggers:
 
         sys_lgr.set_run_config.assert_called_once_with(d.config)
         etl_lgr.set_run_config.assert_called_once_with(d.config)
+        sys_lgr.activate.assert_called_once_with()
+        etl_lgr.activate.assert_called_once_with()
 
     def test_log_config_used_for_auto_created_loggers(self):
         """User-supplied LogConfig is used as template for auto-created loggers."""

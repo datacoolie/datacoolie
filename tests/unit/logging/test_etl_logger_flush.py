@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 from datacoolie.core.constants import DataFlowStatus
@@ -46,17 +47,13 @@ class TestDebugJsonlFlush:
         assert "debug_json" in path
         assert "job_run_log" in path
 
-    def test_flush_falls_back_to_in_memory_when_no_temp_file(self):
+    def test_close_builds_debug_jsonl_from_memory(self):
         logger, platform = make_logger()
         logger.log(make_dataflow("a"), make_runtime("a"))
-        logger._remove_debug_temp()  # force fallback path in _write_debug_jsonl
+        logger.close()
 
-        logger.flush()
-
-        # Fallback now uses append_file for debug JSONL.
         append_paths = [str(call.args[0]) for call in platform.append_file.call_args_list]
         assert any(path.endswith(".jsonl") for path in append_paths)
-        logger.close()
 
     def test_no_pyarrow_only_jsonl_appended(self):
         logger, platform = make_logger()
@@ -72,6 +69,43 @@ class TestDebugJsonlFlush:
         upload_paths = [str(call.args[1]) for call in platform.upload_file.call_args_list]
         assert not any(path.endswith(".parquet") for path in upload_paths)
 
+    def test_repeated_close_is_idempotent(self):
+        logger, platform = make_logger(flush_interval_seconds=0)
+        logger.log(make_dataflow("a"), make_runtime("a"))
+
+        logger.close()
+        first_append_count = platform.append_file.call_count
+        first_upload_count = platform.upload_file.call_count
+        logger.close()
+
+        assert platform.append_file.call_count == first_append_count
+        assert platform.upload_file.call_count == first_upload_count
+
+    def test_terminal_sink_failure_does_not_suppress_other_sinks(self):
+        logger, platform = make_logger(flush_interval_seconds=0)
+        logger.log(make_dataflow("a"), make_runtime("a"))
+
+        def append_file(path, content):
+            if "/analyst/job_run_log/" in path:
+                raise RuntimeError("analyst unavailable")
+
+        platform.append_file.side_effect = append_file
+
+        logger.close()
+        assert isinstance(logger.last_flush_error, RuntimeError)
+
+        append_paths = [
+            str(call.args[0]) for call in platform.append_file.call_args_list
+        ]
+        assert sum("/debug_json/" in path for path in append_paths) == 1
+        assert sum("/analyst/job_run_log/" in path for path in append_paths) == 1
+        assert platform.upload_file.call_count == 1
+        assert {item.name: item.status for item in logger.terminal_outcomes} == {
+            "debug_jsonl": "succeeded",
+            "analyst_job_jsonl": "failed",
+            "analyst_dataflow_parquet": "succeeded",
+        }
+
 
 class TestPeriodicFlush:
     def setup_method(self):
@@ -83,7 +117,7 @@ class TestPeriodicFlush:
     def test_periodic_flush_appends_after_interval(self):
         logger, platform = make_logger(flush_interval_seconds=0)
 
-        # Log entries to create temp file content.
+        # Log entries to create an in-memory checkpoint batch.
         logger.log(make_dataflow("a"), make_runtime("a"))
         logger.log(make_dataflow("b"), make_runtime("b"))
 
@@ -95,14 +129,104 @@ class TestPeriodicFlush:
 
     def test_periodic_flush_noop_without_platform_or_output(self):
         logger = ETLLogger(LogConfig(output_path=None), platform=None)
-        logger._periodic_flush()  # should do nothing and not raise
+        logger._on_periodic_flush()  # should do nothing and not raise
         logger.close()
 
-    def test_periodic_flush_noop_when_temp_file_missing(self):
+    def test_periodic_flush_noop_without_records(self):
         logger, _ = make_logger()
-        logger._debug_temp_file = os.path.join(os.getcwd(), "definitely_missing.jsonl")
-        logger._periodic_flush()  # should do nothing and not raise
+        logger._on_periodic_flush()  # should do nothing and not raise
         logger.close()
+
+    def test_slow_periodic_storage_does_not_block_new_etl_records(self):
+        logger, platform = make_logger(flush_interval_seconds=0)
+        logger.log(make_dataflow("a"), make_runtime("a"))
+        append_started = threading.Event()
+        release_append = threading.Event()
+
+        def append_file(_path, _content):
+            append_started.set()
+            assert release_append.wait(timeout=2)
+
+        platform.append_file.side_effect = append_file
+        periodic = threading.Thread(target=logger._on_periodic_flush)
+        periodic.start()
+        assert append_started.wait(timeout=2)
+
+        logger.log(make_dataflow("b"), make_runtime("b"))
+        assert len(logger._runtime_logs) == 2
+
+        release_append.set()
+        periodic.join(timeout=2)
+        logger.close()
+
+    def test_periodic_success_during_close_does_not_duplicate_records(self):
+        logger, platform = make_logger(
+            flush_interval_seconds=0.01,
+            close_timeout_seconds=0.5,
+        )
+        append_started = threading.Event()
+        release_append = threading.Event()
+        first_debug = True
+
+        def append_file(path, _content):
+            nonlocal first_debug
+            if "/debug_json/" in path and first_debug:
+                first_debug = False
+                append_started.set()
+                assert release_append.wait(timeout=2)
+
+        platform.append_file.side_effect = append_file
+        logger.activate()
+        logger.log(make_dataflow("a"), make_runtime("a"))
+        assert append_started.wait(timeout=2)
+
+        closing = threading.Thread(target=logger.close)
+        closing.start()
+        release_append.set()
+        closing.join(timeout=2)
+
+        debug_payload = "".join(
+            call.args[1]
+            for call in platform.append_file.call_args_list
+            if "/debug_json/" in call.args[0]
+        )
+        assert debug_payload.count('"dataflow_id": "a"') == 1
+        assert debug_payload.count('"_type": "job_run_log"') == 1
+
+    def test_blocked_periodic_skips_only_ambiguous_debug_sink(self):
+        logger, platform = make_logger(
+            flush_interval_seconds=0.01,
+            close_timeout_seconds=0.05,
+        )
+        append_started = threading.Event()
+        release_append = threading.Event()
+
+        def append_file(path, _content):
+            if "/debug_json/" in path:
+                append_started.set()
+                release_append.wait(timeout=2)
+
+        platform.append_file.side_effect = append_file
+        logger.activate()
+        logger.log(make_dataflow("a"), make_runtime("a"))
+        assert append_started.wait(timeout=2)
+
+        started = time.monotonic()
+        logger.close()
+        elapsed = time.monotonic() - started
+        release_append.set()
+
+        append_paths = [
+            call.args[0] for call in platform.append_file.call_args_list
+        ]
+        assert elapsed < 0.3
+        assert sum("/debug_json/" in path for path in append_paths) == 1
+        assert any("/analyst/job_run_log/" in path for path in append_paths)
+        assert platform.upload_file.call_count == 1
+        outcomes = {item.name: item.status for item in logger.terminal_outcomes}
+        assert outcomes["debug_jsonl"] == "timed_out"
+        assert outcomes["analyst_job_jsonl"] == "succeeded"
+        assert outcomes["analyst_dataflow_parquet"] == "succeeded"
 
 
 # ============================================================================
@@ -117,37 +241,48 @@ class TestStreamAndPeriodicErrorPaths:
     def teardown_method(self):
         LogManager.reset()
 
-    def test_stream_write_entry_handles_file_creation_error(self, monkeypatch):
+    def test_log_hot_path_does_not_create_temp_file(self):
         logger, _ = make_logger()
-
-        monkeypatch.setattr("tempfile.mkstemp", lambda **kwargs: (_ for _ in ()).throw(OSError("no temp")))
-        logger._stream_write_entry({"k": "v"})
+        create_temp = MagicMock(side_effect=AssertionError("unexpected temp I/O"))
+        with patch(
+            "datacoolie.logging.etl_logger.tempfile.NamedTemporaryFile",
+            create_temp,
+        ):
+            logger.log(make_dataflow("a"), make_runtime("a"))
+        create_temp.assert_not_called()
         logger.close()
 
-    def test_periodic_flush_returns_when_platform_none(self, tmp_path):
+    def test_periodic_flush_returns_when_platform_none(self):
         logger = ETLLogger(LogConfig(output_path="/logs"), platform=None)
-        fp = tmp_path / "debug.jsonl"
-        fp.write_text("{}\n", encoding="utf-8")
-        logger._debug_temp_file = str(fp)
-        logger._periodic_flush()
+        logger.log(make_dataflow("a"), make_runtime("a"))
+        logger._on_periodic_flush()
         logger.close()
 
-    def test_periodic_flush_handles_append_error(self, tmp_path):
+    def test_periodic_flush_failure_keeps_record_cursor(self):
         platform = MagicMock()
         platform.append_file.side_effect = RuntimeError("append failed")
         logger = ETLLogger(LogConfig(output_path="/logs"), platform=platform)
-
-        fp = tmp_path / "debug.jsonl"
-        fp.write_text("{}\n", encoding="utf-8")
-        logger._debug_temp_file = str(fp)
-
-        logger._periodic_flush()
+        logger.log(make_dataflow("a"), make_runtime("a"))
+        logger._on_periodic_flush()
+        assert logger._debug_flushed_count == 0
+        assert isinstance(logger.last_flush_error, RuntimeError)
+        platform.append_file.side_effect = None
+        logger._on_periodic_flush()
+        assert logger._debug_flushed_count == 1
         logger.close()
 
-    def test_flush_handles_internal_exception(self):
-        logger, _ = make_logger()
+    def test_debug_failure_does_not_dump_or_block_analyst_outputs(self):
+        logger, platform = make_logger()
         logger.log(make_dataflow("a"), make_runtime("a"))
 
-        logger._write_debug_jsonl = MagicMock(side_effect=RuntimeError("flush boom"))  # type: ignore[method-assign]
-        logger.flush()
+        def append_file(path, content):
+            if "/debug_json/" in path:
+                raise RuntimeError("flush boom")
+
+        platform.append_file.side_effect = append_file
         logger.close()
+        assert platform.upload_file.call_count == 1
+        outcomes = {item.name: item.status for item in logger.terminal_outcomes}
+        assert outcomes["debug_jsonl"] == "failed"
+        assert outcomes["analyst_job_jsonl"] == "succeeded"
+        assert outcomes["analyst_dataflow_parquet"] == "succeeded"
