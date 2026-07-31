@@ -42,7 +42,7 @@ class TestSystemLogger:
         lgr.close()
         assert lgr.terminal_outcomes == ()
 
-    def test_close_appends(self):
+    def test_close_appends_and_reports_exact_path_to_console(self, capsys):
         """close calls append_file with a .jsonl remote path."""
         platform = MagicMock()
         cfg = LogConfig(
@@ -62,12 +62,29 @@ class TestSystemLogger:
 
         platform.append_file.assert_called_once()
         remote_path = platform.append_file.call_args[0][0]
+        uploaded_content = platform.append_file.call_args[0][1]
         assert "system_log" in remote_path
         assert "run_date=" in remote_path
         assert remote_path.endswith(".jsonl")
         # filename: system_log_YYYYMMDD_HHMMSS_{job_id}.jsonl
         import re
         assert re.search(r"system_log_\d{8}_\d{6}_\S+\.jsonl$", remote_path)
+        assert f"System log pushed: {remote_path}" in capsys.readouterr().err
+        assert "System log pushed:" not in uploaded_content
+
+    def test_failed_terminal_push_does_not_report_success(self, capsys):
+        platform = MagicMock()
+        platform.append_file.side_effect = RuntimeError("write failed")
+        lgr = SystemLogger(
+            LogConfig(output_path="/logs", flush_interval_seconds=0),
+            platform,
+        )
+        logging.getLogger("DataCoolie.test.final_failure").info("message")
+
+        lgr.close()
+
+        assert lgr.terminal_outcomes[0].status == "failed"
+        assert "System log pushed:" not in capsys.readouterr().err
 
     def test_flush_content_plain_text(self, tmp_path):
         """Appended file contains JSONL records (one JSON object per line)."""

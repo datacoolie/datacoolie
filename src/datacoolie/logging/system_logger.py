@@ -147,6 +147,12 @@ class SystemLogger(BaseLogger):
     # ------------------------------------------------------------------
 
     def _cleanup(self) -> None:
+        if self._remote_path and any(
+            outcome.name == "system_jsonl"
+            and outcome.status == "succeeded"
+            for outcome in self._terminal_outcomes
+        ):
+            _logger.info("System log pushed: %s", self._remote_path)
         super()._cleanup()
         self._log_manager.cleanup()
 
