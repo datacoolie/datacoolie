@@ -530,6 +530,7 @@ class TestEnginesInitLazyImport:
         from datacoolie.engines.polars_engine import PolarsEngine
         assert cls is PolarsEngine
 
+    @pytest.mark.spark
     def test_spark_engine_lazy_import(self) -> None:
         import datacoolie.engines as eng_mod
         cls = eng_mod.__getattr__("SparkEngine")

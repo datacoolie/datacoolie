@@ -40,7 +40,7 @@ import os
 import pathlib
 import signal
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 # ---------------------------------------------------------------------------
 # Windows console encoding — pyiceberg uses ✅/❌ emojis in schema
@@ -52,10 +52,14 @@ if sys.platform == "win32":
         if hasattr(_stream, "reconfigure"):
             _stream.reconfigure(errors="replace")
 
-from pyspark.sql import SparkSession
-
-from datacoolie.engines.spark_session_builder import get_or_create_spark_session
 from datacoolie.platforms import LocalPlatform
+
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
+
+# Kept as an overridable module attribute for tests and custom runners. Import
+# the Spark implementation only when a Spark session is actually requested.
+get_or_create_spark_session: Any = None
 try:  # boto3 is optional
     from datacoolie.platforms import AWSPlatform  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover
@@ -298,7 +302,7 @@ def build_spark_session(
     needs_s3: bool = False,
     needs_iceberg: bool = False,
     extra_config: dict[str, str] | None = None,
-) -> SparkSession:
+) -> "SparkSession":
     """Create (or reuse) a SparkSession for usecase-sim runners.
 
     Args:
@@ -419,7 +423,13 @@ def build_spark_session(
         spark_config.update(extra_config)
 
     logger.debug("Spark config: %s", spark_config)
-    spark = get_or_create_spark_session(app_name=app_name, config=spark_config)
+    session_factory = get_or_create_spark_session
+    if session_factory is None:
+        from datacoolie.engines.spark_session_builder import (
+            get_or_create_spark_session as session_factory,
+        )
+
+    spark = session_factory(app_name=app_name, config=spark_config)
 
     # Silence the benign Windows-only shutdown warning from SparkEnv that
     # appears because the JVM classloader still holds a lock on jars under

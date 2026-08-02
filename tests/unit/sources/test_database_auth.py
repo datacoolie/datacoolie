@@ -7,16 +7,21 @@ and Connection model validation.
 
 from __future__ import annotations
 
+from typing import Any
 from urllib.parse import unquote_plus
 
 import pytest
 
-from datacoolie.core.constants import DatabaseAuthType, DatabaseType
-from datacoolie.core.exceptions import ConfigurationError
+from datacoolie.core.constants import DatabaseAuthType
+from datacoolie.core.exceptions import ConfigurationError, EngineError
 from datacoolie.core.models import Connection, Source
-from datacoolie.engines.spark_engine import SparkEngine
 from datacoolie.engines.polars_engine import PolarsEngine
 from datacoolie.sources.database_reader import DatabaseReader
+
+try:
+    from datacoolie.engines.spark_engine import SparkEngine
+except ModuleNotFoundError:  # PySpark is an optional, local-only CI dependency.
+    SparkEngine: Any = None
 
 
 # ============================================================================
@@ -102,6 +107,8 @@ class TestBuildOptionsAuthType:
 # ============================================================================
 
 
+@pytest.mark.spark
+@pytest.mark.skipif(SparkEngine is None, reason="PySpark not installed")
 class TestSparkJdbcAuthProperties:
     """Verify Spark JDBC auth property mapping."""
 
@@ -360,8 +367,6 @@ class TestPolarsReadDatabaseGuards:
 
     def test_service_principal_non_mssql_raises(self) -> None:
         """SPN auth on PostgreSQL should raise EngineError."""
-        from datacoolie.core.exceptions import EngineError
-
         engine = PolarsEngine()
         with pytest.raises(EngineError, match="only supported for MSSQL"):
             engine.read_database(
@@ -378,8 +383,6 @@ class TestPolarsReadDatabaseGuards:
 
     def test_managed_identity_non_mssql_raises(self) -> None:
         """MI auth on MySQL should raise EngineError."""
-        from datacoolie.core.exceptions import EngineError
-
         engine = PolarsEngine()
         with pytest.raises(EngineError, match="only supported for MSSQL"):
             engine.read_database(
@@ -393,8 +396,6 @@ class TestPolarsReadDatabaseGuards:
 
     def test_invalid_table_name_raises(self) -> None:
         """Table name with SQL injection payload should raise EngineError."""
-        from datacoolie.core.exceptions import EngineError
-
         engine = PolarsEngine()
         with pytest.raises(EngineError, match="Invalid table name"):
             engine.read_database(
@@ -409,8 +410,6 @@ class TestPolarsReadDatabaseGuards:
 
     def test_valid_table_name_accepted(self) -> None:
         """schema.table pattern should pass validation (will fail at connectorx, not at guard)."""
-        from datacoolie.core.exceptions import EngineError
-
         engine = PolarsEngine()
         # Should NOT raise EngineError for table validation — it will fail
         # later at connectorx connection, which is expected.
@@ -427,8 +426,6 @@ class TestPolarsReadDatabaseGuards:
 
     def test_query_bypasses_table_validation(self) -> None:
         """When query is provided, table validation should not trigger."""
-        from datacoolie.core.exceptions import EngineError
-
         engine = PolarsEngine()
         # Should NOT raise EngineError for table — will fail at connectorx instead
         with pytest.raises(Exception, match="(?!Invalid table name)"):
