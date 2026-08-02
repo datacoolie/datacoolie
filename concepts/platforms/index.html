@@ -3403,8 +3403,8 @@ across six groups:</p>
 </tbody>
 </table>
 <p>Platforms also expose <code>FileInfo</code> (frozen dataclass: <code>name</code>, <code>path</code>,
-<code>modification_time</code>, <code>size</code>, <code>is_dir</code>) and normalise paths on instance
-creation.</p>
+<code>modification_time</code>, <code>size</code>, <code>is_dir</code>). <code>FileInfo</code> normalises its <code>path</code> when
+the value object is created.</p>
 <h2 id="built-in-platforms">Built-in platforms<a class="headerlink" href="#built-in-platforms" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3449,7 +3449,7 @@ discovery.</p>
 <p><code>BasePlatform</code> subclasses <code>BaseSecretProvider</code> so that every platform
 <em>automatically</em> serves as its own secret backend without a separate wiring
 step. When you construct a driver:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># no secret_provider= → engine.platform is used as the default.</span>
 </span></code></pre></div>
 <p>If you need a different vault (e.g. HashiCorp, 1Password) write a dedicated
@@ -3462,16 +3462,17 @@ step. When you construct a driver:</p>
 <li>No trailing slash on directories</li>
 <li>Scheme preserved (<code>abfss://</code>, <code>s3://</code>, <code>file://</code>)</li>
 </ul>
-<p>This means you can safely do string comparisons between paths returned by
-<code>list_files</code> and paths you built with <code>os.path.join</code>-equivalents — the framework
-guarantees a single canonical form.</p>
+<p>This gives <code>FileInfo.path</code> a consistent form. Other path-bearing models
+normalise their own fields; arbitrary caller-created strings are not
+automatically canonicalised.</p>
 <h2 id="concurrency-notes">Concurrency notes<a class="headerlink" href="#concurrency-notes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>AWSPlatform</code> uses a thread-local <code>boto3</code> session so parallel dataflows don't
-  share auth state.</li>
-<li><code>FabricPlatform</code> relies on <code>notebookutils</code>, which is safe across threads for
-  reads but serialises writes internally.</li>
-<li><code>LocalPlatform</code> is thread-safe — all operations use <code>pathlib</code> atomic APIs.</li>
+<li><code>AWSPlatform</code> lazily caches one <code>boto3.Session</code> and one S3 client on the
+  platform instance.</li>
+<li>The driver can share one platform instance across worker threads. Backend SDK
+  behaviour still applies, and callers must coordinate conflicting writes to
+  the same path.</li>
+<li>No platform API promises that a multi-step operation is atomic.</li>
 </ul>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>

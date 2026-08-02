@@ -3491,7 +3491,10 @@ filter the loaded list before execution.</p>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">with</span> <span class="n">driver</span><span class="p">:</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Nothing is read or written. Logs show what <em>would</em> have happened.</p>
+<p>Nothing is read or written. Metadata is loaded and filtered, and logs show the
+selected targets. Backend connectivity and transform expressions are not
+validated. <code>result.total</code> reports how many targets were selected; the current
+dry-run path leaves every status counter, including <code>pending</code>, at zero.</p>
 <h2 id="sharded-across-workers">Sharded across workers<a class="headerlink" href="#sharded-across-workers" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">cfg</span> <span class="o">=</span> <span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">job_num</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">job_index</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># worker 2 of 4</span>
 </span></code></pre></div>
@@ -3539,7 +3542,7 @@ filter the loaded list before execution.</p>
 <tr>
 <td><code>retry_delay</code></td>
 <td><code>5.0</code></td>
-<td>Seconds between retry attempts</td>
+<td>Base retry delay; doubles per retry, capped at 60 seconds</td>
 </tr>
 <tr>
 <td><code>dry_run</code></td>
@@ -3581,7 +3584,15 @@ filter the loaded list before execution.</p>
 </tr>
 <tr>
 <td><code>skipped</code></td>
-<td>Not executed (dry-run, or short-circuited by <code>stop_on_error</code>)</td>
+<td>Explicitly skipped, for example after a <code>stop_on_error</code> short-circuit</td>
+</tr>
+<tr>
+<td><code>running</code></td>
+<td>Currently executing when a live aggregate is inspected</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td>Not completed after executor processing (for example, work left after an early stop)</td>
 </tr>
 </tbody>
 </table>

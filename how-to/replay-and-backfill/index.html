@@ -1859,10 +1859,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#full-example-quarterly-backfill" class="md-nav__link">
+  <a href="#full-example-one-year-backfill" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Full example: quarterly backfill
+        Full example: one-year backfill
       
     </span>
   </a>
@@ -3417,10 +3417,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#full-example-quarterly-backfill" class="md-nav__link">
+  <a href="#full-example-one-year-backfill" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Full example: quarterly backfill
+        Full example: one-year backfill
       
     </span>
   </a>
@@ -3467,7 +3467,8 @@
 <p><strong>Prerequisites</strong> · Familiarity with <a href="../../concepts/watermarks/">watermarks</a> and a running <code>DataCoolieDriver</code>.<br />
 <strong>End state</strong> · A completed historical replay of a bounded date range, with optional resume support.</p>
 <p><code>driver.run_replay()</code> re-processes a bounded window of historical data in
-sequential chunks without disturbing the production watermark.  Use it to:</p>
+sequential chunks. By default it leaves the production watermark untouched;
+<code>save_watermark=True</code> intentionally advances it for resume support. Use it to:</p>
 <ul>
 <li><strong>Backfill</strong> a new destination table from historical source data.</li>
 <li><strong>Repair</strong> a corrupt range after a source system issue.</li>
@@ -3488,7 +3489,7 @@ sequential chunks without disturbing the production watermark.  Use it to:</p>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">dataflows</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">dataflows</span><span class="p">,</span> <span class="n">replay</span><span class="o">=</span><span class="n">replay</span><span class="p">)</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunks: succeeded=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">succeeded</span><span class="si">}</span><span class="s2">, failed=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">failed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dataflows: succeeded=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">succeeded</span><span class="si">}</span><span class="s2">, failed=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">failed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>This replays January, February, and March 2025 as three independent chunks:
 <code>[Jan 1, Feb 1)</code>, <code>[Feb 1, Mar 1)</code>, <code>[Mar 1, Apr 1)</code>.</p>
@@ -3649,9 +3650,9 @@ filter is preserved:</p>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">&quot;filter_expression&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;status = &#39;active&#39;&quot;</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>During replay, the effective WHERE clause for each chunk becomes:
-<div class="language-sql highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">updated_at</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="s1">&#39;&lt;lower&gt;&#39;</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;active&#39;</span><span class="p">)</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="p">(</span><span class="n">updated_at</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="s1">&#39;&lt;upper&gt;&#39;</span><span class="p">)</span>
+<p>For a database source, the effective predicate for each chunk is:
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">(</span><span class="n">updated_at</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="s1">&#39;&lt;lower&gt;&#39;</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">updated_at</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="s1">&#39;&lt;upper&gt;&#39;</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;active&#39;</span><span class="p">)</span>
 </span></code></pre></div></p>
 <hr />
 <h2 id="execution-model">Execution model<a class="headerlink" href="#execution-model" title="Permanent link">&para;</a></h2>
@@ -3661,10 +3662,13 @@ filter is preserved:</p>
   further chunks for that dataflow but does not affect other dataflows.</li>
 <li>Each chunk records a separate <code>DataFlowRuntimeInfo</code> in the ETL log with
   <code>operation_type = "replay"</code>.</li>
-<li><code>ExecutionResult.succeeded</code> / <code>failed</code> counts <strong>chunks</strong>, not dataflows.</li>
+<li>Each chunk produces a separate ETL log row.</li>
+<li><code>ExecutionResult.total</code> / <code>succeeded</code> / <code>failed</code> count the outer
+  <strong>dataflows</strong>, because <code>_process_replay</code> aggregates its chunks into one
+  <code>DataFlowRuntimeInfo</code> before returning to <code>ParallelExecutor</code>.</li>
 </ul>
 <hr />
-<h2 id="full-example-quarterly-backfill">Full example: quarterly backfill<a class="headerlink" href="#full-example-quarterly-backfill" title="Permanent link">&para;</a></h2>
+<h2 id="full-example-one-year-backfill">Full example: one-year backfill<a class="headerlink" href="#full-example-one-year-backfill" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.orchestration.driver</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataCoolieDriver</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReplayConfig</span>
@@ -3685,7 +3689,7 @@ filter is preserved:</p>
 </span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>    <span class="n">dataflows</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">load_dataflows</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;bronze2silver&quot;</span><span class="p">)</span>
 </span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">driver</span><span class="o">.</span><span class="n">run_replay</span><span class="p">(</span><span class="n">dataflows</span><span class="o">=</span><span class="n">dataflows</span><span class="p">,</span> <span class="n">replay</span><span class="o">=</span><span class="n">replay</span><span class="p">)</span>
 </span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
-</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total chunks: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total dataflows: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Succeeded:    </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">succeeded</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed:       </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">failed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>

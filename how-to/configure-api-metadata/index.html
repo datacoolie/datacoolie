@@ -3346,8 +3346,9 @@
 <strong>End state</strong> · <code>APIClient</code> reading connections, dataflows, schema hints, and watermarks over HTTP.</p>
 <h2 id="reference-implementation">Reference implementation<a class="headerlink" href="#reference-implementation" title="Permanent link">&para;</a></h2>
 <p>A ready-to-run Flask server lives at
-<a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/docker/pg_api_metadata_server.py"><code>usecase-sim/docker/pg_api_metadata_server.py</code></a>.
-It reads canonical JSON metadata and serves the endpoints DataCoolie expects.</p>
+<a href="https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/docker/pg_api_metadata_server.py"><code>usecase-sim/docker/pg_api_metadata_server.py</code></a>.
+It reads the PostgreSQL metadata schema populated by <code>setup_metadata.py</code> and
+serves the endpoints DataCoolie expects.</p>
 <p>Use it as an integration target or as a starting point for your own service.</p>
 <h2 id="expected-endpoints">Expected endpoints<a class="headerlink" href="#expected-endpoints" title="Permanent link">&para;</a></h2>
 <p>All paths are scoped under <code>/workspaces/{workspace_id}/</code>.</p>
@@ -3401,8 +3402,9 @@ It reads canonical JSON metadata and serves the endpoints DataCoolie expects.</p
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="caching">Caching<a class="headerlink" href="#caching" title="Permanent link">&para;</a></h2>
-<p>Set <code>enable_cache=True</code> (the default) to avoid re-fetching <code>connections</code> / <code>dataflows</code> on every
-call. The client invalidates the cache whenever a watermark update succeeds.</p>
+<p>Set <code>enable_cache=True</code> (the default) to avoid re-fetching connections,
+dataflows, and schema hints on every call. Watermark reads/writes go directly
+to the API; a successful watermark update does not clear the metadata cache.</p>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../metadata-guide/">Metadata guide for new users</a> — understand the metadata shape (connections, dataflows, sources, destinations) before configuring a backend</li>

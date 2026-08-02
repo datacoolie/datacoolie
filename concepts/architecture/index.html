@@ -3385,9 +3385,9 @@
 <p><strong>TL;DR</strong> Think of DataCoolie as a <strong>conductor</strong> (the <code>DataCoolieDriver</code>) and an
 <strong>orchestra of swappable musicians</strong> (plugins). The conductor reads sheet music
 (metadata), tells each musician when to play, and writes the recording
-(watermarks + logs). Every musician implements a single abstract base class and
-is discovered through Python <strong>entry points</strong> — swap one out without touching
-the conductor.</p>
+(watermarks + logs). Each extension implements an abstract base class. Built-ins
+are registered when <code>datacoolie</code> is imported, while installed extensions are
+discovered through Python <strong>entry points</strong>.</p>
 <h2 id="the-mental-model">The mental model<a class="headerlink" href="#the-mental-model" title="Permanent link">&para;</a></h2>
 <pre class="dc-mermaid-source"><code>flowchart LR
     META[("📋 Metadata&lt;br/&gt;JSON · DB · API")] --&gt;|dataflows| DRV
@@ -3507,15 +3507,16 @@ that provider layer, not a ninth execution role. See <a href="../secrets/">Secre
   linkStyle 9,10,11,12 stroke-dasharray: 6 4, stroke-width: 2.25px, stroke-linecap: round;</code></pre>
 <p>Key invariants:</p>
 <ul>
-<li><strong>Driver ↔ bases only</strong> — never imports <code>SparkEngine</code>, <code>DeltaSourceReader</code>,
+<li><strong>Driver ↔ bases only</strong> — never imports <code>SparkEngine</code>, <code>DeltaReader</code>,
   etc.</li>
 <li><strong>Engine owns the platform</strong> — <code>engine.platform.list_files(...)</code> is the <em>only</em> way
   plugins touch the filesystem.</li>
 <li><strong>Secret provider is abstract too</strong> — <code>DataCoolieDriver</code> accepts an explicit
   <code>secret_provider</code>; otherwise it falls back to <code>engine.platform</code> because
   <code>BasePlatform</code> subclasses <code>BaseSecretProvider</code>.</li>
-<li><strong>Sources, transformers, destinations are typed by engine</strong>, so
-  <code>mypy --strict</code> rejects e.g. a Polars DataFrame passed to a Spark writer.</li>
+<li><strong>Sources, transformers, destinations are generic over the engine DataFrame
+  type</strong>, which lets a type checker catch mismatches in correctly typed plugin
+  and application code.</li>
 <li><strong>Watermark manager wraps the metadata provider</strong> — provider returns raw JSON
   text, manager parses <code>Dict[str, Any]</code>. See
   <a href="../../adr/0004-raw-json-watermark-contract/">ADR-0004</a>.</li>
@@ -3575,21 +3576,22 @@ that provider layer, not a ninth execution role. See <a href="../secrets/">Secre
 </tr>
 <tr>
 <td><code>PolarsEngine</code></td>
-<td><code>polars.DataFrame</code></td>
+<td><code>polars.LazyFrame</code></td>
 <td><code>mypy --strict</code> sees Polars-only methods (<code>.with_columns</code>, …)</td>
 </tr>
 </tbody>
 </table>
-<p>Sources, destinations, and transformers carry the same <code>DF</code> parameter — so
-mixing a Polars source with a Spark destination is a <strong>compile-time error</strong>,
-not a 2 AM runtime crash.</p>
+<p>Sources, destinations, and transformers carry the same <code>DF</code> parameter. This
+improves static checking for plugin implementations; the non-generic driver
+still relies on registry wiring and runtime contracts, so it is not a universal
+compile-time guarantee for arbitrary dynamically loaded combinations.</p>
 <p>The <code>fmt=</code> parameter on engine methods (<code>read_table(fmt="delta")</code>,
 <code>merge_to_table(..., fmt="iceberg")</code>, <code>table_exists_by_name(*, fmt="delta")</code>)
 unifies Delta Lake and Apache Iceberg at the engine level. See
 <a href="../engines/">Engines</a> and <a href="../../adr/0001-engine-fmt-parameter/">ADR-0001</a>.</p>
 <h2 id="plugin-boundary-how-swap-ability-actually-works">Plugin boundary: how swap-ability actually works<a class="headerlink" href="#plugin-boundary-how-swap-ability-actually-works" title="Permanent link">&para;</a></h2>
 <p>Every role has a global registry declared in
-<a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/src/datacoolie/__init__.py"><code>datacoolie/__init__.py</code></a>:</p>
+<a href="https://github.com/datacoolie/datacoolie/blob/main/src/datacoolie/__init__.py"><code>datacoolie/__init__.py</code></a>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">engine_registry</span><span class="p">:</span>      <span class="n">PluginRegistry</span><span class="p">[</span><span class="n">BaseEngine</span><span class="p">]</span>      <span class="o">=</span> <span class="n">PluginRegistry</span><span class="p">(</span><span class="s2">&quot;datacoolie.engines&quot;</span><span class="p">,</span> <span class="n">BaseEngine</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">platform_registry</span><span class="p">:</span>    <span class="n">PluginRegistry</span><span class="p">[</span><span class="n">BasePlatform</span><span class="p">]</span>    <span class="o">=</span> <span class="n">PluginRegistry</span><span class="p">(</span><span class="s2">&quot;datacoolie.platforms&quot;</span><span class="p">,</span> <span class="n">BasePlatform</span><span class="p">)</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">source_registry</span><span class="p">:</span>      <span class="n">PluginRegistry</span><span class="p">[</span><span class="n">BaseSourceReader</span><span class="p">]</span>      <span class="o">=</span> <span class="n">PluginRegistry</span><span class="p">(</span><span class="s2">&quot;datacoolie.sources&quot;</span><span class="p">,</span> <span class="n">BaseSourceReader</span><span class="p">)</span>
@@ -3598,13 +3600,14 @@ unifies Delta Lake and Apache Iceberg at the engine level. See
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">resolver_registry</span><span class="p">:</span>    <span class="n">PluginRegistry</span><span class="p">[</span><span class="n">BaseSecretResolver</span><span class="p">]</span>    <span class="o">=</span> <span class="n">PluginRegistry</span><span class="p">(</span><span class="s2">&quot;datacoolie.resolvers&quot;</span><span class="p">,</span> <span class="n">BaseSecretResolver</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Secret providers are typically supplied by platforms, so there is no separate
-provider registry. Resolver plugins extend placeholder syntaxes; the provider
-role is satisfied by the active platform unless you inject a different
+provider registry. Resolver plugins handle prefixed <code>secrets_ref</code> sources; the
+provider role is satisfied by the active platform unless you inject a different
 <code>BaseSecretProvider</code> into the driver.</p>
-<p>A <code>PluginRegistry</code> is lazy: on the first <code>.get("spark")</code> call it scans the
-matching <strong><code>pyproject.toml</code> entry-point group</strong> (<code>datacoolie.engines</code>, …) and
-imports only that one plugin. A third-party package can ship a plugin by
-declaring:</p>
+<p>DataCoolie registers importable built-ins eagerly during package import.
+<code>PluginRegistry</code> also performs lazy entry-point discovery: the first
+<code>.get(...)</code>, <code>.list_plugins()</code>, or <code>.is_available(...)</code> call scans the matching
+installed entry-point group (<code>datacoolie.engines</code>, …). A third-party package
+can ship a plugin by declaring:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project.entry-points.</span><span class="s2">&quot;datacoolie.engines&quot;</span><span class="k">]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">duckdb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_pkg.duckdb_engine:DuckDbEngine&quot;</span>
 </span></code></pre></div>

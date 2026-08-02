@@ -3750,6 +3750,12 @@
 
 
 <h1 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h1>
+<p>DataCoolie uses <code>datacoolie</code> as its root Python logging namespace. Logger names
+returned by <code>get_logger(__name__)</code> retain the full module path, and
+<code>datacoolie.*</code> child loggers are captured by the configured <code>SystemLogger</code>.
+Forced reconfiguration keeps an enabled <code>CaptureHandler</code> attached and migrates
+memory/file buffering in place, preventing a detach window for concurrent
+records.</p>
 
 
 <div class="doc doc-object doc-module">
@@ -3828,11 +3834,9 @@ logger.info(&quot;Processing started&quot;)
 
 
         <p>Abstract base for persistent loggers (system, ETL).</p>
-<p>Provides configuration, lifecycle management, periodic flush timer,
-and context-manager support.  Subclasses implement :meth:<code>flush</code> and
-optionally override :meth:<code>_on_periodic_flush</code> for incremental behavior.</p>
-<p>The periodic timer is started automatically when <em>flush_interval_seconds</em>
-is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em> are configured.</p>
+<p>Provides configuration, explicit activation, periodic scheduling,
+bounded terminal sink attempts, failure isolation, and cleanup ordering.
+Children define what periodic and terminal operations persist.</p>
 
 
 
@@ -3852,8 +3856,76 @@ is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em>
 
 
 
+<div class="doc doc-object doc-attribute">
 
 
+
+<h4 id="datacoolie.logging.base.BaseLogger.last_flush_error" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">last_flush_error</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#datacoolie.logging.base.BaseLogger.last_flush_error" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">last_flush_error</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="Exception">Exception</span></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Most recent flush failure, cleared after a successful flush.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="datacoolie.logging.base.BaseLogger.terminal_outcomes" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">terminal_outcomes</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#datacoolie.logging.base.BaseLogger.terminal_outcomes" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">terminal_outcomes</span><span class="p">:</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="datacoolie.logging.base._FlushOutcome">_FlushOutcome</span></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Internal per-sink results retained for post-close diagnostics.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.BaseLogger.activate" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">activate</span>
+
+
+<a href="#datacoolie.logging.base.BaseLogger.activate" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">activate</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Activate periodic persistence after Driver configuration is complete.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
@@ -3868,31 +3940,7 @@ is positive <strong>and</strong> both <em>output_path</em> and <em>platform</em>
 
     <div class="doc doc-contents ">
 
-        <p>Flush and release resources.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.logging.base.BaseLogger.flush" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">flush</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
-  </span>
-
-<a href="#datacoolie.logging.base.BaseLogger.flush" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">flush</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Flush buffered entries to persistent storage.</p>
+        <p>Attempt terminal sinks within a bound, then release all logger state.</p>
 
 
     </div>
@@ -3956,21 +4004,26 @@ acquires it before calling :meth:<code>emit</code>.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="datacoolie.logging.base.CaptureHandler.get_and_clear_formatted_logs" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_and_clear_formatted_logs</span>
+<h4 id="datacoolie.logging.base.CaptureHandler.batch_to_jsonl" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">batch_to_jsonl</span>
 
 
-<a href="#datacoolie.logging.base.CaptureHandler.get_and_clear_formatted_logs" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_formatted_logs</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#datacoolie.logging.base.CaptureHandler.batch_to_jsonl" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">batch_to_jsonl</span><span class="p">(</span><span class="n">records</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogRecord
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogRecord)" href="#datacoolie.logging.base.LogRecord">LogRecord</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Atomically drain captured logs and return as formatted text.</p>
-<p>Minimises lock hold time: swaps/clears the buffer under the lock,
-then formats the text outside the lock.</p>
+        <p>Serialize a detached batch using the persisted JSONL contract.</p>
 
 
     </div>
@@ -3980,19 +4033,73 @@ then formats the text outside the lock.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="datacoolie.logging.base.CaptureHandler.get_and_clear_jsonl" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_and_clear_jsonl</span>
+<h4 id="datacoolie.logging.base.CaptureHandler.begin_jsonl_batch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">begin_jsonl_batch</span>
 
 
-<a href="#datacoolie.logging.base.CaptureHandler.get_and_clear_jsonl" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_jsonl</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+<a href="#datacoolie.logging.base.CaptureHandler.begin_jsonl_batch" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">begin_jsonl_batch</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogRecord
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogRecord)" href="#datacoolie.logging.base.LogRecord">LogRecord</a></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Atomically drain captured logs and return as JSONL text.</p>
-<p>Each line is a JSON object produced by :meth:<code>LogRecord.to_dict</code>.
-Returns an empty string when no records are buffered.</p>
+        <p>Atomically detach a batch for transactional remote delivery.</p>
+<p>The caller must invoke :meth:<code>rollback_batch</code> when delivery fails.
+File-backed records are detached only after the active spool can be
+removed; an inability to rotate the spool is surfaced to the caller so
+records are never acknowledged prematurely.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.CaptureHandler.reconfigure" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">reconfigure</span>
+
+
+<a href="#datacoolie.logging.base.CaptureHandler.reconfigure" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reconfigure</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="o">*</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n">storage_mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">formatter</span><span class="p">:</span> <span class="n"><span title="logging.Formatter">Formatter</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Atomically update capture settings without detaching the handler.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.CaptureHandler.rollback_batch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">rollback_batch</span>
+
+
+<a href="#datacoolie.logging.base.CaptureHandler.rollback_batch" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">rollback_batch</span><span class="p">(</span><span class="n">records</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogRecord
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogRecord)" href="#datacoolie.logging.base.LogRecord">LogRecord</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore a failed delivery batch ahead of newer records.</p>
 
 
     </div>
@@ -4077,7 +4184,8 @@ Returns an empty string when no records are buffered.</p>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">partition_by_date</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">partition_pattern</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><span title="datacoolie.core.constants.DEFAULT_PARTITION_PATTERN">DEFAULT_PARTITION_PATTERN</span></span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">flush_interval_seconds</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">close_timeout_seconds</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4205,6 +4313,60 @@ Returns an empty string when no records are buffered.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="datacoolie.logging.base.LogManager.begin_captured_jsonl_batch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">begin_captured_jsonl_batch</span>
+
+
+<a href="#datacoolie.logging.base.LogManager.begin_captured_jsonl_batch" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">begin_captured_jsonl_batch</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogRecord
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogRecord)" href="#datacoolie.logging.base.LogRecord">LogRecord</a></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Detach the current capture batch for transactional delivery.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.LogManager.captured_batch_to_jsonl" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">captured_batch_to_jsonl</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#datacoolie.logging.base.LogManager.captured_batch_to_jsonl" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">captured_batch_to_jsonl</span><span class="p">(</span><span class="n">records</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogRecord
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogRecord)" href="#datacoolie.logging.base.LogRecord">LogRecord</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Serialize a detached capture batch as persisted JSONL.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="datacoolie.logging.base.LogManager.configure" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">configure</span>
 
@@ -4223,181 +4385,7 @@ Returns an empty string when no records are buffered.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Configure the global logging system.</p>
-<p>If already configured, this is a no-op unless <em>force</em> is <code>True</code>.
-Pass <code>force=True</code> (as <code>SystemLogger</code> does) to apply new settings
-and replace existing handlers.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>level</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Console log level (controls what is printed to stderr).</p>
-              </div>
-            </td>
-            <td>
-                  <code><span title="datacoolie.logging.base.LogLevel.INFO">INFO</span>.value</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>file_level</code>
-            </td>
-            <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Capture log level for file persistence.  Defaults to
-<code>level</code> when not provided.  Set to <code>"DEBUG"</code> to capture all
-framework messages regardless of the console level.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>capture_logs</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Enable :class:<code>CaptureHandler</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>storage_mode</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>"memory"</code> or <code>"file"</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code><span title="datacoolie.logging.base.StorageMode.MEMORY">MEMORY</span>.value</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>console_output</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Emit to stderr.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>format_string</code>
-            </td>
-            <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Custom <code>logging.Formatter</code> pattern.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>force</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Re-configure even if already configured.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.logging.base.LogManager.get_and_clear_captured_jsonl" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_and_clear_captured_jsonl</span>
-
-
-<a href="#datacoolie.logging.base.LogManager.get_and_clear_captured_jsonl" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_jsonl</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Atomically return captured logs as JSONL text and clear the buffer.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.logging.base.LogManager.get_and_clear_captured_logs" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_and_clear_captured_logs</span>
-
-
-<a href="#datacoolie.logging.base.LogManager.get_and_clear_captured_logs" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_and_clear_captured_logs</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">include_location</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="str">str</span></span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Atomically return captured logs as plain text and clear the buffer.</p>
+        <p>Configure logging while serializing manager lifecycle changes.</p>
 
 
     </div>
@@ -4442,6 +4430,31 @@ framework messages regardless of the console level.</p>
     <div class="doc doc-contents ">
 
         <p>Reset the singleton (primarily for testing).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.logging.base.LogManager.rollback_captured_batch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">rollback_captured_batch</span>
+
+
+<a href="#datacoolie.logging.base.LogManager.rollback_captured_batch" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">rollback_captured_batch</span><span class="p">(</span><span class="n">records</span><span class="p">:</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            LogRecord
+
+
+  
+      dataclass
+   (datacoolie.logging.base.LogRecord)" href="#datacoolie.logging.base.LogRecord">LogRecord</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Restore a failed transactional capture batch.</p>
 
 
     </div>
@@ -4649,7 +4662,7 @@ framework messages regardless of the console level.</p>
     <div class="doc doc-contents ">
 
         <p>Get a framework logger (convenience wrapper).</p>
-<p>All loggers are children of the <code>DataCoolie</code> root logger and inherit
+<p>Framework loggers are children of the <code>datacoolie</code> logger and inherit
 its handlers (console + capture).</p>
 
 
@@ -4806,8 +4819,8 @@ Datetime columns use ``timestamp[us, tz=UTC]`` for native query support.
         <p>Structured ETL execution logger — accumulate-then-flush.</p>
 <p>All :meth:<code>log</code> calls accumulate entries in memory.  A single
 :class:<code>~datacoolie.core.models.JobRuntimeInfo</code> tracks session-level
-aggregates.  On :meth:<code>flush</code> (called automatically by :meth:<code>close</code>)
-the logger appends debug JSONL and writes analyst Parquet.</p>
+aggregates. On :meth:<code>close</code>, the logger appends debug JSONL and writes
+analyst JSONL and Parquet from one terminal snapshot.</p>
 
 
 
@@ -4833,26 +4846,6 @@ the logger appends debug JSONL and writes analyst Parquet.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="datacoolie.logging.etl_logger.ETLLogger.flush" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">flush</span>
-
-
-<a href="#datacoolie.logging.etl_logger.ETLLogger.flush" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">flush</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Write all accumulated logs to storage (no-op if nothing logged).</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h4 id="datacoolie.logging.etl_logger.ETLLogger.log" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">log</span>
 
@@ -4871,8 +4864,7 @@ the logger appends debug JSONL and writes analyst Parquet.</p>
     <div class="doc doc-contents ">
 
         <p>Record one dataflow or maintenance execution result.</p>
-<p>Stream-writes a JSONL line to a local temp file and updates
-the session-level :attr:<code>_job_info</code> counters.</p>
+<p>Updates the in-memory source of truth and session aggregates.</p>
 
 
     </div>
@@ -5084,26 +5076,6 @@ flush_interval_seconds, etc.).</p>
 
 
 
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="datacoolie.logging.system_logger.SystemLogger.flush" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">flush</span>
-
-
-<a href="#datacoolie.logging.system_logger.SystemLogger.flush" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">flush</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Flush remaining captured logs to storage.</p>
-
-
-    </div>
-
-</div>
 
 
 

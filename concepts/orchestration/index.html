@@ -3421,7 +3421,8 @@ across <code>JobDistributor</code> (multi-job sharding), <code>ParallelExecutor<
 </span></code></pre></div>
 <p>Key behaviours:</p>
 <ul>
-<li><strong>Constructor injection</strong> for every dependency — no global state.</li>
+<li><strong>Constructor injection</strong> for runtime dependencies. Plugin registries are
+  process-level registries populated when <code>datacoolie</code> is imported.</li>
 <li><strong>Auto-creates <code>WatermarkManager</code></strong> when a metadata provider is supplied and
   no manager is passed.</li>
 <li><strong>Auto-creates loggers</strong> under <code>base_log_path/{system,etl}_logs</code> when you
@@ -3431,10 +3432,11 @@ across <code>JobDistributor</code> (multi-job sharding), <code>ParallelExecutor<
   are different concrete types.</li>
 </ul>
 <h2 id="job-distribution">Job distribution<a class="headerlink" href="#job-distribution" title="Permanent link">&para;</a></h2>
-<p><code>JobDistributor</code> is a hash-based sharder for horizontally scaling a single
+<p><code>JobDistributor</code> is a deterministic sharder for horizontally scaling a single
 metadata set across multiple worker processes or cluster tasks:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">config</span> <span class="o">=</span> <span class="n">DataCoolieRunConfig</span><span class="p">(</span><span class="n">job_num</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">job_index</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># → this worker picks up dataflows where hash(dataflow.id) % 4 == 2</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># group_number set: group_number % 4 == 2</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># group_number absent: MD5(dataflow_id) % 4 == 2</span>
 </span></code></pre></div>
 <p>Use this when running four Spark jobs in parallel to split 1000 dataflows
 evenly. Each dataflow runs exactly once across the fleet.</p>
@@ -3446,12 +3448,18 @@ Polars both release the GIL during I/O and compute). <code>ExecutionResult</code
 <li><code>succeeded</code> — finished with <code>status == "succeeded"</code></li>
 <li><code>failed</code> — raised</li>
 <li><code>skipped</code> — not executed (e.g. after <code>stop_on_error=True</code> short-circuit)</li>
+<li><code>running</code> — currently executing when a live aggregate is inspected</li>
+<li><code>pending</code> — selected but not completed</li>
 </ul>
+<p>Different <code>group_number</code> buckets are dispatched concurrently. Within one
+group, lower <code>execution_order</code> buckets complete first; dataflows with the same
+<code>execution_order</code> run in parallel.</p>
 <h2 id="retry">Retry<a class="headerlink" href="#retry" title="Permanent link">&para;</a></h2>
 <p><code>RetryHandler</code> wraps each dataflow with:</p>
 <ul>
-<li><code>retry_count</code> attempts</li>
-<li><code>retry_delay</code> seconds (fixed delay between attempts)</li>
+<li><code>retry_count</code> retries after the initial attempt</li>
+<li><code>retry_delay</code> as the base delay; delay doubles on each retry and is capped at
+  60 seconds</li>
 </ul>
 <p>If all attempts fail the error is recorded and the executor moves on (or
 stops, per <code>stop_on_error</code>).</p>
@@ -3469,9 +3477,11 @@ variant for <code>OPTIMIZE</code> / <code>VACUUM</code>. It:</p>
 </ol>
 <p>See <a href="../../how-to/maintenance-vacuum-optimize/">How-to · Maintenance</a>.</p>
 <h2 id="dry-run">Dry run<a class="headerlink" href="#dry-run" title="Permanent link">&para;</a></h2>
-<p><code>DataCoolieRunConfig(dry_run=True)</code> logs what <em>would</em> happen without reads,
-writes, or watermark updates. Useful for validating new metadata before the
-first real run.</p>
+<p><code>DataCoolieRunConfig(dry_run=True)</code> loads and filters metadata, then logs the
+selected targets without reads, writes, or watermark updates. It does not
+validate backend connectivity or execute transforms. Returned targets remain
+unclassified: <code>ExecutionResult.total</code> is set, while all status counters
+(<code>succeeded</code>, <code>failed</code>, <code>skipped</code>, <code>running</code>, <code>pending</code>) remain zero.</p>
 <h2 id="replay-backfill">Replay / backfill<a class="headerlink" href="#replay-backfill" title="Permanent link">&para;</a></h2>
 <p><code>driver.run_replay(dataflows, replay: ReplayConfig)</code> re-processes a bounded
 historical range in sequential, calendar-aligned chunks without disturbing the

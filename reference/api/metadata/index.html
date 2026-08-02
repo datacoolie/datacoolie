@@ -3998,7 +3998,7 @@ I/O.</p>
     <div class="doc doc-contents first">
 
         <p>File-based metadata provider — reads connections, dataflows, and schema hints
-from YAML, JSON, or Excel (.xlsx / .xls) configuration files.</p>
+from YAML, JSON, or Excel <code>.xlsx</code> configuration files.</p>
 <p><code>FileProvider</code> is the primary standalone / development metadata backend.
 Watermark state is stored as JSON files on the platform's file system.</p>
 <h4 id="datacoolie.metadata.file_provider--supported-formats">Supported formats<a class="headerlink" href="#datacoolie.metadata.file_provider--supported-formats" title="Permanent link">&para;</a></h4>
@@ -4006,7 +4006,7 @@ Watermark state is stored as JSON files on the platform's file system.</p>
 <p>.. code-block:: yaml</p>
 <div class="language-text highlight"><pre><span></span><code>connections:
   - name: bronze_adls
-    connection_type: file
+    connection_type: lakehouse
     format: delta
     configure:
       base_path: abfss://bronze@storage/
@@ -4014,7 +4014,7 @@ Watermark state is stored as JSON files on the platform's file system.</p>
 
   - name: source_erp
     connection_type: database
-    format: jdbc
+    format: sql
     database: ERP
     configure:
       host: erp-server.example.com
@@ -4048,15 +4048,15 @@ schema_hints:
         data_type: DATE
         format: yyyy-MM-dd
 </code></pre></div>
-<p><strong>Excel (.xlsx / .xls)</strong> — flat workbook with three sheets:</p>
+<p><strong>Excel (.xlsx)</strong> — flat workbook with three sheets:</p>
 <p><em>connections</em> sheet — one row per connection:</p>
 <p>Required: <code>name</code>, <code>connection_type</code>
   Optional: <code>connection_id</code>, <code>format</code>, <code>catalog</code>, <code>database</code>, <code>is_active</code>
   Nested <code>configure</code> via <code>configure_*</code> columns (e.g. <code>configure_base_path</code>, <code>configure_host</code>,
     <code>configure_use_schema_hint</code>)
   <code>catalog</code> and <code>database</code> are top-level columns (not <code>configure_catalog</code> or <code>configure_database</code>)
-  <code>secrets_ref</code>: JSON column mapping config field names to vault key names
-    (e.g. <code>{"password": "vault/db-pass", "api_key": "vault/api-key"}</code>)</p>
+  <code>secrets_ref</code>: JSON object mapping source identifiers to lists of
+    <code>configure</code> field names (e.g. <code>{"env:": ["password", "api_key"]}</code>)</p>
 <p><em>dataflows</em> sheet — one row per dataflow:</p>
 <p>Required: <code>source_connection_name</code>, <code>source_table</code>,
     <code>destination_connection_name</code>, <code>destination_table</code>
@@ -4068,8 +4068,12 @@ schema_hints:
   Source fields prefixed <code>source_</code>; destination fields prefixed <code>destination_</code>;
   List columns (e.g. <code>source_watermark_columns</code>, <code>destination_merge_keys</code>,
   <code>destination_partition_columns</code>) accept comma-separated values.
-  <code>transform_schema_hints</code>, <code>transform_additional_columns</code>,
-  <code>transform_partition_columns</code> accept JSON strings.</p>
+  <code>transform_select_columns</code> and <code>transform_drop_columns</code> accept
+  comma-separated names. <code>transform_schema_hints</code>,
+  <code>transform_deduplicate_columns</code>, <code>transform_latest_data_columns</code>,
+  <code>transform_additional_columns</code>, <code>transform_rename_columns</code>,
+  <code>transform_value_rules</code>, <code>transform_hash_columns</code>, and
+  <code>transform_masking_rules</code> accept JSON strings.</p>
 <p><em>schema_hints</em> sheet — one row per hint (grouped internally by
   <code>connection_name</code> + <code>table_name</code> + optional <code>schema_name</code>):</p>
 <p>Columns: <code>connection_name</code>, <code>table_name</code>, <code>schema_name</code> (optional),

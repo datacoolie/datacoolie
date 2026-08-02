@@ -1849,10 +1849,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#current-status" class="md-nav__link">
+  <a href="#scenario-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current status
+        Scenario contract
       
     </span>
   </a>
@@ -3240,10 +3240,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#current-status" class="md-nav__link">
+  <a href="#scenario-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current status
+        Scenario contract
       
     </span>
   </a>
@@ -3302,51 +3302,28 @@
 <strong>End state</strong> · CI-friendly assertions that a specific run <strong>fails</strong> and surfaces the expected error text.</p>
 <p>Some tests are meant to prove that the framework rejects bad configuration or
 bad data. Treat these as first-class negative tests.</p>
-<h2 id="current-status">Current status<a class="headerlink" href="#current-status" title="Permanent link">&para;</a></h2>
-<p>The current <code>usecase-sim</code> runner does <strong>not</strong> read scenario metadata such as
-<code>validation.expect_success</code> or <code>validation.expected_error_contains</code>.</p>
-<ul>
-<li><code>usecase-sim/runner/run_scenario.py</code> passes or fails scenarios from the child
-  process exit code.</li>
-<li><code>usecase-sim/runner/run.py</code> exits <code>0</code> on success and <code>2</code> on execution
-  failure.</li>
-<li><code>usecase-sim/scenarios/scenarios.json</code> does not currently define a built-in
-  expected-failure schema.</li>
-</ul>
-<p>So if you want an expected-failure scenario today, assert it in the wrapper or
-CI job that launches the runner.</p>
+<h2 id="scenario-contract">Scenario contract<a class="headerlink" href="#scenario-contract" title="Permanent link">&para;</a></h2>
+<p><code>usecase-sim/runner/run_scenario.py</code> supports declarative validation. The
+runner still returns <code>124</code> for a timeout, but other non-zero child exits can be
+declared as expected and must also match stable console text.</p>
 <h2 id="recommended-pattern">Recommended pattern<a class="headerlink" href="#recommended-pattern" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Run the stage or scenario normally.</li>
-<li>Expect a non-zero exit code.</li>
-<li>Assert that stdout, stderr, or the scenario console log contains the error
-   substring you expect.</li>
-</ol>
-<p>Example in Python:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="p">[</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;usecase-sim/runner/run.py&quot;</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="s2">&quot;--engine&quot;</span><span class="p">,</span> <span class="s2">&quot;polars&quot;</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="s2">&quot;--metadata-source&quot;</span><span class="p">,</span> <span class="s2">&quot;file&quot;</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="s2">&quot;--metadata-path&quot;</span><span class="p">,</span> <span class="s2">&quot;usecase-sim/metadata/file/local_use_cases.json&quot;</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="s2">&quot;--stage&quot;</span><span class="p">,</span> <span class="s2">&quot;bad_schema_stage&quot;</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="p">],</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">combined_output</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span> <span class="o">+</span> <span class="n">proc</span><span class="o">.</span><span class="n">stderr</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="k">assert</span> <span class="n">proc</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="k">assert</span> <span class="s2">&quot;Column &#39;nonexistent&#39; not found&quot;</span> <span class="ow">in</span> <span class="n">combined_output</span>
+<p>Add a <code>validation</code> block to the scenario:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;validation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">&quot;expected_exit_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">&quot;required_console_text&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Column &#39;missing_order&#39; not found&quot;</span><span class="p">]</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>If you use <code>run_scenario.py</code>, inspect the per-scenario console log written to
-<code>usecase-sim/logs/scenarios/&lt;scenario&gt;.console.log</code>.</p>
+<p>The scenario passes only when the exit code and every required substring
+match. Positive scenarios can additionally set a repository-local <code>script</code>,
+<code>args</code>, and validator <code>timeout_seconds</code> to assert persisted outputs.</p>
 <h2 id="recording-failures-in-etl-logs">Recording failures in ETL logs<a class="headerlink" href="#recording-failures-in-etl-logs" title="Permanent link">&para;</a></h2>
 <p>Failed runs still produce <code>dataflow_run_log</code> rows with <code>status = "failed"</code>.
+The row retains source, transform, or destination status, error details, and
+partial timings that were available before the exception. On a scenario
+timeout, the runner first signals the child and gives it 120 seconds to call
+<code>driver.close()</code> and flush logs before hard-killing it.
 The current logging pipeline does not mark a failure as "expected"
 automatically, so downstream dashboards need a separate convention if you want
 to suppress alerts for negative tests.</p>

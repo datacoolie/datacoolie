@@ -2129,6 +2129,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#in-process-only-built-ins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-process-only built-ins
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3338,6 +3349,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#in-process-only-built-ins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-process-only built-ins
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3356,8 +3378,8 @@
 
 
 <h1 id="plugin-entry-points">Plugin entry points<a class="headerlink" href="#plugin-entry-points" title="Permanent link">&para;</a></h1>
-<p>DataCoolie discovers built-in and third-party plugins through <a href="https://packaging.python.org/en/latest/specifications/entry-points/">Python entry points</a>. The tables below are <strong>generated from <code>pyproject.toml</code></strong> at docs-build time — they are always in sync with the installed package.
-To ship your own plugin, declare the matching entry-point group in your package's <code>pyproject.toml</code>; DataCoolie will pick it up on next import.</p>
+<p>DataCoolie registers built-ins in-process and also discovers installed plugins through <a href="https://packaging.python.org/en/latest/specifications/entry-points/">Python entry points</a>. The tables below are <strong>generated from this repository's <code>pyproject.toml</code></strong> at docs-build time and show its packaged entry-point declarations.
+To ship your own plugin, declare the matching entry-point group in your package's <code>pyproject.toml</code>; DataCoolie discovers it on the first registry lookup.</p>
 <h2 id="engines">Engines<a class="headerlink" href="#engines" title="Permanent link">&para;</a></h2>
 <p>Entry-point group: <code>datacoolie.engines</code></p>
 <table>
@@ -3521,12 +3543,32 @@ To ship your own plugin, declare the matching entry-point group in your package'
 <td><code>datacoolie.transformers.column_name_sanitizer:ColumnNameSanitizer</code></td>
 </tr>
 <tr>
+<td><code>column_projector</code></td>
+<td><code>datacoolie.transformers.column_projector:ColumnProjector</code></td>
+</tr>
+<tr>
+<td><code>column_value_transformer</code></td>
+<td><code>datacoolie.transformers.column_value_transformer:ColumnValueTransformer</code></td>
+</tr>
+<tr>
+<td><code>data_masker</code></td>
+<td><code>datacoolie.transformers.data_masker:DataMasker</code></td>
+</tr>
+<tr>
 <td><code>deduplicator</code></td>
 <td><code>datacoolie.transformers.deduplicator:Deduplicator</code></td>
 </tr>
 <tr>
+<td><code>hash_column_adder</code></td>
+<td><code>datacoolie.transformers.hash_column_adder:HashColumnAdder</code></td>
+</tr>
+<tr>
 <td><code>partition_handler</code></td>
 <td><code>datacoolie.transformers.partition_handler:PartitionHandler</code></td>
+</tr>
+<tr>
+<td><code>row_filter</code></td>
+<td><code>datacoolie.transformers.row_filter:RowFilter</code></td>
 </tr>
 <tr>
 <td><code>scd2_column_adder</code></td>
@@ -3558,6 +3600,8 @@ To ship your own plugin, declare the matching entry-point group in your package'
 </tr>
 </tbody>
 </table>
+<h2 id="in-process-only-built-ins">In-process-only built-ins<a class="headerlink" href="#in-process-only-built-ins" title="Permanent link">&para;</a></h2>
+<p><code>row_filter</code> is registered directly by <code>datacoolie.__init__</code> and is part of the default transformer pipeline, but it is not currently declared in the packaged <code>datacoolie.transformers</code> entry-point group above.</p>
 
 
 

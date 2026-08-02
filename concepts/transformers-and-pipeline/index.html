@@ -1140,10 +1140,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-eight-built-ins-order-responsibility" class="md-nav__link">
+  <a href="#the-twelve-built-ins-order-responsibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The eight built-ins (order → responsibility)
+        The twelve built-ins (order → responsibility)
       
     </span>
   </a>
@@ -3258,10 +3258,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-eight-built-ins-order-responsibility" class="md-nav__link">
+  <a href="#the-twelve-built-ins-order-responsibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The eight built-ins (order → responsibility)
+        The twelve built-ins (order → responsibility)
       
     </span>
   </a>
@@ -3340,9 +3340,9 @@
 <h1 id="transformers-pipeline">Transformers &amp; pipeline<a class="headerlink" href="#transformers-pipeline" title="Permanent link">&para;</a></h1>
 <p><strong>TL;DR</strong> <code>TransformerPipeline</code> runs a fixed ordered list of transformers
 between read and write. Each transformer has an <code>order</code> integer (lower first);
-DataCoolie's eight built-ins claim the slots <strong>10 / 20 / 30 / 35 / 60 / 70 / 80 / 90</strong>,
+DataCoolie's twelve built-ins claim the slots <strong>5 / 10 / 18 / 20 / 30 / 35 / 60 / 70 / 80 / 84 / 85 / 90</strong>,
 leaving <strong>40–50</strong> free for user plugins.</p>
-<h2 id="the-eight-built-ins-order-responsibility">The eight built-ins (order → responsibility)<a class="headerlink" href="#the-eight-built-ins-order-responsibility" title="Permanent link">&para;</a></h2>
+<h2 id="the-twelve-built-ins-order-responsibility">The twelve built-ins (order → responsibility)<a class="headerlink" href="#the-twelve-built-ins-order-responsibility" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -3353,9 +3353,19 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 </thead>
 <tbody>
 <tr>
+<td><strong>5</strong></td>
+<td><code>ColumnValueTransformer</code></td>
+<td>Apply typed value rules in stable <code>(order, declaration)</code> order before schema casting.</td>
+</tr>
+<tr>
 <td><strong>10</strong></td>
 <td><code>SchemaConverter</code></td>
-<td>Cast columns to <code>schema_hints</code> types first — everything downstream sees the target schema.</td>
+<td>Cast columns to <code>schema_hints</code> types after value normalization — downstream typed transforms see the target schema.</td>
+</tr>
+<tr>
+<td><strong>18</strong></td>
+<td><code>HashColumnAdder</code></td>
+<td>Add stable SHA-256 business hashes from typed canonical payloads.</td>
 </tr>
 <tr>
 <td><strong>20</strong></td>
@@ -3388,6 +3398,16 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 <td>Derive partition values from SQL expressions.</td>
 </tr>
 <tr>
+<td><strong>84</strong></td>
+<td><code>DataMasker</code></td>
+<td>Mask structured scalar PII after business transforms and before projection.</td>
+</tr>
+<tr>
+<td><strong>85</strong></td>
+<td><code>ColumnProjector</code></td>
+<td>Resolve select/drop against source names, then apply atomic renames.</td>
+</tr>
+<tr>
 <td><strong>90</strong></td>
 <td><code>ColumnNameSanitizer</code></td>
 <td>Last — sanitise casing and special chars for the destination engine.</td>
@@ -3396,22 +3416,26 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 </table>
 <p>The default pipeline assembled by <code>DataCoolieDriver</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DEFAULT_TRANSFORMERS</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;schema_converter&quot;</span><span class="p">,</span>       <span class="c1"># 10</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;deduplicator&quot;</span><span class="p">,</span>           <span class="c1"># 20</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;column_adder&quot;</span><span class="p">,</span>           <span class="c1"># 30</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;row_filter&quot;</span><span class="p">,</span>             <span class="c1"># 35 — post-column_adder, pre-scd2</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;scd2_column_adder&quot;</span><span class="p">,</span>      <span class="c1"># 60</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;system_column_adder&quot;</span><span class="p">,</span>    <span class="c1"># 70</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;partition_handler&quot;</span><span class="p">,</span>      <span class="c1"># 80</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;column_name_sanitizer&quot;</span><span class="p">,</span>  <span class="c1"># 90</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;column_value_transformer&quot;</span><span class="p">,</span>  <span class="c1"># 5</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;schema_converter&quot;</span><span class="p">,</span>       <span class="c1"># 10</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;hash_column_adder&quot;</span><span class="p">,</span>      <span class="c1"># 18</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;deduplicator&quot;</span><span class="p">,</span>           <span class="c1"># 20</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">&quot;column_adder&quot;</span><span class="p">,</span>           <span class="c1"># 30</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="s2">&quot;row_filter&quot;</span><span class="p">,</span>             <span class="c1"># 35 — post-column_adder, pre-scd2</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">&quot;scd2_column_adder&quot;</span><span class="p">,</span>      <span class="c1"># 60</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="s2">&quot;system_column_adder&quot;</span><span class="p">,</span>    <span class="c1"># 70</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">&quot;partition_handler&quot;</span><span class="p">,</span>      <span class="c1"># 80</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="s2">&quot;data_masker&quot;</span><span class="p">,</span>            <span class="c1"># 84</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="s2">&quot;column_projector&quot;</span><span class="p">,</span>       <span class="c1"># 85</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="s2">&quot;column_name_sanitizer&quot;</span><span class="p">,</span>  <span class="c1"># 90</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">]</span>
 </span></code></pre></div>
 <p>(List order is informational; <code>TransformerPipeline</code> sorts by the transformer's
 <code>order</code> attribute, so <code>ColumnAdder</code> (30) still runs before <code>RowFilter</code> (35)
 and <code>SCD2ColumnAdder</code> (60).)</p>
 <h2 id="why-slots-jump-from-35-to-60">Why slots jump from 35 to 60?<a class="headerlink" href="#why-slots-jump-from-35-to-60" title="Permanent link">&para;</a></h2>
 <p>Slots <strong>40–50 are reserved for your plugins</strong>. A common third-party addition
-is a PII masker at 40 or a validator at 50. See
+is a validator at 50. See
 <a href="../../adr/0003-transformer-ordering-slots/">ADR-0003</a>.</p>
 <h2 id="tracking-applied-transformers">Tracking applied transformers<a class="headerlink" href="#tracking-applied-transformers" title="Permanent link">&para;</a></h2>
 <p><code>BaseTransformer</code> exposes:</p>
@@ -3422,12 +3446,29 @@ is a PII masker at 40 or a validator at 50. See
 <li>no call → default: record <code>ClassName</code></li>
 </ul>
 <p>The tracking label ends up in <code>TransformRuntimeInfo.transformers_applied</code> and
-is surfaced by <code>ETLLogger</code> as a column on every <code>dataflow_entry</code>.</p>
+is surfaced by <code>ETLLogger</code> as a column on every <code>dataflow_run_log</code> row.
+When <code>missing_column_policy="ignore"</code>, typed value and masking transformers
+count only rules that reference at least one existing column. If every rule is
+skipped, the transformer is not added to <code>transformers_applied</code>. Schema hints
+that do not match runtime columns produce one summary warning and do not mark
+<code>SchemaConverter</code> applied. Projection and final sanitization are also recorded
+only when they add a real rename/select/drop/reorder operation.</p>
+<p>Value and masking operations are compiled to native expressions. One rule that
+targets multiple columns resolves schema once and adds one Spark <code>withColumns</code>
+or Polars <code>with_columns</code> projection. Rules still run sequentially so metadata
+order and multiple rules on the same column remain observable. No Python UDF,
+Spark action, or Polars data collection is used by these transformers.</p>
+<p>String normalization follows a portable contract: <code>trim</code> removes ASCII U+0020
+only, <code>regex_replace</code> accepts DataCoolie's conservative cross-engine regex v1,
+and replacement text is literal. Typed fill/redact values are validated before
+the native plan is changed. Partial masking never passes a short non-empty PII
+value through unchanged.</p>
 <h2 id="failure-semantics">Failure semantics<a class="headerlink" href="#failure-semantics" title="Permanent link">&para;</a></h2>
 <p>Transformers that raise <code>TransformError</code> are <strong>not wrapped</strong> — the driver sees
 the original exception. Any other exception is wrapped by the pipeline into a
 <code>TransformError</code> with <code>details={"applied": [...so_far]}</code> so the log records
-which transformers ran before the failure.</p>
+which transformers ran before the failure. Both branches populate
+<code>TransformRuntimeInfo.error_message</code>.</p>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../metadata-model/">Concepts · Metadata model · Transform</a></li>

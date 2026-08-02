@@ -3475,7 +3475,7 @@ template you should copy into your own repo.</p>
 </tr>
 <tr>
 <td><code>api</code></td>
-<td><code>--metadata-api-url</code> + <code>--metadata-workspace-id</code></td>
+<td><code>--metadata-api-url</code> + <code>--metadata-workspace-id</code>; <code>--metadata-api-key</code> is optional and defaults to empty</td>
 </tr>
 </tbody>
 </table>
@@ -3514,6 +3514,10 @@ template you should copy into your own repo.</p>
 <tr>
 <td><code>--max-workers</code></td>
 <td>Integer — overrides <code>DataCoolieRunConfig.max_workers</code></td>
+</tr>
+<tr>
+<td><code>--metadata-api-key</code></td>
+<td>API key sent by <code>APIClient</code> for API metadata</td>
 </tr>
 <tr>
 <td><code>--skip-api-sources</code></td>
@@ -3619,9 +3623,19 @@ template you should copy into your own repo.</p>
 <code>--uc-token</code>, and <code>--uc-credential</code>.</p>
 <p>Maintenance behavior toggles:</p>
 <ul>
+<li><code>--do-compact</code> explicitly enables compaction (already the default).</li>
 <li><code>--no-compact</code> disables compaction.</li>
+<li><code>--do-cleanup</code> explicitly enables cleanup (already the default).</li>
 <li><code>--no-cleanup</code> disables cleanup.</li>
 </ul>
+<div class="admonition warning">
+<p class="admonition-title">Maintenance <code>--dry-run</code> is not currently effective</p>
+<p><code>maintenance.py</code> accepts the flag and puts it in <code>DataCoolieRunConfig</code>,
+but <code>DataCoolieDriver.run_maintenance()</code> does not branch on <code>dry_run</code>.
+Use <code>driver.load_maintenance_dataflows(...)</code> for read-only target
+inspection or run against a non-production target; do not rely on
+<code>--dry-run</code> to prevent maintenance side effects.</p>
+</div>
 <p>Spark-only optional flags: <code>--app-name</code> and repeatable <code>--spark-config KEY=VALUE</code>.</p>
 <p>Typical invocation:</p>
 <div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">maintenance</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
@@ -3639,6 +3653,12 @@ template you should copy into your own repo.</p>
 <li><code>--priority P0|P1|P2</code></li>
 </ul>
 <p>Optional flag: <code>--scenarios-path</code> to point at a different scenario catalog.</p>
+<p>Default timeouts are 300 seconds for Polars scenarios, 450 seconds for Spark,
+and 600 seconds for maintenance; a scenario can override this with
+<code>timeout_seconds</code>. On timeout the dispatcher sends a graceful cancellation
+signal, allows 120 seconds for the child to close the driver and flush logs,
+then hard-kills it if necessary. A timed-out scenario is reported with exit
+code <code>124</code>.</p>
 <h2 id="run_perf_benchmarkpy"><code>run_perf_benchmark.py</code><a class="headerlink" href="#run_perf_benchmarkpy" title="Permanent link">&para;</a></h2>
 <p>Performance benchmark runner for the large perf metadata set.</p>
 <p>Key flags:</p>
@@ -3682,7 +3702,7 @@ template you should copy into your own repo.</p>
 </tr>
 </tbody>
 </table>
-<p>See the <a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/README.md">usecase-sim README</a>
+<p>See the <a href="https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/README.md">usecase-sim README</a>
 for the full set and invocation examples.</p>
 
 

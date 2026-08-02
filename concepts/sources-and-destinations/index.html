@@ -3455,10 +3455,11 @@ for the generated table):</p>
 <code>"&gt;="</code> for replay's inclusive lower bound).  <code>watermark_end</code> provides an
 optional upper ceiling for replay chunks; <code>watermark_end_operator</code> defaults
 to <code>"&lt;"</code> (exclusive).</p>
-<p>The source reader is also responsible for <strong>watermark push-down</strong> — applying
-the watermark predicate <em>during</em> the read when the backend supports it (e.g.
-parquet predicate pushdown, JDBC WHERE clause). If pushdown is not possible the
-reader returns the full DataFrame and the framework filters afterwards.</p>
+<p>The source reader is responsible for watermark filtering. Database readers
+push a <code>WHERE</code> clause into SQL and API readers can map bounds into request
+parameters. File, Delta, Iceberg, and function readers apply the active
+engine's DataFrame filter after reading (file readers can additionally prune
+date folders or files by modification time).</p>
 <h3 id="filter_expression-post-read-filter"><code>filter_expression</code> (post-read filter)<a class="headerlink" href="#filter_expression-post-read-filter" title="Permanent link">&para;</a></h3>
 <p>After watermark filtering, every reader calls <code>_apply_filter_expression(df,
 source)</code>.  When <code>source.filter_expression</code> is non-empty, the engine evaluates

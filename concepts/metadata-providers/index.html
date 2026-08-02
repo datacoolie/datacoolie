@@ -3433,7 +3433,8 @@ See <a href="../watermarks/">Watermarks</a> and <a href="../../adr/0004-raw-json
 <li>Canonical source is <strong>JSON</strong>; YAML and Excel are generated equivalents.</li>
 <li>One file per use case is the convention (<code>orders_csv_to_parquet.{json,yaml,xlsx}</code>).</li>
 <li>Blank <code>is_active</code> in Excel means <strong>unset</strong> (not <code>False</code>). Generators preserve this nuance.</li>
-<li>Watermarks default to <code>{config_dir}/watermarks/{stage}_{name}_{dataflow_id}/watermark.json</code>.
+<li>Watermarks default to
+  <code>{config_dir}/watermarks/{stage}_{name}_{dataflow_id}/watermark_value.json</code>.
   If <code>stage</code> or <code>name</code> is missing, the folder falls back to <code>{dataflow_id}</code>.</li>
 </ul>
 <h2 id="database-provider">Database provider<a class="headerlink" href="#database-provider" title="Permanent link">&para;</a></h2>

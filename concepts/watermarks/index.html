@@ -1218,15 +1218,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#read-side-push-down" class="md-nav__link">
+  <a href="#read-side-filtering" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Read-side push-down
+        Read-side filtering
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Read-side push-down">
+    <nav class="md-nav" aria-label="Read-side filtering">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3347,15 +3347,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#read-side-push-down" class="md-nav__link">
+  <a href="#read-side-filtering" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Read-side push-down
+        Read-side filtering
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Read-side push-down">
+    <nav class="md-nav" aria-label="Read-side filtering">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3498,10 +3498,11 @@ round-trip through JSON losslessly.</p>
 <li><code>__time__</code> → <code>time.fromisoformat(value)</code></li>
 </ul>
 <p>Everything else is plain JSON (ints, floats, strings, nested dicts, lists).</p>
-<h2 id="read-side-push-down">Read-side push-down<a class="headerlink" href="#read-side-push-down" title="Permanent link">&para;</a></h2>
+<h2 id="read-side-filtering">Read-side filtering<a class="headerlink" href="#read-side-filtering" title="Permanent link">&para;</a></h2>
 <p>Source readers apply the watermark <strong>during</strong> the read when possible:</p>
 <ul>
-<li><strong>Parquet / Delta / Iceberg</strong> — predicate pushdown on the watermark column.</li>
+<li><strong>Parquet / Delta / Iceberg</strong> — read through the engine, then apply the
+  engine's DataFrame watermark filter.</li>
 <li><strong>Database (JDBC / connectorx)</strong> — appended <code>WHERE watermark_col &gt; ...</code>.</li>
 <li><strong>API</strong> — injected into request params/body via <code>source.configure</code>
   keys such as <code>watermark_param_mapping</code>, <code>watermark_to_param</code>,
@@ -3511,7 +3512,7 @@ round-trip through JSON losslessly.</p>
 <h3 id="watermark-operator">Watermark operator<a class="headerlink" href="#watermark-operator" title="Permanent link">&para;</a></h3>
 <p>By default the comparison is <code>&gt;</code> (strict greater-than), meaning "only rows
 newer than the last saved value".  During <strong>replay</strong>, the driver passes
-<code>watermark_operator="&gt;="</code> (inclusive) so that the lower-bound chunk boundary is
+<code>watermark_start_operator="&gt;="</code> (inclusive) so that the lower-bound chunk boundary is
 included in the read.  Source readers forward this operator to the engine's
 <code>apply_watermark_filter</code> method.</p>
 <table>

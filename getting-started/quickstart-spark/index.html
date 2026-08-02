@@ -3419,9 +3419,14 @@ shared <code>platform</code> pattern.</p>
 <td><code>timestamp</code> / <code>timestamp_ntz</code></td>
 </tr>
 <tr>
-<td>Scale ceiling</td>
-<td>single node, ~10 GB</td>
-<td>cluster, TB+</td>
+<td>Execution model</td>
+<td>single process / node</td>
+<td>distributed Spark cluster</td>
+</tr>
+<tr>
+<td>Practical scale</td>
+<td>depends on memory, data shape, and operations</td>
+<td>depends on cluster resources, partitioning, and shuffle</td>
 </tr>
 <tr>
 <td>Delta backend</td>

@@ -3502,8 +3502,8 @@
 
         <p>Abstract base class for DataFrame engines.</p>
 <p><code>BaseEngine[DF]</code> is a generic ABC parameterised by DataFrame type.
-Concrete implementations (Spark, Polars) bind <code>DF</code> to their native
-DataFrame class.</p>
+Concrete implementations bind <code>DF</code> to their native frame type (Spark
+<code>DataFrame</code> or Polars <code>LazyFrame</code>).</p>
 <h4 id="datacoolie.engines.base--section-layout">Section layout<a class="headerlink" href="#datacoolie.engines.base--section-layout" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>Construction</strong> — <code>__init__</code>, <code>platform</code>, <code>set_platform</code></li>
@@ -3595,7 +3595,7 @@ DataFrame class.</p>
 
         <p>Engine abstraction for DataFrame-based read / write / transform.</p>
 <p>Type parameter <em>DF</em> is the concrete DataFrame class
-(e.g. <code>pyspark.sql.DataFrame</code> or <code>polars.DataFrame</code>).</p>
+(e.g. <code>pyspark.sql.DataFrame</code> or <code>polars.LazyFrame</code>).</p>
 
 
 
@@ -3785,6 +3785,36 @@ objects used to resolve name / modification-time per path, or
 <div class="doc doc-object doc-function">
 
 
+<h4 id="datacoolie.engines.base.BaseEngine.add_hash_column" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">add_hash_column</span>
+
+
+<a href="#datacoolie.engines.base.BaseEngine.add_hash_column" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_hash_column</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">definition</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Add a stable hash column using an engine-native expression.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="datacoolie.engines.base.BaseEngine.add_system_columns" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">add_system_columns</span>
 
@@ -3812,6 +3842,78 @@ objects used to resolve name / modification-time per path, or
     <div class="doc doc-contents ">
 
         <p>Add <code>__created_at</code>, <code>__updated_at</code>, <code>__updated_by</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.engines.base.BaseEngine.apply_masking_rule" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">apply_masking_rule</span>
+
+
+<a href="#datacoolie.engines.base.BaseEngine.apply_masking_rule" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_masking_rule</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">rule</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">missing_column_policy</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Apply one typed masking rule in one engine-native projection.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.engines.base.BaseEngine.apply_value_rule" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">apply_value_rule</span>
+
+
+<a href="#datacoolie.engines.base.BaseEngine.apply_value_rule" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">apply_value_rule</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">rule</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">missing_column_policy</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Apply one typed value rule using engine-native expressions.</p>
+<p>Built-in engines preflight all targets and add at most one native
+projection for the rule, regardless of the number of target columns.</p>
 
 
     </div>
@@ -7257,6 +7359,39 @@ dispatch to the appropriate format reader (<code>read_delta</code>,
 <div class="doc doc-object doc-function">
 
 
+<h4 id="datacoolie.engines.base.BaseEngine.rename_columns" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">rename_columns</span>
+
+
+<a href="#datacoolie.engines.base.BaseEngine.rename_columns" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">rename_columns</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span><span class="p">,</span> <span class="n">mapping</span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="str">str</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            DF
+
+
+  
+      module-attribute
+   (datacoolie.engines.base.DF)" href="#datacoolie.engines.base.DF">DF</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Rename multiple columns.</p>
+<p>Engines can override this compatibility fallback with a native batch
+operation. Keeping the default concrete avoids breaking third-party
+engines that only implement :meth:<code>rename_column</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="datacoolie.engines.base.BaseEngine.scd2" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">scd2</span>
 
@@ -8054,6 +8189,28 @@ If <code>None</code>, a fresh session with Delta extensions is created.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="datacoolie.engines.spark_engine.SparkEngine.add_hash_column" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">add_hash_column</span>
+
+
+<a href="#datacoolie.engines.spark_engine.SparkEngine.add_hash_column" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_hash_column</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">df</span><span class="p">:</span> <span class="n"><span title="pyspark.sql.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">definition</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.models.HashColumn">HashColumn</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="pyspark.sql.DataFrame">DataFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Add SHA-256 over DataCoolie's canonical scalar payload.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="datacoolie.engines.spark_engine.SparkEngine.create_dataframe" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">create_dataframe</span>
 
@@ -8621,6 +8778,28 @@ the source path via <code>include_file_paths</code> / manual injection, so
 <code>__file_path</code> to resolve <code>__file_name</code> and
 <code>__file_modification_time</code>.  When <em>file_infos</em> is <code>None</code> the name
 is derived from the path and modification-time is set to <code>null</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="datacoolie.engines.polars_engine.PolarsEngine.add_hash_column" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">add_hash_column</span>
+
+
+<a href="#datacoolie.engines.polars_engine.PolarsEngine.add_hash_column" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_hash_column</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">df</span><span class="p">:</span> <span class="n"><span title="polars.LazyFrame">LazyFrame</span></span><span class="p">,</span> <span class="n">definition</span><span class="p">:</span> <span class="n"><span title="datacoolie.core.models.HashColumn">HashColumn</span></span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.LazyFrame">LazyFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Add SHA-256 over DataCoolie's canonical scalar payload.</p>
 
 
     </div>

@@ -3317,10 +3317,10 @@
 
 <h1 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Permanent link">&para;</a></h1>
 <p>DataCoolie ships a reproducible benchmark harness under
-<a href="https://github.com/datacoolie/closed-loop/blob/main/datacoolie/usecase-sim/runner/run_perf_benchmark.py"><code>usecase-sim/runner/run_perf_benchmark.py</code></a>.</p>
+<a href="https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/runner/run_perf_benchmark.py"><code>usecase-sim/runner/run_perf_benchmark.py</code></a>.</p>
 <h2 id="running">Running<a class="headerlink" href="#running" title="Permanent link">&para;</a></h2>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">python</span> <span class="n">datacoolie</span><span class="p">/</span><span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run_perf_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">python</span> <span class="n">datacoolie</span><span class="p">/</span><span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run_perf_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-engine</span> <span class="n">spark</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run_perf_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-engine</span> <span class="n">polars</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run_perf_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-engine</span> <span class="n">spark</span>
 </span></code></pre></div>
 <p>Outputs JSON results to <code>datacoolie/benchmark_results/</code>:</p>
 <ul>
@@ -3339,7 +3339,7 @@ sized to match typical ingestion workloads. Per-run metrics:</p>
 <li>Peak memory (Linux only — via <code>resource</code>)</li>
 </ul>
 <h2 id="published-report">Published report<a class="headerlink" href="#published-report" title="Permanent link">&para;</a></h2>
-<p>See <a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/benchmark_results/perf_report.md"><code>benchmark_results/perf_report.md</code></a>
+<p>See <a href="https://github.com/datacoolie/datacoolie/blob/main/benchmark_results/perf_report.md"><code>benchmark_results/perf_report.md</code></a>
 for the last committed run.</p>
 <h2 id="interpretation-caveats">Interpretation caveats<a class="headerlink" href="#interpretation-caveats" title="Permanent link">&para;</a></h2>
 <ul>

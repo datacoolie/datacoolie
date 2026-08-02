@@ -3448,6 +3448,9 @@ three framework columns before write:</p>
    <code>__valid_to = source.__valid_from</code> and <code>__is_current = false</code>.</li>
 <li><strong>Append step</strong> — insert all source rows as new versions.</li>
 </ol>
+<p>Because the late-arrival guard applies only to the close step, equal or older
+effective timestamps are still appended. Filter/deduplicate upstream so each
+key advances strictly beyond its current <code>__valid_from</code>.</p>
 <p>No hash column is stored; versioning is driven entirely by the effective-date
 column you nominate. See <a href="../../how-to/merge-and-scd2/">How-to · Merge &amp; SCD2</a>
 for a worked example.</p>

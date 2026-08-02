@@ -3386,7 +3386,7 @@ bundle that pulls in every Spark and Polars-related dependency.</p>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.orchestration.driver</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataCoolieDriver</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">platform</span> <span class="o">=</span> <span class="n">FabricPlatform</span><span class="p">()</span>           <span class="c1"># uses notebookutils under the hood</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>   <span class="c1"># `spark` is the built-in SparkSession</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark_session</span><span class="o">=</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>  <span class="c1"># Fabric&#39;s SparkSession</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">metadata</span> <span class="o">=</span> <span class="n">FileProvider</span><span class="p">(</span><span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;Files/metadata/orders.json&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span> <span class="n">base_log_path</span><span class="o">=</span><span class="s2">&quot;Files/logs&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
@@ -3430,7 +3430,7 @@ cell before native Python execution starts:</p>
 <p>Use the Fabric platform guide in usecase-sim for the current sample notebooks,
 metadata file, and setup notes:</p>
 <ul>
-<li><a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/platforms/fabric/README.md"><code>README.md</code></a></li>
+<li><a href="https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/platforms/fabric/README.md"><code>README.md</code></a></li>
 </ul>
 
 

@@ -3411,7 +3411,7 @@ convenience, not the default install path.</p>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">spark</span> <span class="o">=</span> <span class="n">GlueContext</span><span class="p">(</span><span class="n">SparkContext</span><span class="o">.</span><span class="n">getOrCreate</span><span class="p">())</span><span class="o">.</span><span class="n">spark_session</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">platform</span> <span class="o">=</span> <span class="n">AWSPlatform</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s2">&quot;us-east-1&quot;</span><span class="p">)</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark_session</span><span class="o">=</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">metadata</span> <span class="o">=</span> <span class="n">FileProvider</span><span class="p">(</span><span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;s3://my-bucket/metadata/orders.json&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="k">with</span> <span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
@@ -3484,20 +3484,20 @@ repo does not rely on them anywhere. Prefer the explicit Spark properties plus
 the matching Delta runtime/JARs, because that is the path exercised by the
 checked-in Glue sample.</p>
 <h2 id="6-iceberg-alternative">6. Iceberg alternative<a class="headerlink" href="#6-iceberg-alternative" title="Permanent link">&para;</a></h2>
-<p>If you would rather use Iceberg than Delta on Glue, switch the connection to
-<code>fmt="iceberg"</code>, set <code>catalog="glue_catalog"</code>, and keep a real Glue database
+<p>If you would rather use Iceberg than Delta on Glue, set the connection's
+<code>format</code> to <code>"iceberg"</code>, set <code>catalog="glue_catalog"</code>, and keep a real Glue database
 name (the AWS sample metadata uses <code>database="datacoolie"</code>). This skips the
 Athena-native Delta registration path entirely and uses Glue Catalog-backed
 Iceberg tables instead.</p>
 <p>For Spark jobs, include the Glue Iceberg runtime/JARs. For Python Shell jobs,
-the checked-in <code>sample_aws_glue_polars.py</code> uses <code>pyiceberg</code>, and Glue catalog
+the checked-in <code>sample_aws_local_polars.py</code> uses <code>pyiceberg</code>, and Glue catalog
 support requires <code>PYICEBERG_CATALOG__GLUE__TYPE=glue</code> plus the appropriate Glue
 permissions.</p>
 <h2 id="reference-assets">Reference assets<a class="headerlink" href="#reference-assets" title="Permanent link">&para;</a></h2>
 <p>Use the AWS platform guide in usecase-sim for the current sample scripts,
 metadata file, and setup notes:</p>
 <ul>
-<li><a href="https://github.com/datacoolie/datacoolie/blob/main/datacoolie/usecase-sim/platforms/aws/README.md"><code>README.md</code></a></li>
+<li><a href="https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/platforms/aws/README.md"><code>README.md</code></a></li>
 </ul>
 
 

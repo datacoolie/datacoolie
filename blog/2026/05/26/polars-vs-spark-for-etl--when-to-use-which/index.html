@@ -3505,7 +3505,7 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">PolarsEngine</span><span class="p">(</span><span class="n">platform</span><span class="o">=</span><span class="n">LocalPlatform</span><span class="p">())</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Production — distributed</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark</span><span class="o">=</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">FabricPlatform</span><span class="p">())</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark_session</span><span class="o">=</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">FabricPlatform</span><span class="p">())</span>
 </span></code></pre></div>
 <p>Same metadata. Same load strategies. Same watermarks. Different engine.</p>
 <h2 id="try-it-yourself">Try It Yourself<a class="headerlink" href="#try-it-yourself" title="Permanent link">&para;</a></h2>

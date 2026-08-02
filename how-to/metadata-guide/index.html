@@ -3285,7 +3285,7 @@ individual pages work as standalone references.</p>
 <tr>
 <td>4</td>
 <td><a href="transform-patterns/">Transform patterns</a></td>
-<td>Cast types, deduplicate, add computed columns, partition output</td>
+<td>Normalize, cast, hash, deduplicate, mask, select, drop, rename, and compute columns</td>
 </tr>
 <tr>
 <td>5</td>
@@ -3332,7 +3332,7 @@ individual pages work as standalone references.</p>
 <tr>
 <td>Transform features</td>
 <td>Yes</td>
-<td><code>schema_hints</code>, deduplication, computed columns, partition expressions, SCD2/system columns</td>
+<td>Value normalization, <code>schema_hints</code>, hashing, deduplication, computed columns, masking, select/drop/rename, partition expressions, SCD2/system columns</td>
 </tr>
 <tr>
 <td>Validation &amp; safety</td>
@@ -3401,7 +3401,7 @@ single field in your metadata.</p>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  ├── group_number / execution_order / processing_mode / is_active
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  ├── source               ← which connection + table/query/function to read
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  ├── destination          ← which connection + table + load_type to write
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  └── transform            ← schema hints, dedup, computed columns (optional)
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  └── transform            ← normalization, schema, hashing, masking, projection (optional)
 </span></code></pre></div>
 <p>Start with <code>connections</code> and <code>dataflows</code>. The rest is optional and you can
 add it incrementally.</p>

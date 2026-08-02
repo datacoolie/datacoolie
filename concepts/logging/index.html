@@ -3417,22 +3417,33 @@
 
 <h1 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h1>
 <p><strong>TL;DR</strong> Two orthogonal loggers. <code>SystemLogger</code> captures framework Python logs
-as plain-text <code>.log</code> files for operators. <code>ETLLogger</code> writes structured execution
-logs in two forms: debug JSONL (appended per run) and analyst outputs (JSONL for
-job summaries, Parquet for dataflow detail).</p>
+as structured JSONL for operators. <code>ETLLogger</code> writes structured execution logs
+in two forms: debug JSONL (appended per run) and analyst outputs (JSONL for job
+summaries, Parquet for dataflow detail).</p>
 <h2 id="systemlogger"><code>SystemLogger</code><a class="headerlink" href="#systemlogger" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Captures framework Python logs through <code>LogManager</code>.</li>
+<li>Uses <code>datacoolie</code> as the framework root namespace. <code>get_logger(__name__)</code>
+  preserves the full module logger name, and standard <code>datacoolie.*</code> child
+  loggers propagate into the same capture pipeline.</li>
+<li>Preserves records emitted before and during Driver/SystemLogger
+  reconfiguration. When capture remains enabled, <code>LogManager</code> keeps the same
+  <code>CaptureHandler</code> attached and changes its level, formatter, or memory/file
+  storage under a lock. Records already accepted remain ordered and are not
+  re-filtered by a later <code>file_level</code>.</li>
+<li>Keeps LogManager's own diagnostic messages console-only so capture and flush
+  failures cannot recursively write into the same buffer.</li>
 <li><strong>Two independent levels:</strong><ul>
 <li><code>log_level</code> — controls what is printed to the console (default <code>INFO</code>).</li>
 <li><code>file_level</code> — controls what is captured to the file (default <code>DEBUG</code>,
   capturing all framework messages regardless of console level).</li>
 </ul>
 </li>
-<li>Writes plain-text <code>.log</code> files: one line per record,
-  format <code>timestamp - LEVEL - logger [dataflow_id] - message</code>.</li>
-<li>Filename: <code>system_log_&lt;job_id&gt;.log</code> under the configured <code>output_path</code>,
-  optionally date-partitioned.</li>
+<li>Writes one JSON object per line using <code>LogRecord.to_dict()</code>. Core keys are
+  <code>ts</code>, <code>level</code>, <code>logger</code>, and <code>msg</code>; source-location, <code>dataflow_id</code>, and
+  exception fields are included when available.</li>
+<li>Filename: <code>system_log_&lt;YYYYMMDD_HHMMSS&gt;_&lt;job_id&gt;.jsonl</code> under the configured
+  <code>output_path</code>, optionally date-partitioned.</li>
 <li><strong>Periodic flush</strong> via background timer — appends new records to the remote
   file using <code>platform.append_file()</code> at each interval.  Final remaining
   records are appended on <code>close()</code>.</li>
@@ -3469,7 +3480,7 @@ job summaries, Parquet for dataflow detail).</p>
 <tr>
 <td><code>job_run_log</code></td>
 <td>JSONL (one line per job run)</td>
-<td><code>analyst/job_run_log/__run_date=.../job_run_log.jsonl</code></td>
+<td><code>analyst/job_run_log/__run_date=.../job_run_log_&lt;yyyyMMdd&gt;.jsonl</code></td>
 <td><code>append_file</code> on close</td>
 </tr>
 <tr>
@@ -3498,13 +3509,29 @@ recent job history without listing many small per-run files.</p>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">&quot;start_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-20T08:00:00+00:00&quot;</span><span class="p">,</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="nt">&quot;end_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-20T08:00:09+00:00&quot;</span><span class="p">,</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">  </span><span class="nt">&quot;duration_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.0</span><span class="p">,</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="nt">&quot;destination_load_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;merge&quot;</span><span class="p">,</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">  </span><span class="nt">&quot;destination_operation_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">}</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="nt">&quot;overhead_duration_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">  </span><span class="nt">&quot;destination_load_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;merge&quot;</span><span class="p">,</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="nt">&quot;destination_operation_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>job_run_log</code> summary rows aggregate session totals such as
-<code>total_dataflows</code>, <code>total_succeeded</code>, <code>total_failed</code>, and
-<code>total_rows_written</code>.</p>
+<code>total_dataflows</code>, <code>total_succeeded</code>, <code>total_failed</code>, <code>total_running</code>,
+<code>total_pending</code>, <code>total_rows_written</code>, and <code>operation_types</code>.</p>
+<p>Each dataflow entry also projects transformer metadata for analysis:
+<code>transform_select_columns</code>, <code>transform_drop_columns</code>,
+<code>transform_rename_columns</code>, <code>transform_value_rules</code>,
+<code>transform_hash_columns</code>, <code>transform_masking_rules</code>, and
+<code>transform_missing_column_policy</code>. Collection and rule fields are JSON strings
+in analyst Parquet and JSON-encoded values in the debug entry. Masking
+replacement values and value-rule mappings are retained as metadata; protect
+log storage with the same access controls used for pipeline metadata.</p>
+<p>If a source, transformer, or destination fails, the dataflow row keeps the
+available phase-level status, error, and partial timing information collected
+before the exception.</p>
+<p>An expected-failure test remains a real ETL failure in both log streams. A
+scenario runner may report that scenario as passed after matching its expected
+exit code and error text, but <code>SystemLogger</code> still contains the <code>ERROR</code> record
+and <code>ETLLogger</code> still records the failed dataflow.</p>
 <h2 id="logpurpose"><code>LogPurpose</code><a class="headerlink" href="#logpurpose" title="Permanent link">&para;</a></h2>
 <p>Enum that controls the output folder and intended audience:</p>
 <table>
@@ -3549,6 +3576,7 @@ recent job history without listing many small per-run files.</p>
 <li><code>flush_interval_seconds</code> — how often to upload pending buffers</li>
 <li><code>storage_mode</code> — <code>memory</code> / <code>file</code> for temporary buffering before upload</li>
 </ul>
+<p><code>LogConfig</code> normalises path separators in <code>output_path</code> when it is created.</p>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../operations/logging-layout/">How-to · Logging layout operations</a></li>

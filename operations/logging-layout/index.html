@@ -2866,6 +2866,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#framework-namespace-and-startup-capture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Framework namespace and startup capture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#analyst-outputs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3324,6 +3335,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#framework-namespace-and-startup-capture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Framework namespace and startup capture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#analyst-outputs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3413,11 +3435,11 @@
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   │       └── __run_date=yyyy-mm-dd/job_&lt;stem&gt;.jsonl          ← appended
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   └── analyst/
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│       ├── job_run_log/
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│       │   └── __run_date=yyyy-mm-dd/job_run_log.jsonl         ← shared daily file, appended
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│       │   └── __run_date=yyyy-mm-dd/job_run_log_&lt;yyyyMMdd&gt;.jsonl ← shared daily file
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│       └── dataflow_run_log/
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│           └── __run_date=yyyy-mm-dd/dataflow_&lt;stem&gt;.parquet   ← per-run file
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>└── system_logs/
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    └── __run_date=yyyy-mm-dd/system_log_&lt;job_id&gt;.log          ← plain text, appended
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    └── __run_date=yyyy-mm-dd/system_log_&lt;timestamp&gt;_&lt;job_id&gt;.jsonl
 </span></code></pre></div>
 <h2 id="two-loggers-two-purposes">Two loggers, two purposes<a class="headerlink" href="#two-loggers-two-purposes" title="Permanent link">&para;</a></h2>
 <table>
@@ -3437,7 +3459,7 @@
 <tr>
 <td>Format</td>
 <td>Debug JSONL + analyst JSONL/Parquet</td>
-<td>Plain text <code>.log</code>, one line per record</td>
+<td>JSONL, one <code>LogRecord</code> per line</td>
 </tr>
 <tr>
 <td>Purpose</td>
@@ -3461,10 +3483,18 @@
 <ul>
 <li><strong><code>log_level</code></strong> (default <code>INFO</code>) — what is printed to the console.  Set by
   the Driver configuration.</li>
-<li><strong><code>file_level</code></strong> (default <code>DEBUG</code>) — what is captured to the <code>.log</code> file.
+<li><strong><code>file_level</code></strong> (default <code>DEBUG</code>) — what is captured to the JSONL file.
   Captures all framework messages regardless of the console level, acting as a
   "black box recorder" for post-mortem diagnosis.</li>
 </ul>
+<h2 id="framework-namespace-and-startup-capture">Framework namespace and startup capture<a class="headerlink" href="#framework-namespace-and-startup-capture" title="Permanent link">&para;</a></h2>
+<p>Framework loggers live under the <code>datacoolie</code> namespace. Calls such as
+<code>get_logger(__name__)</code> retain their module name, while ordinary
+<code>logging.getLogger("datacoolie...")</code> children propagate to the same capture
+handler. Records emitted before the Driver finishes configuring logging are
+preserved and transferred to <code>SystemLogger</code>, subject to the configured
+<code>file_level</code>. LogManager's own diagnostics use a console-only handler to avoid
+recursive capture.</p>
 <h2 id="analyst-outputs">Analyst outputs<a class="headerlink" href="#analyst-outputs" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3490,7 +3520,7 @@
 </tr>
 </tbody>
 </table>
-<p>The <code>job_run_log.jsonl</code> is a <strong>shared daily file</strong>: every job run on the same
+<p>The dated <code>job_run_log_&lt;yyyyMMdd&gt;.jsonl</code> is a <strong>shared daily file</strong>: every job run on the same
 date appends its summary line to the same file.  This makes it efficient to
 query recent job history without listing many small per-run files.  It is also
 hive-partition compatible (<code>__run_date=yyyy-mm-dd</code>) so Spark / Polars can
@@ -3498,9 +3528,14 @@ discover the <code>run_date</code> column automatically.</p>
 <h2 id="partitioning">Partitioning<a class="headerlink" href="#partitioning" title="Permanent link">&para;</a></h2>
 <p>ETL logs are partitioned by <strong>purpose</strong> and <strong>log type</strong>, then by run date:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>etl_logs/analyst/dataflow_run_log/__run_date=2026-01-03/dataflow_&lt;stem&gt;.parquet
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log.jsonl
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log_20260103.jsonl
 </span></code></pre></div>
 <p>Query them directly with Spark / Polars / Athena.</p>
+<p>Dataflow rows include dedicated transformer metadata columns for select, drop,
+rename, value rules, hash columns, masking rules, and the resolved
+missing-column policy. Structured fields are JSON-serialized strings in
+Parquet. Metadata values are retained without redaction, so analyst log access
+must be governed as metadata access.</p>
 <h2 id="configuring">Configuring<a class="headerlink" href="#configuring" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">driver</span> <span class="o">=</span> <span class="n">DataCoolieDriver</span><span class="p">(</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span>
@@ -3518,9 +3553,12 @@ purpose folder. <code>LogPurpose.DEBUG.value == "debug_json"</code>.</p>
 <li>Build a dashboard from <code>etl_logs/analyst/dataflow_run_log/</code> and
   <code>etl_logs/analyst/job_run_log/</code>.</li>
 <li>Alert on <code>dataflow_run_log.status = "failed"</code>.</li>
-<li>If you run negative tests on purpose, suppress them with your own scenario or
-  job naming convention; the current runner does not automatically mark a
-  failure as expected.</li>
+<li>Failed dataflow rows preserve any source, transformer, and destination
+  runtime information available before the exception.</li>
+<li>An expected-failure scenario still writes a real <code>ERROR</code> and a failed ETL
+  record. The usecase runner marks the scenario passed only after its child
+  process matches <code>expected_exit_code</code> and required error text. Filter alerts
+  by your scenario or job naming convention when running negative tests.</li>
 </ul>
 
 

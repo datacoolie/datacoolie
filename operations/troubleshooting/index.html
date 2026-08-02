@@ -2961,10 +2961,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fmtparquet-iceberg-writes-not-appearing-in-athena" class="md-nav__link">
+  <a href="#iceberg-writes-do-not-appear-in-the-expected-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
-        fmt='parquet' Iceberg writes not appearing in Athena
+        Iceberg writes do not appear in the expected catalog
       
     </span>
   </a>
@@ -3369,10 +3369,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fmtparquet-iceberg-writes-not-appearing-in-athena" class="md-nav__link">
+  <a href="#iceberg-writes-do-not-appear-in-the-expected-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
-        fmt='parquet' Iceberg writes not appearing in Athena
+        Iceberg writes do not appear in the expected catalog
       
     </span>
   </a>
@@ -3459,22 +3459,24 @@ seeing this, you probably called <code>run_maintenance()</code> twice in quick
 succession from an external scheduler. Serialise the scheduler side.</p>
 <h2 id="docker-preflight-fails-on-scenarios">Docker preflight fails on scenarios<a class="headerlink" href="#docker-preflight-fails-on-scenarios" title="Permanent link">&para;</a></h2>
 <p>Some scenarios (database metadata, API metadata) require Docker. Run:</p>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">docker</span> <span class="n">compose</span> <span class="o">-f</span> <span class="n">datacoolie</span><span class="p">/</span><span class="n">usecase-sim</span><span class="p">/</span><span class="n">docker</span><span class="p">/</span><span class="n">docker-compose</span><span class="p">.</span><span class="n">yml</span> <span class="n">up</span> <span class="n">-d</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">scripts</span><span class="p">/</span><span class="n">setup_platform</span><span class="p">.</span><span class="n">py</span>
 </span></code></pre></div>
 <p>Then re-run the scenario.</p>
 <h3 id="running-spark-scenarios-with-docker">Running Spark scenarios with Docker<a class="headerlink" href="#running-spark-scenarios-with-docker" title="Permanent link">&para;</a></h3>
 <p>A containerized PySpark environment is available for running Spark-based
 scenarios without installing Spark locally:</p>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">docker</span> <span class="n">compose</span> <span class="o">-f</span> <span class="n">datacoolie</span><span class="p">/</span><span class="n">usecase-sim</span><span class="p">/</span><span class="n">docker</span><span class="p">/</span><span class="n">docker-compose</span><span class="p">.</span><span class="n">yml</span> <span class="n">up</span> <span class="n">spark</span> <span class="n">-d</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">docker</span> <span class="n">exec</span> <span class="n">-it</span> <span class="n">datacoolie-spark</span> <span class="n">bash</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c"># Inside container:</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">python</span> <span class="p">/</span><span class="n">app</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run_scenario</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-scenario</span> <span class="n">spark_local</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">scripts</span><span class="p">/</span><span class="n">setup_platform</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-services</span> <span class="n">minio</span> <span class="n">iceberg-rest</span> <span class="n">spark</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">python</span> <span class="n">usecase-sim</span><span class="p">/</span><span class="n">runner</span><span class="p">/</span><span class="n">run_scenario</span><span class="p">.</span><span class="n">py</span> <span class="p">-</span><span class="n">-scenario</span> <span class="n">local_spark_file</span>
 </span></code></pre></div>
-<p>The <code>Dockerfile.spark</code> image includes PySpark, Delta Lake, and the DataCoolie
-package pre-installed.</p>
-<h2 id="fmtparquet-iceberg-writes-not-appearing-in-athena"><code>fmt='parquet'</code> Iceberg writes not appearing in Athena<a class="headerlink" href="#fmtparquet-iceberg-writes-not-appearing-in-athena" title="Permanent link">&para;</a></h2>
-<p>Iceberg needs Glue catalog registration. Set <code>register_symlink_table = true</code>
-or use the engine's <code>register_iceberg_table</code> helper explicitly.</p>
+<p>When the <code>datacoolie-spark</code> container is running, <code>run_scenario.py</code>
+automatically executes Spark scenarios in it. The repository is mounted at
+<code>/datacoolie</code>.</p>
+<h2 id="iceberg-writes-do-not-appear-in-the-expected-catalog">Iceberg writes do not appear in the expected catalog<a class="headerlink" href="#iceberg-writes-do-not-appear-in-the-expected-catalog" title="Permanent link">&para;</a></h2>
+<p>An Iceberg connection must use <code>"format": "iceberg"</code> and point at the catalog
+that readers query. Local scenarios use the Iceberg REST catalog; AWS scenarios
+use a Glue-backed catalog and need the corresponding Iceberg runtime and IAM
+permissions. Delta-only symlink options (<code>generate_manifest</code> and
+<code>register_symlink_table</code>) do not register Iceberg tables.</p>
 <h2 id="watermarkmanager-throws-on-first-run"><code>WatermarkManager</code> throws on first run<a class="headerlink" href="#watermarkmanager-throws-on-first-run" title="Permanent link">&para;</a></h2>
 <p>First run has no persisted watermark — <code>get_watermark()</code> returns <code>None</code>. If
 your source reader crashes on <code>None</code>, it's a bug in the reader: it must

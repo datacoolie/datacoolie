@@ -3390,7 +3390,8 @@ for SQLite, PostgreSQL, MySQL, MSSQL, and Oracle — see
 reference implementation. It:</p>
 <ol>
 <li>Creates the schema via dialect-specific DDL.</li>
-<li>Parses every canonical JSON metadata file.</li>
+<li>Parses the selected canonical JSON metadata file (<code>--json</code>, which defaults
+   to <code>usecase-sim/metadata/file/local_use_cases.json</code>).</li>
 <li><code>INSERT</code>s connections, dataflows, and children under a single transaction.</li>
 </ol>
 <h2 id="concurrency-notes">Concurrency notes<a class="headerlink" href="#concurrency-notes" title="Permanent link">&para;</a></h2>
@@ -3398,8 +3399,9 @@ reference implementation. It:</p>
 <li><code>DatabaseProvider</code> opens <strong>one short-lived connection per operation</strong>. It
   does not pin a session across the driver's parallel execution. Safe with
   <code>max_workers &gt; 1</code>.</li>
-<li>Watermarks are written with <code>SELECT ... FOR UPDATE</code> on dialects that support
-  it, otherwise an optimistic upsert.</li>
+<li>Watermarks use an update-first upsert: one <code>UPDATE</code> rotates
+  <code>previous_value</code>, a missing row is inserted, and a concurrent insert race is
+  retried with <code>UPDATE</code>. Transient deadlock/serialization failures are retried.</li>
 </ul>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>

@@ -3367,8 +3367,9 @@ sort between <code>ColumnAdder</code> and <code>SystemColumnAdder</code>.</p>
 </tr>
 </tbody>
 </table>
-<p><code>build_pipeline</code> sorts by <code>order</code>; ties broken by class name for
-determinism.</p>
+<p><code>TransformerPipeline.transform()</code> uses Python's stable sort by <code>order</code>.
+Transformers with the same order retain their insertion order, so plugins
+should choose distinct slots when their relative order matters.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Plugins have a clearly reserved range (40–50) with room for two

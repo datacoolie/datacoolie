@@ -3493,9 +3493,9 @@ runtime dependencies.</p>
 <td>Apache Iceberg tables (any engine).</td>
 </tr>
 <tr>
-<td><code>aws</code></td>
+<td><code>boto3</code></td>
 <td><code>boto3&gt;=1.28</code></td>
-<td><code>AWSPlatform</code> (S3, Secrets Manager, Glue).</td>
+<td>AWS SDK only.</td>
 </tr>
 <tr>
 <td><code>api</code></td>
@@ -3513,14 +3513,39 @@ runtime dependencies.</p>
 <td>Reading Excel files as sources or metadata.</td>
 </tr>
 <tr>
+<td><code>fabric-spark</code> / <code>fabric-polars</code></td>
+<td>One selected engine bundle</td>
+<td>Fabric with only the selected engine.</td>
+</tr>
+<tr>
 <td><code>fabric</code></td>
 <td>spark + delta-spark + polars + deltalake</td>
 <td>Microsoft Fabric notebooks / Spark pools.</td>
 </tr>
 <tr>
+<td><code>databricks-spark</code> / <code>databricks-polars</code></td>
+<td>One selected engine bundle</td>
+<td>Databricks with only the selected engine.</td>
+</tr>
+<tr>
 <td><code>databricks</code></td>
 <td>spark + delta-spark + polars + deltalake</td>
 <td>Databricks Runtime.</td>
+</tr>
+<tr>
+<td><code>aws-spark</code></td>
+<td><code>boto3</code></td>
+<td>AWS/Glue Spark; Spark and Delta are supplied by the Glue runtime.</td>
+</tr>
+<tr>
+<td><code>aws-polars</code></td>
+<td>polars + Delta + Iceberg + <code>boto3</code></td>
+<td>AWS with Polars.</td>
+</tr>
+<tr>
+<td><code>aws</code></td>
+<td>same as <code>aws-polars</code></td>
+<td>Full packaged AWS bundle; Spark/Delta Spark remain runtime-provided.</td>
 </tr>
 <tr>
 <td><code>all</code></td>
@@ -3541,18 +3566,18 @@ runtime dependencies.</p>
 <tbody>
 <tr>
 <td>Python</td>
-<td><strong>3.11</strong></td>
-<td>Strict — the framework uses PEP 604 unions and <code>TypeVar</code> defaults.</td>
+<td><strong>3.11+</strong>, below 4.0</td>
+<td>Enforced by package metadata.</td>
 </tr>
 <tr>
 <td>Java</td>
-<td><strong>17</strong> for Spark</td>
-<td>Only required when using <code>SparkEngine</code>.</td>
+<td>Compatible with your installed PySpark runtime</td>
+<td>Only required when using <code>SparkEngine</code>; the simulator image uses Java 17.</td>
 </tr>
 <tr>
 <td>RAM</td>
-<td>4 GB (Polars) · 8 GB (Spark)</td>
-<td>Per executor; scale with your data.</td>
+<td>—</td>
+<td>Size for the engine, workload, partitions, and concurrency.</td>
 </tr>
 <tr>
 <td>Disk</td>
@@ -3572,9 +3597,9 @@ in <code>pyproject.toml</code>. If you vendor a custom wheel, install <code>tzda
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">datacoolie</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Listing registered plugins proves the install wired up entry points.</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">datacoolie</span><span class="o">.</span><span class="n">engine_registry</span><span class="o">.</span><span class="n">names</span><span class="p">()))</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">datacoolie</span><span class="o">.</span><span class="n">platform_registry</span><span class="o">.</span><span class="n">names</span><span class="p">()))</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Includes import-registered built-ins and discovered installed entry points.</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">datacoolie</span><span class="o">.</span><span class="n">engine_registry</span><span class="o">.</span><span class="n">list_plugins</span><span class="p">())</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">datacoolie</span><span class="o">.</span><span class="n">platform_registry</span><span class="o">.</span><span class="n">list_plugins</span><span class="p">())</span>
 </span></code></pre></div>
 <p>Expected output (with <code>[all]</code>):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>0.1.2

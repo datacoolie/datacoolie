@@ -3460,9 +3460,9 @@
 
 
 <h1 id="metadata-model">Metadata model<a class="headerlink" href="#metadata-model" title="Permanent link">&para;</a></h1>
-<p><strong>TL;DR</strong> DataCoolie is driven by four top-level models — <code>Connection</code>,
-<code>DataFlow</code> (with nested <code>Source</code>, <code>Destination</code>, <code>Transform</code>), and
-<code>DataCoolieRunConfig</code>. All are <code>CompatModel</code>-backed dataclasses from
+<p><strong>TL;DR</strong> DataCoolie is driven by <code>Connection</code>, <code>DataFlow</code> (with nested
+<code>Source</code>, <code>Destination</code>, and <code>Transform</code>), <code>SchemaHint</code>, and
+<code>DataCoolieRunConfig</code>. These are <code>CompatModel</code>-backed dataclasses from
 <code>datacoolie.core.models</code>.</p>
 <h2 id="mental-model">Mental model<a class="headerlink" href="#mental-model" title="Permanent link">&para;</a></h2>
 <pre class="dc-mermaid-source"><code>erDiagram
@@ -3478,7 +3478,7 @@ transforms are <strong>dataflow-scoped</strong>.</p>
 <h3 id="datacoolierunconfig"><code>DataCoolieRunConfig</code><a class="headerlink" href="#datacoolierunconfig" title="Permanent link">&para;</a></h3>
 <p>Execution parameters independent of any single dataflow: <code>job_id</code>, <code>job_num</code>,
 <code>job_index</code>, <code>max_workers</code>, <code>retry_count</code>, <code>retry_delay</code>, <code>stop_on_error</code>,
-<code>dry_run</code>. The driver creates one of these per invocation.</p>
+<code>dry_run</code>. A driver receives one configuration object at construction time.</p>
 <h3 id="connection"><code>Connection</code><a class="headerlink" href="#connection" title="Permanent link">&para;</a></h3>
 <p>An <em>endpoint</em>: file root, lakehouse path, RDBMS, or REST API.</p>
 <ul>
@@ -3495,9 +3495,10 @@ transforms are <strong>dataflow-scoped</strong>.</p>
 <h3 id="dataflow"><code>DataFlow</code><a class="headerlink" href="#dataflow" title="Permanent link">&para;</a></h3>
 <p>One logical ETL unit. Fields:</p>
 <ul>
-<li><code>name</code>, <code>stage</code> (free-form string; any filter passed to <code>driver.run(stage=…)</code> matches exactly)</li>
+<li><code>name</code>, <code>stage</code> (free-form string; filters passed to <code>driver.run(stage=…)</code>
+  match stage values)</li>
 <li><code>source</code>, <code>destination</code>, <code>transform</code> (nested models)</li>
-<li><code>is_active</code></li>
+<li><code>is_active</code>, <code>processing_mode</code>, <code>group_number</code>, and <code>execution_order</code></li>
 </ul>
 <p>Computed properties: <code>deduplicate_columns</code> (from <code>transform.deduplicate_column_names(merge_keys)</code>), <code>order_columns</code> (from <code>transform.latest_data_columns</code> or <code>source.watermark_columns</code>).</p>
 <h3 id="source-destination"><code>Source</code>, <code>Destination</code><a class="headerlink" href="#source-destination" title="Permanent link">&para;</a></h3>

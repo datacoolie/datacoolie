@@ -3380,8 +3380,8 @@ of these hooks — do not re-implement them.</p>
   asks for them.</li>
 <li><strong>Honour <code>stage</code> filtering</strong> — accept single string, comma-separated
   string, or list.</li>
-<li><strong>Be thread-safe</strong> — <code>DataCoolieDriver</code> may call concurrent <code>get_dataflows</code>
-  from <code>ParallelExecutor</code> workers.</li>
+<li><strong>Be thread-safe for watermark access and shared resources</strong> — parallel
+  dataflows can read or update watermarks through one provider instance.</li>
 </ul>
 <h2 id="schema-hint-attachment">Schema-hint attachment<a class="headerlink" href="#schema-hint-attachment" title="Permanent link">&para;</a></h2>
 <p>When <code>attach_schema_hints=True</code> the base class calls <code>_attach_schema_hints</code>,
@@ -3397,7 +3397,7 @@ list and document that type inference falls back to the source DataFrame.</p>
 <li><code>get_connections</code> with zero / one / many connections.</li>
 <li><code>get_dataflows</code> with stage filter combinations.</li>
 <li>Watermark round-trip: write "null", write a real JSON, overwrite.</li>
-<li>Concurrent <code>get_dataflows</code> from two threads — no shared mutable state.</li>
+<li>Concurrent watermark reads/updates and cache access.</li>
 </ul>
 
 

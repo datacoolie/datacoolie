@@ -4024,8 +4024,8 @@ three parts (<code>catalog.database.table</code>).</p>
 </tr>
 </tbody>
 </table>
-<p>Delta and Iceberg both support predicate push-down for watermarks when the
-engine supports it.</p>
+<p>Delta and Iceberg readers apply watermark bounds through the engine's
+DataFrame filter after the table read.</p>
 <hr />
 <h2 id="database-source-sql-via-sqlalchemy">Database source (SQL via SQLAlchemy)<a class="headerlink" href="#database-source-sql-via-sqlalchemy" title="Permanent link">&para;</a></h2>
 <p>Use when reading from PostgreSQL, MySQL, MSSQL, Oracle, SQLite, or any
@@ -4390,7 +4390,7 @@ the max <code>updated_at</code> value. On subsequent runs it adds <code>WHERE up
 <tbody>
 <tr>
 <td>Parquet / Delta / Iceberg</td>
-<td>Predicate push-down during read</td>
+<td>Engine DataFrame filter after read</td>
 </tr>
 <tr>
 <td>Database</td>

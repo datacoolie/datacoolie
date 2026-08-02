@@ -3316,22 +3316,20 @@
 
 
 <h1 id="write-a-secret-resolver">Write a secret resolver<a class="headerlink" href="#write-a-secret-resolver" title="Permanent link">&para;</a></h1>
-<p><strong>Prerequisites</strong> · You have a placeholder syntax you want DataCoolie to recognise (e.g. <code>vault:path/to/secret</code>).
+<p><strong>Prerequisites</strong> · You want a <code>secrets_ref</code> source prefix to use a custom backend (for example <code>vault:prod/team</code>).
 <strong>End state</strong> · Resolver registered, used automatically during <code>resolve_secrets</code> before dataflows execute.</p>
 <h2 id="minimal-resolver">Minimal resolver<a class="headerlink" href="#minimal-resolver" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.core.secret_resolver</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSecretResolver</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">VaultResolver</span><span class="p">(</span><span class="n">BaseSecretResolver</span><span class="p">):</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">PREFIX</span> <span class="o">=</span> <span class="s2">&quot;vault:&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PREFIX</span><span class="p">)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">provider</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="n">key</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PREFIX</span><span class="p">):]</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="c1"># Any concrete BaseSecretProvider subclass works here, including the platform.</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">fetch_secret</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="s2">&quot;vault&quot;</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">build_vault_client</span><span class="p">()</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="c1"># key: current value of the listed configure field</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="c1"># source: text after &quot;vault:&quot; in the secrets_ref source</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="register">Register<a class="headerlink" href="#register" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project.entry-points.</span><span class="s2">&quot;datacoolie.resolvers&quot;</span><span class="k">]</span>
@@ -3339,21 +3337,28 @@
 </span></code></pre></div>
 <h2 id="usage-from-metadata">Usage from metadata<a class="headerlink" href="#usage-from-metadata" title="Permanent link">&para;</a></h2>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;vault:prod/db/customer&quot;</span><span class="p">}</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">}</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;db_password&quot;</span><span class="p">},</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;secrets_ref&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">&quot;vault:prod/db/customer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>At runtime <code>resolve_secrets</code> scans every string in <code>configure</code>, finds the
-resolver whose <code>matches()</code> returns <code>True</code>, and replaces the value with the
-resolver's <code>resolve()</code> output. Fall-through values are untouched.</p>
+<p>At runtime the driver parses <code>vault:prod/db/customer</code>, resolves the <code>vault</code>
+plugin as a cached singleton, and calls
+<code>resolve(key="db_password", source="prod/db/customer")</code>. The returned value
+replaces <code>configure["password"]</code> as a <code>SecretStr</code>. Resolver constructors are
+called without arguments by the default driver lookup.</p>
 <h2 id="provider-vs-resolver-split">Provider vs resolver split<a class="headerlink" href="#provider-vs-resolver-split" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Resolver</strong> — <em>parses</em> the placeholder string (e.g. <code>vault:prod/db</code>).</li>
-<li><strong>Provider</strong> — <em>fetches</em> the actual secret from a backend.</li>
+<li><strong>Resolver</strong> — selected by a registered prefix and fetches the secret through
+  its own implementation.</li>
+<li><strong>Provider</strong> — the platform-native fallback used when no registered prefix
+  is selected.</li>
 </ul>
 <p>The built-in <code>EnvResolver</code> is the exception that handles both ends
 (<code>env:FOO</code> is resolved from <code>os.environ["FOO"]</code> by the resolver itself).
-For anything more elaborate, have the resolver call into a
-<code>BaseSecretProvider</code>.</p>
+For anything more elaborate, initialise the required client inside the
+resolver or configure it through process/runtime state.</p>
 <p>See <a href="../../adr/0002-secret-provider-resolver-split/">ADR-0002</a>.</p>
 
 

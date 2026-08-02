@@ -3389,7 +3389,7 @@ methods take a <code>fmt=</code> parameter so Delta and Iceberg share the same s
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.engines.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseEngine</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">SparkEngine</span><span class="p">(</span><span class="n">BaseEngine</span><span class="p">[</span><span class="n">pyspark</span><span class="o">.</span><span class="n">sql</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span> <span class="o">...</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">PolarsEngine</span><span class="p">(</span><span class="n">BaseEngine</span><span class="p">[</span><span class="n">polars</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>      <span class="o">...</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">PolarsEngine</span><span class="p">(</span><span class="n">BaseEngine</span><span class="p">[</span><span class="n">polars</span><span class="o">.</span><span class="n">LazyFrame</span><span class="p">]):</span>     <span class="o">...</span>
 </span></code></pre></div>
 <p>Sources, destinations, and transformers are parameterised by the same <code>DF</code>, so
 the type system prevents you from passing a Polars DataFrame to a Spark
@@ -3472,13 +3472,13 @@ connectorx. Extend the set when adding new driver-specific keys.</p>
 <h2 id="platform-attachment">Platform attachment<a class="headerlink" href="#platform-attachment" title="Permanent link">&para;</a></h2>
 <p>An engine is useless without a platform. There are three valid states:</p>
 <ol>
-<li>Construct engine with platform: <code>SparkEngine(spark, platform=p)</code>.</li>
+<li>Construct engine with platform:
+   <code>SparkEngine(spark_session=spark, platform=p)</code>.</li>
 <li>Attach later: <code>engine.set_platform(p)</code> before the driver runs.</li>
 <li>Let the driver attach: pass <code>platform=</code> to <code>DataCoolieDriver(...)</code>.</li>
 </ol>
-<p>For Spark, the explicit form <code>SparkEngine(spark_session=spark, platform=p)</code> is
-the current constructor name; the positional call works too, but the keyword is
-clearer in docs.</p>
+<p>The Spark constructor parameter is named <code>spark_session</code>; a positional call
+also works.</p>
 <p>The driver guards against mismatched platform types to prevent silent
 "works on my laptop, fails in Fabric" bugs.</p>
 <h2 id="case-insensitive-column-resolution">Case-insensitive column resolution<a class="headerlink" href="#case-insensitive-column-resolution" title="Permanent link">&para;</a></h2>

@@ -2939,10 +2939,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#coverage-gate" class="md-nav__link">
+  <a href="#coverage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Coverage gate
+        Coverage
       
     </span>
   </a>
@@ -3280,10 +3280,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#coverage-gate" class="md-nav__link">
+  <a href="#coverage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Coverage gate
+        Coverage
       
     </span>
   </a>
@@ -3349,11 +3349,16 @@ is defined in <code>pyproject.toml</code>, not in a separate CLI wrapper.</p>
 <li><code>-n auto</code></li>
 <li><code>--dist loadgroup</code></li>
 <li><code>-m "not spark"</code></li>
+<li><code>--strict-markers</code></li>
 <li><code>--tb=short</code></li>
+<li><code>-q</code></li>
 <li><code>--import-mode=importlib</code></li>
 </ul>
 <p>So the default run is a parallel <strong>non-spark</strong> test run. It does not execute
-the Spark-marked tests unless you override the marker selection explicitly.</p>
+the Spark-marked tests unless you override the marker selection explicitly.
+GitHub Actions runs this non-Spark suite as a required job after synchronizing
+the locked <code>polars</code>, <code>deltalake</code>, and <code>polars-hash</code> extras. A restored virtual
+environment cache never replaces <code>poetry sync</code>.</p>
 <h2 id="markers">Markers<a class="headerlink" href="#markers" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3383,26 +3388,21 @@ the Spark-marked tests unless you override the marker selection explicitly.</p>
 </table>
 <div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">-m</span> <span class="s2">&quot;not slow and not integration and not spark&quot;</span>
 </span></code></pre></div>
-<h2 id="coverage-gate">Coverage gate<a class="headerlink" href="#coverage-gate" title="Permanent link">&para;</a></h2>
-<p>The repo-wide coverage gate in <code>pyproject.toml</code> is <strong>85%</strong>, with branch
-coverage enabled:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[tool.coverage.report]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">fail_under</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">85</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">show_missing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span></code></pre></div>
-<p>Coverage is collected for <code>src/datacoolie</code>, with these files omitted from the
-repo-wide gate:</p>
-<ul>
-<li><code>src/datacoolie/engines/spark_engine.py</code></li>
-<li><code>src/datacoolie/engines/spark_session_builder.py</code></li>
-</ul>
-<p>Some focused local test commands may use stricter <code>--cov-fail-under=100</code>
-targets for individual packages, but that is not the current global gate.</p>
+<h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
+<p>The current <code>pyproject.toml</code> does <strong>not</strong> configure <code>pytest-cov</code>, branch
+coverage, omissions, or a repository-wide failure threshold. Run coverage
+explicitly when needed, and do not treat a normal <code>python -m pytest</code> result as
+a coverage gate.</p>
 <h2 id="parallel-execution-contract">Parallel execution contract<a class="headerlink" href="#parallel-execution-contract" title="Permanent link">&para;</a></h2>
 <p><code>pytest-xdist</code> distributes by <strong>test group</strong> (<code>--dist loadgroup</code>). Tests
 that share fixtures use the <code>@pytest.mark.xdist_group(...)</code> marker to pin into
 the same worker. The current Spark engine module is grouped this way so one JVM
 is reused safely.</p>
+<p>Spark remains a local-only release gate because JVM and Delta startup are too
+expensive for the hosted CI job:</p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">poetry</span> <span class="n">sync</span> <span class="p">-</span><span class="n">-with</span> <span class="n">dev</span> <span class="n">-E</span> <span class="n">spark</span> <span class="n">-E</span> <span class="n">delta-spark</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">unit</span><span class="p">/</span><span class="n">engines</span><span class="p">/</span><span class="n">test_spark_engine</span><span class="p">.</span><span class="n">py</span> <span class="n">-m</span> <span class="n">spark</span> <span class="n">-n</span> <span class="n">auto</span> <span class="p">-</span><span class="n">-dist</span> <span class="n">loadgroup</span>
+</span></code></pre></div>
 <h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
 <p>The main automated test surface is the pytest suite under <code>tests/</code>.
 Separately, <code>usecase-sim/</code> provides coarse-grained execution scenarios and
