@@ -44,6 +44,16 @@ DataCoolie produces two independent log streams.
   Captures all framework messages regardless of the console level, acting as a
   "black box recorder" for post-mortem diagnosis.
 
+## Framework namespace and startup capture
+
+Framework loggers live under the `datacoolie` namespace. Calls such as
+`get_logger(__name__)` retain their module name, while ordinary
+`logging.getLogger("datacoolie...")` children propagate to the same capture
+handler. Records emitted before the Driver finishes configuring logging are
+preserved and transferred to `SystemLogger`, subject to the configured
+`file_level`. LogManager's own diagnostics use a console-only handler to avoid
+recursive capture.
+
 ## Analyst outputs
 
 | Log type | Format | File per … | Query |
@@ -67,6 +77,12 @@ etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log_20260103.jsonl
 ```
 
 Query them directly with Spark / Polars / Athena.
+
+Dataflow rows include dedicated transformer metadata columns for select, drop,
+rename, value rules, hash columns, masking rules, and the resolved
+missing-column policy. Structured fields are JSON-serialized strings in
+Parquet. Metadata values are retained without redaction, so analyst log access
+must be governed as metadata access.
 
 ## Configuring
 
@@ -93,6 +109,7 @@ purpose folder. `LogPurpose.DEBUG.value == "debug_json"`.
 - Alert on `dataflow_run_log.status = "failed"`.
 - Failed dataflow rows preserve any source, transformer, and destination
   runtime information available before the exception.
-- If you run negative tests on purpose, suppress them with your own scenario or
-  job naming convention; the current runner does not automatically mark a
-  failure as expected.
+- An expected-failure scenario still writes a real `ERROR` and a failed ETL
+  record. The usecase runner marks the scenario passed only after its child
+  process matches `expected_exit_code` and required error text. Filter alerts
+  by your scenario or job naming convention when running negative tests.

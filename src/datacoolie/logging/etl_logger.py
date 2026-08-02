@@ -108,6 +108,13 @@ def _build_dataflow_schema(pa: Any) -> Any:
         ("transform_filter_expression", pa.string()),
         ("transform_additional_columns", pa.string()),
         ("transform_schema_hints", pa.string()),
+        ("transform_select_columns", pa.string()),
+        ("transform_drop_columns", pa.string()),
+        ("transform_rename_columns", pa.string()),
+        ("transform_value_rules", pa.string()),
+        ("transform_hash_columns", pa.string()),
+        ("transform_masking_rules", pa.string()),
+        ("transform_missing_column_policy", pa.string()),
         ("transform_configure", pa.string()),
         # destination config
         ("destination_id", pa.string()),
@@ -322,6 +329,19 @@ class ETLLogger(BaseLogger):
             "transform_schema_hints":         _as_json(
                 {h.column_name: h.data_type for h in trn.schema_hints} if trn.schema_hints else None
             ),
+            "transform_select_columns":       _as_json(trn.select_columns),
+            "transform_drop_columns":         _as_json(trn.drop_columns),
+            "transform_rename_columns":       _as_json(trn.rename_columns),
+            "transform_value_rules":          _as_json(
+                [rule.model_dump() for rule in trn.value_rules] if trn.value_rules else None
+            ),
+            "transform_hash_columns":         _as_json(
+                [column.model_dump() for column in trn.hash_columns] if trn.hash_columns else None
+            ),
+            "transform_masking_rules":        _as_json(
+                [rule.model_dump() for rule in trn.masking_rules] if trn.masking_rules else None
+            ),
+            "transform_missing_column_policy": trn.missing_column_policy,
             "transform_configure":  _as_json(trn.configure),
             # destination config
             "destination_id":                 dst.connection.connection_id,

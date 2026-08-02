@@ -58,7 +58,7 @@ class TestSystemLogger:
         lgr.set_run_config(DataCoolieRunConfig(job_id="job-1"))
 
         from datacoolie.logging.base import get_logger
-        child = get_logger("test.flush")
+        child = get_logger("datacoolie.test.flush")
         child.info("some captured message")
 
         lgr.close()
@@ -84,7 +84,7 @@ class TestSystemLogger:
             LogConfig(output_path="/logs", flush_interval_seconds=0),
             platform,
         )
-        logging.getLogger("DataCoolie.test.final_failure").info("message")
+        logging.getLogger("datacoolie.test.final_failure").info("message")
 
         lgr.close()
 
@@ -149,7 +149,7 @@ class TestSystemLogger:
         lgr.set_run_config(DataCoolieRunConfig(job_id="job-1"))
 
         from datacoolie.logging.base import get_logger
-        child = get_logger("test.flush.content")
+        child = get_logger("datacoolie.test.flush.content")
         child.info("hello content test")
 
         lgr.close()
@@ -167,6 +167,47 @@ class TestSystemLogger:
         record = json.loads(lines[0])
         assert "hello content test" in record["msg"]
         assert "ts" in record and "level" in record and "logger" in record
+        assert record["logger"] == "datacoolie.test.flush.content"
+
+    def test_close_preserves_record_captured_before_system_logger(self):
+        from datacoolie.logging.base import get_logger
+
+        get_logger("datacoolie.metadata.base").info("prefetch before driver")
+        platform = MagicMock()
+        lgr = SystemLogger(
+            LogConfig(output_path="/logs", flush_interval_seconds=0),
+            platform,
+        )
+        get_logger("datacoolie.orchestration.driver").info(
+            "loading after driver"
+        )
+
+        lgr.close()
+
+        content = platform.append_file.call_args.args[1]
+        rows = [json.loads(line) for line in content.splitlines()]
+        assert [(row["logger"], row["msg"]) for row in rows] == [
+            ("datacoolie.metadata.base", "prefetch before driver"),
+            ("datacoolie.orchestration.driver", "loading after driver"),
+        ]
+
+    def test_captures_standard_framework_child_logger(self):
+        """Framework modules using logging.getLogger(__name__) share the root."""
+        lgr = SystemLogger(
+            LogConfig(storage_mode=StorageMode.MEMORY.value),
+        )
+
+        logging.getLogger("datacoolie.core.registry").info("standard child")
+
+        handler = lgr._log_manager.capture_handler
+        assert handler is not None
+        records = handler.get_records()
+        assert any(
+            record.logger_name == "datacoolie.core.registry"
+            and record.message == "standard child"
+            for record in records
+        )
+        lgr.close()
 
     @pytest.mark.parametrize(
         "storage_mode",
@@ -187,7 +228,7 @@ class TestSystemLogger:
         lgr.set_run_config(DataCoolieRunConfig(job_id="j"))
 
         from datacoolie.logging.base import get_logger
-        child = get_logger("test.flush.err")
+        child = get_logger("datacoolie.test.flush.err")
         child.info("msg")
 
         lgr._on_periodic_flush()
@@ -210,7 +251,7 @@ class TestSystemLogger:
         )
         from datacoolie.logging.base import get_logger
 
-        get_logger("test.periodic.feedback").info("one event")
+        get_logger("datacoolie.test.periodic.feedback").info("one event")
         lgr._on_periodic_flush()
 
         assert platform.append_file.call_count == 1
@@ -223,7 +264,7 @@ class TestSystemLogger:
         mgr = LogManager.get_instance()
 
         from datacoolie.logging.base import get_logger
-        child = get_logger("test.cleanup")
+        child = get_logger("datacoolie.test.cleanup")
         child.info("msg")
         assert "msg" in mgr.get_captured_logs()
         lgr._cleanup()
@@ -236,14 +277,14 @@ class TestSystemLogger:
         mgr = LogManager.get_instance()
         handler = mgr.capture_handler
         assert handler is not None
-        assert handler in logging.getLogger("DataCoolie").handlers
+        assert handler in logging.getLogger("datacoolie").handlers
 
         lgr.close()
         from datacoolie.logging.base import get_logger
 
-        get_logger("test.after_close").info("must not be captured")
+        get_logger("datacoolie.test.after_close").info("must not be captured")
 
-        assert handler not in logging.getLogger("DataCoolie").handlers
+        assert handler not in logging.getLogger("datacoolie").handlers
         assert handler.get_records() == []
         assert mgr.capture_handler is None
 
@@ -252,7 +293,7 @@ class TestSystemLogger:
         cfg = LogConfig(output_path="/logs", flush_interval_seconds=0)
         with SystemLogger(cfg, platform=platform) as lgr:
             from datacoolie.logging.base import get_logger
-            child = get_logger("test.ctx")
+            child = get_logger("datacoolie.test.ctx")
             child.info("context msg")
         assert lgr.is_closed
 
@@ -268,7 +309,7 @@ class TestSystemLogger:
         lgr = SystemLogger(cfg)
 
         from datacoolie.logging.base import get_logger
-        child = get_logger("test.file_level")
+        child = get_logger("datacoolie.test.file_level")
         child.debug("debug only msg")
         child.info("info msg")
 
@@ -296,7 +337,7 @@ class TestSystemLogger:
         lgr.activate()
 
         from datacoolie.logging.base import get_logger
-        child = get_logger("test.timer")
+        child = get_logger("datacoolie.test.timer")
         child.info("timer triggered msg")
 
         # Wait for timer to fire.
@@ -337,7 +378,7 @@ class TestSystemLogger:
             platform,
         )
         lgr.activate()
-        logging.getLogger("DataCoolie.test.blocked").info("blocked")
+        logging.getLogger("datacoolie.test.blocked").info("blocked")
         assert append_started.wait(timeout=2)
 
         started = time.monotonic()
@@ -406,7 +447,7 @@ class TestSystemLoggerEdgeCases:
         )
         logger = SystemLogger(cfg, platform=platform)
 
-        child = logging.getLogger("DataCoolie.test.system.no_partition")
+        child = logging.getLogger("datacoolie.test.system.no_partition")
         child.info("hello")
 
         logger.close()

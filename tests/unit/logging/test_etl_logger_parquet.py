@@ -18,6 +18,7 @@ from tests.unit.logging.support import (
     make_maintenance_runtime,
     make_real_logger,
     make_runtime,
+    make_transform_dataflow,
 )
 
 
@@ -67,6 +68,49 @@ class TestAnalystParquetOutput:
         assert len(lines) == 1
         assert lines[0]["_type"] == "job_run_log"
         assert lines[0]["total_dataflows"] == 2
+
+    def test_parquet_projects_typed_transform_metadata(self, tmp_path):
+        pq = pytest.importorskip("pyarrow.parquet")
+
+        logger, _ = make_real_logger(tmp_path)
+        select_dataflow = make_transform_dataflow("select-transform")
+        drop_dataflow = make_transform_dataflow(
+            "drop-transform",
+            use_drop_projection=True,
+        )
+        logger.log(select_dataflow, make_runtime(select_dataflow.dataflow_id))
+        logger.log(drop_dataflow, make_runtime(drop_dataflow.dataflow_id))
+        logger.close()
+
+        dataflow_file = next(
+            path for path in tmp_path.rglob("*.parquet") if "dataflow_" in path.name
+        )
+        table = pq.read_table(dataflow_file)
+        expected_columns = {
+            "transform_select_columns",
+            "transform_drop_columns",
+            "transform_rename_columns",
+            "transform_value_rules",
+            "transform_hash_columns",
+            "transform_masking_rules",
+            "transform_missing_column_policy",
+        }
+        assert expected_columns.issubset(table.schema.names)
+
+        rows = {row["dataflow_id"]: row for row in table.to_pylist()}
+        select_row = rows["select-transform"]
+        drop_row = rows["drop-transform"]
+        assert json.loads(select_row["transform_select_columns"]) == ["customer_id", "email"]
+        assert json.loads(drop_row["transform_drop_columns"]) == ["internal_note"]
+        assert json.loads(select_row["transform_rename_columns"]) == {
+            "email": "contact_email"
+        }
+        assert json.loads(select_row["transform_value_rules"])[0]["mapping"] == {
+            "A": "active",
+            "I": "inactive",
+        }
+        assert json.loads(select_row["transform_masking_rules"])[0]["value"] == "[PRIVATE]"
+        assert select_row["transform_missing_column_policy"] == "ignore"
 
     def test_job_run_log_path_hive_partitioned(self, tmp_path):
         """analyst/job_run_log/__run_date=.../job_run_log.jsonl structure."""

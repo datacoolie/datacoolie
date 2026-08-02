@@ -14,8 +14,12 @@ from datacoolie.core.models import (
     DataFlowRuntimeInfo,
     Destination,
     DestinationRuntimeInfo,
+    HashColumn,
+    MaskingRule,
     Source,
     SourceRuntimeInfo,
+    Transform,
+    ValueRule,
 )
 from datacoolie.logging.base import LogConfig
 from datacoolie.logging.etl_logger import ETLLogger
@@ -34,6 +38,44 @@ def make_dataflow(df_id: str = "df-1", stage: str = "bronze") -> DataFlow:
         source=Source(connection=conn, table="src_table"),
         destination=Destination(connection=conn, table="dst_table", load_type=LoadType.APPEND.value),
     )
+
+
+def make_transform_dataflow(
+    df_id: str = "df-transform",
+    *,
+    use_drop_projection: bool = False,
+) -> DataFlow:
+    """Build a dataflow containing every typed transformer metadata family."""
+    dataflow = make_dataflow(df_id)
+    dataflow.transform = Transform(
+        select_columns=[] if use_drop_projection else ["customer_id", "email"],
+        drop_columns=["internal_note"] if use_drop_projection else [],
+        rename_columns={"email": "contact_email"},
+        value_rules=[
+            ValueRule(
+                operation="map",
+                columns=["status"],
+                mapping={"A": "active", "I": "inactive"},
+                on_unmapped="null",
+                order=20,
+            )
+        ],
+        hash_columns=[
+            HashColumn(
+                target_column="business_hash",
+                columns=["customer_id", "email"],
+            )
+        ],
+        masking_rules=[
+            MaskingRule(
+                method="redact",
+                columns=["email"],
+                value="[PRIVATE]",
+            )
+        ],
+        configure={"missing_column_policy": "ignore"},
+    )
+    return dataflow
 
 
 def make_runtime(

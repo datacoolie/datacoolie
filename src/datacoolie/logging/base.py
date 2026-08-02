@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from datacoolie.core.constants import DEFAULT_AUTHOR, DEFAULT_PARTITION_PATTERN
+from datacoolie.core.constants import DEFAULT_PARTITION_PATTERN
 from datacoolie.core.models import DataCoolieRunConfig
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.utils.helpers import utc_now
@@ -222,6 +222,8 @@ class CaptureHandler(logging.Handler):
         storage_mode: str = StorageMode.MEMORY.value,
     ) -> None:
         super().__init__(level)
+        if storage_mode not in {StorageMode.MEMORY.value, StorageMode.FILE.value}:
+            raise ValueError("storage_mode must be 'memory' or 'file'")
         self._storage_mode = storage_mode
         self._records: List[LogRecord] = []
         self._temp_file: Optional[str] = None
@@ -229,12 +231,65 @@ class CaptureHandler(logging.Handler):
             self._setup_temp_file()
 
     def _setup_temp_file(self) -> None:
+        self._temp_file = self._new_temp_file_path()
+
+    @staticmethod
+    def _new_temp_file_path() -> str:
         temp_dir = tempfile.gettempdir()
         ts = utc_now().strftime("%Y%m%d_%H%M%S")
-        self._temp_file = os.path.join(
+        return os.path.join(
             temp_dir,
             f"datacoolie_capture_{ts}_{os.getpid()}_{uuid.uuid4().hex}.tmp",
         )
+
+    def reconfigure(
+        self,
+        *,
+        level: int,
+        storage_mode: str,
+        formatter: logging.Formatter,
+    ) -> None:
+        """Atomically update capture settings without detaching the handler."""
+        if storage_mode not in {StorageMode.MEMORY.value, StorageMode.FILE.value}:
+            raise ValueError("storage_mode must be 'memory' or 'file'")
+
+        with self.lock:
+            if storage_mode != self._storage_mode:
+                records = (
+                    self._load_from_file(raise_on_error=True)
+                    if self._storage_mode == StorageMode.FILE.value
+                    else list(self._records)
+                )
+
+                if storage_mode == StorageMode.FILE.value:
+                    new_temp_file = self._new_temp_file_path()
+                    try:
+                        with open(new_temp_file, "w", encoding="utf-8") as handle:
+                            for record in records:
+                                handle.write(json.dumps(record.to_dict(), default=str) + "\n")
+                    except Exception:
+                        try:
+                            if os.path.exists(new_temp_file):
+                                os.remove(new_temp_file)
+                        except Exception:
+                            pass
+                        raise
+                    old_temp_file = self._temp_file
+                    self._records = []
+                    self._temp_file = new_temp_file
+                    self._storage_mode = storage_mode
+                    if old_temp_file and os.path.exists(old_temp_file):
+                        os.remove(old_temp_file)
+                else:
+                    old_temp_file = self._temp_file
+                    if old_temp_file and os.path.exists(old_temp_file):
+                        os.remove(old_temp_file)
+                    self._records = records
+                    self._temp_file = None
+                    self._storage_mode = storage_mode
+
+            self.setLevel(level)
+            self.setFormatter(formatter)
 
     def emit(self, record: logging.LogRecord) -> None:
         # NOTE: self.lock is already held by Handler.handle() when this runs.
@@ -379,13 +434,14 @@ class LogManager:
     _lock = threading.Lock()
 
     def __init__(self) -> None:
+        self._state_lock = threading.RLock()
         self._level = LogLevel.INFO.value
         self._file_level = LogLevel.DEBUG.value
         self._capture_handler: Optional[CaptureHandler] = None
         self._console_handler: Optional[logging.Handler] = None
         self._context_filter: Optional[DataflowContextFilter] = None
         self._loggers: Dict[str, logging.Logger] = {}
-        self._root_logger_name = DEFAULT_AUTHOR
+        self._root_logger_name = "datacoolie"
         self._configured = False
 
     @classmethod
@@ -414,11 +470,34 @@ class LogManager:
         format_string: Optional[str] = None,
         force: bool = False,
     ) -> None:
+        """Configure logging while serializing manager lifecycle changes."""
+        with self._state_lock:
+            self._configure_locked(
+                level=level,
+                file_level=file_level,
+                capture_logs=capture_logs,
+                storage_mode=storage_mode,
+                console_output=console_output,
+                format_string=format_string,
+                force=force,
+            )
+
+    def _configure_locked(
+        self,
+        level: str = LogLevel.INFO.value,
+        file_level: Optional[str] = None,
+        capture_logs: bool = True,
+        storage_mode: str = StorageMode.MEMORY.value,
+        console_output: bool = True,
+        format_string: Optional[str] = None,
+        force: bool = False,
+    ) -> None:
         """Configure the global logging system.
 
         If already configured, this is a no-op unless *force* is ``True``.
-        Pass ``force=True`` (as ``SystemLogger`` does) to apply new settings
-        and replace existing handlers.
+        Pass ``force=True`` (as ``SystemLogger`` does) to apply new settings.
+        An enabled capture handler is reconfigured in place so accepted records
+        are never exposed to a detach/transfer window.
 
         Args:
             level: Console log level (controls what is printed to stderr).
@@ -433,47 +512,69 @@ class LogManager:
         """
         if self._configured and not force:
             return
-        self._level = level.upper()
-        self._file_level = (file_level or level).upper()
+        requested_level = level.upper()
+        requested_file_level = (file_level or level).upper()
 
-        console_int = getattr(logging, self._level, logging.INFO)
-        file_int = getattr(logging, self._file_level, logging.DEBUG)
-        # Root logger must pass records needed by either handler.
-        root_int = min(console_int, file_int)
+        console_int = getattr(logging, requested_level, logging.INFO)
+        file_int = getattr(logging, requested_file_level, logging.DEBUG)
 
         root = logging.getLogger(self._root_logger_name)
-        root.setLevel(root_int)
-        root.propagate = False
-
-        for h in root.handlers[:]:
-            root.removeHandler(h)
-            if isinstance(h, CaptureHandler):
-                h.cleanup()
-            h.close()
-        self._capture_handler = None
-        self._console_handler = None
 
         fmt = format_string or "%(asctime)s [%(levelname)s] %(name)s - [%(dataflow_id)s] - %(message)s"
         formatter = logging.Formatter(fmt)
 
-        if console_output:
-            self._console_handler = logging.StreamHandler()
-            self._console_handler.setLevel(console_int)
-            self._console_handler.setFormatter(formatter)
-            root.addHandler(self._console_handler)
-
-        if capture_logs:
+        if capture_logs and self._capture_handler is not None:
+            try:
+                self._capture_handler.reconfigure(
+                    level=file_int,
+                    storage_mode=storage_mode,
+                    formatter=formatter,
+                )
+            except Exception as exc:
+                file_int = self._capture_handler.level
+                requested_file_level = logging.getLevelName(file_int)
+                _diagnostic_logger.warning(
+                    "Could not reconfigure captured-log storage; preserving existing state: %s",
+                    type(exc).__name__,
+                )
+        elif capture_logs:
             self._capture_handler = CaptureHandler(
                 level=file_int,
                 storage_mode=storage_mode,
             )
             self._capture_handler.setFormatter(formatter)
             root.addHandler(self._capture_handler)
+        elif self._capture_handler is not None:
+            root.removeHandler(self._capture_handler)
+            self._capture_handler.cleanup()
+            self._capture_handler.close()
+            self._capture_handler = None
+
+        if self._console_handler is not None:
+            root.removeHandler(self._console_handler)
+            _diagnostic_logger.removeHandler(self._console_handler)
+            self._console_handler.close()
+            self._console_handler = None
+
+        if console_output:
+            self._console_handler = logging.StreamHandler()
+            self._console_handler.setLevel(console_int)
+            self._console_handler.setFormatter(formatter)
+            root.addHandler(self._console_handler)
+            _diagnostic_logger.addHandler(self._console_handler)
 
         # Inject dataflow_id context into every propagated message.
-        self._context_filter = DataflowContextFilter()
-        for h in root.handlers:
-            h.addFilter(self._context_filter)
+        if self._context_filter is None:
+            self._context_filter = DataflowContextFilter()
+        for handler in root.handlers:
+            if self._context_filter not in handler.filters:
+                handler.addFilter(self._context_filter)
+
+        self._level = requested_level
+        self._file_level = str(requested_file_level)
+        root_int = min(console_int, file_int) if capture_logs else console_int
+        root.setLevel(root_int)
+        root.propagate = False
 
         for lgr in self._loggers.values():
             lgr.setLevel(root_int)
@@ -482,44 +583,44 @@ class LogManager:
 
     def get_logger(self, name: str) -> logging.Logger:
         """Create (or reuse) a child logger under the framework root."""
-        if not self._configured:
-            self.configure()
+        with self._state_lock:
+            if not self._configured:
+                self._configure_locked()
 
-        if not name.startswith(self._root_logger_name):
-            full_name = f"{self._root_logger_name}.{name}"
-        else:
-            full_name = name
+            if name not in self._loggers:
+                lgr = logging.getLogger(name)
+                # Use the minimum of console/file levels so the child does not
+                # filter out records that the capture handler needs.
+                console_int = getattr(logging, self._level, logging.INFO)
+                file_int = getattr(logging, self._file_level, logging.DEBUG)
+                lgr.setLevel(min(console_int, file_int))
+                self._loggers[name] = lgr
 
-        if full_name not in self._loggers:
-            lgr = logging.getLogger(full_name)
-            # Use the minimum of console/file levels so the child does not
-            # filter out records that the capture handler needs.
-            console_int = getattr(logging, self._level, logging.INFO)
-            file_int = getattr(logging, self._file_level, logging.DEBUG)
-            lgr.setLevel(min(console_int, file_int))
-            self._loggers[full_name] = lgr
-
-        return self._loggers[full_name]
+            return self._loggers[name]
 
     @property
     def capture_handler(self) -> Optional[CaptureHandler]:
-        return self._capture_handler
+        with self._state_lock:
+            return self._capture_handler
 
     def get_captured_logs(self, include_location: bool = False) -> str:
-        if self._capture_handler:
-            return self._capture_handler.get_formatted_logs(include_location)
-        return ""
+        with self._state_lock:
+            if self._capture_handler:
+                return self._capture_handler.get_formatted_logs(include_location)
+            return ""
 
     def begin_captured_jsonl_batch(self) -> List[LogRecord]:
         """Detach the current capture batch for transactional delivery."""
-        if self._capture_handler:
-            return self._capture_handler.begin_jsonl_batch()
-        return []
+        with self._state_lock:
+            if self._capture_handler:
+                return self._capture_handler.begin_jsonl_batch()
+            return []
 
     def rollback_captured_batch(self, records: List[LogRecord]) -> None:
         """Restore a failed transactional capture batch."""
-        if self._capture_handler:
-            self._capture_handler.rollback_batch(records)
+        with self._state_lock:
+            if self._capture_handler:
+                self._capture_handler.rollback_batch(records)
 
     @staticmethod
     def captured_batch_to_jsonl(records: List[LogRecord]) -> str:
@@ -527,11 +628,19 @@ class LogManager:
         return CaptureHandler.batch_to_jsonl(records)
 
     def clear_captured_logs(self) -> None:
-        if self._capture_handler:
-            self._capture_handler.clear()
+        with self._state_lock:
+            if self._capture_handler:
+                self._capture_handler.clear()
 
     def cleanup(self) -> None:
+        with self._state_lock:
+            self._cleanup_locked()
+
+    def _cleanup_locked(self) -> None:
         root = logging.getLogger(self._root_logger_name)
+        if self._context_filter is not None:
+            for handler in root.handlers:
+                handler.removeFilter(self._context_filter)
         owned_handlers = (
             self._capture_handler,
             self._console_handler,
@@ -540,11 +649,13 @@ class LogManager:
             if handler is None:
                 continue
             root.removeHandler(handler)
+            _diagnostic_logger.removeHandler(handler)
             if isinstance(handler, CaptureHandler):
                 handler.cleanup()
             handler.close()
         self._capture_handler = None
         self._console_handler = None
+        self._context_filter = None
 
 
 # Module-level convenience -------------------------------------------------
@@ -552,7 +663,7 @@ class LogManager:
 def get_logger(name: str) -> logging.Logger:
     """Get a framework logger (convenience wrapper).
 
-    All loggers are children of the ``DataCoolie`` root logger and inherit
+    Framework loggers are children of the ``datacoolie`` logger and inherit
     its handlers (console + capture).
 
     Args:

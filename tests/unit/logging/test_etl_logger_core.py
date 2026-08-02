@@ -23,6 +23,7 @@ from tests.unit.logging.support import (
     make_logger,
     make_maintenance_runtime,
     make_runtime,
+    make_transform_dataflow,
 )
 
 
@@ -43,6 +44,32 @@ class TestETLLoggerCore:
         assert entry["operation_type"] is None
         assert entry["source_rows_read"] == 100
         assert entry["destination_rows_written"] == 100
+        logger.close()
+
+    def test_build_entry_projects_typed_transform_metadata(self):
+        logger, _ = make_logger()
+        dataflow = make_transform_dataflow()
+
+        entry = logger._build_entry(dataflow, make_runtime(dataflow.dataflow_id))
+
+        assert json.loads(entry["transform_select_columns"]) == ["customer_id", "email"]
+        assert entry["transform_drop_columns"] is None
+        assert json.loads(entry["transform_rename_columns"]) == {"email": "contact_email"}
+        assert json.loads(entry["transform_value_rules"]) == [
+            dataflow.transform.value_rules[0].model_dump()
+        ]
+        assert json.loads(entry["transform_value_rules"])[0]["mapping"] == {
+            "A": "active",
+            "I": "inactive",
+        }
+        assert json.loads(entry["transform_hash_columns"]) == [
+            dataflow.transform.hash_columns[0].model_dump()
+        ]
+        assert json.loads(entry["transform_masking_rules"]) == [
+            dataflow.transform.masking_rules[0].model_dump()
+        ]
+        assert json.loads(entry["transform_masking_rules"])[0]["value"] == "[PRIVATE]"
+        assert entry["transform_missing_column_policy"] == "ignore"
         logger.close()
 
     def test_log_maintenance_entry_has_maintenance_metrics(self):

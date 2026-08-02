@@ -21,6 +21,7 @@ from datacoolie.logging.base import (
     LogRecord,
     StorageMode,
     _FlushOperation,
+    _diagnostic_logger,
     format_partition_path,
     get_logger,
 )
@@ -266,6 +267,76 @@ class TestCaptureHandler:
         assert text == "" or isinstance(text, str)
         handler.cleanup()
 
+    @pytest.mark.parametrize(
+        ("source_mode", "target_mode"),
+        [
+            (StorageMode.MEMORY.value, StorageMode.FILE.value),
+            (StorageMode.FILE.value, StorageMode.MEMORY.value),
+        ],
+    )
+    def test_reconfigure_migrates_records_without_reordering(
+        self,
+        source_mode,
+        target_mode,
+    ):
+        handler = CaptureHandler(level=logging.DEBUG, storage_mode=source_mode)
+        old_temp_file = handler._temp_file
+        for message in ["first", "second"]:
+            handler.handle(
+                logging.LogRecord(
+                    "datacoolie.test",
+                    logging.INFO,
+                    __file__,
+                    1,
+                    message,
+                    (),
+                    None,
+                )
+            )
+
+        formatter = logging.Formatter("%(message)s")
+        handler.reconfigure(
+            level=logging.WARNING,
+            storage_mode=target_mode,
+            formatter=formatter,
+        )
+
+        assert handler.level == logging.WARNING
+        assert handler.formatter is formatter
+        assert [record.message for record in handler.get_records()] == ["first", "second"]
+        if old_temp_file:
+            assert not os.path.exists(old_temp_file)
+        handler.cleanup()
+
+    def test_reconfigure_failure_preserves_existing_state(self, tmp_path):
+        handler = CaptureHandler(level=logging.DEBUG, storage_mode=StorageMode.MEMORY.value)
+        handler.handle(
+            logging.LogRecord(
+                "datacoolie.test",
+                logging.INFO,
+                __file__,
+                1,
+                "preserved",
+                (),
+                None,
+            )
+        )
+        original_formatter = handler.formatter
+        handler._new_temp_file_path = lambda: str(tmp_path / "missing" / "capture.tmp")
+
+        with pytest.raises(OSError):
+            handler.reconfigure(
+                level=logging.ERROR,
+                storage_mode=StorageMode.FILE.value,
+                formatter=logging.Formatter("%(message)s"),
+            )
+
+        assert handler._storage_mode == StorageMode.MEMORY.value
+        assert handler.level == logging.DEBUG
+        assert handler.formatter is original_formatter
+        assert [record.message for record in handler.get_records()] == ["preserved"]
+        handler.cleanup()
+
 
 # ============================================================================
 # LogManager (singleton)
@@ -318,22 +389,115 @@ class TestLogManager:
         mgr.configure(capture_logs=False)
         assert mgr.capture_handler is None
 
+    @pytest.mark.parametrize(
+        "storage_mode",
+        [StorageMode.MEMORY.value, StorageMode.FILE.value],
+    )
+    def test_force_configure_preserves_pending_records(self, storage_mode):
+        mgr = LogManager.get_instance()
+        lgr = mgr.get_logger("datacoolie.metadata.base")
+        old_handler = mgr.capture_handler
+        assert old_handler is not None
+        lgr.debug("debug before driver")
+        lgr.info("prefetch before driver")
+
+        mgr.configure(
+            capture_logs=True,
+            file_level="INFO",
+            storage_mode=storage_mode,
+            console_output=False,
+            force=True,
+        )
+
+        assert mgr.capture_handler is old_handler
+        assert [r.message for r in mgr.capture_handler.get_records()] == [
+            "prefetch before driver",
+        ]
+
+    def test_force_configure_preserves_concurrent_record_exactly_once(self):
+        mgr = LogManager.get_instance()
+        mgr.configure(
+            capture_logs=True,
+            file_level="DEBUG",
+            storage_mode=StorageMode.MEMORY.value,
+            console_output=False,
+            force=True,
+        )
+        handler = mgr.capture_handler
+        assert handler is not None
+        lgr = mgr.get_logger("datacoolie.concurrent")
+        entered = threading.Event()
+        release = threading.Event()
+        original_reconfigure = handler.reconfigure
+
+        def paused_reconfigure(**kwargs):
+            with handler.lock:
+                entered.set()
+                assert release.wait(timeout=5)
+                return original_reconfigure(**kwargs)
+
+        handler.reconfigure = paused_reconfigure
+        configure_thread = threading.Thread(
+            target=lambda: mgr.configure(
+                capture_logs=True,
+                file_level="DEBUG",
+                storage_mode=StorageMode.FILE.value,
+                console_output=False,
+                force=True,
+            )
+        )
+        configure_thread.start()
+        assert entered.wait(timeout=5)
+
+        emit_thread = threading.Thread(target=lambda: lgr.info("during reconfigure"))
+        emit_thread.start()
+        release.set()
+        configure_thread.join(timeout=5)
+        emit_thread.join(timeout=5)
+
+        assert not configure_thread.is_alive()
+        assert not emit_thread.is_alive()
+        assert mgr.capture_handler is handler
+        messages = [record.message for record in handler.get_records()]
+        assert messages.count("during reconfigure") == 1
+
+    def test_diagnostic_logger_uses_console_only(self, capsys):
+        mgr = LogManager.get_instance()
+        mgr.configure(capture_logs=True, console_output=True, force=True)
+        console_handler = mgr._console_handler
+        capture_handler = mgr.capture_handler
+        assert console_handler is not None
+        assert capture_handler is not None
+        assert console_handler in _diagnostic_logger.handlers
+        assert capture_handler not in _diagnostic_logger.handlers
+
+        _diagnostic_logger.warning("diagnostic only")
+
+        assert "datacoolie.logging.internal" in capsys.readouterr().err
+        assert not any(
+            record.message == "diagnostic only"
+            for record in capture_handler.get_records()
+        )
+
+        mgr.cleanup()
+        assert console_handler not in _diagnostic_logger.handlers
+
     def test_get_logger(self):
         mgr = LogManager.get_instance()
-        lgr = mgr.get_logger("test.child")
+        lgr = mgr.get_logger("datacoolie.test.child")
         assert isinstance(lgr, logging.Logger)
-        assert "DataCoolie" in lgr.name or "test.child" in lgr.name
+        assert lgr.name == "datacoolie.test.child"
 
     def test_get_logger_auto_configures(self):
         mgr = LogManager.get_instance()
         assert mgr._configured is False
-        mgr.get_logger("auto_config")
+        mgr.get_logger("datacoolie.test.auto_config")
         assert mgr._configured is True
 
     def test_get_captured_logs(self):
         mgr = LogManager.get_instance()
         mgr.configure(capture_logs=True, console_output=False)
-        lgr = mgr.get_logger("test.cap")
+        lgr = mgr.get_logger("datacoolie.test.cap")
         lgr.info("captured msg")
         logs = mgr.get_captured_logs()
         assert "captured msg" in logs
@@ -341,7 +505,7 @@ class TestLogManager:
     def test_clear_captured_logs(self):
         mgr = LogManager.get_instance()
         mgr.configure(capture_logs=True, console_output=False)
-        lgr = mgr.get_logger("test.clr")
+        lgr = mgr.get_logger("datacoolie.test.clr")
         lgr.info("msg")
         mgr.clear_captured_logs()
         assert mgr.get_captured_logs() == ""
@@ -364,8 +528,9 @@ class TestGetLogger:
         LogManager.reset()
 
     def test_returns_logger(self):
-        lgr = get_logger("mymod")
+        lgr = get_logger("datacoolie.mymod")
         assert isinstance(lgr, logging.Logger)
+        assert lgr.name == "datacoolie.mymod"
 
 
 # ============================================================================
@@ -793,14 +958,14 @@ class TestLogManagerEdgeCases:
 
     def test_configure_updates_existing_logger_levels(self):
         mgr = LogManager.get_instance()
-        child = mgr.get_logger("edge.level")
+        child = mgr.get_logger("datacoolie.edge.level")
         mgr.configure(level="ERROR", force=True)
         assert child.level == logging.ERROR
 
-    def test_get_logger_with_prefixed_name_reused(self):
+    def test_get_logger_with_module_name_reused(self):
         mgr = LogManager.get_instance()
-        l1 = mgr.get_logger("DataCoolie.prefixed")
-        l2 = mgr.get_logger("DataCoolie.prefixed")
+        l1 = mgr.get_logger("datacoolie.prefixed")
+        l2 = mgr.get_logger("datacoolie.prefixed")
         assert l1 is l2
 
     def test_clear_captured_logs_no_handler(self):
@@ -870,7 +1035,7 @@ class TestLogManagerContextFilter:
 
         mgr = LogManager.get_instance()
         mgr.configure(capture_logs=True, console_output=False, force=True)
-        lgr = mgr.get_logger("test.ctx")
+        lgr = mgr.get_logger("datacoolie.test.ctx")
 
         # Capture what the Python formatter actually produces
         formatted_lines: list[str] = []

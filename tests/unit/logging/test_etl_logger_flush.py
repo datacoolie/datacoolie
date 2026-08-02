@@ -11,7 +11,13 @@ from datacoolie.core.constants import DataFlowStatus
 from datacoolie.logging.base import LogConfig, LogManager
 from datacoolie.logging.etl_logger import ETLLogger
 
-from tests.unit.logging.support import make_dataflow, make_logger, make_real_logger, make_runtime
+from tests.unit.logging.support import (
+    make_dataflow,
+    make_logger,
+    make_real_logger,
+    make_runtime,
+    make_transform_dataflow,
+)
 
 
 class TestDebugJsonlFlush:
@@ -35,6 +41,25 @@ class TestDebugJsonlFlush:
         assert lines[1]["_type"] == "dataflow_run_log"
         assert lines[-1]["_type"] == "job_run_log"
         assert lines[-1]["total_dataflows"] == 2
+
+    def test_debug_jsonl_projects_typed_transform_metadata(self, tmp_path):
+        logger, _ = make_real_logger(tmp_path)
+        dataflow = make_transform_dataflow()
+        logger.log(dataflow, make_runtime(dataflow.dataflow_id))
+        logger.close()
+
+        debug_file = next(
+            path for path in tmp_path.rglob("*.jsonl") if "debug_json" in path.parts
+        )
+        entry = json.loads(debug_file.read_text(encoding="utf-8").splitlines()[0])
+
+        assert json.loads(entry["transform_select_columns"]) == ["customer_id", "email"]
+        assert json.loads(entry["transform_value_rules"])[0]["mapping"] == {
+            "A": "active",
+            "I": "inactive",
+        }
+        assert json.loads(entry["transform_masking_rules"])[0]["value"] == "[PRIVATE]"
+        assert entry["transform_missing_column_policy"] == "ignore"
 
     def test_jsonl_path_uses_debug_json_and_job_run_log(self, tmp_path):
         logger, _ = make_real_logger(tmp_path)

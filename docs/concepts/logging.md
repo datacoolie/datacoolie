@@ -13,6 +13,16 @@ summaries, Parquet for dataflow detail).
 ## `SystemLogger`
 
 - Captures framework Python logs through `LogManager`.
+- Uses `datacoolie` as the framework root namespace. `get_logger(__name__)`
+  preserves the full module logger name, and standard `datacoolie.*` child
+  loggers propagate into the same capture pipeline.
+- Preserves records emitted before and during Driver/SystemLogger
+  reconfiguration. When capture remains enabled, `LogManager` keeps the same
+  `CaptureHandler` attached and changes its level, formatter, or memory/file
+  storage under a lock. Records already accepted remain ordered and are not
+  re-filtered by a later `file_level`.
+- Keeps LogManager's own diagnostic messages console-only so capture and flush
+  failures cannot recursively write into the same buffer.
 - **Two independent levels:**
     - `log_level` — controls what is printed to the console (default `INFO`).
     - `file_level` — controls what is captured to the file (default `DEBUG`,
@@ -82,9 +92,23 @@ Row shape (dataflow entry):
 `total_dataflows`, `total_succeeded`, `total_failed`, `total_running`,
 `total_pending`, `total_rows_written`, and `operation_types`.
 
+Each dataflow entry also projects transformer metadata for analysis:
+`transform_select_columns`, `transform_drop_columns`,
+`transform_rename_columns`, `transform_value_rules`,
+`transform_hash_columns`, `transform_masking_rules`, and
+`transform_missing_column_policy`. Collection and rule fields are JSON strings
+in analyst Parquet and JSON-encoded values in the debug entry. Masking
+replacement values and value-rule mappings are retained as metadata; protect
+log storage with the same access controls used for pipeline metadata.
+
 If a source, transformer, or destination fails, the dataflow row keeps the
 available phase-level status, error, and partial timing information collected
 before the exception.
+
+An expected-failure test remains a real ETL failure in both log streams. A
+scenario runner may report that scenario as passed after matching its expected
+exit code and error text, but `SystemLogger` still contains the `ERROR` record
+and `ETLLogger` still records the failed dataflow.
 
 ## `LogPurpose`
 
