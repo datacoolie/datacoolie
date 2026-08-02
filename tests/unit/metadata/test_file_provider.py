@@ -12,7 +12,6 @@ import pytest
 
 from datacoolie.core.constants import WATERMARK_FILE_NAME
 from datacoolie.core.exceptions import MetadataError, WatermarkError
-from datacoolie.core.models import DataFlow, SchemaHint
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.platforms.local_platform import LocalPlatform
 
@@ -299,6 +298,11 @@ class TestFileProviderParserHelpers:
                 "destination_table": "dim_orders",
                 "destination_merge_keys": "id,order_id",
                 "transform": '{"schema_hints": [{"column_name": "a", "data_type": "STRING"}]}',
+                "transform_select_columns": "id,email",
+                "transform_rename_columns": '{"email": "contact_email"}',
+                "transform_value_rules": '[{"operation": "trim", "columns": ["email"]}]',
+                "transform_hash_columns": '[{"target_column": "row_hash", "columns": ["id"]}]',
+                "transform_masking_rules": '[{"method": "nullify", "columns": ["secret"]}]',
                 "transform_configure": '{"x": 1}',
                 "is_active": "false",
             }
@@ -308,6 +312,13 @@ class TestFileProviderParserHelpers:
         assert out[0]["is_active"] is False
         assert out[0]["destination"]["merge_keys"] == ["id", "order_id"]
         assert out[0]["transform"]["schema_hints"][0]["column_name"] == "a"
+        assert out[0]["transform"]["select_columns"] == ["id", "email"]
+        assert out[0]["transform"]["rename_columns"] == {
+            "email": "contact_email"
+        }
+        assert out[0]["transform"]["value_rules"][0]["operation"] == "trim"
+        assert out[0]["transform"]["hash_columns"][0]["target_column"] == "row_hash"
+        assert out[0]["transform"]["masking_rules"][0]["method"] == "nullify"
         assert out[0]["transform"]["configure"]["x"] == 1
 
     def test_parse_excel_schema_hints_grouping(self) -> None:

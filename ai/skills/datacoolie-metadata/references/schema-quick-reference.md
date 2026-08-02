@@ -107,7 +107,79 @@ the path:
 | `filter_expression` | string\|null | no | SQL WHERE applied after additional_columns |
 | `additional_columns` | AdditionalColumn[] | no | Computed columns: `[{"column": "etl_loaded_at", "expression": "current_timestamp()"}]` |
 | `schema_hints` | SchemaHint[] | no | Column-level type casting applied at load |
-| `configure` | object | no | `convert_timestamp_ntz` (boolean, default true), `deduplicate_by_rank` (boolean, default false) |
+| `select_columns` | string[] | no | Business columns to retain; mutually exclusive with `drop_columns` |
+| `drop_columns` | string[] | no | Business columns to remove; mutually exclusive with `select_columns` |
+| `rename_columns` | object | no | Atomic `{old_name: new_name}` mapping applied after select/drop |
+| `value_rules` | ValueRule[] | no | Typed normalization rules applied before schema casting |
+| `hash_columns` | HashColumn[] | no | Stable SHA-256 business hashes using `dc_hash_v1` serialization |
+| `masking_rules` | MaskingRule[] | no | Structured scalar PII masking applied before projection |
+| `configure` | object | no | `convert_timestamp_ntz` (default true), `deduplicate_by_rank` (default false), `missing_column_policy` (`error` or `ignore`, default `error`) |
+
+### Transform interaction order
+
+The runtime orders transformers by numeric priority, independent of the field
+order in metadata. The authoring-relevant sequence is:
+
+1. `value_rules` normalize source values (priority 5).
+2. `schema_hints` cast normalized values (10).
+3. `hash_columns` create explicit business hashes (18), before deduplication
+   (20), so a hash is only a dedup key when the user also names it in
+   `deduplicate_columns`.
+4. Additional columns and filtering run next (30 and 35), followed by SCD2 and
+   system columns (60 and 70) and destination partition expressions (80).
+5. `masking_rules` protect values late (84), then `select_columns` or
+   `drop_columns` and atomic `rename_columns` apply together (85).
+6. Framework column-name sanitization runs last (90).
+
+Within `value_rules`, ascending `order` runs first; omitted `order` defaults to
+`100`, and ties preserve metadata declaration order.
+
+### ValueRule object
+
+Every rule requires `operation` and a non-empty, unique `columns` list.
+Optional `order` is a non-negative integer with default `100`; ties preserve
+metadata declaration order.
+
+| `operation` | Additional fields | Behavior |
+|-------------|-------------------|----------|
+| `trim` | — | Strip leading and trailing ASCII U+0020 spaces only |
+| `case` | `mode`: `lower` or `upper` | Convert string case |
+| `regex_replace` | portable-v1 `pattern` (max 4,096 chars), optional literal `replacement` (default `""`) | Replace every match with literal text |
+| `empty_to_null` | — | Convert empty strings to null |
+| `fill_null` | non-null scalar `value` | Replace null with a JSON scalar literal |
+| `map` | non-empty string `mapping`, optional `on_unmapped`: `keep` or `null` | Exact string mapping |
+
+### HashColumn object
+
+Requires `target_column` and an ordered, non-empty `columns` list. Only
+`algorithm: sha256` and `serialization: dc_hash_v1` are supported. Declared
+input order is significant. Hash targets are not inferred as merge or dedup
+keys. Polars requires the optional `datacoolie[polars-hash]` extra.
+
+### MaskingRule object
+
+Every rule requires `method` and a non-empty, unique `columns` list. A column
+may appear in only one masking rule.
+
+| `method` | Additional fields | Behavior |
+|----------|-------------------|----------|
+| `redact` | non-null scalar `value` | Replace the entire value |
+| `nullify` | — | Replace with a typed null |
+| `partial` | `keep_start`, `keep_end`, one-character `mask_char` | Keep configured edges and collapse the hidden middle to one mask character; a short non-empty value becomes one mask character |
+| `numeric_bucket` | positive `bucket_size` | Replace with the bucket lower bound |
+| `date_truncate` | `unit`: `year`, `month`, `day`, or `hour` | Truncate date/datetime precision |
+
+Projection and masking reject protected merge, partition, SCD2, and framework
+columns at runtime. `missing_column_policy: ignore` skips absent typed
+value/hash/masking and projection references only. Missing schema hints warn
+and skip; configured dedup keys and order columns always remain strict.
+
+Portable regex v1 supports literals, escaped literals, explicit character
+classes/ranges, `.`, anchors, grouping/non-capturing grouping, alternation, and
+ordinary quantifiers. It rejects lookaround, backreferences, named groups,
+inline flags, `\d`/`\w`/`\s`/`\b`, possessive quantifiers, and quantified nested
+groups. Replacement strings never expand capture groups; `$` and backslash are
+literal characters.
 
 ## SchemaHint object
 

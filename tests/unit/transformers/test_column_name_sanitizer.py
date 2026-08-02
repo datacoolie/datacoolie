@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from datacoolie.core.constants import ColumnCaseMode
+from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.transformers.base import TransformerPipeline
 from datacoolie.transformers.column_adder import SystemColumnAdder
 from datacoolie.transformers.column_name_sanitizer import ColumnNameSanitizer
@@ -65,6 +66,9 @@ class TestColumnNameSanitizer:
         assert renamed_map["Order Date"] == "order_date"
         assert renamed_map["order-id"] == "order_id"
         assert renamed_map["Amount$"] == "amount"
+        assert engine._rename_batches == [
+            {"Order Date": "order_date", "order-id": "order_id", "Amount$": "amount"}
+        ]
 
     def test_renames_numeric_columns(self, engine: MockEngine) -> None:
         engine.set_columns(["123", "456", "name"])
@@ -103,6 +107,17 @@ class TestColumnNameSanitizer:
         s = ColumnNameSanitizer(engine)
         s.transform({"id": 1, "user_name": "a", "created_at": "b"}, df)
         assert len(engine._renamed) == 0
+        assert s.applied_label is None
+
+    def test_rejects_case_insensitive_final_name_collision(self, engine: MockEngine) -> None:
+        engine.set_columns(["a b", "a-b", "safe"])
+        sanitizer = ColumnNameSanitizer(engine)
+
+        with pytest.raises(ConfigurationError, match="duplicate") as captured:
+            sanitizer.transform({"a b": [1], "a-b": [2], "safe": [3]}, _make_dataflow())
+
+        assert captured.value.details == {"collisions": {"a_b": ["a b", "a-b"]}}
+        assert engine._rename_batches == []
 
     def test_skips_underscore_prefixed_columns(self, engine: MockEngine) -> None:
         """Columns starting with _ (system columns) are never renamed."""

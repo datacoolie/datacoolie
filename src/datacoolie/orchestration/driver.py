@@ -80,13 +80,17 @@ _BACKWARD_KEYS: tuple[str, ...] = (
 # Order matters: each transformer sees the output of all preceding ones.
 # Override by subclassing DataCoolieDriver and replacing _create_transformer_pipeline.
 DEFAULT_TRANSFORMERS: list[str] = [
-    "schema_converter",       # 10. Cast to target schema types first
+    "column_value_transformer",  # 5. Normalize source values before schema casting
+    "schema_converter",       # 10. Cast normalized values to target schema types
+    "hash_column_adder",      # 18. Add stable business hashes from typed values
     "deduplicator",           # 20. Remove duplicate source rows early
     "column_adder",           # 30. User-configured calculated columns
     "row_filter",             # 35. Discard unwanted rows (post-column_adder, pre-scd2)
     "scd2_column_adder",      # 60. SCD2 validity columns from source effective-date
     "system_column_adder",    # 70. Framework audit columns (__created_at, etc.)
     "partition_handler",      # 80. Derive partition values from final columns
+    "data_masker",            # 84. Mask structured scalar PII before projection
+    "column_projector",       # 85. Select/drop, then atomically rename columns
     "column_name_sanitizer",  # 90. Normalize column names last
 ]
 

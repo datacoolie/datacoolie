@@ -200,10 +200,22 @@ def _register_builtins() -> None:
 
     # -- Transformers --
     try:
+        from datacoolie.transformers.column_value_transformer import ColumnValueTransformer
+        transformer_registry.register("column_value_transformer", ColumnValueTransformer)
+    except Exception as exc:
+        _logger.debug("Skipping built-in 'column_value_transformer' transformer: %s", exc)
+
+    try:
         from datacoolie.transformers.schema_converter import SchemaConverter
         transformer_registry.register("schema_converter", SchemaConverter)
     except Exception as exc:
         _logger.debug("Skipping built-in 'schema_converter' transformer: %s", exc)
+
+    try:
+        from datacoolie.transformers.hash_column_adder import HashColumnAdder
+        transformer_registry.register("hash_column_adder", HashColumnAdder)
+    except Exception as exc:
+        _logger.debug("Skipping built-in 'hash_column_adder' transformer: %s", exc)
 
     try:
         from datacoolie.transformers.deduplicator import Deduplicator
@@ -236,6 +248,14 @@ def _register_builtins() -> None:
         transformer_registry.register("column_name_sanitizer", ColumnNameSanitizer)
     except Exception as exc:
         _logger.debug("Skipping built-in 'column_name_sanitizer' transformer: %s", exc)
+
+    try:
+        from datacoolie.transformers.data_masker import DataMasker
+        from datacoolie.transformers.column_projector import ColumnProjector
+        transformer_registry.register("data_masker", DataMasker)
+        transformer_registry.register("column_projector", ColumnProjector)
+    except Exception as exc:
+        _logger.debug("Skipping built-in masking/projection transformers: %s", exc)
 
     # -- Secret Resolvers --
     try:

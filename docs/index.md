@@ -83,6 +83,13 @@ Install, then run two short scripts:
 pip install "datacoolie[polars]"
 ```
 
+Add the optional `polars-hash` extra only when metadata uses
+`transform.hash_columns`:
+
+```bash
+pip install "datacoolie[polars,polars-hash]"
+```
+
 ### Part 1 — Prepare sample data and metadata
 
 ```python

@@ -1,4 +1,229 @@
 {
+  "local_polars_transform_features": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "pre_clean_paths": [
+      "usecase-sim/data/output/parquet/tf_value_trim",
+      "usecase-sim/data/output/parquet/tf_value_case",
+      "usecase-sim/data/output/parquet/tf_value_regex_replace",
+      "usecase-sim/data/output/parquet/tf_value_regex_literal",
+      "usecase-sim/data/output/parquet/tf_value_empty_to_null",
+      "usecase-sim/data/output/parquet/tf_value_fill_null",
+      "usecase-sim/data/output/parquet/tf_value_map",
+      "usecase-sim/data/output/parquet/tf_value_stable_order",
+      "usecase-sim/data/output/parquet/tf_value_before_cast",
+      "usecase-sim/data/output/parquet/tf_schema_cast",
+      "usecase-sim/data/output/parquet/tf_schema_missing_warning",
+      "usecase-sim/data/output/parquet/tf_hash_sha256",
+      "usecase-sim/data/output/parquet/tf_mask_redact",
+      "usecase-sim/data/output/parquet/tf_mask_nullify",
+      "usecase-sim/data/output/parquet/tf_mask_partial",
+      "usecase-sim/data/output/parquet/tf_mask_numeric_bucket",
+      "usecase-sim/data/output/parquet/tf_mask_date_truncate",
+      "usecase-sim/data/output/parquet/tf_projection_select",
+      "usecase-sim/data/output/parquet/tf_projection_drop",
+      "usecase-sim/data/output/parquet/tf_projection_batch_rename",
+      "usecase-sim/data/output/parquet/tf_missing_value_rule",
+      "usecase-sim/data/output/parquet/tf_missing_hash",
+      "usecase-sim/data/output/parquet/tf_missing_masking",
+      "usecase-sim/data/output/parquet/tf_missing_projection"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "required_console_text": [
+        "active schema-hint column(s) not found and skipped: ['missing_schema_one', 'missing_schema_two']"
+      ],
+      "script": "usecase-sim/scripts/validate_transformer_features.py"
+    },
+    "notes": "Polars transformer metadata regression with output reconciliation"
+  },
+  "local_spark_transform_features": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "max_workers": 1,
+    "timeout_seconds": 300,
+    "pre_clean_paths": [
+      "usecase-sim/data/output/parquet/tf_value_trim",
+      "usecase-sim/data/output/parquet/tf_value_case",
+      "usecase-sim/data/output/parquet/tf_value_regex_replace",
+      "usecase-sim/data/output/parquet/tf_value_regex_literal",
+      "usecase-sim/data/output/parquet/tf_value_empty_to_null",
+      "usecase-sim/data/output/parquet/tf_value_fill_null",
+      "usecase-sim/data/output/parquet/tf_value_map",
+      "usecase-sim/data/output/parquet/tf_value_stable_order",
+      "usecase-sim/data/output/parquet/tf_value_before_cast",
+      "usecase-sim/data/output/parquet/tf_schema_cast",
+      "usecase-sim/data/output/parquet/tf_schema_missing_warning",
+      "usecase-sim/data/output/parquet/tf_hash_sha256",
+      "usecase-sim/data/output/parquet/tf_mask_redact",
+      "usecase-sim/data/output/parquet/tf_mask_nullify",
+      "usecase-sim/data/output/parquet/tf_mask_partial",
+      "usecase-sim/data/output/parquet/tf_mask_numeric_bucket",
+      "usecase-sim/data/output/parquet/tf_mask_date_truncate",
+      "usecase-sim/data/output/parquet/tf_projection_select",
+      "usecase-sim/data/output/parquet/tf_projection_drop",
+      "usecase-sim/data/output/parquet/tf_projection_batch_rename",
+      "usecase-sim/data/output/parquet/tf_missing_value_rule",
+      "usecase-sim/data/output/parquet/tf_missing_hash",
+      "usecase-sim/data/output/parquet/tf_missing_masking",
+      "usecase-sim/data/output/parquet/tf_missing_projection"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "required_console_text": [
+        "active schema-hint column(s) not found and skipped: ['missing_schema_one', 'missing_schema_two']"
+      ],
+      "script": "usecase-sim/scripts/validate_transformer_features.py"
+    },
+    "notes": "Spark transformer metadata regression with output reconciliation"
+  },
+  "local_polars_transform_dedup_strict": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_dedup_strict",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "pre_clean_paths": [
+      "usecase-sim/data/output/parquet/tf_dedup_strict"
+    ],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Column 'missing_order' not found"]
+    },
+    "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore"
+  },
+  "local_spark_transform_dedup_strict": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_dedup_strict",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "max_workers": 1,
+    "timeout_seconds": 300,
+    "pre_clean_paths": [
+      "usecase-sim/data/output/parquet/tf_dedup_strict"
+    ],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Column 'missing_order' not found"]
+    },
+    "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore"
+  },
+  "local_polars_transform_invalid_fill": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_invalid_fill",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "pre_clean_paths": ["usecase-sim/data/output/parquet/tf_invalid_typed_fill"],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Transformer literal is incompatible with the target column"]
+    },
+    "notes": "Expected failure: fill_null rejects a string literal for an integer column"
+  },
+  "local_spark_transform_invalid_fill": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_invalid_fill",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "max_workers": 1,
+    "timeout_seconds": 300,
+    "pre_clean_paths": ["usecase-sim/data/output/parquet/tf_invalid_typed_fill"],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Transformer literal is incompatible with the target column"]
+    },
+    "notes": "Expected failure: fill_null rejects a string literal for an integer column"
+  },
+  "local_polars_transform_invalid_redact": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_invalid_redact",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "pre_clean_paths": ["usecase-sim/data/output/parquet/tf_invalid_typed_redact"],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Transformer literal is incompatible with the target column"]
+    },
+    "notes": "Expected failure: redact rejects a string literal for an integer column"
+  },
+  "local_spark_transform_invalid_redact": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_invalid_redact",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "max_workers": 1,
+    "timeout_seconds": 300,
+    "pre_clean_paths": ["usecase-sim/data/output/parquet/tf_invalid_typed_redact"],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Transformer literal is incompatible with the target column"]
+    },
+    "notes": "Expected failure: redact rejects a string literal for an integer column"
+  },
+  "local_polars_transform_sanitizer_collision": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_sanitizer_collision",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "pre_clean_paths": ["usecase-sim/data/output/parquet/tf_sanitizer_collision"],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Column sanitization would create duplicate column names"]
+    },
+    "notes": "Expected failure: distinct source names cannot collapse to one sanitized name"
+  },
+  "local_spark_transform_sanitizer_collision": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "stage": "transform_features_sanitizer_collision",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "skip_api_sources": true,
+    "max_workers": 1,
+    "timeout_seconds": 300,
+    "pre_clean_paths": ["usecase-sim/data/output/parquet/tf_sanitizer_collision"],
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": ["Column sanitization would create duplicate column names"]
+    },
+    "notes": "Expected failure: distinct source names cannot collapse to one sanitized name"
+  },
   "local_polars_file": {
     "engine": "polars",
     "metadata_type": "file",

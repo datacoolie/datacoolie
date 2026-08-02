@@ -6,25 +6,6 @@ import logging
 
 import pytest
 
-
-# ---------------------------------------------------------------------------
-# Wire pytest caplog into the DataCoolie logger hierarchy
-# ---------------------------------------------------------------------------
-
-@pytest.fixture(autouse=True)
-def _caplog_datacoolie(caplog: pytest.LogCaptureFixture):
-    """Ensure caplog captures records from the ``DataCoolie`` logger.
-
-    ``DataCoolie`` sets ``propagate = False`` to avoid duplicate console
-    output, which prevents records from reaching the root logger where
-    pytest's caplog handler lives.  This fixture temporarily attaches
-    caplog's handler directly to the ``DataCoolie`` logger.
-    """
-    dc_logger = logging.getLogger("DataCoolie")
-    dc_logger.addHandler(caplog.handler)
-    yield
-    dc_logger.removeHandler(caplog.handler)
-
 from datacoolie.core.constants import Format, LoadType
 from datacoolie.core.models import (
     AdditionalColumn,
@@ -37,6 +18,25 @@ from datacoolie.core.models import (
     Source,
     Transform,
 )
+
+
+# ---------------------------------------------------------------------------
+# Wire pytest caplog into the datacoolie logger hierarchy
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _caplog_datacoolie(caplog: pytest.LogCaptureFixture):
+    """Ensure caplog captures records from the ``datacoolie`` logger.
+
+    ``datacoolie`` sets ``propagate = False`` to avoid duplicate console
+    output, which prevents records from reaching the root logger where
+    pytest's caplog handler lives.  This fixture temporarily attaches
+    caplog's handler directly to the ``datacoolie`` logger.
+    """
+    dc_logger = logging.getLogger("datacoolie")
+    dc_logger.addHandler(caplog.handler)
+    yield
+    dc_logger.removeHandler(caplog.handler)
 
 
 # ---------------------------------------------------------------------------

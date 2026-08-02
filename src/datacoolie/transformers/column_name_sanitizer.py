@@ -21,6 +21,7 @@ Both modes apply the same clean-up rules:
 from __future__ import annotations
 
 from datacoolie.core.constants import ColumnCaseMode, TRAILING_COLUMNS
+from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.base import get_logger
@@ -65,25 +66,52 @@ class ColumnNameSanitizer(BaseTransformer[DF]):
     def transform(self, df: DF, dataflow: DataFlow) -> DF:
         """Rename columns that are not already clean, then reorder so that
         system / file-info columns appear last."""
-        self._mark_applied(self._mode.value)
         sanitize = _SANITIZERS[self._mode]
         columns = self._engine.get_columns(df)
 
+        renames: dict[str, str] = {}
+        final_names: dict[str, list[str]] = {}
         for col in columns:
             sanitized = sanitize(col)
+            final_name = sanitized or col
+            final_names.setdefault(final_name.lower(), []).append(col)
             if not sanitized or sanitized == col:
                 continue
             logger.debug(
                 "ColumnNameSanitizer(%s): renaming %r → %r",
                 self._mode.value, col, sanitized,
             )
-            df = self._engine.rename_column(df, col, sanitized)
+            renames[col] = sanitized
+
+        collisions = {
+            target: sorted(sources, key=str.lower)
+            for target, sources in sorted(final_names.items())
+            if len(sources) > 1
+        }
+        if collisions:
+            raise ConfigurationError(
+                "Column sanitization would create duplicate column names",
+                details={"collisions": collisions},
+            )
+
+        changed = False
+        if renames:
+            df = self._engine.rename_columns(df, renames)
+            changed = True
 
         # Move system / file-info columns to the tail of the DataFrame.
         current = self._engine.get_columns(df)
         trailing_present = [c for c in TRAILING_COLUMNS if c in current]
         if trailing_present:
             leading = [c for c in current if c not in trailing_present]
-            df = self._engine.select_columns(df, leading + trailing_present)
+            ordered = leading + trailing_present
+            if ordered != current:
+                df = self._engine.select_columns(df, ordered)
+                changed = True
+
+        if changed:
+            self._mark_applied(self._mode.value)
+        else:
+            self._mark_skipped()
 
         return df

@@ -79,8 +79,12 @@ Supported formats
   Source fields prefixed ``source_``; destination fields prefixed ``destination_``;
   List columns (e.g. ``source_watermark_columns``, ``destination_merge_keys``,
   ``destination_partition_columns``) accept comma-separated values.
-  ``transform_schema_hints``, ``transform_additional_columns``,
-  ``transform_partition_columns`` accept JSON strings.
+  ``transform_select_columns`` and ``transform_drop_columns`` accept
+  comma-separated names. ``transform_schema_hints``,
+  ``transform_deduplicate_columns``, ``transform_latest_data_columns``,
+  ``transform_additional_columns``, ``transform_rename_columns``,
+  ``transform_value_rules``, ``transform_hash_columns``, and
+  ``transform_masking_rules`` accept JSON strings.
 
 *schema_hints* sheet — one row per hint (grouped internally by
   ``connection_name`` + ``table_name`` + optional ``schema_name``):
@@ -116,7 +120,7 @@ from datacoolie.core.models import (
 )
 from datacoolie.metadata.base import BaseMetadataProvider
 from datacoolie.platforms.base import BasePlatform
-from datacoolie.utils.converters import convert_to_bool, convert_to_int, parse_json
+from datacoolie.utils.converters import convert_to_bool, convert_to_int
 from datacoolie.utils.helpers import ensure_list
 from datacoolie.utils.path_utils import normalize_path
 
@@ -144,6 +148,8 @@ class FileProvider(BaseMetadataProvider):
         "source_watermark_columns",
         "destination_merge_keys",
         "destination_partition_columns",
+        "transform_select_columns",
+        "transform_drop_columns",
     })
     _EXCEL_JSON_COLS: frozenset = frozenset({
         "configure",
@@ -153,6 +159,10 @@ class FileProvider(BaseMetadataProvider):
         "transform_latest_data_columns",
         "transform_additional_columns",
         "transform_schema_hints",
+        "transform_rename_columns",
+        "transform_value_rules",
+        "transform_hash_columns",
+        "transform_masking_rules",
         "transform_configure",
     })
 
@@ -293,11 +303,18 @@ class FileProvider(BaseMetadataProvider):
         """Parse a JSON object/array cell; return ``None`` if blank."""
         if value is None:
             return None
-        s = str(value).strip() if isinstance(value, str) else value
-        try:
-            result = parse_json(s, raise_on_error=True)
-        except ValueError as exc:
-            raise MetadataError(f"Invalid JSON cell value: {value!r}") from exc
+        if isinstance(value, (dict, list)):
+            result = value
+        else:
+            s = str(value).strip()
+            if not s:
+                return None
+            try:
+                result = json.loads(s)
+            except (TypeError, json.JSONDecodeError) as exc:
+                raise MetadataError(f"Invalid JSON cell value: {value!r}") from exc
+        if not isinstance(result, (dict, list)):
+            raise MetadataError(f"Invalid JSON cell value: {value!r}")
         return result if result else None
 
     # -- Excel parsing ------------------------------------------------------

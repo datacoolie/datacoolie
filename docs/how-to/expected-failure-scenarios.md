@@ -11,56 +11,28 @@ description: Model and validate expected DataCoolie failures so scenario runners
 Some tests are meant to prove that the framework rejects bad configuration or
 bad data. Treat these as first-class negative tests.
 
-## Current status
+## Scenario contract
 
-The current `usecase-sim` runner does **not** read scenario metadata such as
-`validation.expect_success` or `validation.expected_error_contains`.
-
-- `usecase-sim/runner/run_scenario.py` passes or fails scenarios from the child
-  process exit code.
-- `usecase-sim/runner/run.py` exits `0` on success and `2` on execution
-  failure.
-- `usecase-sim/runner/run_scenario.py` returns `124` for a timeout, even when
-  the child exits during its graceful shutdown window.
-- `usecase-sim/scenarios/scenarios.json` does not currently define a built-in
-  expected-failure schema.
-
-So if you want an expected-failure scenario today, assert it in the wrapper or
-CI job that launches the runner.
+`usecase-sim/runner/run_scenario.py` supports declarative validation. The
+runner still returns `124` for a timeout, but other non-zero child exits can be
+declared as expected and must also match stable console text.
 
 ## Recommended pattern
 
-1. Run the stage or scenario normally.
-2. Expect a non-zero exit code.
-3. Assert that stdout, stderr, or the scenario console log contains the error
-   substring you expect.
+Add a `validation` block to the scenario:
 
-Example in Python:
-
-```python
-import subprocess
-
-proc = subprocess.run(
-    [
-        "python",
-        "usecase-sim/runner/run.py",
-        "--engine", "polars",
-        "--metadata-source", "file",
-        "--metadata-path", "usecase-sim/metadata/file/local_use_cases.json",
-        "--stage", "bad_schema_stage",
-    ],
-    capture_output=True,
-    text=True,
-)
-
-combined_output = proc.stdout + proc.stderr
-
-assert proc.returncode != 0
-assert "Column 'nonexistent' not found" in combined_output
+```json
+{
+  "validation": {
+    "expected_exit_code": 2,
+    "required_console_text": ["Column 'missing_order' not found"]
+  }
+}
 ```
 
-If you use `run_scenario.py`, inspect the per-scenario console log written to
-`usecase-sim/logs/scenarios/<scenario>.console.log`.
+The scenario passes only when the exit code and every required substring
+match. Positive scenarios can additionally set a repository-local `script`,
+`args`, and validator `timeout_seconds` to assert persisted outputs.
 
 ## Recording failures in ETL logs
 

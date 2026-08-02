@@ -10,7 +10,6 @@ implement only the ``_fetch_*`` and watermark methods.
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -19,8 +18,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from datacoolie.core.constants import CONNECTION_TYPE_FORMATS, ConnectionType
 from datacoolie.core.models import Connection, DataFlow, SchemaHint
 from datacoolie.utils.helpers import ensure_list
+from datacoolie.logging.base import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ============================================================================

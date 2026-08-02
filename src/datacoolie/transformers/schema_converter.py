@@ -44,14 +44,17 @@ class SchemaConverter(BaseTransformer[DF]):
         if dataflow.source.connection.use_schema_hint:
             hints_dict = dataflow.transform.schema_hints_dict
             if hints_dict:
-                df = self._apply_conversions(df, hints_dict)
-                self._mark_applied()
+                df, cast_count = self._apply_conversions(df, hints_dict)
+                if cast_count:
+                    self._mark_applied(f"{cast_count} casts")
 
         # Step 2: timestamp_ntz → timestamp (after hints so hint-cast columns
         # that resolve to timestamp_ntz are also converted)
         if dataflow.transform.convert_timestamp_ntz:
-            df = self._engine.convert_timestamp_ntz_to_timestamp(df)
-            self._mark_applied()
+            converted = self._engine.convert_timestamp_ntz_to_timestamp(df)
+            if converted is not df:
+                self._mark_applied()
+            df = converted
 
         return df
 
@@ -63,22 +66,29 @@ class SchemaConverter(BaseTransformer[DF]):
         self,
         df: DF,
         hints_dict: Dict[str, SchemaHint],
-    ) -> DF:
+    ) -> tuple[DF, int]:
         """Cast columns using schema hints.
 
         Column matching is case-insensitive.
         """
         existing_columns = self._engine.get_columns(df)
-        # Build case-insensitive lookup
-        col_lower_map = {c.lower(): c for c in existing_columns}
+        missing_hint_columns: list[str] = []
+        cast_count = 0
 
         for hint_col, hint in hints_dict.items():
             if not hint.is_active:
                 continue
 
-            actual_col = col_lower_map.get(hint_col.lower())
+            actual_col = next(
+                (
+                    column
+                    for column in existing_columns
+                    if column.lower() == hint_col.lower()
+                ),
+                None,
+            )
             if actual_col is None:
-                logger.debug("SchemaConverter: column %s not found — skipping", hint_col)
+                missing_hint_columns.append(hint_col)
                 continue
 
             target_type = self._build_type_string(hint)
@@ -90,8 +100,17 @@ class SchemaConverter(BaseTransformer[DF]):
                 hint.format,
             )
             df = self._engine.cast_column(df, actual_col, target_type, hint.format)
+            cast_count += 1
 
-        return df
+        if missing_hint_columns:
+            logger.warning(
+                "SchemaConverter: %d active schema-hint column(s) not found "
+                "and skipped: %s",
+                len(missing_hint_columns),
+                missing_hint_columns,
+            )
+
+        return df, cast_count
 
     @staticmethod
     def _build_type_string(hint: SchemaHint) -> str:

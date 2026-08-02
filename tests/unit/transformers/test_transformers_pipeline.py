@@ -135,6 +135,7 @@ class TestTransformerPipeline:
             pipeline.transform({"x": 1}, df)
         info = pipeline.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
+        assert info.error_message == "Transform failed!"
 
     def test_runtime_info_transform_error_passthrough(self, engine: MockEngine) -> None:
         pipeline = TransformerPipeline(engine)
@@ -144,6 +145,7 @@ class TestTransformerPipeline:
             pipeline.transform({"x": 1}, df)
         info = pipeline.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
+        assert info.error_message == "explicit transform error"
 
     def test_remove_transformer(self, engine: MockEngine) -> None:
         pipeline = TransformerPipeline(engine)

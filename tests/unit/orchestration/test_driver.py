@@ -6,14 +6,14 @@ operations, retry handling, and parallel execution.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch, PropertyMock
+from typing import Any, List
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datacoolie.core.constants import ColumnCaseMode, DataFlowStatus, ExecutionType, Format, LoadType
+from datacoolie.core.constants import ColumnCaseMode, DataFlowStatus, Format, LoadType
 from datacoolie.core.exceptions import DataCoolieError
 from datacoolie.core.models import (
     Connection,
@@ -819,7 +819,10 @@ class TestFactoryMethods:
         pipeline = d._create_transformer_pipeline()
         from datacoolie.transformers import TransformerPipeline
         assert isinstance(pipeline, TransformerPipeline)
-        assert len(pipeline.transformers) == 8
+        assert len(pipeline.transformers) == 12
+        assert [transformer.order for transformer in pipeline.transformers] == [
+            5, 10, 18, 20, 30, 35, 60, 70, 80, 84, 85, 90
+        ]
 
     def test_create_transformer_pipeline_uses_column_name_mode(self):
         d, *_ = _make_driver()
@@ -1195,7 +1198,7 @@ class TestRunReplay:
                 DestinationRuntimeInfo(rows_written=10),
                 DataFlowStatus.SUCCEEDED,
             )
-            result = driver.run_replay(dataflow, replay)
+            driver.run_replay(dataflow, replay)
 
         assert mock_pipeline.call_count == 2
         call_kwargs = mock_pipeline.call_args_list[0][1]
@@ -1481,7 +1484,6 @@ class TestDriverCoverageGaps:
 
     def test_init_with_metadata_provider_autocreates_watermark_manager(self) -> None:
         """Lines 164-165: WatermarkManager is auto-created when metadata_provider given."""
-        from datacoolie.metadata.base import BaseMetadataProvider
         engine = _mock_engine()
         metadata = _mock_metadata()
         # Pass metadata_provider but NO watermark_manager
@@ -1554,7 +1556,6 @@ class TestDriverRemainingCoverage:
 
     def test_create_source_reader_with_allowed_prefixes(self) -> None:
         """Line 1059: allowed_prefixes kwarg passed when format is function."""
-        from datacoolie import source_registry
         config = DataCoolieRunConfig(allowed_function_prefixes=['my_prefix'])
         driver = DataCoolieDriver(
             engine=MagicMock(),

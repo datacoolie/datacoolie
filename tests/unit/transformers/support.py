@@ -26,13 +26,25 @@ class MockEngine(BaseEngine[dict]):
     """Shared mock engine for transformer tests."""
 
     def __init__(self) -> None:
-        self._columns: List[str] = ["id", "name", "amount", "order_date"]
+        self._columns: List[str] = [
+            "id",
+            "name",
+            "amount",
+            "order_date",
+            "modified_at",
+            "updated_at",
+            "order_id",
+        ]
         self._casts: List[tuple] = []
         self._added_columns: List[tuple] = []
         self._removed_system: bool = False
         self._renamed: List[tuple] = []
+        self._rename_batches: List[dict[str, str]] = []
         self._deduplicated: bool = False
         self._dedup_by_rank: bool = False
+        self._value_rules: List[Any] = []
+        self._masking_rules: List[Any] = []
+        self._hash_columns: List[Any] = []
 
     def set_columns(self, columns: List[str]) -> None:
         self._columns = columns
@@ -102,6 +114,26 @@ class MockEngine(BaseEngine[dict]):
         result = dict(df)
         if old_name in result:
             result[new_name] = result.pop(old_name)
+        return result
+
+    def rename_columns(self, df, mapping):
+        self._rename_batches.append(dict(mapping))
+        return super().rename_columns(df, mapping)
+
+    def apply_value_rule(self, df, rule, *, missing_column_policy="error"):
+        self._value_rules.append(rule)
+        return df
+
+    def apply_masking_rule(self, df, rule, *, missing_column_policy="error"):
+        self._masking_rules.append(rule)
+        return df
+
+    def add_hash_column(self, df, definition):
+        self._hash_columns.append(definition)
+        result = dict(df)
+        result[definition.target_column] = "sha256"
+        if definition.target_column not in self._columns:
+            self._columns.append(definition.target_column)
         return result
 
     def filter_rows(self, df, condition):

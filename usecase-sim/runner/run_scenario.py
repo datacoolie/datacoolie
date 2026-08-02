@@ -295,6 +295,69 @@ def _pre_clean_paths(scenario: dict) -> None:
             logger.warning("  [pre-clean] could not remove %s: %s", path, exc)
 
 
+def _validate_scenario_result(
+    scenario: dict,
+    actual_exit_code: int,
+    console_log: Path,
+) -> tuple[int, str]:
+    """Apply declarative exit, console, and output validation to one run."""
+    if actual_exit_code == 124:
+        return 124, "FAIL (timeout)"
+
+    validation = scenario.get("validation") or {}
+    expected_exit_code = int(validation.get("expected_exit_code", 0))
+    if actual_exit_code != expected_exit_code:
+        return (
+            actual_exit_code or 1,
+            f"FAIL (expected exit {expected_exit_code}, got {actual_exit_code})",
+        )
+
+    required_text = validation.get("required_console_text", [])
+    if isinstance(required_text, str):
+        required_text = [required_text]
+    console_text = console_log.read_text(encoding="utf-8", errors="replace")
+    missing_text = [text for text in required_text if text not in console_text]
+    if missing_text:
+        return 1, f"FAIL (console missing expected text: {missing_text})"
+
+    validator = validation.get("script")
+    if validator:
+        validator_path = (DATACOOLIE_ROOT / str(validator)).resolve()
+        if not validator_path.is_relative_to(DATACOOLIE_ROOT.resolve()):
+            return 1, "FAIL (validation script must stay inside repository root)"
+        if not validator_path.is_file():
+            return 1, f"FAIL (validation script not found: {validator})"
+
+        validator_cmd = [sys.executable, str(validator_path)]
+        validator_cmd.extend(str(arg) for arg in validation.get("args", []))
+        try:
+            completed = subprocess.run(
+                validator_cmd,
+                cwd=str(DATACOOLIE_ROOT),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=int(validation.get("timeout_seconds", 60)),
+            )
+        except subprocess.TimeoutExpired:
+            return 1, "FAIL (validation script timed out)"
+        except OSError as exc:
+            return 1, f"FAIL (could not run validation script: {exc})"
+        validator_output = (completed.stdout or "") + (completed.stderr or "")
+        if validator_output:
+            sys.stdout.write(validator_output)
+            with console_log.open("a", encoding="utf-8") as log_fh:
+                log_fh.write("\n--- scenario validation ---\n")
+                log_fh.write(validator_output)
+        if completed.returncode != 0:
+            return completed.returncode, f"FAIL (validation exit {completed.returncode})"
+
+    if expected_exit_code:
+        return 0, f"PASS (expected exit {expected_exit_code})"
+    return 0, "PASS"
+
+
 # ---------------------------------------------------------------------------
 # Subprocess tee runner
 # ---------------------------------------------------------------------------
@@ -492,8 +555,9 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
         logger.info("  Command: %s", " ".join(cmd))
         logger.info("  Console log: %s", console_log)
 
-        rc, status = _run_with_tee(cmd, console_log, timeout)
-        results[name] = rc
+        rc, _ = _run_with_tee(cmd, console_log, timeout)
+        validated_rc, status = _validate_scenario_result(scenario, rc, console_log)
+        results[name] = validated_rc
         logger.info("  Result: %s", status)
 
         if _is_spark(scenario) and not docker_spark:

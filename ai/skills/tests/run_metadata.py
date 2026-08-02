@@ -1,39 +1,50 @@
-"""
-datacoolie-metadata — Integration test runner stub.
-Tests validate.py and convert.py against the shared usecase-sim fixtures.
+"""Run required metadata-skill integration checks.
 
 Refer to TESTING_datacoolie-metadata.md for manual test steps.
 """
+
 import subprocess
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parents[2]
 SKILL_DIR = HERE.parent / "datacoolie-metadata" / "scripts"
-USECASE_META = HERE.parent.parent / "usecase-sim" / "metadata" / "file"
-RESULTS = HERE / "test-results" / "metadata"
-RESULTS.mkdir(parents=True, exist_ok=True)
+USECASE_META = REPO_ROOT / "usecase-sim" / "metadata" / "file"
 
-VALIDATE_FILE = USECASE_META / "local_use_cases.json"
+VALIDATION_CHECKS = (
+    ("validate-local-use-cases", USECASE_META / "local_use_cases.json"),
+    ("validate-transformer-features", USECASE_META / "transformer_features.json"),
+)
 
 
-def run() -> None:
-    summary = []
-    if VALIDATE_FILE.exists():
-        cmd = [sys.executable, str(SKILL_DIR / "validate.py"), str(VALIDATE_FILE)]
-        print(f"\n  validate: {VALIDATE_FILE.name}")
+def run() -> int:
+    """Run all required checks and return a process-compatible exit code."""
+    summary: list[tuple[str, str]] = []
+    failed = False
+
+    for name, metadata_file in VALIDATION_CHECKS:
+        if not metadata_file.is_file():
+            print(f"\n  ✗ missing required fixture: {metadata_file}")
+            summary.append((name, "✗"))
+            failed = True
+            continue
+
+        cmd = [sys.executable, str(SKILL_DIR / "validate.py"), str(metadata_file)]
+        print(f"\n  validate: {metadata_file.name}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         status = "✓" if result.returncode == 0 else "✗"
-        print(f"  {status} {result.stdout.strip()[:120]}")
-        summary.append(("validate-local-use-cases", status))
-    else:
-        print(f"  SKIP: {VALIDATE_FILE} not found")
-        summary.append(("validate-local-use-cases", "-"))
+        details = result.stdout.strip() or result.stderr.strip()
+        print(f"  {status} {details}")
+        summary.append((name, status))
+        failed = failed or result.returncode != 0
 
-    print(f"\n{'='*60}\n  METADATA SUMMARY\n{'='*60}")
-    for n, s in summary:
-        print(f"  {s} {n}")
+    print(f"\n{'=' * 60}\n  METADATA SUMMARY\n{'=' * 60}")
+    for name, status in summary:
+        print(f"  {status} {name}")
+
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    run()
+    raise SystemExit(run())

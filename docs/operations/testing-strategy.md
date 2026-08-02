@@ -27,6 +27,9 @@ This picks up the current default pytest options from `pyproject.toml`:
 
 So the default run is a parallel **non-spark** test run. It does not execute
 the Spark-marked tests unless you override the marker selection explicitly.
+GitHub Actions runs this non-Spark suite as a required job after synchronizing
+the locked `polars`, `deltalake`, and `polars-hash` extras. A restored virtual
+environment cache never replaces `poetry sync`.
 
 ## Markers
 
@@ -54,6 +57,14 @@ a coverage gate.
 that share fixtures use the `@pytest.mark.xdist_group(...)` marker to pin into
 the same worker. The current Spark engine module is grouped this way so one JVM
 is reused safely.
+
+Spark remains a local-only release gate because JVM and Delta startup are too
+expensive for the hosted CI job:
+
+```powershell
+poetry sync --with dev -E spark -E delta-spark
+poetry run pytest tests/unit/engines/test_spark_engine.py -m spark -n auto --dist loadgroup
+```
 
 ## Scope
 

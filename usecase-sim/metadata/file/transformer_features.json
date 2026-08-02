@@ -1,0 +1,458 @@
+{
+  "connections": [
+    {
+      "name": "transform_features_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/input/transform_features"
+      }
+    },
+    {
+      "name": "transform_features_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/parquet",
+        "write_options": {"compression": "snappy"}
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "transform_value__trim",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{"operation": "trim", "columns": ["whitespace_text"]}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_trim",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__case",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{"operation": "case", "columns": ["email"], "mode": "lower"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_case",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__regex_replace",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{
+          "operation": "regex_replace",
+          "columns": ["formatted_phone"],
+          "pattern": "[^0-9]",
+          "replacement": ""
+        }]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_regex_replace",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__regex_literal_replacement",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{
+          "operation": "regex_replace",
+          "columns": ["formatted_phone"],
+          "pattern": "-",
+          "replacement": "$1\\tail"
+        }]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_regex_literal",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__empty_to_null",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{"operation": "empty_to_null", "columns": ["notes"]}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_empty_to_null",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__fill_null",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{
+          "operation": "fill_null",
+          "columns": ["nullable_label"],
+          "value": "unknown"
+        }]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_fill_null",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__map",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{
+          "operation": "map",
+          "columns": ["status"],
+          "mapping": {"A": "active", "I": "inactive"},
+          "on_unmapped": "keep"
+        }]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_map",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__stable_rule_order",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [
+          {"operation": "empty_to_null", "columns": ["notes"], "order": 20},
+          {"operation": "fill_null", "columns": ["notes"], "value": "ordered", "order": 20}
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_stable_order",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__before_schema_cast",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{
+          "operation": "regex_replace",
+          "columns": ["formatted_phone"],
+          "pattern": "[^0-9]",
+          "replacement": ""
+        }],
+        "schema_hints": [{"column_name": "formatted_phone", "data_type": "BIGINT"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_before_cast",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_schema__cast",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "schema_hints": [{"column_name": "customer_id", "data_type": "STRING"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_schema_cast",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_schema__missing_warning",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "schema_hints": [
+          {"column_name": "missing_schema_one", "data_type": "STRING"},
+          {"column_name": "missing_schema_two", "data_type": "DATE"}
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_schema_missing_warning",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_hash__sha256",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "hash_columns": [{
+          "target_column": "identity_hash",
+          "columns": ["country_code", "customer_id"],
+          "algorithm": "sha256"
+        }]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_hash_sha256",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_mask__redact",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "redact", "columns": ["secret"], "value": "[REDACTED]"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_mask_redact",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_mask__nullify",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "nullify", "columns": ["drop_me"]}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_mask_nullify",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_mask__partial",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "partial", "columns": ["phone", "optional_phone"], "keep_end": 4, "mask_char": "*"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_mask_partial",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_mask__numeric_bucket",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "numeric_bucket", "columns": ["age"], "bucket_size": 10}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_mask_numeric_bucket",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_mask__date_truncate",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "date_truncate", "columns": ["birth_date"], "unit": "year"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_mask_date_truncate",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_projection__select",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {"select_columns": ["record_id", "email"]},
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_projection_select",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_projection__drop",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {"drop_columns": ["notes", "drop_me"]},
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_projection_drop",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_projection__batch_rename",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "rename_columns": {
+          "phone": "masked_phone",
+          "customer_id": "business_customer_id"
+        }
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_projection_batch_rename",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_missing_policy__value_rule",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{"operation": "trim", "columns": ["missing_value_rule"]}],
+        "configure": {"missing_column_policy": "ignore"}
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_missing_value_rule",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_missing_policy__hash",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "hash_columns": [{
+          "target_column": "skipped_hash",
+          "columns": ["missing_hash_input"],
+          "algorithm": "sha256"
+        }],
+        "configure": {"missing_column_policy": "ignore"}
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_missing_hash",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_missing_policy__masking",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "nullify", "columns": ["missing_mask_column"]}],
+        "configure": {"missing_column_policy": "ignore"}
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_missing_masking",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_missing_policy__projection",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "select_columns": ["record_id", "missing_select_column"],
+        "configure": {"missing_column_policy": "ignore"}
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_missing_projection",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_value__invalid_typed_fill",
+      "stage": "transform_features_invalid_fill",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "value_rules": [{"operation": "fill_null", "columns": ["age"], "value": "invalid"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_invalid_typed_fill",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_mask__invalid_typed_redact",
+      "stage": "transform_features_invalid_redact",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "masking_rules": [{"method": "redact", "columns": ["age"], "value": "invalid"}]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_invalid_typed_redact",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_sanitizer__collision",
+      "stage": "transform_features_sanitizer_collision",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "collision"},
+      "transform": {},
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_sanitizer_collision",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_dedup__missing_is_strict",
+      "stage": "transform_features_dedup_strict",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "deduplicate_columns": ["record_id"],
+        "latest_data_columns": ["missing_order"],
+        "configure": {"missing_column_policy": "ignore"}
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_dedup_strict",
+        "load_type": "overwrite"
+      }
+    }
+  ],
+  "schema_hints": []
+}

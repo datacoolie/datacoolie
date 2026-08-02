@@ -7,8 +7,6 @@ can be excluded from fast unit test runs via ``-m "not spark"``.
 from __future__ import annotations
 
 import json
-import os
-import shutil
 from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -26,7 +24,8 @@ from datacoolie.core.constants import (  # noqa: E402
     FileInfoColumn,
     SystemColumn,
 )
-from datacoolie.core.exceptions import EngineError  # noqa: E402
+from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
+from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.destinations.delta_writer import DeltaWriter  # noqa: E402
 from datacoolie.engines.spark_engine import SparkEngine  # noqa: E402
 
@@ -276,6 +275,15 @@ class TestTransforms:
         result = engine.rename_column(sample_df, "name", "full_name")
         assert "full_name" in engine.get_columns(result)
         assert "name" not in engine.get_columns(result)
+
+    def test_rename_columns(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+        result = engine.rename_columns(
+            sample_df, {"name": "full_name", "date_str": "event_date"}
+        )
+        assert "full_name" in engine.get_columns(result)
+        assert "event_date" in engine.get_columns(result)
+        assert "name" not in engine.get_columns(result)
+        assert "date_str" not in engine.get_columns(result)
 
     def test_filter_rows(self, engine: SparkEngine, sample_df: DataFrame) -> None:
         result = engine.filter_rows(sample_df, "id > 1")
@@ -750,3 +758,167 @@ class TestSparkToHiveType:
         engine = SparkEngine(spark)
         result = engine.get_hive_schema(df)
         assert result == {"id": "BIGINT", "name": "STRING", "tags": "ARRAY<STRING>"}
+class TestTypedValueAndMaskingRules:
+    def test_native_value_rules(self, engine: SparkEngine, spark: SparkSession) -> None:
+        frame = spark.createDataFrame(
+            [(" A@X.COM ", "A"), (None, "X")], ["email", "status"]
+        )
+        frame = engine.apply_value_rule(frame, ValueRule(operation="trim", columns=["email"]))
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="case", columns=["email"], mode="lower")
+        )
+        frame = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="map", columns=["status"], mapping={"A": "active"}),
+        )
+        assert [tuple(row) for row in frame.collect()] == [("a@x.com", "active"), (None, "X")]
+
+    def test_native_masking_rules(self, engine: SparkEngine, spark: SparkSession) -> None:
+        frame = spark.createDataFrame(
+            [("1234567", 17), ("12", 25), (None, None)], ["phone", "amount"]
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="partial", columns=["phone"], keep_end=2)
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="numeric_bucket", columns=["amount"], bucket_size=10)
+        )
+        assert [tuple(row) for row in frame.collect()] == [
+            ("*67", 10), ("*", 20), (None, None)
+        ]
+
+    def test_trim_is_ascii_space_only(self, engine: SparkEngine, spark: SparkSession) -> None:
+        frame = spark.createDataFrame([(" \tA\u00a0 ",)], ["text"])
+        result = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="trim", columns=["text"]),
+        )
+        assert result.collect()[0]["text"] == "\tA\u00a0"
+
+    def test_regex_replacement_is_literal(
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+    ) -> None:
+        frame = spark.createDataFrame([("a",)], ["text"])
+        result = engine.apply_value_rule(
+            frame,
+            ValueRule(
+                operation="regex_replace",
+                columns=["text"],
+                pattern="(a)",
+                replacement=r"$1\tail",
+            ),
+        )
+        assert result.collect()[0]["text"] == r"$1\tail"
+
+    @pytest.mark.parametrize("ansi_enabled", ["true", "false"])
+    def test_invalid_typed_literal_is_independent_of_ansi_mode(
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+        ansi_enabled: str,
+    ) -> None:
+        original = spark.conf.get("spark.sql.ansi.enabled")
+        spark.conf.set("spark.sql.ansi.enabled", ansi_enabled)
+        try:
+            frame = spark.createDataFrame([(1,), (None,)], ["amount"])
+            with pytest.raises(TransformError, match="literal"):
+                engine.apply_value_rule(
+                    frame,
+                    ValueRule(
+                        operation="fill_null",
+                        columns=["amount"],
+                        value="invalid",
+                    ),
+                )
+        finally:
+            spark.conf.set("spark.sql.ansi.enabled", original)
+
+    def test_multi_column_rule_adds_one_project_node(
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+    ) -> None:
+        columns = [f"c{index}" for index in range(100)]
+        frame = spark.createDataFrame([tuple(" value " for _ in columns)], columns)
+
+        result = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="trim", columns=columns),
+        )
+
+        analyzed = result._jdf.queryExecution().analyzed().toString()
+        assert analyzed.count("Project") == 1
+
+    def test_remaining_native_rule_operations(self, engine: SparkEngine, spark: SparkSession) -> None:
+        from datetime import datetime
+
+        frame = spark.createDataFrame(
+            [
+                ("a-1", None, "abc", "a", datetime(2024, 5, 17, 12, 34)),
+                ("", 2, None, "b", datetime(2024, 5, 17, 12, 34)),
+            ],
+            ["text", "score", "secret", "remove_me", "occurred_at"],
+        )
+        frame = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="regex_replace", columns=["text"], pattern="-"),
+        )
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="empty_to_null", columns=["text"])
+        )
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="fill_null", columns=["score"], value=9)
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="redact", columns=["secret"], value="hidden")
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="nullify", columns=["remove_me"])
+        )
+        frame = engine.apply_masking_rule(
+            frame,
+            MaskingRule(method="date_truncate", columns=["occurred_at"], unit="month"),
+        )
+        assert [tuple(row) for row in frame.collect()] == [
+            ("a1", 9, "hidden", None, datetime(2024, 5, 1)),
+            (None, 2, None, None, datetime(2024, 5, 1)),
+        ]
+
+
+class TestStableHashColumns:
+    def test_sha256_canonical_payload(self, engine: SparkEngine, spark: SparkSession) -> None:
+        from datetime import date
+        from pyspark.sql import types as T
+
+        schema = T.StructType(
+            [
+                T.StructField("country", T.StringType(), True),
+                T.StructField("customer_id", T.LongType(), True),
+                T.StructField("active", T.BooleanType(), True),
+                T.StructField("business_date", T.DateType(), True),
+            ]
+        )
+        frame = spark.createDataFrame(
+            [
+                ("VN", 123, True, date(2026, 8, 1)),
+                ("Việt Nam", -4, False, date(2024, 1, 2)),
+                ("", 0, True, date(1970, 1, 1)),
+                (None, None, None, None),
+            ],
+            schema,
+        )
+        result = engine.add_hash_column(
+            frame,
+            HashColumn(
+                target_column="business_hash",
+                columns=["country", "customer_id", "active", "business_date"],
+            ),
+        )
+        assert [row.business_hash for row in result.select("business_hash").collect()] == [
+            "842577920fb330d701994d15e8e4fb4a0a2ab2e0042d7b6f8aebb8251f9bfb8c",
+            "5cb808ee58dfd69c938d9ecacf7f4c39b923a0b9c38a966b8d9ab8341424e0c6",
+            "036414af1fb43b2fd0761dea6c72827f810d4cb1134a471ee1d41e63864f2c2b",
+            "3486794cdeaf9e4af12ee78b4cd9738d29b833149974c7aff14eccc86192dc52",
+        ]

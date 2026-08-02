@@ -7,7 +7,7 @@ Single entrypoint that replaces:
 
 Targets (comma-separated via --targets):
     local     : write CSV/JSON/JSONL/Parquet/Parquet_dated/Parquet_hive/Avro/Excel/SQLite
-                under usecase-sim/data/input/**
+                plus the focused transformer Parquet fixture under data/input/**
     minio     : upload data/input/** → s3://datacoolie-test/input/**
     pg        : create + seed source_orders in PostgreSQL
     mysql     : same for MySQL
@@ -27,6 +27,7 @@ import json
 import sqlite3
 import sys
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -36,6 +37,10 @@ from _common import (  # noqa: E402
     MINIO_BUCKET,
     SAMPLE_COLUMNS,
     SAMPLE_ROWS,
+    TRANSFORMER_COLUMNS,
+    TRANSFORMER_COLLISION_COLUMNS,
+    TRANSFORMER_COLLISION_ROWS,
+    TRANSFORMER_ROWS,
     SOURCE_ORDERS_ROWS,
     ensure_bucket,
     port_open,
@@ -94,6 +99,62 @@ def _write_parquet(rows, path: Path) -> None:
     })
     pq.write_table(table, path)
     logger.info("PQT   → %s (%d rows)", path, len(rows))
+
+
+def _write_transformer_parquet(path: Path) -> None:
+    """Write the strongly typed fixture used by transformer E2E scenarios."""
+    import pyarrow as pa  # noqa: PLC0415
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cols = list(zip(*TRANSFORMER_ROWS))
+    table = pa.table(
+        {
+            "record_id": pa.array(cols[0], type=pa.int64()),
+            "email": pa.array(cols[1], type=pa.string()),
+            "status": pa.array(cols[2], type=pa.string()),
+            "phone": pa.array(cols[3], type=pa.string()),
+            "formatted_phone": pa.array(cols[4], type=pa.string()),
+            "age": pa.array(cols[5], type=pa.int64()),
+            "birth_date": pa.array(
+                [date.fromisoformat(value) for value in cols[6]], type=pa.date32()
+            ),
+            "country_code": pa.array(cols[7], type=pa.string()),
+            "customer_id": pa.array(cols[8], type=pa.int64()),
+            "notes": pa.array(cols[9], type=pa.string()),
+            "secret": pa.array(cols[10], type=pa.string()),
+            "drop_me": pa.array(cols[11], type=pa.string()),
+            "nullable_label": pa.array(cols[12], type=pa.string()),
+            "ordered_text": pa.array(cols[13], type=pa.string()),
+            "whitespace_text": pa.array(cols[14], type=pa.string()),
+            "optional_phone": pa.array(cols[15], type=pa.string()),
+        }
+    )
+    pq.write_table(table, path)
+    logger.info(
+        "PQT   → %s (%d transformer rows, %d columns)",
+        path,
+        len(TRANSFORMER_ROWS),
+        len(TRANSFORMER_COLUMNS),
+    )
+
+
+def _write_transformer_collision_parquet(path: Path) -> None:
+    """Write a fixture whose business names collide after sanitization."""
+    import pyarrow as pa  # noqa: PLC0415
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cols = list(zip(*TRANSFORMER_COLLISION_ROWS))
+    table = pa.table(
+        {
+            TRANSFORMER_COLLISION_COLUMNS[0]: pa.array(cols[0], type=pa.int64()),
+            TRANSFORMER_COLLISION_COLUMNS[1]: pa.array(cols[1], type=pa.string()),
+            TRANSFORMER_COLLISION_COLUMNS[2]: pa.array(cols[2], type=pa.string()),
+        }
+    )
+    pq.write_table(table, path)
+    logger.info("PQT   → %s (%d sanitizer-collision rows)", path, len(table))
 
 
 def _write_parquet_dated(rows, base: Path) -> None:
@@ -185,6 +246,12 @@ def generate_local() -> None:
     _write_sqlite(SAMPLE_ROWS, INPUT_DIR / "sqlite" / "orders.db")
     _write_parquet_dated(SAMPLE_ROWS, INPUT_DIR / "parquet_dated" / "sample")
     _write_parquet_hive (SAMPLE_ROWS, INPUT_DIR / "parquet_hive"  / "sample")
+    _write_transformer_parquet(
+        INPUT_DIR / "transform_features" / "sample" / "sample.parquet"
+    )
+    _write_transformer_collision_parquet(
+        INPUT_DIR / "transform_features" / "collision" / "collision.parquet"
+    )
 
 
 # ===========================================================================

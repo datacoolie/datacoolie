@@ -79,6 +79,31 @@ If neither artifact exists → fall back to interactive mode (Step 1 asks everyt
 4. Fill remaining fields: `description`, `group_number`, `execution_order`
 5. Apply `secrets_ref` from user input (Step 1)
 
+When authoring `transform`:
+
+- Use typed `value_rules` for trim, case conversion, regex replacement,
+  empty-to-null, literal null filling, and exact mappings. Rules run before
+  schema casting and are stably ordered by `(order, declaration index)`, with
+  default order `100`. `trim` removes ASCII U+0020 spaces only.
+- Author `regex_replace` with DataCoolie portable regex v1: use literals,
+  explicit character classes, anchors, grouping, and alternation. Do not use
+  lookaround, backreferences, named groups, inline flags, `\d`/`\w`/`\s`/`\b`,
+  or nested quantified groups. Replacement text is literal, including `$` and
+  backslash characters.
+- Keep business hashing (`hash_columns`) separate from PII controls
+  (`masking_rules`). A generated hash becomes a merge or dedup key only when
+  the user explicitly references its target column there.
+- Treat `select_columns` and `drop_columns` as mutually exclusive. Projection
+  resolves source names before applying the atomic `rename_columns` mapping.
+- Default `configure.missing_column_policy` to `error`, especially for masking.
+  `ignore` applies to typed value/hash/masking rules and projection; missing
+  schema hints warn and skip, while configured dedup columns remain strict.
+- Warn Polars users that `hash_columns` requires the optional
+  `datacoolie[polars-hash]` extra. Never substitute Python UDF hashing.
+- For `partial` masking, empty strings remain empty and every non-empty value
+  shorter than or equal to the configured retained edges becomes exactly one
+  `mask_char`; never emit the raw short value.
+
 ### Step 3: Write
 
 Default output uses modular stage files, created only for stages in scope for the current request.

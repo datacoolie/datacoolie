@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
 from unittest.mock import MagicMock
 
 import pytest
@@ -63,17 +62,39 @@ class TestSchemaConverter:
         sc.transform({"amount": 100}, df)
         assert len(engine._casts) == 0
 
-    def test_skips_missing_columns(self, engine: MockEngine) -> None:
-        engine.set_columns(["id"])
+    def test_missing_column_warns_and_skips(
+        self, engine: MockEngine, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        engine.set_columns(["id", "amount"])
         df = _make_dataflow(
             use_schema_hint=True,
             schema_hints=[
-                SchemaHint(column_name="nonexistent", data_type="STRING"),
+                SchemaHint(column_name="missing_one", data_type="STRING"),
+                SchemaHint(column_name="amount", data_type="INT"),
+                SchemaHint(column_name="missing_two", data_type="DATE"),
             ],
         )
         sc = SchemaConverter(engine)
-        sc.transform({"id": 1}, df)
-        assert len(engine._casts) == 0
+        sc.transform({"id": 1, "amount": "2"}, df)
+        assert len(engine._casts) == 1
+        assert caplog.text.count("active schema-hint column(s) not found") == 1
+        assert "missing_one" in caplog.text
+        assert "missing_two" in caplog.text
+
+    def test_all_missing_hints_warn_and_mark_transformer_skipped(
+        self, engine: MockEngine, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        engine.set_columns(["id"])
+        dataflow = _make_dataflow(
+            use_schema_hint=True,
+            schema_hints=[SchemaHint(column_name="missing", data_type="STRING")],
+        )
+        transformer = SchemaConverter(engine)
+
+        transformer.transform({"id": 1}, dataflow)
+
+        assert transformer.applied_label is None
+        assert "active schema-hint column(s) not found" in caplog.text
 
     def test_case_insensitive_column_match(self, engine: MockEngine) -> None:
         engine.set_columns(["Amount"])

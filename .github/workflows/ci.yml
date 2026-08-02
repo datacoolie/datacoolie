@@ -32,19 +32,15 @@ jobs:
       - name: Install dependencies
         env:
           POETRY_VIRTUALENVS_IN_PROJECT: true
-        run: |
-          if [ "${{ steps.cache-venv.outputs.cache-hit }}" = "true" ]; then
-            poetry install --only-root
-          else
-            poetry install --with dev
-          fi
+        run: poetry sync --with dev -E polars -E deltalake -E polars-hash
 
       - name: Validate Poetry metadata
-        run: poetry check
+        run: poetry check --lock --strict
 
       - name: Build package
         run: poetry build
 
-      - name: Advisory Pytest
-        continue-on-error: true
-        run: poetry run pytest tests/ --tb=short
+      - name: Required non-Spark tests
+        # Spark tests are intentionally local-only because JVM startup makes
+        # them too expensive for the GitHub-hosted validation job.
+        run: poetry run pytest tests/ -m "not spark" --tb=short

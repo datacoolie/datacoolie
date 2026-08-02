@@ -506,15 +506,171 @@
           "default": [],
           "description": "Column-level type hints for schema conversion."
         },
+        "select_columns": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Business columns to keep, resolved before rename_columns. Mutually exclusive with drop_columns."
+        },
+        "drop_columns": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Business columns to remove, resolved before rename_columns. Mutually exclusive with select_columns."
+        },
+        "rename_columns": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 },
+          "default": {},
+          "description": "Atomic old-name to new-name mapping. Chains, cycles, and overwrites are invalid."
+        },
+        "value_rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ValueRule" },
+          "default": [],
+          "description": "Typed normalization rules applied before schema casting."
+        },
+        "hash_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HashColumn" },
+          "default": [],
+          "description": "Stable SHA-256 business hash columns generated from canonical scalar payloads."
+        },
+        "masking_rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MaskingRule" },
+          "default": [],
+          "description": "Structured scalar masking rules applied before projection."
+        },
         "configure": {
           "type": "object",
           "description": "Transform-level configuration.",
           "properties": {
             "convert_timestamp_ntz": { "type": "boolean", "default": true, "description": "Convert timestamp_ntz columns to timestamp." },
-            "deduplicate_by_rank": { "type": "boolean", "default": false, "description": "Use RANK-based dedup instead of ROW_NUMBER." }
+            "deduplicate_by_rank": { "type": "boolean", "default": false, "description": "Use RANK-based dedup instead of ROW_NUMBER." },
+            "missing_column_policy": { "type": "string", "enum": ["error", "ignore"], "default": "error", "description": "Behavior for absent columns in typed value/hash/masking rules and projection. Missing schema hints warn and skip; deduplication remains strict." }
           },
           "additionalProperties": true
         }
+      },
+      "allOf": [
+        {
+          "not": {
+            "properties": {
+              "select_columns": { "minItems": 1 },
+              "drop_columns": { "minItems": 1 }
+            },
+            "required": ["select_columns", "drop_columns"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+
+    "ValueRule": {
+      "type": "object",
+      "required": ["operation", "columns"],
+      "properties": {
+        "operation": { "type": "string", "enum": ["trim", "case", "regex_replace", "empty_to_null", "fill_null", "map"] },
+        "columns": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+        "order": { "type": "integer", "minimum": 0, "default": 100 },
+        "mode": { "type": ["string", "null"], "enum": ["lower", "upper", null] },
+        "pattern": {
+          "type": ["string", "null"],
+          "maxLength": 4096,
+          "description": "DataCoolie portable regex v1; engine-specific constructs such as lookaround, backreferences, named groups, inline flags, and Unicode shorthand classes are rejected by runtime validation."
+        },
+        "replacement": {
+          "type": "string",
+          "default": "",
+          "description": "Literal replacement text; capture-group expansion is not supported."
+        },
+        "value": { "type": ["string", "number", "integer", "boolean", "null"] },
+        "mapping": { "type": "object", "additionalProperties": { "type": "string" }, "default": {} },
+        "on_unmapped": { "type": "string", "enum": ["keep", "null"], "default": "keep" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "operation": { "const": "case" } }, "required": ["operation"] },
+          "then": {
+            "required": ["mode"],
+            "properties": { "mode": { "type": "string", "enum": ["lower", "upper"] } }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "regex_replace" } }, "required": ["operation"] },
+          "then": {
+            "required": ["pattern"],
+            "properties": { "pattern": { "type": "string", "maxLength": 4096 } }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "fill_null" } }, "required": ["operation"] },
+          "then": {
+            "required": ["value"],
+            "properties": { "value": { "type": ["string", "number", "integer", "boolean"] } }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "map" } }, "required": ["operation"] },
+          "then": {
+            "required": ["mapping"],
+            "properties": { "mapping": { "minProperties": 1 } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+
+    "MaskingRule": {
+      "type": "object",
+      "required": ["method", "columns"],
+      "properties": {
+        "method": { "type": "string", "enum": ["redact", "nullify", "partial", "numeric_bucket", "date_truncate"] },
+        "columns": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+        "value": { "type": ["string", "number", "integer", "boolean", "null"] },
+        "keep_start": { "type": "integer", "minimum": 0, "default": 0 },
+        "keep_end": { "type": "integer", "minimum": 0, "default": 0 },
+        "mask_char": { "type": "string", "minLength": 1, "maxLength": 1, "default": "*" },
+        "bucket_size": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "unit": { "type": ["string", "null"], "enum": ["year", "month", "day", "hour", null] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "method": { "const": "redact" } }, "required": ["method"] },
+          "then": {
+            "required": ["value"],
+            "properties": { "value": { "type": ["string", "number", "integer", "boolean"] } }
+          }
+        },
+        {
+          "if": { "properties": { "method": { "const": "numeric_bucket" } }, "required": ["method"] },
+          "then": {
+            "required": ["bucket_size"],
+            "properties": { "bucket_size": { "type": "number", "exclusiveMinimum": 0 } }
+          }
+        },
+        {
+          "if": { "properties": { "method": { "const": "date_truncate" } }, "required": ["method"] },
+          "then": {
+            "required": ["unit"],
+            "properties": { "unit": { "type": "string", "enum": ["year", "month", "day", "hour"] } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+
+    "HashColumn": {
+      "type": "object",
+      "required": ["target_column", "columns"],
+      "properties": {
+        "target_column": { "type": "string", "minLength": 1 },
+        "columns": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+        "algorithm": { "type": "string", "enum": ["sha256"], "default": "sha256" },
+        "serialization": { "type": "string", "enum": ["dc_hash_v1"], "default": "dc_hash_v1" }
       },
       "additionalProperties": false
     },

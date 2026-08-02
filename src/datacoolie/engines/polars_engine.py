@@ -16,6 +16,7 @@ Catalog support:
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import io
 import os
@@ -26,6 +27,24 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import polars as pl
+
+from datacoolie.core.constants import (
+    DEFAULT_AUTHOR,
+    DatabaseAuthType,
+    DatabaseType,
+    FileInfoColumn,
+    SCD2Column,
+    SystemColumn,
+    Format,
+    LoadType,
+    TRAILING_COLUMNS,
+)
+from datacoolie.core.exceptions import EngineError, TransformError
+from datacoolie.core.models import HashColumn, MaskingRule, ValueRule
+from datacoolie.platforms.base import BasePlatform
+from datacoolie.engines.base import BaseEngine, FileInfo
+from datacoolie.logging.base import get_logger
+from datacoolie.utils.path_utils import normalize_path
 
 # Cached set of parameter names accepted by pl.scan_csv.
 # Computed once at import time so runtime checks are O(1).
@@ -42,23 +61,6 @@ except ImportError:
 # LazyFrame.sink_delta was added in Polars 0.20.x.
 # Fall back to DataFrame.collect().write_delta on older installations.
 _SINK_DELTA_AVAILABLE: bool = hasattr(pl.LazyFrame, "sink_delta")
-
-from datacoolie.core.constants import (
-    DEFAULT_AUTHOR,
-    DatabaseAuthType,
-    DatabaseType,
-    FileInfoColumn,
-    SCD2Column,
-    SystemColumn,
-    Format,
-    LoadType,
-    TRAILING_COLUMNS,
-)
-from datacoolie.core.exceptions import EngineError
-from datacoolie.platforms.base import BasePlatform
-from datacoolie.engines.base import BaseEngine, FileInfo
-from datacoolie.logging.base import get_logger
-from datacoolie.utils.path_utils import normalize_path
 
 logger = get_logger(__name__)
 
@@ -744,7 +746,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         as ``connect_args`` to ``sqlalchemy.create_engine``.
         """
         try:
-            from sqlalchemy import create_engine, text  # noqa: PLC0415
+            from sqlalchemy import create_engine  # noqa: PLC0415
         except ImportError as exc:
             raise EngineError(
                 "sqlalchemy is required for non-password MSSQL auth — "
@@ -2075,6 +2077,231 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     def rename_column(self, df: pl.LazyFrame, old_name: str, new_name: str) -> pl.LazyFrame:
         actual_old = self._resolve_column_name(self._schema_names(df), old_name)
         return df.rename({actual_old: new_name})
+
+    def rename_columns(
+        self, df: pl.LazyFrame, mapping: Dict[str, str]
+    ) -> pl.LazyFrame:
+        if not mapping:
+            return df
+        actual = self._schema_names(df)
+        resolved = {
+            self._resolve_column_name(actual, old_name): new_name
+            for old_name, new_name in mapping.items()
+        }
+        return df.rename(resolved)
+
+    def apply_value_rule(
+        self, df: pl.LazyFrame, rule: ValueRule, *, missing_column_policy: str = "error"
+    ) -> pl.LazyFrame:
+        schema = df.collect_schema()
+        actual = schema.names()
+        resolved_columns: List[str] = []
+        for requested in rule.columns:
+            try:
+                resolved_columns.append(self._resolve_column_name(actual, requested))
+            except EngineError:
+                if missing_column_policy == "ignore":
+                    continue
+                raise
+
+        expressions: List[pl.Expr] = []
+        for column in resolved_columns:
+            dtype = schema[column]
+            source = pl.col(column)
+            if rule.operation in {"trim", "case", "regex_replace", "empty_to_null", "map"} and dtype != pl.String:
+                raise TransformError(
+                    f"Value rule {rule.operation!r} requires a string column",
+                    details={"column": column, "data_type": str(dtype)},
+                )
+            if rule.operation == "trim":
+                result = source.str.strip_chars(" ")
+            elif rule.operation == "case":
+                result = source.str.to_lowercase() if rule.mode == "lower" else source.str.to_uppercase()
+            elif rule.operation == "regex_replace":
+                result = source.str.replace_all(
+                    rule.pattern or "",
+                    self._escape_regex_replacement(rule.replacement),
+                )
+            elif rule.operation == "empty_to_null":
+                result = pl.when(source == "").then(None).otherwise(source)
+            elif rule.operation == "fill_null":
+                literal = self._coerce_transform_literal(
+                    rule.value,
+                    dtype,
+                    field_path="value_rules.value",
+                    column=column,
+                )
+                result = source.fill_null(pl.lit(literal).cast(dtype))
+            else:  # map
+                mapped = source.replace_strict(rule.mapping, default=None, return_dtype=pl.String)
+                result = pl.coalesce(mapped, source) if rule.on_unmapped == "keep" else mapped
+            expressions.append(result.alias(column))
+        return df.with_columns(expressions) if expressions else df
+
+    def apply_masking_rule(
+        self, df: pl.LazyFrame, rule: MaskingRule, *, missing_column_policy: str = "error"
+    ) -> pl.LazyFrame:
+        schema = df.collect_schema()
+        actual = schema.names()
+        resolved_columns: List[str] = []
+        for requested in rule.columns:
+            try:
+                resolved_columns.append(self._resolve_column_name(actual, requested))
+            except EngineError:
+                if missing_column_policy == "ignore":
+                    continue
+                raise
+
+        expressions: List[pl.Expr] = []
+        for column in resolved_columns:
+            dtype = schema[column]
+            source = pl.col(column)
+            if rule.method == "redact":
+                literal = self._coerce_transform_literal(
+                    rule.value,
+                    dtype,
+                    field_path="masking_rules.value",
+                    column=column,
+                )
+                result = pl.when(source.is_null()).then(source).otherwise(pl.lit(literal).cast(dtype))
+            elif rule.method == "nullify":
+                result = pl.lit(None).cast(dtype)
+            elif rule.method == "partial":
+                if dtype != pl.String:
+                    raise TransformError("partial masking requires a string column", details={"column": column})
+                prefix = source.str.slice(0, rule.keep_start) if rule.keep_start else pl.lit("")
+                suffix = source.str.slice(-rule.keep_end, rule.keep_end) if rule.keep_end else pl.lit("")
+                masked = pl.concat_str(prefix, pl.lit(rule.mask_char), suffix)
+                result = (
+                    pl.when(source.is_null())
+                    .then(source)
+                    .when(source == "")
+                    .then(source)
+                    .when(source.str.len_chars() <= rule.keep_start + rule.keep_end)
+                    .then(pl.lit(rule.mask_char))
+                    .otherwise(masked)
+                )
+            elif rule.method == "numeric_bucket":
+                if not dtype.is_numeric():
+                    raise TransformError("numeric_bucket requires a numeric column", details={"column": column})
+                result = ((source / rule.bucket_size).floor() * rule.bucket_size).cast(dtype)
+            else:  # date_truncate
+                if dtype == pl.Date and rule.unit == "hour":
+                    raise TransformError("date_truncate hour requires a datetime column", details={"column": column})
+                if dtype != pl.Date and not isinstance(dtype, pl.Datetime):
+                    raise TransformError("date_truncate requires a date or datetime column", details={"column": column})
+                every = {"year": "1y", "month": "1mo", "day": "1d", "hour": "1h"}[rule.unit]
+                result = source.dt.truncate(every).cast(dtype)
+            expressions.append(result.alias(column))
+        return df.with_columns(expressions) if expressions else df
+
+    @staticmethod
+    def _escape_regex_replacement(value: str) -> str:
+        """Escape literal text for Rust-regex replacement syntax."""
+        return value.replace("$", "$$")
+
+    @classmethod
+    def _coerce_transform_literal(
+        cls,
+        value: Any,
+        dtype: pl.DataType,
+        *,
+        field_path: str,
+        column: str,
+    ) -> Any:
+        kwargs: Dict[str, Any] = {"field_path": field_path, "column": column}
+        if dtype == pl.String:
+            return cls._coerce_scalar_literal(value, kind="string", **kwargs)
+        if dtype == pl.Boolean:
+            return cls._coerce_scalar_literal(value, kind="boolean", **kwargs)
+        integer_bounds = {
+            pl.Int8: (-(2**7), 2**7 - 1),
+            pl.Int16: (-(2**15), 2**15 - 1),
+            pl.Int32: (-(2**31), 2**31 - 1),
+            pl.Int64: (-(2**63), 2**63 - 1),
+            pl.UInt8: (0, 2**8 - 1),
+            pl.UInt16: (0, 2**16 - 1),
+            pl.UInt32: (0, 2**32 - 1),
+            pl.UInt64: (0, 2**64 - 1),
+        }
+        if dtype in integer_bounds:
+            minimum, maximum = integer_bounds[dtype]
+            return cls._coerce_scalar_literal(
+                value,
+                kind="integer",
+                minimum=minimum,
+                maximum=maximum,
+                **kwargs,
+            )
+        if dtype in {pl.Float32, pl.Float64}:
+            return cls._coerce_scalar_literal(value, kind="float", **kwargs)
+        if isinstance(dtype, pl.Decimal):
+            return cls._coerce_scalar_literal(
+                value,
+                kind="decimal",
+                precision=dtype.precision,
+                scale=dtype.scale,
+                **kwargs,
+            )
+        if dtype == pl.Date:
+            return cls._coerce_scalar_literal(value, kind="date", **kwargs)
+        if isinstance(dtype, pl.Datetime):
+            return cls._coerce_scalar_literal(
+                value,
+                kind="timestamp",
+                timezone_aware=dtype.time_zone is not None,
+                **kwargs,
+            )
+        return cls._coerce_scalar_literal(value, kind="unsupported", **kwargs)
+
+    def add_hash_column(self, df: pl.LazyFrame, definition: HashColumn) -> pl.LazyFrame:
+        """Add SHA-256 over DataCoolie's canonical scalar payload."""
+        try:
+            polars_hash = importlib.import_module("polars_hash")
+        except (ImportError, OSError) as exc:
+            raise EngineError(
+                "hash_columns with the Polars engine requires the optional polars-hash package",
+                details={"install": "pip install 'datacoolie[polars-hash]'"},
+            ) from exc
+
+        schema = df.collect_schema()
+        actual = schema.names()
+        components: List[pl.Expr] = []
+        for requested in definition.columns:
+            column = self._resolve_column_name(actual, requested)
+            dtype = schema[column]
+            source = pl.col(column)
+            if dtype == pl.String:
+                tag, text = "S", source
+            elif dtype.is_integer():
+                tag, text = "I", source.cast(pl.String)
+            elif dtype == pl.Boolean:
+                tag = "B"
+                text = pl.when(source).then(pl.lit("true")).otherwise(pl.lit("false"))
+            elif dtype == pl.Date:
+                tag, text = "D", source.dt.strftime("%Y-%m-%d")
+            else:
+                raise TransformError(
+                    "hash_columns supports only string, integer, boolean, and date inputs",
+                    details={"column": column, "data_type": str(dtype)},
+                )
+            component = (
+                pl.when(source.is_null())
+                .then(pl.lit(f"{tag}N;"))
+                .otherwise(
+                    pl.concat_str(
+                        pl.lit(tag),
+                        text.str.len_bytes().cast(pl.String),
+                        pl.lit(":"),
+                        text,
+                        pl.lit(";"),
+                    )
+                )
+            )
+            components.append(component)
+        payload = polars_hash.concat_str([pl.lit("DCH1;"), *components])
+        digest = payload.chash.sha2_256()
+        return df.with_columns(digest.alias(definition.target_column))
 
     def filter_rows(self, df: pl.LazyFrame, condition: str) -> pl.LazyFrame:
         return df.filter(pl.sql_expr(condition))

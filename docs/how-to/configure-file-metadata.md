@@ -100,8 +100,20 @@ optional for the minimal case.
 |---|---|---|---|---|---|---|---|---|
 | orders_to_bronze | ingest2bronze | src | sales | orders | bronze | sales | orders | append |
 
-For a short workbook, keep nested JSON in the `configure` cell. The parser also
-accepts `configure_*` and `transform_*` columns when you need flatter editing.
+For a short workbook, keep nested JSON in the `configure` and `transform`
+cells. The parser also accepts `configure_*` and flat transform columns when
+you need easier spreadsheet editing:
+
+- list cells: `transform_select_columns` and `transform_drop_columns`
+- JSON object/array cells: `transform_rename_columns`,
+  `transform_value_rules`, `transform_hash_columns`,
+  `transform_masking_rules`, `transform_additional_columns`, and
+  `transform_configure`; `transform_deduplicate_columns` and
+  `transform_latest_data_columns` use JSON arrays
+- scalar cells: `transform_filter_expression`
+
+Flat values are merged into the `transform` object. JSON cells must contain
+valid JSON; list cells accept a JSON array or a comma-separated string.
 
 ## Loading
 

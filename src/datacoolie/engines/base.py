@@ -31,12 +31,14 @@ Section layout
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
 from datacoolie.core.constants import SystemColumn, Format
-from datacoolie.core.exceptions import EngineError
+from datacoolie.core.exceptions import EngineError, TransformError
 from datacoolie.platforms.base import BasePlatform, FileInfo
 from datacoolie.logging.base import get_logger
 
@@ -461,6 +463,176 @@ class BaseEngine(ABC, Generic[DF]):
     @abstractmethod
     def rename_column(self, df: DF, old_name: str, new_name: str) -> DF:
         """Rename a column."""
+
+    def rename_columns(self, df: DF, mapping: Dict[str, str]) -> DF:
+        """Rename multiple columns.
+
+        Engines can override this compatibility fallback with a native batch
+        operation. Keeping the default concrete avoids breaking third-party
+        engines that only implement :meth:`rename_column`.
+        """
+        for old_name, new_name in mapping.items():
+            df = self.rename_column(df, old_name, new_name)
+        return df
+
+    @staticmethod
+    def _coerce_scalar_literal(
+        value: Any,
+        *,
+        kind: str,
+        field_path: str,
+        column: str,
+        minimum: int | None = None,
+        maximum: int | None = None,
+        precision: int | None = None,
+        scale: int | None = None,
+        timezone_aware: bool | None = None,
+    ) -> Any:
+        """Strictly coerce a scalar before an adapter builds a native literal."""
+        details = {"field": field_path, "column": column, "target_type": kind}
+
+        if kind == "string":
+            if isinstance(value, str):
+                return value
+            BaseEngine._raise_literal_error(details, value)
+
+        if kind == "boolean":
+            if isinstance(value, bool):
+                return value
+            BaseEngine._raise_literal_error(details, value)
+
+        if kind == "integer":
+            if not isinstance(value, int) or isinstance(value, bool):
+                BaseEngine._raise_literal_error(details, value)
+            if (minimum is not None and value < minimum) or (
+                maximum is not None and value > maximum
+            ):
+                raise TransformError(
+                    "Transformer literal is outside the target integer range",
+                    details={**details, "minimum": minimum, "maximum": maximum},
+                )
+            return value
+
+        if kind == "float":
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                BaseEngine._raise_literal_error(details, value)
+            result = float(value)
+            if not math.isfinite(result):
+                raise TransformError(
+                    "Transformer float literal must be finite",
+                    details=details,
+                )
+            return result
+
+        if kind == "decimal":
+            if not isinstance(value, (int, str)) or isinstance(value, bool):
+                BaseEngine._raise_literal_error(details, value)
+            try:
+                result = Decimal(value)
+            except (InvalidOperation, ValueError) as exc:
+                raise TransformError(
+                    "Invalid transformer decimal literal",
+                    details=details,
+                ) from exc
+            if not result.is_finite():
+                raise TransformError(
+                    "Transformer decimal literal must be finite",
+                    details=details,
+                )
+            BaseEngine._validate_decimal_literal(
+                result,
+                precision,
+                scale,
+                details,
+            )
+            return result
+
+        if kind == "date":
+            if isinstance(value, datetime):
+                BaseEngine._raise_literal_error(details, value)
+            if isinstance(value, date):
+                return value
+            if isinstance(value, str):
+                try:
+                    return date.fromisoformat(value)
+                except ValueError as exc:
+                    raise TransformError(
+                        "Invalid ISO date transformer literal",
+                        details=details,
+                    ) from exc
+            BaseEngine._raise_literal_error(details, value)
+
+        if kind == "timestamp":
+            if isinstance(value, datetime):
+                result = value
+            elif isinstance(value, str):
+                try:
+                    result = datetime.fromisoformat(value)
+                except ValueError as exc:
+                    raise TransformError(
+                        "Invalid ISO timestamp transformer literal",
+                        details=details,
+                    ) from exc
+            else:
+                BaseEngine._raise_literal_error(details, value)
+            is_aware = result.utcoffset() is not None
+            if timezone_aware is not None and is_aware != timezone_aware:
+                expected = "timezone-aware" if timezone_aware else "timezone-naive"
+                raise TransformError(
+                    f"Transformer timestamp literal must be {expected}",
+                    details=details,
+                )
+            return result
+
+        raise TransformError(
+            "Transformer literal target type is unsupported",
+            details=details,
+        )
+
+    @staticmethod
+    def _raise_literal_error(details: Dict[str, Any], value: Any) -> None:
+        raise TransformError(
+            "Transformer literal is incompatible with the target column",
+            details={**details, "value_type": type(value).__name__},
+        )
+
+    @staticmethod
+    def _validate_decimal_literal(
+        value: Decimal,
+        precision: int | None,
+        scale: int | None,
+        details: Dict[str, Any],
+    ) -> None:
+        if precision is None or scale is None:
+            return
+        _, digits, exponent = value.as_tuple()
+        fractional_digits = max(-exponent, 0)
+        integer_digits = max(len(digits) + exponent, 0)
+        if fractional_digits > scale or integer_digits > precision - scale:
+            raise TransformError(
+                "Transformer decimal literal exceeds target precision or scale",
+                details={**details, "precision": precision, "scale": scale},
+            )
+
+    def apply_value_rule(
+        self, df: DF, rule: Any, *, missing_column_policy: str = "error"
+    ) -> DF:
+        """Apply one typed value rule using engine-native expressions.
+
+        Built-in engines preflight all targets and add at most one native
+        projection for the rule, regardless of the number of target columns.
+        """
+        raise EngineError(f"{type(self).__name__} does not support value_rules")
+
+    def apply_masking_rule(
+        self, df: DF, rule: Any, *, missing_column_policy: str = "error"
+    ) -> DF:
+        """Apply one typed masking rule in one engine-native projection."""
+        raise EngineError(f"{type(self).__name__} does not support masking_rules")
+
+    def add_hash_column(self, df: DF, definition: Any) -> DF:
+        """Add a stable hash column using an engine-native expression."""
+        raise EngineError(f"{type(self).__name__} does not support hash_columns")
 
     @abstractmethod
     def filter_rows(self, df: DF, condition: str) -> DF:

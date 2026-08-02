@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import MISSING, dataclass, field, fields, is_dataclass
 from datetime import datetime
 from types import UnionType
-from typing import Any, Dict, List, Optional, Union, get_args, get_origin, get_type_hints
+from typing import Any, ClassVar, Dict, List, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
 
 from datacoolie.core.constants import (
     CONNECTION_TYPE_FORMATS,
@@ -118,7 +119,11 @@ def _model_dump_value(value: Any) -> Any:
     return value
 
 
-def _coerce_annotation_value(annotation: Any, value: Any) -> Any:
+def _coerce_annotation_value(
+    annotation: Any,
+    value: Any,
+    field_path: str | None = None,
+) -> Any:
     """Coerce nested model annotations from mappings into model instances."""
 
     if value is None:
@@ -129,7 +134,17 @@ def _coerce_annotation_value(annotation: Any, value: Any) -> Any:
         args = get_args(annotation)
         if args and isinstance(value, list):
             inner = args[0]
-            return [_coerce_annotation_value(inner, item) for item in value]
+            result = []
+            for index, item in enumerate(value):
+                item_path = f"{field_path}[{index}]" if field_path else None
+                try:
+                    result.append(_coerce_annotation_value(inner, item, item_path))
+                except ConfigurationError as exc:
+                    details = dict(exc.details)
+                    if item_path:
+                        details["field"] = item_path
+                    raise ConfigurationError(exc.message, details=details) from exc
+            return result
         return value
 
     if origin in (dict, Dict):
@@ -139,13 +154,19 @@ def _coerce_annotation_value(annotation: Any, value: Any) -> Any:
         for arg in get_args(annotation):
             if arg is type(None):
                 continue
-            coerced = _coerce_annotation_value(arg, value)
+            coerced = _coerce_annotation_value(arg, value, field_path)
             if coerced is not value:
                 return coerced
         return value
 
     if isinstance(annotation, type) and issubclass(annotation, CompatModel) and isinstance(value, Mapping):
-        return annotation(**dict(value))
+        try:
+            return annotation(**dict(value))
+        except ConfigurationError as exc:
+            details = dict(exc.details)
+            if field_path:
+                details["field"] = field_path
+            raise ConfigurationError(exc.message, details=details) from exc
 
     return value
 
@@ -153,12 +174,20 @@ def _coerce_annotation_value(annotation: Any, value: Any) -> Any:
 class CompatModel:
     """Small compatibility layer for the subset of BaseModel behavior we use."""
 
+    forbid_unknown_fields: ClassVar[bool] = False
+    field_path_prefix: ClassVar[str | None] = None
     model_fields_set: set[str]
 
     def __init__(self, **kwargs: Any) -> None:
         cls = type(self)
         dc_fields = fields(cls)
         declared_names = {dc_field.name for dc_field in dc_fields}
+        unknown_fields = set(kwargs).difference(declared_names)
+        if unknown_fields and cls.forbid_unknown_fields:
+            raise ConfigurationError(
+                f"Unknown field(s) for {cls.__name__}",
+                details={"fields": sorted(unknown_fields)},
+            )
         provided_fields = set(kwargs) & declared_names
         type_hints = get_type_hints(cls)
 
@@ -168,7 +197,13 @@ class CompatModel:
             else:
                 value = _build_default(dc_field)
             annotation = type_hints.get(dc_field.name, Any)
-            setattr(self, dc_field.name, _coerce_annotation_value(annotation, value))
+            prefix = cls.field_path_prefix
+            field_path = f"{prefix}.{dc_field.name}" if prefix else dc_field.name
+            setattr(
+                self,
+                dc_field.name,
+                _coerce_annotation_value(annotation, value, field_path),
+            )
 
         self.model_fields_set = provided_fields
         post_init = getattr(self, "__post_init__", None)
@@ -312,6 +347,315 @@ class AdditionalColumn(CompatModel):
     def __post_init__(self) -> None:
         self.column = self._must_be_non_empty(self.column, "column")
         self.expression = self._must_be_non_empty(self.expression, "expression")
+
+
+_MAX_PORTABLE_REGEX_LENGTH = 4096
+_REGEX_ESCAPED_LITERALS = frozenset(r".^$*+?{}[]\|()-")
+_REGEX_CONTROL_ESCAPES = frozenset("nrtf")
+_REGEX_UNSUPPORTED_ESCAPES = frozenset("dDsSwWbBAZGpPkK")
+
+
+def _validate_portable_regex(
+    pattern: str,
+    *,
+    field_path: str = "value_rules.pattern",
+) -> str:
+    """Validate the portable-regex invariant owned by ``ValueRule``."""
+    if not isinstance(pattern, str):
+        raise ConfigurationError(
+            "regex_replace rule requires a string pattern",
+            details={"field": field_path},
+        )
+    if len(pattern) > _MAX_PORTABLE_REGEX_LENGTH:
+        raise ConfigurationError(
+            f"Portable regex patterns must not exceed {_MAX_PORTABLE_REGEX_LENGTH} characters",
+            details={"field": field_path, "length": len(pattern)},
+        )
+
+    group_stack: list[dict[str, bool]] = []
+    in_class = False
+    escaped = False
+    index = 0
+
+    while index < len(pattern):
+        char = pattern[index]
+
+        if escaped:
+            if char.isdigit() or char in _REGEX_UNSUPPORTED_ESCAPES:
+                _portable_regex_error(field_path, index - 1, f"unsupported escape \\{char}")
+            if char not in _REGEX_ESCAPED_LITERALS and char not in _REGEX_CONTROL_ESCAPES:
+                _portable_regex_error(field_path, index - 1, f"unsupported escape \\{char}")
+            escaped = False
+            index += 1
+            continue
+
+        if char == "\\":
+            escaped = True
+            index += 1
+            continue
+
+        if in_class:
+            if char == "]":
+                in_class = False
+            elif pattern[index : index + 2] in {"&&", "--", "~~"}:
+                _portable_regex_error(
+                    field_path,
+                    index,
+                    "character-class set operations are unsupported",
+                )
+            index += 1
+            continue
+
+        if char == "[":
+            in_class = True
+            index += 1
+            continue
+
+        if char == "(":
+            if group_stack:
+                group_stack[-1]["nested"] = True
+            if pattern[index : index + 3] == "(?:":
+                index += 3
+            elif pattern[index : index + 2] == "(?":
+                _portable_regex_error(
+                    field_path,
+                    index,
+                    "lookaround, named groups, and inline flags are unsupported",
+                )
+            else:
+                index += 1
+            group_stack.append(
+                {"nested": False, "quantified": False, "alternation": False}
+            )
+            continue
+
+        if char == ")":
+            if not group_stack:
+                _portable_regex_error(field_path, index, "unbalanced closing group")
+            group = group_stack.pop()
+            next_index = index + 1
+            is_quantified = next_index < len(pattern) and pattern[next_index] in "*+?{"
+            if is_quantified and any(group.values()):
+                _portable_regex_error(
+                    field_path,
+                    next_index,
+                    "quantified groups containing nesting, quantifiers, or alternation are unsupported",
+                )
+            index += 1
+            continue
+
+        if group_stack and char in "*+?{":
+            group_stack[-1]["quantified"] = True
+        elif group_stack and char == "|":
+            group_stack[-1]["alternation"] = True
+
+        if char in "*+?" and index + 1 < len(pattern) and pattern[index + 1] == "+":
+            _portable_regex_error(field_path, index, "possessive quantifiers are unsupported")
+
+        index += 1
+
+    if escaped:
+        _portable_regex_error(field_path, len(pattern) - 1, "trailing escape")
+    if in_class:
+        _portable_regex_error(field_path, len(pattern) - 1, "unclosed character class")
+    if group_stack:
+        _portable_regex_error(field_path, len(pattern) - 1, "unclosed group")
+
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        raise ConfigurationError(
+            "Invalid portable regex pattern",
+            details={"field": field_path, "reason": str(exc)},
+        ) from exc
+    return pattern
+
+
+def _portable_regex_error(field_path: str, index: int, reason: str) -> None:
+    raise ConfigurationError(
+        "Unsupported portable regex pattern",
+        details={"field": field_path, "index": max(index, 0), "reason": reason},
+    )
+
+
+@dataclass(init=False)
+class ValueRule(CompatModel):
+    """Typed, engine-portable value normalization rule."""
+
+    forbid_unknown_fields: ClassVar[bool] = True
+
+    operation: str
+    columns: List[str] = field(default_factory=list)
+    order: int = 100
+    mode: Optional[str] = None
+    pattern: Optional[str] = None
+    replacement: str = ""
+    value: Any = None
+    mapping: Dict[str, str] = field(default_factory=dict)
+    on_unmapped: str = "keep"
+
+    def __post_init__(self) -> None:
+        self.operation = str(self.operation).strip().lower()
+        self.columns = ensure_list(self.columns)
+        self.mode = self.mode.strip().lower() if isinstance(self.mode, str) else self.mode
+        self.on_unmapped = str(self.on_unmapped).strip().lower()
+        supported = {"trim", "case", "regex_replace", "empty_to_null", "fill_null", "map"}
+        if self.operation not in supported:
+            raise ConfigurationError(
+                f"Unsupported value rule operation: {self.operation!r}",
+                details={"supported": sorted(supported)},
+            )
+        _validate_column_list(self.columns, "value_rules.columns")
+        if not isinstance(self.order, int) or isinstance(self.order, bool) or self.order < 0:
+            raise ConfigurationError("value_rules.order must be a non-negative integer")
+        if self.operation == "case" and self.mode not in {"lower", "upper"}:
+            raise ConfigurationError("case rule requires mode 'lower' or 'upper'")
+        if self.operation == "regex_replace" and not isinstance(self.pattern, str):
+            raise ConfigurationError("regex_replace rule requires a string pattern")
+        if self.operation == "regex_replace":
+            self.pattern = _validate_portable_regex(self.pattern or "")
+        if not isinstance(self.replacement, str):
+            raise ConfigurationError("value_rules.replacement must be a string")
+        if self.operation == "fill_null" and (
+            self.value is None or isinstance(self.value, (dict, list, tuple, set))
+        ):
+            raise ConfigurationError("fill_null.value must be a non-null JSON scalar")
+        if self.operation == "map":
+            if not isinstance(self.mapping, dict) or not self.mapping or not all(
+                isinstance(key, str) and isinstance(value, str)
+                for key, value in self.mapping.items()
+            ):
+                raise ConfigurationError("map.mapping must be a non-empty string-to-string object")
+            if self.on_unmapped not in {"keep", "null"}:
+                raise ConfigurationError("map.on_unmapped supports only 'keep' or 'null'")
+
+
+@dataclass(init=False)
+class MaskingRule(CompatModel):
+    """Typed, irreversible column masking rule."""
+
+    forbid_unknown_fields: ClassVar[bool] = True
+
+    method: str
+    columns: List[str] = field(default_factory=list)
+    value: Any = None
+    keep_start: int = 0
+    keep_end: int = 0
+    mask_char: str = "*"
+    bucket_size: Optional[float] = None
+    unit: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        self.method = str(self.method).strip().lower()
+        self.columns = ensure_list(self.columns)
+        self.unit = self.unit.strip().lower() if isinstance(self.unit, str) else self.unit
+        supported = {"redact", "nullify", "partial", "numeric_bucket", "date_truncate"}
+        if self.method not in supported:
+            raise ConfigurationError(
+                f"Unsupported masking method: {self.method!r}",
+                details={"supported": sorted(supported)},
+            )
+        _validate_column_list(self.columns, "masking_rules.columns")
+        if self.method == "redact" and (
+            self.value is None or isinstance(self.value, (dict, list, tuple, set))
+        ):
+            raise ConfigurationError("redact.value must be a non-null JSON scalar")
+        if self.method == "partial":
+            if (
+                not isinstance(self.keep_start, int)
+                or isinstance(self.keep_start, bool)
+                or not isinstance(self.keep_end, int)
+                or isinstance(self.keep_end, bool)
+                or self.keep_start < 0
+                or self.keep_end < 0
+            ):
+                raise ConfigurationError("partial keep_start and keep_end must be non-negative")
+            if not isinstance(self.mask_char, str) or len(self.mask_char) != 1:
+                raise ConfigurationError("partial.mask_char must contain exactly one character")
+        if self.method == "numeric_bucket" and (
+            not isinstance(self.bucket_size, (int, float))
+            or isinstance(self.bucket_size, bool)
+            or self.bucket_size <= 0
+        ):
+            raise ConfigurationError("numeric_bucket.bucket_size must be greater than zero")
+        if self.method == "date_truncate" and self.unit not in {"year", "month", "day", "hour"}:
+            raise ConfigurationError("date_truncate.unit must be year, month, day, or hour")
+
+
+@dataclass(init=False)
+class HashColumn(CompatModel):
+    """Stable hash column generated from an ordered list of scalar columns."""
+
+    forbid_unknown_fields: ClassVar[bool] = True
+
+    target_column: str
+    columns: List[str] = field(default_factory=list)
+    algorithm: str = "sha256"
+    serialization: str = "dc_hash_v1"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.target_column, str) or not self.target_column.strip():
+            raise ConfigurationError("hash_columns.target_column must be a non-empty string")
+        self.columns = ensure_list(self.columns)
+        _validate_column_list(self.columns, "hash_columns.columns")
+        self.algorithm = str(self.algorithm).strip().lower()
+        if self.algorithm != "sha256":
+            raise ConfigurationError("hash_columns.algorithm currently supports only 'sha256'")
+        self.serialization = str(self.serialization).strip().lower()
+        if self.serialization != "dc_hash_v1":
+            raise ConfigurationError(
+                "hash_columns.serialization currently supports only 'dc_hash_v1'"
+            )
+
+
+def _validate_column_list(columns: List[str], field_name: str) -> None:
+    if not columns or not all(isinstance(column, str) and column.strip() for column in columns):
+        raise ConfigurationError(f"{field_name} must contain non-empty strings")
+    lowered = [column.lower() for column in columns]
+    if len(lowered) != len(set(lowered)):
+        raise ConfigurationError(f"{field_name} must not contain duplicate columns")
+
+
+_ModelT = TypeVar("_ModelT", bound=CompatModel)
+
+
+def _coerce_model_list(
+    value: Any,
+    model_type: type[_ModelT],
+    field_path: str,
+) -> List[_ModelT]:
+    """Coerce a typed metadata collection with indexed error context."""
+    if value is None or (isinstance(value, (list, tuple)) and not value):
+        return []
+    if isinstance(value, (Mapping, model_type)):
+        items = [value]
+    elif isinstance(value, (list, tuple)):
+        items = list(value)
+    else:
+        raise ConfigurationError(
+            f"{field_path} must be a list of objects",
+            details={"field": field_path, "value_type": type(value).__name__},
+        )
+
+    result: List[_ModelT] = []
+    for index, item in enumerate(items):
+        item_path = f"{field_path}[{index}]"
+        if isinstance(item, model_type):
+            result.append(item)
+            continue
+        if not isinstance(item, Mapping):
+            raise ConfigurationError(
+                f"{item_path} must be an object",
+                details={"field": item_path, "value_type": type(item).__name__},
+            )
+        try:
+            result.append(model_type(**dict(item)))
+        except ConfigurationError as exc:
+            raise ConfigurationError(
+                exc.message,
+                details={**exc.details, "field": item_path},
+            ) from exc
+    return result
 
 
 # ============================================================================
@@ -920,11 +1264,19 @@ class Destination(CompatModel):
 class Transform(CompatModel):
     """Transformation rules applied between source read and destination write."""
 
+    field_path_prefix: ClassVar[str] = "transform"
+
     deduplicate_columns: List[str] = field(default_factory=list)
     latest_data_columns: List[str] = field(default_factory=list)
     filter_expression: Optional[str] = None
     additional_columns: List[AdditionalColumn] = field(default_factory=list)
     schema_hints: List[SchemaHint] = field(default_factory=list)
+    select_columns: List[str] = field(default_factory=list)
+    drop_columns: List[str] = field(default_factory=list)
+    rename_columns: Dict[str, str] = field(default_factory=dict)
+    value_rules: List[ValueRule] = field(default_factory=list)
+    hash_columns: List[HashColumn] = field(default_factory=list)
+    masking_rules: List[MaskingRule] = field(default_factory=list)
     configure: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -937,23 +1289,23 @@ class Transform(CompatModel):
 
     @classmethod
     def _coerce_additional(cls, v: Any) -> List[AdditionalColumn]:
-        if not v:
-            return []
-        items = v if isinstance(v, list) else [v]
-        return [
-            AdditionalColumn(**item) if isinstance(item, dict) else item
-            for item in items
-        ]
+        return _coerce_model_list(v, AdditionalColumn, "transform.additional_columns")
 
     @classmethod
     def _coerce_hints(cls, v: Any) -> List[SchemaHint]:
-        if not v:
-            return []
-        items = v if isinstance(v, list) else [v]
-        return [
-            SchemaHint(**item) if isinstance(item, dict) else item
-            for item in items
-        ]
+        return _coerce_model_list(v, SchemaHint, "transform.schema_hints")
+
+    @classmethod
+    def _coerce_value_rules(cls, v: Any) -> List[ValueRule]:
+        return _coerce_model_list(v, ValueRule, "transform.value_rules")
+
+    @classmethod
+    def _coerce_masking_rules(cls, v: Any) -> List[MaskingRule]:
+        return _coerce_model_list(v, MaskingRule, "transform.masking_rules")
+
+    @classmethod
+    def _coerce_hash_columns(cls, v: Any) -> List[HashColumn]:
+        return _coerce_model_list(v, HashColumn, "transform.hash_columns")
 
     @classmethod
     def _parse_configure(cls, v: Any) -> Dict[str, Any]:
@@ -964,7 +1316,59 @@ class Transform(CompatModel):
         self.deduplicate_columns = self._coerce_dedup(self.deduplicate_columns)
         self.additional_columns = self._coerce_additional(self.additional_columns)
         self.schema_hints = self._coerce_hints(self.schema_hints)
+        self.select_columns = self._coerce_list(self.select_columns)
+        self.drop_columns = self._coerce_list(self.drop_columns)
+        self.value_rules = self._coerce_value_rules(self.value_rules)
+        self.hash_columns = self._coerce_hash_columns(self.hash_columns)
+        self.masking_rules = self._coerce_masking_rules(self.masking_rules)
         self.configure = self._parse_configure(self.configure)
+        _ = self.missing_column_policy
+        self._validate_projection()
+        self._validate_hash_targets()
+        self._validate_masking_targets()
+
+    def _validate_projection(self) -> None:
+        if self.select_columns and self.drop_columns:
+            raise ConfigurationError("select_columns and drop_columns are mutually exclusive")
+        if self.select_columns:
+            _validate_column_list(self.select_columns, "select_columns")
+        if self.drop_columns:
+            _validate_column_list(self.drop_columns, "drop_columns")
+        if not isinstance(self.rename_columns, dict) or not all(
+            isinstance(source, str) and source.strip()
+            and isinstance(target, str) and target.strip()
+            for source, target in self.rename_columns.items()
+        ):
+            raise ConfigurationError("rename_columns must be a string-to-string object")
+        sources = {source.lower() for source in self.rename_columns}
+        targets = [target.lower() for target in self.rename_columns.values()]
+        if len(targets) != len(set(targets)):
+            raise ConfigurationError("rename_columns must not contain duplicate targets")
+        if sources.intersection(targets):
+            raise ConfigurationError("rename_columns chains, cycles, and no-op renames are not supported")
+
+    def _validate_masking_targets(self) -> None:
+        seen: set[str] = set()
+        for rule in self.masking_rules:
+            overlap = seen.intersection(column.lower() for column in rule.columns)
+            if overlap:
+                raise ConfigurationError(
+                    "A column may appear in only one masking rule",
+                    details={"columns": sorted(overlap)},
+                )
+            seen.update(column.lower() for column in rule.columns)
+
+    def _validate_hash_targets(self) -> None:
+        targets = [definition.target_column.lower() for definition in self.hash_columns]
+        if len(targets) != len(set(targets)):
+            raise ConfigurationError("hash_columns must not contain duplicate target columns")
+
+    @property
+    def missing_column_policy(self) -> str:
+        policy = str(self.configure.get("missing_column_policy", "error")).strip().lower()
+        if policy not in {"error", "ignore"}:
+            raise ConfigurationError("missing_column_policy must be 'error' or 'ignore'")
+        return policy
 
     def deduplicate_column_names(self, merge_keys: List[str] | None = None) -> List[str]:
         """Return dedup columns, falling back to *merge_keys*."""

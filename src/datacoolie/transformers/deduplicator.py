@@ -51,6 +51,14 @@ class Deduplicator(BaseTransformer[DF]):
             self._mark_skipped()
             return df
 
+        # Deduplication is always strict once configured. Silently removing a
+        # missing partition/order column would change row-selection semantics.
+        actual_columns = self._engine.get_columns(df)
+        partition_cols = self._engine._resolve_column_names(
+            actual_columns, partition_cols
+        )
+        order_cols = self._engine._resolve_column_names(actual_columns, order_cols)
+
         use_rank = (
             dataflow.load_type == LoadType.MERGE_OVERWRITE.value
             and dataflow.merge_keys

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from datacoolie.core.constants import LoadType
+from datacoolie.core.exceptions import EngineError
 from datacoolie.transformers.deduplicator import Deduplicator
 from tests.unit.transformers.support import MockEngine, make_dataflow
 
@@ -157,3 +158,15 @@ class TestDeduplicator:
         d = Deduplicator(engine)
         d.transform({"x": 1}, df)
         assert engine._deduplicated is True
+
+    def test_missing_column_always_raises_even_with_ignore_policy(
+        self, engine: MockEngine
+    ) -> None:
+        engine.set_columns(["id"])
+        df = _make_dataflow(
+            dedup_cols=["id"],
+            latest_cols=["missing_order"],
+            transform_configure={"missing_column_policy": "ignore"},
+        )
+        with pytest.raises(EngineError, match="missing_order"):
+            Deduplicator(engine).transform({"id": 1}, df)

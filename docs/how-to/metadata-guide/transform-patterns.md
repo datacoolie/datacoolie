@@ -1,6 +1,6 @@
 ---
 title: Transform Patterns — DataCoolie Metadata How-to
-description: Configure DataCoolie transforms in metadata with schema hints, deduplication, computed columns, partition expressions, SCD2 columns, and behavior flags.
+description: Configure value normalization, schema casts, hashes, deduplication, computed columns, masking, projection, renaming, partitions, and SCD2 behavior in DataCoolie metadata.
 ---
 
 # Transform patterns
@@ -13,13 +13,17 @@ built-in transformer pipeline, which runs between read and write in this order:
 
 | Order | Transformer | Triggered by |
 |-------|-------------|--------------|
+| 5 | `ColumnValueTransformer` | `transform.value_rules` |
 | 10 | `SchemaConverter` | `transform.schema_hints` |
+| 18 | `HashColumnAdder` | `transform.hash_columns` |
 | 20 | `Deduplicator` | `transform.deduplicate_columns` |
 | 30 | `ColumnAdder` | `transform.additional_columns` |
 | 35 | `RowFilter` | `transform.filter_expression` |
 | 60 | `SCD2ColumnAdder` | `destination.load_type = "scd2"` |
 | 70 | `SystemColumnAdder` | Always (adds `__created_at`, `__updated_at`, `__updated_by`) |
 | 80 | `PartitionHandler` | `destination.partition_columns` |
+| 84 | `DataMasker` | `transform.masking_rules` |
+| 85 | `ColumnProjector` | `select_columns`, `drop_columns`, or `rename_columns` |
 | 90 | `ColumnNameSanitizer` | Always (`lower` by default; configurable as `snake`) |
 
 !!! info "System columns are always added"
@@ -39,6 +43,18 @@ built-in transformer pipeline, which runs between read and write in this order:
   "additional_columns": [
     { "column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)" }
   ],
+  "select_columns": ["order_id", "email", "order_year"],
+  "rename_columns": {"email": "contact_email"},
+  "value_rules": [
+    {"operation": "trim", "columns": ["email"], "order": 10},
+    {"operation": "case", "columns": ["email"], "mode": "lower", "order": 20}
+  ],
+  "masking_rules": [
+    {"method": "partial", "columns": ["email"], "keep_start": 1, "keep_end": 3}
+  ],
+  "hash_columns": [
+    {"target_column": "order_hash", "columns": ["order_id"], "algorithm": "sha256"}
+  ],
   "configure": {
     "convert_timestamp_ntz": true,
     "deduplicate_by_rank": false
@@ -53,9 +69,98 @@ built-in transformer pipeline, which runs between read and write in this order:
 | `latest_data_columns` | Define the ordering columns for deduplication |
 | `additional_columns` | Add SQL-derived columns |
 | `filter_expression` | Discard rows by a SQL WHERE-style predicate after computed columns are available |
+| `value_rules` | Normalize source values with native engine expressions before schema casting |
+| `masking_rules` | Irreversibly mask structured scalar columns late in the pipeline |
+| `hash_columns` | Add stable SHA-256 business hashes from explicitly ordered source columns |
+| `select_columns` / `drop_columns` | Keep or remove business columns; the two fields are mutually exclusive |
+| `rename_columns` | Atomically rename columns with an old-name to new-name object |
 | `configure` | Control transformer behavior such as `convert_timestamp_ntz` and `deduplicate_by_rank` |
 
 `partition_columns` stays on the **destination**, not in `transform`.
+
+### Normalize, mask, and project columns
+
+```json
+"transform": {
+  "value_rules": [
+    { "operation": "trim", "columns": ["email"], "order": 10 },
+    { "operation": "case", "columns": ["email"], "mode": "lower", "order": 20 },
+    { "operation": "map", "columns": ["status"], "mapping": {"A": "active", "I": "inactive"} }
+  ],
+  "masking_rules": [
+    { "method": "partial", "columns": ["phone"], "keep_end": 4, "mask_char": "*" },
+    { "method": "numeric_bucket", "columns": ["age"], "bucket_size": 10 },
+    { "method": "date_truncate", "columns": ["birth_date"], "unit": "year" }
+  ],
+  "drop_columns": ["raw_payload"],
+  "rename_columns": {"phone": "masked_phone"},
+  "configure": {"missing_column_policy": "error"}
+}
+```
+
+`hash_columns` is separate from masking and never becomes a merge or dedup key
+implicitly:
+
+```json
+"hash_columns": [
+  {
+    "target_column": "customer_hash",
+    "columns": ["country_code", "customer_id"],
+    "algorithm": "sha256"
+  }
+]
+```
+
+Hash inputs currently support string, integer, boolean, and date columns. The
+declared column order is significant. DataCoolie builds a shared canonical
+payload with type tags, null markers, and UTF-8 byte lengths, so Spark and
+Polars produce identical lowercase SHA-256 output and distinguish null from an
+empty string. This immutable format is named `dc_hash_v1`; changing the format
+requires a new serialization name and target column. Polars loads `polars-hash`
+only when this feature runs; install it
+with `pip install 'datacoolie[polars-hash]'`.
+
+Plain SHA-256 is suitable for deterministic business identifiers, but not for
+protecting low-entropy PII such as phone numbers or national identifiers. Use
+the explicit masking methods above; keyed pseudonymization remains outside the
+current contract.
+
+Supported value operations are `trim`, `case`, `regex_replace`,
+`empty_to_null`, `fill_null`, and `map`. Rules default to order `100`; ties
+retain metadata declaration order. String operations require string columns.
+`trim` removes ASCII U+0020 spaces only; tabs, newlines, and non-breaking
+spaces remain.
+
+`regex_replace` uses DataCoolie portable regex v1 rather than the complete Java
+or Rust dialect. Use literals, explicit character classes/ranges, `.`, anchors,
+grouping, alternation, and ordinary quantifiers. Lookaround, backreferences,
+named groups, inline flags, `\d`/`\w`/`\s`/`\b`, possessive quantifiers, and
+quantified nested groups are rejected while loading metadata. Patterns are
+limited to 4,096 characters. Replacement text is always literal, so `$` and
+backslash are emitted as written rather than expanding capture groups.
+
+`fill_null` and masking `redact` literals are validated against the actual
+column type before a native expression is added. Invalid values fail the same
+way on Spark and Polars and do not depend on Spark ANSI settings.
+
+Supported masking methods are `redact`, `nullify`, `partial`,
+`numeric_bucket`, and `date_truncate`. Partial masking collapses the hidden
+middle segment to one `mask_char`, while retaining the configured prefix and
+suffix. Empty strings remain empty; a non-empty value whose length is less than
+or equal to `keep_start + keep_end` becomes exactly one `mask_char` instead of
+passing through raw. Masking merge keys, partition columns, and
+framework-reserved columns is rejected. This is column-level PII masking, not
+dataset anonymization.
+
+Projection uses pre-rename names. It preserves framework trailing columns and
+rejects removal or renaming of merge and partition keys. Missing configured
+columns in typed rules and projection fail by default; set
+`missing_column_policy` to `ignore` to skip them. Missing schema-hint columns
+are skipped and reported together in one warning because catalog hints may be
+a superset of the runtime schema. Deduplication remains strict: once
+configured, a missing partition or order column always fails.
+Keep the default `error` policy for PII-sensitive pipelines so schema drift
+cannot silently bypass a configured masking rule.
 
 ---
 
@@ -387,12 +492,13 @@ later in the pipeline.
 
 ## Transform `configure` flags
 
-Two flags in `transform.configure` change how built-in transformers behave:
+Three flags in `transform.configure` change how built-in transformers behave:
 
 | Key | Default | Effect |
 |-----|---------|--------|
 | `convert_timestamp_ntz` | `true` | Converts `timestamp_ntz` columns to `timestamp` after schema hints |
 | `deduplicate_by_rank` | `false` | Uses rank-based deduplication instead of row-number semantics |
+| `missing_column_policy` | `error` | Controls absent columns in typed value/hash/masking rules and projection; schema hints warn and skip, while dedup remains strict |
 
 Example:
 

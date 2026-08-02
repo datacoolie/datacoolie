@@ -104,6 +104,23 @@ SAMPLE_ROWS: list[tuple] = [
     (1027, "2024-02-01", "510.00",  6, "EU-West", "2024-02-01T09:30:00", "Aarav Sharma",  "completed"),
 ]
 
+# Focused fixture for executable transformer feature scenarios.
+TRANSFORMER_COLUMNS = [
+    "record_id", "email", "status", "phone", "formatted_phone", "age",
+    "birth_date", "country_code", "customer_id", "notes", "secret",
+    "drop_me", "nullable_label", "ordered_text", "whitespace_text",
+    "optional_phone",
+]
+
+TRANSFORMER_ROWS: list[tuple] = [
+    (1, " Alice@Example.COM ", "A", "0912345678", "0912-345-678", 27, "1990-05-17", "VN", 123, "", "alpha", "remove-1", None, " MIXED ", " \talpha\u00a0 ", None),
+    (2, "BOB@Example.com", "I", "0987654321", "0987 654 321", 34, "1985-11-02", "US", 456, "keep me", "beta", "remove-2", "known", " SECOND ", " beta ", ""),
+    (3, "carol@example.com ", "X", "1234", "12-34", 41, "1978-01-30", "JP", 789, "note", "gamma", "remove-3", "vip", " third ", "\u00a0gamma\u00a0", "1234"),
+]
+
+TRANSFORMER_COLLISION_COLUMNS = ["record_id", "Contact Email", "Contact-Email"]
+TRANSFORMER_COLLISION_ROWS: list[tuple] = [(1, "first@example.com", "second@example.com")]
+
 # ---------------------------------------------------------------------------
 # Canonical source_orders (10 rows) — inserted into each RDBMS dialect
 # ---------------------------------------------------------------------------

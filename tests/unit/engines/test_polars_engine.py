@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,7 +12,8 @@ pl = pytest.importorskip("polars", reason="polars not installed")
 deltalake = pytest.importorskip("deltalake", reason="deltalake not installed")
 
 from datacoolie.core.constants import DEFAULT_AUTHOR, FileInfoColumn, SystemColumn  # noqa: E402
-from datacoolie.core.exceptions import EngineError  # noqa: E402
+from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
+from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
 from datacoolie.platforms.base import FileInfo  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
@@ -59,6 +59,188 @@ def delta_path(tmp_path: Path) -> Path:
     )
     eager.write_delta(str(path))
     return path
+
+
+class TestTypedValueAndMaskingRules:
+    def test_native_value_rules(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame({"email": [" A@X.COM ", None], "status": ["A", "X"]}).lazy()
+        frame = engine.apply_value_rule(frame, ValueRule(operation="trim", columns=["email"]))
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="case", columns=["email"], mode="lower")
+        )
+        frame = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="map", columns=["status"], mapping={"A": "active"}),
+        )
+        assert frame.collect().to_dict(as_series=False) == {
+            "email": ["a@x.com", None],
+            "status": ["active", "X"],
+        }
+
+    def test_native_masking_rules(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame({"phone": ["1234567", "12", None], "amount": [17, 25, None]}).lazy()
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="partial", columns=["phone"], keep_end=2)
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="numeric_bucket", columns=["amount"], bucket_size=10)
+        )
+        assert frame.collect().to_dict(as_series=False) == {
+            "phone": ["*67", "*", None],
+            "amount": [10, 20, None],
+        }
+
+    def test_trim_is_ascii_space_only(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame({"text": [" \tA\u00a0 "]}).lazy()
+        result = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="trim", columns=["text"]),
+        ).collect()
+        assert result["text"].to_list() == ["\tA\u00a0"]
+
+    def test_regex_replacement_is_literal(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame({"text": ["a"]}).lazy()
+        result = engine.apply_value_rule(
+            frame,
+            ValueRule(
+                operation="regex_replace",
+                columns=["text"],
+                pattern="(a)",
+                replacement=r"$1\tail",
+            ),
+        ).collect()
+        assert result["text"].to_list() == [r"$1\tail"]
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            ValueRule(operation="fill_null", columns=["amount"], value="invalid"),
+            MaskingRule(method="redact", columns=["amount"], value="invalid"),
+        ],
+    )
+    def test_invalid_typed_literal_fails_before_collect(
+        self,
+        engine: PolarsEngine,
+        rule: ValueRule | MaskingRule,
+    ) -> None:
+        frame = pl.DataFrame({"amount": [1, None]}).lazy()
+        with pytest.raises(TransformError, match="literal"):
+            if isinstance(rule, ValueRule):
+                engine.apply_value_rule(frame, rule)
+            else:
+                engine.apply_masking_rule(frame, rule)
+
+    def test_multi_column_rule_uses_one_schema_lookup_and_projection(
+        self,
+        engine: PolarsEngine,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        frame = pl.DataFrame({"a": [" A "], "b": [" B "]}).lazy()
+        original_schema = pl.LazyFrame.collect_schema
+        original_with_columns = pl.LazyFrame.with_columns
+        calls = {"schema": 0, "projection": 0}
+
+        def tracked_schema(lazy_frame):
+            calls["schema"] += 1
+            return original_schema(lazy_frame)
+
+        def tracked_with_columns(lazy_frame, *exprs, **named_exprs):
+            calls["projection"] += 1
+            return original_with_columns(lazy_frame, *exprs, **named_exprs)
+
+        monkeypatch.setattr(pl.LazyFrame, "collect_schema", tracked_schema)
+        monkeypatch.setattr(pl.LazyFrame, "with_columns", tracked_with_columns)
+
+        result = engine.apply_value_rule(
+            frame,
+            ValueRule(operation="trim", columns=["a", "b"]),
+        ).collect()
+
+        assert result.to_dict(as_series=False) == {"a": ["A"], "b": ["B"]}
+        assert calls == {"schema": 1, "projection": 1}
+
+    def test_remaining_native_rule_operations(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame(
+            {
+                "text": ["a-1", "", None],
+                "score": [None, 2, 3],
+                "secret": ["abc", None, "xyz"],
+                "remove_me": ["a", "b", "c"],
+                "occurred_at": [datetime(2024, 5, 17, 12, 34)] * 3,
+            }
+        ).lazy()
+        frame = engine.apply_value_rule(
+            frame,
+            ValueRule(
+                operation="regex_replace",
+                columns=["text"],
+                pattern="-",
+                replacement="",
+            ),
+        )
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="empty_to_null", columns=["text"])
+        )
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="fill_null", columns=["score"], value=9)
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="redact", columns=["secret"], value="hidden")
+        )
+        frame = engine.apply_masking_rule(
+            frame, MaskingRule(method="nullify", columns=["remove_me"])
+        )
+        frame = engine.apply_masking_rule(
+            frame,
+            MaskingRule(method="date_truncate", columns=["occurred_at"], unit="month"),
+        )
+        result = frame.collect()
+        assert result["text"].to_list() == ["a1", None, None]
+        assert result["score"].to_list() == [9, 2, 3]
+        assert result["secret"].to_list() == ["hidden", None, "hidden"]
+        assert result["remove_me"].to_list() == [None, None, None]
+        assert result["occurred_at"].to_list() == [datetime(2024, 5, 1)] * 3
+
+
+class TestStableHashColumns:
+    def test_sha256_canonical_payload(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame(
+            {
+                "country": ["VN", "Việt Nam", "", None],
+                "customer_id": [123, -4, 0, None],
+                "active": [True, False, True, None],
+                "business_date": [
+                    date(2026, 8, 1),
+                    date(2024, 1, 2),
+                    date(1970, 1, 1),
+                    None,
+                ],
+            }
+        ).lazy()
+        result = engine.add_hash_column(
+            frame,
+            HashColumn(
+                target_column="business_hash",
+                columns=["country", "customer_id", "active", "business_date"],
+            ),
+        ).collect()
+        assert result["business_hash"].to_list() == [
+            "842577920fb330d701994d15e8e4fb4a0a2ab2e0042d7b6f8aebb8251f9bfb8c",
+            "5cb808ee58dfd69c938d9ecacf7f4c39b923a0b9c38a966b8d9ab8341424e0c6",
+            "036414af1fb43b2fd0761dea6c72827f810d4cb1134a471ee1d41e63864f2c2b",
+            "3486794cdeaf9e4af12ee78b4cd9738d29b833149974c7aff14eccc86192dc52",
+        ]
+
+    def test_missing_optional_dependency_has_install_hint(self, engine: PolarsEngine) -> None:
+        frame = pl.DataFrame({"id": ["A"]}).lazy()
+        with patch(
+            "datacoolie.engines.polars_engine.importlib.import_module",
+            side_effect=ImportError("missing"),
+        ), pytest.raises(EngineError, match="optional polars-hash") as exc_info:
+            engine.add_hash_column(
+                frame, HashColumn(target_column="id_hash", columns=["id"])
+            )
+        assert exc_info.value.details["install"] == "pip install 'datacoolie[polars-hash]'"
 
 
 # =====================================================================
@@ -521,6 +703,15 @@ class TestRenameColumn:
         result = engine.rename_column(sample_lf, "name", "full_name").collect()
         assert "full_name" in result.columns
         assert "name" not in result.columns
+
+    def test_rename_multiple(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+        result = engine.rename_columns(
+            sample_lf, {"NAME": "full_name", "date_str": "event_date"}
+        ).collect()
+        assert "full_name" in result.columns
+        assert "event_date" in result.columns
+        assert "name" not in result.columns
+        assert "date_str" not in result.columns
 
 
 class TestFilterRows:
@@ -1686,7 +1877,6 @@ class TestReadAvro:
 
 class TestWriteAvro:
     def test_write_json_via_flat_eager(self, tmp_path: Path) -> None:
-        import io
         engine = PolarsEngine(platform=LocalPlatform())
         df = pl.DataFrame({'id': [1, 2], 'name': ['a', 'b']}).lazy()
         engine.write_to_path(df, str(tmp_path / 'output'), mode='overwrite', fmt='json')

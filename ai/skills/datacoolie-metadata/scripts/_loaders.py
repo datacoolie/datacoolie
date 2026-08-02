@@ -17,6 +17,8 @@ import yaml
 _EXCEL_LIST_COLS: frozenset = frozenset({
     "source_watermark_columns",
     "destination_merge_keys",
+    "transform_select_columns",
+    "transform_drop_columns",
 })
 
 # Columns that accept JSON arrays OR comma-separated strings, but items
@@ -33,6 +35,10 @@ _EXCEL_JSON_COLS: frozenset = frozenset({
     "transform_latest_data_columns",
     "transform_additional_columns",
     "transform_schema_hints",
+    "transform_rename_columns",
+    "transform_value_rules",
+    "transform_hash_columns",
+    "transform_masking_rules",
     "transform_configure",
 })
 

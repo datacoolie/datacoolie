@@ -129,6 +129,20 @@ python skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/
 # ✓ local_use_cases.xlsx is valid (schema v0.1.0)
 ```
 
+### 1.12 Transformer metadata coverage
+
+Run these Docker-free checks from the `datacoolie/` repository root:
+
+```sh
+python ai/skills/datacoolie-metadata/scripts/validate.py usecase-sim/metadata/file/transformer_features.json
+python ai/skills/tests/run_metadata.py
+```
+
+The runner must report both `validate-local-use-cases` and
+`validate-transformer-features` as passed. A missing required fixture or a
+validator failure returns a non-zero exit code; required checks are never
+silently skipped.
+
 ---
 
 ## 2. lint.py

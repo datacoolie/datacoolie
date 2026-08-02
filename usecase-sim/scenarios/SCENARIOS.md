@@ -22,12 +22,53 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `dry_run` | | Driver-level dry-run |
 | `max_workers` | | Parallel dataflow workers (forwarded to `DataCoolieRunConfig`) |
 | `timeout_seconds` | | Override dispatcher timeout |
+| `pre_clean_paths` | | Repository-relative output directories removed before the scenario |
+| `validation` | | Expected exit code, required console text, and optional output-validator script |
 | `priority` | | `P0`, `P1`, or `P2` (for `--priority` filter) |
 | `notes` | | Free-form description |
+
+`validation` supports `expected_exit_code` (default `0`),
+`required_console_text` (string or list), `script` (repository-relative Python
+file), optional `args`, and `timeout_seconds` for that script. A scenario is
+reported as PASS only when every configured assertion succeeds.
+
+## Dataflow authoring invariant
+
+One dataflow must represent one primary case or feature and write to a unique
+output. It may use other features as supporting setup when they are necessary
+to exercise the primary behavior. Supporting features must not become separate
+assertion targets or make the main purpose ambiguous; behavior that matters
+independently belongs in its own dataflow. Multiple operations may also form
+the primary case when their interaction is explicit, such as the stable
+value-rule ordering case with two ordered rules.
 
 ---
 
 ## P0 — Local filesystem, no Docker
+
+### `local_polars_transform_features` / `local_spark_transform_features`
+
+Runs the dedicated `transformer_features.json` metadata fixture. Both variants
+assert the aggregate missing-schema-hint warning and then validate persisted
+Parquet schemas and values across 24 independent, single-case outputs covering
+normalization, literal replacement, mapping, rule order, value-rule/schema-cast
+order, schema hints, hash parity, PII masking, select/drop, multi-column rename,
+and missing-column policies.
+
+### `local_polars_transform_dedup_strict` / `local_spark_transform_dedup_strict`
+
+Expected-failure scenarios proving that a missing configured dedup order
+column exits with code `2`, even when `missing_column_policy` is `ignore`.
+
+### Typed-literal and sanitizer expected failures
+
+The paired `local_{polars,spark}_transform_invalid_fill` and
+`local_{polars,spark}_transform_invalid_redact` scenarios prove that string
+literals cannot be applied to integer columns. The paired
+`local_{polars,spark}_transform_sanitizer_collision` scenarios prove that two
+distinct source names cannot collapse to the same sanitized name. Every case
+runs in its own one-dataflow stage and requires exit code `2` plus its stable
+diagnostic text.
 
 ### `local_polars_file`
 

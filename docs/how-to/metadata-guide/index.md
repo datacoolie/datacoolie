@@ -29,7 +29,7 @@ strategies, secrets, and metadata-provider differences.
 | 1 | [Build your first metadata file](first-metadata-file.md) | Minimum valid document — two connections, one dataflow |
 | 2 | [Source patterns](source-patterns.md) | How to configure any source type (file, database, API, Delta, Iceberg, function) |
 | 3 | [Destination & load patterns](destination-and-load-patterns.md) | Which `load_type` to pick and what extra fields it needs |
-| 4 | [Transform patterns](transform-patterns.md) | Cast types, deduplicate, add computed columns, partition output |
+| 4 | [Transform patterns](transform-patterns.md) | Normalize, cast, hash, deduplicate, mask, select, drop, rename, and compute columns |
 | 5 | [Validation checklist](validation-checklist.md) | Catch mistakes before the first run |
 
 ## Coverage map
@@ -41,7 +41,7 @@ strategies, secrets, and metadata-provider differences.
 | Source types | Yes | File, Delta, Iceberg, database table/query, REST API, Python function |
 | Destination types | Yes | File outputs, Delta, Iceberg, partitioned writes, lakehouse registration |
 | Load strategies | Yes | `append`, `overwrite`, `full_load`, `merge_upsert`, `merge_overwrite`, `scd2` |
-| Transform features | Yes | `schema_hints`, deduplication, computed columns, partition expressions, SCD2/system columns |
+| Transform features | Yes | Value normalization, `schema_hints`, hashing, deduplication, computed columns, masking, select/drop/rename, partition expressions, SCD2/system columns |
 | Validation & safety | Yes | `dry_run`, smoke tests, secret resolution, common errors |
 
 !!! info "Important edge cases"
@@ -81,7 +81,7 @@ metadata.json
   ├── group_number / execution_order / processing_mode / is_active
   ├── source               ← which connection + table/query/function to read
   ├── destination          ← which connection + table + load_type to write
-  └── transform            ← schema hints, dedup, computed columns (optional)
+  └── transform            ← normalization, schema, hashing, masking, projection (optional)
 ```
 
 Start with `connections` and `dataflows`. The rest is optional and you can

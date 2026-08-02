@@ -54,6 +54,26 @@ By contributing, you represent and agree that:
 5. Sign off every commit (`git commit -s`).
 6. Open a pull request describing the change and referencing any related issue.
 
+## Running tests
+
+The default test command excludes Spark and matches the GitHub Actions job:
+
+```bash
+poetry sync --with dev -E polars -E deltalake -E polars-hash
+poetry run pytest tests/
+```
+
+Spark tests are intentionally local-only because starting the JVM and Delta
+runtime is expensive on GitHub-hosted runners. Install the development and
+Spark dependencies, then run the Spark module locally. The module's
+`xdist_group("spark")` marker sends Spark tests to one xdist worker so they
+share one local JVM/session:
+
+```bash
+poetry sync --with dev -E spark -E delta-spark
+poetry run pytest tests/unit/engines/test_spark_engine.py -m spark -n auto --dist loadgroup
+```
+
 ## Questions
 
 For questions about contributions or large changes that may require a separate

@@ -319,7 +319,7 @@ def build_spark_session(
     # Base: warehouse + Derby metastore location
     spark_config: dict[str, str] = {
         # Cluster mode — single local machine, all available cores
-        "spark.master": f"local[*]",
+        "spark.master": "local[*]",
         # 64 GB driver heap (local mode has no separate executor JVM)
         "spark.driver.memory": "64g",
         "spark.driver.maxResultSize": "8g",
@@ -331,9 +331,6 @@ def build_spark_session(
             # (hadoop-aws 3.3.4 still ships aws-java-sdk-bundle 1.x).
             " -Daws.java.v1.disableDeprecationAnnouncement=true"
         ),
-        # -----------------------------------------------------------------
-        # Iceberg optimizations
-        "spark.sql.iceberg.merge-schema": "true",
         # Delta Lake catalog + optimizations
         "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
         "spark.databricks.delta.schema.autoMerge.enabled": "true",
@@ -369,24 +366,34 @@ def build_spark_session(
         "spark.sql.autoBroadcastJoinThreshold": f"{32*1024*1024}",  # 32MB
     }
 
-    # Iceberg REST catalog
-    if catalog_preset == "unity_catalog":
-        uri = iceberg_catalog_uri or ""
-        if not uri:
-            raise ValueError(
-                "--iceberg-catalog-uri is required for the 'unity_catalog' preset. "
-                "Example: http://<uc-host>:8080/api/2.1/unity-catalog/iceberg"
-            )
-        logger.info("Catalog preset: unity_catalog  uri=%s", uri)
-    else:
-        uri = iceberg_catalog_uri or DEFAULT_LOCAL_ICEBERG_URI
-        logger.info("Catalog preset: local  uri=%s", uri)
+    # Iceberg configuration is injected only for stages that use it. This
+    # keeps focused file/Delta scenarios independent from the Iceberg runtime.
+    if needs_iceberg:
+        spark_config["spark.sql.iceberg.merge-schema"] = "true"
+        if catalog_preset == "unity_catalog":
+            uri = iceberg_catalog_uri or ""
+            if not uri:
+                raise ValueError(
+                    "--iceberg-catalog-uri is required for the 'unity_catalog' preset. "
+                    "Example: http://<uc-host>:8080/api/2.1/unity-catalog/iceberg"
+                )
+            logger.info("Catalog preset: unity_catalog  uri=%s", uri)
+        else:
+            uri = iceberg_catalog_uri or DEFAULT_LOCAL_ICEBERG_URI
+            logger.info("Catalog preset: local  uri=%s", uri)
 
-    # Catalog name must match the metadata JSON "catalog" field.
-    catalog_name = "local_catalog" if catalog_preset != "unity_catalog" else "iceberg"
-    spark_config.update(_iceberg_rest_spark_config(
-        uri, token=uc_token, credential=uc_credential, catalog_name=catalog_name,
-    ))
+        # Catalog name must match the metadata JSON "catalog" field.
+        catalog_name = (
+            "local_catalog" if catalog_preset != "unity_catalog" else "iceberg"
+        )
+        spark_config.update(
+            _iceberg_rest_spark_config(
+                uri,
+                token=uc_token,
+                credential=uc_credential,
+                catalog_name=catalog_name,
+            )
+        )
 
     # S3A Hadoop filesystem config (for s3a:// paths in Spark reads/writes)
     if needs_s3:
@@ -402,13 +409,10 @@ def build_spark_session(
     if packages:
         spark_config.setdefault("spark.jars.packages", packages)
 
-    # Extensions — always include both Delta + Iceberg since the runner
-    # always resolves Iceberg JARs via _resolve_packages.
-    spark_config.setdefault(
-        "spark.sql.extensions",
-        "io.delta.sql.DeltaSparkSessionExtension,"
-        "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
-    )
+    extensions = "io.delta.sql.DeltaSparkSessionExtension"
+    if needs_iceberg:
+        extensions += ",org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
+    spark_config.setdefault("spark.sql.extensions", extensions)
 
     # Caller overrides win
     if extra_config:

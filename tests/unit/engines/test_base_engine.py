@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import date, datetime, timezone
+from decimal import Decimal
+from typing import Optional
 
 import pytest
 
-from datacoolie.core.exceptions import EngineError
+from datacoolie.core.exceptions import EngineError, TransformError
 from datacoolie.engines.base import BaseEngine
 
 
@@ -89,7 +91,9 @@ class StubEngine(BaseEngine[dict]):
         return {c: df[c] for c in columns if c in df}
 
     def rename_column(self, df, old_name, new_name):
-        raise NotImplementedError
+        result = dict(df)
+        result[new_name] = result.pop(old_name)
+        return result
 
     def filter_rows(self, df, condition):
         raise NotImplementedError
@@ -219,6 +223,74 @@ class TestConcreteDefaultMethods:
         engine = StubEngine()
         df = {"col": "value"}
         assert engine.convert_timestamp_ntz_to_timestamp(df) is df
+
+    def test_rename_columns_falls_back_to_single_rename(self) -> None:
+        engine = StubEngine()
+        result = engine.rename_columns(
+            {"first": 1, "second": 2},
+            {"first": "primary", "second": "secondary"},
+        )
+        assert result == {"primary": 1, "secondary": 2}
+
+
+@pytest.mark.parametrize(
+    ("value", "kind", "kwargs", "expected"),
+    [
+        ("text", "string", {}, "text"),
+        (True, "boolean", {}, True),
+        (127, "integer", {"minimum": -128, "maximum": 127}, 127),
+        (3, "float", {}, 3.0),
+        ("12.30", "decimal", {"precision": 4, "scale": 2}, Decimal("12.30")),
+        ("2026-08-02", "date", {}, date(2026, 8, 2)),
+        (
+            "2026-08-02T12:30:00+00:00",
+            "timestamp",
+            {"timezone_aware": True},
+            datetime(2026, 8, 2, 12, 30, tzinfo=timezone.utc),
+        ),
+    ],
+)
+def test_strict_scalar_coercion_contract(
+    value: object,
+    kind: str,
+    kwargs: dict[str, object],
+    expected: object,
+) -> None:
+    assert BaseEngine._coerce_scalar_literal(
+        value,
+        kind=kind,
+        field_path="value_rules.value",
+        column="target",
+        **kwargs,
+    ) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "kind", "kwargs"),
+    [
+        (1, "string", {}),
+        (1, "boolean", {}),
+        (True, "integer", {"minimum": -128, "maximum": 127}),
+        (128, "integer", {"minimum": -128, "maximum": 127}),
+        (float("nan"), "float", {}),
+        ("1.234", "decimal", {"precision": 4, "scale": 2}),
+        (datetime(2026, 8, 2), "date", {}),
+        ("2026-08-02T12:30:00", "timestamp", {"timezone_aware": True}),
+    ],
+)
+def test_strict_scalar_coercion_rejects_ambiguous_values(
+    value: object,
+    kind: str,
+    kwargs: dict[str, object],
+) -> None:
+    with pytest.raises(TransformError):
+        BaseEngine._coerce_scalar_literal(
+            value,
+            kind=kind,
+            field_path="value_rules.value",
+            column="target",
+            **kwargs,
+        )
 
 
 class TestNavigationMethods:

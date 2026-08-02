@@ -60,6 +60,9 @@ pip install "datacoolie[polars,deltalake]"
 # Spark-first local validation
 pip install "datacoolie[spark,delta-spark]"
 
+# Add stable hash_columns support to a Polars runtime
+pip install "datacoolie[polars,deltalake,polars-hash]"
+
 # Core only (mainly useful for extension work)
 pip install datacoolie
 

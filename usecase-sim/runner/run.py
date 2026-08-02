@@ -162,6 +162,7 @@ def main() -> None:
 
     is_aws = args.platform == "aws"
     is_spark = args.engine == "spark"
+    needs_iceberg = not args.stage or "iceberg" in args.stage.lower()
 
     storage_opts = _parse_kv_list(args.storage_options)
     extra_config = _parse_kv_list(args.spark_config)
@@ -173,12 +174,11 @@ def main() -> None:
             for k, v in MINIO_STORAGE_OPTIONS.items():
                 storage_opts.setdefault(k, v)
             logger.info("Injected S3 storage options for MinIO")
-        elif args.catalog_preset == "local" and not storage_opts:
+        elif needs_iceberg and args.catalog_preset == "local" and not storage_opts:
             for k, v in MINIO_STORAGE_OPTIONS.items():
                 storage_opts.setdefault(k, v)
             logger.info("Injected S3 storage options for local Iceberg catalog")
 
-    needs_iceberg = not args.stage or "iceberg" in args.stage.lower()
     if not args.stage and is_spark:
         logger.warning("--stage '' was passed; ALL dataflows will be executed.")
 
@@ -207,13 +207,15 @@ def main() -> None:
         engine = SparkEngine(spark_session=spark, platform=platform)
         cleanup_fn = spark.stop
     else:
-        iceberg_catalog = build_iceberg_rest_catalog(
-            catalog_preset=args.catalog_preset,
-            iceberg_catalog_uri=args.iceberg_catalog_uri,
-            uc_token=args.uc_token,
-            uc_credential=args.uc_credential,
-            storage_opts=storage_opts or None,
-        )
+        iceberg_catalog = None
+        if needs_iceberg:
+            iceberg_catalog = build_iceberg_rest_catalog(
+                catalog_preset=args.catalog_preset,
+                iceberg_catalog_uri=args.iceberg_catalog_uri,
+                uc_token=args.uc_token,
+                uc_credential=args.uc_credential,
+                storage_opts=storage_opts or None,
+            )
         from datacoolie.engines import PolarsEngine
         engine = PolarsEngine(
             platform=platform,
