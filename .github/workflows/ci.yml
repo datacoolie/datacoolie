@@ -51,5 +51,8 @@ jobs:
 
       - name: Required non-Spark tests
         # Spark tests are intentionally local-only because JVM startup makes
-        # them too expensive for the GitHub-hosted validation job.
-        run: poetry run pytest tests/ -m "not spark" --tb=short
+        # them too expensive for the GitHub-hosted validation job. Run the
+        # remaining suite in-process: short-deadline logging tests can leave a
+        # native PyArrow writer finishing after close(), which is safe in the
+        # long-lived pytest process but unsafe during xdist worker teardown.
+        run: poetry run pytest tests/ -m "not spark" -n 0 --tb=short
