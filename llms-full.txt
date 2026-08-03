@@ -11,7 +11,7 @@
 - **PyPI**: https://pypi.org/project/datacoolie/
 - **GitHub**: https://github.com/datacoolie/datacoolie
 - **Docs**: https://datacoolie.github.io/datacoolie/
-- **Version**: 0.1.2
+- **Version**: 0.1.3
 - **Python**: >= 3.11
 
 ## One-Sentence Summary
@@ -23,11 +23,28 @@ DataCoolie is a metadata-driven ETL framework for Python that lets data teams de
 1. **Engine-unified**: Same metadata runs on Polars (lightweight) and Spark (distributed) via a shared `BaseEngine[DF]` contract
 2. **Cloud-agnostic**: Platform abstraction layer handles file I/O and secrets for local, AWS, Fabric, and Databricks environments
 3. **Metadata-driven**: Connections, dataflows, transforms, schema hints, partitions, and load strategies are declarative (JSON/YAML/Excel)
-4. **Right-sized compute**: Polars for dev/CI/small jobs, Spark for production at scale — same metadata for both
+4. **Right-sized compute**: Choose Polars or Spark from workload size, managed runtime, table features, and downstream consumers — the same metadata can run on both
 5. **Batch-first**: append, full_load (overwrite), merge_upsert, merge_overwrite, and SCD Type 2 out of the box
 6. **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support on every engine
 7. **Plugin architecture**: Engines, platforms, sources, destinations, transformers, and secret resolvers are all Python entry-point plugins
 8. **AI-native**: Declarative metadata schema is a perfect interface for LLM-powered pipeline scaffolding and validation
+
+## DataCoolie Studio
+
+DataCoolie Studio is the local-first visual companion to the DataCoolie ETL
+framework. It organizes projects and environments, edits JSON/YAML/XLSX
+metadata, derives assets and lineage from metadata, SQL, and Python, connects to
+local and cloud storage, and presents Dataflow, Job, and System logs through
+focused monitoring views. DataCoolie remains responsible for ETL execution;
+Studio makes source files and operational evidence easier to explore.
+
+- **Docs**: https://datacoolie.github.io/datacoolie/datacoolie-studio/
+- **Source**: https://github.com/datacoolie/datacoolie-studio
+- **Status**: Beta; Python >= 3.11; source-based installation
+- **Storage**: Local, S3, MinIO, ADLS, OneLake, GCS, and Databricks
+- **Safety model**: Original files remain authoritative; metadata saves validate
+  content and create a backup before replacement; cloud credentials use the
+  operating-system credential store
 
 ## Architecture Components
 
@@ -68,7 +85,7 @@ DataCoolie is complementary to (not a replacement for):
 
 ```bash
 pip install "datacoolie[polars]"      # Polars engine (lightest)
-pip install "datacoolie[spark,delta]" # Spark engine with Delta Lake
+pip install "datacoolie[spark,delta-spark]" # Spark engine with Delta Lake
 pip install "datacoolie[all]"         # Everything
 ```
 

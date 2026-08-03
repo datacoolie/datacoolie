@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials.">
+        <meta name="description" content="Run DataCoolie on AWS Glue Spark with S3, Delta or Iceberg, Glue Catalog, Athena, Secrets Manager, and reproducible Python dependencies.">
       
       
       
@@ -30,7 +30,7 @@
     
     
   
-    <title>Deploy to AWS Glue — DataCoolie How-to</title>
+    <title>Deploy Python ETL to AWS Glue | DataCoolie</title>
   
 
     
@@ -81,6 +81,9 @@
       
     
     
+      
+    
+    
     
     
       
@@ -95,23 +98,21 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Deploy to AWS Glue — DataCoolie How-to" />
-    <meta property="og:description" content="Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials." />
+    <meta property="og:title" content="Deploy Python ETL to AWS Glue | DataCoolie" />
+    <meta property="og:description" content="Run DataCoolie on AWS Glue Spark with S3, Delta or Iceberg, Glue Catalog, Athena, Secrets Manager, and reproducible Python dependencies." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Deploy to AWS Glue — DataCoolie How-to" />
+    <meta property="og:image:alt" content="Deploy Python ETL to AWS Glue | DataCoolie" />
+    
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Deploy to AWS Glue — DataCoolie How-to" />
-    <meta name="twitter:description" content="Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials." />
+    <meta name="twitter:title" content="Deploy Python ETL to AWS Glue | DataCoolie" />
+    <meta name="twitter:description" content="Run DataCoolie on AWS Glue Spark with S3, Delta or Iceberg, Glue Catalog, Athena, Secrets Manager, and reproducible Python dependencies." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Deploy to AWS Glue — DataCoolie How-to" />
-
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/" />
+    <meta name="twitter:image:alt" content="Deploy Python ETL to AWS Glue | DataCoolie" />
 
     <!-- JSON-LD structured data -->
     
@@ -138,13 +139,12 @@
         {
           "@type": "ListItem",
           "position": 3,
-          "name": "Deploy to AWS Glue \u2014 DataCoolie How-to",
+          "name": "Deploy Python ETL to AWS Glue | DataCoolie",
           "item": "https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/"
         }
       ]
     }
     </script>
-    
     
     
     
@@ -159,11 +159,13 @@
       
       "@id": "https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/",
-      "name": "Deploy to AWS Glue \u2014 DataCoolie How-to",
-      "headline": "Deploy to AWS Glue \u2014 DataCoolie How-to",
-      "description": "Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials.",
+      "name": "Deploy Python ETL to AWS Glue | DataCoolie",
+      "headline": "Deploy Python ETL to AWS Glue | DataCoolie",
+      "description": "Run DataCoolie on AWS Glue Spark with S3, Delta or Iceberg, Glue Catalog, Athena, Secrets Manager, and reproducible Python dependencies.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
+      
       "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      
       "inLanguage": "en",
       "about": {
         "@type": "SoftwareApplication",
@@ -228,7 +230,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Deploy to AWS Glue — DataCoolie How-to
+              Deploy Python ETL to AWS Glue | DataCoolie
             
           </span>
         </div>
@@ -342,6 +344,44 @@
     
   
   Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../datacoolie-studio/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  DataCoolie Studio
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../python-etl-framework/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Python ETL framework
 
       </a>
     </li>
@@ -514,7 +554,7 @@
   
     
   
-  Blog
+  Python ETL Tutorials & Engineering Guides | DataCoolie
 
       </a>
     </li>
@@ -604,6 +644,60 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../datacoolie-studio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataCoolie Studio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python-etl-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python ETL framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
       
@@ -630,7 +724,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -652,14 +746,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -862,7 +956,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -884,14 +978,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1297,7 +1391,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -1319,14 +1413,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1371,7 +1465,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1393,14 +1487,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6_1" id="__nav_6_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1933,10 +2027,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-package-the-library" class="md-nav__link">
+  <a href="#1-choose-the-aws-runtime-first" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Package the library
+        1. Choose the AWS runtime first
       
     </span>
   </a>
@@ -1944,10 +2038,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-job-script" class="md-nav__link">
+  <a href="#2-package-the-library" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Job script
+        2. Package the library
       
     </span>
   </a>
@@ -1955,10 +2049,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-delta-athena-handoff" class="md-nav__link">
+  <a href="#3-job-script" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Delta + Athena handoff
+        3. Job script
       
     </span>
   </a>
@@ -1966,10 +2060,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-secrets" class="md-nav__link">
+  <a href="#4-delta-athena-handoff" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Secrets
+        4. Delta + Athena handoff
       
     </span>
   </a>
@@ -1977,10 +2071,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-delta-lake-config-on-glue" class="md-nav__link">
+  <a href="#5-secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Delta Lake config on Glue
+        5. Secrets
       
     </span>
   </a>
@@ -1988,10 +2082,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-iceberg-alternative" class="md-nav__link">
+  <a href="#6-delta-lake-config-on-glue" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. Iceberg alternative
+        6. Delta Lake config on Glue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-iceberg-alternative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Iceberg alternative
       
     </span>
   </a>
@@ -2057,7 +2162,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2079,14 +2184,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2250,10 +2355,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
         
           
-          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
             
   
   
@@ -2271,8 +2376,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2611,7 +2716,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2633,14 +2738,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2855,7 +2960,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2877,14 +2982,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3043,7 +3148,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3065,14 +3170,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3244,7 +3349,7 @@
   <span class="md-ellipsis">
     
   
-    Blog
+    Python ETL Tutorials & Engineering Guides | DataCoolie
   
 
     
@@ -3284,10 +3389,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-package-the-library" class="md-nav__link">
+  <a href="#1-choose-the-aws-runtime-first" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Package the library
+        1. Choose the AWS runtime first
       
     </span>
   </a>
@@ -3295,10 +3400,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-job-script" class="md-nav__link">
+  <a href="#2-package-the-library" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Job script
+        2. Package the library
       
     </span>
   </a>
@@ -3306,10 +3411,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-delta-athena-handoff" class="md-nav__link">
+  <a href="#3-job-script" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Delta + Athena handoff
+        3. Job script
       
     </span>
   </a>
@@ -3317,10 +3422,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-secrets" class="md-nav__link">
+  <a href="#4-delta-athena-handoff" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Secrets
+        4. Delta + Athena handoff
       
     </span>
   </a>
@@ -3328,10 +3433,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-delta-lake-config-on-glue" class="md-nav__link">
+  <a href="#5-secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Delta Lake config on Glue
+        5. Secrets
       
     </span>
   </a>
@@ -3339,10 +3444,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-iceberg-alternative" class="md-nav__link">
+  <a href="#6-delta-lake-config-on-glue" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. Iceberg alternative
+        6. Delta Lake config on Glue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-iceberg-alternative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Iceberg alternative
       
     </span>
   </a>
@@ -3388,9 +3504,54 @@
 <h1 id="deploy-to-aws-glue">Deploy to AWS Glue<a class="headerlink" href="#deploy-to-aws-glue" title="Permanent link">&para;</a></h1>
 <p><strong>Prerequisites</strong> · AWS account with Glue, S3, Secrets Manager · <code>datacoolie</code> installed in the Glue job's Python library path.
 <strong>End state</strong> · DataCoolie pipeline running as a Glue Spark job writing Delta/Iceberg to S3 with Secrets Manager-backed credentials.</p>
-<h2 id="1-package-the-library">1. Package the library<a class="headerlink" href="#1-package-the-library" title="Permanent link">&para;</a></h2>
-<p>Glue lets you provide a wheel via <code>--additional-python-modules</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>--additional-python-modules datacoolie==0.1.2
+<h2 id="1-choose-the-aws-runtime-first">1. Choose the AWS runtime first<a class="headerlink" href="#1-choose-the-aws-runtime-first" title="Permanent link">&para;</a></h2>
+<p>AWS provides several compute environments; they do not have the same engine or
+Python contract.</p>
+<table>
+<thead>
+<tr>
+<th>Runtime</th>
+<th>DataCoolie engine</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS Glue Spark ETL</td>
+<td><code>SparkEngine</code></td>
+<td>Managed batch ETL, distributed processing, Glue Catalog, Delta, or Iceberg</td>
+</tr>
+<tr>
+<td>Amazon EMR / EMR Serverless Spark</td>
+<td><code>SparkEngine</code></td>
+<td>Spark workloads needing EMR release/runtime controls or serverless scale</td>
+</tr>
+<tr>
+<td>Python 3.11+ container, VM, or local runner</td>
+<td><code>PolarsEngine</code></td>
+<td>Small single-node jobs using S3 and Secrets Manager through <code>AWSPlatform</code></td>
+</tr>
+<tr>
+<td>AWS Glue Python Shell</td>
+<td>Not compatible with the current package</td>
+<td>Glue Python Shell is Python 3.9; DataCoolie requires Python 3.11+</td>
+</tr>
+</tbody>
+</table>
+<p>AWS Glue supports separate
+<a href="https://docs.aws.amazon.com/glue/latest/dg/glue-version-support-policy.html">Spark, Ray, and Python Shell job types</a>.
+Glue 5.0 Spark jobs supply Python 3.11 and Spark 3.5.4, making Spark the
+supported DataCoolie path on Glue. Do not choose Glue Python Shell merely to run
+Polars; use a controlled Python 3.11+ runtime instead.</p>
+<p>For EMR Serverless, submit the same <code>SparkEngine</code> runner as a
+<a href="https://docs.aws.amazon.com/emr/latest/EMR-Serverless-UserGuide/jobs-spark.html">PySpark job to a Spark application</a>.
+The checked-in deployment sample covers Glue Spark; EMR deployment packaging is
+not yet a repo-backed example. See <a href="../../blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/">Polars vs Spark by platform and ETL layer</a>
+for the wider selection framework.</p>
+<h2 id="2-package-the-library">2. Package the library<a class="headerlink" href="#2-package-the-library" title="Permanent link">&para;</a></h2>
+<p>Glue lets you provide a pinned package or wheel via
+<code>--additional-python-modules</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>--additional-python-modules datacoolie==0.1.3
 </span></code></pre></div>
 <p>Then add only the extra Python packages your specific job needs, for example:</p>
 <ul>
@@ -3401,7 +3562,10 @@
 </ul>
 <p>Glue already provides the Spark runtime, so treat DataCoolie extras as optional
 convenience, not the default install path.</p>
-<h2 id="2-job-script">2. Job script<a class="headerlink" href="#2-job-script" title="Permanent link">&para;</a></h2>
+<p>For production, AWS recommends a frozen wheel artifact or zip of wheels rather
+than resolving unpinned dependencies from PyPI during every startup. See
+<a href="https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-python-libraries.html">Using Python libraries with AWS Glue</a>.</p>
+<h2 id="3-job-script">3. Job script<a class="headerlink" href="#3-job-script" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">awsglue.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">GlueContext</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyspark.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparkContext</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.engines.spark_engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparkEngine</span>
@@ -3418,7 +3582,7 @@ convenience, not the default install path.</p>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>                     <span class="n">base_log_path</span><span class="o">=</span><span class="s2">&quot;s3://my-bucket/logs&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">driver</span><span class="p">:</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">driver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">&quot;ingest2bronze&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="3-delta-athena-handoff">3. Delta + Athena handoff<a class="headerlink" href="#3-delta-athena-handoff" title="Permanent link">&para;</a></h2>
+<h2 id="4-delta-athena-handoff">4. Delta + Athena handoff<a class="headerlink" href="#4-delta-athena-handoff" title="Permanent link">&para;</a></h2>
 <p><code>Connection.configure</code> options that matter on AWS:</p>
 <table>
 <thead>
@@ -3449,7 +3613,7 @@ convenience, not the default install path.</p>
 <p>The checked-in <code>aws_glue_use_cases.json</code> uses this Delta path: Delta
 destinations carry <code>athena_output_location</code>, and <code>AWSPlatform.register_delta_table(...)</code>
 does the Glue Catalog registration through Athena after Spark writes.</p>
-<h2 id="4-secrets">4. Secrets<a class="headerlink" href="#4-secrets" title="Permanent link">&para;</a></h2>
+<h2 id="5-secrets">5. Secrets<a class="headerlink" href="#5-secrets" title="Permanent link">&para;</a></h2>
 <p><code>AWSPlatform._fetch_secret</code> hits AWS Secrets Manager:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -3472,7 +3636,7 @@ usecase-sim AWS metadata.</p>
 you created, such as <code>de-dev-0001/datacoolie/rds</code>. A bare value like
 <code>datacoolie/rds</code> only works when that is literally the secret's name. Use the
 full ARN when you want an unambiguous reference across environments or accounts.</p>
-<h2 id="5-delta-lake-config-on-glue">5. Delta Lake config on Glue<a class="headerlink" href="#5-delta-lake-config-on-glue" title="Permanent link">&para;</a></h2>
+<h2 id="6-delta-lake-config-on-glue">6. Delta Lake config on Glue<a class="headerlink" href="#6-delta-lake-config-on-glue" title="Permanent link">&para;</a></h2>
 <p>Glue Spark needs Delta Lake extensions activated at session start. The
 repo-backed <code>sample_aws_glue_spark.py</code> uses explicit Spark properties, so that
 is the documented baseline:</p>
@@ -3483,16 +3647,16 @@ is the documented baseline:</p>
 repo does not rely on them anywhere. Prefer the explicit Spark properties plus
 the matching Delta runtime/JARs, because that is the path exercised by the
 checked-in Glue sample.</p>
-<h2 id="6-iceberg-alternative">6. Iceberg alternative<a class="headerlink" href="#6-iceberg-alternative" title="Permanent link">&para;</a></h2>
+<h2 id="7-iceberg-alternative">7. Iceberg alternative<a class="headerlink" href="#7-iceberg-alternative" title="Permanent link">&para;</a></h2>
 <p>If you would rather use Iceberg than Delta on Glue, set the connection's
 <code>format</code> to <code>"iceberg"</code>, set <code>catalog="glue_catalog"</code>, and keep a real Glue database
 name (the AWS sample metadata uses <code>database="datacoolie"</code>). This skips the
 Athena-native Delta registration path entirely and uses Glue Catalog-backed
 Iceberg tables instead.</p>
-<p>For Spark jobs, include the Glue Iceberg runtime/JARs. For Python Shell jobs,
-the checked-in <code>sample_aws_local_polars.py</code> uses <code>pyiceberg</code>, and Glue catalog
+<p>For Spark jobs, include the Glue Iceberg runtime/JARs. For the checked-in local
+Polars runner, <code>sample_aws_local_polars.py</code> uses <code>pyiceberg</code>; Glue catalog
 support requires <code>PYICEBERG_CATALOG__GLUE__TYPE=glue</code> plus the appropriate Glue
-permissions.</p>
+permissions. This local runner is not a Glue Python Shell job.</p>
 <h2 id="reference-assets">Reference assets<a class="headerlink" href="#reference-assets" title="Permanent link">&para;</a></h2>
 <p>Use the AWS platform guide in usecase-sim for the current sample scripts,
 metadata file, and setup notes:</p>
@@ -3593,9 +3757,7 @@ metadata file, and setup notes:</p>
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../../assets/javascripts/mermaid.min.js"></script>
-      
-        <script src="../../assets/javascripts/mermaid-render.js"></script>
+        <script src="../../assets/javascripts/mermaid-loader.js"></script>
       
         <script src="../../assets/javascripts/zoomable-media.js"></script>
       

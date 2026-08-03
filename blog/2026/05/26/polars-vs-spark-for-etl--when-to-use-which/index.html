@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="When should you use Polars vs Spark for ETL pipelines? We benchmark both engines with DataCoolie on identical workloads and show where each shines.">
+        <meta name="description" content="Choose Polars or Spark by workload, cloud runtime, and Bronze, Silver, or Gold layer across Fabric, Databricks, AWS Glue, and local ETL.">
       
       
       
@@ -30,7 +30,7 @@
     
     
   
-    <title>Polars vs Spark for ETL — When to Use Which - DataCoolie</title>
+    <title>Polars vs Spark: Choose by Platform and ETL Layer</title>
   
 
     
@@ -81,6 +81,9 @@
       
     
     
+      
+    
+    
     
     
       
@@ -93,25 +96,27 @@
     <meta name="msvalidate.01" content="374A47D942D44B14AB4A3DA7F035E041" />
 
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content="article" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Polars vs Spark for ETL — When to Use Which - DataCoolie" />
-    <meta property="og:description" content="When should you use Polars vs Spark for ETL pipelines? We benchmark both engines with DataCoolie on identical workloads and show where each shines." />
+    <meta property="og:title" content="Polars vs Spark: Choose by Platform and ETL Layer" />
+    <meta property="og:description" content="Choose Polars or Spark by workload, cloud runtime, and Bronze, Silver, or Gold layer across Fabric, Databricks, AWS Glue, and local ETL." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Polars vs Spark for ETL — When to Use Which - DataCoolie" />
+    <meta property="og:image:alt" content="Polars vs Spark: Choose by Platform and ETL Layer" />
+    
+    <meta property="article:published_time" content="2026-05-26" />
+    <meta property="article:modified_time" content="2026-08-03" />
+    <meta property="article:author" content="https://github.com/datacoolie/datacoolie" />
+    
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Polars vs Spark for ETL — When to Use Which - DataCoolie" />
-    <meta name="twitter:description" content="When should you use Polars vs Spark for ETL pipelines? We benchmark both engines with DataCoolie on identical workloads and show where each shines." />
+    <meta name="twitter:title" content="Polars vs Spark: Choose by Platform and ETL Layer" />
+    <meta name="twitter:description" content="Choose Polars or Spark by workload, cloud runtime, and Bronze, Silver, or Gold layer across Fabric, Databricks, AWS Glue, and local ETL." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Polars vs Spark for ETL — When to Use Which - DataCoolie" />
-
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/" />
+    <meta name="twitter:image:alt" content="Polars vs Spark: Choose by Platform and ETL Layer" />
 
     <!-- JSON-LD structured data -->
     
@@ -156,13 +161,12 @@
         {
           "@type": "ListItem",
           "position": 6,
-          "name": "Polars vs Spark for ETL \u2014 When to Use Which - DataCoolie",
+          "name": "Polars vs Spark: Choose by Platform and ETL Layer",
           "item": "https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/"
         }
       ]
     }
     </script>
-    
     
     
     
@@ -177,22 +181,38 @@
       "datePublished": "2026-05-26",
       
       
-      "dateModified": "2026-05-26",
+      "dateModified": "2026-08-03",
       
       "author": {
         "@type": "Organization",
         "@id": "https://datacoolie.github.io/datacoolie/#organization",
         "name": "DataCoolie"
       },
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp",
+        "width": 1200,
+        "height": 630
+      },
       "mainEntityOfPage": { "@id": "https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/" },
       
       "@id": "https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/#webpage",
       "url": "https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/",
-      "name": "Polars vs Spark for ETL \u2014 When to Use Which - DataCoolie",
-      "headline": "Polars vs Spark for ETL \u2014 When to Use Which - DataCoolie",
-      "description": "When should you use Polars vs Spark for ETL pipelines? We benchmark both engines with DataCoolie on identical workloads and show where each shines.",
+      "name": "Polars vs Spark: Choose by Platform and ETL Layer",
+      "headline": "Polars vs Spark: Choose by Platform and ETL Layer",
+      "description": "Choose Polars or Spark by workload, cloud runtime, and Bronze, Silver, or Gold layer across Fabric, Databricks, AWS Glue, and local ETL.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
-      "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
+      
+      "publisher": {
+        "@type": "Organization",
+        "@id": "https://datacoolie.github.io/datacoolie/#organization",
+        "name": "DataCoolie",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://datacoolie.github.io/datacoolie/images/logos/datacoolie-icon-circle-dark_512x512.png"
+        }
+      },
+      
       "inLanguage": "en",
       "about": {
         "@type": "SoftwareApplication",
@@ -222,7 +242,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#polars-vs-spark-for-etl-when-to-use-which" class="md-skip">
+        <a href="#polars-vs-spark-choose-by-platform-and-etl-layer" class="md-skip">
           Skip to content
         </a>
       
@@ -257,7 +277,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Polars vs Spark for ETL — When to Use Which
+              Polars vs Spark: Choose by Platform and ETL Layer
             
           </span>
         </div>
@@ -371,6 +391,44 @@
     
   
   Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../../../datacoolie-studio/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  DataCoolie Studio
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../../../python-etl-framework/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Python ETL framework
 
       </a>
     </li>
@@ -543,7 +601,7 @@
   
     
   
-  Blog
+  Python ETL Tutorials & Engineering Guides | DataCoolie
 
       </a>
     </li>
@@ -635,6 +693,60 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../../../datacoolie-studio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataCoolie Studio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../python-etl-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python ETL framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
       
@@ -661,7 +773,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -683,14 +795,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -893,7 +1005,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -915,14 +1027,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1323,7 +1435,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1345,14 +1457,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1394,7 +1506,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1416,14 +1528,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6_1" id="__nav_6_1_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1956,7 +2068,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1978,14 +2090,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2149,10 +2261,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
         
           
-          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
             
   
   
@@ -2170,8 +2282,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2510,7 +2622,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2532,14 +2644,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2754,7 +2866,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2776,14 +2888,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2942,7 +3054,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2964,14 +3076,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3145,7 +3257,7 @@
   <span class="md-ellipsis">
     
   
-    Blog
+    Python ETL Tutorials & Engineering Guides | DataCoolie
   
 
     
@@ -3187,10 +3299,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-benchmark-setup" class="md-nav__link">
+  <a href="#the-30-second-decision" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Benchmark Setup
+        The 30-second decision
       
     </span>
   </a>
@@ -3198,71 +3310,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#results-summary" class="md-nav__link">
+  <a href="#choose-by-medallion-layer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Results Summary
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Results Summary">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#small-workloads-100k-rows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Small workloads (&lt; 100K rows)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#medium-workloads-100k10m-rows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Medium workloads (100K–10M rows)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#large-workloads-10m100m-rows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Large workloads (10M–100M rows)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#xl-workloads-100m-rows-or-cluster-environments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        XL workloads (100M+ rows) or cluster environments
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-this-means-for-your-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What This Means for Your Pipeline
+        Choose by medallion layer
       
     </span>
   </a>
@@ -3270,10 +3321,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-datacoolie-makes-the-choice-easy" class="md-nav__link">
+  <a href="#microsoft-fabric-decide-by-workload-and-consumer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How DataCoolie Makes the Choice Easy
+        Microsoft Fabric: decide by workload and consumer
       
     </span>
   </a>
@@ -3281,10 +3332,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#try-it-yourself" class="md-nav__link">
+  <a href="#databricks-spark-is-the-operational-default" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Try It Yourself
+        Databricks: Spark is the operational default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-choose-the-runtime-before-the-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS: choose the runtime before the engine
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-datacoolie-benchmark-doesand-does-notprove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the DataCoolie benchmark does—and does not—prove
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-practical-selection-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A practical selection checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keep-pipeline-intent-portable-with-datacoolie" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep pipeline intent portable with DataCoolie
       
     </span>
   </a>
@@ -3295,7 +3390,7 @@
   <a href="#bottom-line" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Bottom Line
+        Bottom line
       
     </span>
   </a>
@@ -3380,7 +3475,7 @@
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20a8 8 0 0 0 8-8 8 8 0 0 0-8-8 8 8 0 0 0-8 8 8 8 0 0 0 8 8m0-18a10 10 0 0 1 10 10 10 10 0 0 1-10 10C6.47 22 2 17.5 2 12A10 10 0 0 1 12 2m.5 5v5.25l4.5 2.67-.75 1.23L11 13V7z"/></svg>
                           <span class="md-ellipsis">
                             
-                              3 min read
+                              6 min read
                             
                           </span>
                         </div>
@@ -3412,111 +3507,264 @@
   
 
 
-<h1 id="polars-vs-spark-for-etl-when-to-use-which">Polars vs Spark for ETL — When to Use Which<a class="headerlink" href="#polars-vs-spark-for-etl-when-to-use-which" title="Permanent link">&para;</a></h1>
-<p>Polars and Spark solve overlapping problems in different ways. Polars is a Rust-backed DataFrame library built for single-node speed. Spark is a JVM-based distributed compute engine built for cluster-scale workloads. Both are excellent — but choosing the wrong one for your workload wastes either money or time.</p>
-<p>DataCoolie runs both <a href="../../../../../concepts/engines/">engines</a> on the same metadata, so we tested them side by side. Here's what we found and when to pick each one.</p>
+<h1 id="polars-vs-spark-choose-by-platform-and-etl-layer">Polars vs Spark — Choose by Platform and ETL Layer<a class="headerlink" href="#polars-vs-spark-choose-by-platform-and-etl-layer" title="Permanent link">&para;</a></h1>
+<p><strong>Use Polars when a job fits comfortably on one machine and a lightweight
+Python runtime reduces startup and operating cost. Use Spark when the workload
+needs distributed compute or the platform's catalog, table format, and
+optimization features are Spark-native.</strong> Data size matters, but it is not the
+only decision.</p>
+<p>On Databricks, Spark is usually the practical default because the managed
+runtime already configures it. On Microsoft Fabric, the answer can change by
+medallion layer: Polars can suit small Bronze jobs, while Spark is the safer
+default for a Gold layer serving Direct Lake because it can write V-Order. On
+AWS, distinguish Glue or EMR Spark jobs from single-node Python runtimes before
+choosing an engine.</p>
 <!-- more -->
 
-<h2 id="the-benchmark-setup">The Benchmark Setup<a class="headerlink" href="#the-benchmark-setup" title="Permanent link">&para;</a></h2>
-<p>We ran identical ETL workloads through DataCoolie's <code>PolarsEngine</code> and <code>SparkEngine</code> using the <code>usecase-sim</code> testbed. Every workload used the same metadata, the same Delta Lake outputs, and the same <a href="../../../../../concepts/load-strategies/">load strategies</a> (append, merge_upsert, SCD2).</p>
-<p><strong>Hardware:</strong> 8-core, 32 GB RAM, NVMe SSD. Spark ran as a local SparkSession (no cluster) to isolate engine-level differences from infrastructure advantages.</p>
-<p><strong>Workload tiers:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Tier</th>
-<th>Row Count</th>
-<th>File Size</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Small</td>
-<td>10K rows</td>
-<td>~2 MB</td>
-</tr>
-<tr>
-<td>Medium</td>
-<td>1M rows</td>
-<td>~200 MB</td>
-</tr>
-<tr>
-<td>Large</td>
-<td>50M rows</td>
-<td>~10 GB</td>
-</tr>
-<tr>
-<td>XL</td>
-<td>200M+ rows</td>
-<td>~40 GB+</td>
-</tr>
-</tbody>
-</table>
-<h2 id="results-summary">Results Summary<a class="headerlink" href="#results-summary" title="Permanent link">&para;</a></h2>
-<h3 id="small-workloads-100k-rows">Small workloads (&lt; 100K rows)<a class="headerlink" href="#small-workloads-100k-rows" title="Permanent link">&para;</a></h3>
-<p><strong>Winner: Polars by 5–10×.</strong></p>
-<p>Polars finishes small jobs in under a second. Spark spends 3–8 seconds on JVM startup, session creation, and query planning before processing a single row. For CSV → Delta pipelines with &lt; 100K rows, Polars is strictly superior.</p>
-<h3 id="medium-workloads-100k10m-rows">Medium workloads (100K–10M rows)<a class="headerlink" href="#medium-workloads-100k10m-rows" title="Permanent link">&para;</a></h3>
-<p><strong>Winner: Polars by 2–3×.</strong></p>
-<p>Polars still outperforms on a single machine. Its vectorized Rust execution processes 1M-row merges faster than Spark's Catalyst optimizer can plan them. Memory usage is lower because Polars avoids JVM overhead and GC pauses.</p>
-<h3 id="large-workloads-10m100m-rows">Large workloads (10M–100M rows)<a class="headerlink" href="#large-workloads-10m100m-rows" title="Permanent link">&para;</a></h3>
-<p><strong>Winner: Depends.</strong> On a single machine, Polars can still win if the data fits in memory. But Spark's lazy evaluation and partition-level parallelism begin to close the gap, especially with shuffle-heavy operations like SCD2 merges on wide tables.</p>
-<h3 id="xl-workloads-100m-rows-or-cluster-environments">XL workloads (100M+ rows) or cluster environments<a class="headerlink" href="#xl-workloads-100m-rows-or-cluster-environments" title="Permanent link">&para;</a></h3>
-<p><strong>Winner: Spark.</strong></p>
-<p>Once data exceeds single-node memory or when you need distributed processing across a cluster (Fabric, Databricks, EMR), Spark is the only option. Polars is single-node by design.</p>
-<h2 id="what-this-means-for-your-pipeline">What This Means for Your Pipeline<a class="headerlink" href="#what-this-means-for-your-pipeline" title="Permanent link">&para;</a></h2>
+<h2 id="the-30-second-decision">The 30-second decision<a class="headerlink" href="#the-30-second-decision" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Situation</th>
-<th>Recommended Engine</th>
+<th>Start with</th>
+<th>Why</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Local development and testing</td>
+<td>Local development or CI</td>
 <td>Polars</td>
+<td>Short feedback loop and no Spark session startup</td>
 </tr>
 <tr>
-<td>CI pipeline validation</td>
+<td>Small, single-node file transformation</td>
 <td>Polars</td>
+<td>Less runtime overhead when the data and joins fit in memory</td>
 </tr>
 <tr>
-<td>Small/medium production loads (&lt; 10M rows)</td>
-<td>Polars</td>
-</tr>
-<tr>
-<td>Cloud-native lakehouse (Fabric, Databricks)</td>
+<td>Distributed joins, deduplication, or large merges</td>
 <td>Spark</td>
+<td>Scale-out execution and mature shuffle controls</td>
 </tr>
 <tr>
-<td>Data exceeds single-node memory</td>
+<td>Databricks production pipeline</td>
 <td>Spark</td>
+<td>Spark, Delta Lake, and Unity Catalog are integrated into the managed runtime</td>
 </tr>
 <tr>
-<td>Need Unity Catalog / Hive Metastore integration</td>
+<td>Fabric Gold feeding Direct Lake</td>
+<td>Spark</td>
+<td>Delta optimization and V-Order are part of the Spark write path</td>
+</tr>
+<tr>
+<td>AWS Glue Spark or EMR Serverless</td>
+<td>Spark</td>
+<td>The service supplies and operates the Spark runtime</td>
+</tr>
+<tr>
+<td>Python 3.11+ container or VM on AWS</td>
+<td>Polars, if the job fits</td>
+<td>A single-node runtime can avoid provisioning distributed compute</td>
+</tr>
+</tbody>
+</table>
+<p>This table gives a default, not a permanent choice. Validate it against the
+data shape, table format, concurrency, operational tooling, and downstream
+consumer.</p>
+<h2 id="choose-by-medallion-layer">Choose by medallion layer<a class="headerlink" href="#choose-by-medallion-layer" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Polars is a good fit when…</th>
+<th>Prefer Spark when…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bronze</strong></td>
+<td>Inputs are small or moderate, transforms are light, and the job mainly appends files or path-based Delta tables</td>
+<td>Ingestion volume is high, schema evolution is complex, or the managed platform already provides Spark</td>
+</tr>
+<tr>
+<td><strong>Silver</strong></td>
+<td>Joins and validation fit on one node and engine portability is more valuable than platform-native features</td>
+<td>The layer performs large joins, deduplication, MERGE/SCD processing, or needs distributed recovery and observability</td>
+</tr>
+<tr>
+<td><strong>Gold</strong></td>
+<td>Aggregations are modest and the consumer does not require a Spark-specific physical layout</td>
+<td>The layer serves a lakehouse catalog, large concurrent reads, or platform optimizations such as Fabric V-Order for Direct Lake</td>
+</tr>
+</tbody>
+</table>
+<p>Layer names alone do not select an engine. A tiny Gold aggregate can still run
+well on Polars; a high-volume Bronze ingest can require Spark. The downstream
+contract is often the deciding factor.</p>
+<h2 id="microsoft-fabric-decide-by-workload-and-consumer">Microsoft Fabric: decide by workload and consumer<a class="headerlink" href="#microsoft-fabric-decide-by-workload-and-consumer" title="Permanent link">&para;</a></h2>
+<p>Fabric notebooks support Python and Spark runtimes. Microsoft's current
+<a href="https://learn.microsoft.com/en-us/fabric/data-engineering/fabric-notebook-selection-guide">kernel selection guidance</a>
+positions Python engines such as Polars well for very small workloads, while
+Spark becomes more competitive as data grows and provides fuller Delta Lake
+support.</p>
+<p>Recommended defaults:</p>
+<ul>
+<li><strong>Bronze:</strong> Polars for small file-oriented loads where native Python startup
+  matters; Spark for high volume, streaming, or advanced Delta behavior.</li>
+<li><strong>Silver:</strong> choose from measured data size and transformation complexity;
+  prefer Spark for large joins, MERGE/SCD, and scale-out execution.</li>
+<li><strong>Gold → Direct Lake:</strong> prefer Spark and explicitly design the Delta output
+  for Direct Lake reads.</li>
+</ul>
+<p>Fabric's <a href="https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview">Direct Lake guidance</a>
+places Direct Lake over well-tuned Delta tables in the analytics layer.
+<a href="https://learn.microsoft.com/en-us/fabric/data-engineering/delta-optimization-and-v-order">V-Order</a>
+can improve read-heavy workloads, but Microsoft documents additional write
+cost and disables it by default in new workspaces. Enable it deliberately for
+Gold tables that benefit from it; do not pay that cost automatically on every
+Bronze or staging write.</p>
+<p>See <a href="../../../../../how-to/deploy-to-fabric/">Deploy DataCoolie to Microsoft Fabric</a>
+for notebook and V-Order setup.</p>
+<h2 id="databricks-spark-is-the-operational-default">Databricks: Spark is the operational default<a class="headerlink" href="#databricks-spark-is-the-operational-default" title="Permanent link">&para;</a></h2>
+<p><a href="https://docs.databricks.com/aws/en/spark/faq">Apache Spark is at the heart of Databricks</a>,
+and Databricks creates and manages the Spark context and session for cluster
+workloads. The runtime also integrates Spark with Delta Lake, Unity Catalog,
+job monitoring, and platform optimizations. Installing another engine must
+therefore deliver enough benefit to offset dependency management and a second
+operational path.</p>
+<p>Use Spark by default for production Delta tables, Unity Catalog integration,
+distributed workloads, and shared operational support. Consider Polars for an
+isolated, measured, small file job when its inputs fit on one node and it does
+not need Spark-native catalog behavior. DataCoolie's current Polars Databricks
+sample supports UC Volume file paths; Delta through UC Volume paths still uses
+the Spark sample as the supported path.</p>
+<p>See <a href="../../../../../how-to/deploy-to-databricks/">Deploy DataCoolie to Databricks</a>.</p>
+<h2 id="aws-choose-the-runtime-before-the-engine">AWS: choose the runtime before the engine<a class="headerlink" href="#aws-choose-the-runtime-before-the-engine" title="Permanent link">&para;</a></h2>
+<p>“AWS” is not one execution environment:</p>
+<table>
+<thead>
+<tr>
+<th>AWS runtime</th>
+<th>DataCoolie default</th>
+<th>Decision note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS Glue Spark ETL</td>
+<td>Spark</td>
+<td>Glue supplies a managed Spark/PySpark environment</td>
+</tr>
+<tr>
+<td>Amazon EMR or EMR Serverless Spark</td>
+<td>Spark</td>
+<td>The application and job contract are Spark-native</td>
+</tr>
+<tr>
+<td>AWS Glue Python Shell</td>
+<td>Not supported by the current package</td>
+<td>Glue Python Shell uses Python 3.9, while DataCoolie requires Python 3.11+</td>
+</tr>
+<tr>
+<td>Python 3.11+ on a container, VM, or local runner using AWS services</td>
+<td>Polars for fitting workloads</td>
+<td><code>AWSPlatform</code> can use S3 and Secrets Manager without requiring Spark</td>
+</tr>
+</tbody>
+</table>
+<p>AWS documents Glue as having separate
+<a href="https://docs.aws.amazon.com/glue/latest/dg/glue-version-support-policy.html">Spark, Ray, and Python Shell job types</a>.
+Glue 5.0 Spark jobs provide Python 3.11 and Spark 3.5.4, while the current
+<a href="https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html">Python Shell environment</a>
+uses Python 3.9. AWS also recommends packaging pinned dependencies as wheel
+artifacts rather than resolving unpinned packages during every job startup; see
+<a href="https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-python-libraries.html">Using Python libraries with AWS Glue</a>.</p>
+<p>For EMR Serverless, submit DataCoolie as a PySpark job to a
+<a href="https://docs.aws.amazon.com/emr/latest/EMR-Serverless-UserGuide/jobs-spark.html">Spark application</a>.
+For small jobs that do not need Glue or EMR, run Polars in a controlled Python
+3.11+ environment and use <code>AWSPlatform</code> for S3 and Secrets Manager access.</p>
+<p>See <a href="../../../../../how-to/deploy-to-aws-glue/">Deploy DataCoolie to AWS Glue</a>.</p>
+<h2 id="what-the-datacoolie-benchmark-doesand-does-notprove">What the DataCoolie benchmark does—and does not—prove<a class="headerlink" href="#what-the-datacoolie-benchmark-doesand-does-notprove" title="Permanent link">&para;</a></h2>
+<p>DataCoolie's committed benchmark is a local comparison, not a universal cloud
+ranking. It ran Polars 1.39.3 and PySpark 3.5.8 on Windows with 12 logical CPU
+cores and 30.7 GB RAM. Spark used local mode, and both engines were warmed up
+before timed dataflows.</p>
+<p>Representative results from that run show why format and operation matter:</p>
+<table>
+<thead>
+<tr>
+<th>Workload</th>
+<th style="text-align: right;">Rows</th>
+<th style="text-align: right;">Polars</th>
+<th style="text-align: right;">Local Spark</th>
+<th>Faster in this run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parquet → Parquet</td>
+<td style="text-align: right;">1M</td>
+<td style="text-align: right;">0.11 s</td>
+<td style="text-align: right;">1.09 s</td>
+<td>Polars</td>
+</tr>
+<tr>
+<td>Delta → Delta</td>
+<td style="text-align: right;">50M</td>
+<td style="text-align: right;">24.55 s</td>
+<td style="text-align: right;">54.76 s</td>
+<td>Polars</td>
+</tr>
+<tr>
+<td>Parquet → Iceberg</td>
+<td style="text-align: right;">50M</td>
+<td style="text-align: right;">75.49 s</td>
+<td style="text-align: right;">37.12 s</td>
 <td>Spark</td>
 </tr>
 </tbody>
 </table>
-<h2 id="how-datacoolie-makes-the-choice-easy">How DataCoolie Makes the Choice Easy<a class="headerlink" href="#how-datacoolie-makes-the-choice-easy" title="Permanent link">&para;</a></h2>
-<p>The key insight is: <strong>you don't have to choose permanently.</strong> DataCoolie's metadata is engine-agnostic. Develop locally with Polars for fast iteration, then deploy the same metadata on Spark in Fabric or Databricks. Zero code changes.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Local development — fast</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">PolarsEngine</span><span class="p">(</span><span class="n">platform</span><span class="o">=</span><span class="n">LocalPlatform</span><span class="p">())</span>
+<p>These numbers do <strong>not</strong> include cluster scale-out, managed-runtime convenience,
+V-Order, Unity Catalog, Glue/EMR startup, network storage, or production
+concurrency. Use the <a href="../../../../../operations/benchmarks/">full benchmark report</a> to
+reproduce the test, then benchmark the same source format, load strategy, data
+shape, and target platform as your production job.</p>
+<h2 id="a-practical-selection-checklist">A practical selection checklist<a class="headerlink" href="#a-practical-selection-checklist" title="Permanent link">&para;</a></h2>
+<p>Choose the engine only after answering these questions:</p>
+<ol>
+<li>Is Spark already provided and supported by the target runtime?</li>
+<li>Does the peak working set fit safely in one machine's memory?</li>
+<li>Do joins, skew, or concurrency require distributed execution?</li>
+<li>Does the destination need Unity Catalog, Glue Catalog, V-Order, or another
+   platform-native write path?</li>
+<li>Is startup and dependency installation a meaningful share of job duration?</li>
+<li>Can the team monitor, patch, and reproduce both runtime paths?</li>
+<li>What does a representative benchmark show on the target platform?</li>
+</ol>
+<h2 id="keep-pipeline-intent-portable-with-datacoolie">Keep pipeline intent portable with DataCoolie<a class="headerlink" href="#keep-pipeline-intent-portable-with-datacoolie" title="Permanent link">&para;</a></h2>
+<p>DataCoolie separates pipeline metadata from engine and platform selection:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Lightweight local or AWS-connected run</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">PolarsEngine</span><span class="p">(</span><span class="n">platform</span><span class="o">=</span><span class="n">AWSPlatform</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="s2">&quot;ap-southeast-1&quot;</span><span class="p">))</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Production — distributed</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark_session</span><span class="o">=</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">FabricPlatform</span><span class="p">())</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Managed Spark runtime: Fabric, Databricks, Glue, or EMR</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">SparkEngine</span><span class="p">(</span><span class="n">spark_session</span><span class="o">=</span><span class="n">spark</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Same metadata. Same load strategies. Same watermarks. Different engine.</p>
-<h2 id="try-it-yourself">Try It Yourself<a class="headerlink" href="#try-it-yourself" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars,spark,delta]&quot;</span>
-</span></code></pre></div>
-<p>Run the <a href="../../../../../getting-started/quickstart-polars/">Polars quickstart</a> and <a href="../../../../../getting-started/quickstart-spark/">Spark quickstart</a> back to back with the same metadata. See the full benchmark methodology in <a href="../../../../../operations/benchmarks/">Operations → Benchmarks</a>.</p>
-<h2 id="bottom-line">Bottom Line<a class="headerlink" href="#bottom-line" title="Permanent link">&para;</a></h2>
+<p>The metadata can preserve source, transform, load strategy, schema, watermark,
+and logging intent while the runner selects the engine appropriate to each
+environment. Start with the <a href="../../../../../getting-started/quickstart-polars/">Polars quickstart</a>,
+compare the <a href="../../../../../getting-started/quickstart-spark/">Spark quickstart</a>, and
+use the platform guide for production deployment.</p>
+<h2 id="bottom-line">Bottom line<a class="headerlink" href="#bottom-line" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Default to Polars</strong> for development, CI, and small/medium production workloads.</li>
-<li><strong>Switch to Spark</strong> when you hit cluster-scale data or need native cloud platform integration.</li>
-<li><strong>Use DataCoolie</strong> to avoid choosing — write metadata once, run on both.</li>
+<li>Choose <strong>Polars</strong> for a small, single-node workload—not merely because a row
+  threshold says it should be faster.</li>
+<li>Choose <strong>Spark</strong> when scale or a managed platform feature makes Spark the
+  lower-risk operational choice.</li>
+<li>On <strong>Fabric</strong>, let the layer and Direct Lake contract influence the decision.</li>
+<li>On <strong>Databricks</strong>, Spark is the default unless a bounded Polars job proves a
+  clear advantage.</li>
+<li>On <strong>AWS</strong>, select Glue/EMR versus a Python runtime first; then select Spark
+  or Polars.</li>
 </ul>
 
 
@@ -3614,9 +3862,7 @@
     
       <script src="../../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../../../../../assets/javascripts/mermaid.min.js"></script>
-      
-        <script src="../../../../../assets/javascripts/mermaid-render.js"></script>
+        <script src="../../../../../assets/javascripts/mermaid-loader.js"></script>
       
         <script src="../../../../../assets/javascripts/zoomable-media.js"></script>
       

@@ -4,18 +4,19 @@
 
 DataCoolie lets data engineering teams describe pipeline intent once as metadata
 (JSON / YAML / Excel / database / REST API) and execute on Polars, Spark, Fabric,
-Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.2.
+Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.3.
 
 ## Key Features
 
 - **Engine-unified**: Same metadata runs on both Polars and Spark via `BaseEngine[DF]` contract
 - **Cloud-agnostic**: Local, AWS, Microsoft Fabric, and Databricks platforms with zero code changes
 - **Metadata-driven**: Connections, dataflows, transforms, schema hints, partitions, and load strategies are declarative
-- **Right-sized compute**: Use Polars for small/medium jobs, Spark for distributed workloads
+- **Right-sized compute**: Choose Polars or Spark from workload size, managed runtime, table features, and downstream consumers
 - **Batch-first**: append, full_load, merge_upsert, merge_overwrite, and SCD Type 2 built-in
 - **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support
 - **Plugin everything**: Engines, platforms, sources, destinations, transformers, secret resolvers are all entry-point plugins
 - **Observable by default**: Structured ETLLogger with debug JSONL and analyst Parquet outputs
+- **Visual companion**: DataCoolie Studio explores projects, metadata, assets, lineage, sources, and ETL monitoring in a local-first web UI
 
 ## When to Use DataCoolie
 
@@ -35,12 +36,13 @@ Databricks, or AWS Glue without rewriting per-engine code. Version: 0.1.2.
 
 ```bash
 pip install "datacoolie[polars]"      # Polars engine
-pip install "datacoolie[spark,delta]" # Spark engine with Delta Lake
+pip install "datacoolie[spark,delta-spark]" # Spark engine with Delta Lake
 ```
 
 ## Documentation
 
 - [Home](https://datacoolie.github.io/datacoolie/): Overview, value proposition, and quickstart
+- [DataCoolie Studio](https://datacoolie.github.io/datacoolie/datacoolie-studio/): Local-first visual workspace for metadata, lineage, assets, sources, and ETL monitoring
 - [Getting Started](https://datacoolie.github.io/datacoolie/getting-started/): Installation, Polars quickstart, Spark quickstart, first dataflow tutorial
 - [Concepts](https://datacoolie.github.io/datacoolie/concepts/): Architecture, engines, platforms, metadata model, orchestration, logging, secrets, watermarks
 - [How-to Guides](https://datacoolie.github.io/datacoolie/how-to/): Configuring metadata, running stages, merge/SCD2, partitioning, maintenance, deployment recipes
@@ -48,16 +50,17 @@ pip install "datacoolie[spark,delta]" # Spark engine with Delta Lake
 - [Extending](https://datacoolie.github.io/datacoolie/extending/): Plugin development — sources, destinations, transformers, engines, secret resolvers, metadata providers
 - [Operations](https://datacoolie.github.io/datacoolie/operations/): Production guidance, logging layout, benchmarks, troubleshooting, testing strategy
 - [ADR](https://datacoolie.github.io/datacoolie/adr/): Architecture decision records for engine format dispatch, secret provider split, transformer ordering, watermark contract
-- [Changelog](https://datacoolie.github.io/datacoolie/changelog/): Version history and release notes
 - [Blog](https://datacoolie.github.io/datacoolie/blog/): Architecture posts, tutorials, and release notes
 
 ## Source Code
 
 - [GitHub Repository](https://github.com/datacoolie/datacoolie): Source code, issues, and contributions
+- [DataCoolie Studio Repository](https://github.com/datacoolie/datacoolie-studio): Companion web UI source, setup, screenshots, and issues
 - [PyPI](https://pypi.org/project/datacoolie/): Package index page
 
 ## Optional: Full content
 
+- [Guide — How to Choose a Python ETL Framework](https://datacoolie.github.io/datacoolie/python-etl-framework/)
 - [Concepts — Architecture](https://datacoolie.github.io/datacoolie/concepts/architecture/)
 - [Concepts — Engines](https://datacoolie.github.io/datacoolie/concepts/engines/)
 - [Concepts — Metadata model](https://datacoolie.github.io/datacoolie/concepts/metadata-model/)
@@ -69,6 +72,7 @@ pip install "datacoolie[spark,delta]" # Spark engine with Delta Lake
 - [How-to — Deploy to AWS Glue](https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/)
 - [How-to — Merge & SCD2](https://datacoolie.github.io/datacoolie/how-to/merge-and-scd2/)
 - [Operations — Benchmarks (Polars vs Spark)](https://datacoolie.github.io/datacoolie/operations/benchmarks/)
+- [Blog — Polars vs Spark by Platform and ETL Layer](https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/)
 - [Blog — Why We Built DataCoolie](https://datacoolie.github.io/datacoolie/blog/2026/05/22/why-we-built-datacoolie/)
 - [Blog — Python ETL Tutorial for Beginners](https://datacoolie.github.io/datacoolie/blog/2026/05/30/python-etl-tutorial-for-beginners--build-your-first-data-pipeline/)
 - [Blog — DataCoolie vs dbt](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/)
