@@ -61,8 +61,7 @@ extra_css:
   - assets/stylesheets/zoomable-media.css
 
 extra_javascript:
-  - assets/javascripts/mermaid.min.js
-  - assets/javascripts/mermaid-render.js
+  - assets/javascripts/mermaid-loader.js
   - assets/javascripts/zoomable-media.js
 
 markdown_extensions:
@@ -96,6 +95,7 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 hooks:
+  - docs/scripts/seo_metadata.py
   - docs/scripts/copy_schema_files.py
   - docs/scripts/inject_faq_schema.py
   - docs/scripts/enhance_sitemap.py
@@ -142,6 +142,8 @@ plugins:
 
 nav:
   - Home: index.md
+  - DataCoolie Studio: datacoolie-studio.md
+  - Python ETL framework: python-etl-framework.md
   - Getting started:
       - getting-started/index.md
       - Installation: getting-started/installation.md

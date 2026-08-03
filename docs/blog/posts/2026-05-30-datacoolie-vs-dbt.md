@@ -1,5 +1,7 @@
 ---
 date: 2026-05-30
+title: "DataCoolie vs dbt: Python ETL vs SQL Transforms"
+slug: datacoolie-vs-dbt--etl-framework-vs-sql-transforms
 categories:
   - Architecture
 authors:

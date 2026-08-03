@@ -1,6 +1,6 @@
 ---
 title: Maintenance, Vacuum, and Optimize — DataCoolie How-to
-description: Run DataCoolie maintenance operations such as optimize and vacuum for Delta and Iceberg destinations.
+description: Run DataCoolie optimize and vacuum maintenance safely for Delta Lake and Apache Iceberg destinations, with retention and execution guidance.
 ---
 
 # Maintenance (vacuum / optimize)

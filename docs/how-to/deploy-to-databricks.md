@@ -1,14 +1,38 @@
 ---
-title: Deploy to Databricks — DataCoolie How-to
-description: Run DataCoolie on Databricks with notebook utilities, workspace storage, and Delta Lake or Unity Catalog patterns.
+title: Deploy Python ETL to Databricks | DataCoolie
+description: Run DataCoolie ETL on Databricks with managed Spark, Unity Catalog, Delta Lake, UC Volumes, and a clear Spark-versus-Polars deployment choice.
 ---
 
 # Deploy to Databricks
 
-**Prerequisites** · Databricks workspace with Unity Catalog · cluster or SQL Warehouse · `pip install datacoolie` on the cluster.
-**End state** · DataCoolie pipeline running as a Databricks job with `DatabricksPlatform`, DBFS / UC Volumes I/O, and Databricks secrets.
+**Prerequisites** · Databricks workspace with Unity Catalog · serverless jobs,
+classic jobs, or all-purpose compute that supports Python/Spark · `datacoolie`
+installed in the job environment.
+**End state** · DataCoolie pipeline running as a Databricks job with
+`DatabricksPlatform`, UC Volumes I/O, and Databricks secrets.
 
-## 1. Cluster library
+## 1. Choose the engine
+
+Use `SparkEngine` as the default for production Databricks pipelines.
+[Databricks configures and manages the Spark context and session](https://docs.databricks.com/aws/en/spark/faq),
+and its Delta Lake, Unity Catalog, monitoring, and runtime optimizations are
+designed around that execution path. This removes much of the setup cost that
+Spark has in a local benchmark.
+
+Use `PolarsEngine` only for a bounded file-oriented job when all of these are
+true:
+
+- The working set fits comfortably on one node.
+- A representative test shows a material runtime or cost benefit.
+- The job does not need Spark-native Delta or Unity Catalog table behavior.
+- The team accepts an additional Python dependency and operational path.
+
+The checked-in Polars notebook supports file operations through UC Volume
+paths. For Delta tables addressed through Unity Catalog or UC Volumes, use the
+Spark sample. See [Polars vs Spark by platform and ETL layer](../blog/posts/2026-05-26-polars-vs-spark-for-etl.md)
+for the cross-platform decision matrix.
+
+## 2. Cluster library
 
 Install `datacoolie` on the cluster via the Libraries tab, or `%pip install`
 it in a notebook.
@@ -23,7 +47,7 @@ Add optional dependencies individually only when needed. Common examples:
 Databricks already provides the Spark runtime, so a large platform bundle is
 often unnecessary.
 
-## 2. Notebook / job code
+## 3. Notebook / job code
 
 ```python
 from datacoolie.engines.spark_engine import SparkEngine
@@ -42,13 +66,16 @@ with DataCoolieDriver(engine=engine, metadata_provider=metadata,
     driver.run(stage="ingest2bronze")
 ```
 
-## 3. Paths
+## 4. Paths
 
 - Prefer **UC Volumes**: `/Volumes/<catalog>/<schema>/<volume>/...`
-- DBFS still works: `dbfs:/Users/…` or `/dbfs/…`
-- `DatabricksPlatform` normalises both.
+- Use external locations or workspace files when a volume is not the right
+  boundary.
+- Do not start a new pipeline on DBFS root or mounts. Databricks has deprecated
+  both and recommends UC Volumes, external locations, or workspace files; see
+  [DBFS and Unity Catalog best practices](https://docs.databricks.com/aws/en/dbfs/unity-catalog).
 
-## 4. Qualified table names
+## 5. Qualified table names
 
 Unity Catalog is three-level (`catalog.schema.table`). In DataCoolie metadata,
 that maps to `catalog + database + table`, so prefer leaving `schema_name`
@@ -72,7 +99,7 @@ as `workspace.default.orders_appended`. If you set `schema_name`, the generic
 qualified-name builder will include it and produce a four-part name, which is
 usually not what you want for Unity Catalog.
 
-## 5. Secrets
+## 6. Secrets
 
 `DatabricksPlatform._fetch_secret` always uses `dbutils.secrets.get(scope,
 key)`; there is no separate native secret backend on Databricks. Put the
@@ -94,7 +121,7 @@ The checked-in `sample_databricks_secrets.ipynb` notebook validates both direct
 provider access and `resolve_secrets(...)` resolution without printing raw
 secret values.
 
-## 6. Workflow Job Setup
+## 7. Workflow Job Setup
 
 The checked-in usecase-sim assets are notebook-based, so this repo verifies the
 Workflow / notebook-task path rather than a raw Jobs API payload. In practice,

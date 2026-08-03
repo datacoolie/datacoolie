@@ -1,6 +1,6 @@
 ---
 title: Run a Stage — DataCoolie How-to
-description: Run one DataCoolie stage or a filtered set of dataflows with the main runner scripts and execution flags.
+description: Run a DataCoolie pipeline stage or filtered dataflows with the main runner scripts, execution flags, metadata providers, and failure handling.
 ---
 
 # Run a stage

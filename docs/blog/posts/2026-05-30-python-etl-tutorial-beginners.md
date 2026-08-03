@@ -1,10 +1,12 @@
 ---
 date: 2026-05-30
+title: "Python ETL Tutorial: Build Your First Data Pipeline"
+slug: python-etl-tutorial-for-beginners--build-your-first-data-pipeline
 categories:
   - Tutorial
 authors:
   - datacoolie
-description: "Learn ETL basics and build your first data pipeline in Python. A beginner-friendly tutorial using DataCoolie's metadata-driven approach — no prior ETL experience needed."
+description: "Learn ETL basics and build your first Python data pipeline step by step with DataCoolie's metadata-driven approach. No prior ETL experience required."
 ---
 
 # Python ETL Tutorial for Beginners — Build Your First Data Pipeline

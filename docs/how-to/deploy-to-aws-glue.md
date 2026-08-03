@@ -1,6 +1,6 @@
 ---
-title: Deploy to AWS Glue — DataCoolie How-to
-description: Package and run DataCoolie on AWS Glue with Spark, S3-backed storage, and Secrets Manager-backed credentials.
+title: Deploy Python ETL to AWS Glue | DataCoolie
+description: Run DataCoolie on AWS Glue Spark with S3, Delta or Iceberg, Glue Catalog, Athena, Secrets Manager, and reproducible Python dependencies.
 ---
 
 # Deploy to AWS Glue
@@ -8,12 +8,37 @@ description: Package and run DataCoolie on AWS Glue with Spark, S3-backed storag
 **Prerequisites** · AWS account with Glue, S3, Secrets Manager · `datacoolie` installed in the Glue job's Python library path.
 **End state** · DataCoolie pipeline running as a Glue Spark job writing Delta/Iceberg to S3 with Secrets Manager-backed credentials.
 
-## 1. Package the library
+## 1. Choose the AWS runtime first
 
-Glue lets you provide a wheel via `--additional-python-modules`:
+AWS provides several compute environments; they do not have the same engine or
+Python contract.
+
+| Runtime | DataCoolie engine | Use when |
+|---|---|---|
+| AWS Glue Spark ETL | `SparkEngine` | Managed batch ETL, distributed processing, Glue Catalog, Delta, or Iceberg |
+| Amazon EMR / EMR Serverless Spark | `SparkEngine` | Spark workloads needing EMR release/runtime controls or serverless scale |
+| Python 3.11+ container, VM, or local runner | `PolarsEngine` | Small single-node jobs using S3 and Secrets Manager through `AWSPlatform` |
+| AWS Glue Python Shell | Not compatible with the current package | Glue Python Shell is Python 3.9; DataCoolie requires Python 3.11+ |
+
+AWS Glue supports separate
+[Spark, Ray, and Python Shell job types](https://docs.aws.amazon.com/glue/latest/dg/glue-version-support-policy.html).
+Glue 5.0 Spark jobs supply Python 3.11 and Spark 3.5.4, making Spark the
+supported DataCoolie path on Glue. Do not choose Glue Python Shell merely to run
+Polars; use a controlled Python 3.11+ runtime instead.
+
+For EMR Serverless, submit the same `SparkEngine` runner as a
+[PySpark job to a Spark application](https://docs.aws.amazon.com/emr/latest/EMR-Serverless-UserGuide/jobs-spark.html).
+The checked-in deployment sample covers Glue Spark; EMR deployment packaging is
+not yet a repo-backed example. See [Polars vs Spark by platform and ETL layer](../blog/posts/2026-05-26-polars-vs-spark-for-etl.md)
+for the wider selection framework.
+
+## 2. Package the library
+
+Glue lets you provide a pinned package or wheel via
+`--additional-python-modules`:
 
 ```
---additional-python-modules datacoolie==0.1.2
+--additional-python-modules datacoolie==0.1.3
 ```
 
 Then add only the extra Python packages your specific job needs, for example:
@@ -26,7 +51,11 @@ Then add only the extra Python packages your specific job needs, for example:
 Glue already provides the Spark runtime, so treat DataCoolie extras as optional
 convenience, not the default install path.
 
-## 2. Job script
+For production, AWS recommends a frozen wheel artifact or zip of wheels rather
+than resolving unpinned dependencies from PyPI during every startup. See
+[Using Python libraries with AWS Glue](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-python-libraries.html).
+
+## 3. Job script
 
 ```python
 from awsglue.context import GlueContext
@@ -46,7 +75,7 @@ with DataCoolieDriver(engine=engine, metadata_provider=metadata,
     driver.run(stage="ingest2bronze")
 ```
 
-## 3. Delta + Athena handoff
+## 4. Delta + Athena handoff
 
 `Connection.configure` options that matter on AWS:
 
@@ -61,7 +90,7 @@ The checked-in `aws_glue_use_cases.json` uses this Delta path: Delta
 destinations carry `athena_output_location`, and `AWSPlatform.register_delta_table(...)`
 does the Glue Catalog registration through Athena after Spark writes.
 
-## 4. Secrets
+## 5. Secrets
 
 `AWSPlatform._fetch_secret` hits AWS Secrets Manager:
 
@@ -90,7 +119,7 @@ you created, such as `de-dev-0001/datacoolie/rds`. A bare value like
 `datacoolie/rds` only works when that is literally the secret's name. Use the
 full ARN when you want an unambiguous reference across environments or accounts.
 
-## 5. Delta Lake config on Glue
+## 6. Delta Lake config on Glue
 
 Glue Spark needs Delta Lake extensions activated at session start. The
 repo-backed `sample_aws_glue_spark.py` uses explicit Spark properties, so that
@@ -106,7 +135,7 @@ repo does not rely on them anywhere. Prefer the explicit Spark properties plus
 the matching Delta runtime/JARs, because that is the path exercised by the
 checked-in Glue sample.
 
-## 6. Iceberg alternative
+## 7. Iceberg alternative
 
 If you would rather use Iceberg than Delta on Glue, set the connection's
 `format` to `"iceberg"`, set `catalog="glue_catalog"`, and keep a real Glue database
@@ -114,10 +143,10 @@ name (the AWS sample metadata uses `database="datacoolie"`). This skips the
 Athena-native Delta registration path entirely and uses Glue Catalog-backed
 Iceberg tables instead.
 
-For Spark jobs, include the Glue Iceberg runtime/JARs. For Python Shell jobs,
-the checked-in `sample_aws_local_polars.py` uses `pyiceberg`, and Glue catalog
+For Spark jobs, include the Glue Iceberg runtime/JARs. For the checked-in local
+Polars runner, `sample_aws_local_polars.py` uses `pyiceberg`; Glue catalog
 support requires `PYICEBERG_CATALOG__GLUE__TYPE=glue` plus the appropriate Glue
-permissions.
+permissions. This local runner is not a Glue Python Shell job.
 
 ## Reference assets
 

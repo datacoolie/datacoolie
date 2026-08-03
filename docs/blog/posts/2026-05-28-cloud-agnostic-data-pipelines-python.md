@@ -1,5 +1,7 @@
 ---
 date: 2026-05-28
+title: Cloud-Agnostic Python Data Pipelines | DataCoolie
+slug: how-to-build-cloud-agnostic-data-pipelines-in-python
 categories:
   - Tutorial
 authors:

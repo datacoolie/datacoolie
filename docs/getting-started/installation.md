@@ -102,7 +102,7 @@ print(datacoolie.platform_registry.list_plugins())
 Expected output (with `[all]`):
 
 ```text
-0.1.2
+0.1.3
 ['polars', 'spark']
 ['aws', 'databricks', 'fabric', 'local']
 ```

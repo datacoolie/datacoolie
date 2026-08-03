@@ -5,7 +5,7 @@ description: DataCoolie — metadata-driven ETL for Python. Define pipelines as 
 <p align="center">
   <picture>
     <source srcset="images/banners/datacoolie-banner-dark.webp" type="image/webp">
-    <img src="images/banners/datacoolie-banner-dark.png" alt="DataCoolie architecture overview banner" style="max-width: 100%; height: auto;" loading="lazy" decoding="async">
+    <img src="images/banners/datacoolie-banner-dark.png" alt="DataCoolie architecture overview banner" width="2500" height="650" style="max-width: 100%; height: auto;" fetchpriority="high" decoding="async">
   </picture>
 </p>
 
@@ -19,6 +19,11 @@ engine, platform, or operating environment changes. Instead of maintaining
 separate local scripts, Spark jobs, and cloud-specific glue code, teams
 describe pipeline intent once as **metadata** (JSON / YAML / Excel / database /
 REST API) and execute it on the engine and platform they need.
+
+If you are comparing tools, start with the
+[Python ETL framework decision guide](python-etl-framework.md) to see where
+DataCoolie fits alongside dataframe engines, SQL transformation tools, and
+workflow orchestrators.
 
 That helps in four practical ways:
 
@@ -68,6 +73,9 @@ flowchart LR
 - **I need to deploy, operate, or troubleshoot**
     Go to [How-to guides](how-to/index.md) for task recipes and then
     [Operations](operations/index.md) for logging, benchmarks, and troubleshooting.
+- **I want to explore metadata, lineage, and run health visually**
+    Open [DataCoolie Studio](datacoolie-studio.md), the local-first companion UI
+    for projects, environments, metadata, assets, lineage, sources, and ETL logs.
 - **I want to extend the framework**
     Start with [Extending](extending/index.md) and use
     [Reference](reference/index.md) for the exact contracts and API surfaces.
@@ -212,6 +220,15 @@ the same.
     Write a source, destination, transformer, engine, or secret resolver.
 
     [:octicons-arrow-right-24: Build a plugin](extending/index.md)
+
+-   :material-monitor-dashboard: **DataCoolie Studio**
+
+    ---
+
+    Explore metadata, lineage, assets, sources, and ETL run health in a
+    local-first visual workspace.
+
+    [:octicons-arrow-right-24: Explore Studio](datacoolie-studio.md)
 
 </div>
 

@@ -1,10 +1,12 @@
 ---
 date: 2026-05-30
+title: "DataCoolie vs Airflow & Prefect: ETL vs Orchestration"
+slug: datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator
 categories:
   - Architecture
 authors:
   - datacoolie
-description: "DataCoolie vs Airflow and Prefect — how an ETL execution framework differs from workflow orchestrators. When to use each, and how to run DataCoolie inside an Airflow DAG."
+description: "DataCoolie vs Airflow and Prefect: compare an ETL execution framework with workflow orchestrators, learn when each fits, and see how they work together."
 ---
 
 # DataCoolie vs Airflow / Prefect — ETL Framework vs Orchestrator

@@ -74,6 +74,23 @@ poetry sync --with dev -E spark -E delta-spark
 poetry run pytest tests/unit/engines/test_spark_engine.py -m spark -n auto --dist loadgroup
 ```
 
+## Verify before commit or PyPI release
+
+Run the shared local release gate before committing a release change or
+creating a `vX.Y.Z` tag. It uses the same package, docs, distribution, and
+non-Spark test checks that the tagged PyPI workflow uses:
+
+```powershell
+poetry sync --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry run python -m pip install --upgrade twine
+poetry run python scripts/verify_release.py
+```
+
+The command does not require a clean worktree, so it is safe to run before the
+commit is created. Use `--with-spark` after installing Spark dependencies when
+the change affects Spark behavior. Do not commit or tag while any verifier
+stage is failing.
+
 ## Questions
 
 For questions about contributions or large changes that may require a separate

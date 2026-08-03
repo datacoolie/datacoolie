@@ -1,6 +1,6 @@
 ---
 title: Write a Transformer Plugin — DataCoolie
-description: Build a custom DataCoolie transformer plugin and place it correctly in the pipeline ordering model.
+description: Build a custom DataCoolie transformer plugin, register it through Python entry points, and place it correctly in the pipeline ordering model.
 ---
 
 # Write a transformer

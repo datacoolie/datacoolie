@@ -1,5 +1,7 @@
 ---
 date: 2026-05-22
+title: Why DataCoolie Uses Metadata-Driven Python ETL
+slug: why-we-built-datacoolie
 categories:
   - Architecture
 authors:

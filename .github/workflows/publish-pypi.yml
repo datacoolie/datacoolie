@@ -26,13 +26,25 @@ jobs:
       - name: Install Poetry
         run: pipx install poetry==2.3.4
 
-      - name: Build distributions
-        run: poetry build
+      - name: Install release dependencies
+        env:
+          POETRY_VIRTUALENVS_IN_PROJECT: true
+        run: >-
+          poetry sync --with dev --with docs
+          -E polars
+          -E polars-hash
+          -E deltalake
+          -E iceberg
+          -E api
+          -E db
+          -E boto3
+          -E excel
 
-      - name: Check distributions
-        run: |
-          python -m pip install --upgrade twine
-          python -m twine check dist/*
+      - name: Install release validation tools
+        run: poetry run python -m pip install --upgrade twine
+
+      - name: Run release gate for tag
+        run: poetry run python scripts/verify_release.py --tag "${{ github.ref_name }}"
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

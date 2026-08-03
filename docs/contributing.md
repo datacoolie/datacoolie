@@ -45,6 +45,21 @@ environment for DataCoolie.
    `properdocs build --strict` on pull requests that touch docs-related files.
    Pushes to `main` for those paths deploy the site to `gh-pages`.
 
+## Release verification
+
+Before committing a release change or creating a PyPI tag, run the repository's
+local release gate from the root checkout:
+
+```powershell
+poetry sync --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry run python -m pip install --upgrade twine
+poetry run python scripts/verify_release.py
+```
+
+It validates package versions, distributions, wheel installation, strict docs,
+and non-Spark tests. Spark remains an explicit local-only option through
+`poetry run python scripts/verify_release.py --with-spark`.
+
 ## Documentation style
 
 - Follow the **Diátaxis** tier for the page you're editing:

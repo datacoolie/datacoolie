@@ -8,9 +8,9 @@ This maintainer guide describes the workflows checked into the standalone
 
 | Workflow | Trigger | Current behavior |
 |---|---|---|
-| `.github/workflows/ci.yml` | Push to `main`, any pull request | Poetry 2.3.4; `poetry check`; package build; pytest is advisory (`continue-on-error`) |
+| `.github/workflows/ci.yml` | Push to `main`, any pull request | Poetry 2.3.4; shared local release verifier; non-Spark pytest is blocking |
 | `.github/workflows/docs.yml` | Relevant docs/source/config changes | Strict ProperDocs build; deploys `main` to `gh-pages` with `properdocs gh-deploy --force` |
-| `.github/workflows/publish-pypi.yml` | Tag matching `v*` | Poetry build, `twine check`, then trusted-publisher upload to PyPI |
+| `.github/workflows/publish-pypi.yml` | Tag matching `v*` | Shared release verifier, then trusted-publisher upload to PyPI |
 | `.github/workflows/release.yml` | Tag matching `v*` | Creates the GitHub Release with generated release notes |
 
 The tag push is the release trigger. There is no checked-in changelog file or
@@ -39,14 +39,14 @@ API token.
 ### Branch protection
 
 Use `main` as the release branch and tag only commits already merged into it.
-Require the checks that the team considers release-blocking. Note that the
-current CI workflow treats pytest as advisory; branch protection cannot turn
-that step into a hard gate without changing the workflow.
+Require the checks that the team considers release-blocking. The shared local
+release verifier is the CI gate for package, docs, and non-Spark tests.
 
 ## Release prerequisites
 
 - Python 3.11
 - Poetry 2.3.4 for parity with GitHub Actions
+- Twine in the active Poetry environment (`poetry run python -m pip install --upgrade twine`)
 - Git access to the `datacoolie/datacoolie` repository
 - a clean standalone repository checkout
 
@@ -59,25 +59,35 @@ Run release commands from the repository root.
 3. Confirm both values are identical and the intended tag will be `v<version>`.
 4. Review package metadata and generated release-note inputs (merged pull
    requests and commit messages).
+5. Run the local release verifier and resolve every failure before committing
+   or tagging.
 
 There is no `docs/changelog.md` in the current repository. GitHub release notes
 are generated from the tag by `.github/workflows/release.yml`.
 
 ## Validate locally
 
-For workflow parity:
+Run the shared local gate before creating the commit that will be tagged:
 
 ```bash
-poetry check
-poetry build
-python -m twine check dist/*
-poetry run properdocs build --strict
-poetry run pytest
+poetry sync --with dev --with docs \
+  -E polars -E polars-hash -E deltalake -E iceberg \
+  -E api -E db -E boto3 -E excel
+poetry run python -m pip install --upgrade twine
+poetry run python scripts/verify_release.py
 ```
 
-The strict docs build and package checks must pass before tagging. Even though
-CI currently marks pytest advisory, treat a local test failure as unresolved
-unless the release owner has explicitly accepted it.
+The verifier checks version parity, lock metadata, distributions, Twine
+metadata, a clean-wheel install/import smoke test, the strict docs build, and
+the default non-Spark test suite. Any failed stage is a release blocker.
+
+Spark is intentionally local-only. When Spark dependencies are installed, add
+the explicit local gate:
+
+```bash
+poetry sync --with dev --with docs -E spark -E delta-spark
+poetry run python scripts/verify_release.py --with-spark
+```
 
 A Poetry-free diagnostic is also possible when equivalent dependencies are
 already installed:
@@ -88,6 +98,9 @@ python -m twine check dist/*
 python -m properdocs build --strict
 python -m pytest
 ```
+
+The Poetry command above is the release gate of record; the diagnostic form is
+useful only for investigating an environment that cannot use Poetry.
 
 ## Commit and tag
 
@@ -102,6 +115,9 @@ git push origin main
 git tag v0.1.3
 git push origin v0.1.3
 ```
+
+Do not create or push the tag until the local verifier has passed on the exact
+working tree that will be committed.
 
 Before pushing the tag, verify:
 
@@ -133,8 +149,9 @@ Confirm the relevant `docs` workflow run succeeded and
 - versions match in `pyproject.toml` and `src/datacoolie/__init__.py`
 - Poetry metadata and package build pass
 - `twine check dist/*` passes
+- shared local release verifier passes, including wheel install smoke test
 - strict docs build passes
-- tests pass, or an explicit release decision records the exception
+- non-Spark tests pass; Spark is run locally when the release touches Spark
 - release commit is on `main`
 - immutable `vX.Y.Z` tag is pushed
 - PyPI trusted-publisher workflow succeeds
@@ -143,5 +160,4 @@ Confirm the relevant `docs` workflow run succeeded and
 
 ## Unresolved questions
 
-- Should `.github/workflows/ci.yml` stop treating pytest as advisory and make
-  test failures release-blocking?
+- None.

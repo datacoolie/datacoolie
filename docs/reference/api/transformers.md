@@ -1,6 +1,6 @@
 ---
 title: Transformers — Python API Reference | DataCoolie
-description: Python API reference for DataCoolie transformers covering pipeline orchestration, schema conversion, deduplication, row filtering, partition handling, and column adders.
+description: Python API reference for DataCoolie transformers, including schema conversion, deduplication, filtering, partition handling, and computed columns.
 ---
 
 # Transformers

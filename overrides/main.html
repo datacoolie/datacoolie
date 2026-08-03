@@ -10,6 +10,10 @@
 {% block htmltitle %}
   {% if page and page.is_homepage %}
     <title>DataCoolie — Metadata-driven ETL framework for Python</title>
+  {% elif page and page.url.startswith('blog/category/') %}
+    <title>{{ page.title }} Python ETL Articles | DataCoolie</title>
+  {% elif page and page.url.startswith('blog/archive/') %}
+    <title>Data Engineering Articles from {{ page.title }} | DataCoolie</title>
   {% elif page and page.meta and page.meta.title %}
     <title>{{ page.meta.title }}</title>
   {% elif page %}
@@ -30,13 +34,24 @@
   {% if page %}
     {% if page.is_homepage %}
       {% set seo_title = "DataCoolie — Metadata-driven ETL framework for Python" %}
+    {% elif page.url.startswith('blog/category/') %}
+      {% set seo_title = page.title ~ " Python ETL Articles | DataCoolie" %}
+    {% elif page.url.startswith('blog/archive/') %}
+      {% set seo_title = "Data Engineering Articles from " ~ page.title ~ " | DataCoolie" %}
     {% elif page.meta and page.meta.title %}
       {% set seo_title = page.meta.title %}
     {% else %}
       {% set seo_title = page.title ~ " - " ~ config.site_name %}
     {% endif %}
-    {% set seo_description = page.meta.description or config.site_description %}
+    {% if page.url.startswith('blog/category/') %}
+      {% set seo_description = "Browse DataCoolie's " ~ page.title ~ " articles for practical Python ETL guidance, Spark and Polars examples, lakehouse patterns, and framework decisions." %}
+    {% elif page.url.startswith('blog/archive/') %}
+      {% set seo_description = "Browse DataCoolie's " ~ page.title ~ " data engineering articles covering Python ETL, Spark, Polars, lakehouse patterns, and framework comparisons." %}
+    {% else %}
+      {% set seo_description = page.meta.description or config.site_description %}
+    {% endif %}
     {% set seo_url = page.canonical_url %}
+    {% set is_blog = page.url.startswith('blog/') and not page.url == 'blog/' %}
     {% if page.meta and page.meta.og_image %}
       {% set seo_image = config.site_url ~ page.meta.og_image %}
     {% else %}
@@ -50,7 +65,7 @@
     <meta name="msvalidate.01" content="374A47D942D44B14AB4A3DA7F035E041" />
 
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content="{% if is_blog %}article{% else %}website{% endif %}" />
     <meta property="og:site_name" content="{{ config.site_name }}" />
     <meta property="og:title" content="{{ seo_title }}" />
     <meta property="og:description" content="{{ seo_description }}" />
@@ -59,6 +74,11 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="{{ seo_title }}" />
+    {% if is_blog and page.meta and page.meta.date %}
+    <meta property="article:published_time" content="{{ page.meta.date | string }}" />
+    <meta property="article:modified_time" content="{{ (page.meta.updated or page.meta.date) | string }}" />
+    <meta property="article:author" content="{{ config.repo_url }}" />
+    {% endif %}
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -66,9 +86,6 @@
     <meta name="twitter:description" content="{{ seo_description }}" />
     <meta name="twitter:image" content="{{ seo_image }}" />
     <meta name="twitter:image:alt" content="{{ seo_title }}" />
-
-    <!-- Canonical URL -->
-    <link rel="canonical" href="{{ seo_url }}" />
 
     <!-- JSON-LD structured data -->
     {% if page.is_homepage %}
@@ -96,15 +113,7 @@
           "url": {{ config.site_url | tojson }},
           "name": {{ config.site_name | tojson }},
           "description": {{ config.site_description | tojson }},
-          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} },
-          "potentialAction": {
-            "@type": "SearchAction",
-            "target": {
-              "@type": "EntryPoint",
-              "urlTemplate": {{ (config.site_url ~ "search/?q={search_term_string}") | tojson }}
-            },
-            "query-input": "required name=search_term_string"
-          }
+          "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} }
         },
         {
           "@type": "SoftwareApplication",
@@ -113,7 +122,7 @@
           "applicationCategory": "DeveloperApplication",
           "operatingSystem": "Any",
           "description": {{ config.site_description | tojson }},
-          "url": {{ config.repo_url | tojson }},
+          "url": {{ config.site_url | tojson }},
           "codeRepository": {{ config.repo_url | tojson }},
           "programmingLanguage": "Python",
           "license": "https://www.gnu.org/licenses/agpl-3.0.html",
@@ -157,7 +166,6 @@
     {# Determine page schema type based on URL path #}
     {% set is_howto = page.url.startswith('how-to/') %}
     {% set is_tutorial = page.url.startswith('getting-started/') %}
-    {% set is_blog = page.url.startswith('blog/') and not page.url == 'blog/' %}
     {% set is_reference = page.url.startswith('reference/') %}
     <script type="application/ld+json">
     {
@@ -177,6 +185,12 @@
         "@id": {{ (config.site_url ~ "#organization") | tojson }},
         "name": "DataCoolie"
       },
+      "image": {
+        "@type": "ImageObject",
+        "url": {{ seo_image | tojson }},
+        "width": 1200,
+        "height": 630
+      },
       "mainEntityOfPage": { "@id": {{ seo_url | tojson }} },
       {% elif is_howto or is_tutorial %}
       "@type": "TechArticle",
@@ -193,7 +207,19 @@
       "headline": {{ seo_title | tojson }},
       "description": {{ seo_description | tojson }},
       "isPartOf": { "@id": {{ (config.site_url ~ "#website") | tojson }} },
+      {% if is_blog %}
+      "publisher": {
+        "@type": "Organization",
+        "@id": {{ (config.site_url ~ "#organization") | tojson }},
+        "name": "DataCoolie",
+        "logo": {
+          "@type": "ImageObject",
+          "url": {{ (config.site_url ~ "images/logos/datacoolie-icon-circle-dark_512x512.png") | tojson }}
+        }
+      },
+      {% else %}
       "publisher": { "@id": {{ (config.site_url ~ "#organization") | tojson }} },
+      {% endif %}
       "inLanguage": "en",
       "about": {
         "@type": "SoftwareApplication",

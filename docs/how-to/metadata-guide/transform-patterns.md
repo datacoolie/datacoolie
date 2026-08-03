@@ -1,6 +1,6 @@
 ---
 title: Transform Patterns — DataCoolie Metadata How-to
-description: Configure value normalization, schema casts, hashes, deduplication, computed columns, masking, projection, renaming, partitions, and SCD2 behavior in DataCoolie metadata.
+description: Configure casts, hashes, deduplication, computed columns, masking, projection, renaming, partitions, and SCD2 in DataCoolie metadata.
 ---
 
 # Transform patterns

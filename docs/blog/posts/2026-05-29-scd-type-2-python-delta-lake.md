@@ -1,5 +1,7 @@
 ---
 date: 2026-05-29
+title: SCD Type 2 in Python with Delta Lake | DataCoolie
+slug: implementing-scd-type-2-in-python-with-delta-lake
 categories:
   - Tutorial
 authors:

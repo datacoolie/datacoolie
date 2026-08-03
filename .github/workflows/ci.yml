@@ -33,7 +33,7 @@ jobs:
         env:
           POETRY_VIRTUALENVS_IN_PROJECT: true
         run: >-
-          poetry sync --with dev
+          poetry sync --with dev --with docs
           -E polars
           -E polars-hash
           -E deltalake
@@ -43,16 +43,10 @@ jobs:
           -E boto3
           -E excel
 
-      - name: Validate Poetry metadata
-        run: poetry check --lock --strict
+      - name: Install release validation tools
+        run: poetry run python -m pip install --upgrade twine
 
-      - name: Build package
-        run: poetry build
-
-      - name: Required non-Spark tests
-        # Spark tests are intentionally local-only because JVM startup makes
-        # them too expensive for the GitHub-hosted validation job. Run the
-        # remaining suite in-process: short-deadline logging tests can leave a
-        # native PyArrow writer finishing after close(), which is safe in the
-        # long-lived pytest process but unsafe during xdist worker teardown.
-        run: poetry run pytest tests/ -m "not spark" -n 0 --tb=short
+      - name: Run local release gate
+        # Spark tests remain local-only. The shared verifier makes package,
+        # docs, and non-Spark test failures blocking in CI.
+        run: poetry run python scripts/verify_release.py
