@@ -143,9 +143,9 @@ plugins:
 nav:
   - Home: index.md
   - DataCoolie Studio: datacoolie-studio.md
-  - Python ETL framework: python-etl-framework.md
   - Getting started:
       - getting-started/index.md
+      - Python ETL framework: python-etl-framework.md
       - Installation: getting-started/installation.md
       - Quickstart · Polars: getting-started/quickstart-polars.md
       - Quickstart · Spark: getting-started/quickstart-spark.md
@@ -167,13 +167,12 @@ nav:
       - Secrets: concepts/secrets.md
   - How-to:
       - how-to/index.md
-      - Metadata guide (new users):
-          - how-to/metadata-guide/index.md
-          - Build your first metadata file: how-to/metadata-guide/first-metadata-file.md
-          - Source patterns: how-to/metadata-guide/source-patterns.md
-          - Destination & load patterns: how-to/metadata-guide/destination-and-load-patterns.md
-          - Transform patterns: how-to/metadata-guide/transform-patterns.md
-          - Validation checklist: how-to/metadata-guide/validation-checklist.md
+      - Metadata guide overview: how-to/metadata-guide/index.md
+      - Build your first metadata file: how-to/metadata-guide/first-metadata-file.md
+      - Source patterns: how-to/metadata-guide/source-patterns.md
+      - Destination & load patterns: how-to/metadata-guide/destination-and-load-patterns.md
+      - Transform patterns: how-to/metadata-guide/transform-patterns.md
+      - Validation checklist: how-to/metadata-guide/validation-checklist.md
       - Configure file metadata: how-to/configure-file-metadata.md
       - Configure database metadata: how-to/configure-database-metadata.md
       - Configure API metadata: how-to/configure-api-metadata.md
@@ -186,6 +185,11 @@ nav:
       - Deploy to Fabric: how-to/deploy-to-fabric.md
       - Deploy to Databricks: how-to/deploy-to-databricks.md
       - Deploy to AWS Glue: how-to/deploy-to-aws-glue.md
+      - Operations overview: operations/index.md
+      - Logging layout: operations/logging-layout.md
+      - Benchmarks: operations/benchmarks.md
+      - Troubleshooting: operations/troubleshooting.md
+      - Testing strategy: operations/testing-strategy.md
   - Reference:
       - reference/index.md
       - Metadata schema: reference/metadata-schema.md
@@ -203,25 +207,18 @@ nav:
           - Metadata: reference/api/metadata.md
           - Watermark: reference/api/watermark.md
           - Logging: reference/api/logging.md
-  - Extending:
-      - extending/index.md
+      - Extending overview: extending/index.md
       - Write a source: extending/writing-a-source.md
       - Write a destination: extending/writing-a-destination.md
       - Write a transformer: extending/writing-a-transformer.md
       - Write an engine: extending/writing-an-engine.md
       - Write a secret resolver: extending/writing-a-secret-resolver.md
       - Write a metadata provider: extending/writing-a-metadata-provider.md
-  - Operations:
-      - operations/index.md
-      - Logging layout: operations/logging-layout.md
-      - Benchmarks: operations/benchmarks.md
-      - Troubleshooting: operations/troubleshooting.md
-      - Testing strategy: operations/testing-strategy.md
-  - ADR:
-      - adr/index.md
+  - Project:
+      - Architecture decisions: adr/index.md
       - 0001 Engine fmt= parameter: adr/0001-engine-fmt-parameter.md
       - 0002 Secret provider/resolver split: adr/0002-secret-provider-resolver-split.md
       - 0003 Transformer ordering slots: adr/0003-transformer-ordering-slots.md
       - 0004 Raw-JSON watermark contract: adr/0004-raw-json-watermark-contract.md
-  - Contributing: contributing.md
-  - Blog: blog/index.md
+      - Contributing: contributing.md
+      - Blog: blog/index.md
