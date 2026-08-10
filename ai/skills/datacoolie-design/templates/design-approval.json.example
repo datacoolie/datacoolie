@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "artifact_type": "design_approval",
+  "decision": "approved",
+  "architecture_path": "architecture/current.md",
+  "architecture_sha256": "<64-lowercase-hex-sha256>",
+  "approved_at": "<ISO-8601 UTC timestamp>",
+  "approved_by": "<approver identity supplied or confirmed by the user>",
+  "approval_reference": "<current-session explicit approval reference>",
+  "approved_scope": "<concise description of the approved material decisions>"
+}

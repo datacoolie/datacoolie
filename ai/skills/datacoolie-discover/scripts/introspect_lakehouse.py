@@ -1,7 +1,7 @@
 """introspect_lakehouse.py — Lakehouse catalog introspection.
 
 Introspects catalog-based lakehouses (Iceberg REST, Hive Metastore, Unity
-Catalog, AWS Glue) and outputs the standard 14-column CSV.
+Catalog, AWS Glue) and outputs the standard discovery observations CSV.
 
 Usage:
     python introspect_lakehouse.py --iceberg http://localhost:8181 --source lakehouse
@@ -13,25 +13,27 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import csv
 import json
+import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
-import requests
+from _observation_contract import (
+    CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
+    atomic_write_observations,
+    make_observation,
+    utc_observed_at,
+    write_observations,
+)
+from _input_safety import validate_nonsecret_locator
+from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-CSV_HEADER = [
-    "source", "schema", "table", "column", "type", "format",
-    "precision", "scale", "nullable", "pk", "fk",
-    "ordinal_position", "row_estimate", "notes",
-]
-
 
 # ---------------------------------------------------------------------------
 # Iceberg REST catalog
@@ -104,8 +106,11 @@ def introspect_iceberg(
     namespaces: list[str] | None = None,
     tables_filter: list[str] | None = None,
     headers: dict | None = None,
-) -> list[list[str]]:
+    issues: list[str] | None = None,
+) -> list[dict[str, str]]:
     """Introspect Iceberg REST catalog and return CSV rows."""
+    import requests
+
     base = catalog_url.rstrip("/")
     hdrs = {"Content-Type": "application/json"}
     if headers:
@@ -121,10 +126,15 @@ def introspect_iceberg(
             data = resp.json()
             ns_list = data.get("namespaces", [])
         except requests.RequestException as exc:
-            print(f"ERROR: Cannot list namespaces: {exc}", file=sys.stderr)
+            print(
+                f"ERROR: Cannot list namespaces ({type(exc).__name__})",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    issue_list = issues if issues is not None else []
+    observed_at = utc_observed_at()
 
     for ns_parts in ns_list:
         if isinstance(ns_parts, str):
@@ -141,7 +151,9 @@ def introspect_iceberg(
             resp.raise_for_status()
             table_list = resp.json().get("identifiers", [])
         except requests.RequestException as exc:
-            print(f"WARNING: Cannot list tables in namespace '{ns_name}': {exc}", file=sys.stderr)
+            issue = f"Cannot list tables in namespace '{ns_name}': {type(exc).__name__}"
+            issue_list.append(issue)
+            print(f"WARNING: {issue}", file=sys.stderr)
             continue
 
         for tbl_ident in table_list:
@@ -160,7 +172,9 @@ def introspect_iceberg(
                 resp.raise_for_status()
                 table_meta = resp.json()
             except requests.RequestException as exc:
-                print(f"WARNING: Cannot load table '{tbl_ns}.{tbl_name}': {exc}", file=sys.stderr)
+                issue = f"Cannot load table '{tbl_ns}.{tbl_name}': {type(exc).__name__}"
+                issue_list.append(issue)
+                print(f"WARNING: {issue}", file=sys.stderr)
                 continue
 
             schema = table_meta.get("metadata", {}).get("current-schema", {})
@@ -200,12 +214,25 @@ def introspect_iceberg(
                             notes_parts.append(f"partition:{transform}")
                             break
 
-                rows.append([
-                    source, tbl_ns, tbl_name, col_name,
-                    canonical, fmt, prec, scl,
-                    nullable, is_pk, "", ordinal, "",
-                    "; ".join(notes_parts),
-                ])
+                rows.append(make_observation(
+                    source=source,
+                    object_type="table",
+                    schema=tbl_ns,
+                    object=tbl_name,
+                    column=col_name,
+                    native_type=json.dumps(type_obj, sort_keys=True) if isinstance(type_obj, dict) else type_obj,
+                    data_type=canonical,
+                    format=fmt,
+                    precision=prec,
+                    scale=scl,
+                    nullable=nullable,
+                    ordinal=ordinal,
+                    declared_key="primary" if is_pk else "",
+                    observed_at=observed_at,
+                    method="iceberg:rest-catalog",
+                    evidence_class="declared",
+                    notes="; ".join(notes_parts),
+                ))
 
     return rows
 
@@ -267,7 +294,8 @@ def introspect_hive(
     source: str,
     databases: list[str] | None = None,
     tables_filter: list[str] | None = None,
-) -> list[list[str]]:
+    issues: list[str] | None = None,
+) -> list[dict[str, str]]:
     """Introspect Hive Metastore via PyHive and return CSV rows."""
     try:
         from pyhive import hive
@@ -282,7 +310,10 @@ def introspect_hive(
     try:
         conn = hive.connect(host=host, port=port)
     except Exception as exc:
-        print(f"ERROR: Cannot connect to Hive at {host_port}: {exc}", file=sys.stderr)
+        print(
+            f"ERROR: Cannot connect to Hive at {host_port} ({type(exc).__name__})",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     cursor = conn.cursor()
@@ -296,14 +327,18 @@ def introspect_hive(
         # Filter out system databases
         db_list = [db for db in db_list if db not in ("default", "sys", "information_schema")]
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    issue_list = issues if issues is not None else []
+    observed_at = utc_observed_at()
 
     for db_name in db_list:
         try:
             cursor.execute(f"SHOW TABLES IN `{db_name}`")
             table_list = [row[0] for row in cursor.fetchall()]
         except Exception as exc:
-            print(f"WARNING: Cannot list tables in '{db_name}': {exc}", file=sys.stderr)
+            issue = f"Cannot list tables in '{db_name}': {type(exc).__name__}"
+            issue_list.append(issue)
+            print(f"WARNING: {issue}", file=sys.stderr)
             continue
 
         for tbl_name in table_list:
@@ -314,7 +349,9 @@ def introspect_hive(
                 cursor.execute(f"DESCRIBE `{db_name}`.`{tbl_name}`")
                 columns = cursor.fetchall()
             except Exception as exc:
-                print(f"WARNING: Cannot describe '{db_name}.{tbl_name}': {exc}", file=sys.stderr)
+                issue = f"Cannot describe '{db_name}.{tbl_name}': {type(exc).__name__}"
+                issue_list.append(issue)
+                print(f"WARNING: {issue}", file=sys.stderr)
                 continue
 
             # DESCRIBE output: (col_name, data_type, comment)
@@ -336,12 +373,24 @@ def introspect_hive(
 
                 notes = "partition column" if in_partition_section else ""
 
-                rows.append([
-                    source, db_name, tbl_name, col_name,
-                    canonical, fmt, prec, scl,
-                    "true", "", "", ordinal, "",
-                    notes,
-                ])
+                rows.append(make_observation(
+                    source=source,
+                    object_type="table",
+                    schema=db_name,
+                    object=tbl_name,
+                    column=col_name,
+                    native_type=col_type,
+                    data_type=canonical,
+                    format=fmt,
+                    precision=prec,
+                    scale=scl,
+                    nullable="true",
+                    ordinal=ordinal,
+                    observed_at=observed_at,
+                    method="hive:metastore",
+                    evidence_class="observed",
+                    notes=notes,
+                ))
 
     cursor.close()
     conn.close()
@@ -357,48 +406,66 @@ def introspect_unity(
     catalog: str,
     schemas: list[str] | None = None,
     tables_filter: list[str] | None = None,
-) -> list[list[str]]:
+    issues: list[str] | None = None,
+) -> list[dict[str, str]]:
     """Introspect Unity Catalog via databricks CLI and return CSV rows."""
+    try:
+        preflight = subprocess.run(
+            ["databricks", "schemas", "list", "--help"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except FileNotFoundError:
+        print("ERROR: current 'databricks' CLI is not available", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print("ERROR: databricks CLI preflight timed out", file=sys.stderr)
+        sys.exit(1)
+    if preflight.returncode != 0:
+        print("ERROR: databricks CLI does not support the required schemas/tables commands", file=sys.stderr)
+        sys.exit(1)
+
     # List schemas
     if schemas:
         schema_list = schemas
     else:
         try:
             result = subprocess.run(
-                ["databricks", "unity-catalog", "list-schemas",
-                 "--catalog", catalog, "--output", "JSON"],
+                ["databricks", "schemas", "list", catalog, "--output", "json"],
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode != 0:
-                print(f"ERROR: databricks CLI failed: {result.stderr}", file=sys.stderr)
+                print(
+                    f"ERROR: databricks CLI failed with exit {result.returncode}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             data = json.loads(result.stdout)
             schema_list = [
                 s["name"] for s in data.get("schemas", [])
                 if s.get("name") not in ("information_schema",)
             ]
-        except FileNotFoundError:
-            print("ERROR: 'databricks' CLI not found. Install it: pip install databricks-cli", file=sys.stderr)
-            sys.exit(1)
         except Exception as exc:
-            print(f"ERROR: Cannot list schemas: {exc}", file=sys.stderr)
+            print(f"ERROR: Cannot list schemas ({type(exc).__name__})", file=sys.stderr)
             sys.exit(1)
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    issue_list = issues if issues is not None else []
+    observed_at = utc_observed_at()
 
     for schema_name in schema_list:
         # List tables
         try:
             result = subprocess.run(
-                ["databricks", "unity-catalog", "list-tables",
-                 "--catalog", catalog, "--schema", schema_name, "--output", "JSON"],
+                ["databricks", "tables", "list", catalog, schema_name, "--output", "json"],
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode != 0:
+                issue_list.append(f"Cannot list tables in Unity schema '{schema_name}'")
                 continue
             data = json.loads(result.stdout)
             table_names = [t["name"] for t in data.get("tables", [])]
-        except Exception:
+        except Exception as exc:
+            issue_list.append(f"Cannot list tables in Unity schema '{schema_name}': {type(exc).__name__}")
             continue
 
         for tbl_name in table_names:
@@ -407,15 +474,18 @@ def introspect_unity(
 
             try:
                 result = subprocess.run(
-                    ["databricks", "unity-catalog", "get-table",
-                     "--full-name", f"{catalog}.{schema_name}.{tbl_name}",
-                     "--output", "JSON"],
+                    ["databricks", "tables", "get",
+                     f"{catalog}.{schema_name}.{tbl_name}", "--output", "json"],
                     capture_output=True, text=True, timeout=30,
                 )
                 if result.returncode != 0:
+                    issue_list.append(f"Cannot load Unity table '{catalog}.{schema_name}.{tbl_name}'")
                     continue
                 table_data = json.loads(result.stdout)
-            except Exception:
+            except Exception as exc:
+                issue_list.append(
+                    f"Cannot load Unity table '{catalog}.{schema_name}.{tbl_name}': {type(exc).__name__}"
+                )
                 continue
 
             columns = table_data.get("columns", [])
@@ -430,12 +500,25 @@ def introspect_unity(
                 if col.get("partition_index") is not None:
                     notes = "partition column"
 
-                rows.append([
-                    source, schema_name, tbl_name, col_name,
-                    canonical, fmt, prec, scl,
-                    nullable, "", "", ordinal, "",
-                    notes,
-                ])
+                rows.append(make_observation(
+                    source=source,
+                    object_type="table",
+                    catalog=catalog,
+                    schema=schema_name,
+                    object=tbl_name,
+                    column=col_name,
+                    native_type=col_type,
+                    data_type=canonical,
+                    format=fmt,
+                    precision=prec,
+                    scale=scl,
+                    nullable=nullable,
+                    ordinal=ordinal,
+                    observed_at=observed_at,
+                    method="unity:catalog",
+                    evidence_class="observed",
+                    notes=notes,
+                ))
 
     return rows
 
@@ -449,7 +532,8 @@ def introspect_glue(
     database: str | None = None,
     tables_filter: list[str] | None = None,
     region: str | None = None,
-) -> list[list[str]]:
+    issues: list[str] | None = None,
+) -> list[dict[str, str]]:
     """Introspect AWS Glue Data Catalog via AWS CLI and return CSV rows."""
     base_cmd = ["aws", "glue"]
     if region:
@@ -465,7 +549,10 @@ def introspect_glue(
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode != 0:
-                print(f"ERROR: aws glue failed: {result.stderr}", file=sys.stderr)
+                print(
+                    f"ERROR: aws glue failed with exit {result.returncode}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             data = json.loads(result.stdout)
             db_list = [d["Name"] for d in data.get("DatabaseList", [])]
@@ -473,10 +560,12 @@ def introspect_glue(
             print("ERROR: 'aws' CLI not found. Install AWS CLI.", file=sys.stderr)
             sys.exit(1)
         except Exception as exc:
-            print(f"ERROR: Cannot list databases: {exc}", file=sys.stderr)
+            print(f"ERROR: Cannot list databases ({type(exc).__name__})", file=sys.stderr)
             sys.exit(1)
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    issue_list = issues if issues is not None else []
+    observed_at = utc_observed_at()
 
     for db_name in db_list:
         try:
@@ -485,11 +574,15 @@ def introspect_glue(
                 capture_output=True, text=True, timeout=60,
             )
             if result.returncode != 0:
-                print(f"WARNING: Cannot list tables in '{db_name}': {result.stderr}", file=sys.stderr)
+                issue = f"Cannot list tables in Glue database '{db_name}'"
+                issue_list.append(issue)
+                print(f"WARNING: {issue}", file=sys.stderr)
                 continue
             data = json.loads(result.stdout)
         except Exception as exc:
-            print(f"WARNING: Cannot list tables in '{db_name}': {exc}", file=sys.stderr)
+            issue = f"Cannot list tables in Glue database '{db_name}': {type(exc).__name__}"
+            issue_list.append(issue)
+            print(f"WARNING: {issue}", file=sys.stderr)
             continue
 
         for table in data.get("TableList", []):
@@ -514,12 +607,24 @@ def introspect_glue(
                 if col_name in partition_keys:
                     notes = "partition column"
 
-                rows.append([
-                    source, db_name, tbl_name, col_name,
-                    canonical, fmt, prec, scl,
-                    "true", "", "", ordinal, "",
-                    notes,
-                ])
+                rows.append(make_observation(
+                    source=source,
+                    object_type="table",
+                    schema=db_name,
+                    object=tbl_name,
+                    column=col_name,
+                    native_type=col_type,
+                    data_type=canonical,
+                    format=fmt,
+                    precision=prec,
+                    scale=scl,
+                    nullable="true",
+                    ordinal=ordinal,
+                    observed_at=observed_at,
+                    method="aws-glue:catalog",
+                    evidence_class="observed",
+                    notes=notes,
+                ))
 
     return rows
 
@@ -530,6 +635,7 @@ def introspect_glue(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Introspect lakehouse catalogs and output a standardised schema CSV.",
     )
     group = parser.add_mutually_exclusive_group(required=True)
@@ -543,7 +649,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # Iceberg-specific
     parser.add_argument("--namespaces", default=None, help="Comma-separated namespace filter")
-    parser.add_argument("--headers", default=None, help="JSON string of HTTP headers (Iceberg)")
+    parser.add_argument("--headers-env", default=None, help="Environment variable containing JSON headers")
 
     # Hive-specific
     parser.add_argument("--databases", default=None, help="Comma-separated database filter (Hive/Glue)")
@@ -558,6 +664,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # Common
     parser.add_argument("--tables", default=None, help="Comma-separated table filter")
+    parser.add_argument("--status-output", default=None, help="Optional probe status JSON path")
 
     return parser.parse_args(argv)
 
@@ -565,43 +672,70 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
+    if args.iceberg:
+        try:
+            validate_nonsecret_locator(args.iceberg, "Iceberg catalog URL")
+        except ValueError as exc:
+            raise SystemExit(f"ERROR: {exc}") from exc
+
     tables_filter = args.tables.split(",") if args.tables else None
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    issues: list[str] = []
 
     if args.iceberg:
-        hdrs = json.loads(args.headers) if args.headers else None
+        hdrs = None
+        if args.headers_env:
+            raw_headers = os.environ.get(args.headers_env)
+            if raw_headers is None:
+                raise SystemExit(f"ERROR: Environment variable '{args.headers_env}' is not set")
+            try:
+                hdrs = json.loads(raw_headers)
+            except json.JSONDecodeError as exc:
+                raise SystemExit("ERROR: Headers environment value is not valid JSON") from exc
+            if not isinstance(hdrs, dict) or not all(
+                isinstance(key, str) and isinstance(value, str) for key, value in hdrs.items()
+            ):
+                raise SystemExit("ERROR: Headers environment value must be a JSON object of strings")
         ns_filter = args.namespaces.split(",") if args.namespaces else None
         rows = introspect_iceberg(
-            args.iceberg, args.source, ns_filter, tables_filter, hdrs,
+            args.iceberg, args.source, ns_filter, tables_filter, hdrs, issues,
         )
+        probe = "iceberg-rest-catalog"
     elif args.hive:
         db_filter = args.databases.split(",") if args.databases else None
-        rows = introspect_hive(args.hive, args.source, db_filter, tables_filter)
+        rows = introspect_hive(args.hive, args.source, db_filter, tables_filter, issues)
+        probe = "hive-metastore"
     elif args.unity:
         if not args.catalog:
             print("ERROR: --catalog is required for Unity Catalog", file=sys.stderr)
             sys.exit(1)
         schema_filter = args.schemas.split(",") if args.schemas else None
-        rows = introspect_unity(args.source, args.catalog, schema_filter, tables_filter)
+        rows = introspect_unity(args.source, args.catalog, schema_filter, tables_filter, issues)
+        probe = "unity-catalog"
     elif args.glue:
         rows = introspect_glue(
-            args.source, args.database, tables_filter, args.region,
+            args.source, args.database, tables_filter, args.region, issues,
         )
+        probe = "aws-glue-catalog"
 
     if not rows:
-        print("WARNING: No schema fields extracted.", file=sys.stderr)
+        issues.append("No schema fields extracted from the requested lakehouse scope")
+        print(f"WARNING: {issues[-1]}", file=sys.stderr)
 
-    # Write CSV
-    out_file = open(args.output, "w", newline="", encoding="utf-8") if args.output else sys.stdout
-    try:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(CSV_HEADER)
-        for row in rows:
-            writer.writerow(row)
-    finally:
-        if args.output and out_file is not sys.stdout:
-            out_file.close()
+    if args.output:
+        atomic_write_observations(Path(args.output), rows)
+    else:
+        write_observations(sys.stdout, rows)
+    status = write_probe_status(
+        Path(args.status_output) if args.status_output else None,
+        source=args.source,
+        probe=probe,
+        row_count=len(rows),
+        issues=issues,
+    )
+    if status == "partial":
+        raise SystemExit(PARTIAL_EXIT_CODE)
 
 
 if __name__ == "__main__":

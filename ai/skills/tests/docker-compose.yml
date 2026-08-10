@@ -3,13 +3,14 @@
 ##
 ## usecase-sim ports: PG=5432, MySQL=3306, MSSQL=1433, Oracle=1521, MinIO=9000/9001,
 ##                    Iceberg=8181, Trino=8080, API=8082
-## skills-test ports: PG=5442, MySQL=3316, MSSQL=1444, Oracle=1522, MinIO=9010/9011,
-##                    Iceberg=8182, Trino=8090, API=8092, Hive=10000
+## Default tested ports: PG=5442, MySQL=3316, MSSQL=1444, MinIO=9010/9011,
+##                       Iceberg=8182, Trino=8090
+## Extended fixture-only ports: Oracle=1522, API=8092, Hive=10000
 ##
 ## Usage:
 ##   docker compose up -d --wait
-##   python run_all.py        # seed MSSQL + Iceberg, then run all skill tests
-##   docker compose down -v   # tear down + remove volumes
+##   python run_all.py --integration  # start, seed, test, and remove default services/volumes
+##   docker compose --profile extended up -d --wait  # optional fixtures not in the default gate
 
 services:
 
@@ -86,6 +87,7 @@ services:
   # Departments, Employees, Jobs, Locations, Countries, Regions, Job_History
   # ---------------------------------------------------------------------------
   oracle:
+    profiles: ["extended"]
     image: gvenzl/oracle-free:23-slim
     container_name: skills-test-oracle
     ports:
@@ -182,6 +184,7 @@ services:
   # Used for hive lakehouse introspection tests
   # ---------------------------------------------------------------------------
   hive:
+    profiles: ["extended"]
     image: apache/hive:4.0.0
     container_name: skills-test-hive
     environment:
@@ -198,6 +201,7 @@ services:
   # Runs once after Hive is healthy — creates test schema datacoolie_test
   # Uses a retry wrapper (init.sh) so transient beeline failures don't break the env
   hive-init:
+    profiles: ["extended"]
     image: apache/hive:4.0.0
     container_name: skills-test-hive-init
     depends_on:
@@ -213,6 +217,7 @@ services:
   # Minimal Python HTTP server, no external dependencies
   # ---------------------------------------------------------------------------
   mock-api:
+    profiles: ["extended"]
     image: python:3.12-slim
     container_name: skills-test-api
     ports:

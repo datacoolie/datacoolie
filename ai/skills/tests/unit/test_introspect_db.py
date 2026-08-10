@@ -143,14 +143,15 @@ class TestMaskUrl:
 # ---------------------------------------------------------------------------
 
 class TestCsvContract:
-    def test_header_has_14_columns(self):
-        assert len(introspect_db.CSV_HEADER) == 14
+    def test_header_has_22_columns(self):
+        assert len(introspect_db.CSV_HEADER) == 22
 
     def test_header_columns(self):
         expected = [
-            "source", "schema", "table", "column", "type", "format",
-            "precision", "scale", "nullable", "pk", "fk",
-            "ordinal_position", "row_estimate", "notes",
+            "source", "object_type", "catalog", "schema", "object", "operation", "column",
+            "native_type", "data_type", "format", "precision", "scale", "nullable",
+            "ordinal", "declared_key", "declared_reference", "row_estimate",
+            "watermark_candidate", "observed_at", "method", "evidence_class", "notes",
         ]
         assert introspect_db.CSV_HEADER == expected
 
@@ -257,18 +258,18 @@ class TestIntrospect:
         assert len(rows) > 1
 
         # Check we got users and orders columns
-        tables_found = {row[2] for row in rows[1:]}
+        tables_found = {row[4] for row in rows[1:]}
         assert "users" in tables_found
         assert "orders" in tables_found
 
         # Check FK reference
-        user_id_rows = [r for r in rows[1:] if r[3] == "user_id"]
+        user_id_rows = [r for r in rows[1:] if r[6] == "user_id"]
         assert len(user_id_rows) == 1
-        assert "→ public.users.id" in user_id_rows[0][10]
+        assert "→ public.users.id" in user_id_rows[0][15]
 
         # Check PK
-        id_rows = [r for r in rows[1:] if r[3] == "id"]
-        assert all(r[9] == "true" for r in id_rows)
+        id_rows = [r for r in rows[1:] if r[6] == "id"]
+        assert all(r[14] == "primary" for r in id_rows)
 
     @patch("introspect_db.create_engine")
     @patch("introspect_db.inspect")
@@ -302,9 +303,75 @@ class TestIntrospect:
         buf = io.StringIO((tmp_path / "out.csv").read_text())
         reader = csv.reader(buf)
         rows = list(reader)
-        schemas_found = {row[1] for row in rows[1:]}
+        schemas_found = {row[3] for row in rows[1:]}
         assert "pg_catalog" not in schemas_found
         assert "information_schema" not in schemas_found
+
+    @patch("introspect_db.create_engine")
+    @patch("introspect_db.inspect")
+    def test_object_limit_returns_partial_issue(self, mock_inspect, mock_create_engine, tmp_path):
+        mock_engine = MagicMock()
+        mock_engine.dialect.name = "postgresql"
+        mock_engine.connect.return_value.__enter__ = MagicMock()
+        mock_engine.connect.return_value.__exit__ = MagicMock()
+        mock_create_engine.return_value = mock_engine
+        inspector = self._make_mock_inspector()
+        inspector.get_view_names.return_value = []
+        mock_inspect.return_value = inspector
+
+        _, issues = introspect_db.introspect(
+            url="postgresql://user:pass@localhost/test",
+            source="test",
+            output_path=tmp_path / "out.csv",
+            max_objects=1,
+        )
+
+        assert any("--max-objects=1" in issue for issue in issues)
+        assert inspector.get_columns.call_count == 1
+
+    def test_sqlite_row_estimate_never_counts_source_rows(self):
+        connection = MagicMock()
+        assert introspect_db._get_row_estimate(connection, "sqlite", "", "large") == ""
+        connection.execute.assert_not_called()
+
+    @patch("introspect_db.introspect")
+    def test_main_returns_partial_exit_for_object_limit(self, mock_introspect, tmp_path, monkeypatch):
+        monkeypatch.setenv("DISCOVERY_TEST_URL", "sqlite:///:memory:")
+        mock_introspect.return_value = (1, ["object limit reached"])
+        status = tmp_path / "database.status.json"
+
+        with pytest.raises(SystemExit) as exc:
+            introspect_db.main([
+                "--url-env", "DISCOVERY_TEST_URL",
+                "--source", "source",
+                "--status-output", str(status),
+            ])
+
+        assert exc.value.code == 3
+        assert '"status": "partial"' in status.read_text(encoding="utf-8")
+
+    def test_table_unique_constraint_and_view_type(self):
+        inspector = MagicMock()
+        inspector.get_columns.return_value = [
+            {"name": "email", "type": String(255), "nullable": False},
+        ]
+        inspector.get_pk_constraint.return_value = {"constrained_columns": []}
+        inspector.get_foreign_keys.return_value = []
+        inspector.get_unique_constraints.return_value = [{
+            "name": "uq_users_email", "column_names": ["email"],
+        }]
+        table_rows = introspect_db._introspect_table(
+            MagicMock(), inspector, "sqlite", "app", "main", "users",
+            "2026-08-10T00:00:00Z",
+        )
+        assert table_rows[0]["declared_key"] == "unique:uq_users_email"
+
+        view_rows = introspect_db._introspect_table(
+            MagicMock(), inspector, "sqlite", "app", "main", "active_users",
+            "2026-08-10T00:00:00Z", object_type="view",
+        )
+        assert view_rows[0]["object_type"] == "view"
+        assert view_rows[0]["row_estimate"] == ""
 
 
 # ---------------------------------------------------------------------------
@@ -313,22 +380,24 @@ class TestIntrospect:
 
 class TestParseArgs:
     def test_minimal(self):
-        args = introspect_db.parse_args(["--url", "sqlite:///test.db", "--source", "test"])
-        assert args.url == "sqlite:///test.db"
+        args = introspect_db.parse_args(["--url-env", "DB_URL", "--source", "test"])
+        assert args.url_env == "DB_URL"
         assert args.source == "test"
 
     def test_with_schemas(self):
         args = introspect_db.parse_args([
-            "--url", "pg://x", "--source", "s", "--schemas", "a,b",
+            "--url-env", "DB_URL", "--source", "s", "--schemas", "a,b",
         ])
         assert args.schemas == "a,b"
 
+    def test_rejects_inline_connection_value(self):
+        with pytest.raises(SystemExit):
+            introspect_db.parse_args([
+                "--url", "sqlite:///secret.db", "--source", "test",
+            ])
+
 
 class TestResolveConnectionUrl:
-    def test_url(self):
-        args = introspect_db.parse_args(["--url", "sqlite:///test.db", "--source", "test"])
-        assert introspect_db.resolve_connection_url(args) == "sqlite:///test.db"
-
     def test_url_env(self, monkeypatch):
         monkeypatch.setenv("DATACOOLIE_DISCOVERY_URL", "sqlite:///env.db")
         args = introspect_db.parse_args([
@@ -355,9 +424,10 @@ class TestResolveConnectionUrl:
         parsed = parse_qs(urlsplit(url).query)
         assert parsed["odbc_connect"][0] == connstr
 
-    def test_odbc_connstr_custom_dialect(self):
+    def test_odbc_connstr_custom_dialect(self, monkeypatch):
+        monkeypatch.setenv("CUSTOM_ODBC", "Driver={x};Server=host;")
         args = introspect_db.parse_args([
-            "--odbc-connstr", "Driver={x};Server=host;",
+            "--odbc-connstr-env", "CUSTOM_ODBC",
             "--dialect", "custom+odbc",
             "--source", "test",
         ])
@@ -372,9 +442,10 @@ class TestResolveConnectionUrl:
 
     def test_rejects_multiple_connection_sources(self, monkeypatch):
         monkeypatch.setenv("DATACOOLIE_DISCOVERY_URL", "sqlite:///env.db")
+        monkeypatch.setenv("DATACOOLIE_ODBC_CONNSTR", "Driver={x};Server=host;")
         args = introspect_db.parse_args([
-            "--url", "sqlite:///test.db",
             "--url-env", "DATACOOLIE_DISCOVERY_URL",
+            "--odbc-connstr-env", "DATACOOLIE_ODBC_CONNSTR",
             "--source", "test",
         ])
         with pytest.raises(ValueError, match="exactly one"):

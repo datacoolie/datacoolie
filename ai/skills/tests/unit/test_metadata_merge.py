@@ -1,215 +1,208 @@
+"""Tests for canonical modular metadata resolution."""
+
+from __future__ import annotations
+
 import json
-import subprocess
-import sys
 from pathlib import Path
 
+import pytest
 
-SCRIPT = Path(__file__).parents[2] / "datacoolie-metadata" / "scripts" / "merge.py"
+from merge import merge_metadata
 
 
-def write_json(path: Path, data: object) -> None:
+def _write(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(value), encoding="utf-8")
 
 
-def write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-
-
-def run_merge(tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(SCRIPT), *args],
-        cwd=tmp_path,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-
-def write_connections(base: Path) -> None:
-    write_json(
-        base / "connections.json",
-        [
-            {"name": "src", "connection_type": "file"},
-            {"name": "dst", "connection_type": "file"},
-        ],
-    )
-
-
-def test_modular_stage_file_infers_parent_stage(tmp_path: Path) -> None:
-    workspace = tmp_path / "acme_dcws"
-    base = workspace / "metadata"
-    write_connections(base)
-    write_json(
-        base / "dataflows" / "source2bronze.json",
-        [{"name": "load_orders", "source": {"connection_name": "src"}, "destination": {"connection_name": "dst"}}],
-    )
-
-    result = run_merge(tmp_path, "--base", str(base), "--env", "dev")
-
-    assert result.returncode == 0, result.stderr
-    output = json.loads((workspace / "generated" / "dev" / "metadata.json").read_text())
-    assert output["dataflows"][0]["stage"] == "source2bronze"
-
-
-def test_nested_modular_file_requires_exact_stage(tmp_path: Path) -> None:
-    base = tmp_path / "acme_dcws" / "metadata"
-    write_connections(base)
-    write_json(
-        base / "dataflows" / "source2bronze" / "sap.json",
-        [
-            {
-                "name": "load_sap",
-                "stage": "source2bronze_crm",
-                "source": {"connection_name": "src"},
-                "destination": {"connection_name": "dst"},
-            }
-        ],
-    )
-
-    result = run_merge(tmp_path, "--base", str(base), "--env", "dev")
-
-    assert result.returncode == 2
-    assert "nested path requires 'source2bronze_sap'" in result.stderr
-
-
-def test_split_output_and_stage_manifest(tmp_path: Path) -> None:
-    workspace = tmp_path / "acme_dcws"
-    base = workspace / "metadata"
-    write_connections(base)
-    write_json(
-        base / "schema_hints.json",
-        [
-            {
-                "connection_name": "src",
-                "table_name": "sap_orders",
-                "hints": [{"column_name": "id", "data_type": "INTEGER"}],
-            }
-        ],
-    )
-    write_json(
-        base / "dataflows" / "source2bronze" / "sap.json",
-        [{"name": "load_sap", "source": {"connection_name": "src"}, "destination": {"connection_name": "dst"}}],
-    )
-
-    result = run_merge(tmp_path, "--base", str(base), "--env", "dev", "--output-layout", "split", "--emit-stage-manifest")
-
-    assert result.returncode == 0, result.stderr
-    output_dir = workspace / "generated" / "dev"
-    dataflows = json.loads((output_dir / "dataflows.json").read_text())
-    manifest = json.loads((output_dir / "stage_manifest.json").read_text())
-    assert dataflows[0]["stage"] == "source2bronze_sap"
-    assert manifest == {"stages": [{"stage": "source2bronze_sap", "dataflows": ["load_sap"]}]}
-    assert (output_dir / "schema_hints.json").exists()
-
-
-def test_schema_hints_overlay_merges_by_group_and_column(tmp_path: Path) -> None:
-    workspace = tmp_path / "acme_dcws"
-    base = workspace / "metadata"
-    write_connections(base)
-    write_json(
-        base / "dataflows.json",
-        [{"name": "load_orders", "source": {"connection_name": "src"}, "destination": {"connection_name": "dst"}}],
-    )
-    write_json(
-        base / "schema_hints.json",
-        [
-            {
-                "connection_name": "src",
-                "table_name": "orders",
-                "hints": [
-                    {"column_name": "id", "data_type": "INTEGER"},
-                    {"column_name": "amount", "data_type": "DECIMAL", "precision": 10, "scale": 2},
-                ],
-            }
-        ],
-    )
-    write_text(
-        base / "environments" / "prod.yaml",
-        """
-schema_hints:
-  - connection_name: src
-    schema_name: null
-    table_name: orders
-    hints:
-      - column_name: amount
-        precision: 18
-      - column_name: order_date
-        data_type: DATE
-  - connection_name: src
-    schema_name: dbo
-    table_name: customers
-    hints:
-      - column_name: customer_id
-        data_type: STRING
-""".lstrip(),
-    )
-
-    result = run_merge(tmp_path, "--base", str(base), "--env", "prod")
-
-    assert result.returncode == 0, result.stderr
-    output = json.loads((workspace / "generated" / "prod" / "metadata.json").read_text())
-    groups = output["schema_hints"]
-    orders = next(group for group in groups if group["table_name"] == "orders")
-    order_hints = {hint["column_name"]: hint for hint in orders["hints"]}
-    assert len(groups) == 2
-    assert order_hints["id"]["data_type"] == "INTEGER"
-    assert order_hints["amount"] == {
-        "column_name": "amount",
-        "data_type": "DECIMAL",
-        "precision": 18,
-        "scale": 2,
+def _flow(name: str, stage: str) -> dict[str, object]:
+    return {
+        "name": name,
+        "stage": stage,
+        "source": {"connection_name": "source"},
+        "destination": {"connection_name": "destination"},
     }
-    assert order_hints["order_date"]["data_type"] == "DATE"
 
 
-def test_schema_hints_overlay_rejects_duplicate_column_keys(tmp_path: Path) -> None:
-    base = tmp_path / "acme_dcws" / "metadata"
-    write_connections(base)
-    write_json(
-        base / "dataflows.json",
-        [{"name": "load_orders", "source": {"connection_name": "src"}, "destination": {"connection_name": "dst"}}],
+def _metadata_root(tmp_path: Path) -> Path:
+    root = tmp_path / "metadata"
+    _write(
+        root / "connections.json",
+        {
+            "$schema": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
+            "connections": [
+                {"name": "source", "configure": {"host": "base", "port": 1}},
+                {"name": "destination", "configure": {"base_path": "base"}},
+            ],
+        },
     )
-    write_text(
-        base / "environments" / "prod.yaml",
-        """
-schema_hints:
-  - connection_name: src
-    table_name: orders
-    hints:
-      - column_name: amount
-        data_type: DECIMAL
-      - column_name: amount
-        data_type: DOUBLE
-""".lstrip(),
+    _write(
+        root / "schema_hints.json",
+        {
+            "schema_hints": [
+                {
+                    "connection_name": "source",
+                    "table_name": "orders",
+                    "hints": [{"column_name": "id", "data_type": "long"}],
+                }
+            ]
+        },
+    )
+    return root
+
+
+def test_merge_default_stage_file_and_environment_overlay(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows/bronze.json", {"dataflows": [_flow("orders", "bronze")]})
+    _write(
+        root / "environments/test.json",
+        {
+            "connections": [{"name": "source", "configure": {"host": "test"}}],
+            "dataflows": [
+                {"name": "orders", "source": {"filter_expression": "active = 1"}}
+            ],
+            "schema_hints": [
+                {
+                    "connection_name": "source",
+                    "table_name": "orders",
+                    "hints": [{"column_name": "id", "format": "integer"}],
+                }
+            ],
+        },
     )
 
-    result = run_merge(tmp_path, "--base", str(base), "--env", "prod")
+    result = merge_metadata(root, "test")
 
-    assert result.returncode == 2
-    assert "Duplicate schema_hints column_name 'amount'" in result.stderr
+    assert result["connections"][0]["configure"] == {"host": "test", "port": 1}
+    assert result["dataflows"][0]["stage"] == "bronze"
+    assert result["dataflows"][0]["source"]["filter_expression"] == "active = 1"
+    assert result["schema_hints"][0]["hints"][0] == {
+        "column_name": "id",
+        "data_type": "long",
+        "format": "integer",
+    }
 
 
-def test_schema_hints_overlay_rejects_missing_group_key(tmp_path: Path) -> None:
-    base = tmp_path / "acme_dcws" / "metadata"
-    write_connections(base)
-    write_json(
-        base / "dataflows.json",
-        [{"name": "load_orders", "source": {"connection_name": "src"}, "destination": {"connection_name": "dst"}}],
+def test_merge_supports_all_five_organizational_layouts(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows.json", [_flow("root", "root_stage")])
+    _write(
+        root / "dataflows/source_branch.json",
+        [_flow("branch_a", "source_a"), _flow("branch_b", "source_b")],
     )
-    write_text(
-        base / "environments" / "prod.yaml",
-        """
-schema_hints:
-  - connection_name: src
-    hints:
-      - column_name: amount
-        data_type: DECIMAL
-""".lstrip(),
+    _write(root / "dataflows/silver.json", {"dataflows": [_flow("silver", "silver")]})
+    _write(
+        root / "dataflows/source2bronze/source2bronze_erp.json",
+        {"dataflows": [_flow("erp", "source2bronze_erp")]},
+    )
+    _write(
+        root / "dataflows/gold/customer.json",
+        _flow("customer", "gold"),
     )
 
-    result = run_merge(tmp_path, "--base", str(base), "--env", "prod")
+    result = merge_metadata(root, "dev")
 
-    assert result.returncode == 2
-    assert "must include connection_name or connection_id, plus table_name" in result.stderr
+    assert {item["name"]: item["stage"] for item in result["dataflows"]} == {
+        "root": "root_stage",
+        "branch_a": "source_a",
+        "branch_b": "source_b",
+        "silver": "silver",
+        "customer": "gold",
+        "erp": "source2bronze_erp",
+    }
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "document"),
+    [
+        ("dataflows.json", [_flow("root", "root_stage")]),
+        ("dataflows/branch.json", [_flow("branch", "branch_stage")]),
+        ("dataflows/stage.json", {"dataflows": [_flow("stage", "stage")]}),
+        (
+            "dataflows/branch/stage.json",
+            {"dataflows": [_flow("branch_stage", "stage")]},
+        ),
+        ("dataflows/stage/dataflow.json", _flow("single", "stage")),
+    ],
+)
+def test_each_dataflow_layout_resolves_independently(
+    tmp_path: Path, relative_path: str, document: object
+) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / relative_path, document)
+
+    result = merge_metadata(root, "dev")
+
+    assert result["dataflows"]
+    assert all(item["name"] and item["stage"] for item in result["dataflows"])
+
+
+@pytest.mark.parametrize(
+    ("dataflow", "message"),
+    [
+        ({"stage": "bronze"}, "non-empty name"),
+        ({"name": "orders"}, "non-empty stage"),
+        ({"name": " ", "stage": "bronze"}, "non-empty name"),
+        ({"name": "orders", "stage": " "}, "non-empty stage"),
+    ],
+)
+def test_merge_requires_explicit_non_empty_name_and_stage(
+    tmp_path: Path, dataflow: dict[str, object], message: str
+) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows/anything.json", dataflow)
+
+    with pytest.raises(ValueError, match=message):
+        merge_metadata(root, "dev")
+
+
+def test_merge_rejects_duplicate_names_across_fragments(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows.json", [_flow("orders", "bronze")])
+    _write(root / "dataflows/branch/orders.json", _flow("orders", "silver"))
+
+    with pytest.raises(ValueError, match="Duplicate dataflow name 'orders'"):
+        merge_metadata(root, "dev")
+
+
+def test_merge_rejects_invalid_fragment_shape(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows/bad.json", "not a dataflow")
+
+    with pytest.raises(ValueError, match="array or an object containing 'dataflows'"):
+        merge_metadata(root, "dev")
+
+
+def test_merge_rejects_missing_dataflow_sources(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+
+    with pytest.raises(ValueError, match="No canonical dataflow JSON"):
+        merge_metadata(root, "dev")
+
+
+def test_merge_rejects_new_overlay_dataflow_without_stage(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows/bronze.json", [_flow("orders", "bronze")])
+    _write(root / "environments/dev.json", {"dataflows": [{"name": "new_flow"}]})
+
+    with pytest.raises(ValueError, match="resolved dataflows.*non-empty stage"):
+        merge_metadata(root, "dev")
+
+
+def test_merge_rejects_yaml_and_unified_only_layout(tmp_path: Path) -> None:
+    root = tmp_path / "metadata"
+    root.mkdir()
+    (root / "metadata.json").write_text("{}", encoding="utf-8")
+    (root / "connections.yaml").write_text("connections: []\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="connections file not found"):
+        merge_metadata(root, "dev")
+
+
+def test_merge_rejects_unknown_overlay_keys(tmp_path: Path) -> None:
+    root = _metadata_root(tmp_path)
+    _write(root / "dataflows/bronze.json", [_flow("orders", "bronze")])
+    _write(root / "environments/dev.json", {"engine": "spark"})
+
+    with pytest.raises(ValueError, match="Unsupported overlay keys"):
+        merge_metadata(root, "dev")

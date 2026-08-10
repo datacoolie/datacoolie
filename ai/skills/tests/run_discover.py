@@ -8,6 +8,7 @@ Usage (from datacoolie/ai/skills/tests/):
 """
 import csv
 import io
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,16 +18,39 @@ SKILL_DIR = HERE.parent / "datacoolie-discover"
 SKILL_MD = SKILL_DIR / "SKILL.md"
 SCRIPTS_DIR = SKILL_DIR / "scripts"
 FIXTURES = HERE / "fixtures"
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+from _observation_contract import CSV_HEADER, validate_observations  # noqa: E402
 
 REQUIRED_SECTIONS = [
-    "# datacoolie-discover",
-    "## Scope",
-    "## Multi-Source Model",
-    "## Desired Output",
-    "## Retrieval Methods",
-    "## Security Policy",
-    "## Output Contracts",
-    "## Dependencies",
+    "# DataCoolie Discover",
+    "## Outcome And Boundary",
+    "## Probe Contract",
+    "## Resource Routing",
+    "## Workflow",
+    "## Output And Handoff",
+    "observations.csv",
+]
+
+EXPECTED_HEADER = CSV_HEADER
+
+REQUIRED_RESOURCES = [
+    "scripts/enrich_observations.py",
+    "scripts/merge_observations.py",
+    "scripts/probe_db.py",
+    "scripts/requirements-api.txt",
+    "scripts/requirements-files.txt",
+    "scripts/requirements-databases.txt",
+    "scripts/requirements-lakehouse.txt",
+    "scripts/requirements-hive.txt",
+    "references/observation-contract.md",
+    "references/dependency-routing.md",
+    "references/fallback-probes.md",
+    "templates/observations.tpl.csv",
+    "templates/observation-annotations.example.json",
+    "templates/discovery-report.tpl.md",
+    "templates/interview-questions.md",
+    "evals/evals.json",
 ]
 
 
@@ -45,20 +69,22 @@ def _run_script(args: list[str], desc: str) -> tuple[str, bool]:
 
 
 def _validate_csv(output: str, expected_source: str, min_rows: int = 1) -> tuple[str, bool]:
-    """Validate CSV output matches the 14-column contract."""
-    reader = csv.reader(io.StringIO(output))
-    rows = list(reader)
-    if not rows:
+    """Validate CSV output matches the shared observation contract."""
+    reader = csv.DictReader(io.StringIO(output))
+    if reader.fieldnames is None:
         return "No output", False
-    if len(rows[0]) != 14:
-        return f"Header has {len(rows[0])} cols, expected 14", False
-    data_rows = [r for r in rows[1:] if r and len(r) >= 14]
+    if reader.fieldnames != EXPECTED_HEADER:
+        return "Header does not match the observation contract", False
+    try:
+        data_rows = validate_observations(reader)
+    except ValueError as exc:
+        return f"Invalid observation: {exc}", False
     if len(data_rows) < min_rows:
         return f"Only {len(data_rows)} data rows, expected >= {min_rows}", False
-    bad = [r for r in data_rows if r[0] != expected_source]
+    bad = [r for r in data_rows if r["source"] != expected_source]
     if bad:
-        return f"Source mismatch: expected '{expected_source}', got '{bad[0][0]}'", False
-    return f"{len(data_rows)} rows, 14 cols", True
+        return f"Source mismatch: expected '{expected_source}', got '{bad[0]['source']}'", False
+    return f"{len(data_rows)} rows, {len(EXPECTED_HEADER)} cols", True
 
 
 def run(filter_names: list[str] | None = None) -> None:
@@ -82,6 +108,25 @@ def run(filter_names: list[str] | None = None) -> None:
         status = "✓" if found else "✗"
         print(f"  {status} {section}")
         summary.append((section, status))
+    line_ok = len(content.splitlines()) <= 180
+    status = "✓" if line_ok else "✗"
+    print(f"  {status} line-budget")
+    summary.append(("line-budget", status))
+    routed_content = content + "\n" + "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (SKILL_DIR / "references").glob("*.md")
+    )
+    for relative_path in REQUIRED_RESOURCES:
+        found = (SKILL_DIR / relative_path).is_file()
+        if relative_path != "evals/evals.json":
+            found = found and relative_path in routed_content
+        status = "✓" if found else "✗"
+        print(f"  {status} resource:{relative_path}")
+        summary.append((f"resource:{relative_path}", status))
+    stale_inventory = any((SKILL_DIR / "templates").glob("schema-inventory.*"))
+    status = "✗" if stale_inventory else "✓"
+    print(f"  {status} no-duplicate-schema-inventory")
+    summary.append(("no-duplicate-schema-inventory", status))
 
     # --- Section 2: Script smoke tests ---
     print("\n  [Script: introspect_files.py — Parquet]")
@@ -132,7 +177,7 @@ def run(filter_names: list[str] | None = None) -> None:
     print("\n  [Script: introspect_files.py — Structure]")
     out, ok = _run_script(
         [str(SCRIPTS_DIR / "introspect_files.py"), "structure",
-         "--path", str(FIXTURES / "files")],
+         "--path", str(FIXTURES / "files"), "--source", "test"],
         "structure",
     )
     ok2 = ok and "# Folder Structure" in out and "## Summary" in out
@@ -158,13 +203,17 @@ def run(filter_names: list[str] | None = None) -> None:
     if docker_mode:
         print("\n  [Script: introspect_db.py — Docker databases]")
         db_tests = [
-            ("postgres", "postgresql://datacoolie:datacoolie@localhost:5442/pagila"),
-            ("mysql", "mysql+pymysql://datacoolie:datacoolie@localhost:3316/sakila"),
-            ("mssql", "mssql+pyodbc://sa:Testing%40123@localhost:1444/AdventureWorksLT?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"),
+            ("postgres", "DATACOOLIE_TEST_POSTGRES_URL"),
+            ("mysql", "DATACOOLIE_TEST_MYSQL_URL"),
+            ("mssql", "DATACOOLIE_TEST_MSSQL_URL"),
         ]
-        for name, url in db_tests:
+        for name, env_name in db_tests:
+            if not os.environ.get(env_name):
+                print(f"  ✗ {name}: required environment variable {env_name} is missing")
+                summary.append((f"db-{name}", "✗"))
+                continue
             out, ok = _run_script(
-                [str(SCRIPTS_DIR / "introspect_db.py"), "--url", url, "--source", name],
+                [str(SCRIPTS_DIR / "introspect_db.py"), "--url-env", env_name, "--source", name],
                 f"db-{name}",
             )
             if ok:

@@ -1,0 +1,93 @@
+"""DataCoolie AWS Glue Spark runner reference.
+
+Required Glue job parameters:
+  --REGION
+  --METADATA_PATH
+  --WATERMARK_BASE_PATH
+  --LOG_BASE_PATH
+
+Optional Glue job parameters:
+  --STAGE_GROUPS_JSON  JSON outer list; omission runs all stages
+
+This example uses DataCoolie watermark state and does not enable AWS Glue bookmarks.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import sys
+from pathlib import PurePosixPath
+from urllib.parse import urlparse
+
+from awsglue.context import GlueContext
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+
+from datacoolie.core.models import DataCoolieRunConfig
+from datacoolie.engines.spark_engine import SparkEngine
+from datacoolie.metadata.file_provider import FileProvider
+from datacoolie.orchestration.driver import DataCoolieDriver
+from datacoolie.platforms.aws_platform import AWSPlatform
+
+StageGroup = str | list[str]
+
+
+def parse_stage_plan(value: str) -> list[StageGroup]:
+    raw = json.loads(value)
+    if not isinstance(raw, list):
+        raise ValueError("STAGE_GROUPS_JSON must decode to a list")
+    for group in raw:
+        valid_string = isinstance(group, str) and bool(group.strip())
+        valid_list = (
+            isinstance(group, list)
+            and bool(group)
+            and all(isinstance(stage, str) and stage.strip() for stage in group)
+        )
+        if not (valid_string or valid_list):
+            raise ValueError("each stage group must be a non-empty string or string list")
+    return raw
+
+
+def require_persistent_path(value: str) -> str:
+    parts = PurePosixPath(urlparse(value).path.replace("\\", "/")).parts
+    if ".builds" in {part.lower() for part in parts}:
+        raise ValueError("mutable state path must be outside .builds/")
+    return value
+
+
+def resolve_options(argv: list[str]) -> dict[str, str]:
+    required = ["REGION", "METADATA_PATH", "WATERMARK_BASE_PATH", "LOG_BASE_PATH"]
+    optional = ["STAGE_GROUPS_JSON"] if "--STAGE_GROUPS_JSON" in argv else []
+    return getResolvedOptions(argv, [*required, *optional])
+
+
+args = resolve_options(sys.argv)
+stage_plan = parse_stage_plan(args.get("STAGE_GROUPS_JSON", "[]"))
+
+spark = GlueContext(SparkContext.getOrCreate()).spark_session
+platform = AWSPlatform(region=args["REGION"])
+engine = SparkEngine(spark_session=spark, platform=platform)
+metadata = FileProvider(
+    config_path=args["METADATA_PATH"],
+    platform=platform,
+    watermark_base_path=require_persistent_path(args["WATERMARK_BASE_PATH"]),
+)
+config = DataCoolieRunConfig(max_workers=4, stop_on_error=True)
+
+failed = 0
+with DataCoolieDriver(
+    engine=engine,
+    metadata_provider=metadata,
+    base_log_path=require_persistent_path(args["LOG_BASE_PATH"]),
+    config=config,
+) as driver:
+    for stage_group in stage_plan or [None]:
+        result = driver.run(stage=stage_group)
+        failed += result.failed
+        if result.failed:
+            break
+
+logging.info("DataCoolie run completed with %d failed dataflows", failed)
+if failed:
+    raise RuntimeError(f"DataCoolie run failed for {failed} dataflows")

@@ -58,12 +58,14 @@ summaries, Parquet for dataflow detail).
 
 | Log type | Format | Path | Flush strategy |
 |---|---|---|---|
-| `job_run_log` | JSONL (one line per job run) | `analyst/job_run_log/__run_date=.../job_run_log_<yyyyMMdd>.jsonl` | `append_file` on close |
+| `job_run_log` | JSONL (one line per job run) | `analyst/job_run_log/__run_date=.../job_<stem>.jsonl` | Immutable `write_file` on close |
 | `dataflow_run_log` | Parquet (one row per dataflow) | `analyst/dataflow_run_log/__run_date=.../dataflow_<stem>.parquet` | `upload_file` on close |
 
-The `job_run_log` file is a **shared daily file** — multiple job runs on the
-same day append their summary to the same file, making it easy to query
-recent job history without listing many small per-run files.
+Each job run creates one immutable `job_run_log` file. Jobs never read or
+rewrite another run's summary, so concurrent writers can safely target the
+same date partition on local, Fabric, Databricks, and AWS storage. Consumers
+read all `*.jsonl` files in the partition; legacy shared daily files remain
+valid inputs during rollout.
 
 Row shape (dataflow entry):
 
@@ -90,7 +92,9 @@ Row shape (dataflow entry):
 
 `job_run_log` summary rows aggregate session totals such as
 `total_dataflows`, `total_succeeded`, `total_failed`, `total_running`,
-`total_pending`, `total_rows_written`, and `operation_types`.
+`total_pending`, `total_rows_written`, and `operation_types`. `job_id` uniquely
+identifies the job run. Job and dataflow artifacts use the same
+`<timestamp>_<job_num>_<job_index>_<job_id>` filename stem.
 
 Each dataflow entry also projects transformer metadata for analysis:
 `transform_select_columns`, `transform_drop_columns`,
@@ -120,7 +124,7 @@ Enum that controls the output folder and intended audience:
 | `ANALYST` | `analyst` | Analyst outputs for dashboards and analysis |
 
 `ETLLogger` uses `DEBUG/job_run_log` for the JSONL debug session file,
-`ANALYST/job_run_log` for the appended job summary JSONL, and
+`ANALYST/job_run_log` for the immutable per-run job summary JSONL, and
 `ANALYST/dataflow_run_log` for the per-run Parquet.
 
 ## `ExecutionType` → `operation_type`
@@ -139,11 +143,21 @@ Enum that controls the output folder and intended audience:
 - `file_level` — capture / file level for `SystemLogger` (default `DEBUG`)
 - `partition_by_date` — append a partition folder to output paths
 - `partition_pattern` — override the partition folder layout
-  (default: `__run_date={year}-{month}-{day}`)
+  (default: `__run_date={year}-{month}-{day}`). Supported placeholders are
+  `{year}`, `{month}`, `{day}`, and `{hour}`. The placeholders must form one
+  ordered prefix—year, year/month, year/month/day, or all four—and every
+  directory level must contain at least one placeholder. Literal text and
+  separators may vary but cannot contain digits or `%`. Invalid patterns fail
+  when `LogConfig` is created. For example,
+  `__run_date={year}-{month}-{day}/__run_hour={hour}` creates hourly
+  partitions that DataCoolie Studio can discover incrementally.
 - `flush_interval_seconds` — how often to upload pending buffers
 - `storage_mode` — `memory` / `file` for temporary buffering before upload
 
 `LogConfig` normalises path separators in `output_path` when it is created.
+Keep one partition layout per log root. To move an existing daily stream to
+hourly partitions, start writing to a new empty log root; daily and hourly
+history are not combined into one Studio source.
 
 ## Related
 

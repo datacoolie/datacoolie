@@ -44,39 +44,35 @@ But the key insight is: **declarative metadata is a perfect interface for AI**. 
 
 ## Where AI Fits In
 
-### 1. AI Scaffolds Your Project
+### 1. AI Designs and Builds Your Project
 
-The `datacoolie-init` skill introspects your data sources — scanning folders, parsing DDL, or listening to your natural-language description — and generates a complete project with metadata:
+The optional `datacoolie-discover` skill gathers source facts when they are unknown. `datacoolie-design` defines material contracts, and `datacoolie-build` creates the smallest required workspace, metadata, runners, and verified immutable build:
 
 ```
 User: "I have parquet files in data/raw/ with orders and customers,
        need to load them into a silver Delta Lake layer with SCD2 on customers"
 
-AI: → scaffolds project structure
-    → introspects parquet schemas
+AI: → inspects source facts only when needed
+    → defines the data contracts
+    → scaffolds the required project sources
     → generates connections, dataflows, transforms
     → applies merge_upsert for orders, scd2 for customers
     → sets up watermark columns from detected timestamps
+    → tests the exact generated build
 ```
 
 No boilerplate. No copy-paste from a previous project. The AI reads the schema contract and produces valid metadata on the first pass.
 
 ### 2. AI Validates and Lints Metadata
 
-The `datacoolie-metadata` skill validates your metadata against versioned JSON Schema, catches anti-patterns (missing merge keys, `inferSchema` in production, SCD2 without effective column), and suggests fixes:
+`datacoolie-build` owns the versioned JSON Schema and deterministic validation, lint, conversion, and environment-resolution helpers. The AI runs them from the installed skill while building; they are not commands added to the DataCoolie framework package:
 
 ```bash
-# Validate against schema
-datacoolie-metadata validate metadata/connections.json
+# Skill-owned validation during development
+python <datacoolie-build-skill>/scripts/validate.py resolved-metadata.json
 
-# Lint for anti-patterns
-datacoolie-metadata lint metadata/
-
-# Convert between formats
-datacoolie-metadata convert metadata/flows.json --to yaml
-
-# Merge environment overlays
-datacoolie-metadata merge base.json --overlay prod.yaml -o resolved.json
+# Optional checked-in automation for CI/reproducible builds
+python automation/build.py --workspace . --environment dev
 ```
 
 The AI assistant can run these checks inline as you iterate, catching issues before they reach production.

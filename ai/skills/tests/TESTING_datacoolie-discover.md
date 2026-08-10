@@ -1,116 +1,59 @@
-# datacoolie-discover — Testing Guide
+# Testing `datacoolie-discover`
 
-This skill uses **introspection scripts** (`scripts/introspect_db.py`, `introspect_files.py`, `introspect_api.py`) plus knowledge-based AI rules in SKILL.md. All scripts output a 14-column CSV.
+The discovery skill is script-first. Database, file, API, and lakehouse introspection scripts emit
+the same 22-column `observations.csv` contract. Unit tests use local fixtures and mocks, so routine
+verification requires no external source.
 
----
+## Fast Validation
 
-## Quick Start
+From `datacoolie/`:
 
-```sh
-cd datacoolie/ai/skills/tests
-
-# Unit tests (mocked, no Docker needed)
-python -m pytest unit/test_introspect_db.py unit/test_introspect_files.py unit/test_introspect_api.py -v -o "addopts="
-
-# Integration tests (scripts against local fixtures)
-python run_discover.py
-
-# Integration tests with Docker databases
-docker compose up -d --wait
-python run_discover.py --docker
+```bash
+python ai/skills/tests/run_discover.py
+python -m pytest -o addopts="" ai/skills/tests/unit/test_introspect_db.py \
+  ai/skills/tests/unit/test_introspect_files.py \
+  ai/skills/tests/unit/test_introspect_api.py \
+  ai/skills/tests/unit/test_introspect_lakehouse.py \
+  ai/skills/tests/unit/test_discovery_evidence.py \
+  ai/skills/tests/unit/test_discovery_dependencies.py -q
 ```
 
----
+The suite checks:
 
-## What to Test
+- the exact shared CSV header and stable row identity;
+- database, file, OpenAPI, and lakehouse output mapping;
+- conservative watermark-candidate inference;
+- deterministic annotation merging and rejection of unknown/duplicate keys;
+- deterministic multi-probe merging, explicit API operation identity, atomic artifacts, and
+  partial-probe status;
+- one-statement, read-only SQL probe validation, row limits, rollback, and timeout reporting;
+- bounded directory/catalog inspection and avoidance of source row-count scans;
+- capability-specific dependency routing and current external CLI command contracts;
+- rejection of secret-bearing process arguments;
+- resource routing and the compact discovery output contract.
 
-### 1. Unit Tests (112 tests)
+## Optional Integration Validation
 
-| File | Covers |
-|------|--------|
-| `unit/test_introspect_db.py` | Type mapping, FK map, URL/ODBC masking, connection env resolution, CSV contract, mocked introspection |
-| `unit/test_introspect_files.py` | Arrow/Delta type mapping, format detection, Parquet/CSV/JSON/Delta schema |
-| `unit/test_introspect_api.py` | OpenAPI parsing, type mapping, $ref resolution, pagination detection |
+Run Docker-backed source checks only when the test services and drivers are already available:
 
-### 2. Script Smoke Tests (run_discover.py)
-
-Runs scripts against local fixtures and validates output:
-- Parquet → 9 rows, 14 cols
-- CSV → 7 rows, 14 cols
-- Delta → 5 rows, 14 cols
-- Structure report → Markdown with Tree + Summary
-- OpenAPI → 63+ rows, 14 cols
-
-### 3. Docker Database Tests (run_discover.py --docker)
-
-Start the shared test environment:
-```sh
-cd datacoolie/ai/skills/tests
-docker compose up -d --wait
-python run_all.py --no-docker
+```bash
+python -m pip install -r ai/skills/tests/requirements-integration.txt
+python ai/skills/tests/run_all.py discover --integration
 ```
 
-Ask the AI to discover each source. Verify it runs appropriate SQL and produces correct output:
+The orchestrator starts and seeds the default Docker stack, passes test-only connection locators to
+the child process, validates the canonical observation header, and removes containers and volumes
+afterward. `run_discover.py --docker` remains available when an operator already owns the services
+and supplies `DATACOOLIE_TEST_POSTGRES_URL`, `DATACOOLIE_TEST_MYSQL_URL`, and
+`DATACOOLIE_TEST_MSSQL_URL` through the environment. Do not place real connection values in commands,
+reports, or fixtures.
 
-| Source | Connection | Expected |
-|--------|-----------|----------|
-| PostgreSQL | `postgresql://datacoolie:datacoolie@localhost:5442/pagila` | ~11 tables + 3 views, 3 schemas, 60+ columns, FKs |
-| MySQL | `mysql+pymysql://datacoolie:datacoolie@localhost:3316/sakila` | 10 tables + 3 views, 50+ columns |
-| MSSQL | `mssql+pyodbc://sa:Testing%40123@localhost:1444/AdventureWorksLT` | SalesLT schema, 12 tables + 2 views |
-| Oracle | `oracle+oracledb://hr:hr@localhost:1522/?service_name=FREEPDB1` | 7 tables + 1 view, 40+ columns |
+## Expected Outputs
 
-Verification checklist per source:
-- [ ] AI runs `information_schema` or equivalent queries
-- [ ] For database sources, AI uses `scripts/introspect_db.py` rather than custom schema-discovery scripts
-- [ ] Connection secrets are provided through `--url-env` or `--odbc-connstr-env` when possible
-- [ ] Tables, columns, data types, PKs, and FKs are extracted
-- [ ] Row count estimates are included
-- [ ] Discovery report follows the template format
-- [ ] Discovery report and schema inventory start with YAML frontmatter (`artifact_type`, `date`, `source_name`, `status` or `source_type`)
+Final discovery output contains `discover/observations.csv` and `discover/report.md`. Raw probe
+evidence is optional and must be safe to retain. A Markdown schema inventory is not part of the
+contract.
 
-### 4. Manual Workflow Testing — Files
+## Unresolved questions
 
-Point the AI at `fixtures/files/` and verify it:
-- [ ] Detects file formats (csv, jsonl, parquet, json, avro, xlsx, delta)
-- [ ] Reads headers/schemas using appropriate commands (`head`, `parquet-tools`, Python one-liners)
-- [ ] Infers data types beyond just "string" for typed formats (Parquet, Avro)
-
-### 5. Manual Workflow Testing — APIs
-
-Ask the AI to discover from an OpenAPI spec:
-- [ ] Static file: `fixtures/api/openapi-petstore.json` — extracts endpoints, methods, parameters, response fields
-- [ ] Live URL (if Docker running): `http://localhost:8092/openapi.json`
-- [ ] AI resolves `$ref` schemas correctly
-
-### 6. Manual Workflow Testing — Lakehouses
-
-| Catalog | Connection | Expected |
-|---------|-----------|----------|
-| Iceberg | `http://localhost:8182`, database `sales` | 3 tables, 12 columns |
-| Delta | `fixtures/files`, delta sub-directory | delta_products, 5 columns |
-| Hive | `thrift://localhost:10000`, database `datacoolie_test` | 3 tables, 14 columns |
-
-### 7. Interview Mode
-
-Trigger interview-only mode (no connection provided) and verify:
-- [ ] AI asks structured questions about data volumes, freshness, SLAs, ownership
-- [ ] Responses populate the operational intelligence sections of the report
-- [ ] Report is generated even without auto-mode introspection
-
----
-
-## What to Inspect in Results
-
-After running, open CSV files in Excel:
-
-| File | Key columns to check |
-|------|---------------------|
-| `catalog.csv` | table, schema, column, type, nullable, is_pk |
-| `endpoints.csv` | method, path, summary, parameters, response_fields, pagination |
-
-- Verify schema names match the sample DB structure
-- Verify FK columns are not marked as PKs unless they are
-- Verify views appear alongside base tables
-- Verify inferred types look reasonable (no `object` for numeric columns)
-- Verify `response_fields` populated for `--sample-call` runs (inferred from live response)
-- Verify `pagination` column: `cursor` / `offset` / `link` as appropriate
+- None.

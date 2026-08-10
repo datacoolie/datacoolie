@@ -1,0 +1,2 @@
+# Install exactly one source-specific SQLAlchemy driver separately.
+sqlalchemy>=2,<3

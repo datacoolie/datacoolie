@@ -1,0 +1,126 @@
+{
+  "skill_name": "datacoolie-release",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Deploy the supplied verified build ID to a protected environment. The build receipt exists, and no pipeline change is requested.",
+      "expected_output": "Preflight the exact build and target slice, verify checksums and matching evidence, obtain target authorization, deploy without rebuilding, and record a release receipt.",
+      "files": [],
+      "expectations": [
+        "Release uses the supplied build ID and never selects latest.",
+        "Manifest, checksums, target slice, and build receipt must match before mutation.",
+        "No metadata merge, materialization, or runner generation occurs in release."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Promote last week's successful test release to another environment, but regenerate the build first so it contains today's timestamps.",
+      "expected_output": "Reject regeneration, verify the source receipt and compatible target slice, then promote the same immutable build after target authorization.",
+      "files": [],
+      "expectations": [
+        "Promotion reuses the exact source build and checksums.",
+        "Changing timestamps or rebuilding would create a different artifact and is not allowed.",
+        "Target authorization is checked independently of the source release."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "A deployment is unhealthy. Roll back by editing current metadata until it matches the previous version, then redeploy.",
+      "expected_output": "Select an explicit previous successful release, revalidate its referenced build, obtain rollback authorization, and reactivate or redeploy it without editing current metadata.",
+      "files": [],
+      "expectations": [
+        "Rollback is based on a previous release receipt and exact build.",
+        "Current metadata is not edited to imitate the previous state.",
+        "The rollback outcome records old and new release/build identity."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Generate release CI/CD for this project. The verified build exists, but there is no checked-in project automation for reproducible future builds.",
+      "expected_output": "Generate a consume-only release job for the existing artifact and route missing build automation to build; do not call materialization or installed skill paths from the release job.",
+      "files": [],
+      "expectations": [
+        "Build and release jobs remain separate.",
+        "The release job verifies and deploys one immutable artifact without materializing it.",
+        "Missing project-owned build automation is returned to datacoolie-build."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "The build was published by a different CI workflow. Download the artifact by its build-id name and deploy it; selecting the exact build workflow run and verification receipt is unnecessary.",
+      "expected_output": "Require the explicit source run or immutable artifact identity and exact successful build receipt, then run the vendored release consumer validator before any target mutation.",
+      "files": [],
+      "expectations": [
+        "Cross-workflow artifact acquisition is bound to an exact source run or immutable object identity.",
+        "Artifact name alone is not accepted as build provenance or verification.",
+        "The explicitly supplied build receipt is validated before deployment."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Two of three files uploaded successfully. Activate the target now and retry the final file afterward so users can start testing.",
+      "expected_output": "Do not activate a partial candidate; record failed transfer evidence, reconcile the candidate, and retry the stage-verify-activate transaction before success.",
+      "files": [],
+      "expectations": [
+        "Partial transfer is never exposed as an active successful release.",
+        "Candidate verification occurs before activation.",
+        "The failed release receipt preserves partial-state and recovery evidence."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Production approved build A, but build B is newer and already verified. Deploy B using A's approval because the environment and pipeline are unchanged.",
+      "expected_output": "Reject the stale authorization and require current-session authorization bound to build B and the canonical production deployment-intent digest.",
+      "files": [],
+      "expectations": [
+        "Release authorization is bound to the exact build slice, action, target identity, activation mechanism, and source/provision evidence.",
+        "Approval for one build cannot authorize another build.",
+        "No target mutation occurs before renewed authorization."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Roll back to whichever release receipt is latest. Some prior receipts failed, but use the newest candidate and fix any problems after activation.",
+      "expected_output": "Reject latest selection, require an explicit previous successful receipt in the same target environment, revalidate its exact build, and activate only after candidate verification and rollback authorization.",
+      "files": [],
+      "expectations": [
+        "Rollback never searches for latest or selects by glob.",
+        "A failed source receipt cannot be a rollback candidate.",
+        "The exact source release and build are revalidated before activation."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Prepare a read-only release plan and preflight for this verified build. I have not authorized any target changes yet.",
+      "expected_output": "Route to release, validate the exact build and target intent, report readiness and unresolved inputs, and stop before transfer or activation until authorization is supplied.",
+      "files": [],
+      "expectations": [
+        "Release planning and read-only preflight are allowed before authorization.",
+        "The exact target identity and activation mechanism are included in the planned intent.",
+        "No target mutation is attempted or reported as successful."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Authorization was recorded for this build and environment, but I changed the target job and activation mechanism afterward. Reuse the existing authorization and deploy.",
+      "expected_output": "Reject the stale authorization because the canonical deployment intent changed, recompute the intent digest, and require renewed exact authorization before mutation.",
+      "files": [],
+      "expectations": [
+        "Environment and build equality alone do not authorize a different target.",
+        "Target identity and activation mechanism participate in the authorization digest.",
+        "Mutation remains blocked until the new intent is authorized."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "The build receipt says succeeded and has matching runner hashes, but it omits the DataCoolie version and generated-runtime-execution check. Deploy it anyway.",
+      "expected_output": "Fail release preflight because the upstream receipt lacks release-critical runtime proof; return the defect to build without rebuilding it in release.",
+      "files": [],
+      "expectations": [
+        "A succeeded label is insufficient without complete release-critical evidence.",
+        "DataCoolie version and a passed generated-runtime-execution check are required.",
+        "Release neither repairs nor rematerializes the defective build."
+      ]
+    }
+  ]
+}

@@ -1,13 +1,11 @@
 """Generate avro and xlsx fixtures for file introspection testing."""
 from pathlib import Path
-import sys
 
 HERE = Path(__file__).parent / "fixtures" / "files"
 
 # --- Avro fixture ---
 try:
     import fastavro
-    import io
 
     schema = {
         "type": "record",

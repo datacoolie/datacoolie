@@ -12,26 +12,28 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import csv
 import json
-import re
+import os
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
 
 import requests
 import yaml
 
+from _observation_contract import (
+    CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
+    atomic_write_observations,
+    make_observation,
+    utc_observed_at,
+    write_observations,
+)
+from _input_safety import validate_nonsecret_locator
+from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-CSV_HEADER = [
-    "source", "schema", "table", "column", "type", "format",
-    "precision", "scale", "nullable", "pk", "fk",
-    "ordinal_position", "row_estimate", "notes",
-]
 
 # GraphQL introspection query
 GRAPHQL_INTROSPECTION = """
@@ -141,6 +143,7 @@ def _flatten_schema(
             canonical, fmt = _map_openapi_type(items)
             fields.append({
                 "name": arr_prefix.rstrip("."),
+                "native_type": f"array<{items.get('type', 'string')}>",
                 "type": f"array<{canonical}>",
                 "format": fmt,
                 "precision": "",
@@ -176,6 +179,7 @@ def _flatten_schema(
                 canonical, fmt = _map_openapi_type(items)
                 fields.append({
                     "name": arr_name,
+                    "native_type": f"array<{items.get('type', 'string')}>",
                     "type": f"array<{canonical}>",
                     "format": fmt,
                     "precision": str(items.get("maxLength", "")),
@@ -188,6 +192,7 @@ def _flatten_schema(
             max_len = prop_schema.get("maxLength", "")
             fields.append({
                 "name": full_name,
+                "native_type": prop_schema.get("type", "string"),
                 "type": canonical,
                 "format": fmt,
                 "precision": str(max_len) if max_len else "",
@@ -232,7 +237,7 @@ def _detect_pagination(params: list[dict]) -> str:
     return ""
 
 
-def parse_openapi(spec_content: str | dict, source: str) -> list[list[str]]:
+def parse_openapi(spec_content: str | dict, source: str) -> list[dict[str, str]]:
     """Parse an OpenAPI spec and return CSV rows (without header)."""
     if isinstance(spec_content, str):
         try:
@@ -242,7 +247,8 @@ def parse_openapi(spec_content: str | dict, source: str) -> list[list[str]]:
     else:
         spec = spec_content
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    observed_at = utc_observed_at()
     paths = spec.get("paths", {})
 
     for path, path_item in paths.items():
@@ -277,20 +283,31 @@ def parse_openapi(spec_content: str | dict, source: str) -> list[list[str]]:
                 continue
 
             # Build notes
-            notes_parts = [method.upper()]
+            notes_parts = []
             if pagination:
                 notes_parts.append(f"pagination={pagination}")
             notes = "; ".join(notes_parts)
 
             for ordinal, field in enumerate(fields, start=1):
-                rows.append([
-                    source, "", path, field["name"],
-                    field["type"], field.get("format", ""),
-                    field.get("precision", ""), field.get("scale", ""),
-                    field.get("nullable", "true"), "",
-                    field.get("fk", ""), ordinal, "",
-                    notes,
-                ])
+                rows.append(make_observation(
+                    source=source,
+                    object_type="endpoint",
+                    object=path,
+                    operation=method.upper(),
+                    column=field["name"],
+                    native_type=field.get("native_type", ""),
+                    data_type=field["type"],
+                    format=field.get("format", ""),
+                    precision=field.get("precision", ""),
+                    scale=field.get("scale", ""),
+                    nullable=field.get("nullable", "true"),
+                    ordinal=ordinal,
+                    declared_reference=field.get("fk", ""),
+                    observed_at=observed_at,
+                    method="openapi",
+                    evidence_class="declared",
+                    notes=notes,
+                ))
 
     return rows
 
@@ -335,7 +352,7 @@ def _unwrap_graphql_type(type_obj: dict) -> tuple[str, bool, bool]:
     return "String", is_list, is_non_null
 
 
-def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> list[list[str]]:
+def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> list[dict[str, str]]:
     """Run GraphQL introspection and return CSV rows."""
     hdrs = {"Content-Type": "application/json"}
     if headers:
@@ -352,7 +369,8 @@ def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> li
 
     types = data.get("data", {}).get("__schema", {}).get("types", [])
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    observed_at = utc_observed_at()
     skip_prefixes = ("__",)  # internal introspection types
 
     for type_def in types:
@@ -382,12 +400,22 @@ def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> li
             if type_name not in GRAPHQL_SCALAR_MAP and not is_list:
                 fk = f"→ {type_name}"
 
-            rows.append([
-                source, "", name, field_name,
-                canonical, "", "", "",
-                nullable, is_pk, fk, ordinal, "",
-                "",
-            ])
+            native_type = f"[{type_name}]" if is_list else type_name
+            rows.append(make_observation(
+                source=source,
+                object_type="graphql_type",
+                object=name,
+                column=field_name,
+                native_type=native_type,
+                data_type=canonical,
+                nullable=nullable,
+                ordinal=ordinal,
+                declared_key="primary" if is_pk else "",
+                declared_reference=fk,
+                observed_at=observed_at,
+                method="graphql:introspection",
+                evidence_class="declared",
+            ))
 
     return rows
 
@@ -419,7 +447,7 @@ EDM_TYPE_MAP = {
 }
 
 
-def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> list[list[str]]:
+def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> list[dict[str, str]]:
     """Parse OData $metadata EDMX and return CSV rows."""
     hdrs = {"Accept": "application/xml"}
     if headers:
@@ -430,13 +458,12 @@ def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> 
 
     root = ET.fromstring(resp.text)
 
-    rows: list[list[str]] = []
+    rows: list[dict[str, str]] = []
+    observed_at = utc_observed_at()
 
     # Find all EntityType elements (handle namespace variations)
     for schema_elem in root.iter():
         if schema_elem.tag.endswith("}Schema") or schema_elem.tag == "Schema":
-            namespace = schema_elem.get("Namespace", "")
-
             # Collect entity key properties
             for entity_type in schema_elem:
                 if not (entity_type.tag.endswith("}EntityType") or entity_type.tag == "EntityType"):
@@ -475,12 +502,23 @@ def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> 
 
                         is_pk = "true" if prop_name in key_props else ""
 
-                        rows.append([
-                            source, "", entity_name, prop_name,
-                            canonical, fmt, prec, scl,
-                            nullable, is_pk, "", ordinal, "",
-                            "",
-                        ])
+                        rows.append(make_observation(
+                            source=source,
+                            object_type="entity",
+                            object=entity_name,
+                            column=prop_name,
+                            native_type=edm_type,
+                            data_type=canonical,
+                            format=fmt,
+                            precision=prec,
+                            scale=scl,
+                            nullable=nullable,
+                            ordinal=ordinal,
+                            declared_key="primary" if is_pk else "",
+                            observed_at=observed_at,
+                            method="odata:metadata",
+                            evidence_class="declared",
+                        ))
 
                     elif prop.tag.endswith("}NavigationProperty") or prop.tag == "NavigationProperty":
                         # Navigation properties → FK references
@@ -495,12 +533,21 @@ def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> 
                         is_collection = "Collection(" in nav_type
                         canonical = f"array<{ref_entity}>" if is_collection else "struct"
 
-                        rows.append([
-                            source, "", entity_name, nav_name,
-                            canonical, "", "", "",
-                            nullable_val, "", f"→ {ref_entity}", ordinal, "",
-                            "navigation property",
-                        ])
+                        rows.append(make_observation(
+                            source=source,
+                            object_type="entity",
+                            object=entity_name,
+                            column=nav_name,
+                            native_type=nav_type,
+                            data_type=canonical,
+                            nullable=nullable_val,
+                            ordinal=ordinal,
+                            declared_reference=f"→ {ref_entity}",
+                            observed_at=observed_at,
+                            method="odata:metadata",
+                            evidence_class="declared",
+                            notes="navigation property",
+                        ))
 
     return rows
 
@@ -528,6 +575,7 @@ def _load_spec(path_or_url: str, headers: dict | None = None) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Introspect API specs and output a standardised schema CSV.",
     )
     group = parser.add_mutually_exclusive_group(required=True)
@@ -536,8 +584,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     group.add_argument("--odata", help="OData $metadata endpoint URL")
 
     parser.add_argument("--source", required=True, help="Source name for CSV output")
-    parser.add_argument("--headers", default=None, help='JSON string of HTTP headers')
+    parser.add_argument("--headers-env", default=None, help="Environment variable containing JSON headers")
     parser.add_argument("--output", default=None, help="Output CSV file (default: stdout)")
+    parser.add_argument("--status-output", default=None, help="Optional probe status JSON path")
 
     return parser.parse_args(argv)
 
@@ -545,26 +594,43 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
-    headers = None
-    if args.headers:
-        try:
-            headers = json.loads(args.headers)
-        except json.JSONDecodeError:
-            print("ERROR: --headers must be valid JSON", file=sys.stderr)
-            sys.exit(1)
+    locator = args.spec or args.graphql or args.odata
+    try:
+        validate_nonsecret_locator(locator, "API locator")
+    except ValueError as exc:
+        raise SystemExit(f"ERROR: {exc}") from exc
 
-    rows: list[list[str]] = []
+    headers: dict[str, str] | None = None
+    if args.headers_env:
+        raw_headers = os.environ.get(args.headers_env)
+        if raw_headers is None:
+            raise SystemExit(f"ERROR: Environment variable '{args.headers_env}' is not set")
+        try:
+            parsed_headers = json.loads(raw_headers)
+        except json.JSONDecodeError as exc:
+            raise SystemExit("ERROR: Headers environment value is not valid JSON") from exc
+        if not isinstance(parsed_headers, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in parsed_headers.items()
+        ):
+            raise SystemExit("ERROR: Headers environment value must be a JSON object of strings")
+        headers = parsed_headers
+
+    rows: list[dict[str, str]] = []
 
     try:
         if args.spec:
             content = _load_spec(args.spec, headers)
             rows = parse_openapi(content, args.source)
+            probe = "openapi"
         elif args.graphql:
             rows = parse_graphql(args.graphql, args.source, headers)
+            probe = "graphql-introspection"
         elif args.odata:
             rows = parse_odata(args.odata, args.source, headers)
+            probe = "odata-metadata"
     except requests.RequestException as exc:
-        print(f"ERROR: Failed to fetch spec: {exc}", file=sys.stderr)
+        print(f"ERROR: API request failed ({type(exc).__name__})", file=sys.stderr)
         sys.exit(1)
     except (json.JSONDecodeError, yaml.YAMLError) as exc:
         print(f"ERROR: Failed to parse spec: {exc}", file=sys.stderr)
@@ -573,19 +639,23 @@ def main(argv: list[str] | None = None) -> None:
         print(f"ERROR: Failed to parse OData XML: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    if not rows:
-        print("WARNING: No schema fields extracted from spec.", file=sys.stderr)
+    issues = [] if rows else ["No schema fields extracted from the requested API surface"]
+    for issue in issues:
+        print(f"WARNING: {issue}", file=sys.stderr)
 
-    # Write CSV
-    out_file = open(args.output, "w", newline="", encoding="utf-8") if args.output else sys.stdout
-    try:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(CSV_HEADER)
-        for row in rows:
-            writer.writerow(row)
-    finally:
-        if args.output and out_file is not sys.stdout:
-            out_file.close()
+    if args.output:
+        atomic_write_observations(Path(args.output), rows)
+    else:
+        write_observations(sys.stdout, rows)
+    status = write_probe_status(
+        Path(args.status_output) if args.status_output else None,
+        source=args.source,
+        probe=probe,
+        row_count=len(rows),
+        issues=issues,
+    )
+    if status == "partial":
+        raise SystemExit(PARTIAL_EXIT_CODE)
 
 
 if __name__ == "__main__":

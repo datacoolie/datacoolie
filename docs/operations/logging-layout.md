@@ -17,7 +17,7 @@ DataCoolie produces two independent log streams.
 │   │       └── __run_date=yyyy-mm-dd/job_<stem>.jsonl          ← appended
 │   └── analyst/
 │       ├── job_run_log/
-│       │   └── __run_date=yyyy-mm-dd/job_run_log_<yyyyMMdd>.jsonl ← shared daily file
+│       │   └── __run_date=yyyy-mm-dd/job_<stem>.jsonl           ← per-run file
 │       └── dataflow_run_log/
 │           └── __run_date=yyyy-mm-dd/dataflow_<stem>.parquet   ← per-run file
 └── system_logs/
@@ -32,7 +32,7 @@ DataCoolie produces two independent log streams.
 | Format | Debug JSONL + analyst JSONL/Parquet | JSONL, one `LogRecord` per line |
 | Purpose | Execution analytics, dashboards, troubleshooting | Operational debugging |
 | Retention | Long-term (feeds dashboards) | Short-term (rotate aggressively) |
-| Flush | Periodic `append_file` + final on close | Periodic `append_file` (timer) + final on close |
+| Flush | Periodic debug append + immutable analyst files on close | Periodic `append_file` (timer) + final on close |
 
 ## SystemLogger levels
 
@@ -58,14 +58,18 @@ recursive capture.
 
 | Log type | Format | File per … | Query |
 |---|---|---|---|
-| `job_run_log` | JSONL | Day (shared, appended) | Read one file per day for job history |
+| `job_run_log` | JSONL | Job run (immutable) | Scan all JSONL files in the date partition |
 | `dataflow_run_log` | Parquet (Snappy) | Job run | Scan with Spark / Polars / Athena |
 
-The dated `job_run_log_<yyyyMMdd>.jsonl` is a **shared daily file**: every job run on the same
-date appends its summary line to the same file.  This makes it efficient to
-query recent job history without listing many small per-run files.  It is also
-hive-partition compatible (`__run_date=yyyy-mm-dd`) so Spark / Polars can
-discover the `run_date` column automatically.
+Each `job_<stem>.jsonl` contains one complete job summary and is created once.
+It shares the `<timestamp>_<job_num>_<job_index>_<job_id>` stem with the
+corresponding `dataflow_<stem>.parquet` artifact. Concurrent jobs therefore
+never coordinate around or rewrite a shared object. The containing
+`__run_date=yyyy-mm-dd` folder remains
+Hive-partition compatible so Spark and Polars can discover the `run_date`
+column automatically. Readers should include every `*.jsonl` file in the
+partition; this also keeps existing shared daily files readable during
+rollout.
 
 ## Partitioning
 
@@ -73,10 +77,48 @@ ETL logs are partitioned by **purpose** and **log type**, then by run date:
 
 ```
 etl_logs/analyst/dataflow_run_log/__run_date=2026-01-03/dataflow_<stem>.parquet
-etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_run_log_20260103.jsonl
+etl_logs/analyst/job_run_log/__run_date=2026-01-03/job_<stem>.jsonl
 ```
 
 Query them directly with Spark / Polars / Athena.
+
+Hourly partitioning is opt-in. The default remains one partition directory
+per day. To make each hour independently discoverable, configure:
+
+```python
+LogConfig(
+    partition_pattern="__run_date={year}-{month}-{day}/__run_hour={hour}",
+)
+```
+
+Studio-compatible patterns use one ordered prefix of the time tokens:
+
+```text
+{year}
+{year} {month}
+{year} {month} {day}
+{year} {month} {day} {hour}
+```
+
+The tokens may be adjacent or separated by arbitrary non-numeric literal
+text, and can share a directory level. Each directory level must contain a
+token. For example, `logs_{year}--m_{month}__d_{day}++h_{hour}` and
+`y={year}/m={month}/d={day}/h={hour}` are valid. Reversed/skipped tokens,
+duplicate or unknown placeholders, numeric literals, `%`, and tokenless
+directory levels fail when `LogConfig` is created.
+
+This produces paths such as:
+
+```text
+etl_logs/analyst/job_run_log/__run_date=2026-01-03/__run_hour=09/job_<stem>.jsonl
+```
+
+DataCoolie Studio recognizes year, month, day, and hour layouts. A date-based
+lookback over an hourly stream includes all 24 hourly partitions for each
+selected day. Normal incremental sync revisits the current and previous hour,
+then uses the file manifest to skip unchanged files; use explicit lookback for
+longer late-arrival windows. Keep a single layout within each log root; use a
+new empty root when changing an existing daily stream to hourly partitions.
 
 Dataflow rows include dedicated transformer metadata columns for select, drop,
 rename, value rules, hash columns, masking rules, and the resolved

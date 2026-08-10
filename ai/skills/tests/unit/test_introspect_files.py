@@ -4,10 +4,7 @@ Uses actual fixture files at tests/fixtures/files/.
 """
 import csv
 import io
-import os
-import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -120,8 +117,8 @@ class TestDetectFormat:
 # ---------------------------------------------------------------------------
 
 class TestCsvContract:
-    def test_header_has_14_columns(self):
-        assert len(introspect_files.CSV_HEADER) == 14
+    def test_header_has_22_columns(self):
+        assert len(introspect_files.CSV_HEADER) == 22
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +147,7 @@ class TestSchemaParquet:
         # All rows have source=test
         assert all(r[0] == "test" for r in rows[1:])
         # All rows have table=sales
-        assert all(r[2] == "sales" for r in rows[1:])
+        assert all(r[4] == "sales" for r in rows[1:])
 
     def test_ordinal_positions_sequential(self, parquet_path, capsys):
         introspect_files.cmd_schema(
@@ -160,7 +157,7 @@ class TestSchemaParquet:
         output = capsys.readouterr().out
         reader = csv.reader(io.StringIO(output))
         rows = list(reader)
-        ordinals = [int(r[11]) for r in rows[1:]]
+        ordinals = [int(r[13]) for r in rows[1:]]
         assert ordinals == list(range(1, len(ordinals) + 1))
 
 
@@ -180,7 +177,8 @@ class TestSchemaCsv:
         rows = list(reader)
         assert len(rows) > 1
         # Has "inferred from sample rows" in notes
-        assert any("inferred" in r[13] for r in rows[1:])
+        assert any("inferred" in r[21] for r in rows[1:])
+        assert all(r[20] == "inferred" for r in rows[1:])
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +200,19 @@ class TestSchemaJson:
         rows = list(reader)
         assert len(rows) > 1
 
+    def test_json_sampling_honors_record_limit(self, tmp_path):
+        import fsspec
+
+        path = tmp_path / "large.jsonl"
+        path.write_text(
+            '{"id": 1}\n{"id": 2, "late_field": "not sampled"}\n',
+            encoding="utf-8",
+        )
+        fields = introspect_files._schema_json(
+            fsspec.filesystem("file"), str(path), sample_bytes=1024, sample_records=1,
+        )
+        assert [name for name, _ in fields] == ["id"]
+
 
 # ---------------------------------------------------------------------------
 # Schema extraction — Delta
@@ -219,7 +230,7 @@ class TestSchemaDelta:
         rows = list(reader)
         assert len(rows) > 1
         # Check canonical types are clean (no PrimitiveType wrapper)
-        types = [r[4] for r in rows[1:]]
+        types = [r[8] for r in rows[1:]]
         assert not any("PrimitiveType" in t for t in types)
 
 
@@ -244,6 +255,49 @@ class TestStructure:
         output = capsys.readouterr().out
         assert "Delta table" in output
 
+    def test_structure_stops_at_entry_limit(self, tmp_path):
+        for index in range(4):
+            (tmp_path / f"file-{index}.csv").write_text("id\n1\n", encoding="utf-8")
+
+        count, issues = introspect_files.cmd_structure(
+            path=str(tmp_path),
+            output_path=str(tmp_path / "layout.md"),
+            storage_options=None,
+            max_entries=2,
+            max_depth=2,
+        )
+
+        assert count <= 2
+        assert any("--max-entries=2" in issue for issue in issues)
+
+    def test_structure_rejects_secret_bearing_path(self):
+        with pytest.raises(ValueError, match="secret-bearing"):
+            introspect_files.cmd_structure(
+                path="https://example.test/data?access_token=secret",
+                output_path=None,
+                storage_options=None,
+            )
+
+    def test_structure_main_writes_partial_status_at_limit(self, tmp_path):
+        for index in range(3):
+            (tmp_path / f"file-{index}.csv").write_text("id\n1\n", encoding="utf-8")
+        output = tmp_path / "layout.md"
+        status = tmp_path / "layout.status.json"
+
+        with pytest.raises(SystemExit) as exc:
+            introspect_files.main([
+                "structure",
+                "--path", str(tmp_path),
+                "--source", "files",
+                "--output", str(output),
+                "--status-output", str(status),
+                "--max-entries", "1",
+            ])
+
+        assert exc.value.code == 3
+        assert output.is_file()
+        assert '"status": "partial"' in status.read_text(encoding="utf-8")
+
 
 # ---------------------------------------------------------------------------
 # CLI parsing
@@ -251,9 +305,12 @@ class TestStructure:
 
 class TestParseArgs:
     def test_structure_minimal(self):
-        args = introspect_files.parse_args(["structure", "--path", "/data"])
+        args = introspect_files.parse_args([
+            "structure", "--path", "/data", "--source", "files",
+        ])
         assert args.command == "structure"
         assert args.path == "/data"
+        assert args.max_entries == 10000
 
     def test_schema_minimal(self):
         args = introspect_files.parse_args([
@@ -267,3 +324,10 @@ class TestParseArgs:
             "schema", "--path", "/data", "--format", "delta", "--source", "s", "--table", "t",
         ])
         assert args.format == "delta"
+
+    def test_rejects_inline_storage_options(self):
+        with pytest.raises(SystemExit):
+            introspect_files.parse_args([
+                "schema", "--path", "/data", "--source", "s", "--table", "t",
+                "--storage-options", '{"token":"secret"}',
+            ])

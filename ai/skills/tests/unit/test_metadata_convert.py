@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import openpyxl
 
 from _loaders import load_file
+import convert as metadata_convert
 from convert import to_excel
 
 
@@ -55,6 +59,8 @@ DROP_TRANSFORM = {
     "masking_rules": [{"method": "nullify", "columns": ["secret"]}],
     "configure": {"missing_column_policy": "error"},
 }
+
+CONVERT_SCRIPT = Path(metadata_convert.__file__).resolve()
 
 
 def test_excel_round_trip_preserves_new_transform_fields(tmp_path: Path) -> None:
@@ -152,3 +158,26 @@ def test_flat_excel_transform_columns_parse_new_fields(tmp_path: Path) -> None:
         "transform_case": SELECT_TRANSFORM,
         "drop_transform_case": DROP_TRANSFORM,
     }
+
+
+def test_convert_cli_rejects_missing_input_and_same_output_path(tmp_path: Path) -> None:
+    source = tmp_path / "metadata.json"
+    source.write_text(json.dumps({"connections": [], "dataflows": []}), encoding="utf-8")
+
+    same_path = subprocess.run(
+        [sys.executable, str(CONVERT_SCRIPT), str(source), "--to", "json"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    missing = subprocess.run(
+        [sys.executable, str(CONVERT_SCRIPT), str(tmp_path / "missing.json"), "--to", "yaml"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert same_path.returncode == 2
+    assert "same as input" in same_path.stderr
+    assert missing.returncode == 2
+    assert "File not found" in missing.stderr

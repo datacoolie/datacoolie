@@ -5,34 +5,40 @@ Two subcommands:
   schema     — Extract column schema from a file or table, output CSV.
 
 Usage:
-    python introspect_files.py structure --path ./data/ --output structure.md
+    python introspect_files.py structure --path ./data/ --source files --output structure.md
     python introspect_files.py schema --path ./data/orders/ --format delta --source erp --table orders
     python introspect_files.py schema --path s3://bucket/sales.parquet --source warehouse --table sales --output schema.csv
 """
 from __future__ import annotations
 
 import argparse
-import csv
+import heapq
+import json
 import os
 import re
 import sys
 from collections import defaultdict
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
+
+from _artifact_io import atomic_write_text
+from _input_safety import validate_nonsecret_locator
+from _observation_contract import (
+    CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
+    atomic_write_observations,
+    make_observation,
+    utc_observed_at,
+    write_observations,
+)
+from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-CSV_HEADER = [
-    "source", "schema", "table", "column", "type", "format",
-    "precision", "scale", "nullable", "pk", "fk",
-    "ordinal_position", "row_estimate", "notes",
-]
-
 KNOWN_EXTENSIONS = {
     ".parquet", ".csv", ".json", ".jsonl", ".ndjson",
-    ".avro", ".orc", ".xlsx", ".xls", ".tsv",
+    ".avro", ".orc", ".xlsx", ".tsv",
 }
 
 # ---------------------------------------------------------------------------
@@ -147,7 +153,6 @@ def _detect_format_from_path(path: str) -> str | None:
         ".avro": "avro",
         ".orc": "orc",
         ".xlsx": "excel",
-        ".xls": "excel",
     }
     return mapping.get(ext)
 
@@ -191,23 +196,67 @@ def _human_size(nbytes: int | float) -> str:
     return f"{nbytes:.1f} PB"
 
 
-def cmd_structure(path: str, output_path: str | None, storage_options: dict | None) -> None:
-    """Recursively list a path and output a Markdown structure report."""
+def _bounded_file_listing(
+    fs,
+    root: str,
+    max_entries: int,
+    max_depth: int,
+) -> tuple[dict[str, dict], list[str]]:
+    """List files deterministically while bounding directory entries and depth."""
+    files: dict[str, dict] = {}
+    issues: list[str] = []
+    queue: list[tuple[int, str]] = [(0, root)]
+    seen: set[str] = set()
+    inspected = 0
+
+    while queue:
+        depth, current = heapq.heappop(queue)
+        if current in seen:
+            continue
+        seen.add(current)
+        entries = sorted(fs.ls(current, detail=True), key=lambda item: str(item.get("name", "")))
+        for info in entries:
+            inspected += 1
+            if inspected > max_entries:
+                issues.append(
+                    f"Stopped after --max-entries={max_entries}; directory scope is partial"
+                )
+                return files, issues
+            name = str(info.get("name", ""))
+            if info.get("type") == "directory":
+                if depth >= max_depth:
+                    if not any("--max-depth" in issue for issue in issues):
+                        issues.append(
+                            f"Stopped below --max-depth={max_depth}; directory scope is partial"
+                        )
+                    continue
+                heapq.heappush(queue, (depth + 1, name))
+            else:
+                files[name] = info
+    return files, issues
+
+
+def cmd_structure(
+    path: str,
+    output_path: str | None,
+    storage_options: dict | None,
+    max_entries: int = 10000,
+    max_depth: int = 8,
+) -> tuple[int, list[str]]:
+    """Write a bounded Markdown layout summary for scratch evidence."""
     import fsspec
 
+    validate_nonsecret_locator(path, "File path")
     so = storage_options or {}
     fs, root = fsspec.core.url_to_fs(path, **so)
 
-    # Collect all entries
     try:
-        all_files = fs.find(root, detail=True)
+        all_files, issues = _bounded_file_listing(fs, root, max_entries, max_depth)
     except Exception as exc:
-        print(f"ERROR: Cannot list {path}: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(f"Cannot list file scope ({type(exc).__name__})") from exc
 
     if not all_files:
-        print(f"WARNING: No files found at {path}", file=sys.stderr)
-        return
+        issues.append("No files found in the requested scope")
 
     # Group by top-level directory relative to root
     groups: dict[str, dict] = defaultdict(lambda: {
@@ -310,10 +359,10 @@ def cmd_structure(path: str, output_path: str | None, storage_options: dict | No
     md_content = "\n".join(md_lines) + "\n"
 
     if output_path:
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(md_content)
+        atomic_write_text(Path(output_path), md_content)
     else:
         print(md_content)
+    return len(all_files), issues
 
 
 def _today() -> str:
@@ -360,7 +409,10 @@ def _schema_parquet(fs, path: str) -> list[tuple[str, Any]]:
     target = path
     try:
         if fs.isdir(path):
-            files = [f for f in fs.glob(path.rstrip("/") + "/**/*.parquet") or fs.glob(path.rstrip("/") + "/*.parquet")]
+            files = sorted(
+                fs.glob(path.rstrip("/") + "/**/*.parquet")
+                or fs.glob(path.rstrip("/") + "/*.parquet")
+            )
             if files:
                 target = files[0]
     except Exception:
@@ -376,7 +428,10 @@ def _schema_csv(fs, path: str) -> list[tuple[str, Any]]:
     target = path
     try:
         if fs.isdir(path):
-            files = fs.glob(path.rstrip("/") + "/*.csv") + fs.glob(path.rstrip("/") + "/*.tsv")
+            files = sorted(
+                fs.glob(path.rstrip("/") + "/*.csv")
+                + fs.glob(path.rstrip("/") + "/*.tsv")
+            )
             if files:
                 target = files[0]
     except Exception:
@@ -387,13 +442,18 @@ def _schema_csv(fs, path: str) -> list[tuple[str, Any]]:
     return [(field.name, field.type) for field in batch.schema]
 
 
-def _schema_json(fs, path: str) -> list[tuple[str, Any]]:
-    """Infer schema from JSON/JSONL by reading first rows."""
-    import pyarrow.json as pjson
+def _schema_json(
+    fs,
+    path: str,
+    sample_bytes: int = 1 << 20,
+    sample_records: int = 100,
+) -> list[tuple[str, Any]]:
+    """Infer schema from a bounded sample of JSON objects."""
+    import pyarrow as pa
     target = path
     try:
         if fs.isdir(path):
-            files = (
+            files = sorted(
                 fs.glob(path.rstrip("/") + "/*.json")
                 + fs.glob(path.rstrip("/") + "/*.jsonl")
                 + fs.glob(path.rstrip("/") + "/*.ndjson")
@@ -403,7 +463,42 @@ def _schema_json(fs, path: str) -> list[tuple[str, Any]]:
     except Exception:
         pass
     with fs.open(target, "rb") as f:
-        table = pjson.read_json(f)
+        sample = f.read(sample_bytes)
+    text_sample = sample.decode("utf-8")
+    stripped = text_sample.lstrip()
+    decoder = json.JSONDecoder()
+    records: list[dict[str, Any]] = []
+    if stripped.startswith("["):
+        remainder = stripped[1:].lstrip()
+        while remainder and len(records) < sample_records:
+            try:
+                value, end = decoder.raw_decode(remainder)
+            except json.JSONDecodeError:
+                break
+            if isinstance(value, dict):
+                records.append(value)
+            remainder = remainder[end:].lstrip()
+            if remainder.startswith(","):
+                remainder = remainder[1:].lstrip()
+            elif remainder.startswith("]"):
+                break
+    else:
+        for line in text_sample.splitlines()[:sample_records]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                if not records:
+                    value, _ = decoder.raw_decode(stripped)
+                else:
+                    break
+            if isinstance(value, dict):
+                records.append(value)
+    if not records:
+        raise ValueError("No complete JSON objects found within the bounded sample")
+    table = pa.Table.from_pylist(records)
     return [(field.name, field.type) for field in table.schema]
 
 
@@ -471,7 +566,7 @@ def _schema_avro(fs, path: str) -> list[tuple[str, Any]]:
     target = path
     try:
         if fs.isdir(path):
-            files = fs.glob(path.rstrip("/") + "/*.avro")
+            files = sorted(fs.glob(path.rstrip("/") + "/*.avro"))
             if files:
                 target = files[0]
     except Exception:
@@ -539,7 +634,7 @@ def _schema_orc(fs, path: str) -> list[tuple[str, Any]]:
     target = path
     try:
         if fs.isdir(path):
-            files = fs.glob(path.rstrip("/") + "/*.orc")
+            files = sorted(fs.glob(path.rstrip("/") + "/*.orc"))
             if files:
                 target = files[0]
     except Exception:
@@ -584,7 +679,9 @@ def cmd_schema(
     table: str,
     output_path: str | None,
     storage_options: dict | None,
-) -> None:
+    sample_bytes: int = 1 << 20,
+    sample_records: int = 100,
+) -> int:
     """Extract schema from files and output CSV."""
     import fsspec
 
@@ -612,8 +709,8 @@ def cmd_schema(
             fields = _schema_csv(fs, resolved)
             notes_suffix = "inferred from sample rows"
         elif fmt == "json":
-            fields = _schema_json(fs, resolved)
-            notes_suffix = "inferred from sample rows"
+            fields = _schema_json(fs, resolved, sample_bytes, sample_records)
+            notes_suffix = f"inferred from bounded sample ({sample_bytes} bytes, {sample_records} records max)"
         elif fmt == "delta":
             fields = _schema_delta(path, so or None)
         elif fmt == "avro":
@@ -634,37 +731,45 @@ def cmd_schema(
         print(f"ERROR: Install '{lib}' for {fmt} support: pip install {lib}", file=sys.stderr)
         sys.exit(1)
 
-    # Write CSV
-    out_file = open(output_path, "w", newline="", encoding="utf-8") if output_path else sys.stdout
-    try:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(CSV_HEADER)
+    observations = []
+    observed_at = utc_observed_at()
+    for ordinal, (name, type_obj) in enumerate(fields, start=1):
+        if is_delta:
+            canonical, type_fmt, prec, scl = _map_delta_type(type_obj)
+        elif is_avro:
+            canonical, type_fmt, prec, scl = _map_avro_type(type_obj)
+        elif is_excel:
+            canonical, type_fmt, prec, scl = str(type_obj), "", "", ""
+        else:
+            canonical, type_fmt, prec, scl = _map_arrow_type(type_obj)
 
-        for ordinal, (name, type_obj) in enumerate(fields, start=1):
-            if is_delta:
-                canonical, type_fmt, prec, scl = _map_delta_type(type_obj)
-            elif is_avro:
-                canonical, type_fmt, prec, scl = _map_avro_type(type_obj)
-            elif is_excel:
-                canonical, type_fmt, prec, scl = str(type_obj), "", "", ""
-            else:
-                canonical, type_fmt, prec, scl = _map_arrow_type(type_obj)
+        notes = notes_suffix
+        if not type_fmt:
+            type_fmt = fmt
+        evidence_class = "inferred" if "inferred" in notes.lower() else "observed"
+        observations.append(make_observation(
+            source=source,
+            object_type="file",
+            object=table,
+            column=name,
+            native_type=str(type_obj),
+            data_type=canonical,
+            format=type_fmt,
+            precision=prec,
+            scale=scl,
+            nullable="true",
+            ordinal=ordinal,
+            observed_at=observed_at,
+            method=f"{fmt}:schema",
+            evidence_class=evidence_class,
+            notes=notes,
+        ))
 
-            notes = notes_suffix
-            if not type_fmt:
-                type_fmt = fmt
-
-            writer.writerow([
-                source, "", table, name,
-                canonical, type_fmt, prec, scl,
-                "true",  # files generally lack nullable info — default true
-                "", "",  # no PK/FK for files
-                ordinal, "",
-                notes,
-            ])
-    finally:
-        if output_path and out_file is not sys.stdout:
-            out_file.close()
+    if output_path:
+        atomic_write_observations(Path(output_path), observations)
+    else:
+        write_observations(sys.stdout, observations)
+    return len(observations)
 
 
 # ---------------------------------------------------------------------------
@@ -673,18 +778,27 @@ def cmd_schema(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        allow_abbrev=False,
         description="Introspect file sources — folder structure and schema extraction.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
     # structure
-    p_struct = sub.add_parser("structure", help="List folder structure as Markdown")
+    p_struct = sub.add_parser(
+        "structure", help="List folder structure as Markdown", allow_abbrev=False,
+    )
     p_struct.add_argument("--path", required=True, help="Root path (local, s3://, abfss://, gs://)")
+    p_struct.add_argument("--source", required=True, help="Source name for status evidence")
     p_struct.add_argument("--output", default=None, help="Output .md file (default: stdout)")
-    p_struct.add_argument("--storage-options", default=None, help="JSON string of storage options")
+    p_struct.add_argument("--storage-options-env", default=None)
+    p_struct.add_argument("--max-entries", type=int, default=10000)
+    p_struct.add_argument("--max-depth", type=int, default=8)
+    p_struct.add_argument("--status-output", default=None)
 
     # schema
-    p_schema = sub.add_parser("schema", help="Extract file schema as CSV")
+    p_schema = sub.add_parser(
+        "schema", help="Extract file schema as CSV", allow_abbrev=False,
+    )
     p_schema.add_argument("--path", required=True, help="Path to file or directory")
     p_schema.add_argument("--format", default="auto", choices=[
         "auto", "parquet", "csv", "json", "delta", "iceberg", "avro", "orc", "excel",
@@ -692,7 +806,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p_schema.add_argument("--source", required=True, help="Source name for CSV output")
     p_schema.add_argument("--table", required=True, help="Table name for CSV output")
     p_schema.add_argument("--output", default=None, help="Output .csv file (default: stdout)")
-    p_schema.add_argument("--storage-options", default=None, help="JSON string of storage options")
+    p_schema.add_argument("--storage-options-env", default=None)
+    p_schema.add_argument("--sample-bytes", type=int, default=1 << 20)
+    p_schema.add_argument("--sample-records", type=int, default=100)
+    p_schema.add_argument("--status-output", default=None)
 
     return parser.parse_args(argv)
 
@@ -700,16 +817,59 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
-    # Parse storage options
+    try:
+        validate_nonsecret_locator(args.path, "File path")
+    except ValueError as exc:
+        raise SystemExit(f"ERROR: {exc}") from exc
+
     so = None
-    if getattr(args, "storage_options", None):
-        import json
-        so = json.loads(args.storage_options)
+    storage_options_env = getattr(args, "storage_options_env", None)
+    if storage_options_env:
+        raw = os.environ.get(storage_options_env)
+        if raw is None:
+            raise SystemExit(f"ERROR: Environment variable '{storage_options_env}' is not set")
+        try:
+            so = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise SystemExit("ERROR: Storage options environment value is not valid JSON") from exc
+        if not isinstance(so, dict):
+            raise SystemExit("ERROR: Storage options environment value must be a JSON object")
 
     if args.command == "structure":
-        cmd_structure(args.path, args.output, so)
+        if args.max_entries < 1 or args.max_entries > 1000000:
+            raise SystemExit("ERROR: --max-entries must be between 1 and 1000000")
+        if args.max_depth < 1 or args.max_depth > 64:
+            raise SystemExit("ERROR: --max-depth must be between 1 and 64")
+        try:
+            row_count, issues = cmd_structure(
+                args.path, args.output, so, args.max_entries, args.max_depth,
+            )
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"ERROR: {exc}") from exc
+        status = write_probe_status(
+            Path(args.status_output) if args.status_output else None,
+            source=args.source,
+            probe="file-layout",
+            row_count=row_count,
+            issues=issues,
+        )
+        if status == "partial":
+            raise SystemExit(PARTIAL_EXIT_CODE)
     elif args.command == "schema":
-        cmd_schema(args.path, args.format, args.source, args.table, args.output, so)
+        if args.sample_bytes < 1024 or args.sample_bytes > 64 << 20:
+            raise SystemExit("ERROR: --sample-bytes must be between 1024 and 67108864")
+        if args.sample_records < 1 or args.sample_records > 10000:
+            raise SystemExit("ERROR: --sample-records must be between 1 and 10000")
+        row_count = cmd_schema(
+            args.path, args.format, args.source, args.table, args.output, so,
+            args.sample_bytes, args.sample_records,
+        )
+        write_probe_status(
+            Path(args.status_output) if args.status_output else None,
+            source=args.source,
+            probe="file-schema",
+            row_count=row_count,
+        )
 
 
 if __name__ == "__main__":

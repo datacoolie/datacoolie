@@ -1,0 +1,247 @@
+{
+  "skill_name": "datacoolie-build",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create a new DataCoolie project from already documented source contracts. Implement the metadata and local runners, then test it locally. The infrastructure already exists.",
+      "expected_output": "Route directly from design state to build, bootstrap only required files, use framework metadata and driver execution, materialize an immutable build, and skip discovery, provisioning, and release.",
+      "files": [],
+      "expectations": [
+        "Discovery is skipped because source facts are sufficient.",
+        "Provision and release are skipped.",
+        "Local runtime verification executes the generated build rather than durable sources."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The architecture is unchanged. Add one environment override and correct a runner parameter, then rerun the integration check.",
+      "expected_output": "Use build only, preserve design, update canonical durable sources, create a new immutable build ID, and verify generated artifacts.",
+      "files": [],
+      "expectations": [
+        "The response does not require a new design phase.",
+        "The environment file is an overlay rather than a full metadata clone.",
+        "Changed durable input produces a new immutable build."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "One configured environment uses a platform that supports two engines. Create both Python entrypoints; orchestration will invoke the exact file and choose stages at runtime.",
+      "expected_output": "Create separate platform-and-engine runners with no environment/engine runtime selector and preserve ordered stage-group semantics.",
+      "files": [],
+      "expectations": [
+        "Two non-colliding runner filenames encode platform and engine.",
+        "Environment, platform, and engine are not concrete runner parameters.",
+        "Stage-to-engine routing is absent from config.yaml."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Run stage_a,stage_b together, then stage_c, then pass [stage_d, stage_e] as an array. If stage_c fails, do not start the last group.",
+      "expected_output": "Preserve three ordered groups and pass each unchanged to one driver call with a failure barrier.",
+      "files": [],
+      "expectations": [
+        "Comma-separated stages remain one string group.",
+        "The array remains one list group.",
+        "Later groups stop after a failure."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "The selected authentication method is not supported, but the source, transforms, destination, load strategy, and engine are supported. Implement the pipeline.",
+      "expected_output": "Record installed-runtime evidence and add only a narrow authentication/session adapter while retaining native DataCoolie metadata, orchestration, transforms, and writes.",
+      "files": [],
+      "expectations": [
+        "The unsupported dimension is proven against the installed runtime.",
+        "Custom code is limited to authentication/session bootstrap.",
+        "Supported dimensions still execute through DataCoolieDriver.run."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Prepare this project for CI so builds are reproducible without an AI agent or installed skill in the CI runner. Keep DataCoolie itself framework-only.",
+      "expected_output": "Render project-owned automation that imports public DataCoolie APIs, without adding a package CLI or making CI depend on skill paths.",
+      "files": [],
+      "expectations": [
+        "Project-owned automation is generated because CI is explicitly requested.",
+        "CI does not import or download installed skill scripts.",
+        "No DataCoolie lifecycle CLI is proposed."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Test the project locally only. There are no custom functions and no deployment request.",
+      "expected_output": "Materialize and verify the generated environment slice, omit dist and automation, keep runtime state persistent, and stop before release.",
+      "files": [],
+      "expectations": [
+        "The build omits dist when custom functions are absent.",
+        "Automation is not generated without a reproducibility/CI need.",
+        "No deployment approval is requested."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Deploy the already verified build whose ID I supplied to a protected test environment. Do not change the pipeline.",
+      "expected_output": "Route to release, verify the exact build and target slice, use target authorization, and never merge metadata or rebuild artifacts.",
+      "files": [],
+      "expectations": [
+        "The exact supplied build ID is used rather than latest.",
+        "Target authorization is distinct from implementation approval.",
+        "Release does not invoke build materialization."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Author metadata for a medium project with several dataflows in each runtime stage. Choose the default file layout and explain what determines the stage passed to the driver.",
+      "expected_output": "Use dataflows/{stage}.json as the default organizational partition while requiring explicit name and stage in every dataflow; content stage, never the path, controls runtime execution.",
+      "files": [],
+      "expectations": [
+        "The default is dataflows/{stage}.json.",
+        "Every dataflow declares a non-empty name and stage.",
+        "The path is organizational and does not infer runtime stage."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Organize a large metadata workspace with source2bronze ERP and CRM branches, while sharding one very large stage into per-dataflow files. Keep a single runtime metadata contract.",
+      "expected_output": "Use branch/stage and stage/dataflow partitions as needed, keep explicit stage in every item, recursively merge all JSON fragments, and reject duplicate names.",
+      "files": [],
+      "expectations": [
+        "Branch/stage and stage/dataflow layouts remain organizational views of one contract.",
+        "Every fragment uses explicit content stage rather than path inference.",
+        "Duplicate dataflow names are rejected globally."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Add a reusable replay entrypoint for a historical repair. It must replay two stages together, then a third stage, process the half-open range in daily chunks, and leave production incremental state unchanged unless an operator explicitly opts in.",
+      "expected_output": "Create a platform-and-engine-specific replay entrypoint that uses ReplayConfig and DataCoolieDriver replay APIs, preserves ordered stage groups, exposes persistent log/watermark paths, and gates watermark mutation separately.",
+      "files": [],
+      "expectations": [
+        "Replay is a separate replay_{platform}_{engine}[_{provider}] entrypoint rather than a runtime mode.",
+        "The entrypoint calls load_dataflows and run_replay with [start, end), chunk interval, and ordered stage groups.",
+        "Saving the watermark defaults to false and requires a separate explicit confirmation when enabled."
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Add a scheduled lakehouse maintenance entrypoint. Operators need to filter connections, inspect deduplicated targets safely, choose compact and cleanup, set retention, and then explicitly authorize the real operation.",
+      "expected_output": "Create a platform-and-engine-specific maintenance entrypoint using DataCoolie maintenance APIs, read-only target inspection, explicit mutation confirmation, persistent logging/state paths, and no unsupported dry-run claim.",
+      "files": [],
+      "expectations": [
+        "Maintenance is a separate maintenance_{platform}_{engine}[_{provider}] entrypoint.",
+        "Inspection calls load_maintenance_dataflows while mutation calls run_maintenance with connection and operation filters.",
+        "The entrypoint requires explicit confirmation for mutation and does not claim dry_run prevents maintenance side effects."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Materialize a project twice without changing its inputs, then change one runner and materialize again. Build folders should be easy to scan by date without weakening exact artifact verification.",
+      "expected_output": "Reuse the first valid date-prefixed build for equal inputs, create a new date-prefixed short-hash ID after the runner change, and retain/verify the full content digest in each manifest.",
+      "files": [],
+      "expectations": [
+        "A new build ID uses {UTC YYMMDD}-{first 12 content-digest characters}.",
+        "Equal inputs reuse the existing build and retain its original date-prefixed ID.",
+        "The manifest stores the full content digest and verification rejects date, digest, or collision mismatches."
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "The installed DataCoolie runtime registers the source, engine, and destination needed by this pipeline, but the engine's optional package is missing. Implement the pipeline without changing its architecture.",
+      "expected_output": "Treat the missing package as environment setup, install or request the matching framework dependency, and retain metadata-driven DataCoolie execution rather than writing custom ingestion or destination code.",
+      "files": [],
+      "expectations": [
+        "Installed capability evidence includes all relevant registries and declared dependencies.",
+        "A missing optional dependency is not classified as an unsupported framework capability.",
+        "The implementation continues through DataCoolie metadata and driver execution."
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Build only the development environment. Another configured environment uses a platform that is not installed on this workstation, and its metadata overlay is changing independently.",
+      "expected_output": "Validate and materialize only the selected environment slice, exclude the unrelated overlay from its identity, and retain all shared inputs that actually affect the generated build.",
+      "files": [],
+      "expectations": [
+        "An unselected platform does not block the selected environment build.",
+        "Changing an unselected overlay does not create a new subset build ID.",
+        "Shared metadata and selected environment changes still invalidate reuse."
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "The generated build has two runners for the same environment. Verify one of them locally and hand it to release with enough evidence to reject stale or ambiguous results.",
+      "expected_output": "Execute the exact generated runner, write a uniquely identified typed receipt bound to its environment and artifact hashes, validate it against the build, and hand release the explicit receipt path.",
+      "files": [],
+      "expectations": [
+        "Verification runs the generated runner and resolved metadata rather than durable sources.",
+        "The receipt binds the exact build, environment, runner, metadata, optional functions, and hashes.",
+        "Release receives an explicit successful receipt path and never selects latest evidence."
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Prepare project-owned CI build automation for a network-restricted runner. The DataCoolie framework is installed from the approved package index, but the AI skill is unavailable during CI.",
+      "expected_output": "Render project-owned build tooling with its dependency manifest and build-owned versioned schemas; validate design handoff fields locally without fetching or copying another skill's resources.",
+      "files": [],
+      "expectations": [
+        "Generated automation carries the build-tool dependency contract and build-owned schemas only.",
+        "Build validation does not use a moving URL, user schema cache, or source checkout.",
+        "No lifecycle CLI or AI workflow dependency is added to the DataCoolie package."
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "The installed runtime already proves the requested combination is supported. Add only a normal Python run entrypoint with ordered stage groups, then verify the generated build. Replay and maintenance are not requested.",
+      "expected_output": "Use the common runner contract and normal-run stage plan without loading operational extensions or reopening capability fallback decisions; verify the exact generated entrypoint with an explicit build receipt.",
+      "files": [],
+      "expectations": [
+        "The implementation uses the normal run entrypoint contract and preserves ordered stage groups.",
+        "Replay, maintenance, and unsupported-adapter mechanics are not introduced into the normal runner.",
+        "Verification uses the exact generated artifacts and the explicitly selected build-verification receipt."
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Create a Databricks Spark normal runner that a scheduled notebook task can parameterize with metadata, log, watermark, and nested stage groups. The verified packages will be attached to the job before it starts.",
+      "expected_output": "Use Databricks widgets for scalar strings, decode STAGE_GROUPS_JSON without changing group order or comma strings, avoid runtime installation, and execute the generated artifact through DataCoolie.",
+      "files": [],
+      "expectations": [
+        "The runner reads Databricks job parameters through dbutils.widgets and decodes STAGE_GROUPS_JSON as an outer list.",
+        "The notebook does not install packages or restart Python; dependency attachment is a platform prerequisite.",
+        "The exact generated runner preserves ordered stage groups and executes through DataCoolieDriver.run."
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "Create a Fabric Spark normal notebook runner for a pipeline activity. It must accept a comma group followed by a list group, while Fabric base parameters support only simple values.",
+      "expected_output": "Expose STAGE_GROUPS_JSON as a string in the tagged parameter cell, decode and validate it afterward, preserve stage semantics, and rely on the prepared Fabric environment for dependencies.",
+      "files": [],
+      "expectations": [
+        "The tagged Fabric parameter cell contains only supported simple values and exposes STAGE_GROUPS_JSON as a string.",
+        "JSON decoding occurs after the parameter cell and preserves comma strings, nested list groups, and outer order.",
+        "The notebook has no runtime environment/engine selector and performs no inline package installation."
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "Create a scheduled maintenance runner. First show operators exactly which deduplicated physical destinations would be compacted or cleaned with the requested retention, then require confirmation before mutation. Do not print secrets.",
+      "expected_output": "Use DataCoolie maintenance inspection and mutation APIs, print a stable non-secret physical-target preview, retain explicit mutation confirmation, and avoid a custom scheduler or unsupported dry-run claim.",
+      "files": [],
+      "expectations": [
+        "Inspection uses load_maintenance_dataflows and prints sorted destination key, table/path, connection, format, operations, and retention without connection configuration or secrets.",
+        "Mutation reports its requested settings, requires explicit confirmation, and only then calls run_maintenance.",
+        "DataCoolie retains physical-target deduplication and dispatch ownership; no custom deduper, scheduler, or dry_run safety claim is introduced."
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "Only the datacoolie-build skill is installed. This workspace has architecture/current.md and its exact approved hash receipt. Materialize the project and render requested build automation.",
+      "expected_output": "Validate the stable design handoff locally, materialize the approved workspace, and render only build-owned resources without locating or copying datacoolie-design files.",
+      "files": [],
+      "expectations": [
+        "Build accepts a valid exact architecture approval without the design skill directory.",
+        "No sibling skill script or schema path is required at materialization or automation runtime.",
+        "Malformed, stale, misnamed, or symlinked approval evidence still fails closed."
+      ]
+    }
+  ]
+}

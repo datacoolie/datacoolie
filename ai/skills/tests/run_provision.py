@@ -1,84 +1,65 @@
-"""
-datacoolie-provision — Knowledge-based skill validation.
-Validates that SKILL.md contains all required sections for the knowledge-based skill.
+"""Validate the conditional datacoolie-provision skill."""
 
-Usage (from datacoolie/ai/skills/tests/):
-  python run_provision.py
-"""
-import sys
+from __future__ import annotations
+
+import json
 from pathlib import Path
 
-HERE = Path(__file__).parent
-SKILL_MD = HERE.parent / "datacoolie-provision" / "SKILL.md"
-
-REQUIRED_SECTIONS = [
-    "# datacoolie-provision",
-    "## Scope",
-    "## Prerequisites",
-    "## Security Policy",
-    "## AI Workflow",
-    "## Platform-Resource Mapping",
-    "## Environment Naming Convention",
-    "## Input Contracts",
-    "## Output Contracts",
-    "## Error Handling",
-]
+from jsonschema import Draft202012Validator, FormatChecker
 
 
-def run() -> None:
-    print(f"\n{'='*60}")
-    print("  datacoolie-provision — SKILL.md validation")
-    print(f"{'='*60}")
+SKILL_DIR = Path(__file__).parent.parent / "datacoolie-provision"
+TOKENS = (
+    "# DataCoolie Provision",
+    "## Outcome And Boundary",
+    "## Inputs And Approval",
+    "## Resource Routing",
+    "## Decision Workflow",
+    "## Evidence And Handoff",
+    "conditional dependency, not a mandatory lifecycle phase",
+    "exact plan hash",
+    ".evidence/provision/{env}/{receipt_id}.json",
+    "--require-apply-success",
+)
 
-    if not SKILL_MD.exists():
-        print(f"  ✗ SKILL.md not found at {SKILL_MD}")
-        sys.exit(1)
 
-    content = SKILL_MD.read_text(encoding="utf-8")
-    summary: list[tuple[str, str]] = []
+def main() -> int:
+    content = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    checks = [(token, token in content) for token in TOKENS]
+    checks.append(("line-budget", len(content.splitlines()) <= 180))
 
-    # Check required sections
-    for section in REQUIRED_SECTIONS:
-        found = section in content
-        status = "✓" if found else "✗"
-        print(f"  {status} section: {section}")
-        summary.append((section, status))
+    resources = (
+        "references/terraform-contract.md",
+        "references/platform-tooling.md",
+        "schemas/provision-receipt.schema.json",
+        "scripts/validate_provision.py",
+        "scripts/requirements.txt",
+        "templates/provision-receipt.json.example",
+    )
+    checks.extend((relative, (SKILL_DIR / relative).is_file()) for relative in resources)
+    checks.append(("no-prescriptive-tf-examples", not list((SKILL_DIR / "references").glob("*.tf.example"))))
+    for name in ("terraform-contract.md", "platform-tooling.md"):
+        reference = (SKILL_DIR / "references" / name).read_text(encoding="utf-8")
+        checks.append((f"{name}-scope", "## Scope" in reference))
 
-    # Check minimum content length
-    min_length = 2000
-    length_ok = len(content) >= min_length
-    status = "✓" if length_ok else "✗"
-    print(f"  {status} content length: {len(content)} chars (min {min_length})")
-    summary.append(("content-length", status))
+    evals = json.loads((SKILL_DIR / "evals/evals.json").read_text(encoding="utf-8"))
+    checks.append(("behavioral-evals", len(evals.get("evals", [])) >= 8))
+    schema = json.loads(
+        (SKILL_DIR / "schemas/provision-receipt.schema.json").read_text(encoding="utf-8")
+    )
+    Draft202012Validator.check_schema(schema)
+    receipt = json.loads(
+        (SKILL_DIR / "templates/provision-receipt.json.example").read_text(encoding="utf-8")
+    )
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(receipt)
+    checks.append(("typed-provision-receipt", receipt.get("artifact_type") == "provision_receipt"))
 
-    # Check workflow steps
-    workflow_steps = [
-        "### Step 0",
-        "### Step 1",
-        "### Step 2",
-        "### Step 3",
-        "### Step 4",
-        "### Step 5",
-        "### Step 6",
-    ]
-    for step in workflow_steps:
-        found = step in content
-        status = "✓" if found else "✗"
-        print(f"  {status} workflow: {step}")
-        summary.append((step, status))
-
-    print(f"\n{'='*60}")
-    print("  PROVISION SUMMARY")
-    print(f"{'='*60}")
-    failed = sum(1 for _, s in summary if s == "✗")
-    passed = sum(1 for _, s in summary if s == "✓")
-    for name, status in summary:
-        print(f"  {status} {name}")
-    print(f"\n  {passed}/{len(summary)} checks passed")
-
-    if failed:
-        sys.exit(1)
+    for name, passed in checks:
+        print(f"  {'✓' if passed else '✗'} {name}")
+    failed = [name for name, passed in checks if not passed]
+    print(f"{len(checks) - len(failed)}/{len(checks)} provision checks passed")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    run()
+    raise SystemExit(main())

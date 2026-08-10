@@ -24,6 +24,7 @@ import json
 import logging
 import math
 import os
+import re
 import tempfile
 import threading
 import time
@@ -80,6 +81,38 @@ class StorageMode(str, Enum):
     FILE = "file"
 
 
+_PARTITION_TOKENS = ("year", "month", "day", "hour")
+
+
+def _validate_partition_pattern(pattern: str) -> None:
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError("partition_pattern must be a non-empty string")
+    placeholders = tuple(re.findall(r"{([^{}]+)}", pattern))
+    valid_sequences = {
+        _PARTITION_TOKENS[:length]
+        for length in range(1, len(_PARTITION_TOKENS) + 1)
+    }
+    if placeholders not in valid_sequences:
+        raise ValueError(
+            "partition_pattern placeholders must be one ordered prefix of "
+            "{year}, {month}, {day}, {hour}"
+        )
+    literal = pattern
+    for token in _PARTITION_TOKENS:
+        literal = literal.replace(f"{{{token}}}", "")
+    if "{" in literal or "}" in literal:
+        raise ValueError("partition_pattern contains unsupported braces")
+    if "%" in literal or any(character.isdigit() for character in literal):
+        raise ValueError(
+            "partition_pattern literals cannot contain digits or percent signs"
+        )
+    for segment in re.split(r"[/\\]", pattern):
+        if not segment or not any(f"{{{token}}}" in segment for token in placeholders):
+            raise ValueError(
+                "every partition_pattern directory level must contain a time placeholder"
+            )
+
+
 def format_partition_path(
     base_path: str,
     run_date: Optional[datetime] = None,
@@ -89,9 +122,10 @@ def format_partition_path(
 
     Supported placeholders: ``{year}``, ``{month}``, ``{day}``, ``{hour}``.
     """
+    _validate_partition_pattern(pattern)
     dt = run_date or utc_now()
     folder = pattern.format(
-        year=dt.year,
+        year=f"{dt.year:04d}",
         month=f"{dt.month:02d}",
         day=f"{dt.day:02d}",
         hour=f"{dt.hour:02d}",
@@ -120,6 +154,7 @@ class LogConfig:
     def __post_init__(self) -> None:
         self.log_level = self.log_level.upper()
         self.file_level = self.file_level.upper()
+        _validate_partition_pattern(self.partition_pattern)
         # Canonicalise storage paths to forward-slash separators so that
         # OS-native inputs (e.g. Windows backslashes) do not produce mixed
         # separators when child paths are appended downstream.

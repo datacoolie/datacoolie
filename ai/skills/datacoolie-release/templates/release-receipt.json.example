@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "artifact_type": "release_receipt",
+  "release_id": "release-example",
+  "action": "deploy",
+  "status": "succeeded",
+  "build_id": "260810-000000000000",
+  "environment": "example",
+  "platform": "example",
+  "manifest": {
+    "path": ".builds/260810-000000000000/manifest.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "build_receipt": {
+    "path": ".evidence/builds/260810-000000000000/example/build-example.json",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "runner": {
+    "path": ".builds/260810-000000000000/example/runners/run_example.py",
+    "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "metadata": {
+    "path": ".builds/260810-000000000000/example/metadata.json",
+    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "functions": [],
+  "provision_receipt": null,
+  "provision_requirements": null,
+  "source_release": null,
+  "previous_active_release_id": null,
+  "authorization": {
+    "reference": "target-policy-or-current-session-reference",
+    "source": "target_policy",
+    "action": "deploy",
+    "environment": "example",
+    "build_id": "260810-000000000000",
+    "deployment_intent_sha256": "7ea3efd20caaeb7ab7ecc4551be4c88c9e10d1bf869310c24ac5a21cbcfc0744"
+  },
+  "target": {
+    "identity": "target-environment/example",
+    "activation_mechanism": "target-native-association",
+    "protection": "standard",
+    "release_reference": "target/releases/260810-000000000000/example",
+    "activation_reference": "target/deployment/example",
+    "status": "active"
+  },
+  "transfers": [
+    {
+      "source": {
+        "path": ".builds/260810-000000000000/example/metadata.json",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "target_reference": "target/releases/260810-000000000000/example/metadata.json",
+      "observed_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "status": "succeeded",
+      "evidence": "target-side digest"
+    }
+  ],
+  "verification": [
+    {
+      "name": "build-preflight",
+      "status": "passed",
+      "evidence": "release consumer validator"
+    },
+    {
+      "name": "target-observation",
+      "status": "passed",
+      "evidence": "active target references exact build"
+    }
+  ],
+  "started_at": "2026-08-10T00:00:00Z",
+  "finished_at": "2026-08-10T00:00:01Z",
+  "unresolved_issues": []
+}

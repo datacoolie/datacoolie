@@ -1,213 +1,92 @@
-# datacoolie Skills — Integration Test Environment
+# DataCoolie AI Skill Tests
 
-Shared Docker-based integration environment for all datacoolie skill tests.  
-All skill runners are pure Python — no PowerShell or shell scripts required.
+The suite validates the five outcome-owned lifecycle skills and their deterministic helpers.
 
----
+## Fast verification
 
-## Prerequisites
+From the DataCoolie repository root:
 
-| Requirement | Notes |
-|-------------|-------|
-| Docker Desktop | Engine 24+ recommended |
-| Python 3.10+ | Venv at `../../.venv` from `datacoolie/` |
-| ODBC Driver 18 | For MSSQL (SQL Server) tests only |
-| Oracle Instant Client | NOT required — uses `python-oracledb` thin mode |
-
----
-
-## Quick Start
-
-```sh
-# 1. From workspace root, activate venv
-#    Windows:  .venv\Scripts\activate
-#    macOS/Linux: source .venv/bin/activate
-
-# 2. Navigate to tests folder
-cd datacoolie/ai/skills/tests
-
-# 3. Start all services + seed databases
-python run_all.py
-
-# 4. Run a specific skill
-python run_discover.py
-
-# 5. Tear down
-docker compose down -v
+```bash
+python ai/skills/tests/run_all.py
 ```
 
-`run_all.py` accepts an optional skill filter:
-```sh
-python run_all.py discover         # only run discover tests
-python run_all.py --no-docker      # skip docker start (services already running)
+The default run:
+
+1. Executes all unit tests.
+2. Validates `discover`, `design`, `build`, `provision`, and `release` skill contracts.
+3. Validates every behavioral-eval definition without calling a model.
+4. Runs local discovery fixture checks and build-owned metadata schema validation.
+5. Does not start Docker or make model calls.
+
+Run one validator:
+
+```bash
+python ai/skills/tests/run_all.py build
+python ai/skills/tests/run_all.py release
 ```
 
----
+A selected run executes only the shared workflow/harness tests, that skill's owned unit modules,
+and its validator. Use the unfiltered command for the complete merge or CI gate.
 
-## Port Reference
+## Behavioral eval evidence
 
-These ports are intentionally offset from `usecase-sim` so both can run simultaneously.
+Behavioral execution is intentionally external so the repository does not depend on an LLM vendor.
+After an eval tool produces one successful `grading.json` per declared case, in declaration order,
+bind those results to the exact skill bytes:
 
-| Service | Test Port | usecase-sim Port |
-|---------|-----------|-----------------|
-| PostgreSQL (Pagila) | **5442** | 5432 |
-| MySQL (Sakila) | **3316** | 3306 |
-| MSSQL (AdventureWorks LT) | **1444** | 1433 |
-| Oracle (HR) | **1522** | 1521 |
-| MinIO API | **9010** | 9000 |
-| MinIO Console | **9011** | 9001 |
-| Iceberg REST | **8182** | 8181 |
-| Trino | **8090** | 8080 |
-| Mock API | **8092** | 8082 || Hive | **10000** | — |
----
+```bash
+python ai/skills/tests/verify_behavioral_evidence.py create \
+  ai/skills/datacoolie-build \
+  .scratch/skill-evals/datacoolie-build/evidence.json \
+  <ordered-grading.json> [<ordered-grading.json> ...]
 
-## Service Credentials
-
-| Service | Username | Password | Database / Schema |
-|---------|----------|----------|-------------------|
-| PostgreSQL | `datacoolie` | `datacoolie` | `pagila` |
-| MySQL | `datacoolie` | `datacoolie` | `sakila` |
-| MSSQL | `sa` | `Testing@123` | `AdventureWorksLT` |
-| Oracle | `hr` | `hr` | `FREEPDB1` |
-| MinIO | `minioadmin` | `minioadmin` | bucket: `skills-test` |
-| Trino | `admin` | _(none)_ | catalog: `iceberg` |
-
----
-
-## Connection Strings
-
-```python
-CONNECTIONS = {
-    "postgres": "postgresql://datacoolie:datacoolie@localhost:5442/pagila",
-    "mysql":    "mysql+pymysql://datacoolie:datacoolie@localhost:3316/sakila",
-    "mssql":    (
-        "mssql+pyodbc://sa:Testing%40123@localhost:1444/AdventureWorksLT"
-        "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
-    ),
-    "oracle":   "oracle+oracledb://hr:hr@localhost:1522/?service_name=FREEPDB1",
-    "trino":    "trino://admin@localhost:8090/iceberg",
-    "api":      "http://localhost:8092/openapi.json",
-}
+python ai/skills/tests/verify_behavioral_evidence.py verify \
+  ai/skills/datacoolie-build \
+  .scratch/skill-evals/datacoolie-build/evidence.json
 ```
 
----
+The verifier rejects failed, partial, reordered, or stale evidence. Skill or eval-definition changes
+require rerunning the external eval; editing a receipt cannot make an old digest current.
 
-## Sample Databases
+## External integration fixtures
 
-| Service | Database | Tables | Source / Theme |
-|---------|----------|--------|----------------|
-| PostgreSQL | Pagila | 11 tables, 3 views | DVD rental (3 schemas: inventory/sales/staff) |
-| MySQL | Sakila | 10 tables, 3 views | DVD rental (official MySQL sample) |
-| MSSQL | AdventureWorks LT | 12 tables, 2 views | E-commerce / SalesLT schema |
-| Oracle | HR | 7 tables, 1 view | Human Resources (classic Oracle sample) |
-| Iceberg | iceberg catalog | 4 tables | sales + analytics schemas |
-| Hive | datacoolie_test | 3 tables | customers, orders, products |
-
----
-
-## Sample Files
-
-Located at `fixtures/files/`:
-
-| File | Format | Rows | Description |
-|------|--------|------|-------------|
-| `products.csv` | CSV | 12 | Product catalog (7 columns) |
-| `events.jsonl` | JSONL | 10 | Clickstream events (9 columns) |
-| `sales.parquet` | Parquet | 10 | Sales orders (9 columns) |
-| `users.json` | JSON | 3 | User records (5 columns) |
-| `inventory.avro` | Avro | 3 | Inventory items (5 columns) |
-| `departments.xlsx` | Excel | 4 | Department records (5 columns) |
-| `delta_products/` | Delta | 5 | Product delta table (5 columns) |
-
-Generate binary fixtures (avro + xlsx) if missing:
-```sh
-python generate_extra_fixtures.py
+```bash
+python -m pip install -r ai/skills/tests/requirements-integration.txt
+python ai/skills/tests/run_all.py --integration
 ```
 
----
+This starts only PostgreSQL, MySQL, SQL Server, MinIO, Iceberg REST, and Trino; seeds SQL Server and
+Iceberg; supplies test-only connection locators to the discovery child process; and removes the
+containers and volumes in `finally`. Docker Desktop, the SQL Server ODBC Driver 18, and a compatible
+daemon must already be available. Use `--keep-integration` only when the same fixture state is needed
+for investigation. Oracle, Hive, and mock API remain opt-in fixtures under the Compose `extended`
+profile and are not claimed by the default integration gate.
 
-## Skill Runners
+## Validators
 
-| Runner | Skill | What it tests |
-|--------|-------|---------------|
-| `run_all.py` | all | Start env, seed DBs, run all skill runners |
-| `run_discover.py` | datacoolie-discover | SKILL.md section completeness |
-| `run_deploy.py` | datacoolie-deploy | SKILL.md section completeness |
-| `run_init.py` | datacoolie-init | SKILL.md section completeness |
-| `run_metadata.py` | datacoolie-metadata | Metadata validation (script-based) |
-| `run_provision.py` | datacoolie-provision | SKILL.md section completeness |
+| Runner | Contract |
+|---|---|
+| `run_discover.py` | Source-evidence boundary and local introspection scripts |
+| `run_design.py` | Material-design ownership and approval artifact |
+| `run_build.py` | Framework-first build, schemas, materialization, and automation resources |
+| `run_provision.py` | Conditional infrastructure and explicit apply approval |
+| `run_release.py` | Consume-only immutable release and CI references |
+| `verify_behavioral_evidence.py` | Current skill/eval digest binding for externally graded behavior |
 
-## Unit Tests
+Detailed manual/forward cases live in the matching `TESTING_datacoolie-*.md` file.
 
-Unit tests for script-based skill utilities and introspection modules used by
-the skills test harness.
+## Core regression assertions
 
-```sh
-# From workspace root (d:\GitHub\datacoolie-arch-5)
-python -m pytest datacoolie/ai/skills/tests/unit/ -v
-```
+- Exactly five lifecycle skills remain.
+- `AGENTS.md` and each main `SKILL.md` stay within their context budgets.
+- No maintained workflow references removed skills, phase journals, or cross-skill script paths.
+- Metadata has one canonical modular authoring layout.
+- Equal build inputs are reusable; changed inputs create another immutable ID.
+- Generated runners preserve platform/engine identity, persistent runtime paths, and ordered stage
+  groups.
+- Release verifies and consumes the exact build without rebuilding it.
+- No project lifecycle CLI is added to the DataCoolie package.
 
----
+## Unresolved questions
 
-## Test Results
-
-Output written to `test-results/` (not committed to git):
-
-```
-test-results/
-├── discover/
-│   ├── postgres/catalog.csv
-│   ├── mysql/catalog.csv
-│   ├── mssql/catalog.csv
-│   ├── oracle/catalog.csv
-│   ├── files/catalog.csv          (csv/jsonl/parquet/json/avro/xlsx/delta)
-│   ├── files-s3/catalog.csv
-│   ├── api/endpoints.csv
-│   ├── api-apikey/endpoints.csv
-│   ├── api-bearer/endpoints.csv
-│   ├── api-basic/endpoints.csv
-│   ├── api-graphql/endpoints.csv
-│   ├── api-odata/endpoints.csv
-│   ├── api-pagination/endpoints.csv
-│   ├── api-sample-call/endpoints.csv
-│   ├── api-yaml/endpoints.csv
-│   ├── postgres-schema/catalog.csv
-│   ├── iceberg/catalog.csv
-│   └── delta/catalog.csv
-├── deploy/
-├── init/
-└── metadata/
-```
-
----
-
-## Testing Guides (per skill)
-
-| Skill | Guide |
-|-------|-------|
-| datacoolie-discover | [TESTING_datacoolie-discover.md](TESTING_datacoolie-discover.md) |
-| datacoolie-deploy | [TESTING_datacoolie-deploy.md](TESTING_datacoolie-deploy.md) |
-| datacoolie-init | [TESTING_datacoolie-init.md](TESTING_datacoolie-init.md) |
-| datacoolie-metadata | [TESTING_datacoolie-metadata.md](TESTING_datacoolie-metadata.md) |
-
----
-
-## Tear Down
-
-```sh
-# Stop + remove containers and volumes (drops all seeded data)
-docker compose down -v
-
-# Keep volumes (faster restart)
-docker compose down
-```
-
----
-
-## Notes
-
-- **Oracle seed** uses `gvenzl/oracle-free:23-slim`. First pull takes ~1-2 min. First start takes ~60s for DB initialization.
-- **MSSQL seed** is applied by `run_all.py` via `docker exec sqlcmd` after the container health check passes.
-- **Iceberg seed** (`fixtures/iceberg/seed_iceberg.py`) is run by `run_all.py` after Trino is healthy. It creates MinIO bucket `warehouse` automatically.
-- **Hive** uses `apache/hive:4.0.0` with embedded Derby metastore. The `hive-init` one-shot container seeds `datacoolie_test` DB (customers, orders, products) via Beeline after Hive is healthy.
-- **Both environments can run simultaneously** — ports are intentionally non-overlapping with `usecase-sim`.
+- None.

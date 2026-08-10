@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "artifact_type": "build_verification",
+  "receipt_id": "<unique-build-verification-receipt-id>",
+  "status": "succeeded",
+  "build_id": "<YYMMDD-12-char-content-digest>",
+  "environment": "<environment>",
+  "platform": "<platform>",
+  "datacoolie_version": "<installed-version>",
+  "runner": {
+    "path": "<environment>/runners/<exact-runner>",
+    "sha256": "<sha256>"
+  },
+  "metadata": {
+    "path": "<environment>/metadata.json",
+    "sha256": "<sha256>"
+  },
+  "functions": [],
+  "operation": "run",
+  "stage_plan": [],
+  "execution_reference": "<command-or-platform-job-reference>",
+  "base_log_path": ".runtime/<environment>/logs",
+  "watermark_base_path": ".runtime/<environment>/watermarks",
+  "checks": [
+    {
+      "name": "generated-runtime-execution",
+      "status": "passed",
+      "evidence": "<log-or-test-reference>"
+    }
+  ],
+  "started_at": "<ISO-8601 UTC>",
+  "finished_at": "<ISO-8601 UTC>",
+  "unresolved_issues": []
+}

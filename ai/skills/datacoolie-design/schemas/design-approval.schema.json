@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.github.io/datacoolie/schema/design-approval.schema.json",
+  "title": "DataCoolie Design Approval Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "decision",
+    "architecture_path",
+    "architecture_sha256",
+    "approved_at",
+    "approved_by",
+    "approval_reference",
+    "approved_scope"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "artifact_type": {
+      "const": "design_approval"
+    },
+    "decision": {
+      "const": "approved"
+    },
+    "architecture_path": {
+      "const": "architecture/current.md"
+    },
+    "architecture_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "approved_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approval_reference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approved_scope": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

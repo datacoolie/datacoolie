@@ -1,0 +1,115 @@
+{
+  "skill_name": "datacoolie-design",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Design a new DataCoolie project with two project-specific processing stages. The requirements do not prescribe Medallion layers, storage formats, cloud products, or environment names.",
+      "expected_output": "Create one neutral transition-based architecture, preserve unknowns as assumptions, and require hash-bound approval before build without inventing a named architecture pattern.",
+      "files": [],
+      "expectations": [
+        "Only architecture/current.md and the post-approval receipt are design outputs.",
+        "No named layer pattern, stage name, provider, format, engine, or environment is fabricated.",
+        "Every transition defines grain, keys, load behavior, quality, and recovery."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The current architecture is approved. Update a runner parameter description and add tests without changing stages, grain, keys, load behavior, platform, resources, security, or release policy.",
+      "expected_output": "Skip design and route directly to build because the requested implementation preserves every material contract.",
+      "files": [],
+      "expectations": [
+        "No architecture rewrite or new design approval is requested.",
+        "The work routes to datacoolie-build.",
+        "The existing design remains the source of truth."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Change an existing output from account grain to account-day grain and replace append behavior with merge. Start implementation after updating the architecture.",
+      "expected_output": "Treat both changes as material, update the canonical architecture, stop for explicit approval, record a receipt only after approval, and then hand off to build.",
+      "files": [],
+      "expectations": [
+        "Grain and load changes are classified as material.",
+        "Implementation does not begin before a matching design receipt exists.",
+        "The receipt is bound to the final architecture SHA-256."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "One environment may run either of two compatible engines. Different orchestrations can choose different runners and stage groups at runtime.",
+      "expected_output": "Record compatible platform/engine runner intent without assigning engines to stages or storing engine selection in project config.",
+      "files": [],
+      "expectations": [
+        "No stage-to-engine matrix is created.",
+        "The exact runner or notebook selects platform and engine.",
+        "Ordered stage groups remain runtime input."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Design cannot determine source keys or whether the source exposes a reliable change marker. Do not guess, but continue any work that is safe.",
+      "expected_output": "Route the missing source facts to discovery, preserve them as unresolved, and avoid inventing keys or a load strategy.",
+      "files": [],
+      "expectations": [
+        "Unknown source facts are routed to datacoolie-discover.",
+        "Assumptions are not presented as observed facts.",
+        "No material design is approved while required transition facts remain unresolved."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "The approved design needs a managed destination and a secret store that do not exist yet. Define what is needed but do not create or deploy anything.",
+      "expected_output": "Record provider-neutral resource requirements and hand them off; resource planning/apply and deployment remain separately owned and authorized.",
+      "files": [],
+      "expectations": [
+        "Design records requirements without provisioning resources.",
+        "No vendor product is invented when the platform is unspecified.",
+        "Design approval does not authorize provision apply or deployment."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "An architecture was approved yesterday, but one sentence in architecture/current.md changed today. Verify whether implementation may reuse the existing approval.",
+      "expected_output": "Recompute the architecture hash, reject the stale receipt, and require explicit approval for the changed material design before build resumes.",
+      "files": [],
+      "expectations": [
+        "Approval verification uses the final file bytes.",
+        "A changed hash invalidates the existing receipt.",
+        "Approval state is not written into architecture/current.md."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "A material architecture candidate is ready. Put its final SHA-256 inside architecture/current.md and then record approval so build can verify it.",
+      "expected_output": "Reject the self-referential hash request, finalize architecture without its own hash, then compute the hash externally and record the matching receipt.",
+      "files": [],
+      "expectations": [
+        "The architecture does not contain its own SHA-256.",
+        "Hashing happens only after the candidate bytes are final.",
+        "The receipt filename and payload bind the externally computed hash."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "I changed a material transition contract but set approval_required to false in architecture/current.md. Continue build without asking for approval.",
+      "expected_output": "Reject the attempted downgrade because every architecture creation or byte change requires an exact matching approval receipt.",
+      "files": [],
+      "expectations": [
+        "Architecture content cannot disable its approval gate.",
+        "Build stops when the exact matching receipt is absent.",
+        "The material change returns to explicit design approval."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Approve the design now, then I will finish editing architecture/current.md afterward. Reuse that approval for the final file.",
+      "expected_output": "Do not record approval before the candidate is final; approval must bind the exact final bytes and any later edit requires a new receipt.",
+      "files": [],
+      "expectations": [
+        "Approval is not recorded before final architecture bytes exist.",
+        "Any later byte change invalidates the receipt.",
+        "No approval is inferred from intent to approve."
+      ]
+    }
+  ]
+}

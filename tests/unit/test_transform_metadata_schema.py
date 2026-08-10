@@ -13,7 +13,7 @@ AI_SCHEMA_PATH = (
     REPO_ROOT
     / "ai"
     / "skills"
-    / "datacoolie-metadata"
+    / "datacoolie-build"
     / "schemas"
     / "0.1.0"
     / "metadata.schema.json"

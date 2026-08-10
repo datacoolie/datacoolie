@@ -124,9 +124,8 @@ class TestAnalystParquetOutput:
         assert "analyst" in path_str
         assert "job_run_log" in path_str
         assert "run_date=" in path_str
-        # filename is date-based: job_run_log_YYYYMMDD.jsonl
-        import re
-        assert re.match(r"job_run_log_\d{8}\.jsonl$", analyst_jsonl[0].name)
+        assert analyst_jsonl[0].name.startswith("job_")
+        assert analyst_jsonl[0].name.endswith("_1_0_j1.jsonl")
 
     def test_partition_by_date_false_has_no_run_date_folder(self, tmp_path):
         pytest.importorskip("pyarrow")

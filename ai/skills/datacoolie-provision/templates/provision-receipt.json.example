@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "artifact_type": "provision_receipt",
+  "receipt_id": "provision-plan-example",
+  "operation": "plan",
+  "status": "succeeded",
+  "environment": "example",
+  "platform": "example",
+  "requirements": {
+    "path": "architecture/current.md",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "plan": {
+    "path": ".evidence/provision/example/plans/plan-example.json",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "authorizations": [],
+  "tool_versions": {
+    "provisioner": "resolved-at-runtime"
+  },
+  "state": {
+    "backend_reference": null,
+    "status": "unchanged"
+  },
+  "actions": [],
+  "resource_outputs": [],
+  "verification": [
+    {
+      "name": "plan-validation",
+      "status": "passed",
+      "evidence": "validated persisted plan"
+    }
+  ],
+  "started_at": "2026-08-10T00:00:00Z",
+  "finished_at": "2026-08-10T00:00:01Z",
+  "unresolved_issues": []
+}

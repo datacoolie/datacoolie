@@ -163,13 +163,14 @@ the same.
 ## AI-assisted project workflow
 
 DataCoolie AI skills use `{project_name}_dcws/` as the project control folder.
-That workspace contains its own `AGENTS.md`, discovery reports, stage-level
-architecture, metadata, generated deploy artifacts, and project-management gate
-journals.
+That workspace contains its own `AGENTS.md`, optional discovery evidence, one canonical
+architecture when material design exists, durable metadata and runners, immutable generated builds,
+runtime state, and approval or release evidence.
 
 The canonical workflow contract lives at [ai/AGENTS.md](ai/AGENTS.md). It
-requires human review gates for architecture, `source2bronze`, `bronze2silver`,
-`silver2gold`, and production deployment.
+routes work by required outcome: optional discovery, material design, build, conditional
+provisioning, and explicit release. Design, infrastructure mutation, and production release use
+separate exact-scope gates.
 
 ## Testbed & scenarios
 

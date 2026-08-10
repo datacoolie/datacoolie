@@ -231,7 +231,7 @@ class TestDataCoolieDriverLoggers:
             log_level="DEBUG",
             storage_mode="file",
             partition_by_date=False,
-            partition_pattern="year={Y}",
+            partition_pattern="year={year}",
             flush_interval_seconds=30,
         )
         d = DataCoolieDriver(
@@ -244,7 +244,7 @@ class TestDataCoolieDriverLoggers:
             assert lgr.config.log_level == "DEBUG"
             assert lgr.config.storage_mode == "file"
             assert lgr.config.partition_by_date is False
-            assert lgr.config.partition_pattern == "year={Y}"
+            assert lgr.config.partition_pattern == "year={year}"
             assert lgr.config.flush_interval_seconds == 30
 
         assert d._system_logger.config.output_path == "/logs/system_logs"

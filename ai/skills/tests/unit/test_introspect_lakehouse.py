@@ -5,7 +5,6 @@ calls (Hive, Unity, Glue) so no real services are needed.
 """
 import csv
 import io
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,9 +17,10 @@ import introspect_lakehouse
 # ---------------------------------------------------------------------------
 
 EXPECTED_HEADER = [
-    "source", "schema", "table", "column", "type", "format",
-    "precision", "scale", "nullable", "pk", "fk",
-    "ordinal_position", "row_estimate", "notes",
+    "source", "object_type", "catalog", "schema", "object", "operation", "column",
+    "native_type", "data_type", "format", "precision", "scale", "nullable",
+    "ordinal", "declared_key", "declared_reference", "row_estimate",
+    "watermark_candidate", "observed_at", "method", "evidence_class", "notes",
 ]
 
 
@@ -31,7 +31,7 @@ class TestCsvContract:
         assert introspect_lakehouse.CSV_HEADER == EXPECTED_HEADER
 
     def test_header_length(self):
-        assert len(introspect_lakehouse.CSV_HEADER) == 14
+        assert len(introspect_lakehouse.CSV_HEADER) == 22
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +184,7 @@ MOCK_TABLE_METADATA = {
 class TestIntrospectIceberg:
     """Test Iceberg REST catalog introspection with mocked HTTP."""
 
-    @patch("introspect_lakehouse.requests.get")
+    @patch("requests.get")
     def test_discovers_namespaces_and_tables(self, mock_get):
         """Full flow: list namespaces → list tables → get table metadata."""
         def side_effect(url, **kwargs):
@@ -205,15 +205,15 @@ class TestIntrospectIceberg:
         assert len(rows) == 8
         # Check first row
         row = rows[0]
-        assert row[0] == "test-lh"      # source
-        assert row[1] == "sales"         # schema (namespace)
-        assert row[2] == "transactions"  # table
-        assert row[3] == "txn_id"        # column
-        assert row[4] == "long"          # type
-        assert row[9] == "true"          # pk (identifier field)
-        assert len(row) == 14
+        assert row["source"] == "test-lh"
+        assert row["schema"] == "sales"
+        assert row["object"] == "transactions"
+        assert row["column"] == "txn_id"
+        assert row["data_type"] == "long"
+        assert row["declared_key"] == "primary"
+        assert list(row) == EXPECTED_HEADER
 
-    @patch("introspect_lakehouse.requests.get")
+    @patch("requests.get")
     def test_partition_notes(self, mock_get):
         """Partition columns get notes with transform type."""
         def side_effect(url, **kwargs):
@@ -233,14 +233,14 @@ class TestIntrospectIceberg:
         rows = introspect_lakehouse.introspect_iceberg("http://localhost:8181", "test-lh")
 
         # region (field_id=4) should have partition:identity note
-        region_row = [r for r in rows if r[3] == "region"][0]
-        assert "partition:identity" in region_row[13]
+        region_row = [r for r in rows if r["column"] == "region"][0]
+        assert "partition:identity" in region_row["notes"]
 
         # txn_date (field_id=3) should have partition:month note
-        date_row = [r for r in rows if r[3] == "txn_date"][0]
-        assert "partition:month" in date_row[13]
+        date_row = [r for r in rows if r["column"] == "txn_date"][0]
+        assert "partition:month" in date_row["notes"]
 
-    @patch("introspect_lakehouse.requests.get")
+    @patch("requests.get")
     def test_namespace_filter(self, mock_get):
         """When namespaces are provided, skip namespace listing."""
         def side_effect(url, **kwargs):
@@ -261,9 +261,9 @@ class TestIntrospectIceberg:
         assert not any("/v1/namespaces" == c for c in calls)
         assert len(rows) > 0
 
-    @patch("introspect_lakehouse.requests.get")
+    @patch("requests.get")
     def test_csv_row_width(self, mock_get):
-        """Every row has exactly 14 fields."""
+        """Every row has exactly the canonical fields."""
         def side_effect(url, **kwargs):
             resp = MagicMock()
             resp.raise_for_status = MagicMock()
@@ -278,7 +278,7 @@ class TestIntrospectIceberg:
         mock_get.side_effect = side_effect
         rows = introspect_lakehouse.introspect_iceberg("http://localhost:8181", "lh")
         for row in rows:
-            assert len(row) == 14, f"Row has {len(row)} fields: {row}"
+            assert list(row) == EXPECTED_HEADER
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +322,6 @@ class TestIntrospectHive:
             # Need to mock the import inside the function
             with patch("introspect_lakehouse.hive", mock_hive_module, create=True):
                 # Directly import and patch
-                import importlib
                 introspect_lakehouse.introspect_hive.__globals__["hive"] = mock_hive_module
                 # But introspect_hive does `from pyhive import hive` internally
                 # Let's patch sys.modules
@@ -330,11 +329,58 @@ class TestIntrospectHive:
                     rows = introspect_lakehouse.introspect_hive("localhost:10000", "hive-test")
 
             assert len(rows) == 3
-            assert rows[0][0] == "hive-test"
-            assert rows[0][1] == "testdb"
-            assert rows[0][2] == "customers"
-            assert rows[0][3] == "customer_id"
-            assert rows[0][4] == "integer"
+            assert rows[0]["source"] == "hive-test"
+            assert rows[0]["schema"] == "testdb"
+            assert rows[0]["object"] == "customers"
+            assert rows[0]["column"] == "customer_id"
+            assert rows[0]["data_type"] == "integer"
+
+
+# ---------------------------------------------------------------------------
+# External CLI adapters
+# ---------------------------------------------------------------------------
+
+class TestExternalCliAdapters:
+    @patch("introspect_lakehouse.subprocess.run")
+    def test_unity_uses_current_databricks_command_groups(self, mock_run):
+        preflight = MagicMock(returncode=0, stdout="")
+        schemas = MagicMock(returncode=0, stdout='{"schemas":[{"name":"sales"}]}')
+        tables = MagicMock(returncode=0, stdout='{"tables":[{"name":"orders"}]}')
+        table = MagicMock(
+            returncode=0,
+            stdout='{"columns":[{"name":"id","type_text":"bigint","nullable":false}]}',
+        )
+        mock_run.side_effect = [preflight, schemas, tables, table]
+
+        rows = introspect_lakehouse.introspect_unity("source", "main")
+
+        assert len(rows) == 1
+        commands = [call.args[0] for call in mock_run.call_args_list]
+        assert commands == [
+            ["databricks", "schemas", "list", "--help"],
+            ["databricks", "schemas", "list", "main", "--output", "json"],
+            ["databricks", "tables", "list", "main", "sales", "--output", "json"],
+            ["databricks", "tables", "get", "main.sales.orders", "--output", "json"],
+        ]
+        assert not any("unity-catalog" in part for command in commands for part in command)
+
+    @patch("introspect_lakehouse.subprocess.run")
+    def test_unity_rejects_incompatible_cli(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
+        with pytest.raises(SystemExit):
+            introspect_lakehouse.introspect_unity("source", "main")
+
+    @patch("introspect_lakehouse.subprocess.run")
+    def test_glue_uses_bounded_cli_timeout_and_exact_database(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout='{"TableList":[]}')
+        introspect_lakehouse.introspect_glue(
+            "source", database="analytics", region="us-east-1",
+        )
+        assert mock_run.call_args.args[0] == [
+            "aws", "glue", "--region", "us-east-1", "get-tables",
+            "--database-name", "analytics", "--output", "json",
+        ]
+        assert mock_run.call_args.kwargs["timeout"] == 60
 
 
 # ---------------------------------------------------------------------------
@@ -397,6 +443,13 @@ class TestParseArgs:
         )
         assert args.tables == "t1,t2"
 
+    def test_rejects_inline_headers(self):
+        with pytest.raises(SystemExit):
+            introspect_lakehouse.parse_args([
+                "--iceberg", "http://localhost:8181", "--source", "lh",
+                "--headers", '{"Authorization":"secret"}',
+            ])
+
 
 # ---------------------------------------------------------------------------
 # main() CLI output
@@ -405,7 +458,7 @@ class TestParseArgs:
 class TestCliOutput:
     """Test that main() writes proper CSV to --output."""
 
-    @patch("introspect_lakehouse.requests.get")
+    @patch("requests.get")
     def test_main_writes_csv(self, mock_get, tmp_path):
         """main() produces a valid CSV file with header + data rows."""
         def side_effect(url, **kwargs):
@@ -443,8 +496,8 @@ class TestCliOutput:
         assert rows[0] == EXPECTED_HEADER
         assert len(rows) == 2  # header + 1 data row
         assert rows[1][0] == "test"
-        assert rows[1][3] == "col1"
-        assert len(rows[1]) == 14
+        assert rows[1][6] == "col1"
+        assert len(rows[1]) == 22
 
 
 # ---------------------------------------------------------------------------

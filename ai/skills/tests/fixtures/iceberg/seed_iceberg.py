@@ -145,7 +145,7 @@ def run_sql(conn: trino.dbapi.Connection, statements: list[str]) -> None:
         except Exception as exc:
             # Table/schema already exists — skip
             if "already exists" in str(exc).lower():
-                print(f"     (already exists, skipping)")
+                print("     (already exists, skipping)")
             else:
                 print(f"     ERROR: {exc}")
                 raise

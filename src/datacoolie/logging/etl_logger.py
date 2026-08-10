@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import tempfile
 import threading
 from datetime import datetime
@@ -639,14 +638,13 @@ class ETLLogger(BaseLogger):
                 )
             )
 
-        job_path, job_content = self._build_analyst_job_payload(summary, now)
+        job_path, job_content = self._build_analyst_job_payload(summary, stem, now)
         operations.append(
             _FlushOperation(
                 "analyst_job_jsonl",
-                lambda: self._append_text(
+                lambda: self._write_immutable_text(
                     job_path,
                     job_content,
-                    final=True,
                 ),
             )
         )
@@ -671,9 +669,9 @@ class ETLLogger(BaseLogger):
         """Build the common ``<ts>_<job_num>_<job_index>_<job_id>`` stem."""
         ts = now.strftime("%Y%m%d_%H%M%S")
         rc = self._run_config
-        job_id = (rc.job_id if rc else None) or "default"
-        job_num = rc.job_num if rc else 1
-        job_index = rc.job_index if rc else 0
+        job_id = (rc.job_id if rc else self._job_info.job_id) or "default"
+        job_num = rc.job_num if rc else self._job_info.job_num
+        job_index = rc.job_index if rc else self._job_info.job_index
         return f"{ts}_{job_num}_{job_index}_{job_id}"
 
     def _partition_path(self, purpose: str, log_type: str, run_date: datetime) -> str:
@@ -715,26 +713,25 @@ class ETLLogger(BaseLogger):
         log = _logger.info if final else _logger.debug
         log("ETL log pushed: %s", path)
 
+    def _write_immutable_text(self, path: str, content: str) -> None:
+        """Create one immutable analyst artifact for this job run."""
+        if self._platform is None:
+            return
+        self._platform.write_file(path, content, overwrite=False)
+        _logger.info("ETL log pushed: %s", path)
+
     def _build_analyst_job_payload(
         self,
         summary: Dict[str, Any],
+        stem: str,
         run_date: datetime,
     ) -> tuple[str, str]:
-        """Build the existing analyst job-summary path and JSONL row."""
+        """Build the analyst job-summary path and JSONL row."""
         summary_row: Dict[str, Any] = {"_type": LogType.JOB_RUN_LOG.value, **summary}
         job_log_dir = self._partition_path(
             LogPurpose.ANALYST.value, LogType.JOB_RUN_LOG.value, run_date,
         )
-        # Derive date stem from partition_pattern (same values as format_partition_path)
-        # e.g. "__run_date={year}-{month}-{day}" → "__run_date=2026-05-24" → "20260524"
-        _pf = self._config.partition_pattern.format(
-            year=run_date.year,
-            month=f"{run_date.month:02d}",
-            day=f"{run_date.day:02d}",
-            hour=f"{run_date.hour:02d}",
-        )
-        date_stem = re.sub(r"\D", "", _pf)
-        job_log_path = f"{job_log_dir}/job_run_log_{date_stem}.jsonl"
+        job_log_path = f"{job_log_dir}/job_{stem}.jsonl"
         job_line = json.dumps(summary_row, default=_json_default) + "\n"
         return job_log_path, job_line
 

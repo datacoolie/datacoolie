@@ -800,6 +800,45 @@ class TestLogConfigPartitionPattern:
         cfg = LogConfig(partition_pattern="year={year}/month={month}/day={day}/hour={hour}")
         assert cfg.partition_pattern == "year={year}/month={month}/day={day}/hour={hour}"
 
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "{year}/{day}",
+            "{month}/{year}",
+            "{year}/{month}/{month}",
+            "{year}/{month}/{week}",
+            "v2-{year}",
+            "{year}/calendar/{month}",
+            "{year}-%m",
+            "",
+        ],
+    )
+    def test_invalid_partition_pattern_fails_at_configuration(self, pattern):
+        with pytest.raises(ValueError, match="partition_pattern"):
+            LogConfig(partition_pattern=pattern)
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "logs_{year}",
+            "logs_{year}--m_{month}",
+            "logs_{year}--m_{month}__d_{day}",
+            "logs_{year}--m_{month}__d_{day}++h_{hour}",
+            "{year}{month}{day}{hour}",
+        ],
+    )
+    def test_ordered_partition_patterns_accept_arbitrary_literals(self, pattern):
+        assert LogConfig(partition_pattern=pattern).partition_pattern == pattern
+
+    def test_partition_formatter_zero_pads_year_to_contract_width(self):
+        assert format_partition_path("logs", datetime(9, 2, 3), "{year}{month}{day}") == (
+            "logs/00090203"
+        )
+
+    def test_partition_formatter_rejects_invalid_pattern_when_called_directly(self):
+        with pytest.raises(ValueError, match="partition_pattern"):
+            format_partition_path("/base", pattern="{year}/{day}")
+
     @pytest.mark.parametrize("value", [0, -1, float("inf"), float("nan")])
     def test_close_timeout_must_be_positive_and_finite(self, value):
         with pytest.raises(ValueError, match="close_timeout_seconds"):

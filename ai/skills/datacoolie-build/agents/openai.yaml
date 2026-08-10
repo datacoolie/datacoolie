@@ -1,0 +1,4 @@
+interface:
+  display_name: "DataCoolie Build"
+  short_description: "Build and verify DataCoolie projects"
+  default_prompt: "Use $datacoolie-build to implement and verify this project through DataCoolie metadata and driver execution."

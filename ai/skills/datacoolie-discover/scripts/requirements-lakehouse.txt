@@ -1,0 +1,2 @@
+# Iceberg REST catalog support. Unity and Glue use configured external CLIs.
+requests>=2.28,<3

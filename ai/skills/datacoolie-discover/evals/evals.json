@@ -1,0 +1,126 @@
+{
+  "skill_name": "datacoolie-discover",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Discover a large relational source for a new project. Catalog access is available, but several change columns and business keys are undocumented. Keep the result compact because the source has hundreds of tables.",
+      "expected_output": "Run database introspection first to generate one observations CSV, then enrich only unresolved keys/change evidence and produce a concise report without creating runtime metadata.",
+      "files": [],
+      "expectations": [
+        "The packaged database introspection script produces discover/observations.csv before agent enrichment.",
+        "The agent merges targeted annotations instead of rewriting the generated inventory.",
+        "The output is observations.csv plus report.md, with no duplicate Markdown schema inventory."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The discovered source has columns event_time, updated_at, id, and row_version. Identify possible incremental evidence, but discovery must not decide the final ingestion strategy.",
+      "expected_output": "Infer only strong name/type combinations, classify the basis of each candidate, leave weak candidates empty, and defer the final watermark/load decision to downstream design or build work.",
+      "files": [],
+      "expectations": [
+        "Watermark candidate uses declared, observed, inferred, or empty rather than a boolean.",
+        "Generic event_time and id columns are not automatically marked as candidates.",
+        "No final load strategy is prescribed by discovery."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "The normal database catalog probe cannot answer whether a version token is monotonic. Use a custom query to collect a few safe facts, but do not expose credentials or make the sample SQL guide execute automatically.",
+      "expected_output": "Use one explicit SQL file with the controlled read-only probe, environment-backed credentials, row and timeout limits, temporary raw evidence, then normalize only the supported finding into discovery evidence.",
+      "files": [],
+      "expectations": [
+        "Custom SQL is a targeted fallback and reference queries are not executed as a batch.",
+        "The probe requires a single SELECT or WITH statement plus explicit row and timeout limits.",
+        "Raw values default to .scratch and credentials are supplied only by environment reference."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Discover two APIs and one file source. Two probes contain the same object name, and an OpenAPI path supports both GET and POST. One API probe times out after returning partial evidence.",
+      "expected_output": "Write isolated probe outputs, preserve HTTP operation identity, merge them deterministically, and report the timed-out probe as partial instead of overwriting or claiming complete coverage.",
+      "files": [],
+      "expectations": [
+        "Each probe writes a distinct scratch CSV and status JSON before a deterministic merge.",
+        "GET and POST observations remain distinct through the operation stable-key field.",
+        "The final report identifies the partial probe and its unresolved scope."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Inspect a remote file collection whose access token and storage options are sensitive. The JSON input is very large and file listing order varies between calls.",
+      "expected_output": "Resolve credentials from a named environment variable, use bounded sampling, sort discovered paths deterministically, and retain no secret or sample values.",
+      "files": [],
+      "expectations": [
+        "No secret-bearing value is placed in command arguments, reports, or retained evidence.",
+        "JSON schema inference obeys explicit byte and record limits.",
+        "File traversal and merged observation order are deterministic."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "An owner confirms a watermark candidate after catalog discovery. Preserve the original observation provenance while adding the confirmation.",
+      "expected_output": "Apply an exact-key annotation with its own method, timestamp, and note; preserve the generated observation timestamp and append provenance rather than replacing it.",
+      "files": [],
+      "expectations": [
+        "The annotation match includes every stable-key field, including operation.",
+        "Only approved evidence fields can change.",
+        "Original method, timestamp, and notes remain traceable after enrichment."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Prepare discovery for a mix of a relational database, remote files, and a catalog service. Install only what each selected probe needs and identify any non-Python prerequisites before connecting.",
+      "expected_output": "Install common requirements once, choose only the relevant capability group or individual packages, and preflight external CLI requirements without installing unrelated drivers.",
+      "files": [],
+      "expectations": [
+        "The common requirements are distinguished from file, database, and lakehouse extras.",
+        "The agent does not install every optional driver when only a subset is needed.",
+        "External catalog CLIs are reported as prerequisites rather than Python imports."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Inspect a remote directory tree with millions of entries and unknown nesting. I only need enough layout evidence to plan the next probe, and the listing service can return paths in different orders.",
+      "expected_output": "Use explicit entry and depth limits, deterministic traversal, a scratch-only layout summary, and partial status when either boundary is reached.",
+      "files": [],
+      "expectations": [
+        "Remote traversal has explicit max-entry and max-depth bounds.",
+        "Reaching a bound produces usable partial status rather than a complete claim.",
+        "The layout summary remains scratch evidence and does not become a second durable inventory."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Discover a catalog through an installed platform CLI. An older command group from a previous CLI generation no longer exists on this machine.",
+      "expected_output": "Preflight the current CLI command surface, use its current schema/table commands, and fail explicitly when the installed version is incompatible instead of silently falling back to stale syntax.",
+      "files": [],
+      "expectations": [
+        "The external CLI is preflighted before catalog calls.",
+        "No deprecated or historical command group is assumed.",
+        "An incompatible CLI produces failed evidence and no fabricated catalog rows."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "A relational source contains far more objects than the inspection budget, and one supported database has no statistics-backed row estimate.",
+      "expected_output": "Stop column inspection at an explicit object limit, mark coverage partial, and leave row estimate empty rather than issuing an unbounded COUNT scan.",
+      "files": [],
+      "expectations": [
+        "Catalog inspection stops at the configured object bound.",
+        "The report preserves the unresolved remainder as partial scope.",
+        "Missing statistics do not trigger a source row-count full scan."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "The supplied API or storage URL contains a credential in user-info or a signed query parameter. Run discovery without exposing it in the process list.",
+      "expected_output": "Reject the secret-bearing locator and require environment-backed headers, storage options, or ambient identity before any request is made.",
+      "files": [],
+      "expectations": [
+        "Secret-bearing URL user-info and sensitive query keys are rejected.",
+        "The probe makes no network or filesystem request after rejection.",
+        "The remediation uses environment-backed or ambient identity rather than another inline secret."
+      ]
+    }
+  ]
+}

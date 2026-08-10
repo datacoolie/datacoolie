@@ -3,7 +3,6 @@
 Creates: fixtures/files/delta_products/_delta_log/... + parquet data files.
 Run once to generate. Requires: deltalake package.
 """
-import os
 import sys
 from pathlib import Path
 

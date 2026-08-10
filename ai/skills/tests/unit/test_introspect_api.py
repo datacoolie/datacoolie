@@ -6,6 +6,7 @@ import csv
 import io
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -24,7 +25,7 @@ class TestOpenApiParsing:
         rows = introspect_api.parse_openapi(content, "petstore")
         assert len(rows) > 0
         # All rows have source=petstore
-        assert all(r[0] == "petstore" for r in rows)
+        assert all(r["source"] == "petstore" for r in rows)
 
     def test_inventory_yaml(self):
         content = (FIXTURES / "openapi-inventory.yaml").read_text()
@@ -40,10 +41,6 @@ class TestOpenApiParsing:
     def test_paginated_detects_pagination(self):
         content = (FIXTURES / "openapi-paginated.json").read_text()
         rows = introspect_api.parse_openapi(content, "paginated")
-        # Check if any row has pagination in notes
-        notes = [r[13] for r in rows]
-        has_pagination = any("pagination=" in n for n in notes if n)
-        # May or may not detect depending on fixture content
         assert isinstance(rows, list)
 
 
@@ -137,8 +134,8 @@ class TestRefToFk:
 # ---------------------------------------------------------------------------
 
 class TestCsvContract:
-    def test_header_has_14_columns(self):
-        assert len(introspect_api.CSV_HEADER) == 14
+    def test_header_has_22_columns(self):
+        assert len(introspect_api.CSV_HEADER) == 22
 
     def test_header_matches_db_script(self):
         """Ensure all three scripts share the same CSV contract."""
@@ -163,9 +160,26 @@ class TestCliOutput:
         rows = list(reader)
         assert rows[0] == introspect_api.CSV_HEADER
         assert len(rows) > 1
-        # Check 14 columns per row
+        # Check the shared observation width per row
         for i, row in enumerate(rows):
-            assert len(row) == 14, f"Row {i} has {len(row)} columns: {row}"
+            assert len(row) == 22, f"Row {i} has {len(row)} columns: {row}"
+
+    def test_openapi_operation_is_part_of_identity(self):
+        spec = json.dumps({
+            "openapi": "3.0.0",
+            "paths": {
+                "/items": {
+                    "get": {"responses": {"200": {"content": {"application/json": {
+                        "schema": {"type": "object", "properties": {"id": {"type": "integer"}}},
+                    }}}}},
+                    "post": {"responses": {"200": {"content": {"application/json": {
+                        "schema": {"type": "object", "properties": {"id": {"type": "integer"}}},
+                    }}}}},
+                },
+            },
+        })
+        rows = introspect_api.parse_openapi(spec, "sample")
+        assert {row["operation"] for row in rows} == {"GET", "POST"}
 
 
 # ---------------------------------------------------------------------------
@@ -191,3 +205,18 @@ class TestParseArgs:
             introspect_api.parse_args([
                 "--spec", "a.json", "--graphql", "http://x", "--source", "s",
             ])
+
+    def test_rejects_inline_headers(self):
+        with pytest.raises(SystemExit):
+            introspect_api.parse_args([
+                "--graphql", "http://x", "--source", "s", "--headers", '{"x":"secret"}',
+            ])
+
+    @patch("introspect_api.requests.get")
+    def test_secret_bearing_locator_is_rejected_before_request(self, mock_get):
+        with pytest.raises(SystemExit, match="secret-bearing"):
+            introspect_api.main([
+                "--spec", "https://example.test/openapi?access_token=secret",
+                "--source", "s",
+            ])
+        mock_get.assert_not_called()

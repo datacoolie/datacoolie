@@ -1,68 +1,29 @@
-# Discovery Interview — Question Bank
+# Gap-Driven Discovery Questions
 
-Use these questions to gather operational intelligence from the user. Skip questions already answered by auto-introspection. Ask conversationally — group related questions, ask a few at a time.
+Use this only after scripted introspection. Ask the smallest set of questions needed to resolve a
+downstream decision; omit anything already supported by evidence.
 
-## Source Identity
+## Ownership And Scope
 
-- What is the source name / system name?
-- What is the technology stack and version? (PostgreSQL 14, Oracle 19c, REST API, etc.)
-- What is the approximate sizing? (table count, total GB, largest table)
-- On-prem or cloud? Which cloud/region?
-- Who owns this source? Who to contact for access or issues?
+- Who owns the source and can confirm ambiguous keys, semantics, or access constraints?
+- Which objects are in scope, and are any intentionally excluded?
 
-## Schema (only when auto-introspection is not possible)
+## Change Semantics
 
-- How many tables are relevant for this project? Which ones?
-- Which tables have primary keys? What are they?
-- Are there foreign key relationships between tables?
-- Any composite keys?
+- Does the source expose CDC, change tracking, transaction logs, or durable version tokens?
+- Which observed candidate records inserts and updates reliably? Can values arrive late, move
+  backwards, or be rewritten?
+- How are deletes represented, including hard deletes and soft-delete fields?
+- Is there an overlap window or reconciliation rule for late changes?
 
-## Data Characteristics
+## Extraction Constraints
 
-- Does the source maintain history data? (audit tables, temporal tables, SCD)
-- Is there soft delete? (deleted_at column, is_active flag)
-- Is there late-arriving data? What's the SLA?
-- What data formats? (dates, currencies, encodings, timezones)
-- Any known data quality issues? (nulls, duplicates, stale data, encoding problems)
+- What extraction windows, concurrency limits, rate limits, or query timeouts apply?
+- Are filters, partitions, pagination tokens, snapshots, or export APIs available?
+- Are there network, authentication, or environment-specific restrictions relevant to inspection?
 
-## Change Capture
+## Data Interpretation
 
-- Is CDC available? (Debezium, Oracle GoldenGate, SQL Server CT, etc.)
-- Which columns can serve as incremental markers? (updated_at, id, sequence)
-- Are there reliable watermark candidates? (monotonically increasing, no gaps)
-- Are there tables with no good incremental column? (require full load)
-
-## Load Patterns
-
-- What is the expected frequency? (real-time, hourly, daily, weekly, on-demand)
-- Is backfill required? How far back?
-- What is the growth rate? (rows/day, GB/month)
-- Is there a peak load time window to avoid?
-
-## Access & Connectivity
-
-- How do we connect? (JDBC, ODBC, REST, SDK, file mount)
-- What authentication mechanism? (username/password, OAuth, service principal, IAM role)
-- Are there network restrictions? (VPN, private endpoint, IP whitelist, firewall rules)
-- Are there rate limits or throttling? (requests/min, concurrent connections)
-- How many environments? (dev, test, prod) What differs between them?
-
-## API-Specific (only for REST / GraphQL / OData sources)
-
-- What is the base URL?
-- What auth type? (bearer token, API key, basic auth, OAuth2 client credentials, AWS SigV4)
-- If OAuth2: what is the token URL? Client credentials or authorization code?
-- Is there an API spec? (OpenAPI/Swagger URL, GraphQL introspection, OData $metadata)
-- What pagination pattern? (offset-based, cursor-based, next-link)
-- Where is the data in the response? (e.g. `data.items`, `results`, root array)
-- Are there any required default headers? (API version header, tenant header)
-- What are the key endpoints we need to ingest?
-- Do endpoints support filtering by date/timestamp for incremental loads?
-
-## Performance
-
-- What is the typical query performance? (avg response time for full table scan)
-- What is the API latency? (p50, p99)
-- Are there query timeout limits?
-- Any known performance constraints? (no parallel reads, single-threaded export)
-
+- Which undeclared columns form a business or uniqueness key?
+- Which time zone, encoding, precision, or schema-drift behavior cannot be learned from metadata?
+- Which known source-quality conditions should downstream design account for?

@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.github.io/datacoolie/schema/provision-receipt.schema.json",
+  "title": "DataCoolie Provision Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "receipt_id",
+    "operation",
+    "status",
+    "environment",
+    "platform",
+    "requirements",
+    "plan",
+    "authorizations",
+    "tool_versions",
+    "state",
+    "actions",
+    "resource_outputs",
+    "verification",
+    "started_at",
+    "finished_at",
+    "unresolved_issues"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_type": {"const": "provision_receipt"},
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "operation": {"enum": ["plan", "apply"]},
+    "status": {"enum": ["succeeded", "failed"]},
+    "environment": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "requirements": {"$ref": "#/$defs/artifact"},
+    "plan": {"$ref": "#/$defs/artifact"},
+    "authorizations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/authorization"}
+    },
+    "tool_versions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend_reference", "status"],
+      "properties": {
+        "backend_reference": {"type": ["string", "null"]},
+        "status": {
+          "enum": ["not_applicable", "unchanged", "updated", "partial", "unknown"]
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/action"}
+    },
+    "resource_outputs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/resource_output"}
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "unresolved_issues": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "reference", "environment", "plan_sha256"],
+      "properties": {
+        "scope": {"enum": ["apply", "destructive"]},
+        "reference": {"type": "string", "minLength": 1},
+        "environment": {"type": "string", "minLength": 1},
+        "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "action", "status", "data_bearing", "evidence"],
+      "properties": {
+        "resource": {"type": "string", "minLength": 1},
+        "action": {
+          "enum": ["create", "update", "import", "replace", "delete", "no_change"]
+        },
+        "status": {"enum": ["planned", "succeeded", "failed", "skipped"]},
+        "data_bearing": {"type": "boolean"},
+        "evidence": {"type": ["string", "null"]}
+      }
+    },
+    "resource_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "sensitive"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "value": {"type": "string", "minLength": 1},
+        "sensitive": {"const": false}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "evidence"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "failed", "skipped"]},
+        "evidence": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"operation": {"const": "plan"}}},
+      "then": {"properties": {"authorizations": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "apply"}}},
+      "then": {
+        "properties": {
+          "authorizations": {
+            "contains": {
+              "type": "object",
+              "properties": {"scope": {"const": "apply"}},
+              "required": ["scope"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "succeeded"}}},
+      "then": {
+        "properties": {
+          "verification": {
+            "items": {"properties": {"status": {"enum": ["passed", "skipped"]}}}
+          },
+          "unresolved_issues": {"maxItems": 0}
+        }
+      }
+    }
+  ]
+}

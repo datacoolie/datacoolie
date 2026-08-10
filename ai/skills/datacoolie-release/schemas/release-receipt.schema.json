@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.github.io/datacoolie/schema/release-receipt.schema.json",
+  "title": "DataCoolie Release Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "release_id",
+    "action",
+    "status",
+    "build_id",
+    "environment",
+    "platform",
+    "manifest",
+    "build_receipt",
+    "runner",
+    "metadata",
+    "functions",
+    "provision_receipt",
+    "provision_requirements",
+    "source_release",
+    "previous_active_release_id",
+    "authorization",
+    "target",
+    "transfers",
+    "verification",
+    "started_at",
+    "finished_at",
+    "unresolved_issues"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_type": {"const": "release_receipt"},
+    "release_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "action": {"enum": ["deploy", "promote", "rollback"]},
+    "status": {"enum": ["succeeded", "failed"]},
+    "build_id": {
+      "type": "string",
+      "pattern": "^[0-9]{6}-[0-9a-f]{12}$"
+    },
+    "environment": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "manifest": {"$ref": "#/$defs/artifact"},
+    "build_receipt": {"$ref": "#/$defs/artifact"},
+    "runner": {"$ref": "#/$defs/artifact"},
+    "metadata": {"$ref": "#/$defs/artifact"},
+    "functions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifact"}
+    },
+    "provision_receipt": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifact"}]
+    },
+    "provision_requirements": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifact"}]
+    },
+    "source_release": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/artifact"}]
+    },
+    "previous_active_release_id": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "authorization": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/authorization"}]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "activation_mechanism",
+        "protection",
+        "release_reference",
+        "activation_reference",
+        "status"
+      ],
+      "properties": {
+        "identity": {"type": "string", "minLength": 1},
+        "activation_mechanism": {"type": "string", "minLength": 1},
+        "protection": {"enum": ["standard", "protected", "production"]},
+        "release_reference": {"type": "string", "minLength": 1},
+        "activation_reference": {"type": ["string", "null"]},
+        "status": {"enum": ["staged", "active", "partial", "failed"]}
+      }
+    },
+    "transfers": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transfer"}
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "unresolved_issues": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "source",
+        "action",
+        "environment",
+        "build_id",
+        "deployment_intent_sha256"
+      ],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1},
+        "source": {"enum": ["current_session", "target_policy"]},
+        "action": {"enum": ["deploy", "promote", "rollback"]},
+        "environment": {"type": "string", "minLength": 1},
+        "build_id": {"type": "string", "pattern": "^[0-9]{6}-[0-9a-f]{12}$"},
+        "deployment_intent_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target_reference", "observed_sha256", "status", "evidence"],
+      "properties": {
+        "source": {"$ref": "#/$defs/artifact"},
+        "target_reference": {"type": "string", "minLength": 1},
+        "observed_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {"enum": ["succeeded", "failed", "skipped"]},
+        "evidence": {"type": ["string", "null"]}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "evidence"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "failed", "skipped"]},
+        "evidence": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"provision_receipt": {"type": "null"}}},
+      "then": {"properties": {"provision_requirements": {"type": "null"}}},
+      "else": {"properties": {"provision_requirements": {"$ref": "#/$defs/artifact"}}}
+    },
+    {
+      "if": {"properties": {"action": {"const": "deploy"}}},
+      "then": {"properties": {"source_release": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"action": {"enum": ["promote", "rollback"]}}},
+      "then": {
+        "properties": {"source_release": {"$ref": "#/$defs/artifact"}}
+      }
+    },
+    {
+      "if": {"properties": {"action": {"const": "rollback"}}},
+      "then": {
+        "properties": {
+          "previous_active_release_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {"const": "succeeded"},
+          "target": {
+            "properties": {"protection": {"const": "production"}},
+            "required": ["protection"]
+          }
+        },
+        "required": ["status", "target"]
+      },
+      "then": {
+        "properties": {
+          "authorization": {
+            "allOf": [
+              {"$ref": "#/$defs/authorization"},
+              {"properties": {"source": {"const": "current_session"}}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "succeeded"}}},
+      "then": {
+        "properties": {
+          "authorization": {"$ref": "#/$defs/authorization"},
+          "target": {
+            "properties": {"status": {"const": "active"}}
+          },
+          "transfers": {
+            "items": {"properties": {"status": {"enum": ["succeeded", "skipped"]}}}
+          },
+          "verification": {
+            "items": {"properties": {"status": {"enum": ["passed", "skipped"]}}}
+          },
+          "unresolved_issues": {"maxItems": 0}
+        }
+      }
+    }
+  ]
+}

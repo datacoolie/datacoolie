@@ -6,7 +6,7 @@ on:
     paths:
       - "docs/**"
       - "src/**"
-      - "ai/skills/datacoolie-metadata/schemas/**"
+      - "ai/skills/datacoolie-build/schemas/**"
       - "overrides/**"
       - "properdocs.yml"
       - "pyproject.toml"
@@ -16,7 +16,7 @@ on:
     paths:
       - "docs/**"
       - "src/**"
-      - "ai/skills/datacoolie-metadata/schemas/**"
+      - "ai/skills/datacoolie-build/schemas/**"
       - "overrides/**"
       - "properdocs.yml"
       - "pyproject.toml"

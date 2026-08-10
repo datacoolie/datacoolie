@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
 from datacoolie.core.constants import DataFlowStatus
+from datacoolie.core.models import DataCoolieRunConfig
 from datacoolie.logging.base import LogConfig, LogManager
 from datacoolie.logging.etl_logger import ETLLogger
 
@@ -80,16 +82,19 @@ class TestDebugJsonlFlush:
         append_paths = [str(call.args[0]) for call in platform.append_file.call_args_list]
         assert any(path.endswith(".jsonl") for path in append_paths)
 
-    def test_no_pyarrow_only_jsonl_appended(self):
+    def test_no_pyarrow_writes_debug_and_immutable_job_jsonl(self):
         logger, platform = make_logger()
         logger.log(make_dataflow("a"), make_runtime("a"))
 
         with patch.dict("sys.modules", {"pyarrow": None, "pyarrow.parquet": None}):
             logger.close()
 
-        # Debug JSONL and analyst job_run_log use append_file.
+        # Debug JSONL appends; the analyst summary is an immutable create.
         append_paths = [str(call.args[0]) for call in platform.append_file.call_args_list]
         assert any(path.endswith(".jsonl") for path in append_paths)
+        platform.write_file.assert_called_once()
+        assert "/analyst/job_run_log/" in platform.write_file.call_args.args[0]
+        assert platform.write_file.call_args.kwargs == {"overwrite": False}
         # No parquet uploaded.
         upload_paths = [str(call.args[1]) for call in platform.upload_file.call_args_list]
         assert not any(path.endswith(".parquet") for path in upload_paths)
@@ -100,21 +105,19 @@ class TestDebugJsonlFlush:
 
         logger.close()
         first_append_count = platform.append_file.call_count
+        first_write_count = platform.write_file.call_count
         first_upload_count = platform.upload_file.call_count
         logger.close()
 
         assert platform.append_file.call_count == first_append_count
+        assert platform.write_file.call_count == first_write_count
         assert platform.upload_file.call_count == first_upload_count
 
     def test_terminal_sink_failure_does_not_suppress_other_sinks(self):
         logger, platform = make_logger(flush_interval_seconds=0)
         logger.log(make_dataflow("a"), make_runtime("a"))
 
-        def append_file(path, content):
-            if "/analyst/job_run_log/" in path:
-                raise RuntimeError("analyst unavailable")
-
-        platform.append_file.side_effect = append_file
+        platform.write_file.side_effect = RuntimeError("analyst unavailable")
 
         logger.close()
         assert isinstance(logger.last_flush_error, RuntimeError)
@@ -123,7 +126,8 @@ class TestDebugJsonlFlush:
             str(call.args[0]) for call in platform.append_file.call_args_list
         ]
         assert sum("/debug_json/" in path for path in append_paths) == 1
-        assert sum("/analyst/job_run_log/" in path for path in append_paths) == 1
+        platform.write_file.assert_called_once()
+        assert "/analyst/job_run_log/" in platform.write_file.call_args.args[0]
         assert platform.upload_file.call_count == 1
         assert {item.name: item.status for item in logger.terminal_outcomes} == {
             "debug_jsonl": "succeeded",
@@ -244,7 +248,11 @@ class TestPeriodicFlush:
         assert append_started.wait(timeout=2)
 
         started = time.monotonic()
-        logger.close()
+        with patch.object(
+            ETLLogger,
+            "_write_analyst_dataflow_output",
+        ) as write_dataflow:
+            logger.close()
         elapsed = time.monotonic() - started
         release_append.set()
 
@@ -253,12 +261,131 @@ class TestPeriodicFlush:
         ]
         assert elapsed < 0.3
         assert sum("/debug_json/" in path for path in append_paths) == 1
-        assert any("/analyst/job_run_log/" in path for path in append_paths)
-        assert platform.upload_file.call_count == 1
+        assert "/analyst/job_run_log/" in platform.write_file.call_args.args[0]
+        write_dataflow.assert_called_once()
         outcomes = {item.name: item.status for item in logger.terminal_outcomes}
         assert outcomes["debug_jsonl"] == "timed_out"
         assert outcomes["analyst_job_jsonl"] == "succeeded"
         assert outcomes["analyst_dataflow_parquet"] == "succeeded"
+
+    def test_concurrent_jobs_create_distinct_immutable_summaries(self):
+        platform = MagicMock()
+        stored: dict[str, str] = {}
+        stored_lock = threading.Lock()
+
+        def create_once(path, content, *, overwrite=False):
+            assert overwrite is False
+            with stored_lock:
+                assert path not in stored
+                stored[path] = content
+
+        platform.write_file.side_effect = create_once
+        loggers = []
+        for index in range(16):
+            logger = ETLLogger(
+                LogConfig(output_path="/logs", flush_interval_seconds=0),
+                platform,
+            )
+            logger.set_run_config(DataCoolieRunConfig(job_id=f"job-{index}"))
+            logger.log(make_dataflow(f"df-{index}"), make_runtime(f"df-{index}"))
+            loggers.append(logger)
+
+        with patch.object(ETLLogger, "_write_analyst_dataflow_output"):
+            with ThreadPoolExecutor(max_workers=len(loggers)) as pool:
+                list(pool.map(lambda logger: logger.close(), loggers))
+
+        assert len(stored) == len(loggers)
+
+        rows = [
+            json.loads(content)
+            for content in stored.values()
+        ]
+        assert {row["job_id"] for row in rows} == {
+            f"job-{index}" for index in range(len(loggers))
+        }
+        assert all(
+            path.endswith(f"_{row['job_id']}.jsonl")
+            and path.rsplit("/", 1)[-1].startswith("job_")
+            for path, row in zip(stored, rows)
+        )
+
+    def test_job_and_dataflow_artifacts_share_execution_stem(self):
+        logger, platform = make_logger(flush_interval_seconds=0)
+        logger.set_run_config(
+            DataCoolieRunConfig(job_id="paired-job", job_num=4, job_index=2),
+        )
+        logger.log(make_dataflow("paired"), make_runtime("paired"))
+
+        with patch.object(ETLLogger, "_write_analyst_dataflow_output") as write_dataflow:
+            logger.close()
+
+        job_filename = platform.write_file.call_args.args[0].rsplit("/", 1)[-1]
+        dataflow_filename = write_dataflow.call_args.args[1].rsplit("/", 1)[-1]
+        job_stem = job_filename.removeprefix("job_").removesuffix(".jsonl")
+        dataflow_stem = dataflow_filename.removeprefix("dataflow_").removesuffix(".parquet")
+
+        assert job_stem == dataflow_stem
+        assert job_stem.endswith("_4_2_paired-job")
+
+    def test_generated_job_id_is_used_in_artifact_stem_without_run_config(self):
+        platform = MagicMock()
+        logger = ETLLogger(
+            LogConfig(output_path="/logs", flush_interval_seconds=0),
+            platform,
+        )
+        logger.log(make_dataflow("generated"), make_runtime("generated"))
+
+        with patch.object(ETLLogger, "_write_analyst_dataflow_output") as write_dataflow:
+            logger.close()
+
+        summary = json.loads(platform.write_file.call_args.args[1])
+        job_filename = platform.write_file.call_args.args[0].rsplit("/", 1)[-1]
+        dataflow_filename = write_dataflow.call_args.args[1].rsplit("/", 1)[-1]
+
+        assert job_filename.endswith(f"_1_0_{summary['job_id']}.jsonl")
+        assert dataflow_filename.endswith(f"_1_0_{summary['job_id']}.parquet")
+
+    def test_duplicate_execution_stem_does_not_overwrite_existing_summary(self):
+        platform = MagicMock()
+        stored: dict[str, str] = {}
+
+        def create_once(path, content, *, overwrite=False):
+            assert overwrite is False
+            if path in stored:
+                raise FileExistsError(path)
+            stored[path] = content
+
+        platform.write_file.side_effect = create_once
+        loggers = []
+        for dataflow_id in ("first", "duplicate"):
+            logger = ETLLogger(
+                LogConfig(output_path="/logs", flush_interval_seconds=0),
+                platform,
+            )
+            logger.set_run_config(DataCoolieRunConfig(job_id="same-job"))
+            logger.log(make_dataflow(dataflow_id), make_runtime(dataflow_id))
+            loggers.append(logger)
+
+        with (
+            patch.object(
+                ETLLogger,
+                "_file_stem",
+                return_value="20260809_153012_1_0_same-job",
+            ),
+            patch.object(ETLLogger, "_write_analyst_dataflow_output"),
+        ):
+            for logger in loggers:
+                logger.close()
+
+        assert len(stored) == 1
+        stored_path = next(iter(stored))
+        assert "/analyst/job_run_log/" in stored_path
+        assert stored_path.endswith("/job_20260809_153012_1_0_same-job.jsonl")
+        assert json.loads(next(iter(stored.values())))["job_id"] == "same-job"
+        first_outcomes = {item.name: item.status for item in loggers[0].terminal_outcomes}
+        duplicate_outcomes = {item.name: item.status for item in loggers[1].terminal_outcomes}
+        assert first_outcomes["analyst_job_jsonl"] == "succeeded"
+        assert duplicate_outcomes["analyst_job_jsonl"] == "failed"
 
 
 # ============================================================================
