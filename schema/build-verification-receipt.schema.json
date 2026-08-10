@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.github.io/datacoolie/schema/build-verification-receipt.schema.json",
+  "title": "DataCoolie Build Verification Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "receipt_id",
+    "status",
+    "build_id",
+    "environment",
+    "platform",
+    "datacoolie_version",
+    "runner",
+    "metadata",
+    "functions",
+    "operation",
+    "stage_plan",
+    "execution_reference",
+    "base_log_path",
+    "watermark_base_path",
+    "checks",
+    "started_at",
+    "finished_at",
+    "unresolved_issues"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_type": {"const": "build_verification"},
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "status": {"enum": ["succeeded", "failed"]},
+    "build_id": {
+      "type": "string",
+      "pattern": "^[0-9]{6}-[0-9a-f]{12}$"
+    },
+    "environment": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "datacoolie_version": {"type": "string", "minLength": 1},
+    "runner": {"$ref": "#/$defs/artifact"},
+    "metadata": {"$ref": "#/$defs/artifact"},
+    "functions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifact"}
+    },
+    "operation": {"enum": ["run", "replay", "maintenance"]},
+    "stage_plan": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"type": "string", "minLength": 1},
+          {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          }
+        ]
+      }
+    },
+    "execution_reference": {"type": "string", "minLength": 1},
+    "base_log_path": {"type": "string", "minLength": 1},
+    "watermark_base_path": {"type": "string", "minLength": 1},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "unresolved_issues": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "evidence"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "failed", "skipped"]},
+        "evidence": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "succeeded"}}},
+      "then": {
+        "properties": {
+          "checks": {
+            "items": {
+              "properties": {"status": {"enum": ["passed", "skipped"]}}
+            }
+          },
+          "unresolved_issues": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}},
+      "then": {
+        "properties": {
+          "checks": {
+            "contains": {
+              "type": "object",
+              "properties": {"status": {"const": "failed"}},
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
