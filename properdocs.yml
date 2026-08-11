@@ -223,4 +223,5 @@ nav:
       - 0003 Transformer ordering slots: adr/0003-transformer-ordering-slots.md
       - 0004 Raw-JSON watermark contract: adr/0004-raw-json-watermark-contract.md
       - Contributing: contributing.md
-  - Blog: blog/index.md
+  - Blog: 
+      - blog/index.md
