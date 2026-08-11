@@ -14,8 +14,8 @@
     <title>{{ page.title }} Python ETL Articles | DataCoolie</title>
   {% elif page and page.url.startswith('blog/archive/') %}
     <title>Data Engineering Articles from {{ page.title }} | DataCoolie</title>
-  {% elif page and page.meta and page.meta.title %}
-    <title>{{ page.meta.title }}</title>
+  {% elif page and page.meta and (page.meta.seo_title or page.meta.title) %}
+    <title>{{ page.meta.seo_title or page.meta.title }}</title>
   {% elif page %}
     <title>{{ page.title }} - {{ config.site_name }}</title>
   {% else %}
@@ -38,8 +38,8 @@
       {% set seo_title = page.title ~ " Python ETL Articles | DataCoolie" %}
     {% elif page.url.startswith('blog/archive/') %}
       {% set seo_title = "Data Engineering Articles from " ~ page.title ~ " | DataCoolie" %}
-    {% elif page.meta and page.meta.title %}
-      {% set seo_title = page.meta.title %}
+    {% elif page.meta and (page.meta.seo_title or page.meta.title) %}
+      {% set seo_title = page.meta.seo_title or page.meta.title %}
     {% else %}
       {% set seo_title = page.title ~ " - " ~ config.site_name %}
     {% endif %}

@@ -1,5 +1,6 @@
 ---
-title: Python ETL Tutorials & Engineering Guides | DataCoolie
+title: Blog
+seo_title: Python ETL Tutorials & Engineering Guides | DataCoolie
 description: Practical Python ETL tutorials, Spark and Polars benchmarks, lakehouse patterns, and framework comparisons for building portable data pipelines.
 ---
 
