@@ -100,8 +100,8 @@ Each dataflow entry also projects transformer metadata for analysis:
 `transform_select_columns`, `transform_drop_columns`,
 `transform_rename_columns`, `transform_value_rules`,
 `transform_hash_columns`, `transform_masking_rules`, and
-`transform_missing_column_policy`. Collection and rule fields are JSON strings
-in analyst Parquet and JSON-encoded values in the debug entry. Masking
+`transform_configure`. Configuration, collection, and rule fields are JSON
+strings in analyst Parquet and JSON-encoded values in the debug entry. Masking
 replacement values and value-rule mappings are retained as metadata; protect
 log storage with the same access controls used for pipeline metadata.
 

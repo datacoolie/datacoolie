@@ -61,7 +61,8 @@ class TestDebugJsonlFlush:
             "I": "inactive",
         }
         assert json.loads(entry["transform_masking_rules"])[0]["value"] == "[PRIVATE]"
-        assert entry["transform_missing_column_policy"] == "ignore"
+        assert json.loads(entry["transform_configure"])["missing_column_policy"] == "ignore"
+        assert "transform_missing_column_policy" not in entry
 
     def test_jsonl_path_uses_debug_json_and_job_run_log(self, tmp_path):
         logger, _ = make_real_logger(tmp_path)

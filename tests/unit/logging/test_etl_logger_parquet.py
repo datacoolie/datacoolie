@@ -93,9 +93,10 @@ class TestAnalystParquetOutput:
             "transform_value_rules",
             "transform_hash_columns",
             "transform_masking_rules",
-            "transform_missing_column_policy",
+            "transform_configure",
         }
         assert expected_columns.issubset(table.schema.names)
+        assert "transform_missing_column_policy" not in table.schema.names
 
         rows = {row["dataflow_id"]: row for row in table.to_pylist()}
         select_row = rows["select-transform"]
@@ -110,7 +111,7 @@ class TestAnalystParquetOutput:
             "I": "inactive",
         }
         assert json.loads(select_row["transform_masking_rules"])[0]["value"] == "[PRIVATE]"
-        assert select_row["transform_missing_column_policy"] == "ignore"
+        assert json.loads(select_row["transform_configure"])["missing_column_policy"] == "ignore"
 
     def test_job_run_log_path_hive_partitioned(self, tmp_path):
         """analyst/job_run_log/__run_date=.../job_run_log.jsonl structure."""

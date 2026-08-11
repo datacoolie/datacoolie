@@ -113,7 +113,6 @@ def _build_dataflow_schema(pa: Any) -> Any:
         ("transform_value_rules", pa.string()),
         ("transform_hash_columns", pa.string()),
         ("transform_masking_rules", pa.string()),
-        ("transform_missing_column_policy", pa.string()),
         ("transform_configure", pa.string()),
         # destination config
         ("destination_id", pa.string()),
@@ -340,7 +339,6 @@ class ETLLogger(BaseLogger):
             "transform_masking_rules":        _as_json(
                 [rule.model_dump() for rule in trn.masking_rules] if trn.masking_rules else None
             ),
-            "transform_missing_column_policy": trn.missing_column_policy,
             "transform_configure":  _as_json(trn.configure),
             # destination config
             "destination_id":                 dst.connection.connection_id,

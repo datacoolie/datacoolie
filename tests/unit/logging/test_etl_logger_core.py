@@ -69,7 +69,8 @@ class TestETLLoggerCore:
             dataflow.transform.masking_rules[0].model_dump()
         ]
         assert json.loads(entry["transform_masking_rules"])[0]["value"] == "[PRIVATE]"
-        assert entry["transform_missing_column_policy"] == "ignore"
+        assert json.loads(entry["transform_configure"])["missing_column_policy"] == "ignore"
+        assert "transform_missing_column_policy" not in entry
         logger.close()
 
     def test_log_maintenance_entry_has_maintenance_metrics(self):
