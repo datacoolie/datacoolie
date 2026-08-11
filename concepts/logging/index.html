@@ -3523,8 +3523,8 @@ identifies the job run. Job and dataflow artifacts use the same
 <code>transform_select_columns</code>, <code>transform_drop_columns</code>,
 <code>transform_rename_columns</code>, <code>transform_value_rules</code>,
 <code>transform_hash_columns</code>, <code>transform_masking_rules</code>, and
-<code>transform_missing_column_policy</code>. Collection and rule fields are JSON strings
-in analyst Parquet and JSON-encoded values in the debug entry. Masking
+<code>transform_configure</code>. Configuration, collection, and rule fields are JSON
+strings in analyst Parquet and JSON-encoded values in the debug entry. Masking
 replacement values and value-rule mappings are retained as metadata; protect
 log storage with the same access controls used for pipeline metadata.</p>
 <p>If a source, transformer, or destination fails, the dataflow row keeps the
