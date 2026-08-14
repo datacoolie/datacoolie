@@ -133,7 +133,7 @@ output always resolves to the top-level structure above.
 | `latest_data_columns` | string[] | no | Tiebreaker columns to pick latest row when deduplicating |
 | `filter_expression` | string\|null | no | SQL WHERE applied after additional_columns |
 | `additional_columns` | AdditionalColumn[] | no | Computed columns: `[{"column": "etl_loaded_at", "expression": "current_timestamp()"}]` |
-| `schema_hints` | SchemaHint[] | no | Column-level type casting applied at load |
+| `schema_hints` | SchemaHint[] | no | Intentional dataflow-specific casts or overrides; source-observed types belong in top-level shared hints |
 | `select_columns` | string[] | no | Business columns to retain; mutually exclusive with `drop_columns` |
 | `drop_columns` | string[] | no | Business columns to remove; mutually exclusive with `select_columns` |
 | `rename_columns` | object | no | Atomic `{old_name: new_name}` mapping applied after select/drop |
@@ -225,7 +225,11 @@ Required: `column_name`, `data_type`
 
 ## SharedSchemaHint object (top-level `schema_hints` items)
 
-Top-level `schema_hints` apply across dataflows by connection+table match — distinct from `transform.schema_hints`.
+Top-level `schema_hints` are the authoring source of truth for exact types observed from a source and
+apply across dataflows by connection+table match. The provider attaches them to the runtime
+transform. Use `transform.schema_hints` only for an intentional dataflow-specific cast or override,
+not to duplicate the observed source schema. Query and function sources without a table identity
+cannot use this table-keyed lookup.
 
 Required: `connection_name`, `table_name`, `hints`
 
@@ -260,13 +264,18 @@ columns are deep-merged, and new columns are appended.
       "stage": "source2bronze",
       "source": { "connection_name": "raw_csv", "table": "orders" },
       "destination": { "connection_name": "bronze_lake", "table": "orders", "load_type": "append" },
-      "transform": {
-        "schema_hints": [
-          { "column_name": "order_id", "data_type": "int" },
-          { "column_name": "amount", "data_type": "decimal", "precision": 18, "scale": 2 },
-          { "column_name": "created_at", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss" }
-        ]
-      }
+      "transform": {}
+    }
+  ],
+  "schema_hints": [
+    {
+      "connection_name": "raw_csv",
+      "table_name": "orders",
+      "hints": [
+        { "column_name": "order_id", "data_type": "int" },
+        { "column_name": "amount", "data_type": "decimal", "precision": 18, "scale": 2 },
+        { "column_name": "created_at", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss" }
+      ]
     }
   ]
 }
@@ -299,7 +308,8 @@ columns are deep-merged, and new columns are appended.
 - **ROW_NUMBER mode**: all other cases (including explicit `deduplicate_columns` with `merge_overwrite`); keeps ONE latest row per key
 - **Composite dedup key**: `transform.deduplicate_columns: ["order_id", "region"]`
 - **Add computed columns**: `transform.additional_columns: [{"column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)"}]` — SQL expression evaluated against loaded DataFrame
-- **Schema hints**: `transform.schema_hints: [{"column_name": "amount", "data_type": "DECIMAL", "precision": 18, "scale": 2}]` — supported types: `DATE`, `TIMESTAMP`, `DATETIME` (NTZ), `DECIMAL`, `INTEGER`, `BIGINT`, `FLOAT`, `DOUBLE`, `BOOLEAN`, `STRING`
+- **Observed source types**: author them once in top-level `schema_hints` / `metadata/schema_hints.json`; supported types include `DATE`, `TIMESTAMP`, `DATETIME` (NTZ), `DECIMAL`, `INTEGER`, `BIGINT`, `FLOAT`, `DOUBLE`, `BOOLEAN`, and `STRING`
+- **Dataflow-specific cast**: use `transform.schema_hints` only when the cast intentionally differs for that dataflow
 - **Disable a hint temporarily**: add `"is_active": false` to the hint object
 - **Disable NTZ conversion**: `transform.configure.convert_timestamp_ntz: false` — keeps TIMESTAMP as zoned
 - **Partitioned destination**: `destination.partition_columns: [{"column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)"}]` — also accepted inside `destination.configure.partition_columns`
@@ -311,11 +321,18 @@ columns are deep-merged, and new columns are appended.
 - **Hive partitioning source**: `connection.configure.use_hive_partitioning: true` — reads column=value directory layout
 - **Disable global schema hint for one connection**: `connection.configure.use_schema_hint: false`
 
-### SQL query source (instead of table name)
+### Source expression choices
+
+Choose direct table/object/path or API endpoint for whole-object extraction. Use a SQL query only
+when the extract requires source-side relational shaping, and a Python function only when direct
+addressing plus one bounded query cannot express the verified behavior. The decision and evidence
+contract lives in `references/framework-boundary.md`.
+
+### SQL query source (when relational shaping is required)
 
 - **DB or lakehouse custom query**: replace `source.table` with `source.query: "SELECT order_id, amount FROM orders WHERE amount > 100"` — no `table` key needed
 
-### Python function source
+### Python function source (verified final fallback)
 
 - **Custom loader**: set `connection.connection_type: "function"` + `source.python_function: "functions.sources.load_orders_custom"` — function returns a DataFrame; `source.table` is passed as argument when provided
 

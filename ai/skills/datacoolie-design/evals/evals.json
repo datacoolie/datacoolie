@@ -36,13 +36,13 @@
     },
     {
       "id": 4,
-      "prompt": "One environment may run either of two compatible engines. Different orchestrations can choose different runners and stage groups at runtime.",
+      "prompt": "One environment may run either of two compatible engines. Different orchestrations can choose different runners and one stage value per invocation at runtime.",
       "expected_output": "Record compatible platform/engine runner intent without assigning engines to stages or storing engine selection in project config.",
       "files": [],
       "expectations": [
         "No stage-to-engine matrix is created.",
         "The exact runner or notebook selects platform and engine.",
-        "Ordered stage groups remain runtime input."
+        "One stage value remains runtime input and is not encoded in project config."
       ]
     },
     {

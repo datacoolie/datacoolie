@@ -78,7 +78,7 @@ boundary; build must prove it before introducing narrow custom code.
 
 - Compatible platform/engine combinations: {{ compatible_platform_engine_combinations }}
 - Runtime selection rule: invoke the exact runner or notebook for the selected platform and engine.
-- Stage execution rule: pass ordered stage groups at runtime; do not encode stage-to-engine mappings
+- Stage execution rule: pass one stage value to the selected runner; do not encode stage-to-engine mappings
   in project config or architecture.
 - Required runtime paths and provider inputs: {{ metadata_logs_watermarks_and_provider_inputs }}
 

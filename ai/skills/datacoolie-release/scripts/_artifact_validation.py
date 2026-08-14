@@ -192,7 +192,7 @@ def _validate_build_receipt(
         "metadata",
         "functions",
         "operation",
-        "stage_plan",
+        "stage",
         "execution_reference",
         "base_log_path",
         "watermark_base_path",
@@ -212,8 +212,10 @@ def _validate_build_receipt(
         _require_artifact_shape(item, "Build receipt function")
     if receipt["operation"] not in {"run", "replay", "maintenance"}:
         raise ValueError("Build receipt operation is invalid")
-    if not isinstance(receipt["stage_plan"], list):
-        raise ValueError("Build receipt stage_plan must be an array")
+    if receipt["stage"] is not None and (
+        not isinstance(receipt["stage"], str) or not receipt["stage"].strip()
+    ):
+        raise ValueError("Build receipt stage must be null or a non-empty string")
     if not isinstance(receipt["unresolved_issues"], list):
         raise ValueError("Build receipt unresolved_issues must be an array")
     if receipt_path.stem != receipt["receipt_id"]:

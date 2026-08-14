@@ -32,7 +32,7 @@ Durable sources:
   AGENTS.md
   config.yaml
   architecture/current.md             # when material design exists
-  discover/                           # optional evidence
+  discover/                           # required source evidence for a new project
   metadata/
   runners/
   functions/                          # optional
@@ -57,7 +57,7 @@ Never edit or symlink a generated build as durable source.
 
 | Skill | Sole outcome | Trigger |
 |---|---|---|
-| `datacoolie-discover` | Verified source facts | Required facts are unknown or contradictory |
+| `datacoolie-discover` | Verified source facts | Every new project; otherwise a new, changed, missing, or contradictory source fact |
 | `datacoolie-design` | System intent and material decisions | New project or material contract/architecture change |
 | `datacoolie-build` | Runnable, immutable, verified build | Bootstrap, metadata, runners, functions, implementation, local run, test, materialization, or build CI |
 | `datacoolie-provision` | Required environment resources | A requested target lacks infrastructure |
@@ -69,7 +69,8 @@ owner.
 ## State-Based Routing
 
 1. Inspect only state relevant to the requested outcome.
-2. Discover only when required source facts are missing.
+2. Discover every declared source before designing a new project. For an existing project,
+   discover only a new or changed source or facts that are missing or contradictory.
 3. Design only when architecture is absent for a new project or the request changes stages,
    contracts, modeling, load behavior, platform/resource boundaries, or release policy.
 4. Build owns all compatible implementation and local verification. It bootstraps missing project
@@ -83,8 +84,8 @@ Shortest common routes:
 
 | Request | Route |
 |---|---|
-| New project with sufficient facts | `design -> build` |
-| New project with unknown facts | `discover -> design -> build` |
+| New project | `discover -> design -> build` |
+| Existing project with a new, changed, or unresolved source | `discover -> design/build` |
 | Compatible implementation or local test | `build` |
 | Missing infrastructure | `build/release -> provision -> resume` |
 | Deploy an existing verified build | `release` |

@@ -163,12 +163,12 @@ the same.
 ## AI-assisted project workflow
 
 DataCoolie AI skills use `{project_name}_dcws/` as the project control folder.
-That workspace contains its own `AGENTS.md`, optional discovery evidence, one canonical
+That workspace contains its own `AGENTS.md`, required source discovery evidence for a new project, one canonical
 architecture when material design exists, durable metadata and runners, immutable generated builds,
 runtime state, and approval or release evidence.
 
 The canonical workflow contract lives at [ai/AGENTS.md](ai/AGENTS.md). It
-routes work by required outcome: optional discovery, material design, build, conditional
+routes work by required outcome: mandatory new-project discovery, material design, build, conditional
 provisioning, and explicit release. Design, infrastructure mutation, and production release use
 separate exact-scope gates.
 

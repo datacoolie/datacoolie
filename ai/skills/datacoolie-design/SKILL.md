@@ -29,8 +29,9 @@ architecture bytes unchanged.
 ## Inputs And Resources
 
 Use requirements, the current architecture when present, exact relevant discovery paths, and
-installed DataCoolie capability evidence at design-level granularity. Discovery is optional
-evidence, not a phase dependency.
+installed DataCoolie capability evidence at design-level granularity. A new project requires
+discovery evidence for every declared source before design; existing projects require only evidence
+affected by the material change.
 
 | Need | Resource |
 |---|---|
@@ -55,7 +56,7 @@ decision and is not runtime or package CLI functionality.
    suspected unsupported boundary for build-time proof.
 5. Record required resources and release policy without provisioning or deploying.
 6. List compatible engines/platforms without binding stages to engines. Runtime orchestration
-   selects an exact runner and supplies stage groups.
+   selects an exact runner and supplies the stage value.
 7. Write the complete candidate to `architecture/current.md`. It is the only design source of
    truth; use Git and approval receipts for history rather than layer files or amendments. Do not
    embed its own hash or approval state in the file.

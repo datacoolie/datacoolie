@@ -93,7 +93,7 @@ def _workspace(tmp_path: Path) -> Path:
             },
             "functions": [],
             "operation": "run",
-            "stage_plan": [],
+            "stage": None,
             "execution_reference": "generated runner integration test",
             "base_log_path": f".runtime/{environment}/logs",
             "watermark_base_path": f".runtime/{environment}/watermarks",

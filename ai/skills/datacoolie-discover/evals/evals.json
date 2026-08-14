@@ -121,6 +121,17 @@
         "The probe makes no network or filesystem request after rejection.",
         "The remediation uses environment-backed or ambient identity rather than another inline secret."
       ]
+    },
+    {
+      "id": 12,
+      "prompt": "Start a new project whose owner supplied apparently complete connection details for a database, a file collection, an API, and a lakehouse catalog. Continue to design afterward.",
+      "expected_output": "Probe every declared source type first, treating supplied details as declared scope rather than observed evidence, then hand exact discovery artifacts to design.",
+      "files": [],
+      "expectations": [
+        "New-project discovery is not skipped because the supplied descriptions appear sufficient.",
+        "The matching database, file, API, and lakehouse probes are selected and bounded independently.",
+        "Discovery remains read-only evidence and no runtime metadata or design decision is created."
+      ]
     }
   ]
 }

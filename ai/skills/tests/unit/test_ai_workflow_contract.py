@@ -79,8 +79,19 @@ def test_package_readme_matches_current_ai_workflow() -> None:
         "silver2gold",
     ):
         assert stale not in normalized
-    for current in ("optional discovery", "material design", "conditional provisioning"):
+    for current in ("mandatory new-project discovery", "material design", "conditional provisioning"):
         assert current in normalized
+
+
+def test_new_projects_discover_every_declared_source_before_design() -> None:
+    agents = " ".join(_read("AGENTS.md").split())
+    discover = " ".join(_read("skills/datacoolie-discover/SKILL.md").split())
+    design = " ".join(_read("skills/datacoolie-design/SKILL.md").split())
+    assert "New project | `discover -> design -> build`" in agents
+    assert "probe each source even when" in discover
+    for probe in ("introspect_db.py", "introspect_files.py", "introspect_api.py", "introspect_lakehouse.py"):
+        assert probe in discover
+    assert "new project requires discovery evidence for every declared source" in design.lower()
 
 
 def test_skill_boundaries_have_one_owner() -> None:
@@ -176,17 +187,37 @@ def test_workspace_contract_is_canonical_and_minimal() -> None:
 def test_runner_contract_preserves_runtime_semantics() -> None:
     contract = _read("skills/datacoolie-build/references/runner-contract.md")
     for token in (
-        "StageGroup = str | list[str]",
-        "StagePlan  = list[StageGroup]",
-        'action="append"',
-        'nargs="+"',
-        "driver.run(stage=stage_group)",
-        "Stop after a failed group",
-        "driver.run(stage=None)",
+        "one optional `--stage` string",
+        "driver.run(stage=stage)",
+        "Do not split comma strings",
+        "one framework operation",
+        "transport default (`None` or an empty scalar)",
         "No runtime `--env`",
-        "outside `.builds/`",
+        "framework and platform own path interpretation and validation",
     ):
         assert token in contract
+    for stale in (
+        "STAGE_GROUPS_JSON",
+        'action="append"',
+        'nargs="+"',
+        "StagePlan",
+        "path validation",
+        "Reject log or watermark paths",
+    ):
+        assert stale not in contract
+
+
+def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None:
+    framework = _read("skills/datacoolie-build/references/framework-boundary.md")
+    schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
+    assert "## Source expression order" in framework
+    direct = framework.index("Address the source object directly")
+    query = framework.index("Use one bounded source query")
+    function = framework.index("Use a metadata-addressed Python function")
+    assert direct < query < function
+    assert "Do not replace a supported direct address with an equivalent `SELECT *`" in framework
+    assert "authoring source of truth for exact types observed from a source" in schema
+    assert "Use `transform.schema_hints` only for an intentional dataflow-specific cast" in schema
 
 
 def test_build_references_have_narrow_non_overlapping_boundaries() -> None:

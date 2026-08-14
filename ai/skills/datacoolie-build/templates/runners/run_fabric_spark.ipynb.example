@@ -6,7 +6,7 @@
    "source": [
     "# DataCoolie Fabric Spark Runner\n",
     "\n",
-    "Attach the verified DataCoolie and functions artifacts to the environment before execution. Stage groups execute in outer-list order."
+    "Attach the verified DataCoolie and functions artifacts to the environment before execution. STAGE is passed unchanged to one framework call."
    ]
   },
   {
@@ -18,7 +18,7 @@
     "METADATA_PATH = \"{metadata_path}\"\n",
     "WATERMARK_BASE_PATH = \"{watermark_base_path}\"\n",
     "BASE_LOG_PATH = \"{base_log_path}\"\n",
-    "STAGE_GROUPS_JSON = \"[]\""
+    "STAGE = \"\""
    ]
   },
   {
@@ -27,34 +27,11 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "import json\n",
     "from importlib.metadata import PackageNotFoundError, version\n",
-    "from pathlib import PurePosixPath\n",
-    "from urllib.parse import urlparse\n",
-    "\n",
-    "def parse_stage_plan(value):\n",
-    "    groups = json.loads(value)\n",
-    "    if not isinstance(groups, list):\n",
-    "        raise ValueError(\"STAGE_GROUPS_JSON must decode to a list\")\n",
-    "    for group in groups:\n",
-    "        valid_string = isinstance(group, str) and bool(group.strip())\n",
-    "        valid_list = isinstance(group, list) and bool(group) and all(isinstance(stage, str) and stage.strip() for stage in group)\n",
-    "        if not (valid_string or valid_list):\n",
-    "            raise ValueError(\"invalid stage group\")\n",
-    "    return groups\n",
-    "\n",
-    "def require_persistent_path(value):\n",
-    "    parts = PurePosixPath(urlparse(value).path.replace(\"\\\\\", \"/\")).parts\n",
-    "    if \".builds\" in {part.lower() for part in parts}:\n",
-    "        raise ValueError(\"mutable state path must be outside .builds/\")\n",
-    "    return value\n",
-    "\n",
     "try:\n",
     "    print(f\"DataCoolie version: {version('datacoolie')}\")\n",
     "except PackageNotFoundError as exc:\n",
     "    raise RuntimeError(\"Attach the verified DataCoolie package before running this notebook\") from exc\n",
-    "\n",
-    "stage_plan = parse_stage_plan(STAGE_GROUPS_JSON)\n",
     "\n",
     "from datacoolie.core.models import DataCoolieRunConfig\n",
     "from datacoolie.engines.spark_engine import SparkEngine\n",
@@ -64,16 +41,13 @@
     "\n",
     "platform = FabricPlatform()\n",
     "engine = SparkEngine(spark_session=spark, platform=platform)  # type: ignore[name-defined]\n",
-    "metadata = FileProvider(config_path=METADATA_PATH, platform=platform, watermark_base_path=require_persistent_path(WATERMARK_BASE_PATH))\n",
+    "metadata = FileProvider(config_path=METADATA_PATH, platform=platform, watermark_base_path=WATERMARK_BASE_PATH)\n",
     "config = DataCoolieRunConfig(max_workers=4, stop_on_error=True)\n",
     "\n",
     "failed = 0\n",
-    "with DataCoolieDriver(engine=engine, metadata_provider=metadata, base_log_path=require_persistent_path(BASE_LOG_PATH), config=config) as driver:\n",
-    "    for stage_group in stage_plan or [None]:\n",
-    "        result = driver.run(stage=stage_group)\n",
-    "        failed += result.failed\n",
-    "        if result.failed:\n",
-    "            break\n",
+    "with DataCoolieDriver(engine=engine, metadata_provider=metadata, base_log_path=BASE_LOG_PATH, config=config) as driver:\n",
+    "    result = driver.run(stage=STAGE)\n",
+    "    failed = result.failed\n",
     "if failed:\n",
     "    raise RuntimeError(f\"DataCoolie run failed for {failed} dataflows\")"
    ]

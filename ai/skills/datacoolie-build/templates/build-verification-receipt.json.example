@@ -17,7 +17,7 @@
   },
   "functions": [],
   "operation": "run",
-  "stage_plan": [],
+  "stage": null,
   "execution_reference": "<command-or-platform-job-reference>",
   "base_log_path": ".runtime/<environment>/logs",
   "watermark_base_path": ".runtime/<environment>/watermarks",

@@ -4,7 +4,7 @@
 
 - Read whenever authoring or verifying a Python or notebook entrypoint.
 - Owns common entrypoint identity, runtime parameters, construction, generated-source behavior, and
-  normal `run` stage-plan semantics.
+  normal `run` stage passthrough semantics.
 - Does not decide framework support or define metadata fields. Replay and maintenance additionally
   load `references/operations-contract.md`, which owns only their operation-specific extensions.
 
@@ -31,24 +31,26 @@ A file-provider entrypoint accepts:
 - `metadata_path`.
 - Persistent `watermark_base_path`.
 - Persistent `base_log_path`.
-- Zero or more ordered stage groups when the operation supports stage selection.
+- One optional stage value when the operation supports stage selection.
 - Only additional options owned by its selected operation and installed runtime.
 
-Reject log or watermark paths inside `.builds/` because generated builds are immutable and
-disposable. Another metadata provider may use a provider-specific entrypoint and omit irrelevant
-file-provider parameters.
+Pass metadata, log, and watermark paths unchanged to the selected framework constructors. The
+framework and platform own path interpretation and validation. Workspace layout guidance and build
+receipt validation remain separate concerns. Another metadata provider may use a provider-specific
+entrypoint and omit irrelevant file-provider parameters.
 
 Notebooks expose equivalent values through the platform's parameter transport:
 
-| Runtime | Scalars | Structured values |
-|---|---|---|
-| Local Python | `argparse` values | repeated `--stage` occurrences |
-| Databricks | named `dbutils.widgets` strings | JSON strings decoded after widget reads |
-| Fabric | tagged parameter-cell values | `*_JSON` strings decoded after the parameter cell |
-| AWS Glue | named job arguments | optional `STAGE_GROUPS_JSON`, default `[]` |
+| Runtime | Stage transport |
+|---|---|
+| Local Python | one optional `--stage` string |
+| Databricks | one named `STAGE` widget string |
+| Fabric | one `STAGE` parameter-cell string |
+| AWS Glue | one optional named `STAGE` job argument |
 
-Use `STAGE_GROUPS_JSON` for notebook/job stage plans. Operation-specific complex values follow the
-same `*_JSON` convention. Decode and validate values before constructing DataCoolie components.
+Pass the stage value unchanged. Do not split comma strings, decode a stage list, accept repeated
+stage arguments, or create a stage plan in the runner. Operation-specific complex values may still
+use the documented `*_JSON` convention. Decode those before constructing DataCoolie components.
 The file fixes platform, engine, provider, and operation; do not expose them again as runtime
 selectors.
 
@@ -61,7 +63,7 @@ deployment configuration.
 
 Every concrete entrypoint performs only:
 
-1. Parameter decoding and path validation.
+1. Platform parameter transport and operation-specific decoding only.
 2. Metadata-provider construction with explicit persistent watermark state when relevant.
 3. Fixed platform, engine, provider, and session bootstrap.
 4. Explicit base-log configuration.
@@ -72,40 +74,19 @@ Load environment variables or platform secrets before DataCoolie resolves secret
 `.env` loading is an optional local-launcher concern, not a universal cloud dependency. Capability
 selection and custom-edge decisions belong to `references/framework-boundary.md`.
 
-## Normal run stage plan
+## Normal run stage passthrough
 
-```text
-StageGroup = str | list[str]
-StagePlan  = list[StageGroup]
-```
-
-Pass each group unchanged to one call:
+Pass the one received value unchanged to one call:
 
 ```python
-for stage_group in stage_plan:
-    driver.run(stage=stage_group)
+driver.run(stage=stage)
 ```
 
-- `--stage stage1,stage2` is one string group and one driver call.
-- `--stage stage1 stage2` is one list group and one driver call.
-- Repeating `--stage` creates sequential groups in occurrence order.
-- Do not split comma strings, flatten nested groups, sort stages, or call list members separately.
-- Reject blank strings, empty lists, and blank members before constructing the driver.
-- Stop after a failed group; later groups must not start.
-- With no group, call `driver.run(stage=None)` once to preserve run-all behavior.
-
-Python may use `argparse` with `action="append"` and `nargs="+"`, normalizing a one-token occurrence
-to `str` and a multi-token occurrence to `list[str]`.
-
-Notebook equivalent:
-
-```python
-STAGE_GROUPS = [
-    "stage1,stage2",
-    "stage3",
-    ["stage4", "stage5"],
-]
-```
+- `--stage stage1,stage2` remains one string and one driver call; the framework owns its meaning.
+- With no stage, invoke once with the transport default (`None` or an empty scalar); the framework
+  preserves run-all behavior.
+- Pass blank and non-blank scalar content unchanged; the framework owns its meaning.
+- Sequential stage invocations belong to the external orchestrator calling the runner again.
 
 ## Durable and generated sources
 
@@ -122,11 +103,11 @@ editing the durable source and materializing a new build ID.
 - Filename platform matches the selected environment binding.
 - Engine, provider, and operation are fixed by entrypoint identity.
 - No runtime `--env`, platform, engine, provider, or operation selector exists.
-- Notebook/job parameters are read through the named platform transport and complex values are
-  decoded from JSON without changing stage grouping or order.
+- Notebook/job parameters are read through the named platform transport and stage is passed
+  unchanged to one framework operation.
 - The runner does not install packages or restart its runtime.
 - Metadata/provider parameters are explicit and relevant.
-- Log and watermark paths remain persistent and outside `.builds/`.
+- Metadata, log, watermark, and stage values reach framework APIs without runner-side validation.
 - Supported paths construct DataCoolie components and call the selected driver API.
 - The exact generated entrypoint and metadata are executed; hashes match the build manifest.
 - Validate one explicitly supplied receipt with `scripts/validate_build.py`; receipt field semantics

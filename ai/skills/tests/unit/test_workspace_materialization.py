@@ -225,7 +225,7 @@ def test_materialized_runner_preserves_verified_durable_bytes(
     namespace = {"__name__": "generated_runner_test"}
     exec(compile(generated.read_text(encoding="utf-8"), str(generated), "exec"), namespace)
     namespace["parse_args"] = lambda: types.SimpleNamespace(
-        stage_groups=None,
+        stage=None,
         metadata_path="metadata.json",
         watermark_base_path=".runtime/dev/watermarks",
         base_log_path=".runtime/dev/logs",
@@ -502,7 +502,7 @@ def _write_build_receipt(
             {"path": path, "sha256": artifacts[path]} for path in manifest["functions"]
         ],
         "operation": "run",
-        "stage_plan": ["bronze"],
+        "stage": "bronze",
         "execution_reference": "pytest generated build execution",
         "base_log_path": ".runtime/dev/logs",
         "watermark_base_path": ".runtime/dev/watermarks",

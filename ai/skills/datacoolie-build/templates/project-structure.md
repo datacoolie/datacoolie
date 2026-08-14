@@ -135,7 +135,7 @@ Add the provider suffix only when provider bootstrap changes code, authenticatio
 lifecycle. Do not put environment in the name; environment binds to platform during build.
 
 Runtime parameters may include metadata/provider settings, base log path, watermark path, ordered
-stage groups, and supported operational options. Do not accept environment, platform, or engine as
+one stage value, and supported operational options. Do not accept environment, platform, or engine as
 parameters of a concrete runner.
 
 Keep normal execution, replay, and maintenance as separate entrypoints. Add only operations the

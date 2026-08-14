@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import PurePosixPath
-from urllib.parse import urlparse
 
 from datacoolie.core.models import DataCoolieRunConfig
 from datacoolie.engines.polars_engine import PolarsEngine
@@ -13,36 +11,13 @@ from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
 from datacoolie.platforms.local_platform import LocalPlatform
 
-StageGroup = str | list[str]
-
-
-def non_empty_stage(value: str) -> str:
-    if not value.strip():
-        raise argparse.ArgumentTypeError("stage must not be blank")
-    return value
-
-
-def normalize_stage_plan(raw_groups: list[list[str]] | None) -> list[StageGroup]:
-    if not raw_groups:
-        return []
-    return [group[0] if len(group) == 1 else group for group in raw_groups]
-
-
-def require_persistent_path(value: str) -> str:
-    parts = PurePosixPath(urlparse(value).path.replace("\\", "/")).parts
-    if ".builds" in {part.lower() for part in parts}:
-        raise argparse.ArgumentTypeError("mutable state path must be outside .builds/")
-    return value
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--metadata-path", required=True)
-    parser.add_argument("--watermark-base-path", required=True, type=require_persistent_path)
-    parser.add_argument("--base-log-path", required=True, type=require_persistent_path)
-    parser.add_argument(
-        "--stage", action="append", nargs="+", type=non_empty_stage, dest="stage_groups"
-    )
+    parser.add_argument("--watermark-base-path", required=True)
+    parser.add_argument("--base-log-path", required=True)
+    parser.add_argument("--stage")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--max-workers", type=int, default=4)
     return parser.parse_args()
@@ -50,7 +25,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    stage_plan = normalize_stage_plan(args.stage_groups)
     platform = LocalPlatform()
     engine = PolarsEngine(platform=platform)
     metadata = FileProvider(
@@ -69,11 +43,8 @@ def main() -> int:
         base_log_path=args.base_log_path,
         config=config,
     ) as driver:
-        for stage_group in stage_plan or [None]:
-            result = driver.run(stage=stage_group)
-            failed += result.failed
-            if result.failed:
-                break
+        result = driver.run(stage=args.stage)
+        failed = result.failed
 
     return 1 if failed else 0
 

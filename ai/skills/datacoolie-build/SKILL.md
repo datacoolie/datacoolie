@@ -26,7 +26,8 @@ skill; generated projects must not depend on skill paths.
 - When `architecture/current.md` exists, recompute its final-byte hash and reject a missing,
   malformed, or stale matching design receipt; reject misnamed receipts too. Architecture never
   self-declares an approval bypass.
-- Use discovery artifacts only as authoring evidence; runtime code must not import them.
+- Require discovery evidence for every declared source in a new project. Use discovery artifacts
+  only as authoring evidence; runtime code must not import them.
 - Return to design before implementation if the requested change would alter a material contract.
 
 ## Resource Routing
@@ -45,7 +46,7 @@ skill; generated projects must not depend on skill paths.
 | Requested project automation | `scripts/render_automation.py` |
 
 Load only resources needed for the current outcome. Exact metadata layouts, runner names and
-parameters, stage-plan semantics, operation behavior, build identity, and manifest rules live in
+parameters, stage semantics, operation behavior, build identity, and manifest rules live in
 the routed build resources rather than this prompt.
 
 ## Decision Workflow
@@ -70,6 +71,10 @@ Use the canonical metadata contract and environment overlays; do not clone full 
 environment. Create only required normal, replay, or maintenance entrypoints. The selected file
 fixes platform, engine, provider, and operation; runtime inputs carry only values allowed by the
 runner and operation contracts. Keep credentials in environment or platform secret services.
+
+Author exact source-observed types once in `metadata/schema_hints.json`. Put a hint directly in a
+dataflow transform only when it is an intentional dataflow-specific cast or override, not a copy of
+the source schema. Select the simplest native source address using the framework-boundary order.
 
 ### 4. Run fast source checks
 

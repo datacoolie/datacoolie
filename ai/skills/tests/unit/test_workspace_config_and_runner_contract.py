@@ -1,15 +1,12 @@
-"""Executable checks for workspace config and ordered runner stage groups."""
+"""Executable checks for workspace config and single-stage runner passthrough."""
 
 from __future__ import annotations
 
 import ast
-import argparse
 import importlib.util
 import sys
 import types
 from pathlib import Path
-from pathlib import PurePosixPath
-from urllib.parse import urlparse
 
 import pytest
 import yaml
@@ -144,91 +141,25 @@ def test_workspace_config_checks_only_selected_environment_platforms(
         validator.validate_config(path)
 
 
-def _load_normalizer():
-    tree = ast.parse(LOCAL_RUNNER_PATH.read_text(encoding="utf-8"))
-    function = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "normalize_stage_plan"
-    )
-    module = ast.Module(body=[function], type_ignores=[])
-    namespace: dict[str, object] = {}
-    exec(compile(module, str(LOCAL_RUNNER_PATH), "exec"), namespace)
-    return namespace["normalize_stage_plan"]
+def test_stage_cli_is_one_unmodified_framework_argument() -> None:
+    content = LOCAL_RUNNER_PATH.read_text(encoding="utf-8")
+    assert 'parser.add_argument("--stage")' in content
+    assert "result = driver.run(stage=args.stage)" in content
+    assert content.count("driver.run(") == 1
+    for stale in (
+        "normalize_stage_plan",
+        "stage_groups",
+        'action="append"',
+        'nargs="+"',
+        "non_empty_stage",
+        "require_persistent_path",
+    ):
+        assert stale not in content
 
 
-def _load_non_empty_stage():
-    tree = ast.parse(LOCAL_RUNNER_PATH.read_text(encoding="utf-8"))
-    function = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "non_empty_stage"
-    )
-    namespace = {"argparse": argparse}
-    exec(compile(ast.Module(body=[function], type_ignores=[]), str(LOCAL_RUNNER_PATH), "exec"), namespace)
-    return namespace["non_empty_stage"]
-
-
-def _load_persistent_path_validator():
-    tree = ast.parse(LOCAL_RUNNER_PATH.read_text(encoding="utf-8"))
-    function = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "require_persistent_path"
-    )
-    module = ast.Module(body=[function], type_ignores=[])
-    namespace = {
-        "argparse": argparse,
-        "PurePosixPath": PurePosixPath,
-        "urlparse": urlparse,
-    }
-    exec(compile(module, str(LOCAL_RUNNER_PATH), "exec"), namespace)
-    return namespace["require_persistent_path"]
-
-
-def test_stage_cli_preserves_parallel_groups_and_sequential_order() -> None:
-    normalize = _load_normalizer()
-    stage_plan = normalize(
-        [["stage1,stage2"], ["stage3"], ["stage4", "stage5"]]
-    )
-
-    assert stage_plan == ["stage1,stage2", "stage3", ["stage4", "stage5"]]
-
-    calls: list[str | list[str] | None] = []
-    for stage_group in stage_plan or [None]:
-        calls.append(stage_group)
-    assert calls == ["stage1,stage2", "stage3", ["stage4", "stage5"]]
-
-
-def test_empty_stage_plan_runs_all_once() -> None:
-    normalize = _load_normalizer()
-    calls = [stage_group for stage_group in normalize(None) or [None]]
-    assert calls == [None]
-
-
-def test_blank_stage_is_rejected_at_cli_boundary() -> None:
-    validate = _load_non_empty_stage()
-    assert validate("stage1,stage2") == "stage1,stage2"
-    with pytest.raises(argparse.ArgumentTypeError, match="must not be blank"):
-        validate("   ")
-
-
-def test_failed_stage_group_is_a_sequential_barrier() -> None:
-    stage_plan = ["stage1", "stage2", "stage3"]
-    calls: list[str] = []
-
-    for stage_group in stage_plan:
-        calls.append(stage_group)
-        failed = stage_group == "stage2"
-        if failed:
-            break
-
-    assert calls == ["stage1", "stage2"]
-
-
-def test_mutable_state_paths_reject_build_directory() -> None:
-    validate = _load_persistent_path_validator()
-
-    assert validate("logs/dev") == "logs/dev"
-    with pytest.raises(argparse.ArgumentTypeError, match=r"outside \.builds"):
-        validate(".builds/build-id/dev/watermarks")
+def test_runner_passes_paths_directly_to_framework() -> None:
+    content = LOCAL_RUNNER_PATH.read_text(encoding="utf-8")
+    assert "watermark_base_path=args.watermark_base_path" in content
+    assert "base_log_path=args.base_log_path" in content
+    assert 'parser.add_argument("--watermark-base-path", required=True)' in content
+    assert 'parser.add_argument("--base-log-path", required=True)' in content

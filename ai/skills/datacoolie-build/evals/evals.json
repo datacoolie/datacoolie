@@ -4,10 +4,10 @@
     {
       "id": 1,
       "prompt": "Create a new DataCoolie project from already documented source contracts. Implement the metadata and local runners, then test it locally. The infrastructure already exists.",
-      "expected_output": "Route directly from design state to build, bootstrap only required files, use framework metadata and driver execution, materialize an immutable build, and skip discovery, provisioning, and release.",
+      "expected_output": "Require verified discovery evidence for every declared source before design/build, then bootstrap only required files, use framework metadata and driver execution, materialize an immutable build, and skip provisioning and release.",
       "files": [],
       "expectations": [
-        "Discovery is skipped because source facts are sufficient.",
+        "Discovery verifies every declared source because this is a new project, even though contracts were supplied.",
         "Provision and release are skipped.",
         "Local runtime verification executes the generated build rather than durable sources."
       ]
@@ -26,7 +26,7 @@
     {
       "id": 3,
       "prompt": "One configured environment uses a platform that supports two engines. Create both Python entrypoints; orchestration will invoke the exact file and choose stages at runtime.",
-      "expected_output": "Create separate platform-and-engine runners with no environment/engine runtime selector and preserve ordered stage-group semantics.",
+      "expected_output": "Create separate platform-and-engine runners with no environment/engine runtime selector; each accepts one stage value and passes it unchanged.",
       "files": [],
       "expectations": [
         "Two non-colliding runner filenames encode platform and engine.",
@@ -36,13 +36,13 @@
     },
     {
       "id": 4,
-      "prompt": "Run stage_a,stage_b together, then stage_c, then pass [stage_d, stage_e] as an array. If stage_c fails, do not start the last group.",
-      "expected_output": "Preserve three ordered groups and pass each unchanged to one driver call with a failure barrier.",
+      "prompt": "Create a local runner that receives metadata, watermark, log paths and may receive --stage stage_a,stage_b. The framework already owns path handling and stage parsing; keep the runner interface minimal.",
+      "expected_output": "Pass path parameters directly to framework constructors and one optional --stage scalar unchanged to exactly one driver.run call without runner-owned validation or normalization.",
       "files": [],
       "expectations": [
-        "Comma-separated stages remain one string group.",
-        "The array remains one list group.",
-        "Later groups stop after a failure."
+        "The comma-bearing stage remains one unchanged string.",
+        "Repeated --stage, nargs, stage-plan normalization, and runner loops are absent.",
+        "Path and blank-stage validators are absent; omission produces exactly one driver.run(stage=None) call."
       ]
     },
     {
@@ -113,24 +113,24 @@
     },
     {
       "id": 11,
-      "prompt": "Add a reusable replay entrypoint for a historical repair. It must replay two stages together, then a third stage, process the half-open range in daily chunks, and leave production incremental state unchanged unless an operator explicitly opts in.",
-      "expected_output": "Create a platform-and-engine-specific replay entrypoint that uses ReplayConfig and DataCoolieDriver replay APIs, preserves ordered stage groups, exposes persistent log/watermark paths, and gates watermark mutation separately.",
+      "prompt": "Add a reusable replay entrypoint for a historical repair. It receives one stage value and JSON chunk configuration for a half-open range. The framework already validates replay boundaries and interval semantics. Leave production incremental state unchanged unless an operator explicitly opts in.",
+      "expected_output": "Create a thin platform-and-engine-specific replay entrypoint that preserves numeric boundary types from text transport, decodes JSON transport, otherwise delegates range and chunk semantics through ReplayConfig and DataCoolieDriver, passes one stage unchanged, and gates watermark mutation separately.",
       "files": [],
       "expectations": [
         "Replay is a separate replay_{platform}_{engine}[_{provider}] entrypoint rather than a runtime mode.",
-        "The entrypoint calls load_dataflows and run_replay with [start, end), chunk interval, and ordered stage groups.",
+        "The entrypoint converts only integer boundary strings, decodes chunk JSON without duplicating interval validation, then calls load_dataflows and run_replay once.",
         "Saving the watermark defaults to false and requires a separate explicit confirmation when enabled."
       ]
     },
     {
       "id": 12,
-      "prompt": "Add a scheduled lakehouse maintenance entrypoint. Operators need to filter connections, inspect deduplicated targets safely, choose compact and cleanup, set retention, and then explicitly authorize the real operation.",
-      "expected_output": "Create a platform-and-engine-specific maintenance entrypoint using DataCoolie maintenance APIs, read-only target inspection, explicit mutation confirmation, persistent logging/state paths, and no unsupported dry-run claim.",
+      "prompt": "Add a scheduled lakehouse maintenance entrypoint. Operators pass one framework-native connection selection, choose compact and cleanup, set retention, and explicitly authorize the operation. The framework owns target selection, deduplication, execution, logging, connection parsing, and run validation.",
+      "expected_output": "Create a thin platform-and-engine-specific maintenance entrypoint that confirms mutation and delegates directly to DataCoolieDriver.run_maintenance without runner-owned inspection or maintenance logic.",
       "files": [],
       "expectations": [
         "Maintenance is a separate maintenance_{platform}_{engine}[_{provider}] entrypoint.",
-        "Inspection calls load_maintenance_dataflows while mutation calls run_maintenance with connection and operation filters.",
-        "The entrypoint requires explicit confirmation for mutation and does not claim dry_run prevents maintenance side effects."
+        "The entrypoint passes connection and operation filters directly to one run_maintenance call, while numeric transport uses built-in conversion rather than custom range rules.",
+        "The entrypoint requires explicit confirmation and adds no preview, inspection, scheduler, deduper, or dry_run behavior."
       ]
     },
     {
@@ -190,46 +190,46 @@
     },
     {
       "id": 18,
-      "prompt": "The installed runtime already proves the requested combination is supported. Add only a normal Python run entrypoint with ordered stage groups, then verify the generated build. Replay and maintenance are not requested.",
-      "expected_output": "Use the common runner contract and normal-run stage plan without loading operational extensions or reopening capability fallback decisions; verify the exact generated entrypoint with an explicit build receipt.",
+      "prompt": "The installed runtime already proves the requested combination is supported. Add only a normal Python run entrypoint with one optional stage value, then verify the generated build. Replay and maintenance are not requested.",
+      "expected_output": "Use the common runner contract and single-stage passthrough without loading operational extensions or reopening capability fallback decisions; verify the exact generated entrypoint with an explicit build receipt.",
       "files": [],
       "expectations": [
-        "The implementation uses the normal run entrypoint contract and preserves ordered stage groups.",
+        "The implementation uses the normal run entrypoint contract and passes one stage unchanged to one driver call.",
         "Replay, maintenance, and unsupported-adapter mechanics are not introduced into the normal runner.",
         "Verification uses the exact generated artifacts and the explicitly selected build-verification receipt."
       ]
     },
     {
       "id": 19,
-      "prompt": "Create a Databricks Spark normal runner that a scheduled notebook task can parameterize with metadata, log, watermark, and nested stage groups. The verified packages will be attached to the job before it starts.",
-      "expected_output": "Use Databricks widgets for scalar strings, decode STAGE_GROUPS_JSON without changing group order or comma strings, avoid runtime installation, and execute the generated artifact through DataCoolie.",
+      "prompt": "Create a Databricks Spark normal runner that a scheduled notebook task can parameterize with metadata, log, watermark, and one stage value. The verified packages will be attached to the job before it starts.",
+      "expected_output": "Use a Databricks STAGE widget, pass its scalar unchanged to one framework call, avoid runtime installation, and execute the generated artifact through DataCoolie.",
       "files": [],
       "expectations": [
-        "The runner reads Databricks job parameters through dbutils.widgets and decodes STAGE_GROUPS_JSON as an outer list.",
+        "The runner reads STAGE through dbutils.widgets and does not decode or normalize it.",
         "The notebook does not install packages or restart Python; dependency attachment is a platform prerequisite.",
-        "The exact generated runner preserves ordered stage groups and executes through DataCoolieDriver.run."
+        "The exact generated runner executes one DataCoolieDriver.run call with the received stage."
       ]
     },
     {
       "id": 20,
-      "prompt": "Create a Fabric Spark normal notebook runner for a pipeline activity. It must accept a comma group followed by a list group, while Fabric base parameters support only simple values.",
-      "expected_output": "Expose STAGE_GROUPS_JSON as a string in the tagged parameter cell, decode and validate it afterward, preserve stage semantics, and rely on the prepared Fabric environment for dependencies.",
+      "prompt": "Create a Fabric Spark normal notebook runner for a pipeline activity. It accepts one optional stage value while Fabric base parameters support simple values.",
+      "expected_output": "Expose STAGE as an optional scalar string in the tagged parameter cell, pass it unchanged once, and rely on the framework to interpret the empty default and supplied content.",
       "files": [],
       "expectations": [
-        "The tagged Fabric parameter cell contains only supported simple values and exposes STAGE_GROUPS_JSON as a string.",
-        "JSON decoding occurs after the parameter cell and preserves comma strings, nested list groups, and outer order.",
+        "The tagged Fabric parameter cell exposes only one optional STAGE scalar.",
+        "No stage JSON decoding, normalization, or runner-side loop is introduced.",
         "The notebook has no runtime environment/engine selector and performs no inline package installation."
       ]
     },
     {
       "id": 21,
-      "prompt": "Create a scheduled maintenance runner. First show operators exactly which deduplicated physical destinations would be compacted or cleaned with the requested retention, then require confirmation before mutation. Do not print secrets.",
-      "expected_output": "Use DataCoolie maintenance inspection and mutation APIs, print a stable non-secret physical-target preview, retain explicit mutation confirmation, and avoid a custom scheduler or unsupported dry-run claim.",
+      "prompt": "Create a scheduled maintenance runner that accepts connection, compact/cleanup, retention, and worker parameters. DataCoolie already owns eligible-target selection, physical deduplication, dispatch, logging, and results; keep the runner minimal and require confirmation.",
+      "expected_output": "Decode only platform transport, require mutation confirmation, invoke DataCoolieDriver.run_maintenance once, and surface framework failure without adding inspection or preview logic.",
       "files": [],
       "expectations": [
-        "Inspection uses load_maintenance_dataflows and prints sorted destination key, table/path, connection, format, operations, and retention without connection configuration or secrets.",
-        "Mutation reports its requested settings, requires explicit confirmation, and only then calls run_maintenance.",
-        "DataCoolie retains physical-target deduplication and dispatch ownership; no custom deduper, scheduler, or dry_run safety claim is introduced."
+        "The runner contains no load_maintenance_dataflows call, inspect-only mode, or target preview formatter.",
+        "Mutation requires explicit confirmation and then calls run_maintenance exactly once with the received filters.",
+        "DataCoolie retains target selection, deduplication, dispatch, logging, and result ownership; the runner only converts transport types and surfaces failure."
       ]
     },
     {
@@ -241,6 +241,28 @@
         "Build accepts a valid exact architecture approval without the design skill directory.",
         "No sibling skill script or schema path is required at materialization or automation runtime.",
         "Malformed, stale, misnamed, or symlinked approval evidence still fails closed."
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "Discovery returned exact source column types for several direct source objects. Author the metadata without duplicating the source schema inside every dataflow transform.",
+      "expected_output": "Write observed types once to metadata/schema_hints.json keyed by source identity and reserve transform.schema_hints for intentional dataflow-specific casts or overrides.",
+      "files": [],
+      "expectations": [
+        "Exact observed source types are authored in top-level shared schema hints.",
+        "The provider's runtime attachment to transform is not treated as a second authoring source.",
+        "Query/function sources without table identity are reported as outside the shared table-key lookup rather than silently duplicated."
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "Ingest each source object in full. Some objects have direct table or API endpoint addresses; another extract genuinely requires a source-side join; one remaining source needs verified multi-step non-relational handling.",
+      "expected_output": "Use direct native addresses for whole objects, one bounded query for the join, and a metadata-addressed Python function only for the evidenced final gap.",
+      "files": [],
+      "expectations": [
+        "Direct tables, objects, paths, or endpoints are preferred over equivalent SELECT-star queries.",
+        "The query is limited to necessary source-side relational shaping.",
+        "Python is the final narrow fallback and the supported remainder stays framework-native."
       ]
     }
   ]

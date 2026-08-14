@@ -47,6 +47,21 @@ or maintenance behavior with bespoke code merely because it appears shorter. Exa
 belongs to `references/schema-quick-reference.md`; entrypoint behavior belongs to
 `references/runner-contract.md` and its operational extension.
 
+## Source expression order
+
+Choose the least expressive native source form that preserves the required behavior:
+
+1. Address the source object directly with a table/object/path or API endpoint when extracting that
+   object as a whole. Do not replace a supported direct address with an equivalent `SELECT *`.
+2. Use one bounded source query when source-side relational work is required, such as joins,
+   projections, filters, aggregations, or set-based shaping that materially defines the extract.
+3. Use a metadata-addressed Python function only when direct addressing and a bounded query cannot
+   express verified multi-step or non-relational behavior.
+
+Record evidence before moving down the order. Keep direct-address and query-capable parts native
+even when one narrow custom function remains necessary. This reference owns the selection rule;
+field syntax and examples remain in `references/schema-quick-reference.md`.
+
 ## Unsupported boundary
 
 Before adding custom code, record:

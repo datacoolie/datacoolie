@@ -17,16 +17,20 @@ Verify:
   content `stage`, rejects duplicate names, and resolves environment overlays correctly.
 - A supported path remains metadata-driven and calls `DataCoolieDriver.run(...)`.
 - One environment can materialize multiple engine-specific runners.
-- Repeated stage groups preserve order and stop after failure.
-- Databricks widgets and Fabric/Glue JSON parameters preserve structured stage plans without
-  editing generated notebook bytes; blank stages fail before driver construction.
+- Local, Databricks, Fabric, and Glue runners pass one optional stage value unchanged to one
+  framework operation; no runner creates a stage plan or accepts repeated stage arguments.
+- Platform parameters preserve generated notebook bytes; runners pass stage and path values to the
+  framework without content validation or normalization.
 - Executable notebooks never install packages or restart their runtime; provision/release attaches
   verified dependencies before execution.
-- Replay templates preserve ordered stage selections, `[start, end)` and chunk parameters, call
-  `load_dataflows`/`run_replay`, and require separate confirmation before saving watermarks.
-- Maintenance templates use read-only target inspection, call `run_maintenance` only after explicit
-  confirmation, expose exact non-secret physical targets and retention/operation/connection
-  controls, and make no `dry_run` safety claim.
+- Replay templates pass one stage unchanged, preserve numeric boundary types lost by text-only
+  transports, decode the serialized chunk value, call `load_dataflows`/`run_replay`, and require
+  separate confirmation before saving watermarks. Framework execution owns replay interval and
+  range validation.
+- Maintenance templates call `run_maintenance` once after explicit confirmation, expose only
+  framework inputs, delegate target selection, deduplication, dispatch, logging, connection, and
+  numeric constraints to DataCoolie, and retain the at-least-one-operation guard. They do not add
+  preview, inspection, scheduling, or `dry_run` behavior.
 - Normal, replay, and maintenance entrypoints all materialize by fixed operation/platform/engine
   identity and appear in manifest checksums.
 - Equal inputs reuse a verified build; changed inputs create a new build ID.

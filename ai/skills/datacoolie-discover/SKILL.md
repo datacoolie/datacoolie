@@ -1,6 +1,6 @@
 ---
 name: datacoolie-discover
-description: Inspect data sources and produce verified source evidence for DataCoolie design or build work. Use when schemas, objects, keys, relationships, volumes, change columns, file layout, API surface, or source constraints are unknown or contradictory. Discovery is optional, read-only evidence and never creates runtime metadata, workspace code, infrastructure, or releases.
+description: Inspect data sources and produce verified source evidence for DataCoolie design or build work. Use for every new DataCoolie project before design, for every declared source type, and when an existing source is new, changed, missing evidence, or contradictory. Discovery is read-only evidence and never creates runtime metadata, workspace code, infrastructure, or releases.
 ---
 
 # DataCoolie Discover
@@ -45,7 +45,10 @@ Resolve resources relative to this skill and read only the matching reference.
 
 ## Workflow
 
-1. Define the source boundary and the downstream fact that is missing.
+1. Inventory every declared source boundary. For a new project, probe each source even when the
+   supplied connection details and descriptions appear complete; declared facts select and bound
+   the probe but do not replace observed evidence. For existing work, scope probes to the new,
+   changed, missing, or contradictory facts.
 2. Read `references/dependency-routing.md`; install only the selected probe's dependencies and
    preflight any required external CLI.
 3. Run each probe into a distinct `.scratch/discover/{probe}.csv` and status JSON. Keep bounded
@@ -53,7 +56,8 @@ Resolve resources relative to this skill and read only the matching reference.
 4. Resolve or report partial and failed probes. Never describe partial coverage as complete.
 5. Merge all usable probe CSVs, including a single input, with `merge_observations.py` into
    `discover/observations.csv`. This validates the canonical contract and exact stable keys.
-6. Classify evidence as `declared`, `observed`, `inferred`, or `unresolved`. Watermark candidates
+6. Classify evidence as `declared`, `observed`, `inferred`, or `unresolved`. Preserve exact observed
+   column types so build can author shared schema hints without re-querying or guessing. Watermark candidates
    use an evidence class or remain empty; they are not booleans.
 7. Investigate only unresolved gaps. Use `references/fallback-probes.md` rather than copying static
    vendor commands. Custom database SQL must be one read-only `SELECT` or `WITH` statement from a
