@@ -5574,7 +5574,9 @@ prevent accidental persistence or cache-key leaks.</p>
 <p><code>connection.secrets_ref</code> maps each source (scope / vault URL / prefix /
 SecretId) to a <strong>list of</strong> <code>configure</code> field names.  Each listed field
 must already be present in <code>configure</code> with the vault key name as its
-value; <code>resolve_secrets</code> replaces that value with the real secret.</p>
+value; <code>resolve_secrets</code> replaces that value with the real secret.
+Repeated calls are idempotent: fields already holding
+:class:<code>SecretStr</code> are left unchanged.</p>
 <p>Source keys may contain a <code>&lt;resolver&gt;:&lt;arg&gt;</code> prefix (e.g.
 <code>"env:APP_"</code>).  When <em>resolver_lookup</em> is provided and returns a
 resolver for that prefix, the plugin resolver is used.  Otherwise the
