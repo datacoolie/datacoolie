@@ -68,6 +68,17 @@ At resolve time DataCoolie:
 2. Calls `connection.refresh_from_configure()` so first-class attributes
    (`database`, `catalog`) pick up resolved values.
 
+Resolution is idempotent on a runtime connection. If a field already contains
+`SecretStr`, repeated calls leave it unchanged instead of treating the masked
+`"***"` representation as another secret key. The driver uses one runtime
+copy for a normal run or maintenance run, and one runtime copy for each replay
+chunk. Retries reuse the copy for that execution unit, including values
+resolved by an earlier attempt, while the original metadata retains its secret
+references. Separate runs and replay chunks still hydrate their own connection
+copies; native providers can serve matching `(source, key)` lookups from their
+TTL cache. Maintenance resolves only the destination connection because it
+does not create or use a source reader.
+
 If a field is listed in `secrets_ref` but missing from `configure`, DataCoolie
 raises an error instead of guessing where the secret should be written.
 

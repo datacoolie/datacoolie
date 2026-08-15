@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
     from datacoolie.core.secret_resolver import BaseSecretResolver
+    from datacoolie.core.models import Connection
 
 from datacoolie.core.constants import (
     DEFAULT_MAX_WORKERS,
@@ -432,7 +433,8 @@ class DataCoolieDriver:
     def _process_dataflow(self, dataflow: DataFlow) -> DataFlowRuntimeInfo:
         """Process a single dataflow with retry logic.
 
-        Thin wrapper around :meth:`_run_single_pipeline` with deep copy.
+        Deep-copy metadata once so every retry shares one isolated runtime
+        object, including any secrets resolved by an earlier attempt.
         """
         return self._run_single_pipeline(dataflow.model_copy(deep=True))
 
@@ -452,7 +454,8 @@ class DataCoolieDriver:
         This is the shared execution wrapper used by both normal ETL
         (:meth:`_process_dataflow`) and replay chunks (:meth:`_process_replay`).
 
-        The *dataflow* should already be deep-copied by the caller.
+        The *dataflow* should already be deep-copied by the caller and is
+        intentionally reused across retry attempts.
 
         Args:
             dataflow: Pre-copied dataflow to execute.
@@ -1015,6 +1018,8 @@ class DataCoolieDriver:
 
         dest_runtime: Optional[DestinationRuntimeInfo] = None
         try:
+            if dataflow.destination and dataflow.destination.connection:
+                self._resolve_secrets_for_connection(dataflow.destination.connection)
             writer = self._create_destination_writer(dataflow)
             dest_runtime = writer.run_maintenance(
                 dataflow=dataflow,
@@ -1044,6 +1049,21 @@ class DataCoolieDriver:
     # Secret resolution
     # ------------------------------------------------------------------
 
+    def _resolve_secrets_for_connection(self, connection: Connection) -> None:
+        """Resolve secret references for one runtime connection."""
+        from datacoolie import resolver_registry
+
+        def _lookup(prefix: str) -> BaseSecretResolver | None:
+            if resolver_registry.is_available(prefix):
+                return resolver_registry.get_or_create(prefix)
+            return None
+
+        resolve_secrets(
+            connection,
+            self._secret_provider,
+            resolver_lookup=_lookup,
+        )
+
     def _resolve_connection_secrets(self, dataflow: DataFlow) -> None:
         """Resolve secret references on source and destination connections.
 
@@ -1054,26 +1074,11 @@ class DataCoolieDriver:
         Prefixed sources (e.g. ``"env:APP_"``) are dispatched to the
         matching plugin resolver via :data:`datacoolie.resolver_registry`.
         """
-        from datacoolie import resolver_registry
-
-        def _lookup(prefix: str) -> BaseSecretResolver | None:
-            if resolver_registry.is_available(prefix):
-                return resolver_registry.get_or_create(prefix)
-            return None
-
         if dataflow.source and dataflow.source.connection:
-            resolve_secrets(
-                dataflow.source.connection,
-                self._secret_provider,
-                resolver_lookup=_lookup,
-            )
+            self._resolve_secrets_for_connection(dataflow.source.connection)
 
         if dataflow.destination and dataflow.destination.connection:
-            resolve_secrets(
-                dataflow.destination.connection,
-                self._secret_provider,
-                resolver_lookup=_lookup,
-            )
+            self._resolve_secrets_for_connection(dataflow.destination.connection)
 
     # ------------------------------------------------------------------
     # Factory methods

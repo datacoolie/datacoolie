@@ -164,8 +164,16 @@ class BaseSecretProvider(ABC):
                 if entry is not None:
                     value, ts = entry
                     if time.monotonic() - ts < self._cache_ttl:
+                        logger.debug(
+                            "Using secret from TTL cache (provider=%s)",
+                            type(self).__name__,
+                        )
                         return value
 
+        logger.info(
+            "Fetching secret from provider (provider=%s)",
+            type(self).__name__,
+        )
         value = self._fetch_secret(key, source)
 
         if self._cache_ttl > 0:
@@ -233,6 +241,8 @@ def resolve_secrets(
     SecretId) to a **list of** ``configure`` field names.  Each listed field
     must already be present in ``configure`` with the vault key name as its
     value; ``resolve_secrets`` replaces that value with the real secret.
+    Repeated calls are idempotent: fields already holding
+    :class:`SecretStr` are left unchanged.
 
     Source keys may contain a ``<resolver>:<arg>`` prefix (e.g.
     ``"env:APP_"``).  When *resolver_lookup* is provided and returns a
@@ -260,12 +270,19 @@ def resolve_secrets(
             f"secrets_ref must be a dict, got {type(raw).__name__}"
         )
 
-    total = sum(len(v) for v in raw.values() if isinstance(v, list))
-    logger.info(
-        "Resolving %d secret(s) for connection '%s'",
-        total,
-        connection.name,
+    unresolved_total = sum(
+        1
+        for fields in raw.values()
+        if isinstance(fields, list)
+        for config_field in fields
+        if not isinstance(connection.configure.get(config_field), SecretStr)
     )
+    if unresolved_total:
+        logger.debug(
+            "Hydrating %d unresolved secret field(s) for connection '%s'",
+            unresolved_total,
+            connection.name,
+        )
 
     native = NativeProviderResolver(provider)
 
@@ -280,6 +297,8 @@ def resolve_secrets(
 
         for config_field in fields:
             vault_key = connection.configure.get(config_field)
+            if isinstance(vault_key, SecretStr):
+                continue
             if vault_key is None:
                 raise DataCoolieError(
                     f"Field '{config_field}' listed in secrets_ref is missing from "

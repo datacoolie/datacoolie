@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,7 +15,6 @@ from datacoolie.core.secret_resolver import (
 )
 from datacoolie.core.secret_provider import (
     BaseSecretProvider,
-    SecretStr,
     resolve_secrets,
     unwrap_secret,
 )
@@ -187,6 +185,26 @@ class TestBaseSecretResolver:
 
 class TestResolverDispatch:
     """Test that resolve_secrets dispatches to plugin resolvers for prefixed sources."""
+
+    def test_repeated_resolution_does_not_call_plugin_again(self):
+        resolver = InMemoryResolver(secrets={"APP_DB_PASSWORD": "plugin-secret"})
+        provider = InMemoryProvider(secrets={})
+        conn = _make_connection(
+            secrets_ref={"custom:APP_": ["password"]},
+            configure={"password": "DB_PASSWORD"},
+        )
+
+        def lookup(prefix: str) -> BaseSecretResolver | None:
+            return resolver if prefix == "custom" else None
+
+        resolve_secrets(conn, provider, resolver_lookup=lookup)
+        resolved = conn.configure["password"]
+        resolve_secrets(conn, provider, resolver_lookup=lookup)
+
+        assert conn.configure["password"] is resolved
+        assert unwrap_secret(resolved) == "plugin-secret"
+        assert resolver.call_count == 1
+        assert provider.call_count == 0
 
     def test_env_prefix_dispatches_to_resolver(self, monkeypatch):
         """Source 'env:APP_' should dispatch to EnvResolver instead of provider."""

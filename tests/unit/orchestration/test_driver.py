@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datacoolie.core.constants import ColumnCaseMode, DataFlowStatus, Format, LoadType
+from datacoolie.core.constants import ColumnCaseMode, DataFlowStatus, ExecutionType, Format, LoadType
 from datacoolie.core.exceptions import DataCoolieError
 from datacoolie.core.models import (
     Connection,
@@ -27,6 +27,7 @@ from datacoolie.core.models import (
     SourceRuntimeInfo,
     TransformRuntimeInfo,
 )
+from datacoolie.core.secret_provider import BaseSecretProvider, SecretStr
 from datacoolie.orchestration.driver import DataCoolieDriver, PipelineError, create_driver
 from datacoolie.orchestration.parallel_executor import ExecutionResult
 
@@ -118,6 +119,18 @@ def _make_driver(
         etl_logger=etl_logger,
     )
     return driver, engine, metadata, watermark
+
+
+class _CountingSecretProvider(BaseSecretProvider):
+    """Native provider test double that retains real TTL-cache behavior."""
+
+    def __init__(self) -> None:
+        super().__init__(cache_ttl=300)
+        self.fetch_count = 0
+
+    def _fetch_secret(self, key: str, source: str) -> str:
+        self.fetch_count += 1
+        return "resolved-value"
 
 
 # ============================================================================
@@ -570,6 +583,34 @@ class TestProcessDataflow:
         assert result.status == DataFlowStatus.SUCCEEDED.value
         assert result.retry_attempts == 2
 
+    @patch("datacoolie.orchestration.retry_handler.time.sleep")
+    def test_retry_reuses_resolved_secret_on_single_runtime_copy(self, mock_sleep):
+        cfg = DataCoolieRunConfig(retry_count=1, retry_delay=0.01)
+        d, *_ = _make_driver(config=cfg)
+        df = _dataflow()
+        connection = df.source.connection
+        connection.configure["password"] = "db-password"
+        connection.secrets_ref = {"scope": ["password"]}
+
+        secret_provider = MagicMock()
+        secret_provider.get_secret.return_value = "runtime-secret"
+        d._secret_provider = secret_provider
+
+        mock_reader = MagicMock()
+        mock_reader.read.side_effect = [RuntimeError("transient"), None]
+        mock_reader.get_runtime_info.return_value = SourceRuntimeInfo(
+            rows_read=0,
+            status=DataFlowStatus.SUCCEEDED.value,
+        )
+
+        with patch.object(d, "_create_source_reader", return_value=mock_reader):
+            result = d._process_dataflow(df)
+
+        assert result.status == DataFlowStatus.SKIPPED.value
+        assert result.retry_attempts == 1
+        secret_provider.get_secret.assert_called_once_with("db-password", "scope")
+        assert connection.configure["password"] == "db-password"
+
     def test_etl_logger_called(self):
         etl_logger = MagicMock()
         d, *_ = _make_driver(etl_logger=etl_logger)
@@ -681,6 +722,57 @@ class TestProcessMaintenance:
             result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.SUCCEEDED.value
+
+    def test_retry_reuses_resolved_destination_secret(self):
+        config = DataCoolieRunConfig(retry_count=1, retry_delay=0)
+        d, *_ = _make_driver(config=config)
+
+        source_connection = _conn(name="source")
+        source_connection.configure["password"] = "source-password-ref"
+        source_connection.secrets_ref = {"source-scope": ["password"]}
+
+        destination_connection = _conn(name="destination")
+        destination_connection.configure["password"] = "destination-password-ref"
+        destination_connection.secrets_ref = {"destination-scope": ["password"]}
+
+        df = DataFlow(
+            dataflow_id="maintenance-secrets",
+            source=Source(connection=source_connection, table="src"),
+            destination=Destination(
+                connection=destination_connection,
+                table="dst",
+                load_type=LoadType.APPEND.value,
+            ),
+        )
+
+        secret_provider = MagicMock()
+        secret_provider.get_secret.return_value = "resolved-value"
+        d._secret_provider = secret_provider
+
+        mock_writer = MagicMock()
+        mock_writer.run_maintenance.side_effect = [
+            RuntimeError("transient maintenance failure"),
+            DestinationRuntimeInfo(
+                status=DataFlowStatus.SUCCEEDED.value,
+                operation_type=ExecutionType.MAINTENANCE.value,
+            ),
+        ]
+
+        with patch.object(d, "_create_destination_writer", return_value=mock_writer):
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.SUCCEEDED.value
+        assert result.retry_attempts == 1
+        assert mock_writer.run_maintenance.call_count == 2
+        secret_provider.get_secret.assert_called_once_with(
+            "destination-password-ref", "destination-scope"
+        )
+
+        runtime_df = mock_writer.run_maintenance.call_args.kwargs["dataflow"]
+        assert runtime_df.source.connection.configure["password"] == "source-password-ref"
+        assert isinstance(runtime_df.destination.connection.configure["password"], SecretStr)
+        assert source_connection.configure["password"] == "source-password-ref"
+        assert destination_connection.configure["password"] == "destination-password-ref"
 
 
 # ============================================================================
@@ -963,6 +1055,86 @@ class TestRunReplay:
         assert result.succeeded == 1
         # Reader called 3 times (once per chunk)
         assert reader.read.call_count == 3
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_chunk_retry_reuses_resolved_secret(
+        self, mock_reader_fn, mock_pipeline_fn, mock_writer_fn
+    ):
+        config = DataCoolieRunConfig(retry_count=1, retry_delay=0)
+        driver, *_ = _make_driver(config=config)
+
+        reader = MagicMock()
+        reader.read.side_effect = [RuntimeError("transient read failure"), "fake_df"]
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        mock_reader_fn.return_value = reader
+
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "transformed_df"
+        pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+        mock_pipeline_fn.return_value = pipeline
+
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=10)
+        mock_writer_fn.return_value = writer
+
+        dataflow = _dataflow_with_watermark()
+        connection = dataflow.source.connection
+        connection.configure["password"] = "password-ref"
+        connection.secrets_ref = {"scope": ["password"]}
+
+        secret_provider = MagicMock()
+        secret_provider.get_secret.return_value = "resolved-value"
+        driver._secret_provider = secret_provider
+
+        replay = ReplayConfig(start="2025-01-01", end="2025-02-01")
+        result = driver.run_replay(dataflow, replay)
+
+        assert result.succeeded == 1
+        assert reader.read.call_count == 2
+        secret_provider.get_secret.assert_called_once_with("password-ref", "scope")
+        assert connection.configure["password"] == "password-ref"
+
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
+    @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_source_reader")
+    def test_chunks_reuse_native_provider_ttl_cache(
+        self, mock_reader_fn, mock_pipeline_fn, mock_writer_fn
+    ):
+        driver, *_ = self._setup_driver_for_replay()
+
+        reader = MagicMock()
+        reader.read.return_value = "fake_df"
+        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        mock_reader_fn.return_value = reader
+
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "transformed_df"
+        pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
+        mock_pipeline_fn.return_value = pipeline
+
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = DestinationRuntimeInfo(rows_written=10)
+        mock_writer_fn.return_value = writer
+
+        dataflow = _dataflow_with_watermark()
+        connection = dataflow.source.connection
+        connection.configure["password"] = "password-ref"
+        connection.secrets_ref = {"scope": ["password"]}
+
+        provider = _CountingSecretProvider()
+        driver._secret_provider = provider
+
+        result = driver.run_replay(
+            dataflow,
+            _replay_config(chunk_interval={"months": 1}),
+        )
+
+        assert result.succeeded == 1
+        assert reader.read.call_count == 3
+        assert provider.fetch_count == 1
+        assert connection.configure["password"] == "password-ref"
 
     @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
     @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")
@@ -1418,6 +1590,13 @@ class TestDeepCopyDataFlow:
         df = _dataflow()
         original_id = df.dataflow_id
         original_table = df.source.table
+        original_connection = df.source.connection
+        original_connection.configure["password"] = "db-password"
+        original_connection.secrets_ref = {"scope": ["password"]}
+
+        secret_provider = MagicMock()
+        secret_provider.get_secret.return_value = "runtime-secret"
+        d._secret_provider = secret_provider
 
         mock_reader = MagicMock()
         mock_reader.read.return_value = None
@@ -1432,6 +1611,8 @@ class TestDeepCopyDataFlow:
         # Original DataFlow remains untouched
         assert df.dataflow_id == original_id
         assert df.source.table == original_table
+        assert original_connection.configure["password"] == "db-password"
+        secret_provider.get_secret.assert_called_once_with("db-password", "scope")
 
 
 # ============================================================================

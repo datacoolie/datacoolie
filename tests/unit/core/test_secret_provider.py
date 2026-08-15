@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import Dict
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -192,6 +193,27 @@ class TestBaseSecretProvider:
         provider.get_secret("db-password")
         assert provider.fetch_count == 1  # cached on second call
 
+    def test_cache_hit_and_provider_fetch_have_distinct_safe_logs(self, provider, caplog):
+        caplog.set_level(logging.DEBUG, logger="datacoolie.core.secret_provider")
+
+        provider.get_secret("db-password")
+        provider.get_secret("db-password")
+
+        fetch_records = [
+            record for record in caplog.records
+            if "Fetching secret from provider" in record.getMessage()
+        ]
+        cache_records = [
+            record for record in caplog.records
+            if "Using secret from TTL cache" in record.getMessage()
+        ]
+        assert len(fetch_records) == 1
+        assert fetch_records[0].levelno == logging.INFO
+        assert len(cache_records) == 1
+        assert cache_records[0].levelno == logging.DEBUG
+        assert "db-password" not in caplog.text
+        assert "s3cret!" not in caplog.text
+
     def test_cache_disabled_always_fetches(self, no_cache_provider):
         no_cache_provider.get_secret("db-password")
         no_cache_provider.get_secret("db-password")
@@ -273,6 +295,75 @@ class TestResolveSecrets:
         resolve_secrets(conn, provider)
         assert isinstance(conn.configure["password"], SecretStr)
         assert unwrap_secret(conn.configure["password"]) == "s3cret!"
+
+    def test_repeated_resolution_reuses_existing_secret_str(self, provider, caplog):
+        caplog.set_level(logging.DEBUG, logger="datacoolie.core.secret_provider")
+        conn = self._make_connection(
+            secrets_ref={"some-source": ["password"]},
+            configure={"password": "db-password"},
+        )
+
+        resolve_secrets(conn, provider)
+        resolved = conn.configure["password"]
+        assert "Hydrating 1 unresolved secret field(s)" in caplog.text
+        caplog.clear()
+        resolve_secrets(conn, provider)
+
+        assert conn.configure["password"] is resolved
+        assert provider.fetch_count == 1
+        assert "Hydrating" not in caplog.text
+        assert "TTL cache" not in caplog.text
+        assert conn.refresh_from_configure.call_count == 2
+
+    def test_separate_connections_hydrate_from_shared_provider_cache(self, provider):
+        first = self._make_connection(
+            secrets_ref={"some-source": ["password"]},
+            configure={"password": "db-password"},
+        )
+        second = self._make_connection(
+            secrets_ref={"some-source": ["password"]},
+            configure={"password": "db-password"},
+        )
+
+        resolve_secrets(first, provider)
+        resolve_secrets(second, provider)
+
+        assert unwrap_secret(first.configure["password"]) == "s3cret!"
+        assert unwrap_secret(second.configure["password"]) == "s3cret!"
+        assert first.configure["password"] is not second.configure["password"]
+        assert provider.fetch_count == 1
+
+    def test_partial_resolution_retries_only_unresolved_fields(self):
+        class FailOnceProvider(InMemorySecretProvider):
+            def __init__(self):
+                super().__init__(
+                    secrets={"db-password": "s3cret!", "api-token": "tok123"},
+                    cache_ttl=0,
+                )
+                self._failed = False
+
+            def _fetch_secret(self, key: str, source: str) -> str:
+                if key == "api-token" and not self._failed:
+                    self._failed = True
+                    self.fetch_count += 1
+                    raise DataCoolieError("transient secret failure")
+                return super()._fetch_secret(key, source)
+
+        partial_provider = FailOnceProvider()
+        conn = self._make_connection(
+            secrets_ref={"some-source": ["password", "auth_token"]},
+            configure={"password": "db-password", "auth_token": "api-token"},
+        )
+
+        with pytest.raises(DataCoolieError, match="transient secret failure"):
+            resolve_secrets(conn, partial_provider)
+        resolved_password = conn.configure["password"]
+
+        resolve_secrets(conn, partial_provider)
+
+        assert conn.configure["password"] is resolved_password
+        assert unwrap_secret(conn.configure["auth_token"]) == "tok123"
+        assert partial_provider.fetch_count == 3
 
     def test_non_dict_type_raises(self, provider):
         conn = self._make_connection(secrets_ref="not-allowed-string")

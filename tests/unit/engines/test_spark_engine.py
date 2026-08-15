@@ -567,8 +567,8 @@ class TestSparkEngineAdvanced:
             return writer
 
         with patch.object(engine, "write_to_table"):
-            # Patch mergeInto on the DataFrame class so keys_df (derived via .select) also uses it
-            with patch.object(DataFrame, "mergeInto", side_effect=fake_merge_into, create=True):
+            # Spark 4 may return a runtime DataFrame subclass from .select().
+            with patch.object(type(sample_df), "mergeInto", side_effect=fake_merge_into, create=True):
                 engine._merge_into_overwrite(sample_df, "cat.db.tbl", ["id"], fmt="delta")
 
         assert captured["table"] == "cat.db.tbl"
