@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from jsonschema import Draft202012Validator
 
 import design_approval
 import materialize as build_tool
@@ -22,6 +23,7 @@ RUNNER_TEMPLATE = (
     Path(__file__).resolve().parents[3]
     / "skills/datacoolie-build/templates/runners/run_local_polars.py.example"
 )
+BUILD_SKILL_DIR = Path(__file__).resolve().parents[2] / "datacoolie-build"
 
 
 def _workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -130,10 +132,10 @@ def test_materialize_builds_all_environments_and_engines(
     manifest = build_tool.verify_build(build_dir)
 
     assert result["reused"] is False
-    assert build_dir == workspace / ".builds" / result["build_id"]
-    assert result["build_id"].startswith("260808-")
-    assert len(result["build_id"]) == 19
-    assert manifest["content_digest"].startswith(result["build_id"].split("-", 1)[1])
+    assert build_dir == workspace / ".builds" / "artifacts" / result["build_id"]
+    assert result["build_id"].startswith("260808-091011-")
+    assert len(result["build_id"]) == 26
+    assert manifest["content_digest"].startswith(result["build_id"].rsplit("-", 1)[1])
     assert len(manifest["content_digest"]) == 64
     assert manifest["created_at"] == "2026-08-08T09:10:11Z"
     assert manifest["design"] is None
@@ -147,6 +149,19 @@ def test_materialize_builds_all_environments_and_engines(
         assert (build_dir / environment / "metadata.json").is_file()
     assert (build_dir / "dist/functions.zip").is_file()
     assert not any(path.is_symlink() for path in build_dir.rglob("*"))
+    for environment in ("dev", "test"):
+        pointer = json.loads(
+            (workspace / ".builds" / "current" / f"{environment}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert pointer == {
+            "schema_version": 1,
+            "artifact_type": "current_build",
+            "environment": environment,
+            "build_id": result["build_id"],
+        }
+        assert build_tool.resolve_current_build(workspace, environment) == build_dir
 
     test_metadata = json.loads(
         (build_dir / "test/metadata.json").read_text(encoding="utf-8")
@@ -155,6 +170,96 @@ def test_materialize_builds_all_environments_and_engines(
         item for item in test_metadata["connections"] if item["name"] == "destination"
     )
     assert destination["configure"]["base_path"] == "test-output"
+
+
+def test_current_pointer_schema_and_environment_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    schema = json.loads(
+        (BUILD_SKILL_DIR / "schemas/current-build.schema.json").read_text(encoding="utf-8")
+    )
+    Draft202012Validator.check_schema(schema)
+    workspace = _workspace(tmp_path, monkeypatch)
+    first = build_tool.materialize(workspace=workspace)
+    test_pointer_path = workspace / ".builds/current/test.json"
+    test_pointer = json.loads(test_pointer_path.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(test_pointer)
+
+    monkeypatch.setattr(
+        build_tool,
+        "_utc_now",
+        lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
+    )
+    second = build_tool.materialize(workspace=workspace, environments=["dev"])
+    assert second["build_id"] != first["build_id"]
+    assert json.loads(test_pointer_path.read_text(encoding="utf-8"))["build_id"] == (
+        first["build_id"]
+    )
+    assert build_tool.resolve_current_build(workspace, "dev") == Path(second["build_dir"])
+
+
+def test_current_pointer_rejects_wrong_environment_and_unknown_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    pointer_path = workspace / ".builds/current/dev.json"
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    pointer["environment"] = "qa"
+    pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
+    with pytest.raises(ValueError, match="environment does not match"):
+        build_tool.resolve_current_build(workspace, "dev")
+
+    pointer["environment"] = "dev"
+    pointer["build_id"] = "260808-091012-000000000000"
+    pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
+    with pytest.raises(ValueError, match="Incomplete build"):
+        build_tool.resolve_current_build(workspace, "dev")
+    assert build_tool.verify_build(Path(result["build_dir"]))["build_id"] == result["build_id"]
+
+
+def test_current_pointer_rejects_symlinked_state_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    build_tool.materialize(workspace=workspace, environments=["dev"])
+    current_root = workspace.resolve() / ".builds/current"
+    original_is_symlink = Path.is_symlink
+
+    def report_current_as_symlink(path: Path) -> bool:
+        return path == current_root or original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", report_current_as_symlink)
+    with pytest.raises(ValueError, match="Current-build path must not be a symlink"):
+        build_tool.resolve_current_build(workspace, "dev")
+
+
+def test_current_pointer_atomic_failure_preserves_previous_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    first = build_tool.materialize(workspace=workspace, environments=["dev"])
+    pointer_path = workspace / ".builds/current/dev.json"
+    original_pointer = pointer_path.read_bytes()
+    original_replace = build_tool.os.replace
+
+    monkeypatch.setattr(
+        build_tool,
+        "_utc_now",
+        lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
+    )
+
+    def fail_current_replace(source: str, target: Path) -> None:
+        if Path(target) == pointer_path:
+            raise OSError("simulated pointer replace failure")
+        original_replace(source, target)
+
+    monkeypatch.setattr(build_tool.os, "replace", fail_current_replace)
+    with pytest.raises(OSError, match="simulated pointer replace failure"):
+        build_tool.materialize(workspace=workspace, environments=["dev"])
+
+    assert pointer_path.read_bytes() == original_pointer
+    assert build_tool.resolve_current_build(workspace, "dev") == Path(first["build_dir"])
 
 
 def test_materialized_runner_preserves_verified_durable_bytes(
@@ -263,19 +368,33 @@ def test_materialized_manifest_binds_approved_design(
     }
 
 
-def test_same_inputs_reuse_build_and_change_creates_new_id(
+def test_build_id_uses_invocation_time_and_content_digest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
     first = build_tool.materialize(workspace=workspace, environments=["dev"])
+    monkeypatch.setattr(
+        build_tool,
+        "_utc_now",
+        lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
+    )
     second = build_tool.materialize(workspace=workspace, environments=["dev"])
-    assert second["build_id"] == first["build_id"]
-    assert second["reused"] is True
+    assert second["build_id"] != first["build_id"]
+    assert second["build_id"].startswith("260808-091012-")
+    assert second["reused"] is False
+    assert build_tool.verify_build(Path(first["build_dir"]))["content_digest"] == (
+        build_tool.verify_build(Path(second["build_dir"]))["content_digest"]
+    )
 
     runner = workspace / "runners/run_local_polars.py"
     runner.write_text("ENGINE = 'polars'\nREVISION = 2\n", encoding="utf-8")
+    monkeypatch.setattr(
+        build_tool,
+        "_utc_now",
+        lambda: datetime(2026, 8, 8, 9, 10, 13, tzinfo=timezone.utc),
+    )
     third = build_tool.materialize(workspace=workspace, environments=["dev"])
-    assert third["build_id"] != first["build_id"]
+    assert third["build_id"].startswith("260808-091013-")
     assert Path(first["build_dir"]).is_dir()
 
 
@@ -329,6 +448,7 @@ def test_materialization_tooling_identity_covers_runtime_helpers() -> None:
     paths = {item["path"] for item in build_tool._tooling_entries()}
     assert "scripts/_loaders.py" in paths
     assert "scripts/requirements.txt" in paths
+    assert "schemas/current-build.schema.json" in paths
 
 
 def test_checksum_tampering_is_rejected(
@@ -392,7 +512,7 @@ def test_build_id_must_match_creation_date_and_content_digest(
     with pytest.raises(ValueError, match="creation date mismatch"):
         build_tool.verify_build(wrong_date)
 
-    wrong_digest = build_dir.parent / "260808-000000000000"
+    wrong_digest = build_dir.parent / "260808-091011-000000000000"
     shutil.copytree(build_dir, wrong_digest)
     digest_manifest_path = wrong_digest / "manifest.json"
     digest_manifest = json.loads(digest_manifest_path.read_text(encoding="utf-8"))
@@ -513,8 +633,8 @@ def _write_build_receipt(
     }
     receipt_path = (
         workspace
-        / ".evidence"
-        / "builds"
+        / ".builds"
+        / "evidence"
         / manifest["build_id"]
         / environment
         / f"{receipt_id}.json"

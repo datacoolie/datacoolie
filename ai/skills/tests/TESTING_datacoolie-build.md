@@ -33,9 +33,11 @@ Verify:
   preview, inspection, scheduling, or `dry_run` behavior.
 - Normal, replay, and maintenance entrypoints all materialize by fixed operation/platform/engine
   identity and appear in manifest checksums.
-- Equal inputs reuse a verified build; changed inputs create a new build ID.
-- New build IDs use a UTC `YYMMDD` prefix plus 12 content-digest characters; manifests retain the
-  full digest and verification rejects identity/date/collision mismatches.
+- Every materialization is time-addressed; only byte-identical same-second output may reuse an ID.
+- Build IDs use UTC `YYMMDD-HHMMSS` plus 12 content-digest characters; manifests retain the full
+  digest and verification rejects identity/date/time/collision mismatches.
+- Materialization atomically updates the minimal `.builds/current/{env}.json` pointer after artifact
+  verification; tests may resolve current or select an exact previous build ID.
 - Checksums reject mutation and no generated file is a symlink.
 - Build-tool dependencies are explicit, schema resolution is bundled-only, and generated automation
   carries its dependency manifest, build-owned schemas, and verification tooling without sibling
@@ -46,8 +48,9 @@ Verify:
   metadata, functions, runner, design, framework-version, and tooling identity.
 - A typed receipt matches the exact generated environment, runner, metadata, optional functions,
   hashes, runtime paths, and timestamps; failed or mismatched receipts cannot satisfy release.
-- Release consumes an explicit receipt path and never searches for latest evidence.
-- Integration tests execute `.builds/{build_id}` while logs/watermarks remain under `.runtime/`.
+- Release consumes an exact build ID and explicit receipt path, never `current` or latest evidence.
+- Integration tests execute `.builds/artifacts/{build_id}` while logs/watermarks remain under
+  `.runtime/`; receipts remain under `.builds/evidence/`.
 - `automation/` is rendered only for explicit CI/reproducible-build scope.
 - Metadata lint covers clean, warning, and input-error exit paths; conversion covers native Excel
   round-trip and flattened transform fields.

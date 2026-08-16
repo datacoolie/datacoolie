@@ -18,7 +18,7 @@ TOKENS = (
     "## Evidence And Handoff",
     "conditional dependency, not a mandatory lifecycle phase",
     "exact plan hash",
-    ".evidence/provision/{env}/{receipt_id}.json",
+    "provision/evidence/{env}/receipts/{receipt_id}.json",
     "--require-apply-success",
 )
 

@@ -1,7 +1,7 @@
 ---
 artifact_type: discovery_report
 source_name: "{{ source_name }}"
-observed_at: "{{ observed_at }}"
+generated_at: "{{ generated_at }}"
 status: "{{ complete_or_partial }}"
 ---
 
@@ -22,9 +22,12 @@ status: "{{ complete_or_partial }}"
 
 {{ object_counts_key_relationships_and_material_volume_signals }}
 
-## Change-Detection Evidence
+## Watermark Assessment
 
-{{ declared_observed_and_inferred_change_signals_without_selecting_a_load_strategy }}
+{{ generated_watermark_assessment_table }}
+
+Generate this table with `finalize_watermark_assessment.py`; do not hand-maintain a second copy of
+object decisions. A shortlist is not confirmation.
 
 ## Operational Constraints
 

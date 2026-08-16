@@ -6,16 +6,12 @@
       "catalog": "",
       "schema": "schema_name",
       "object": "object_name",
-      "operation": "",
+      "source_operation": "",
       "column": "column_name"
     },
     "set": {
-      "watermark_candidate": "observed"
+      "watermark_candidate": "update"
     },
-    "evidence": {
-      "method": "owner_interview",
-      "observed_at": "2026-08-10T00:00:00Z",
-      "notes": "Evidence and provenance for this annotation"
-    }
+    "append_notes": "Owner confirmed this value advances for every row update"
   }
 ]

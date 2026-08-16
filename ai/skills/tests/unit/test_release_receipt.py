@@ -25,7 +25,7 @@ def _artifact(path: Path, workspace: Path) -> dict[str, str]:
 
 def _workspace(tmp_path: Path) -> Path:
     workspace = tmp_path / "project_dcws"
-    build_dir = workspace / ".builds" / "candidate"
+    build_dir = workspace / ".builds" / "artifacts" / "candidate"
     artifacts = []
     environments = {}
     for environment in ("dev", "qa"):
@@ -59,7 +59,7 @@ def _workspace(tmp_path: Path) -> Path:
         "input_digest": manifest["input_digest"],
         "artifacts": manifest["artifacts"],
     })
-    build_id = f"260810-{manifest['content_digest'][:12]}"
+    build_id = f"260810-000000-{manifest['content_digest'][:12]}"
     manifest["build_id"] = build_id
     (build_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     build_dir.rename(build_dir.with_name(build_id))
@@ -111,7 +111,7 @@ def _workspace(tmp_path: Path) -> Path:
             format_checker=FormatChecker(),
         ).validate(build_receipt)
         receipt_path = (
-            workspace / ".evidence" / "builds" / build_id / environment / "build-check.json"
+            workspace / ".builds" / "evidence" / build_id / environment / "build-check.json"
         )
         receipt_path.parent.mkdir(parents=True)
         receipt_path.write_text(json.dumps(build_receipt), encoding="utf-8")
@@ -119,7 +119,11 @@ def _workspace(tmp_path: Path) -> Path:
 
 
 def _build_id(workspace: Path) -> str:
-    builds = [path.name for path in (workspace / ".builds").iterdir() if path.is_dir()]
+    builds = [
+        path.name
+        for path in (workspace / ".builds" / "artifacts").iterdir()
+        if path.is_dir()
+    ]
     assert len(builds) == 1
     return builds[0]
 
@@ -134,11 +138,11 @@ def _write_release(
     source_release: Path | None = None,
 ) -> tuple[Path, dict]:
     build_id = _build_id(workspace)
-    build_dir = workspace / ".builds" / build_id
+    build_dir = workspace / ".builds" / "artifacts" / build_id
     metadata = build_dir / environment / "metadata.json"
     runner = build_dir / environment / "runners" / "run_target.py"
     build_receipt = (
-        workspace / ".evidence" / "builds" / build_id / environment / "build-check.json"
+        workspace / ".builds" / "evidence" / build_id / environment / "build-check.json"
     )
     failed = status == "failed"
     payload = {
@@ -208,7 +212,7 @@ def _attach_provision(workspace: Path, payload: dict) -> None:
     requirements = workspace / "architecture" / "current.md"
     requirements.parent.mkdir(parents=True, exist_ok=True)
     requirements.write_text("# Target requirements\n", encoding="utf-8")
-    evidence = workspace / ".evidence" / "provision" / environment
+    evidence = workspace / "provision" / "evidence" / environment
     plan = evidence / "plans" / "release-plan.json"
     plan.parent.mkdir(parents=True, exist_ok=True)
     plan.write_text('{"actions":["create-target"]}\n', encoding="utf-8")
@@ -252,7 +256,8 @@ def _attach_provision(workspace: Path, payload: dict) -> None:
         json.loads(PROVISION_SCHEMA.read_text(encoding="utf-8")),
         format_checker=FormatChecker(),
     ).validate(provision)
-    provision_path = evidence / "provision-release.json"
+    provision_path = evidence / "receipts" / "provision-release.json"
+    provision_path.parent.mkdir(parents=True, exist_ok=True)
     provision_path.write_text(json.dumps(provision), encoding="utf-8")
     payload["provision_receipt"] = _artifact(provision_path, workspace)
     payload["provision_requirements"] = provision["requirements"]
@@ -285,7 +290,7 @@ def test_successful_deploy_validates_exact_build_slice(tmp_path: Path) -> None:
 def test_authorization_is_bound_to_exact_build_action_and_target(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     path, payload = _write_release(workspace, environment="qa", release_id="release-1")
-    payload["authorization"]["build_id"] = "260810-bbbbbbbbbbbb"
+    payload["authorization"]["build_id"] = "260810-000001-bbbbbbbbbbbb"
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="Authorization build_id"):
         validate_release.validate_receipt(workspace, path)
@@ -393,7 +398,7 @@ def test_release_requires_generated_runtime_proof(tmp_path: Path) -> None:
 def test_release_rejects_untracked_build_files(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     path, _ = _write_release(workspace, environment="qa", release_id="release-1")
-    build_dir = workspace / ".builds" / _build_id(workspace)
+    build_dir = workspace / ".builds" / "artifacts" / _build_id(workspace)
     (build_dir / "undeclared.txt").write_text("not in checksums\n", encoding="utf-8")
     with pytest.raises(ValueError, match="untracked or missing files"):
         validate_release.validate_receipt(workspace, path)
@@ -450,3 +455,21 @@ def test_failed_source_release_and_latest_selector_are_rejected(tmp_path: Path) 
     latest.write_bytes(rollback.read_bytes())
     with pytest.raises(ValueError, match="latest and globs are forbidden"):
         validate_release.validate_receipt(workspace, latest)
+
+
+def test_release_rejects_current_pointer_as_build_identity(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    path, payload = _write_release(workspace, environment="qa", release_id="release-1")
+    current = workspace / ".builds" / "current" / "qa.json"
+    current.parent.mkdir(parents=True)
+    current.write_text(json.dumps({
+        "schema_version": 1,
+        "artifact_type": "current_build",
+        "environment": "qa",
+        "build_id": payload["build_id"],
+    }), encoding="utf-8")
+    payload["manifest"] = _artifact(current, workspace)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="exact build manifest"):
+        validate_release.validate_receipt(workspace, path)

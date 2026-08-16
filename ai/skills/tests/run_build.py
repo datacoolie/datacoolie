@@ -19,7 +19,8 @@ TOKENS = (
     "### 5. Materialize and verify",
     "### 6. Add automation only when requested",
     "DataCoolieDriver.run(...)",
-    ".builds/{build_id}",
+    ".builds/artifacts/{build_id}",
+    ".builds/current/{env}.json",
     "scripts/render_automation.py",
 )
 RESOURCES = (
@@ -37,6 +38,7 @@ RESOURCES = (
     "schemas/workspace-config.schema.json",
     "schemas/0.1.0/metadata.schema.json",
     "schemas/build-verification-receipt.schema.json",
+    "schemas/current-build.schema.json",
     "references/capability-catalog.md",
     "references/framework-boundary.md",
     "references/runner-contract.md",

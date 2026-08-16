@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from materialize import verify_build
+from materialize import resolve_current_build, verify_build
 
 
 def _sha256(path: Path) -> str:
@@ -118,10 +118,13 @@ def validate_receipt(
 
     if receipt_path.stem != receipt["receipt_id"]:
         raise ValueError("Receipt filename must match receipt_id")
+    artifacts_dir = build_dir.parent
+    builds_dir = artifacts_dir.parent
+    if artifacts_dir.name != "artifacts" or builds_dir.name != ".builds":
+        raise ValueError("Build must be stored under .builds/artifacts/{build_id}")
     expected_parent = (
-        build_dir.parent.parent
-        / ".evidence"
-        / "builds"
+        builds_dir
+        / "evidence"
         / build_dir.name
         / receipt["environment"]
     ).resolve()
@@ -190,17 +193,33 @@ def validate_receipt(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--build-dir", type=Path, required=True)
+    selector = parser.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--build-dir", type=Path)
+    selector.add_argument(
+        "--current",
+        metavar="ENV",
+        help="Resolve .builds/current/<env>.json before validation",
+    )
+    parser.add_argument("--workspace", type=Path)
     parser.add_argument("--receipt", type=Path, help="Explicit receipt path; never inferred")
     parser.add_argument("--require-success", action="store_true")
     args = parser.parse_args()
+    if args.current and args.workspace is None:
+        parser.error("--current requires --workspace")
+    if args.build_dir and args.workspace is not None:
+        parser.error("--workspace is used only with --current")
     if args.require_success and args.receipt is None:
         parser.error("--require-success requires --receipt")
     try:
-        manifest = verify_build(args.build_dir)
+        build_dir = (
+            resolve_current_build(args.workspace, args.current)
+            if args.current
+            else args.build_dir
+        )
+        manifest = verify_build(build_dir)
         if args.receipt:
             receipt = validate_receipt(
-                args.build_dir,
+                build_dir,
                 args.receipt,
                 require_success=args.require_success,
             )

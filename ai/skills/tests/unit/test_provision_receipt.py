@@ -33,7 +33,7 @@ def _write_receipt(
     requirements_path.parent.mkdir(parents=True)
     requirements_path.write_text("# Approved requirements\n", encoding="utf-8")
 
-    evidence = workspace / ".evidence" / "provision" / "qa"
+    evidence = workspace / "provision" / "evidence" / "qa"
     plan_path = evidence / "plans" / "plan-1.json"
     plan_path.parent.mkdir(parents=True)
     plan_path.write_text('{"actions":[]}', encoding="utf-8")
@@ -91,7 +91,8 @@ def _write_receipt(
         "finished_at": "2026-08-10T00:00:01Z",
         "unresolved_issues": [],
     }
-    receipt_path = evidence / "receipt-1.json"
+    receipt_path = evidence / "receipts" / "receipt-1.json"
+    receipt_path.parent.mkdir(parents=True)
     receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
     return workspace, receipt_path, receipt
 

@@ -169,7 +169,11 @@ def validate_receipt(
     if receipt_path.stem != receipt["receipt_id"]:
         raise ValueError("Receipt filename must match receipt_id")
     expected_parent = (
-        workspace / ".evidence" / "provision" / receipt["environment"]
+        workspace
+        / "provision"
+        / "evidence"
+        / receipt["environment"]
+        / "receipts"
     ).resolve()
     if receipt_path.resolve().parent != expected_parent:
         raise ValueError(f"Receipt must be stored directly under {expected_parent}")
@@ -179,7 +183,7 @@ def validate_receipt(
     )
     plan_path = _resolve_artifact(workspace, receipt["plan"], "Plan artifact")
     _reject_moving_selector(receipt["plan"]["path"], "Plan path")
-    expected_plan_parent = expected_parent / "plans"
+    expected_plan_parent = expected_parent.parent / "plans"
     if plan_path.parent != expected_plan_parent:
         raise ValueError(f"Plan artifact must be stored directly under {expected_plan_parent}")
     if plan_path == requirements_path:

@@ -37,10 +37,13 @@ Resolve resources relative to this skill and read only the matching reference.
 | File schema or bounded directory layout | `scripts/introspect_files.py` |
 | OpenAPI, GraphQL, or OData | `scripts/introspect_api.py` |
 | Iceberg, Hive, Unity Catalog, or Glue | `scripts/introspect_lakehouse.py` |
-| Merge or enrich observations | `scripts/merge_observations.py`, `scripts/enrich_observations.py` |
+| Merge/refresh observations or assess watermark signals | `scripts/merge_observations.py`, `scripts/assess_watermarks.py` |
+| Finalize complete object decisions | `scripts/finalize_watermark_assessment.py`, `templates/watermark-assessment.example.json` |
+| Apply verified observation annotations | `scripts/enrich_observations.py` |
 | Observation fields or manual rows | `references/observation-contract.md` |
 | Python packages or external CLI prerequisites | `references/dependency-routing.md` |
 | Unsupported source or unresolved probe gap | `references/fallback-probes.md` |
+| Bounded database evidence query | `references/evidence-queries.md`, `scripts/probe_db.py` |
 | Final summary or interview | `templates/discovery-report.tpl.md`, `templates/interview-questions.md` |
 
 ## Workflow
@@ -54,18 +57,30 @@ Resolve resources relative to this skill and read only the matching reference.
 3. Run each probe into a distinct `.scratch/discover/{probe}.csv` and status JSON. Keep bounded
    layout summaries under `.scratch/discover/`; they are supporting evidence, not another inventory.
 4. Resolve or report partial and failed probes. Never describe partial coverage as complete.
-5. Merge all usable probe CSVs, including a single input, with `merge_observations.py` into
-   `discover/observations.csv`. This validates the canonical contract and exact stable keys.
-6. Classify evidence as `declared`, `observed`, `inferred`, or `unresolved`. Preserve exact observed
-   column types so build can author shared schema hints without re-querying or guessing. Watermark candidates
-   use an evidence class or remain empty; they are not booleans.
-7. Investigate only unresolved gaps. Use `references/fallback-probes.md` rather than copying static
-   vendor commands. Custom database SQL must be one read-only `SELECT` or `WITH` statement from a
-   file with explicit row and timeout limits.
-8. Merge small verified annotations with `enrich_observations.py`; do not broadly rewrite generated
-   rows.
-9. Write `discover/report.md` with scope, exclusions, methods, partial or failed probes, and
-   unresolved questions.
+5. For a new project, merge all usable probe CSVs, including a single input, with
+   `merge_observations.py`. For an existing source, use refresh mode with the current inventory as
+   `--base`, explicit `--replace-source` and status inputs, a scratch candidate output, and a scratch
+   diff. Do not replace prior complete evidence with a partial probe unless that exact source is
+   explicitly accepted. Promote the validated candidate to `discover/observations.csv`.
+6. Preserve exact observed column types so build can author shared schema hints without re-querying
+   or guessing. Keep probe time, method, scope, and failures in status JSON and the report rather
+   than duplicating them on every observation row.
+7. Run `assess_watermarks.py` into `.scratch/discover/watermark-assessment.csv` with
+   `--summary-output .scratch/discover/object-summary.json`. Read the JSON summary first and open
+   detailed observations only for ambiguous objects. Normalized identifier and structural signals
+   are scratch evidence, not final candidates.
+8. Assess every object for mutation coverage, ordering, duplicates, resets, late changes,
+   filtering, and delete visibility. Investigate only decision-changing gaps. Use
+   `references/evidence-queries.md` for one bounded custom database query and
+   `references/fallback-probes.md` for unsupported sources; never execute reference examples as a
+   batch. Custom SQL is self-contained and `probe_db.py` writes its bounded envelope to scratch
+   JSON.
+9. Complete the scratch object decisions and run `finalize_watermark_assessment.py`. It must cover
+   every observed object and generates both watermark annotations and the report table. Apply its
+   annotations with `enrich_observations.py`; use direct annotations only for other verified gaps.
+10. Assemble `discover/report.md` with scope, exclusions, methods, partial or failed probes, and the
+    generated assessment table. Discovery recommends evidence and fallbacks but leaves the final
+    load strategy to design or an explicit human decision.
 
 ## Output And Handoff
 
@@ -78,6 +93,10 @@ Resolve resources relative to this skill and read only the matching reference.
 
 `observations.csv` is the only durable machine-readable inventory. `report.md` summarizes
 high-signal evidence without copying the inventory, samples, or credentials.
+
+Shortlists, compact summaries, object decisions, generated annotations, report fragments, refresh
+candidates, and diffs are scratch-only. They must never be imported by runtime code or mistaken for
+additional durable inventories.
 
 Hand exact evidence paths to design when intent remains open, or to build when the design is
 sufficient. Runtime code must not import discovery artifacts. Discovery approves neither outcome.

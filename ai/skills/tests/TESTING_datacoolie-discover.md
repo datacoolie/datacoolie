@@ -1,7 +1,7 @@
 # Testing `datacoolie-discover`
 
 The discovery skill is script-first. Database, file, API, and lakehouse introspection scripts emit
-the same 22-column `observations.csv` contract. Unit tests use local fixtures and mocks, so routine
+the same 19-column `observations.csv` contract. Unit tests use local fixtures and mocks, so routine
 verification requires no external source.
 
 ## Fast Validation
@@ -15,6 +15,7 @@ python -m pytest -o addopts="" ai/skills/tests/unit/test_introspect_db.py \
   ai/skills/tests/unit/test_introspect_api.py \
   ai/skills/tests/unit/test_introspect_lakehouse.py \
   ai/skills/tests/unit/test_discovery_evidence.py \
+  ai/skills/tests/unit/test_discovery_assessment.py \
   ai/skills/tests/unit/test_discovery_dependencies.py -q
 ```
 
@@ -22,10 +23,14 @@ The suite checks:
 
 - the exact shared CSV header and stable row identity;
 - database, file, OpenAPI, and lakehouse output mapping;
-- conservative watermark-candidate inference;
+- normalized scratch-only watermark shortlisting, compact object summaries, and explicit confirmed
+  role validation;
+- complete object-level assessment that derives exact annotations and report rows from one scratch
+  decision document;
 - deterministic annotation merging and rejection of unknown/duplicate keys;
-- deterministic multi-probe merging, explicit API operation identity, atomic artifacts, and
+- deterministic multi-probe merging, explicit API source-operation identity, atomic artifacts, and
   partial-probe status;
+- explicit existing-source replacement, partial-evidence gates, and deterministic scratch diffs;
 - one-statement, read-only SQL probe validation, row limits, rollback, and timeout reporting;
 - bounded directory/catalog inspection and avoidance of source row-count scans;
 - capability-specific dependency routing and current external CLI command contracts;

@@ -7,6 +7,7 @@ import json
 import pytest
 from sqlalchemy import create_engine, text
 
+import assess_watermarks
 import enrich_observations
 import merge_observations
 import probe_db
@@ -15,9 +16,11 @@ from _input_safety import validate_nonsecret_locator
 from _probe_status import write_probe_status
 from _observation_contract import (
     CSV_HEADER,
-    infer_watermark_candidate,
+    KEY_FIELDS,
+    canonicalize_watermark_candidate,
     make_observation,
     read_observations,
+    validate_observation,
     write_observations,
 )
 
@@ -33,19 +36,47 @@ def _observation(column: str = "updated_at") -> dict[str, str]:
         data_type="timestamp",
         nullable="true",
         ordinal=1,
-        method="catalog",
-        evidence_class="declared",
-        observed_at="2026-08-10T00:00:00Z",
     )
 
 
-def test_shared_contract_and_conservative_watermark_inference():
-    assert len(CSV_HEADER) == 22
-    assert infer_watermark_candidate("updated_at", "timestamp") == "inferred"
-    assert infer_watermark_candidate("updated_at", "string") == ""
-    assert infer_watermark_candidate("created_at", "timestamp") == ""
-    assert infer_watermark_candidate("event_time", "timestamp") == ""
-    assert infer_watermark_candidate("id", "integer") == ""
+def test_shared_contract_has_exact_19_columns_and_stable_key():
+    assert CSV_HEADER == [
+        "source", "object_type", "catalog", "schema", "object", "source_operation",
+        "column", "native_type", "data_type", "format", "precision", "scale",
+        "nullable", "ordinal", "key", "reference", "row_estimate",
+        "watermark_candidate", "notes",
+    ]
+    assert tuple(CSV_HEADER[:7]) == KEY_FIELDS
+
+
+def test_watermark_roles_require_unique_canonical_tokens():
+    assert canonicalize_watermark_candidate("auxiliary|append|update") == (
+        "update|append|auxiliary"
+    )
+    row = _observation()
+    row["watermark_candidate"] = "auxiliary|append"
+    with pytest.raises(ValueError, match="canonical order"):
+        validate_observation(row)
+    row["watermark_candidate"] = "update|update"
+    with pytest.raises(ValueError, match="unique"):
+        validate_observation(row)
+    row["watermark_candidate"] = "observed"
+    with pytest.raises(ValueError, match="Unknown"):
+        validate_observation(row)
+
+
+def test_key_and_reference_contract_rejects_legacy_shapes():
+    row = _observation()
+    row["key"] = "unique:uq_orders"
+    row["reference"] = "sales.customers.customer_id"
+    validate_observation(row)
+    row["key"] = "unique:"
+    with pytest.raises(ValueError, match="key must"):
+        validate_observation(row)
+    row = _observation()
+    row["reference"] = "→ sales.customers.customer_id"
+    with pytest.raises(ValueError, match="display decoration"):
+        validate_observation(row)
 
 
 def test_annotation_merge_preserves_generated_order(tmp_path):
@@ -58,23 +89,16 @@ def test_annotation_merge_preserves_generated_order(tmp_path):
         writer.writeheader()
         writer.writerow(row)
     annotation_path.write_text(json.dumps([{
-        "match": {field: row[field] for field in (
-            "source", "object_type", "catalog", "schema", "object", "operation", "column",
-        )},
-        "set": {"watermark_candidate": "observed"},
-        "evidence": {
-            "method": "owner_interview",
-            "observed_at": "2026-08-10T01:00:00Z",
-            "notes": "Confirmed by source owner",
-        },
+        "match": {field: row[field] for field in KEY_FIELDS},
+        "set": {"watermark_candidate": "update"},
+        "append_notes": "Confirmed by source owner",
     }]), encoding="utf-8")
 
     assert enrich_observations.enrich(input_path, annotation_path, output_path) == 1
     with output_path.open(newline="", encoding="utf-8") as handle:
         result = list(csv.DictReader(handle))
-    assert result[0]["watermark_candidate"] == "observed"
+    assert result[0]["watermark_candidate"] == "update"
     assert "Confirmed by source owner" in result[0]["notes"]
-    assert result[0]["method"] == "catalog | annotation:owner_interview"
     assert list(result[0]) == CSV_HEADER
 
 
@@ -85,19 +109,12 @@ def test_annotation_merge_rejects_unknown_key(tmp_path):
         writer = csv.DictWriter(handle, fieldnames=CSV_HEADER)
         writer.writeheader()
         writer.writerow(row)
-    unknown = {field: row[field] for field in (
-        "source", "object_type", "catalog", "schema", "object", "operation", "column",
-    )}
+    unknown = {field: row[field] for field in KEY_FIELDS}
     unknown["object"] = "missing"
     annotations = tmp_path / "annotations.json"
     annotations.write_text(json.dumps([{
         "match": unknown,
-        "set": {"watermark_candidate": "observed"},
-        "evidence": {
-            "method": "owner_interview",
-            "observed_at": "2026-08-10T01:00:00Z",
-            "notes": "x",
-        },
+        "set": {"watermark_candidate": "update"},
     }]), encoding="utf-8")
 
     with pytest.raises(ValueError, match="unknown observation"):
@@ -126,6 +143,13 @@ def test_reader_rejects_malformed_rows(tmp_path):
     path = tmp_path / "bad.csv"
     path.write_text(",".join(CSV_HEADER) + "\nonly,three,values\n", encoding="utf-8")
     with pytest.raises(ValueError, match="malformed CSV row"):
+        read_observations(path)
+
+
+def test_reader_rejects_any_noncanonical_header(tmp_path):
+    path = tmp_path / "invalid.csv"
+    path.write_text(",".join(CSV_HEADER[:-1]) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match"):
         read_observations(path)
 
 
@@ -176,22 +200,71 @@ def test_nonsecret_locator_query_is_allowed():
     assert validate_nonsecret_locator(locator, "source") == locator
 
 
-def test_annotation_requires_timezone(tmp_path):
+def test_annotation_rejects_unknown_top_level_fields(tmp_path):
     annotations = tmp_path / "annotations.json"
     row = _observation()
     annotations.write_text(json.dumps([{
-        "match": {field: row[field] for field in (
-            "source", "object_type", "catalog", "schema", "object", "operation", "column",
-        )},
-        "set": {"watermark_candidate": "observed"},
-        "evidence": {
-            "method": "owner_interview",
-            "observed_at": "2026-08-10T01:00:00",
-            "notes": "confirmed",
-        },
+        "match": {field: row[field] for field in KEY_FIELDS},
+        "set": {"watermark_candidate": "update"},
+        "unsupported": True,
     }]), encoding="utf-8")
-    with pytest.raises(ValueError, match="requires a timezone"):
+    with pytest.raises(ValueError, match="unsupported fields"):
         enrich_observations.load_annotations(annotations)
+
+
+def test_watermark_assessment_shortlists_roles_and_emits_no_candidate_row():
+    rows = [
+        _observation("created_at"),
+        _observation("updated_at"),
+        _observation("deleted_at"),
+        make_observation(
+            source="erp", object_type="table", schema="sales", object="orders",
+            column="order_id", native_type="bigint", data_type="long", ordinal=4,
+            key="primary",
+        ),
+        make_observation(
+            source="erp", object_type="table", schema="sales", object="orders",
+            column="customer_id", native_type="bigint", data_type="long", ordinal=5,
+            reference="sales.customers.customer_id",
+        ),
+        _observation("transaction_date"),
+        make_observation(
+            source="erp", object_type="table", schema="sales", object="orders",
+            column="row_version", native_type="rowversion", data_type="binary", ordinal=6,
+        ),
+        make_observation(
+            source="erp", object_type="table", schema="sales", object="customers",
+            column="description", native_type="varchar", data_type="string", ordinal=1,
+        ),
+    ]
+    assessment = assess_watermarks.build_assessment(rows)
+    roles = {row["column"]: row["suggested_roles"] for row in assessment}
+    assert roles["created_at"] == "insert"
+    assert roles["updated_at"] == "update"
+    assert roles["deleted_at"] == "delete"
+    assert roles["order_id"] == "append|auxiliary"
+    assert "customer_id" not in roles
+    assert roles["transaction_date"] == "backward"
+    assert roles["row_version"] == "change"
+    no_candidate = next(row for row in assessment if row["object"] == "customers")
+    assert no_candidate["column"] == ""
+    assert no_candidate["suggested_roles"] == ""
+    assert "human decision" in no_candidate["reason"]
+
+
+def test_watermark_assessment_writes_exact_scratch_contract(tmp_path):
+    observations_path = tmp_path / "observations.csv"
+    assessment_path = tmp_path / "watermark-assessment.csv"
+    with observations_path.open("w", newline="", encoding="utf-8") as handle:
+        write_observations(handle, [_observation("updated_at")])
+
+    assert assess_watermarks.assess(observations_path, assessment_path) == 1
+    with assessment_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+
+    assert reader.fieldnames == assess_watermarks.ASSESSMENT_HEADER
+    assert rows[0]["suggested_roles"] == "update"
 
 
 @pytest.mark.parametrize("sql", [

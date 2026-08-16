@@ -135,13 +135,13 @@
     },
     {
       "id": 13,
-      "prompt": "Materialize a project twice without changing its inputs, then change one runner and materialize again. Build folders should be easy to scan by date without weakening exact artifact verification.",
-      "expected_output": "Reuse the first valid date-prefixed build for equal inputs, create a new date-prefixed short-hash ID after the runner change, and retain/verify the full content digest in each manifest.",
+      "prompt": "Materialize a project twice without changing its inputs, then change one runner and materialize again. Build folders should be easy to scan by time without weakening exact artifact verification.",
+      "expected_output": "Create a distinct timestamped build for every materialization, preserve equal content digests for equal inputs, change the content digest after the runner change, and verify the full digest in each manifest.",
       "files": [],
       "expectations": [
-        "A new build ID uses {UTC YYMMDD}-{first 12 content-digest characters}.",
-        "Equal inputs reuse the existing build and retain its original date-prefixed ID.",
-        "The manifest stores the full content digest and verification rejects date, digest, or collision mismatches."
+        "A new build ID uses {UTC YYMMDD-HHMMSS}-{first 12 content-digest characters}.",
+        "Separate materializations get distinct timestamped IDs while equal inputs retain the same full content digest.",
+        "The manifest stores the full content digest and verification rejects timestamp, digest, or collision mismatches."
       ]
     },
     {
@@ -263,6 +263,17 @@
         "Direct tables, objects, paths, or endpoints are preferred over equivalent SELECT-star queries.",
         "The query is limited to necessary source-side relational shaping.",
         "Python is the final narrow fallback and the supported remainder stays framework-native."
+      ]
+    },
+    {
+      "id": 25,
+      "prompt": "Materialize the dev and qa slices, test the newest dev build through current, and explain how I can rerun an older version. Keep every downstream reference exact.",
+      "expected_output": "Create a UTC time-and-digest build under immutable artifacts, atomically point current/dev.json at its build ID, resolve current for the normal test, and use an explicit build ID for history and receipts.",
+      "files": [],
+      "expectations": [
+        "The build ID format is YYMMDD-HHMMSS plus a 12-character content-digest suffix.",
+        "Current is an environment-scoped minimal build-ID pointer updated only after materialization verification.",
+        "Historical tests, verification receipts, release handoffs, and authorizations use the resolved exact build ID rather than current."
       ]
     }
   ]

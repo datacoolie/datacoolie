@@ -27,7 +27,6 @@ from _observation_contract import (
     CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
     atomic_write_observations,
     make_observation,
-    utc_observed_at,
     write_observations,
 )
 from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
@@ -732,7 +731,6 @@ def cmd_schema(
         sys.exit(1)
 
     observations = []
-    observed_at = utc_observed_at()
     for ordinal, (name, type_obj) in enumerate(fields, start=1):
         if is_delta:
             canonical, type_fmt, prec, scl = _map_delta_type(type_obj)
@@ -746,7 +744,6 @@ def cmd_schema(
         notes = notes_suffix
         if not type_fmt:
             type_fmt = fmt
-        evidence_class = "inferred" if "inferred" in notes.lower() else "observed"
         observations.append(make_observation(
             source=source,
             object_type="file",
@@ -759,9 +756,6 @@ def cmd_schema(
             scale=scl,
             nullable="true",
             ordinal=ordinal,
-            observed_at=observed_at,
-            method=f"{fmt}:schema",
-            evidence_class=evidence_class,
             notes=notes,
         ))
 

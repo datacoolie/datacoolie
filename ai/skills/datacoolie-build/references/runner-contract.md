@@ -92,7 +92,7 @@ driver.run(stage=stage)
 
 ```text
 runners/run_{platform}_{engine}[_{provider}].ext
-.builds/{build_id}/{env}/runners/run_{platform}_{engine}[_{provider}].ext
+.builds/artifacts/{build_id}/{env}/runners/run_{platform}_{engine}[_{provider}].ext
 ```
 
 Build copies or renders durable sources; it never symlinks them. Correct generated behavior by

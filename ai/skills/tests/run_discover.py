@@ -30,28 +30,28 @@ REQUIRED_SECTIONS = [
     "## Workflow",
     "## Output And Handoff",
     "observations.csv",
+    "assess_watermarks.py",
+    "object-summary.json",
+    "finalize_watermark_assessment.py",
 ]
 
 EXPECTED_HEADER = CSV_HEADER
 
-REQUIRED_RESOURCES = [
-    "scripts/enrich_observations.py",
-    "scripts/merge_observations.py",
-    "scripts/probe_db.py",
-    "scripts/requirements-api.txt",
-    "scripts/requirements-files.txt",
-    "scripts/requirements-databases.txt",
-    "scripts/requirements-lakehouse.txt",
-    "scripts/requirements-hive.txt",
-    "references/observation-contract.md",
-    "references/dependency-routing.md",
-    "references/fallback-probes.md",
-    "templates/observations.tpl.csv",
-    "templates/observation-annotations.example.json",
-    "templates/discovery-report.tpl.md",
-    "templates/interview-questions.md",
-    "evals/evals.json",
-]
+REMOVED_OBSERVATION_FIELDS = {
+    "observed_at", "evidence_class", "declared_key", "declared_reference",
+}
+
+
+def _routed_resources() -> list[Path]:
+    resources = []
+    resources.extend((SKILL_DIR / "references").glob("*.md"))
+    resources.extend((SKILL_DIR / "templates").glob("*"))
+    resources.extend(
+        path for path in (SKILL_DIR / "scripts").glob("*.py")
+        if not path.name.startswith("_")
+    )
+    resources.extend((SKILL_DIR / "scripts").glob("requirements-*.txt"))
+    return sorted(path for path in resources if path.is_file())
 
 
 def _run_script(args: list[str], desc: str) -> tuple[str, bool]:
@@ -116,13 +116,28 @@ def run(filter_names: list[str] | None = None) -> None:
         path.read_text(encoding="utf-8")
         for path in (SKILL_DIR / "references").glob("*.md")
     )
-    for relative_path in REQUIRED_RESOURCES:
-        found = (SKILL_DIR / relative_path).is_file()
-        if relative_path != "evals/evals.json":
-            found = found and relative_path in routed_content
+    for path in _routed_resources():
+        relative_path = path.relative_to(SKILL_DIR).as_posix()
+        found = relative_path in routed_content
         status = "✓" if found else "✗"
         print(f"  {status} resource:{relative_path}")
         summary.append((f"resource:{relative_path}", status))
+    evals_exist = (SKILL_DIR / "evals/evals.json").is_file()
+    status = "✓" if evals_exist else "✗"
+    print(f"  {status} evals/evals.json")
+    summary.append(("evals/evals.json", status))
+    active_contract_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [SKILL_MD, *(SKILL_DIR / "references").glob("*.md"),
+                     *(SKILL_DIR / "templates").glob("*")]
+        if path.is_file()
+    )
+    stale_fields = sorted(
+        field for field in REMOVED_OBSERVATION_FIELDS if field in active_contract_text
+    )
+    status = "✗" if stale_fields else "✓"
+    print(f"  {status} no-stale-observation-fields: {stale_fields or 'none'}")
+    summary.append(("no-stale-observation-fields", status))
     stale_inventory = any((SKILL_DIR / "templates").glob("schema-inventory.*"))
     status = "✗" if stale_inventory else "✓"
     print(f"  {status} no-duplicate-schema-inventory")

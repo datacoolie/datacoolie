@@ -12,9 +12,9 @@ that matches the current state. Skills own outcomes, not mandatory phases.
   boundary.
 - Treat `discover/` as design-time evidence. Runtime metadata, code, builds, and releases must not
   depend on it.
-- Keep durable project sources as the source of truth. `.builds/` contains immutable generated
-  artifacts; local integration and runtime verification execute those artifacts, not parallel
-  source copies.
+- Keep durable project sources as the source of truth. `.builds/artifacts/{build_id}` contains
+  immutable generated artifacts; local integration and runtime verification execute those
+  artifacts, not parallel source copies.
 - Keep mutable logs and watermarks outside `.builds/`.
 - Skills resolve their own bundled resources relative to `SKILL.md`. Cross-skill handoffs use
   workspace artifacts and typed receipts, never another skill's script path.
@@ -43,15 +43,18 @@ Durable sources:
 Derived and runtime state:
 
 ```text
-.builds/{build_id}/                   # immutable generated build
+.builds/artifacts/{build_id}/         # immutable generated build
+.builds/evidence/{build_id}/{env}/    # build verification receipts
+.builds/current/{env}.json            # latest materialized build pointer for testing
 .runtime/{env}/logs/                  # mutable, persistent
 .runtime/{env}/watermarks/            # mutable, persistent
-.evidence/                            # verification/provision receipts
 .approvals/                           # required manual approvals only
 .releases/                            # deploy/promote/rollback receipts
+provision/evidence/{env}/             # provision plans and receipts when needed
 ```
 
-Never edit or symlink a generated build as durable source.
+Every downstream reference uses an exact build ID. `current` is a convenience pointer for testing,
+not release identity or authorization. Never edit or symlink a generated build as durable source.
 
 ## Skill Ownership
 

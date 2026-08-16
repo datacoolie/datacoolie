@@ -3,28 +3,31 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime
 from pathlib import Path
 
 from _observation_contract import KEY_FIELDS, atomic_write_observations, observation_key, read_observations
 
 MUTABLE_FIELDS = {
-    "declared_key",
-    "declared_reference",
+    "key",
+    "reference",
     "watermark_candidate",
-    "evidence_class",
 }
 
 
-def load_annotations(path: Path) -> dict[tuple[str, ...], tuple[dict[str, str], dict[str, str]]]:
+def load_annotations(path: Path) -> dict[tuple[str, ...], tuple[dict[str, str], str]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, list):
         raise ValueError("Annotations must be a JSON array")
-    result: dict[tuple[str, ...], tuple[dict[str, str], dict[str, str]]] = {}
+    result: dict[tuple[str, ...], tuple[dict[str, str], str]] = {}
     for index, item in enumerate(payload):
-        if not isinstance(item, dict) or set(item) != {"match", "set", "evidence"}:
-            raise ValueError(f"Annotation {index} requires exactly 'match', 'set', and 'evidence'")
-        match, updates, evidence = item["match"], item["set"], item["evidence"]
+        if not isinstance(item, dict) or not {"match", "set"}.issubset(item):
+            raise ValueError(f"Annotation {index} requires 'match' and 'set'")
+        unsupported_item_fields = set(item) - {"match", "set", "append_notes"}
+        if unsupported_item_fields:
+            raise ValueError(
+                f"Annotation {index} has unsupported fields: {sorted(unsupported_item_fields)}"
+            )
+        match, updates = item["match"], item["set"]
         if not isinstance(match, dict) or set(match) != set(KEY_FIELDS):
             raise ValueError(f"Annotation {index} match must contain the stable key fields")
         if not isinstance(updates, dict) or not updates:
@@ -32,27 +35,15 @@ def load_annotations(path: Path) -> dict[tuple[str, ...], tuple[dict[str, str], 
         unsupported = set(updates) - MUTABLE_FIELDS
         if unsupported:
             raise ValueError(f"Annotation {index} cannot set fields: {sorted(unsupported)}")
-        if not isinstance(evidence, dict) or set(evidence) != {"method", "observed_at", "notes"}:
-            raise ValueError(
-                f"Annotation {index} evidence requires method, observed_at, and notes"
-            )
-        normalized_evidence = {field: str(value).strip() for field, value in evidence.items()}
-        if not normalized_evidence["method"] or not normalized_evidence["notes"]:
-            raise ValueError(f"Annotation {index} evidence method and notes cannot be empty")
-        try:
-            parsed_at = datetime.fromisoformat(
-                normalized_evidence["observed_at"].replace("Z", "+00:00")
-            )
-        except ValueError as exc:
-            raise ValueError(f"Annotation {index} observed_at is not ISO-8601") from exc
-        if parsed_at.tzinfo is None:
-            raise ValueError(f"Annotation {index} observed_at requires a timezone")
+        append_notes = str(item.get("append_notes", "")).strip()
+        if "append_notes" in item and not append_notes:
+            raise ValueError(f"Annotation {index} append_notes cannot be empty")
         key = observation_key(match)
         if key in result:
             raise ValueError(f"Duplicate annotation key: {key}")
         result[key] = (
             {field: str(value) for field, value in updates.items()},
-            normalized_evidence,
+            append_notes,
         )
     return result
 
@@ -69,14 +60,12 @@ def enrich(input_path: Path, annotations_path: Path, output_path: Path) -> int:
             raise ValueError(f"Duplicate observation key: {key}")
         seen.add(key)
         if key in annotations:
-            updates, evidence = annotations[key]
+            updates, append_notes = annotations[key]
             row.update(updates)
-            row["method"] = f"{row['method']} | annotation:{evidence['method']}"
-            provenance_note = (
-                f"annotation[{evidence['observed_at']} via {evidence['method']}]: "
-                f"{evidence['notes']}"
-            )
-            row["notes"] = f"{row['notes']}; {provenance_note}" if row["notes"] else provenance_note
+            if append_notes:
+                row["notes"] = (
+                    f"{row['notes']}; {append_notes}" if row["notes"] else append_notes
+                )
             applied += 1
 
     unmatched = set(annotations) - seen

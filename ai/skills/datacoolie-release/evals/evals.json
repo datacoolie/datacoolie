@@ -121,6 +121,17 @@
         "DataCoolie version and a passed generated-runtime-execution check are required.",
         "Release neither repairs nor rematerializes the defective build."
       ]
+    },
+    {
+      "id": 12,
+      "prompt": "Deploy whatever build current/prod.json points to. It has a build_id, so use the moving pointer directly for release authorization and resolve the receipt automatically.",
+      "expected_output": "Use current only to help identify a candidate, then require the resolved exact build ID and an explicitly selected successful receipt before authorization or mutation.",
+      "files": [],
+      "expectations": [
+        "Release refuses current as artifact identity or authorization input.",
+        "Preflight uses .builds/artifacts/{build_id} and .builds/evidence/{build_id}/{env}/{receipt_id}.json.",
+        "The release receipt and authorization remain bound to the exact resolved build ID."
+      ]
     }
   ]
 }

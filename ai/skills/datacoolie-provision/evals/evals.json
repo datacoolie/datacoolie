@@ -88,6 +88,17 @@
         "The receipt contains only non-sensitive identifiers or secret references.",
         "The validator rejects sensitive-looking resource output fields."
       ]
+    },
+    {
+      "id": 9,
+      "prompt": "Persist a qa infrastructure plan and its successful apply receipt. Keep evidence with its lifecycle owner; the workspace must not have a root .evidence directory.",
+      "expected_output": "Store plans and receipts under provision/evidence/qa with separate plans and receipts directories, validate exact paths, and leave release evidence in .releases.",
+      "files": [],
+      "expectations": [
+        "The plan is stored under provision/evidence/qa/plans and the receipt under provision/evidence/qa/receipts.",
+        "The contract rejects root .evidence as a valid provision path and creates no compatibility alias.",
+        "The receipt keeps exact plan and environment bindings and remains the provision-owned handoff."
+      ]
     }
   ]
 }

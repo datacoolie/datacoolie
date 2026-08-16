@@ -71,12 +71,13 @@ formats, or exact metadata. Route missing facts to discover and implementation d
 
 ```text
 {workspace}/architecture/current.md
-{workspace}/.approvals/design/{architecture_sha256}.json
+{workspace}/.approvals/design/architecture-{architecture_sha256_prefix}.approved.json
 ```
 
 Approval state remains outside the architecture. Any byte change invalidates its receipt, and
-design approval authorizes neither provisioning nor deployment. The schema owns exact receipt
-fields.
+design approval authorizes neither provisioning nor deployment. The readable filename uses the
+first 12 digest characters; the payload and validator remain bound to the full SHA-256. The schema
+owns exact receipt fields.
 
 After finalization, hand build the architecture path/hash and matching receipt, transition
 contracts, environments, capability assumptions, and implementation questions. End with unresolved

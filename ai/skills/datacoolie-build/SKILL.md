@@ -7,9 +7,9 @@ description: Build, modify, materialize, run, and verify DataCoolie projects. Us
 
 ## Outcome And Boundary
 
-Turn current project intent into durable DataCoolie sources and an immutable `.builds/{build_id}`
-verified by executing the generated artifacts. Bootstrap only the workspace structure required by
-the request; initialization is not a separate phase.
+Turn current project intent into durable DataCoolie sources and an immutable
+`.builds/artifacts/{build_id}` verified by executing the generated artifacts. Bootstrap only the
+workspace structure required by the request; initialization is not a separate phase.
 
 Own configuration, metadata, overlays, capability proof, runners/notebooks, functions, narrow
 unsupported adapters, materialization, local execution, build evidence, and requested project-owned
@@ -42,7 +42,7 @@ skill; generated projects must not depend on skill paths.
 | Native versus custom boundary | `references/framework-boundary.md` |
 | Common entrypoint and normal run | `references/runner-contract.md`, `templates/runners/README.md`, matching template |
 | Replay or maintenance extensions | load `references/runner-contract.md`, then `references/operations-contract.md` and matching templates |
-| Immutable build and verification receipt | `scripts/materialize.py`, `scripts/validate_build.py`, `schemas/build-verification-receipt.schema.json` |
+| Immutable build, current pointer, and verification receipt | `scripts/materialize.py`, `scripts/validate_build.py`, `schemas/current-build.schema.json`, `schemas/build-verification-receipt.schema.json` |
 | Requested project automation | `scripts/render_automation.py` |
 
 Load only resources needed for the current outcome. Exact metadata layouts, runner names and
@@ -84,17 +84,19 @@ helpers directly. These checks give fast feedback but do not prove the generated
 ### 5. Materialize and verify
 
 Run `scripts/materialize.py`; it validates its inputs, renders environment slices, packages optional
-functions, writes the manifest and checksums, and reuses an existing build only after verification.
+functions, writes the manifest and checksums under `.builds/artifacts/{build_id}`, verifies the
+immutable bytes, and atomically updates `.builds/current/{env}.json` for each selected environment.
 Never symlink or mutate build contents.
 
 Execute the exact generated runner/notebook, resolved metadata, and functions artifact. Keep logs
 and watermarks under persistent `.runtime/{env}/`. Apply the runner contract for normal runs and
 the operations contract for replay or maintenance, including their mutation confirmations.
 
-Write a typed successful or failed receipt under
-`.evidence/builds/{build_id}/{env}/{receipt_id}.json`, then validate it against the exact build.
-The receipt schema owns evidence fields; the materializer owns the manifest contract. A release
-handoff names one explicit successful receipt rather than selecting the latest evidence.
+Resolve `current` for the normal latest-build test path or select an exact historical build ID, then
+execute that generated runner/notebook, metadata, and functions artifact. Write a typed successful
+or failed receipt under `.builds/evidence/{build_id}/{env}/{receipt_id}.json` and validate it against
+the resolved build. Receipts and handoffs always contain the exact build ID. Release never consumes
+the moving current pointer.
 
 ### 6. Add automation only when requested
 
@@ -110,10 +112,11 @@ skills. Release owns consume-only deployment automation. Do not generate specula
 {workspace}/runners/
 {workspace}/functions/                          # optional
 {workspace}/automation/                         # optional
-{workspace}/.builds/{build_id}/manifest.json
-{workspace}/.builds/{build_id}/SHA256SUMS
-{workspace}/.builds/{build_id}/{env}/...
-{workspace}/.evidence/builds/{build_id}/{env}/*.json
+{workspace}/.builds/artifacts/{build_id}/manifest.json
+{workspace}/.builds/artifacts/{build_id}/SHA256SUMS
+{workspace}/.builds/artifacts/{build_id}/{env}/...
+{workspace}/.builds/evidence/{build_id}/{env}/*.json
+{workspace}/.builds/current/{env}.json
 ```
 
 Release receives only the exact build ID, local build directory or immutable remote artifact

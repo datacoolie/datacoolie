@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Materialize an immutable, content-identified DataCoolie build."""
+"""Materialize a time-addressed, content-bound immutable DataCoolie build."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -26,7 +27,9 @@ from validate_config import validate_config
 
 RUNNER_SUFFIXES = (".py", ".ipynb")
 RUNNER_OPERATIONS = ("run", "replay", "maintenance")
-BUILD_ID_PATTERN = re.compile(r"^(?P<date>\d{6})-(?P<digest>[0-9a-f]{12})$")
+BUILD_ID_PATTERN = re.compile(
+    r"^(?P<date>\d{6})-(?P<time>\d{6})-(?P<digest>[0-9a-f]{12})$"
+)
 EXCLUDED_NAMES = {".env", ".env.local"}
 TOOLING_FILES = (
     "_loaders.py",
@@ -107,7 +110,9 @@ def _validate_design_approval(workspace: Path) -> dict[str, Any] | None:
         "architecture_sha256": digest,
     }
 
-    receipt_path = workspace / ".approvals" / "design" / f"{digest}.json"
+    receipt_path = (
+        workspace / ".approvals" / "design" / f"architecture-{digest[:12]}.approved.json"
+    )
     if receipt_path.is_symlink():
         raise ValueError("Design approval receipt must not be a symlink")
     if not receipt_path.is_file():
@@ -126,11 +131,79 @@ def _utc_now() -> datetime:
 
 
 def _build_id(content_digest: str, created_at: datetime) -> str:
-    return f"{created_at.astimezone(timezone.utc):%y%m%d}-{content_digest[:12]}"
+    timestamp = created_at.astimezone(timezone.utc)
+    return f"{timestamp:%y%m%d-%H%M%S}-{content_digest[:12]}"
 
 
 def _format_utc(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _current_pointer_path(workspace: Path, environment: str) -> Path:
+    if not environment or Path(environment).name != environment:
+        raise ValueError(f"Invalid current-build environment: {environment!r}")
+    return workspace / ".builds" / "current" / f"{environment}.json"
+
+
+def _write_current_pointer(workspace: Path, build_dir: Path, environment: str) -> Path:
+    manifest = verify_build(build_dir)
+    environments = manifest.get("environments")
+    if not isinstance(environments, dict) or environment not in environments:
+        raise ValueError(f"Build does not contain environment {environment!r}")
+    pointer = _current_pointer_path(workspace, environment)
+    pointer.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "artifact_type": "current_build",
+        "environment": environment,
+        "build_id": manifest["build_id"],
+    }
+    fd, temporary = tempfile.mkstemp(prefix=f".{pointer.name}.", dir=pointer.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+        os.replace(temporary, pointer)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
+    return pointer
+
+
+def resolve_current_build(workspace: Path, environment: str) -> Path:
+    """Resolve one environment pointer to an exact verified materialized build."""
+    workspace = workspace.resolve()
+    builds_root = workspace / ".builds"
+    current_root = builds_root / "current"
+    for directory in (builds_root, current_root):
+        if directory.is_symlink():
+            raise ValueError(f"Current-build path must not be a symlink: {directory}")
+    pointer = _current_pointer_path(workspace, environment)
+    if pointer.is_symlink() or not pointer.is_file():
+        raise ValueError(f"Current-build pointer does not exist or is a symlink: {pointer}")
+    try:
+        payload = json.loads(pointer.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Current-build pointer is not valid JSON: {pointer}") from exc
+    expected = {"schema_version", "artifact_type", "environment", "build_id"}
+    if not isinstance(payload, dict) or set(payload) != expected:
+        raise ValueError("Current-build pointer fields do not match the contract")
+    if payload["schema_version"] != 1 or payload["artifact_type"] != "current_build":
+        raise ValueError("Current-build pointer contract is unsupported")
+    if payload["environment"] != environment:
+        raise ValueError("Current-build pointer environment does not match its filename")
+    build_id = payload["build_id"]
+    if not isinstance(build_id, str) or BUILD_ID_PATTERN.fullmatch(build_id) is None:
+        raise ValueError("Current-build pointer contains an invalid build ID")
+    build_dir = workspace / ".builds" / "artifacts" / build_id
+    manifest = verify_build(build_dir)
+    environments = manifest.get("environments")
+    if not isinstance(environments, dict) or environment not in environments:
+        raise ValueError("Current build does not contain the selected environment")
+    return build_dir
 
 
 def _is_source_file(path: Path) -> bool:
@@ -181,6 +254,7 @@ def _tooling_entries() -> list[dict[str, str]]:
     candidates.extend(
         [
             schemas_dir / "compatibility.json",
+            schemas_dir / "current-build.schema.json",
             schemas_dir / "workspace-config.schema.json",
         ]
     )
@@ -409,6 +483,8 @@ def verify_build(build_dir: Path) -> dict[str, Any]:
         raise ValueError(f"Invalid UTC build creation timestamp: {build_dir}") from exc
     if match.group("date") != created.astimezone(timezone.utc).strftime("%y%m%d"):
         raise ValueError(f"Build ID/creation date mismatch: {build_dir}")
+    if match.group("time") != created.astimezone(timezone.utc).strftime("%H%M%S"):
+        raise ValueError(f"Build ID/creation time mismatch: {build_dir}")
 
     expected_paths: set[str] = set()
     for line in checksums_path.read_text(encoding="utf-8").splitlines():
@@ -427,20 +503,6 @@ def verify_build(build_dir: Path) -> dict[str, Any]:
     if actual_paths != expected_paths:
         raise ValueError(f"Build contains untracked or missing files: {build_dir}")
     return manifest
-
-
-def _find_reusable_build(builds_dir: Path, input_digest: str) -> Path | None:
-    if not builds_dir.is_dir():
-        return None
-    for manifest_path in sorted(builds_dir.glob("*/manifest.json")):
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            if manifest.get("input_digest") == input_digest:
-                verify_build(manifest_path.parent)
-                return manifest_path.parent
-        except (OSError, ValueError, json.JSONDecodeError):
-            continue
-    return None
 
 
 def materialize(
@@ -488,12 +550,9 @@ def materialize(
         "tooling": tooling,
     }
     input_digest = _canonical_digest(input_contract)
-    builds_dir = workspace / ".builds"
-    _reject_symlinks(builds_dir)
-    reusable = _find_reusable_build(builds_dir, input_digest)
-    if reusable is not None:
-        return {"build_id": reusable.name, "build_dir": reusable, "reused": True}
-
+    build_state_dir = workspace / ".builds"
+    _reject_symlinks(build_state_dir)
+    builds_dir = build_state_dir / "artifacts"
     builds_dir.mkdir(parents=True, exist_ok=True)
     staging = builds_dir / f".tmp-{uuid.uuid4().hex}"
     staging.mkdir()
@@ -554,9 +613,13 @@ def materialize(
             if existing.get("content_digest") != content_digest:
                 raise RuntimeError(f"Build ID collision: {build_id}")
             shutil.rmtree(staging)
+            for environment in selected_environments:
+                _write_current_pointer(workspace, target, environment)
             return {"build_id": build_id, "build_dir": target, "reused": True}
         staging.rename(target)
         verify_build(target)
+        for environment in selected_environments:
+            _write_current_pointer(workspace, target, environment)
         return {"build_id": build_id, "build_dir": target, "reused": False}
     except Exception:
         if staging.exists():

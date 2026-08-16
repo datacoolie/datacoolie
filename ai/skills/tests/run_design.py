@@ -16,7 +16,7 @@ REQUIRED_SKILL_TOKENS = (
     "## Decision Workflow",
     "## Output And Handoff",
     "architecture/current.md",
-    ".approvals/design/{architecture_sha256}.json",
+    ".approvals/design/architecture-{architecture_sha256_prefix}.approved.json",
     "helper exists only to make hashing and receipt validation deterministic",
 )
 REQUIRED_RESOURCES = (

@@ -24,7 +24,6 @@ from _observation_contract import (
     CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
     atomic_write_observations,
     make_observation,
-    utc_observed_at,
     write_observations,
 )
 from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
@@ -237,7 +236,7 @@ def map_type(sa_type: Any) -> tuple[str, str, str, str]:
 # ---------------------------------------------------------------------------
 
 def _build_fk_map(fk_list: list[dict]) -> dict[str, str]:
-    """Build {column_name: '→ referred_schema.table.column'} from inspector FK list."""
+    """Build canonical source-native foreign-key target locators."""
     fk_map: dict[str, str] = {}
     for fk in fk_list:
         ref_schema = fk.get("referred_schema") or ""
@@ -246,9 +245,9 @@ def _build_fk_map(fk_list: list[dict]) -> dict[str, str]:
         referred = fk.get("referred_columns", [])
         for local_col, ref_col in zip(constrained, referred):
             if ref_schema:
-                fk_map[local_col] = f"→ {ref_schema}.{ref_table}.{ref_col}"
+                fk_map[local_col] = f"{ref_schema}.{ref_table}.{ref_col}"
             else:
-                fk_map[local_col] = f"→ {ref_table}.{ref_col}"
+                fk_map[local_col] = f"{ref_table}.{ref_col}"
     return fk_map
 
 
@@ -454,8 +453,6 @@ def introspect(
     issues: list[str] = []
     inspected_objects = 0
     limit_reached = False
-    observed_at = utc_observed_at()
-
     try:
         insp = inspect(engine)
     except Exception as exc:
@@ -527,7 +524,6 @@ def introspect(
                             source,
                             schema_name,
                             table_name,
-                            observed_at,
                             object_type=object_type,
                         ))
                     except Exception as exc:
@@ -566,7 +562,6 @@ def _introspect_table(
     source: str,
     schema_name: str | None,
     table_name: str,
-    observed_at: str,
     object_type: str = "table",
 ) -> list[dict[str, str]]:
     """Introspect a single table or view into canonical observations."""
@@ -620,12 +615,9 @@ def _introspect_table(
             scale=scl,
             nullable=nullable,
             ordinal=ordinal,
-            declared_key="primary" if is_pk else unique_map.get(col["name"], ""),
-            declared_reference=fk_map.get(col["name"], ""),
+            key="primary" if is_pk else unique_map.get(col["name"], ""),
+            reference=fk_map.get(col["name"], ""),
             row_estimate=row_est,
-            observed_at=observed_at,
-            method=f"{dialect}:catalog",
-            evidence_class="observed",
         ))
     return rows
 

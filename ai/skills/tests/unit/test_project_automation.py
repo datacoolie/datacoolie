@@ -31,6 +31,7 @@ def test_render_automation_is_conditional_and_self_contained(tmp_path: Path) -> 
     assert (
         output / "datacoolie_build/schemas/build-verification-receipt.schema.json"
     ).is_file()
+    assert (output / "datacoolie_build/schemas/current-build.schema.json").is_file()
     assert not (
         output / "datacoolie_build/schemas/design-approval.schema.json"
     ).exists()

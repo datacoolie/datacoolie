@@ -36,7 +36,7 @@
     "status": {"enum": ["succeeded", "failed"]},
     "build_id": {
       "type": "string",
-      "pattern": "^[0-9]{6}-[0-9a-f]{12}$"
+      "pattern": "^[0-9]{6}-[0-9]{6}-[0-9a-f]{12}$"
     },
     "environment": {"type": "string", "minLength": 1},
     "platform": {"type": "string", "minLength": 1},

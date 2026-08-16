@@ -3,7 +3,7 @@
   "artifact_type": "build_verification",
   "receipt_id": "<unique-build-verification-receipt-id>",
   "status": "succeeded",
-  "build_id": "<YYMMDD-12-char-content-digest>",
+  "build_id": "<YYMMDD-HHMMSS-12-char-content-digest>",
   "environment": "<environment>",
   "platform": "<platform>",
   "datacoolie_version": "<installed-version>",

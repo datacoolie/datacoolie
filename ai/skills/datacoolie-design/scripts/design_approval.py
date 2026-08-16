@@ -26,6 +26,15 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def approval_receipt_name(architecture_sha256: str) -> str:
+    """Return the readable filename while the payload retains the full digest binding."""
+    if len(architecture_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in architecture_sha256
+    ):
+        raise ValueError("Architecture SHA-256 must be 64 lowercase hexadecimal characters")
+    return f"architecture-{architecture_sha256[:12]}.approved.json"
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -90,7 +99,12 @@ def record_approval(
         "approved_scope": approved_scope.strip(),
     }
     validate_receipt(payload, architecture)
-    receipt = workspace / ".approvals" / "design" / f"{payload['architecture_sha256']}.json"
+    receipt = (
+        workspace
+        / ".approvals"
+        / "design"
+        / approval_receipt_name(payload["architecture_sha256"])
+    )
     receipt.parent.mkdir(parents=True, exist_ok=True)
     if receipt.exists():
         existing = json.loads(receipt.read_text(encoding="utf-8"))
@@ -114,9 +128,14 @@ def record_approval(
 def verify_approval(*, workspace: Path, architecture: Path, receipt: Path | None = None) -> str:
     workspace, architecture = _canonical_architecture(workspace, architecture)
     digest = sha256_file(architecture)
-    target = receipt.resolve() if receipt else workspace / ".approvals" / "design" / f"{digest}.json"
+    expected_name = approval_receipt_name(digest)
+    target = (
+        receipt.resolve()
+        if receipt
+        else workspace / ".approvals" / "design" / expected_name
+    )
     expected_parent = (workspace / ".approvals" / "design").resolve()
-    if target.parent != expected_parent or target.name != f"{digest}.json":
+    if target.parent != expected_parent or target.name != expected_name:
         raise ValueError("Approval receipt path must match the current architecture hash")
     if not target.is_file():
         raise ValueError("Matching design approval receipt does not exist")

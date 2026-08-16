@@ -36,27 +36,30 @@ create empty placeholder trees.
 ```text
 {workspace_name}/
 ├── .builds/
-│   └── {YYMMDD}-{12-char-content-digest}/
-│       ├── manifest.json
-│       ├── SHA256SUMS
-│       ├── {env}/
-│       │   ├── metadata.json
-│       │   └── runners/
-│       └── dist/                          # only when custom functions exist
+│   ├── artifacts/
+│   │   └── {YYMMDD-HHMMSS}-{12-char-content-digest}/
+│   │       ├── manifest.json
+│   │       ├── SHA256SUMS
+│   │       ├── {env}/
+│   │       │   ├── metadata.json
+│   │       │   └── runners/
+│   │       └── dist/                      # only when custom functions exist
+│   ├── evidence/
+│   │   └── {build_id}/{env}/{receipt_id}.json
+│   └── current/
+│       └── {env}.json
 ├── .runtime/
 │   └── {env}/
 │       ├── logs/
 │       └── watermarks/
-├── .evidence/
-│   ├── builds/
-│   └── provision/
 ├── .approvals/                            # only required approvals
 └── .releases/
 ```
 
-`.builds/` contains materialized immutable copies, never symlinks. Durable corrections always
-return to metadata, runners, functions, or automation source. Mutable log and watermark state must
-remain outside `.builds/`.
+`.builds/artifacts/` contains materialized immutable copies, never symlinks. Build receipts and
+current pointers remain outside artifact directories. Durable corrections always return to
+metadata, runners, functions, or automation source. Mutable log and watermark state remains under
+`.runtime/`.
 
 ## Workspace AGENTS.md
 
@@ -156,12 +159,17 @@ Omit `--environment` to build every configured environment. Use repeated `--runn
 the request intentionally selects a subset; otherwise materialize all runners compatible with each
 environment platform.
 
-The command returns a UTC-date-prefixed build ID such as `260808-a13f83c9d7e2`. The manifest keeps
-the full content digest. Equal inputs reuse the valid existing build and retain its original date;
-changed inputs create a new immutable folder. Integration/runtime tests execute files under that
-build and write `.evidence/builds/{build_id}/{env}/{receipt_id}.json`. Validate the exact build and
-explicit receipt with `scripts/validate_build.py`; release consumes that ID, checksums, target slice,
-and successful receipt path.
+The command returns a UTC creation-time-prefixed build ID such as
+`260808-091011-a13f83c9d7e2`. The manifest keeps the full content digest. Each materialization creates
+a time-addressed immutable folder; only byte-identical output colliding in the same second may be
+reused. After verification, materialization atomically writes `.builds/current/{env}.json` for each
+selected environment.
+
+For the normal latest-build test path, resolve `current` and execute the exact generated files it
+identifies. To test an earlier version, select `.builds/artifacts/{build_id}` directly. Both paths
+write `.builds/evidence/{build_id}/{env}/{receipt_id}.json`; the receipt and every downstream handoff
+use the resolved build ID. Release consumes that exact ID, checksums, target slice, and successful
+receipt rather than the moving pointer.
 
 ## Optional project-owned automation
 
@@ -182,9 +190,9 @@ Add these workspace outputs to `.gitignore` when they are created:
 ```gitignore
 .builds/
 .runtime/
-.evidence/
 .approvals/
 .releases/
+provision/evidence/
 __pycache__/
 *.py[cod]
 .env

@@ -148,6 +148,7 @@ def test_build_owns_all_deterministic_workspace_tooling() -> None:
         "scripts/materialize.py",
         "scripts/render_automation.py",
         "schemas/workspace-config.schema.json",
+        "schemas/current-build.schema.json",
         "schemas/0.1.0/metadata.schema.json",
         "templates/project-structure.md",
         "references/capability-catalog.md",
@@ -176,7 +177,11 @@ def test_workspace_contract_is_canonical_and_minimal() -> None:
     ):
         assert layout in template
     assert "Paths never infer or override runtime stage" in template
-    assert ".builds/" in template and "{YYMMDD}-{12-char-content-digest}" in template
+    assert ".builds/artifacts/" in template
+    assert "{YYMMDD-HHMMSS}-{12-char-content-digest}" in template
+    assert ".builds/current/{env}.json" in template
+    assert ".builds/evidence/{build_id}/{env}/{receipt_id}.json" in template
+    assert ".evidence/" not in template
     assert ".runtime/" in template
     assert "environment-to-platform mapping" in template
     assert "project_management" not in template

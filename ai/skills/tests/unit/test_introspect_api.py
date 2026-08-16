@@ -6,7 +6,7 @@ import csv
 import io
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -122,7 +122,7 @@ class TestPaginationDetection:
 
 class TestRefToFk:
     def test_component_ref(self):
-        assert introspect_api._ref_to_fk("#/components/schemas/Customer") == "→ Customer"
+        assert introspect_api._ref_to_fk("#/components/schemas/Customer") == "Customer"
 
     def test_short_ref(self):
         result = introspect_api._ref_to_fk("x")
@@ -130,12 +130,41 @@ class TestRefToFk:
 
 
 # ---------------------------------------------------------------------------
+# GraphQL declared facts
+# ---------------------------------------------------------------------------
+
+class TestGraphQlFacts:
+    @patch("introspect_api.requests.post")
+    def test_id_scalar_does_not_imply_primary_key(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "data": {"__schema": {"types": [{
+                "name": "Customer",
+                "kind": "OBJECT",
+                "fields": [{
+                    "name": "id",
+                    "type": {"kind": "NON_NULL", "ofType": {
+                        "kind": "SCALAR", "name": "ID", "ofType": None,
+                    }},
+                }],
+            }]}},
+        }
+        mock_post.return_value = response
+
+        rows = introspect_api.parse_graphql("https://example.test/graphql", "crm")
+
+        assert len(rows) == 1
+        assert rows[0]["data_type"] == "string"
+        assert rows[0]["key"] == ""
+
+
+# ---------------------------------------------------------------------------
 # CSV header contract
 # ---------------------------------------------------------------------------
 
 class TestCsvContract:
-    def test_header_has_22_columns(self):
-        assert len(introspect_api.CSV_HEADER) == 22
+    def test_header_has_19_columns(self):
+        assert len(introspect_api.CSV_HEADER) == 19
 
     def test_header_matches_db_script(self):
         """Ensure all three scripts share the same CSV contract."""
@@ -162,7 +191,7 @@ class TestCliOutput:
         assert len(rows) > 1
         # Check the shared observation width per row
         for i, row in enumerate(rows):
-            assert len(row) == 22, f"Row {i} has {len(row)} columns: {row}"
+            assert len(row) == 19, f"Row {i} has {len(row)} columns: {row}"
 
     def test_openapi_operation_is_part_of_identity(self):
         spec = json.dumps({
@@ -179,7 +208,7 @@ class TestCliOutput:
             },
         })
         rows = introspect_api.parse_openapi(spec, "sample")
-        assert {row["operation"] for row in rows} == {"GET", "POST"}
+        assert {row["source_operation"] for row in rows} == {"GET", "POST"}
 
 
 # ---------------------------------------------------------------------------

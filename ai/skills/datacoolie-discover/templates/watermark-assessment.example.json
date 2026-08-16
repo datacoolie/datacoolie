@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "objects": [
+    {
+      "match": {
+        "source": "source_name",
+        "object_type": "table",
+        "catalog": "",
+        "schema": "schema_name",
+        "object": "object_name",
+        "source_operation": ""
+      },
+      "outcome": "confirmed_candidate",
+      "candidates": [
+        {
+          "column": "column_name",
+          "roles": "change"
+        }
+      ],
+      "coverage": "Describe the verified mutation coverage",
+      "limitations": "Describe material limitations or state None",
+      "fallback": "Describe a fallback or state None",
+      "decision_required": "Describe the remaining design decision or state None",
+      "delete_evidence": ""
+    }
+  ]
+}

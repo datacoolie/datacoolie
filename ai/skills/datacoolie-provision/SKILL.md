@@ -64,8 +64,8 @@ Keep project-owned infrastructure under `{workspace}/provision/`. Persist approv
 receipts under:
 
 ```text
-{workspace}/.evidence/provision/{env}/plans/{plan_id}.{format}
-{workspace}/.evidence/provision/{env}/{receipt_id}.json
+{workspace}/provision/evidence/{env}/plans/{plan_id}.{format}
+{workspace}/provision/evidence/{env}/receipts/{receipt_id}.json
 ```
 
 Use `templates/provision-receipt.json.example`, then validate the explicitly selected receipt:

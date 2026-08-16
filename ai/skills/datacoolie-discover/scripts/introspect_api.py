@@ -25,7 +25,6 @@ from _observation_contract import (
     CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
     atomic_write_observations,
     make_observation,
-    utc_observed_at,
     write_observations,
 )
 from _input_safety import validate_nonsecret_locator
@@ -217,11 +216,10 @@ def _map_openapi_type(schema: dict) -> tuple[str, str]:
 
 
 def _ref_to_fk(ref: str) -> str:
-    """Convert a $ref path to a FK reference string."""
-    # #/components/schemas/Customer → → Customer
+    """Convert a $ref path to a canonical schema locator."""
     parts = ref.split("/")
     if len(parts) >= 2:
-        return f"→ {parts[-1]}"
+        return parts[-1]
     return ""
 
 
@@ -248,7 +246,6 @@ def parse_openapi(spec_content: str | dict, source: str) -> list[dict[str, str]]
         spec = spec_content
 
     rows: list[dict[str, str]] = []
-    observed_at = utc_observed_at()
     paths = spec.get("paths", {})
 
     for path, path_item in paths.items():
@@ -293,7 +290,7 @@ def parse_openapi(spec_content: str | dict, source: str) -> list[dict[str, str]]
                     source=source,
                     object_type="endpoint",
                     object=path,
-                    operation=method.upper(),
+                    source_operation=method.upper(),
                     column=field["name"],
                     native_type=field.get("native_type", ""),
                     data_type=field["type"],
@@ -302,10 +299,7 @@ def parse_openapi(spec_content: str | dict, source: str) -> list[dict[str, str]]
                     scale=field.get("scale", ""),
                     nullable=field.get("nullable", "true"),
                     ordinal=ordinal,
-                    declared_reference=field.get("fk", ""),
-                    observed_at=observed_at,
-                    method="openapi",
-                    evidence_class="declared",
+                    reference=field.get("fk", ""),
                     notes=notes,
                 ))
 
@@ -370,7 +364,6 @@ def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> li
     types = data.get("data", {}).get("__schema", {}).get("types", [])
 
     rows: list[dict[str, str]] = []
-    observed_at = utc_observed_at()
     skip_prefixes = ("__",)  # internal introspection types
 
     for type_def in types:
@@ -392,13 +385,12 @@ def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> li
             if is_list:
                 canonical = f"array<{canonical}>"
 
-            is_pk = "true" if type_name == "ID" else ""
             nullable = "false" if is_non_null else "true"
 
             # FK: if it resolves to another OBJECT type, it's a reference
             fk = ""
             if type_name not in GRAPHQL_SCALAR_MAP and not is_list:
-                fk = f"→ {type_name}"
+                fk = type_name
 
             native_type = f"[{type_name}]" if is_list else type_name
             rows.append(make_observation(
@@ -410,11 +402,7 @@ def parse_graphql(endpoint: str, source: str, headers: dict | None = None) -> li
                 data_type=canonical,
                 nullable=nullable,
                 ordinal=ordinal,
-                declared_key="primary" if is_pk else "",
-                declared_reference=fk,
-                observed_at=observed_at,
-                method="graphql:introspection",
-                evidence_class="declared",
+                reference=fk,
             ))
 
     return rows
@@ -459,8 +447,6 @@ def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> 
     root = ET.fromstring(resp.text)
 
     rows: list[dict[str, str]] = []
-    observed_at = utc_observed_at()
-
     # Find all EntityType elements (handle namespace variations)
     for schema_elem in root.iter():
         if schema_elem.tag.endswith("}Schema") or schema_elem.tag == "Schema":
@@ -514,10 +500,7 @@ def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> 
                             scale=scl,
                             nullable=nullable,
                             ordinal=ordinal,
-                            declared_key="primary" if is_pk else "",
-                            observed_at=observed_at,
-                            method="odata:metadata",
-                            evidence_class="declared",
+                            key="primary" if is_pk else "",
                         ))
 
                     elif prop.tag.endswith("}NavigationProperty") or prop.tag == "NavigationProperty":
@@ -542,10 +525,7 @@ def parse_odata(metadata_url: str, source: str, headers: dict | None = None) -> 
                             data_type=canonical,
                             nullable=nullable_val,
                             ordinal=ordinal,
-                            declared_reference=f"→ {ref_entity}",
-                            observed_at=observed_at,
-                            method="odata:metadata",
-                            evidence_class="declared",
+                            reference=ref_entity,
                             notes="navigation property",
                         ))
 

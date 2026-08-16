@@ -19,9 +19,9 @@ TOKENS = (
     "## Release Automation",
     "## Evidence And Handoff",
     "Release never rebuilds or repairs the artifact",
-    ".builds/{build_id}",
+    ".builds/artifacts/{build_id}",
     "explicitly selected successful build receipt",
-    "never select `latest` or glob",
+    "never deploy from `current`, `latest`, or",
     "--require-success",
 )
 

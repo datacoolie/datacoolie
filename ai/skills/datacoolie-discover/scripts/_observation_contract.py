@@ -4,7 +4,6 @@ from __future__ import annotations
 import csv
 import os
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, TextIO
 
@@ -14,7 +13,7 @@ CSV_HEADER = [
     "catalog",
     "schema",
     "object",
-    "operation",
+    "source_operation",
     "column",
     "native_type",
     "data_type",
@@ -23,59 +22,46 @@ CSV_HEADER = [
     "scale",
     "nullable",
     "ordinal",
-    "declared_key",
-    "declared_reference",
+    "key",
+    "reference",
     "row_estimate",
     "watermark_candidate",
-    "observed_at",
-    "method",
-    "evidence_class",
     "notes",
 ]
 
 KEY_FIELDS = (
-    "source", "object_type", "catalog", "schema", "object", "operation", "column",
+    "source", "object_type", "catalog", "schema", "object", "source_operation", "column",
 )
-WATERMARK_VALUES = {"", "declared", "observed", "inferred"}
-EVIDENCE_VALUES = {"declared", "observed", "inferred", "unresolved"}
-
-_TIMESTAMP_NAMES = {
-    "last_modified",
-    "last_modified_at",
-    "last_updated",
-    "last_updated_at",
-    "modified_at",
-    "updated_at",
-}
-_SEQUENCE_NAMES = {
-    "change_version",
-    "row_version",
-    "rowversion",
-    "sequence_number",
-}
-
-
-def utc_observed_at() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def infer_watermark_candidate(column: str, data_type: str) -> str:
-    name = column.strip().lower()
-    normalized_type = data_type.strip().lower()
-    temporal = any(token in normalized_type for token in ("date", "time", "timestamp"))
-    sequence = any(
-        token in normalized_type
-        for token in ("int", "long", "number", "numeric", "decimal", "binary", "byte")
-    )
-    if name in _TIMESTAMP_NAMES and temporal:
-        return "inferred"
-    if name in _SEQUENCE_NAMES and sequence:
-        return "inferred"
-    return ""
+WATERMARK_ROLES = (
+    "change",
+    "insert",
+    "update",
+    "delete",
+    "append",
+    "auxiliary",
+    "backward",
+)
+_WATERMARK_ROLE_INDEX = {role: index for index, role in enumerate(WATERMARK_ROLES)}
 
 
 def observation_key(row: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(str(row.get(field, "")).strip() for field in KEY_FIELDS)
+
+
+def canonicalize_watermark_candidate(value: Any) -> str:
+    """Return unique watermark roles in canonical order."""
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    roles = [role.strip() for role in text.split("|")]
+    if any(not role for role in roles):
+        raise ValueError("watermark_candidate contains an empty role")
+    unknown = sorted(set(roles) - set(WATERMARK_ROLES))
+    if unknown:
+        raise ValueError(f"Unknown watermark_candidate roles: {unknown}")
+    if len(roles) != len(set(roles)):
+        raise ValueError("watermark_candidate roles must be unique")
+    return "|".join(sorted(roles, key=_WATERMARK_ROLE_INDEX.__getitem__))
 
 
 def make_observation(
@@ -86,21 +72,18 @@ def make_observation(
     column: Any,
     native_type: Any,
     data_type: Any,
-    observed_at: Any,
-    method: Any,
-    evidence_class: Any,
     catalog: Any = "",
     schema: Any = "",
-    operation: Any = "",
+    source_operation: Any = "",
     format: Any = "",
     precision: Any = "",
     scale: Any = "",
     nullable: Any = "",
     ordinal: Any = "",
-    declared_key: Any = "",
-    declared_reference: Any = "",
+    key: Any = "",
+    reference: Any = "",
     row_estimate: Any = "",
-    watermark_candidate: Any | None = None,
+    watermark_candidate: Any = "",
     notes: Any = "",
 ) -> dict[str, str]:
     """Create one normalized observation without adapter-specific positional rows."""
@@ -109,20 +92,8 @@ def make_observation(
         field: "" if values[field] is None else str(values[field])
         for field in CSV_HEADER
     }
-    if watermark_candidate is None:
-        result["watermark_candidate"] = infer_watermark_candidate(
-            result["column"], result["data_type"],
-        )
     validate_observation(result)
     return result
-
-
-def _valid_timestamp(value: str) -> bool:
-    try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    return value.endswith("Z") or "+" in value[10:] or "-" in value[10:]
 
 
 def validate_observation(row: Mapping[str, Any]) -> None:
@@ -130,15 +101,21 @@ def validate_observation(row: Mapping[str, Any]) -> None:
     extra = [field for field in row if field not in CSV_HEADER]
     if missing or extra:
         raise ValueError(f"Observation fields mismatch; missing={missing}, extra={extra}")
-    for field in ("source", "object_type", "object", "column", "observed_at", "method"):
+    for field in ("source", "object_type", "object", "column"):
         if not str(row[field]).strip():
             raise ValueError(f"Observation requires non-empty {field}")
-    if str(row["watermark_candidate"]) not in WATERMARK_VALUES:
-        raise ValueError("Invalid watermark_candidate value")
-    if str(row["evidence_class"]) not in EVIDENCE_VALUES:
-        raise ValueError("Invalid evidence_class value")
-    if not _valid_timestamp(str(row["observed_at"])):
-        raise ValueError("observed_at must be an ISO-8601 timestamp with timezone")
+    key = str(row["key"])
+    unique_name = key.removeprefix("unique:") if key.startswith("unique:") else ""
+    if key and key != "primary" and not (
+        unique_name and unique_name == unique_name.strip()
+    ):
+        raise ValueError("key must be empty, primary, or unique:<constraint-name>")
+    reference = str(row["reference"])
+    if reference.lstrip().startswith("→"):
+        raise ValueError("reference must not contain display decoration")
+    watermark = str(row["watermark_candidate"])
+    if watermark != canonicalize_watermark_candidate(watermark):
+        raise ValueError("watermark_candidate roles are not in canonical order")
     if str(row["ordinal"]):
         try:
             if int(str(row["ordinal"])) < 1:

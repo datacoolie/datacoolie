@@ -11,7 +11,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-BUILD_ID_PATTERN = re.compile(r"^(?P<date>\d{6})-(?P<digest>[0-9a-f]{12})$")
+BUILD_ID_PATTERN = re.compile(
+    r"^(?P<date>\d{6})-(?P<time>\d{6})-(?P<digest>[0-9a-f]{12})$"
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -140,6 +142,8 @@ def _verify_build_directory(build_dir: Path, manifest: dict[str, Any]) -> None:
         raise ValueError("Build creation timestamp is invalid") from exc
     if match.group("date") != created.astimezone(timezone.utc).strftime("%y%m%d"):
         raise ValueError("Build ID does not match the creation date")
+    if match.group("time") != created.astimezone(timezone.utc).strftime("%H%M%S"):
+        raise ValueError("Build ID does not match the creation time")
 
     checksums = build_dir / "SHA256SUMS"
     if checksums.is_symlink() or not checksums.is_file():
@@ -266,7 +270,7 @@ def validate_build_binding(
     workspace: Path,
     receipt: dict[str, Any],
 ) -> dict[str, str]:
-    build_candidate = workspace / ".builds" / receipt["build_id"]
+    build_candidate = workspace / ".builds" / "artifacts" / receipt["build_id"]
     if build_candidate.is_symlink():
         raise ValueError("Build directory must not be a symlink")
     build_dir = build_candidate.resolve()
@@ -298,7 +302,7 @@ def validate_build_binding(
             relative = path.relative_to(build_dir).as_posix()
         except ValueError as exc:
             raise ValueError(f"{label} artifact is outside the exact build") from exc
-        canonical = f".builds/{receipt['build_id']}/{relative}"
+        canonical = f".builds/artifacts/{receipt['build_id']}/{relative}"
         if artifact["path"].replace("\\", "/") != canonical:
             raise ValueError(f"{label} artifact path is not canonical for the exact build")
         if declared.get(relative) != artifact["sha256"]:
@@ -317,7 +321,13 @@ def validate_build_binding(
     build_receipt_path = resolve_artifact(
         workspace, receipt["build_receipt"], "Build verification receipt"
     )
-    expected_parent = workspace / ".evidence" / "builds" / receipt["build_id"] / receipt["environment"]
+    expected_parent = (
+        workspace
+        / ".builds"
+        / "evidence"
+        / receipt["build_id"]
+        / receipt["environment"]
+    )
     if build_receipt_path.parent != expected_parent.resolve():
         raise ValueError(f"Build receipt must be stored directly under {expected_parent}")
     build_receipt = load_object(build_receipt_path, "Build verification receipt")
@@ -346,7 +356,9 @@ def validate_provision_binding(workspace: Path, receipt: dict[str, Any]) -> None
     if receipt["provision_requirements"] is None:
         raise ValueError("Provision receipt requires the exact blocked requirements artifact")
     path = resolve_artifact(workspace, artifact, "Provision receipt")
-    expected_parent = workspace / ".evidence" / "provision" / receipt["environment"]
+    expected_parent = (
+        workspace / "provision" / "evidence" / receipt["environment"] / "receipts"
+    )
     if path.parent != expected_parent.resolve():
         raise ValueError(f"Provision receipt must be stored directly under {expected_parent}")
     provision = load_object(path, "Provision receipt")
@@ -387,7 +399,7 @@ def validate_provision_binding(workspace: Path, receipt: dict[str, Any]) -> None
     _require_artifact_shape(provision["plan"], "Provision plan")
     resolve_artifact(workspace, provision["requirements"], "Provision requirements")
     plan_path = resolve_artifact(workspace, provision["plan"], "Provision plan")
-    expected_plan_parent = expected_parent / "plans"
+    expected_plan_parent = expected_parent.parent / "plans"
     if plan_path.parent != expected_plan_parent.resolve():
         raise ValueError(f"Provision plan must be stored directly under {expected_plan_parent}")
     authorizations = provision["authorizations"]

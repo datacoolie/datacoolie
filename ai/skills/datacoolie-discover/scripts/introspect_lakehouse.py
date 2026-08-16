@@ -25,7 +25,6 @@ from _observation_contract import (
     CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
     atomic_write_observations,
     make_observation,
-    utc_observed_at,
     write_observations,
 )
 from _input_safety import validate_nonsecret_locator
@@ -134,7 +133,6 @@ def introspect_iceberg(
 
     rows: list[dict[str, str]] = []
     issue_list = issues if issues is not None else []
-    observed_at = utc_observed_at()
 
     for ns_parts in ns_list:
         if isinstance(ns_parts, str):
@@ -227,10 +225,7 @@ def introspect_iceberg(
                     scale=scl,
                     nullable=nullable,
                     ordinal=ordinal,
-                    declared_key="primary" if is_pk else "",
-                    observed_at=observed_at,
-                    method="iceberg:rest-catalog",
-                    evidence_class="declared",
+                    key="primary" if is_pk else "",
                     notes="; ".join(notes_parts),
                 ))
 
@@ -329,7 +324,6 @@ def introspect_hive(
 
     rows: list[dict[str, str]] = []
     issue_list = issues if issues is not None else []
-    observed_at = utc_observed_at()
 
     for db_name in db_list:
         try:
@@ -386,9 +380,6 @@ def introspect_hive(
                     scale=scl,
                     nullable="true",
                     ordinal=ordinal,
-                    observed_at=observed_at,
-                    method="hive:metastore",
-                    evidence_class="observed",
                     notes=notes,
                 ))
 
@@ -450,7 +441,6 @@ def introspect_unity(
 
     rows: list[dict[str, str]] = []
     issue_list = issues if issues is not None else []
-    observed_at = utc_observed_at()
 
     for schema_name in schema_list:
         # List tables
@@ -514,9 +504,6 @@ def introspect_unity(
                     scale=scl,
                     nullable=nullable,
                     ordinal=ordinal,
-                    observed_at=observed_at,
-                    method="unity:catalog",
-                    evidence_class="observed",
                     notes=notes,
                 ))
 
@@ -565,7 +552,6 @@ def introspect_glue(
 
     rows: list[dict[str, str]] = []
     issue_list = issues if issues is not None else []
-    observed_at = utc_observed_at()
 
     for db_name in db_list:
         try:
@@ -620,9 +606,6 @@ def introspect_glue(
                     scale=scl,
                     nullable="true",
                     ordinal=ordinal,
-                    observed_at=observed_at,
-                    method="aws-glue:catalog",
-                    evidence_class="observed",
                     notes=notes,
                 ))
 

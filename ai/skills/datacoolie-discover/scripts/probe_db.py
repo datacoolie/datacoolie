@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from _artifact_io import atomic_write_json
-from _observation_contract import utc_observed_at
+from _probe_status import utc_now
 from introspect_db import _build_odbc_url, _read_env_value
 
 _MUTATING_TOKEN = re.compile(
@@ -147,7 +147,7 @@ def run_probe(
                 result = connection.execute(text(validated_sql))
                 rows = result.fetchmany(max_rows + 1)
                 payload = {
-                    "observed_at": utc_observed_at(),
+                    "generated_at": utc_now(),
                     "method": "targeted-read-only-sql",
                     "dialect": engine.dialect.name,
                     "timeout_seconds": timeout_seconds,

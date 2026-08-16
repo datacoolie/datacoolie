@@ -7,8 +7,9 @@ description: Plan, preflight, deploy, promote, roll back, or author consume-only
 
 ## Outcome And Boundary
 
-Prepare or apply one deployment action for an exact verified `.builds/{build_id}` and produce a
-durable receipt for every attempted mutation. Release never rebuilds or repairs the artifact.
+Prepare or apply one deployment action for an exact verified
+`.builds/artifacts/{build_id}` and produce a durable receipt for every attempted mutation.
+Release never rebuilds or repairs the artifact.
 Promotion reuses one build; rollback selects an explicit previous successful release and its build.
 
 Own release preflight, artifact transport, target activation, deployment automation, promotion,
@@ -49,7 +50,9 @@ project-owned automation, installed tooling, and current official documentation 
 
 ## Preflight
 
-1. Resolve the explicitly supplied build ID and receipts; never select `latest` or glob for them.
+1. Resolve the explicitly supplied build ID and receipts; never deploy from `current`, `latest`, or
+   a glob. A build current pointer may help a human choose, but authorization and preflight use the
+   resulting exact build ID and successful receipt.
 2. Run the bundled release consumer validator against the exact build and successful build receipt.
    Reject modified, incomplete, symlinked, undeclared, or insufficiently verified artifacts.
 3. Confirm the build receipt, manifest, environment, platform, runner, metadata, and functions

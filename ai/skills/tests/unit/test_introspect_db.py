@@ -90,7 +90,7 @@ class TestBuildFkMap:
             "referred_columns": ["id"],
         }]
         result = introspect_db._build_fk_map(fk_list)
-        assert result["customer_id"] == "→ public.customers.id"
+        assert result["customer_id"] == "public.customers.id"
 
     def test_no_schema(self):
         fk_list = [{
@@ -100,7 +100,7 @@ class TestBuildFkMap:
             "referred_columns": ["id"],
         }]
         result = introspect_db._build_fk_map(fk_list)
-        assert result["order_id"] == "→ orders.id"
+        assert result["order_id"] == "orders.id"
 
     def test_empty(self):
         assert introspect_db._build_fk_map([]) == {}
@@ -143,15 +143,14 @@ class TestMaskUrl:
 # ---------------------------------------------------------------------------
 
 class TestCsvContract:
-    def test_header_has_22_columns(self):
-        assert len(introspect_db.CSV_HEADER) == 22
+    def test_header_has_19_columns(self):
+        assert len(introspect_db.CSV_HEADER) == 19
 
     def test_header_columns(self):
         expected = [
-            "source", "object_type", "catalog", "schema", "object", "operation", "column",
+            "source", "object_type", "catalog", "schema", "object", "source_operation", "column",
             "native_type", "data_type", "format", "precision", "scale", "nullable",
-            "ordinal", "declared_key", "declared_reference", "row_estimate",
-            "watermark_candidate", "observed_at", "method", "evidence_class", "notes",
+            "ordinal", "key", "reference", "row_estimate", "watermark_candidate", "notes",
         ]
         assert introspect_db.CSV_HEADER == expected
 
@@ -265,7 +264,7 @@ class TestIntrospect:
         # Check FK reference
         user_id_rows = [r for r in rows[1:] if r[6] == "user_id"]
         assert len(user_id_rows) == 1
-        assert "→ public.users.id" in user_id_rows[0][15]
+        assert user_id_rows[0][15] == "public.users.id"
 
         # Check PK
         id_rows = [r for r in rows[1:] if r[6] == "id"]
@@ -362,13 +361,12 @@ class TestIntrospect:
         }]
         table_rows = introspect_db._introspect_table(
             MagicMock(), inspector, "sqlite", "app", "main", "users",
-            "2026-08-10T00:00:00Z",
         )
-        assert table_rows[0]["declared_key"] == "unique:uq_users_email"
+        assert table_rows[0]["key"] == "unique:uq_users_email"
 
         view_rows = introspect_db._introspect_table(
             MagicMock(), inspector, "sqlite", "app", "main", "active_users",
-            "2026-08-10T00:00:00Z", object_type="view",
+            object_type="view",
         )
         assert view_rows[0]["object_type"] == "view"
         assert view_rows[0]["row_estimate"] == ""

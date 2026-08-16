@@ -1,1 +1,1 @@
-source,object_type,catalog,schema,object,operation,column,native_type,data_type,format,precision,scale,nullable,ordinal,declared_key,declared_reference,row_estimate,watermark_candidate,observed_at,method,evidence_class,notes
+source,object_type,catalog,schema,object,source_operation,column,native_type,data_type,format,precision,scale,nullable,ordinal,key,reference,row_estimate,watermark_candidate,notes

@@ -1,6 +1,7 @@
 # ignore __pycache__ all levels
 __pycache__/
 .cache/
+.scratch/
 
 # Spark artifacts (shared across tests and usecase-sim)
 # iceberg-warehouse is NOT local — REST catalog stores it on MinIO/S3

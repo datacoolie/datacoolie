@@ -4,23 +4,23 @@
   "release_id": "release-example",
   "action": "deploy",
   "status": "succeeded",
-  "build_id": "260810-000000000000",
+  "build_id": "260810-120000-000000000000",
   "environment": "example",
   "platform": "example",
   "manifest": {
-    "path": ".builds/260810-000000000000/manifest.json",
+    "path": ".builds/artifacts/260810-120000-000000000000/manifest.json",
     "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
   },
   "build_receipt": {
-    "path": ".evidence/builds/260810-000000000000/example/build-example.json",
+    "path": ".builds/evidence/260810-120000-000000000000/example/build-example.json",
     "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
   },
   "runner": {
-    "path": ".builds/260810-000000000000/example/runners/run_example.py",
+    "path": ".builds/artifacts/260810-120000-000000000000/example/runners/run_example.py",
     "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
   },
   "metadata": {
-    "path": ".builds/260810-000000000000/example/metadata.json",
+    "path": ".builds/artifacts/260810-120000-000000000000/example/metadata.json",
     "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
   },
   "functions": [],
@@ -33,24 +33,24 @@
     "source": "target_policy",
     "action": "deploy",
     "environment": "example",
-    "build_id": "260810-000000000000",
-    "deployment_intent_sha256": "7ea3efd20caaeb7ab7ecc4551be4c88c9e10d1bf869310c24ac5a21cbcfc0744"
+    "build_id": "260810-120000-000000000000",
+    "deployment_intent_sha256": "009eb43d5eb192b722f90cc13d30f6dc896300f2f9e820fdb2fb2d70003f9e59"
   },
   "target": {
     "identity": "target-environment/example",
     "activation_mechanism": "target-native-association",
     "protection": "standard",
-    "release_reference": "target/releases/260810-000000000000/example",
+    "release_reference": "target/releases/260810-120000-000000000000/example",
     "activation_reference": "target/deployment/example",
     "status": "active"
   },
   "transfers": [
     {
       "source": {
-        "path": ".builds/260810-000000000000/example/metadata.json",
+        "path": ".builds/artifacts/260810-120000-000000000000/example/metadata.json",
         "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
       },
-      "target_reference": "target/releases/260810-000000000000/example/metadata.json",
+      "target_reference": "target/releases/260810-120000-000000000000/example/metadata.json",
       "observed_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
       "status": "succeeded",
       "evidence": "target-side digest"

@@ -17,10 +17,9 @@ import introspect_lakehouse
 # ---------------------------------------------------------------------------
 
 EXPECTED_HEADER = [
-    "source", "object_type", "catalog", "schema", "object", "operation", "column",
+    "source", "object_type", "catalog", "schema", "object", "source_operation", "column",
     "native_type", "data_type", "format", "precision", "scale", "nullable",
-    "ordinal", "declared_key", "declared_reference", "row_estimate",
-    "watermark_candidate", "observed_at", "method", "evidence_class", "notes",
+    "ordinal", "key", "reference", "row_estimate", "watermark_candidate", "notes",
 ]
 
 
@@ -31,7 +30,7 @@ class TestCsvContract:
         assert introspect_lakehouse.CSV_HEADER == EXPECTED_HEADER
 
     def test_header_length(self):
-        assert len(introspect_lakehouse.CSV_HEADER) == 22
+        assert len(introspect_lakehouse.CSV_HEADER) == 19
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +209,7 @@ class TestIntrospectIceberg:
         assert row["object"] == "transactions"
         assert row["column"] == "txn_id"
         assert row["data_type"] == "long"
-        assert row["declared_key"] == "primary"
+        assert row["key"] == "primary"
         assert list(row) == EXPECTED_HEADER
 
     @patch("requests.get")
@@ -497,7 +496,7 @@ class TestCliOutput:
         assert len(rows) == 2  # header + 1 data row
         assert rows[1][0] == "test"
         assert rows[1][6] == "col1"
-        assert len(rows[1]) == 22
+        assert len(rows[1]) == 19
 
 
 # ---------------------------------------------------------------------------

@@ -11,10 +11,16 @@ downstream decision; omit anything already supported by evidence.
 ## Change Semantics
 
 - Does the source expose CDC, change tracking, transaction logs, or durable version tokens?
-- Which observed candidate records inserts and updates reliably? Can values arrive late, move
-  backwards, or be rewritten?
-- How are deletes represented, including hard deletes and soft-delete fields?
-- Is there an overlap window or reconciliation rule for late changes?
+- Which candidate advances for inserts, updates, or every relevant change? Can it be null,
+  duplicated, reset, reused, rewritten, or delivered out of order?
+- Is an identity or sequence truly append-only? If rows can change, which additional value captures
+  those updates?
+- How are deletes represented? Distinguish durable tombstones or CDC events from hard deletes that
+  disappear from ordinary source queries.
+- If only a transaction or business date is available, what correction horizon and bounded
+  lookback can safely cover late or backdated changes?
+- If no reliable candidate exists, are full extraction duration, source load, cost, and target
+  overwrite acceptable? Do not infer a universal row-count threshold.
 
 ## Extraction Constraints
 

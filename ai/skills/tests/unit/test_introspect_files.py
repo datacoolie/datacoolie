@@ -117,8 +117,8 @@ class TestDetectFormat:
 # ---------------------------------------------------------------------------
 
 class TestCsvContract:
-    def test_header_has_22_columns(self):
-        assert len(introspect_files.CSV_HEADER) == 22
+    def test_header_has_19_columns(self):
+        assert len(introspect_files.CSV_HEADER) == 19
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +177,7 @@ class TestSchemaCsv:
         rows = list(reader)
         assert len(rows) > 1
         # Has "inferred from sample rows" in notes
-        assert any("inferred" in r[21] for r in rows[1:])
-        assert all(r[20] == "inferred" for r in rows[1:])
+        assert any("inferred" in r[18] for r in rows[1:])
 
 
 # ---------------------------------------------------------------------------

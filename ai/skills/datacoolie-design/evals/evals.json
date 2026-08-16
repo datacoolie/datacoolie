@@ -110,6 +110,17 @@
         "Any later byte change invalidates the receipt.",
         "No approval is inferred from intent to approve."
       ]
+    },
+    {
+      "id": 11,
+      "prompt": "The design is final and explicitly approved. Record the approval so a human can recognize the file without weakening the exact architecture binding.",
+      "expected_output": "Use a readable architecture-short-hash approval filename while retaining and validating the complete architecture SHA-256 in the receipt.",
+      "files": [],
+      "expectations": [
+        "The approval filename identifies architecture and approval state rather than containing only a full opaque hash.",
+        "The filename is exactly architecture-{first 12 architecture digest characters}.approved.json and the payload retains the full SHA-256.",
+        "A short-prefix collision, stale payload, alias, or renamed receipt fails closed."
+      ]
     }
   ]
 }

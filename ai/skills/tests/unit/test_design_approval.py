@@ -43,7 +43,12 @@ def test_record_and_verify_approval(tmp_path):
         approved_at="2026-08-10T05:00:00Z",
     )
     digest = design_approval.sha256_file(architecture)
-    assert receipt == workspace / ".approvals" / "design" / f"{digest}.json"
+    assert receipt == (
+        workspace
+        / ".approvals"
+        / "design"
+        / f"architecture-{digest[:12]}.approved.json"
+    )
     assert design_approval.verify_approval(
         workspace=workspace, architecture=architecture,
     ) == digest
@@ -186,7 +191,7 @@ def test_build_consumer_rejects_symlinked_approval_receipt(tmp_path, monkeypatch
         build_tool._validate_design_approval(workspace)
 
 
-@pytest.mark.parametrize("receipt_name", ["latest.json", "copied.json"])
+@pytest.mark.parametrize("receipt_name", ["latest.json", "copied.json", "architecture.json"])
 def test_verify_rejects_non_hash_receipt_names(tmp_path, receipt_name):
     workspace, architecture = _workspace(tmp_path)
     receipt = design_approval.record_approval(
@@ -219,3 +224,36 @@ def test_receipt_schema_rejects_unknown_fields(tmp_path):
     payload["approval_required"] = False
     with pytest.raises(ValueError, match="violates schema"):
         design_approval.validate_receipt(payload, architecture)
+
+
+def test_short_hash_filename_collision_fails_closed(tmp_path):
+    workspace, architecture = _workspace(tmp_path)
+    digest = design_approval.sha256_file(architecture)
+    collision_digest = digest[:12] + ("0" if digest[12] != "0" else "1") + digest[13:]
+    receipt = (
+        workspace
+        / ".approvals"
+        / "design"
+        / design_approval.approval_receipt_name(digest)
+    )
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(json.dumps({
+        "schema_version": 1,
+        "artifact_type": "design_approval",
+        "decision": "approved",
+        "architecture_path": "architecture/current.md",
+        "architecture_sha256": collision_digest,
+        "approved_at": "2026-08-10T05:00:00Z",
+        "approved_by": "other owner",
+        "approval_reference": "different architecture",
+        "approved_scope": "different material design",
+    }), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="stale for the current architecture"):
+        design_approval.record_approval(
+            workspace=workspace,
+            architecture=architecture,
+            approved_by="owner",
+            approval_reference="current session",
+            approved_scope="material design",
+        )
