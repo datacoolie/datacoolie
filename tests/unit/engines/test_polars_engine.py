@@ -838,11 +838,58 @@ class TestSystemColumns:
         result = engine.add_system_columns(sample_lf, author="TestBot").collect()
         assert result[SystemColumn.UPDATED_BY][0] == "TestBot"
 
+    def test_add_system_columns_with_dataflow_run_id(
+        self,
+        engine: PolarsEngine,
+        sample_lf: pl.LazyFrame,
+    ) -> None:
+        before = sample_lf.collect().height
+        result = engine.add_system_columns(
+            sample_lf,
+            dataflow_run_id="run-123",
+        ).collect()
+        assert result.height == before
+        assert result.schema[SystemColumn.DATAFLOW_RUN_ID] == pl.String
+        assert result[SystemColumn.DATAFLOW_RUN_ID].unique().to_list() == ["run-123"]
+
     def test_remove_system_columns(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
         with_sys = engine.add_system_columns(sample_lf)
         result = engine.remove_system_columns(with_sys).collect()
         for col in SystemColumn:
             assert col not in result.columns
+
+    def test_scd2_close_step_preserves_dataflow_run_id(
+        self,
+        engine: PolarsEngine,
+        sample_lf: pl.LazyFrame,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured: dict = {}
+
+        class MergeBuilder:
+            def when_matched_update(self, *, updates, predicate):
+                captured["updates"] = updates
+                captured["predicate"] = predicate
+                return self
+
+            def execute(self):
+                return None
+
+        monkeypatch.setattr(
+            engine,
+            "_sink_or_write_delta",
+            lambda *_args, **_kwargs: MergeBuilder(),
+        )
+        monkeypatch.setattr(
+            engine,
+            "write_to_path",
+            lambda *_args, **_kwargs: None,
+        )
+
+        engine.scd2_to_path(sample_lf, "/tmp/table", ["id"])
+
+        assert set(captured["updates"]) == {"__valid_to", "__is_current"}
+        assert SystemColumn.DATAFLOW_RUN_ID not in captured["updates"]
 
     def test_add_file_info_columns_with_file_infos(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
         """file_infos joined by __file_path injects name and modification_time."""

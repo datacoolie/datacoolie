@@ -111,7 +111,7 @@ class StubEngine(BaseEngine[dict]):
         raise NotImplementedError
 
     # --- System ---
-    def add_system_columns(self, df, author=None):
+    def add_system_columns(self, df, author=None, dataflow_run_id=None):
         raise NotImplementedError
 
     def add_file_info_columns(self, df):

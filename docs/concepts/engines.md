@@ -43,6 +43,20 @@ The **navigation** group (`read`, `write`, ...) is concrete on `BaseEngine` — 
 dispatches on connection type and format to the right abstract method. You
 rarely override it.
 
+Engine implementations accept an optional execution ID when adding system
+columns:
+
+```python
+def add_system_columns(
+    self,
+    df,
+    author=None,
+    dataflow_run_id=None,
+): ...
+```
+
+When supplied, it must be added as the string column `__dataflow_run_id`.
+
 ## The `fmt` contract
 
 Format-aware methods take a `fmt` string (`"delta"`, `"iceberg"`, `"parquet"`,

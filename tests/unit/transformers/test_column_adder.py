@@ -83,6 +83,24 @@ class TestSystemColumnAdder:
         result = sca.transform({"id": 1}, df)
         assert result["__updated_by"] == "MyApp"
 
+    def test_adds_supplied_dataflow_run_id(self, engine: MockEngine) -> None:
+        df = _make_dataflow()
+        sca = SystemColumnAdder(engine, dataflow_run_id="run-123")
+        result = sca.transform(
+            {"id": 1, "__dataflow_run_id": "untrusted"},
+            df,
+        )
+        assert result["__dataflow_run_id"] == "run-123"
+
+    def test_omits_dataflow_run_id_for_standalone_usage(self, engine: MockEngine) -> None:
+        df = _make_dataflow()
+        result = SystemColumnAdder(engine).transform({"id": 1}, df)
+        assert "__dataflow_run_id" not in result
+
+    def test_rejects_empty_dataflow_run_id(self, engine: MockEngine) -> None:
+        with pytest.raises(ValueError, match="must be non-empty"):
+            SystemColumnAdder(engine, dataflow_run_id="")
+
 
 class TestSCD2ColumnAdder:
     def test_order_is_60(self, engine: MockEngine) -> None:

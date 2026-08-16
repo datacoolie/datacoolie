@@ -54,6 +54,18 @@ class MyLibEngine(BaseEngine[mylib.DataFrame]):
     # (see BaseEngine for the full list)
 ```
 
+The system-column contract includes the optional driver execution ID:
+
+```python
+def add_system_columns(self, df, author=None, dataflow_run_id=None):
+    # Add the standard timestamps/author. When dataflow_run_id is provided,
+    # add it as the string column __dataflow_run_id.
+    ...
+```
+
+Do not generate a replacement ID inside the engine: it must remain equal to
+the `DataFlowRuntimeInfo.dataflow_run_id` supplied by the driver.
+
 ## `fmt` parameter contract
 
 Every format-aware method **must** accept a `fmt` string. `read_table`,

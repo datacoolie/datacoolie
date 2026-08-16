@@ -88,7 +88,7 @@ DEFAULT_TRANSFORMERS: list[str] = [
     "column_adder",           # 30. User-configured calculated columns
     "row_filter",             # 35. Discard unwanted rows (post-column_adder, pre-scd2)
     "scd2_column_adder",      # 60. SCD2 validity columns from source effective-date
-    "system_column_adder",    # 70. Framework audit columns (__created_at, etc.)
+    "system_column_adder",    # 70. Framework audit + dataflow run lineage columns
     "partition_handler",      # 80. Derive partition values from final columns
     "data_masker",            # 84. Mask structured scalar PII before projection
     "column_projector",       # 85. Select/drop, then atomically rename columns
@@ -475,9 +475,13 @@ class DataCoolieDriver:
         Returns:
             :class:`DataFlowRuntimeInfo` with timing, status, and metrics.
         """
-        start_time = utc_now()
-        dataflow_run_id = generate_unique_id()
-        status = DataFlowStatus.RUNNING
+        dataflow_runtime = DataFlowRuntimeInfo(
+            dataflow_id=dataflow.dataflow_id,
+            operation_type=operation_type,
+            start_time=utc_now(),
+            status=DataFlowStatus.RUNNING.value,
+        )
+        status = dataflow_runtime.status
         error_message: Optional[str] = None
 
         source_runtime: Optional[SourceRuntimeInfo] = None
@@ -490,7 +494,7 @@ class DataCoolieDriver:
             (source_runtime, transform_runtime, dest_runtime, status), attempts = (
                 self._retry_handler.execute(
                     self._execute_etl_pipeline, dataflow,
-                    dataflow_run_id=dataflow_run_id,
+                    dataflow_run_id=dataflow_runtime.dataflow_run_id,
                     watermark_start=watermark_start,
                     watermark_end=watermark_end,
                     save_watermark=save_watermark,
@@ -499,40 +503,33 @@ class DataCoolieDriver:
                 )
             )
         except PipelineError as exc:
-            status = DataFlowStatus.FAILED
+            status = DataFlowStatus.FAILED.value
             error_message = str(exc)
             if exc.partial_result:
                 source_runtime, transform_runtime, dest_runtime, _ = exc.partial_result
             logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         except Exception as exc:
-            status = DataFlowStatus.FAILED
+            status = DataFlowStatus.FAILED.value
             error_message = str(exc)
             logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         finally:
             clear_dataflow_id(ctx_token)
 
-        end_time = utc_now()
-        runtime = DataFlowRuntimeInfo(
-            dataflow_run_id=dataflow_run_id,
-            dataflow_id=dataflow.dataflow_id,
-            operation_type=operation_type,
-            source=source_runtime or SourceRuntimeInfo(),
-            transform=transform_runtime or TransformRuntimeInfo(),
-            destination=dest_runtime or DestinationRuntimeInfo(),
-            start_time=start_time,
-            end_time=end_time,
-            status=status.value,
-            error_message=error_message,
-            retry_attempts=max(0, attempts - 1),
-        )
+        dataflow_runtime.source = source_runtime or dataflow_runtime.source
+        dataflow_runtime.transform = transform_runtime or dataflow_runtime.transform
+        dataflow_runtime.destination = dest_runtime or dataflow_runtime.destination
+        dataflow_runtime.end_time = utc_now()
+        dataflow_runtime.status = status
+        dataflow_runtime.error_message = error_message
+        dataflow_runtime.retry_attempts = max(0, attempts - 1)
 
         if self._etl_logger:
             try:
-                self._etl_logger.log(dataflow=dataflow, runtime_info=runtime)
+                self._etl_logger.log(dataflow=dataflow, runtime_info=dataflow_runtime)
             except Exception as exc:
                 logger.warning("Failed to log ETL result", exc_info=exc.__cause__ or exc)
 
-        return runtime
+        return dataflow_runtime
 
     def _execute_etl_pipeline(
         self,
@@ -602,10 +599,12 @@ class DataCoolieDriver:
 
             if df is None or source_runtime.rows_read == 0:
                 logger.info("No data to process")
-                return source_runtime, None, None, DataFlowStatus.SKIPPED
+                return source_runtime, None, None, DataFlowStatus.SKIPPED.value
 
             # Transform
-            pipeline = self._create_transformer_pipeline()
+            pipeline = self._create_transformer_pipeline(
+                dataflow_run_id=dataflow_run_id,
+            )
             df = pipeline.transform(df, dataflow)
             transform_runtime = pipeline.get_runtime_info()
 
@@ -642,7 +641,7 @@ class DataCoolieDriver:
                 dest_runtime = writer.get_runtime_info()
             raise PipelineError(
                 str(exc),
-                partial_result=(source_runtime, transform_runtime, dest_runtime, DataFlowStatus.FAILED),
+                partial_result=(source_runtime, transform_runtime, dest_runtime, DataFlowStatus.FAILED.value),
             ) from exc
 
         rows_r = source_runtime.rows_read if source_runtime else 0
@@ -653,7 +652,7 @@ class DataCoolieDriver:
             rows_w,
         )
 
-        return source_runtime, transform_runtime, dest_runtime, DataFlowStatus.SUCCEEDED
+        return source_runtime, transform_runtime, dest_runtime, DataFlowStatus.SUCCEEDED.value
 
     # ------------------------------------------------------------------
     # Replay / backfill
@@ -736,8 +735,12 @@ class DataCoolieDriver:
             Single :class:`DataFlowRuntimeInfo` summarising all chunks.
             Processing stops on the first failed chunk.
         """
-        start_time = utc_now()
-        dataflow_run_id = generate_unique_id()
+        dataflow_runtime = DataFlowRuntimeInfo(
+            dataflow_id=dataflow.dataflow_id,
+            operation_type=ExecutionType.REPLAY.value,
+            start_time=utc_now(),
+            status=DataFlowStatus.RUNNING.value,
+        )
 
         # Resolve chunk column from dataflow metadata
         col = replay.chunk_column
@@ -773,17 +776,9 @@ class DataCoolieDriver:
                         dataflow.name,
                         stored_val,
                     )
-                    return DataFlowRuntimeInfo(
-                        dataflow_run_id=dataflow_run_id,
-                        dataflow_id=dataflow.dataflow_id,
-                        operation_type=ExecutionType.REPLAY.value,
-                        source=SourceRuntimeInfo(),
-                        transform=TransformRuntimeInfo(),
-                        destination=DestinationRuntimeInfo(),
-                        start_time=start_time,
-                        end_time=utc_now(),
-                        status=DataFlowStatus.SKIPPED.value,
-                    )
+                    dataflow_runtime.end_time = utc_now()
+                    dataflow_runtime.status = DataFlowStatus.SKIPPED.value
+                    return dataflow_runtime
 
         total = len(chunks)
         logger.info(
@@ -801,12 +796,12 @@ class DataCoolieDriver:
             logger.info("Replay chunk %d/%d: [%s, %s)", idx, total, lower, upper)
 
             # Deep copy per chunk; disable date_backward so chunk boundaries are exact.
-            chunk_df: DataFlow = dataflow.model_copy(deep=True)
+            chunk_dataflow: DataFlow = dataflow.model_copy(deep=True)
             for key in _BACKWARD_KEYS:
-                chunk_df.source.configure.pop(key, None)
-            if chunk_df.source.connection:
+                chunk_dataflow.source.configure.pop(key, None)
+            if chunk_dataflow.source.connection:
                 for key in _BACKWARD_KEYS:
-                    chunk_df.source.connection.configure.pop(key, None)
+                    chunk_dataflow.source.connection.configure.pop(key, None)
 
             # Set the upper-bound filter on source so the source reader
             # applies it during read.  Uses strict less-than for [lower, upper)
@@ -814,7 +809,7 @@ class DataCoolieDriver:
             # watermark_end serves as both reader ceiling AND save target.
 
             chunk_runtime = self._run_single_pipeline(
-                chunk_df,
+                chunk_dataflow,
                 watermark_start={col: lower},
                 watermark_end={col: upper},
                 save_watermark=replay.save_watermark,
@@ -823,6 +818,9 @@ class DataCoolieDriver:
             )
 
             chunk_results.append(chunk_runtime)
+            dataflow_runtime.source.rows_read += chunk_runtime.source.rows_read
+            dataflow_runtime.destination.rows_written += chunk_runtime.destination.rows_written
+            dataflow_runtime.retry_attempts += chunk_runtime.retry_attempts
             self._on_replay_complete(chunk_runtime)
 
             if chunk_runtime.status == DataFlowStatus.FAILED.value:
@@ -840,18 +838,10 @@ class DataCoolieDriver:
             else DataFlowStatus.SKIPPED.value if all_skipped
             else DataFlowStatus.SUCCEEDED.value
         )
-        return DataFlowRuntimeInfo(
-            dataflow_run_id=dataflow_run_id,
-            dataflow_id=dataflow.dataflow_id,
-            operation_type=ExecutionType.REPLAY.value,
-            source=SourceRuntimeInfo(rows_read=sum(r.source.rows_read for r in chunk_results)),
-            transform=TransformRuntimeInfo(),
-            destination=DestinationRuntimeInfo(rows_written=sum(r.destination.rows_written for r in chunk_results)),
-            start_time=start_time,
-            end_time=utc_now(),
-            status=final_status,
-            error_message=failed.error_message if failed else None,
-        )
+        dataflow_runtime.end_time = utc_now()
+        dataflow_runtime.status = final_status
+        dataflow_runtime.error_message = failed.error_message if failed else None
+        return dataflow_runtime
 
     # ------------------------------------------------------------------
     # Maintenance
@@ -929,9 +919,13 @@ class DataCoolieDriver:
             Runtime info wrapping the maintenance :class:`DestinationRuntimeInfo`.
         """
         dataflow = dataflow.model_copy(deep=True)
-        start_time = utc_now()
-        dataflow_run_id = generate_unique_id()
-        status: str = DataFlowStatus.RUNNING.value
+        dataflow_runtime = DataFlowRuntimeInfo(
+            dataflow_id=dataflow.dataflow_id,
+            operation_type=ExecutionType.MAINTENANCE.value,
+            start_time=utc_now(),
+            status=DataFlowStatus.RUNNING.value,
+        )
+        status: str = dataflow_runtime.status
         error_msg: Optional[str] = None
         dest_runtime: Optional[DestinationRuntimeInfo] = None
         attempts = 1
@@ -959,38 +953,29 @@ class DataCoolieDriver:
 
         if dest_runtime is None:
             dest_runtime = DestinationRuntimeInfo(
-                start_time=start_time,
+                start_time=dataflow_runtime.start_time,
                 end_time=utc_now(),
                 status=status,
                 error_message=error_msg,
                 operation_type=ExecutionType.MAINTENANCE.value,
             )
 
-        retry_attempts = max(0, attempts - 1)
-        end_time = utc_now()
-
-        runtime = DataFlowRuntimeInfo(
-            dataflow_run_id=dataflow_run_id,
-            dataflow_id=dataflow.dataflow_id,
-            operation_type=ExecutionType.MAINTENANCE.value,
-            destination=dest_runtime,
-            start_time=start_time,
-            end_time=end_time,
-            status=status,
-            error_message=error_msg,
-            retry_attempts=retry_attempts,
-        )
+        dataflow_runtime.destination = dest_runtime
+        dataflow_runtime.end_time = utc_now()
+        dataflow_runtime.status = status
+        dataflow_runtime.error_message = error_msg
+        dataflow_runtime.retry_attempts = max(0, attempts - 1)
 
         if self._etl_logger:
             try:
                 self._etl_logger.log(
                     dataflow=dataflow,
-                    runtime_info=runtime,
+                    runtime_info=dataflow_runtime,
                 )
             except Exception as exc:
                 logger.warning("Failed to log maintenance result", exc_info=exc.__cause__ or exc)
 
-        return runtime
+        return dataflow_runtime
 
     def _execute_maintenance_pipeline(
         self,
@@ -1094,7 +1079,10 @@ class DataCoolieDriver:
             kwargs["allowed_prefixes"] = self._config.allowed_function_prefixes
         return source_registry.get(fmt, **kwargs)
 
-    def _create_transformer_pipeline(self) -> TransformerPipeline:
+    def _create_transformer_pipeline(
+        self,
+        dataflow_run_id: Optional[str] = None,
+    ) -> TransformerPipeline:
         """Create a default transformer pipeline from the registry."""
         from datacoolie import transformer_registry
 
@@ -1102,6 +1090,7 @@ class DataCoolieDriver:
         # Per-transformer extra kwargs beyond ``engine``.
         extra_kwargs: dict[str, dict[str, object]] = {
             "column_name_sanitizer": {"mode": self._column_name_mode},
+            "system_column_adder": {"dataflow_run_id": dataflow_run_id},
         }
         for name in DEFAULT_TRANSFORMERS:
             if transformer_registry.is_available(name):

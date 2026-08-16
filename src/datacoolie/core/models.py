@@ -1721,7 +1721,7 @@ class DestinationRuntimeInfo(RuntimeInfo):
 
 @dataclass
 class DataFlowRuntimeInfo(RuntimeInfo):
-    """Composite runtime info for a complete dataflow execution."""
+    """Mutable orchestration record for one dataflow execution."""
 
     dataflow_run_id: str = field(default_factory=generate_unique_id)
     dataflow_id: Optional[str] = None

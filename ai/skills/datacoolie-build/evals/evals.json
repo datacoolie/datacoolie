@@ -275,6 +275,28 @@
         "Current is an environment-scoped minimal build-ID pointer updated only after materialization verification.",
         "Historical tests, verification receipts, release handoffs, and authorizations use the resolved exact build ID rather than current."
       ]
+    },
+    {
+      "id": 26,
+      "prompt": "The source contains source_created_at and transaction_date. For ingestion, add ingested_at and load_job_id columns with the current write time and job identity so consumers can audit each row.",
+      "expected_output": "Preserve the distinct source and business timestamps, but avoid metadata columns that duplicate DataCoolie's framework write-time and job audit columns.",
+      "files": [],
+      "expectations": [
+        "The solution relies on framework-owned __created_at, __updated_at, and __updated_by instead of adding semantically duplicate ingestion or job columns.",
+        "Source-created, source-modified, event, and transaction timestamps remain when their business meaning differs from framework write time.",
+        "System columns are not configured or referenced through earlier additional_columns merely to work around transformer ordering."
+      ]
+    },
+    {
+      "id": 27,
+      "prompt": "Write an append-only flat-file destination into UTC ingestion-date folders. There is no business-date partition requirement and no existing partition column; add an ingestion_date helper column and partition the output with it.",
+      "expected_output": "Use the file destination connection's native date_folder_partitions for load-time folder routing and avoid a helper column whose only purpose is the path.",
+      "files": [],
+      "expectations": [
+        "Flat-file load-time folder routing uses connection.configure.date_folder_partitions on the destination and does not add ingestion_date solely for the path.",
+        "Business or event-time data partitioning uses destination.partition_columns instead of load-time date-folder routing.",
+        "The solution chooses one partition strategy and notes that partition_columns takes precedence when both are configured."
+      ]
     }
   ]
 }

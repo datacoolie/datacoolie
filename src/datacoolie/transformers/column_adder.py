@@ -63,20 +63,25 @@ class ColumnAdder(BaseTransformer[DF]):
 
 
 class SystemColumnAdder(BaseTransformer[DF]):
-    """Append system audit columns as the final pipeline step (order = 70).
+    """Append framework audit columns at order 70.
 
     Adds ``__created_at``, ``__updated_at``, and ``__updated_by`` to every
-    DataFrame.  Running last ensures that column name sanitization never
-    touches system column names.
+    DataFrame. Driver-managed runs also add ``__dataflow_run_id`` using the
+    execution ID supplied when the transformer is created.
     """
 
     def __init__(
         self,
         engine: BaseEngine[DF],
         author: str = DEFAULT_AUTHOR,
+        *,
+        dataflow_run_id: str | None = None,
     ) -> None:
+        if dataflow_run_id is not None and not dataflow_run_id:
+            raise ValueError("dataflow_run_id must be non-empty when provided")
         self._engine = engine
         self._author = author
+        self._dataflow_run_id = dataflow_run_id
 
     @property
     def order(self) -> int:
@@ -84,7 +89,11 @@ class SystemColumnAdder(BaseTransformer[DF]):
 
     def transform(self, df: DF, dataflow: DataFlow) -> DF:
         """Add system audit columns."""
-        return self._engine.add_system_columns(df, self._author)
+        return self._engine.add_system_columns(
+            df,
+            self._author,
+            dataflow_run_id=self._dataflow_run_id,
+        )
 
 
 class SCD2ColumnAdder(BaseTransformer[DF]):

@@ -20,16 +20,16 @@ built-in transformer pipeline, which runs between read and write in this order:
 | 30 | `ColumnAdder` | `transform.additional_columns` |
 | 35 | `RowFilter` | `transform.filter_expression` |
 | 60 | `SCD2ColumnAdder` | `destination.load_type = "scd2"` |
-| 70 | `SystemColumnAdder` | Always (adds `__created_at`, `__updated_at`, `__updated_by`) |
+| 70 | `SystemColumnAdder` | Always (adds audit columns and driver-managed `__dataflow_run_id`) |
 | 80 | `PartitionHandler` | `destination.partition_columns` |
 | 84 | `DataMasker` | `transform.masking_rules` |
 | 85 | `ColumnProjector` | `select_columns`, `drop_columns`, or `rename_columns` |
 | 90 | `ColumnNameSanitizer` | Always (`lower` by default; configurable as `snake`) |
 
 !!! info "System columns are always added"
-    `__created_at`, `__updated_at`, and `__updated_by` are added to **every**
-    dataflow output automatically. You do not configure them — just expect them
-    in the destination table.
+    `__created_at`, `__updated_at`, `__updated_by`, and
+    `__dataflow_run_id` are added to every driver-managed dataflow output.
+    You do not configure them — just expect them in the destination table.
 
 ## Transform at a glance
 
@@ -342,8 +342,8 @@ Use standard SQL scalar functions — the Polars and Spark engines both support
 !!! warning "Do not reference system columns here"
   `additional_columns` runs at transformer order 30. System columns are only
   added later at order 70, so expressions here cannot rely on `__created_at`,
-  `__updated_at`, or `__updated_by`. Let the framework add those columns for
-  you and use them after the transform stage, not inside it.
+  `__updated_at`, `__updated_by`, or `__dataflow_run_id`. Let the framework add
+  those columns for you and use them after the transform stage, not inside it.
 
 ---
 
@@ -472,17 +472,22 @@ Columns added automatically:
 ## Pattern 7 — System columns (always present)
 
 `SystemColumnAdder` runs on **every** dataflow, regardless of configuration.
-Your destination table will always receive these three columns:
+Driver-managed outputs receive these four columns:
 
 | Column | Content |
 |--------|---------|
 | `__created_at` | Framework timestamp when the row was first written |
 | `__updated_at` | Framework timestamp of the current write |
-| `__updated_by` | Job ID of the driver run |
+| `__updated_by` | Configured audit author |
+| `__dataflow_run_id` | ID of the ETL execution or replay chunk that produced the current row/version |
 
 You do not configure these. If a merge destination already has `__created_at`
 from a previous run, the engine preserves its original value on the matched row
 and sets `__updated_at` to the current run timestamp.
+
+Retries reuse one `__dataflow_run_id`. Replay chunks use their own chunk run
+IDs rather than the outer replay aggregate ID. For SCD2, closing an old version
+does not replace its original run ID; the new version receives the current ID.
 
 Remember the ordering: these columns are always present in the written output,
 but they are **not** available to `additional_columns` because they are added

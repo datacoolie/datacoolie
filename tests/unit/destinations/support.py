@@ -120,7 +120,7 @@ class MockEngine(BaseEngine[dict]):
     def cast_column(self, df, column_name, target_type, fmt=None): return df
 
     # --- System ---
-    def add_system_columns(self, df, author=None): return df
+    def add_system_columns(self, df, author=None, dataflow_run_id=None): return df
     def add_file_info_columns(self, df): return df
     def convert_timestamp_ntz_to_timestamp(self, df): return df
     def generate_symlink_manifest(self, path): pass

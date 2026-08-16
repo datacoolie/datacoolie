@@ -57,8 +57,10 @@ from datacoolie.orchestration.driver import DataCoolieDriver
 
 
 class PiiDriver(DataCoolieDriver):
-    def _create_transformer_pipeline(self):
-        pipeline = super()._create_transformer_pipeline()
+    def _create_transformer_pipeline(self, dataflow_run_id=None):
+        pipeline = super()._create_transformer_pipeline(
+            dataflow_run_id=dataflow_run_id,
+        )
         pipeline.add_transformer(
             transformer_registry.get("pii_masker", engine=self._engine)
         )
@@ -70,6 +72,10 @@ driver = PiiDriver(engine=engine, metadata_provider=metadata)
 
 `TransformerPipeline` sorts the combined list by each transformer's `order`
 when it runs.
+
+Always forward `dataflow_run_id` when overriding this hook. The driver uses it
+to correlate the framework-owned `__dataflow_run_id` column with the
+`DataFlowRuntimeInfo` recorded for the same execution.
 
 ## Order slot cheat-sheet
 

@@ -345,12 +345,29 @@ class TestSystemColumns:
         row = result.select(SystemColumn.UPDATED_BY).first()
         assert row[0] == "tester"
 
+    def test_dataflow_run_id(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+        result = engine.add_system_columns(
+            sample_df,
+            dataflow_run_id="run-123",
+        )
+        assert result.count() == sample_df.count()
+        assert dict(result.dtypes)[SystemColumn.DATAFLOW_RUN_ID] == "string"
+        assert result.select(SystemColumn.DATAFLOW_RUN_ID).distinct().first()[0] == "run-123"
+
     def test_remove_system_columns(self, engine: SparkEngine, sample_df: DataFrame) -> None:
         with_sys = engine.add_system_columns(sample_df)
         without = engine.remove_system_columns(with_sys)
         cols = engine.get_columns(without)
         for sys_col in SystemColumn:
             assert sys_col not in cols
+
+    def test_scd2_close_step_preserves_dataflow_run_id(self) -> None:
+        _, update_map, _ = SparkEngine._scd2_merge_parts(["id"])
+        assert set(update_map) == {"`__valid_to`", "`__is_current`"}
+        assert all(
+            SystemColumn.DATAFLOW_RUN_ID not in expression
+            for expression in update_map.values()
+        )
 
     def test_convert_timestamp_ntz(self, engine: SparkEngine, spark: SparkSession, _data_dir: Path) -> None:
         df = spark.read.parquet(str(_data_dir / "timestamp"))

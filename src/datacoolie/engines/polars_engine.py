@@ -2502,14 +2502,24 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     # System columns
     # ==================================================================
 
-    def add_system_columns(self, df: pl.LazyFrame, author: Optional[str] = None) -> pl.LazyFrame:
+    def add_system_columns(
+        self,
+        df: pl.LazyFrame,
+        author: Optional[str] = None,
+        dataflow_run_id: Optional[str] = None,
+    ) -> pl.LazyFrame:
         _author = author or DEFAULT_AUTHOR
         now = datetime.now(tz=timezone.utc)
-        return df.with_columns(
+        expressions = [
             pl.lit(now).alias(SystemColumn.CREATED_AT),
             pl.lit(now).alias(SystemColumn.UPDATED_AT),
             pl.lit(_author).alias(SystemColumn.UPDATED_BY),
-        )
+        ]
+        if dataflow_run_id is not None:
+            expressions.append(
+                pl.lit(dataflow_run_id).alias(SystemColumn.DATAFLOW_RUN_ID)
+            )
+        return df.with_columns(expressions)
 
     def convert_timestamp_ntz_to_timestamp(self, df: pl.LazyFrame) -> pl.LazyFrame:
         schema = df.collect_schema()

@@ -166,6 +166,8 @@ For a database source, the effective predicate for each chunk is:
   further chunks for that dataflow but does not affect other dataflows.
 - Each chunk records a separate `DataFlowRuntimeInfo` in the ETL log with
   `operation_type = "replay"`.
+- Rows written by a chunk receive that chunk's `__dataflow_run_id`; they do not
+  receive the outer replay aggregate ID.
 - Each chunk produces a separate ETL log row.
 - `ExecutionResult.total` / `succeeded` / `failed` count the outer
   **dataflows**, because `_process_replay` aggregates its chunks into one

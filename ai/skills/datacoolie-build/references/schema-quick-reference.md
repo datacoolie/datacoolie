@@ -132,7 +132,7 @@ output always resolves to the top-level structure above.
 | `deduplicate_columns` | string[] | no | Dedup key columns |
 | `latest_data_columns` | string[] | no | Tiebreaker columns to pick latest row when deduplicating |
 | `filter_expression` | string\|null | no | SQL WHERE applied after additional_columns |
-| `additional_columns` | AdditionalColumn[] | no | Computed columns: `[{"column": "etl_loaded_at", "expression": "current_timestamp()"}]` |
+| `additional_columns` | AdditionalColumn[] | no | Business-derived columns: `[{"column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)"}]` |
 | `schema_hints` | SchemaHint[] | no | Intentional dataflow-specific casts or overrides; source-observed types belong in top-level shared hints |
 | `select_columns` | string[] | no | Business columns to retain; mutually exclusive with `drop_columns` |
 | `drop_columns` | string[] | no | Business columns to remove; mutually exclusive with `select_columns` |
@@ -160,6 +160,24 @@ order in metadata. The authoring-relevant sequence is:
 
 Within `value_rules`, ascending `order` runs first; omitted `order` defaults to
 `100`, and ties preserve metadata declaration order.
+
+### Framework-owned columns and file-date routing
+
+- Every dataflow receives `__created_at`, `__updated_at`, and `__updated_by`; SCD2 also owns
+  `__valid_from`, `__valid_to`, and `__is_current`. Do not configure these names yourself.
+- Compare semantics, not similar names. If a proposed `ingested_at`, `loaded_at`, audit timestamp,
+  or job column means only the framework write time or job identity, omit it and use the framework
+  output. Preserve source-created, source-modified, event, transaction, and other business times
+  when their meaning is distinct. If an explicit downstream schema contract requires a legacy or
+  differently named duplicate, keep it only with that justification.
+- System columns are added at priority 70. Earlier `additional_columns` and transform filters cannot
+  reference them; do not recreate a duplicate merely to work around transformer order.
+- For a flat-file destination whose folders represent current UTC load time, prefer
+  `connection.configure.date_folder_partitions` on that destination connection. It routes output
+  without adding an ingestion-date column solely for the folder path.
+- Use `destination.partition_columns` when folders must follow a DataFrame value such as event or
+  transaction date. `partition_columns` takes precedence over `date_folder_partitions`, so author
+  one strategy intentionally rather than configuring both.
 
 ### ValueRule object
 

@@ -718,8 +718,13 @@ class BaseEngine(ABC, Generic[DF]):
     # ==================================================================
 
     @abstractmethod
-    def add_system_columns(self, df: DF, author: Optional[str] = None) -> DF:
-        """Add ``__created_at``, ``__updated_at``, ``__updated_by``."""
+    def add_system_columns(
+        self,
+        df: DF,
+        author: Optional[str] = None,
+        dataflow_run_id: Optional[str] = None,
+    ) -> DF:
+        """Add framework audit columns and an optional dataflow run ID."""
 
     @abstractmethod
     def add_file_info_columns(

@@ -232,6 +232,7 @@ class TestSystemConstants:
         assert SystemColumn.CREATED_AT == "__created_at"
         assert SystemColumn.UPDATED_AT == "__updated_at"
         assert SystemColumn.UPDATED_BY == "__updated_by"
+        assert SystemColumn.DATAFLOW_RUN_ID == "__dataflow_run_id"
 
     def test_file_info_columns(self) -> None:
         assert FileInfoColumn.FILE_NAME == "__file_name"

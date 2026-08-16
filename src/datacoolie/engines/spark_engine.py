@@ -1702,9 +1702,14 @@ class SparkEngine(BaseEngine[DataFrame]):
     # System columns
     # ==================================================================
 
-    def add_system_columns(self, df: DataFrame, author: Optional[str] = None) -> DataFrame:
+    def add_system_columns(
+        self,
+        df: DataFrame,
+        author: Optional[str] = None,
+        dataflow_run_id: Optional[str] = None,
+    ) -> DataFrame:
         _author = author or DEFAULT_AUTHOR
-        return (
+        result = (
             df.withColumn(
                 SystemColumn.CREATED_AT,
                 sf.from_utc_timestamp(sf.current_timestamp(), "UTC"),
@@ -1715,6 +1720,12 @@ class SparkEngine(BaseEngine[DataFrame]):
             )
             .withColumn(SystemColumn.UPDATED_BY, sf.lit(_author))
         )
+        if dataflow_run_id is not None:
+            result = result.withColumn(
+                SystemColumn.DATAFLOW_RUN_ID,
+                sf.lit(dataflow_run_id),
+            )
+        return result
 
     def add_file_info_columns(
         self,

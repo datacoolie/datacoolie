@@ -447,13 +447,55 @@ class TestProcessDataflow:
         )
 
         with patch.object(d, "_create_source_reader", return_value=mock_reader), \
-             patch.object(d, "_create_transformer_pipeline", return_value=mock_pipeline), \
+             patch.object(
+                 d,
+                 "_create_transformer_pipeline",
+                 return_value=mock_pipeline,
+             ) as mock_pipeline_factory, \
              patch.object(d, "_create_destination_writer", return_value=mock_writer):
             result = d._process_dataflow(df)
 
         assert result.status == DataFlowStatus.SUCCEEDED.value
         assert result.dataflow_id == "df-1"
+        mock_pipeline_factory.assert_called_once_with(
+            dataflow_run_id=result.dataflow_run_id,
+        )
         wm.save_watermark.assert_called_once()
+
+    def test_runtime_exists_before_retry_execution(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+        real_runtime_type = DataFlowRuntimeInfo
+        events: list[tuple[str, str]] = []
+
+        def create_runtime(**kwargs):
+            runtime = real_runtime_type(**kwargs)
+            events.append(("runtime", runtime.dataflow_run_id))
+            return runtime
+
+        def execute(_fn, _dataflow, **kwargs):
+            events.append(("execute", kwargs["dataflow_run_id"]))
+            return (
+                (
+                    SourceRuntimeInfo(rows_read=0),
+                    None,
+                    None,
+                    DataFlowStatus.SKIPPED,
+                ),
+                1,
+            )
+
+        with patch(
+            "datacoolie.orchestration.driver.DataFlowRuntimeInfo",
+            side_effect=create_runtime,
+        ), patch.object(d._retry_handler, "execute", side_effect=execute):
+            result = d._run_single_pipeline(df)
+
+        assert events == [
+            ("runtime", result.dataflow_run_id),
+            ("execute", result.dataflow_run_id),
+        ]
+        assert result.status == DataFlowStatus.SKIPPED.value
 
     def test_no_data_skipped(self):
         d, engine, _, wm = _make_driver()
@@ -654,6 +696,35 @@ class TestProcessMaintenance:
         call_kwargs = mock_writer.run_maintenance.call_args
         assert call_kwargs.kwargs["do_compact"] is True
         assert call_kwargs.kwargs["do_cleanup"] is True
+
+    def test_runtime_exists_before_retry_execution(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+        real_runtime_type = DataFlowRuntimeInfo
+        events: list[tuple[str, str]] = []
+
+        def create_runtime(**kwargs):
+            runtime = real_runtime_type(**kwargs)
+            events.append(("runtime", runtime.dataflow_run_id))
+            return runtime
+
+        def execute(_fn, _dataflow, **_kwargs):
+            events.append(("execute", events[0][1]))
+            return (
+                DestinationRuntimeInfo(status=DataFlowStatus.SUCCEEDED.value),
+                1,
+            )
+
+        with patch(
+            "datacoolie.orchestration.driver.DataFlowRuntimeInfo",
+            side_effect=create_runtime,
+        ), patch.object(d._retry_handler, "execute", side_effect=execute):
+            result = d._process_maintenance(df)
+
+        assert events == [
+            ("runtime", result.dataflow_run_id),
+            ("execute", result.dataflow_run_id),
+        ]
 
     def test_compact_only(self):
         """do_cleanup=False skips vacuum; do_compact=True runs optimize."""
@@ -916,6 +987,19 @@ class TestFactoryMethods:
             5, 10, 18, 20, 30, 35, 60, 70, 80, 84, 85, 90
         ]
 
+    def test_create_transformer_pipeline_injects_dataflow_run_id(self):
+        d, *_ = _make_driver()
+        pipeline = d._create_transformer_pipeline(dataflow_run_id="run-123")
+        from datacoolie.transformers import SystemColumnAdder
+
+        system_adders = [
+            transformer
+            for transformer in pipeline.transformers
+            if isinstance(transformer, SystemColumnAdder)
+        ]
+        assert len(system_adders) == 1
+        assert system_adders[0]._dataflow_run_id == "run-123"
+
     def test_create_transformer_pipeline_uses_column_name_mode(self):
         d, *_ = _make_driver()
         d._column_name_mode = ColumnCaseMode.SNAKE
@@ -983,6 +1067,45 @@ class TestRunReplay:
         engine.filter_rows.side_effect = lambda df, expr: df
         engine.count_rows.return_value = rows_read
         return driver, engine, metadata, watermark
+
+    def test_outer_runtime_is_created_before_chunks_and_aggregates_them(self):
+        driver, *_ = self._setup_driver_for_replay()
+        dataflow = _dataflow_with_watermark()
+        replay = ReplayConfig(start="2025-01-01", end="2025-02-01")
+        chunk_runtime = DataFlowRuntimeInfo(
+            dataflow_id=dataflow.dataflow_id,
+            operation_type=ExecutionType.REPLAY.value,
+            source=SourceRuntimeInfo(rows_read=7),
+            destination=DestinationRuntimeInfo(rows_written=5),
+            status=DataFlowStatus.SUCCEEDED.value,
+            retry_attempts=1,
+        )
+        real_runtime_type = DataFlowRuntimeInfo
+        events: list[str] = []
+        created: list[DataFlowRuntimeInfo] = []
+
+        def create_runtime(**kwargs):
+            runtime = real_runtime_type(**kwargs)
+            created.append(runtime)
+            events.append("runtime")
+            return runtime
+
+        def run_chunk(*_args, **_kwargs):
+            events.append("chunk")
+            return chunk_runtime
+
+        with patch(
+            "datacoolie.orchestration.driver.DataFlowRuntimeInfo",
+            side_effect=create_runtime,
+        ), patch.object(driver, "_run_single_pipeline", side_effect=run_chunk):
+            result = driver._process_replay(dataflow, replay)
+
+        assert events == ["runtime", "chunk"]
+        assert result is created[0]
+        assert result.dataflow_run_id != chunk_runtime.dataflow_run_id
+        assert result.source.rows_read == 7
+        assert result.destination.rows_written == 5
+        assert result.retry_attempts == 1
 
     @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_destination_writer")
     @patch("datacoolie.orchestration.driver.DataCoolieDriver._create_transformer_pipeline")

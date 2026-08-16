@@ -21,7 +21,7 @@ leaving **40–50** free for user plugins.
 | **30** | `ColumnAdder` | User-configured calculated columns from `transform.additional_columns`. |
 | **35** | `RowFilter` | Discard rows by `transform.filter_expression` after computed columns exist but before SCD2 logic. |
 | **60** | `SCD2ColumnAdder` | For `load_type="scd2"` only: copy `scd2_effective_column` into `__valid_from`, seed `__valid_to = NULL`, `__is_current = true`. No-op otherwise. |
-| **70** | `SystemColumnAdder` | Framework audit columns: `__created_at`, `__updated_at`, `__updated_by`. |
+| **70** | `SystemColumnAdder` | Framework audit columns: `__created_at`, `__updated_at`, `__updated_by`, and driver-managed `__dataflow_run_id`. |
 | **80** | `PartitionHandler` | Derive partition values from SQL expressions. |
 | **84** | `DataMasker` | Mask structured scalar PII after business transforms and before projection. |
 | **85** | `ColumnProjector` | Resolve select/drop against source names, then apply atomic renames. |

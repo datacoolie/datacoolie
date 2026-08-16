@@ -149,8 +149,8 @@ Quick database connectivity check:
       - [ ] The SQL predicate is valid for your engine.
       - [ ] It only references source columns or columns created by
             `additional_columns` (not system columns added later at order 70).
-- [ ] You have not configured `__created_at`, `__updated_at`, or `__updated_by`
-      in `additional_columns` — these are added automatically.
+- [ ] You have not configured `__created_at`, `__updated_at`, `__updated_by`, or
+      `__dataflow_run_id` in `additional_columns` — these are added automatically.
 - [ ] You are not trying to reference system columns inside `additional_columns`;
       they are added later in the pipeline.
 - [ ] `transform.configure.convert_timestamp_ntz` and

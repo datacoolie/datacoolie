@@ -155,11 +155,13 @@ class MockEngine(BaseEngine[dict]):
         return df
 
     # --- System ---
-    def add_system_columns(self, df, author=None):
+    def add_system_columns(self, df, author=None, dataflow_run_id=None):
         result = dict(df)
         result["__created_at"] = "now"
         result["__updated_at"] = "now"
         result["__updated_by"] = author or DEFAULT_AUTHOR
+        if dataflow_run_id is not None:
+            result["__dataflow_run_id"] = dataflow_run_id
         return result
 
     def add_file_info_columns(self, df, file_infos=None):

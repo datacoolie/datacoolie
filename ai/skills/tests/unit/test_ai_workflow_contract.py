@@ -225,6 +225,24 @@ def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None
     assert "Use `transform.schema_hints` only for an intentional dataflow-specific cast" in schema
 
 
+def test_build_reuses_framework_audit_columns_and_native_file_date_routing() -> None:
+    skill = _read("skills/datacoolie-build/SKILL.md")
+    schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
+    skill_text = " ".join(skill.split())
+    schema_text = " ".join(schema.split())
+
+    assert (
+        "do not duplicate framework write-time or job identity unless an explicit consumer"
+        in skill_text
+    )
+    assert "Preserve source-created, source-modified, event, transaction" in schema_text
+    assert "omit it and use the framework output" in schema_text
+    assert "keep it only with that justification" in schema_text
+    assert "prefer `connection.configure.date_folder_partitions`" in schema_text
+    assert "without adding an ingestion-date column solely for the folder path" in schema_text
+    assert "`partition_columns` takes precedence over `date_folder_partitions`" in schema_text
+
+
 def test_build_references_have_narrow_non_overlapping_boundaries() -> None:
     build_dir = SKILLS_DIR / "datacoolie-build"
     references = {

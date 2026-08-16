@@ -168,6 +168,7 @@ class SystemColumn(str, Enum):
     CREATED_AT = "__created_at"
     UPDATED_AT = "__updated_at"
     UPDATED_BY = "__updated_by"
+    DATAFLOW_RUN_ID = "__dataflow_run_id"
 
 
 class FileInfoColumn(str, Enum):

@@ -75,6 +75,11 @@ runner and operation contracts. Keep credentials in environment or platform secr
 Author exact source-observed types once in `metadata/schema_hints.json`. Put a hint directly in a
 dataflow transform only when it is an intentional dataflow-specific cast or override, not a copy of
 the source schema. Select the simplest native source address using the framework-boundary order.
+Before adding audit or partition helper columns, compare their semantics with framework-generated
+columns and native destination routing. Preserve distinct source/business timestamps, but do not
+duplicate framework write-time or job identity unless an explicit consumer contract requires a
+separate named field. For flat-file load-time folder routing, prefer the destination connection's
+`date_folder_partitions`; use `partition_columns` for data-value routing.
 
 ### 4. Run fast source checks
 
