@@ -1,10 +1,10 @@
-"""ProperDocs hook: copy JSON Schema files from ai/skills/ into docs/schema/ at build time.
+"""Publish DataCoolie build-skill JSON Schemas into docs/schema at build time.
 
 Single source of truth lives in:
-  ai/skills/datacoolie-build/schemas/<version>/metadata.schema.json
+  ai/skills/datacoolie-build/schemas/
 
 Published at:
-  https://datacoolie.github.io/datacoolie/schema/<version>/metadata.schema.json
+  https://datacoolie.github.io/datacoolie/schema/<schema-relative-path>
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ def on_pre_build(config) -> None:  # noqa: ANN001
     skills_schemas = Path(__file__).resolve().parents[2] / "ai" / "skills" / "datacoolie-build" / "schemas"
 
     for schema_file in skills_schemas.rglob("*.json"):
-        # Preserve version folder: schemas/0.1.0/metadata.schema.json → docs/schema/0.1.0/metadata.schema.json
+        # Preserve relative paths, including versioned metadata schema directories.
         rel = schema_file.relative_to(skills_schemas)
         dest = docs_dir / "schema" / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
