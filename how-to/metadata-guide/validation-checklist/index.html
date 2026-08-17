@@ -3630,8 +3630,8 @@ with engine.connect() as conn:
         <code>additional_columns</code> (not system columns added later at order 70).</li>
 </ul>
 </li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You have not configured <code>__created_at</code>, <code>__updated_at</code>, or <code>__updated_by</code>
-      in <code>additional_columns</code> — these are added automatically.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You have not configured <code>__created_at</code>, <code>__updated_at</code>, <code>__updated_by</code>, or
+      <code>__dataflow_run_id</code> in <code>additional_columns</code> — these are added automatically.</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> You are not trying to reference system columns inside <code>additional_columns</code>;
       they are added later in the pipeline.</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>transform.configure.convert_timestamp_ntz</code> and

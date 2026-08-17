@@ -3386,18 +3386,23 @@ driver's <code>DEFAULT_TRANSFORMERS</code>. Use the documented driver extension 
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">PiiDriver</span><span class="p">(</span><span class="n">DataCoolieDriver</span><span class="p">):</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_create_transformer_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">pipeline</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_create_transformer_pipeline</span><span class="p">()</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="n">pipeline</span><span class="o">.</span><span class="n">add_transformer</span><span class="p">(</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>            <span class="n">transformer_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pii_masker&quot;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">)</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="p">)</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        <span class="k">return</span> <span class="n">pipeline</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">driver</span> <span class="o">=</span> <span class="n">PiiDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_create_transformer_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataflow_run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">pipeline</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_create_transformer_pipeline</span><span class="p">(</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>            <span class="n">dataflow_run_id</span><span class="o">=</span><span class="n">dataflow_run_id</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="p">)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="n">pipeline</span><span class="o">.</span><span class="n">add_transformer</span><span class="p">(</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="n">transformer_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pii_masker&quot;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">)</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="p">)</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="k">return</span> <span class="n">pipeline</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">driver</span> <span class="o">=</span> <span class="n">PiiDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>TransformerPipeline</code> sorts the combined list by each transformer's <code>order</code>
 when it runs.</p>
+<p>Always forward <code>dataflow_run_id</code> when overriding this hook. The driver uses it
+to correlate the framework-owned <code>__dataflow_run_id</code> column with the
+<code>DataFlowRuntimeInfo</code> recorded for the same execution.</p>
 <h2 id="order-slot-cheat-sheet">Order slot cheat-sheet<a class="headerlink" href="#order-slot-cheat-sheet" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

@@ -3799,7 +3799,7 @@ built-in transformer pipeline, which runs between read and write in this order:<
 <tr>
 <td>70</td>
 <td><code>SystemColumnAdder</code></td>
-<td>Always (adds <code>__created_at</code>, <code>__updated_at</code>, <code>__updated_by</code>)</td>
+<td>Always (adds audit columns and driver-managed <code>__dataflow_run_id</code>)</td>
 </tr>
 <tr>
 <td>80</td>
@@ -3825,9 +3825,9 @@ built-in transformer pipeline, which runs between read and write in this order:<
 </table>
 <div class="admonition info">
 <p class="admonition-title">System columns are always added</p>
-<p><code>__created_at</code>, <code>__updated_at</code>, and <code>__updated_by</code> are added to <strong>every</strong>
-dataflow output automatically. You do not configure them — just expect them
-in the destination table.</p>
+<p><code>__created_at</code>, <code>__updated_at</code>, <code>__updated_by</code>, and
+<code>__dataflow_run_id</code> are added to every driver-managed dataflow output.
+You do not configure them — just expect them in the destination table.</p>
 </div>
 <h2 id="transform-at-a-glance">Transform at a glance<a class="headerlink" href="#transform-at-a-glance" title="Permanent link">&para;</a></h2>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">&quot;transform&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -4221,8 +4221,8 @@ Use standard SQL scalar functions — the Polars and Spark engines both support
 </div>
 <p><code>additional_columns</code> runs at transformer order 30. System columns are only
   added later at order 70, so expressions here cannot rely on <code>__created_at</code>,
-  <code>__updated_at</code>, or <code>__updated_by</code>. Let the framework add those columns for
-  you and use them after the transform stage, not inside it.</p>
+  <code>__updated_at</code>, <code>__updated_by</code>, or <code>__dataflow_run_id</code>. Let the framework add
+  those columns for you and use them after the transform stage, not inside it.</p>
 <hr />
 <h2 id="pattern-4-filter-rows-transformfilter_expression">Pattern 4 — Filter rows (<code>transform.filter_expression</code>)<a class="headerlink" href="#pattern-4-filter-rows-transformfilter_expression" title="Permanent link">&para;</a></h2>
 <p><strong>When to use:</strong> you need to drop rows before writing to the destination.
@@ -4352,7 +4352,7 @@ effective column in the destination <code>configure</code>:</p>
 <hr />
 <h2 id="pattern-7-system-columns-always-present">Pattern 7 — System columns (always present)<a class="headerlink" href="#pattern-7-system-columns-always-present" title="Permanent link">&para;</a></h2>
 <p><code>SystemColumnAdder</code> runs on <strong>every</strong> dataflow, regardless of configuration.
-Your destination table will always receive these three columns:</p>
+Driver-managed outputs receive these four columns:</p>
 <table>
 <thead>
 <tr>
@@ -4371,13 +4371,20 @@ Your destination table will always receive these three columns:</p>
 </tr>
 <tr>
 <td><code>__updated_by</code></td>
-<td>Job ID of the driver run</td>
+<td>Configured audit author</td>
+</tr>
+<tr>
+<td><code>__dataflow_run_id</code></td>
+<td>ID of the ETL execution or replay chunk that produced the current row/version</td>
 </tr>
 </tbody>
 </table>
 <p>You do not configure these. If a merge destination already has <code>__created_at</code>
 from a previous run, the engine preserves its original value on the matched row
 and sets <code>__updated_at</code> to the current run timestamp.</p>
+<p>Retries reuse one <code>__dataflow_run_id</code>. Replay chunks use their own chunk run
+IDs rather than the outer replay aggregate ID. For SCD2, closing an old version
+does not replace its original run ID; the new version receives the current ID.</p>
 <p>Remember the ordering: these columns are always present in the written output,
 but they are <strong>not</strong> available to <code>additional_columns</code> because they are added
 later in the pipeline.</p>

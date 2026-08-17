@@ -3660,6 +3660,8 @@ filter is preserved:</p>
   further chunks for that dataflow but does not affect other dataflows.</li>
 <li>Each chunk records a separate <code>DataFlowRuntimeInfo</code> in the ETL log with
   <code>operation_type = "replay"</code>.</li>
+<li>Rows written by a chunk receive that chunk's <code>__dataflow_run_id</code>; they do not
+  receive the outer replay aggregate ID.</li>
 <li>Each chunk produces a separate ETL log row.</li>
 <li><code>ExecutionResult.total</code> / <code>succeeded</code> / <code>failed</code> count the outer
   <strong>dataflows</strong>, because <code>_process_replay</code> aggregates its chunks into one
