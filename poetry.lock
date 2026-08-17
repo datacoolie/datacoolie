@@ -3136,4 +3136,4 @@ spark = ["pyspark"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "afe89211e07ee61045fd3dbf641aed69fb7300f7a1fcc5d6cad984b4afb1ab2c"
+content-hash = "33c666721c0c5b6685b26ac6e67030de9550191d0317daf6275f0daf4354315c"
