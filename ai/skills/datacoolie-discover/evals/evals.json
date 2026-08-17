@@ -77,6 +77,17 @@
         "Unknown observation fields remain empty and source-level limitations are recorded in the report.",
         "A confirmed role is applied only after bounded evidence or owner clarification and exact-key validation."
       ]
+    },
+    {
+      "id": 8,
+      "prompt": "Discover two incremental candidates. A mutable business object has no CDC or reliable change timestamp, but it has a filterable transaction_date and corrections normally arrive within five days. A file drop has no useful row timestamp, is stored under year/month/day/hour folders, and the platform exposes file modification times, though the owner has not confirmed whether restores preserve them.",
+      "expected_output": "Classify transaction_date only as a bounded backward fallback, inspect file delivery and path-layout semantics, and preserve framework virtual-column feasibility in the report without fabricating source-schema observations or choosing runtime metadata.",
+      "files": [],
+      "expectations": [
+        "The transaction date is a backward fallback with correction horizon and older-correction risk, not claimed as complete change coverage.",
+        "File discovery verifies modification-time stability, rewrite or restore behavior, and actual ordered date-folder levels separately from row schema.",
+        "Framework virtual values are not fabricated in observations.csv and discovery leaves exact runtime metadata to build."
+      ]
     }
   ]
 }

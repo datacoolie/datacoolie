@@ -215,16 +215,25 @@ def test_runner_contract_preserves_runtime_semantics() -> None:
 
 
 def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None:
+    skill = _read("skills/datacoolie-build/SKILL.md")
     framework = _read("skills/datacoolie-build/references/framework-boundary.md")
     schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
+    skill_text = " ".join(skill.split())
+    schema_text = " ".join(schema.split())
     assert "## Source expression order" in framework
     direct = framework.index("Address the source object directly")
     query = framework.index("Use one bounded source query")
     function = framework.index("Use a metadata-addressed Python function")
     assert direct < query < function
     assert "Do not replace a supported direct address with an equivalent `SELECT *`" in framework
+    assert "the framework appends each non-empty dataflow `schema_name` and `table`" in skill_text
+    assert "`base_path/{schema_name}/{table}`" in schema
+    assert "Do not embed schema or table segments in `base_path`" in schema_text
     assert "authoring source of truth for exact types observed from a source" in schema
-    assert "Use `transform.schema_hints` only for an intentional dataflow-specific cast" in schema
+    assert "many columns, repeated mappings, or bulk treatment across dataflows" in schema_text
+    assert "Use `transform.schema_hints` only when a few columns or a few dataflows" in schema_text
+    assert "the two sources are not merged at runtime" in schema_text
+    assert "author the complete effective hint set for that dataflow" in schema_text
 
 
 def test_build_reuses_framework_audit_columns_and_native_file_date_routing() -> None:
@@ -245,6 +254,34 @@ def test_build_reuses_framework_audit_columns_and_native_file_date_routing() -> 
     assert "prefer `connection.configure.date_folder_partitions`" in schema_text
     assert "without adding an ingestion-date column solely for the folder path" in schema_text
     assert "`partition_columns` takes precedence over `date_folder_partitions`" in schema_text
+
+
+def test_discover_and_build_define_backward_and_file_watermark_boundaries() -> None:
+    discover = _read("skills/datacoolie-discover/SKILL.md")
+    observations = _read(
+        "skills/datacoolie-discover/references/observation-contract.md"
+    )
+    build = _read("skills/datacoolie-build/SKILL.md")
+    schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
+    discover_text = " ".join(discover.split())
+    observation_text = " ".join(observations.split())
+    build_text = " ".join(build.split())
+    schema_text = " ".join(schema.split())
+
+    assert "a backward fallback, not as complete change coverage" in discover_text
+    assert "whether modification times are stable" in discover_text
+    assert "real year/month/day/hour levels" in discover_text
+    assert "Do not present that date as equivalent to a true change watermark" in observations
+    assert "framework values, not source schema columns" in observation_text
+
+    assert "Use backward lookback primarily when discovery found no reliable change signal" in build_text
+    assert "prefer `__file_modification_time`" in build_text
+    assert "Destination `date_folder_partitions` is a separate" in build_text
+    assert "plain append can duplicate rows" in schema_text
+    assert "does nothing on the first run" in schema_text
+    assert "do not add that internal value to `source.watermark_columns`" in schema_text
+    assert "Folder pruning runs first" in schema_text
+    assert "It is independent of source pruning" in schema_text
 
 
 def test_build_references_have_narrow_non_overlapping_boundaries() -> None:

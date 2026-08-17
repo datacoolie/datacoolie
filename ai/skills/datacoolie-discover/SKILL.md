@@ -74,13 +74,17 @@ Resolve resources relative to this skill and read only the matching reference.
    `references/evidence-queries.md` for one bounded custom database query and
    `references/fallback-probes.md` for unsupported sources; never execute reference examples as a
    batch. Custom SQL is self-contained and `probe_db.py` writes its bounded envelope to scratch
-   JSON.
+   JSON. For file sources, also verify delivery semantics: whether modification times are stable,
+   whether files are replaced in place, and whether the path has real year/month/day/hour levels.
+   Keep these object/layout facts in the report; framework virtual columns are not observed source
+   columns.
 9. Complete the scratch object decisions and run `finalize_watermark_assessment.py`. It must cover
    every observed object and generates both watermark annotations and the report table. Apply its
    annotations with `enrich_observations.py`; use direct annotations only for other verified gaps.
 10. Assemble `discover/report.md` with scope, exclusions, methods, partial or failed probes, and the
     generated assessment table. Discovery recommends evidence and fallbacks but leaves the final
-    load strategy to design or an explicit human decision.
+    load strategy to design or an explicit human decision. Describe a transaction/business date as
+    a backward fallback, not as complete change coverage, when no reliable change signal exists.
 
 ## Output And Handoff
 

@@ -72,14 +72,23 @@ environment. Create only required normal, replay, or maintenance entrypoints. Th
 fixes platform, engine, provider, and operation; runtime inputs carry only values allowed by the
 runner and operation contracts. Keep credentials in environment or platform secret services.
 
-Author exact source-observed types once in `metadata/schema_hints.json`. Put a hint directly in a
-dataflow transform only when it is an intentional dataflow-specific cast or override, not a copy of
-the source schema. Select the simplest native source address using the framework-boundary order.
+Treat a file or lakehouse connection `base_path` as the root; the framework appends each non-empty
+dataflow `schema_name` and `table`, so do not repeat those segments in the connection. Author exact
+source-observed, broad, or shared type mappings once in `metadata/schema_hints.json`. Use
+`transform.schema_hints` only for a small dataflow-specific cast or override. A non-empty transform
+hint set prevents global hints from being attached, so do not assume the two sources merge. Select
+the simplest native source address using the framework-boundary order.
 Before adding audit or partition helper columns, compare their semantics with framework-generated
 columns and native destination routing. Preserve distinct source/business timestamps, but do not
 duplicate framework write-time or driver-managed dataflow run identity unless an explicit consumer
 contract requires a separate named field. For flat-file load-time folder routing, prefer the
 destination connection's `date_folder_partitions`; use `partition_columns` for data-value routing.
+Use backward lookback primarily when discovery found no reliable change signal and a
+transaction/business-date column must bound late corrections; pair it with an idempotent load that
+can reprocess the window. For file sources, prefer `__file_modification_time` when file timestamps
+are reliable. Add source `date_folder_partitions` only for an observed year/month/day/hour path
+layout; it prunes folders and may be combined with file modification time. Destination
+`date_folder_partitions` is a separate load-time routing concern.
 
 ### 4. Run fast source checks
 

@@ -245,12 +245,13 @@
     },
     {
       "id": 23,
-      "prompt": "Discovery returned exact source column types for several direct source objects. Author the metadata without duplicating the source schema inside every dataflow transform.",
-      "expected_output": "Write observed types once to metadata/schema_hints.json keyed by source identity and reserve transform.schema_hints for intentional dataflow-specific casts or overrides.",
+      "prompt": "Discovery returned exact source column types for several direct source objects. Most mappings cover many columns and dataflows, while one dataflow needs two different casts. Author the metadata without duplicating schemas or assuming hint sources merge.",
+      "expected_output": "Write exact and broad mappings once to metadata/schema_hints.json, use transform.schema_hints only for the narrow dataflow exception, and account for transform hints replacing rather than merging with attached global hints.",
       "files": [],
       "expectations": [
-        "Exact observed source types are authored in top-level shared schema hints.",
-        "The provider's runtime attachment to transform is not treated as a second authoring source.",
+        "Exact source-observed, many-column, repeated, or bulk mappings are authored in top-level shared schema hints.",
+        "Transform schema hints are limited to a few columns or dataflows with intentional type differences.",
+        "A non-empty transform hint list is treated as preventing global hint attachment, not as merging with or inheriting the global list.",
         "Query/function sources without table identity are reported as outside the shared table-key lookup rather than silently duplicated."
       ]
     },
@@ -298,6 +299,39 @@
         "Flat-file load-time folder routing uses connection.configure.date_folder_partitions on the destination and does not add ingestion_date solely for the path.",
         "Business or event-time data partitioning uses destination.partition_columns instead of load-time date-folder routing.",
         "The solution chooses one partition strategy and notes that partition_columns takes precedence when both are configured."
+      ]
+    },
+    {
+      "id": 28,
+      "prompt": "A file connection has base_path set to /landing/sales/orders. Its dataflow also declares schema_name sales and table orders. Keep that metadata because the connection path already identifies the final object.",
+      "expected_output": "Treat base_path as the storage root and remove duplicated schema/table segments because DataCoolie composes the final table path from base_path, schema_name, and table.",
+      "files": [],
+      "expectations": [
+        "The connection base_path is authored as the storage root rather than including schema_name or table segments already declared by the dataflow.",
+        "The final path is explained as base_path/{schema_name}/{table}, with an empty schema_name skipped.",
+        "Query or function sources without a table identity are not incorrectly described as receiving the composed table path."
+      ]
+    },
+    {
+      "id": 29,
+      "prompt": "A mutable source has no CDC and no column that advances for every update. Discovery confirms transaction_date is filterable and corrections can arrive up to seven days late. Configure an efficient incremental load; using append is acceptable because transaction_date is increasing.",
+      "expected_output": "Use transaction_date only as a backward fallback, configure a seven-day lookback, and select an idempotent destination strategy that safely reprocesses the window rather than plain append.",
+      "files": [],
+      "expectations": [
+        "transaction_date is placed in source.watermark_columns with source-level backward lookback because it is a bounded fallback, not a reliable change signal.",
+        "The destination can reprocess the lookback window idempotently and plain append is rejected because it can duplicate reread rows.",
+        "The result states that backward does not seed the first run and cannot cover corrections older than the configured horizon."
+      ]
+    },
+    {
+      "id": 30,
+      "prompt": "Author metadata for two file ingestions. The first is a flat file drop whose stable modification timestamps identify new and replaced files. The second has the same reliable timestamps and is physically organized under year/month/day/hour folders where old folders may be corrected within three days. Their file destinations should be organized by ingestion time without adding an ingestion_date column.",
+      "expected_output": "Prefer the file modification-time virtual watermark, add source date-folder pruning only for the observed time-folder layout with a sufficient lookback, and configure destination date-folder routing independently.",
+      "files": [],
+      "expectations": [
+        "Both file sources prefer __file_modification_time and do not fabricate it as a physical source-schema column.",
+        "Only the time-folder source configures a year/month/day/hour date_folder_partitions pattern, and its lookback covers corrected old folders because pruning precedes mtime filtering.",
+        "File destinations use their own date_folder_partitions for ingestion-time routing without adding a helper data column or confusing it with source pruning."
       ]
     }
   ]

@@ -113,6 +113,15 @@ output always resolves to the top-level structure above.
 
 **Source configure — watermark range splitting (API):** `watermark_range_interval_unit` (hour\|day\|month\|year), `watermark_range_interval_amount` (int, default 1), `watermark_range_start` (ISO-8601, required if unit set), `watermark_range_max_workers` (default 4), `watermark_range_to_exclusive_offset` (1ms\|1s\|1day\|null)
 
+### `base_path` composition
+
+For file and lakehouse connections, author `connection.configure.base_path` as the storage root.
+For a table-addressed source or destination the framework builds the physical path as
+`base_path/{schema_name}/{table}`, skipping an empty `schema_name`. Do not embed schema or table
+segments in `base_path` when the dataflow already declares them, or the final path will duplicate
+those segments. A query or function source without a table identity does not get this composed
+table path.
+
 ## Destination object
 
 | Field | Type | Required | Description |
@@ -246,10 +255,16 @@ Required: `column_name`, `data_type`
 ## SharedSchemaHint object (top-level `schema_hints` items)
 
 Top-level `schema_hints` are the authoring source of truth for exact types observed from a source and
-apply across dataflows by connection+table match. The provider attaches them to the runtime
-transform. Use `transform.schema_hints` only for an intentional dataflow-specific cast or override,
-not to duplicate the observed source schema. Query and function sources without a table identity
-cannot use this table-keyed lookup.
+apply across dataflows by connection+table match. Prefer them for discovered source types, many
+columns, repeated mappings, or bulk treatment across dataflows. The provider attaches them to the
+runtime transform.
+
+Use `transform.schema_hints` only when a few columns or a few dataflows intentionally require a
+different cast. A non-empty transform hint list prevents global hints from being attached; the two
+sources are not merged at runtime. When a local exception still requires global casts, author the
+complete effective hint set for that dataflow or keep the shared treatment global rather than
+assuming inheritance. Query and function sources without a table identity cannot use the global
+table-keyed lookup.
 
 Required: `connection_name`, `table_name`, `hints`
 
@@ -315,8 +330,9 @@ columns are deep-merged, and new columns are appended.
 
 ### Watermark & filtering
 
-- **File system watermark**: `source.watermark_columns: ["__file_modification_time"]` — built-in virtual column tracking file mtime; used with file/lakehouse sources
-- **Backward look-back window**: `source.configure.backward: {"days": 7}` — shifts watermark back by N days/hours/months/years; `closing_day` anchor for monthly: `{"months": 1, "closing_day": 10}`
+- **Backward fallback**: when no reliable column or source-native feed captures every change, use a verified transaction/business-date column in `source.watermark_columns` and configure `source.configure.backward: {"days": 7}` to re-read the expected correction horizon. Use an idempotent destination strategy that can reprocess that window; plain append can duplicate rows. The lookback shifts an existing stored watermark, does nothing on the first run, and cannot recover corrections older than its window. `closing_day` can anchor a monthly window: `{"months": 1, "closing_day": 10}`.
+- **File system default**: for an ordinary file source, prefer `source.watermark_columns: ["__file_modification_time"]` when discovery verified that storage modification times are stable. This built-in virtual column selects new or modified files and is not a physical source-schema column.
+- **Row watermark inside a file**: use a data column only when discovery verified its mutation semantics; do not choose a transaction date merely because it is present.
 - **Source-side filter** (before watermark push-down): `source.configure.endpoint: "..."` applies at fetch time; for files/DB use `source.filter_expression: "amount > 0"` — evaluated before writing
 - **Transform-side filter** (post-load): `transform.filter_expression: "status != 'cancelled' AND amount > 0"` — SQL predicate applied to the loaded DataFrame
 
@@ -337,7 +353,9 @@ columns are deep-merged, and new columns are appended.
 
 ### File / lakehouse connections
 
-- **Date-folder partitions**: `connection.configure.date_folder_partitions: "{year}/{month}/{day}"` — source reads the folder matching the watermark date; dest writes into dated sub-folder
+- **Source date-folder pruning**: set `connection.configure.date_folder_partitions` only when the observed source path has real ordered date levels such as `"{year}/{month}/{day}/{hour}"`. The framework maintains its internal date-folder watermark and discovers the bounded folder range; do not add that internal value to `source.watermark_columns`.
+- **Source mtime plus date folders**: combine source `date_folder_partitions` with `source.watermark_columns: ["__file_modification_time"]` when both layout and modification-time evidence are reliable. Folder pruning runs first, so a lookback must cover old folders that can still be corrected.
+- **Destination date-folder routing**: on a file destination, `connection.configure.date_folder_partitions` writes into load-time date folders without requiring a helper data column. It is independent of source pruning.
 - **Hive partitioning source**: `connection.configure.use_hive_partitioning: true` — reads column=value directory layout
 - **Disable global schema hint for one connection**: `connection.configure.use_schema_hint: false`
 

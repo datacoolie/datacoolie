@@ -61,6 +61,28 @@ DataCoolie combines multiple watermark columns with OR predicates. Separate inse
 delete-event columns can therefore form one candidate set. Record the set, alternatives, and
 limitations in `report.md`; do not add another grouping convention to the CSV.
 
+### Backward and file-source evidence
+
+Use `backward` primarily when an object has no reliable column or source-native feed that captures
+every relevant change, but a filterable transaction/business date can bound a correction window.
+Do not present that date as equivalent to a true change watermark. Confirm the expected late-change
+horizon and record that corrections older than the chosen lookback can be missed.
+
+For file sources, inspect delivery behavior separately from row schema:
+
+- Determine whether the storage platform exposes stable file modification times and whether copy,
+  rewrite, or restore operations preserve their intended meaning. This evidence lets build prefer
+  DataCoolie's file-modification-time mechanism without inventing an observed column.
+- Record a date-folder pattern only when the physical path really contains ordered
+  year/month/day/hour levels. A folder date bounds path discovery; it does not prove row-change
+  coverage.
+- Assess a column inside the file as a row watermark only when its semantics independently satisfy
+  the normal mutation-coverage checks.
+
+`__file_modification_time` and the internal date-folder watermark are framework values, not source
+schema columns. Keep their feasibility and limitations in `report.md`, not as fabricated rows in
+`observations.csv`.
+
 ## Mandatory Assessment
 
 After merging observations:
