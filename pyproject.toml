@@ -40,7 +40,7 @@ Documentation = "https://datacoolie.github.io/datacoolie/"
 # --- Engines ---
 spark = ["pyspark>=3.5"]
 polars = ["polars>=1.0"]
-polars-hash = ["polars-hash>=0.6,<0.7"]
+polars-hash = ["polars-hash>=0.6"]
 
 # --- Table formats ---
 delta-spark = ["delta-spark>=3.0"]
@@ -70,7 +70,7 @@ all = [
     "pyspark>=3.5",
     "delta-spark>=3.0",
     "polars>=1.0",
-    "polars-hash>=0.6,<0.7",
+    "polars-hash>=0.6",
     "deltalake>=0.15",
     "pyiceberg>=0.6",
     "boto3>=1.28",
@@ -140,7 +140,7 @@ tzdata = {version = ">=2024.1", markers = "sys_platform == 'win32'"}
 pyspark = {version = ">=3.5", optional = true}
 delta-spark = {version = ">=3.0", optional = true}
 polars = {version = ">=1.0", optional = true}
-polars-hash = {version = ">=0.6,<0.7", optional = true}
+polars-hash = {version = ">=0.6", optional = true}
 deltalake = {version = ">=0.15", optional = true}
 pyiceberg = {version = ">=0.6", optional = true}
 boto3 = {version = ">=1.28", optional = true}

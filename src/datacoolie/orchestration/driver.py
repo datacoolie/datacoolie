@@ -37,6 +37,7 @@ from datacoolie.core.models import (
     DataFlow,
     DataFlowRuntimeInfo,
     DestinationRuntimeInfo,
+    PipelineAttemptResult,
     ReplayConfig,
     SourceRuntimeInfo,
     TransformRuntimeInfo,
@@ -438,6 +439,19 @@ class DataCoolieDriver:
         """
         return self._run_single_pipeline(dataflow.model_copy(deep=True))
 
+    @staticmethod
+    def _apply_attempt_result(
+        dataflow_runtime: DataFlowRuntimeInfo,
+        attempt_result: PipelineAttemptResult,
+    ) -> None:
+        """Apply only the phases that participated in an execution attempt."""
+        if attempt_result.source is not None:
+            dataflow_runtime.source = attempt_result.source
+        if attempt_result.transform is not None:
+            dataflow_runtime.transform = attempt_result.transform
+        if attempt_result.destination is not None:
+            dataflow_runtime.destination = attempt_result.destination
+
     def _run_single_pipeline(
         self,
         dataflow: DataFlow,
@@ -484,29 +498,26 @@ class DataCoolieDriver:
         status = dataflow_runtime.status
         error_message: Optional[str] = None
 
-        source_runtime: Optional[SourceRuntimeInfo] = None
-        transform_runtime: Optional[TransformRuntimeInfo] = None
-        dest_runtime: Optional[DestinationRuntimeInfo] = None
+        attempt_result: Optional[PipelineAttemptResult] = None
         attempts = 1
 
         ctx_token = set_dataflow_id(dataflow.dataflow_id)
         try:
-            (source_runtime, transform_runtime, dest_runtime, status), attempts = (
-                self._retry_handler.execute(
-                    self._execute_etl_pipeline, dataflow,
-                    dataflow_run_id=dataflow_runtime.dataflow_run_id,
-                    watermark_start=watermark_start,
-                    watermark_end=watermark_end,
-                    save_watermark=save_watermark,
-                    watermark_start_operator=watermark_start_operator,
-                    watermark_end_operator=watermark_end_operator,
-                )
+            attempt_result, attempts = self._retry_handler.execute(
+                self._execute_etl_pipeline, dataflow,
+                dataflow_run_id=dataflow_runtime.dataflow_run_id,
+                watermark_start=watermark_start,
+                watermark_end=watermark_end,
+                save_watermark=save_watermark,
+                watermark_start_operator=watermark_start_operator,
+                watermark_end_operator=watermark_end_operator,
             )
+            status = attempt_result.status
         except PipelineError as exc:
             status = DataFlowStatus.FAILED.value
             error_message = str(exc)
-            if exc.partial_result:
-                source_runtime, transform_runtime, dest_runtime, _ = exc.partial_result
+            if isinstance(exc.partial_result, PipelineAttemptResult):
+                attempt_result = exc.partial_result
             logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         except Exception as exc:
             status = DataFlowStatus.FAILED.value
@@ -515,9 +526,8 @@ class DataCoolieDriver:
         finally:
             clear_dataflow_id(ctx_token)
 
-        dataflow_runtime.source = source_runtime or dataflow_runtime.source
-        dataflow_runtime.transform = transform_runtime or dataflow_runtime.transform
-        dataflow_runtime.destination = dest_runtime or dataflow_runtime.destination
+        if attempt_result is not None:
+            self._apply_attempt_result(dataflow_runtime, attempt_result)
         dataflow_runtime.end_time = utc_now()
         dataflow_runtime.status = status
         dataflow_runtime.error_message = error_message
@@ -541,7 +551,7 @@ class DataCoolieDriver:
         save_watermark: bool = True,
         watermark_start_operator: str = ">",
         watermark_end_operator: str = "<",
-    ) -> tuple:
+    ) -> PipelineAttemptResult:
         """Run read → transform → write for *dataflow*.
 
         Called by :meth:`RetryHandler.execute`; any exception triggers
@@ -563,7 +573,7 @@ class DataCoolieDriver:
                 filter.  ``"<"`` (default) or ``"<="`` (inclusive).
 
         Returns:
-            ``(source_runtime, transform_runtime, dest_runtime, status)``
+            Terminal phase runtimes and status for this attempt.
         """
         logger.info(
             "Starting %s: %s → %s",
@@ -592,14 +602,17 @@ class DataCoolieDriver:
             # Resolve secrets before creating reader/writer
             self._resolve_connection_secrets(dataflow)
 
-            reader = self._create_source_reader(dataflow)
+            reader = self._create_source_reader(dataflow.source.connection.format)
             df = reader.read(dataflow.source, watermark, watermark_start_operator=watermark_start_operator, 
                              watermark_end=watermark_end, watermark_end_operator=watermark_end_operator)
             source_runtime = reader.get_runtime_info()
 
             if df is None or source_runtime.rows_read == 0:
                 logger.info("No data to process")
-                return source_runtime, None, None, DataFlowStatus.SKIPPED.value
+                return PipelineAttemptResult(
+                    status=DataFlowStatus.SKIPPED.value,
+                    source=source_runtime,
+                )
 
             # Transform
             pipeline = self._create_transformer_pipeline(
@@ -612,7 +625,7 @@ class DataCoolieDriver:
             # Compute watermark window for replace_by_watermark strategies.
             dataflow.apply_watermark_window(source_runtime)
 
-            writer = self._create_destination_writer(dataflow)
+            writer = self._create_destination_writer(dataflow.destination.connection.format)
             writer.write(df, dataflow)
             dest_runtime = writer.get_runtime_info()
 
@@ -641,7 +654,12 @@ class DataCoolieDriver:
                 dest_runtime = writer.get_runtime_info()
             raise PipelineError(
                 str(exc),
-                partial_result=(source_runtime, transform_runtime, dest_runtime, DataFlowStatus.FAILED.value),
+                partial_result=PipelineAttemptResult(
+                    status=DataFlowStatus.FAILED.value,
+                    source=source_runtime,
+                    transform=transform_runtime,
+                    destination=dest_runtime,
+                ),
             ) from exc
 
         rows_r = source_runtime.rows_read if source_runtime else 0
@@ -652,7 +670,12 @@ class DataCoolieDriver:
             rows_w,
         )
 
-        return source_runtime, transform_runtime, dest_runtime, DataFlowStatus.SUCCEEDED.value
+        return PipelineAttemptResult(
+            status=DataFlowStatus.SUCCEEDED.value,
+            source=source_runtime,
+            transform=transform_runtime,
+            destination=dest_runtime,
+        )
 
     # ------------------------------------------------------------------
     # Replay / backfill
@@ -927,22 +950,23 @@ class DataCoolieDriver:
         )
         status: str = dataflow_runtime.status
         error_msg: Optional[str] = None
-        dest_runtime: Optional[DestinationRuntimeInfo] = None
+        attempt_result: Optional[PipelineAttemptResult] = None
         attempts = 1
 
         ctx_token = set_dataflow_id(dataflow.dataflow_id)
         try:
-            dest_runtime, attempts = self._retry_handler.execute(
+            attempt_result, attempts = self._retry_handler.execute(
                 self._execute_maintenance_pipeline, dataflow,
                 do_compact=do_compact, do_cleanup=do_cleanup,
             )
-            status = dest_runtime.status
-            error_msg = dest_runtime.error_message
+            status = attempt_result.status
+            if attempt_result.destination is not None:
+                error_msg = attempt_result.destination.error_message
         except PipelineError as exc:
             status = DataFlowStatus.FAILED.value
             error_msg = str(exc)
-            if exc.partial_result:
-                dest_runtime = exc.partial_result
+            if isinstance(exc.partial_result, PipelineAttemptResult):
+                attempt_result = exc.partial_result
             logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__ or exc)
         except Exception as exc:
             status = DataFlowStatus.FAILED.value
@@ -951,16 +975,8 @@ class DataCoolieDriver:
         finally:
             clear_dataflow_id(ctx_token)
 
-        if dest_runtime is None:
-            dest_runtime = DestinationRuntimeInfo(
-                start_time=dataflow_runtime.start_time,
-                end_time=utc_now(),
-                status=status,
-                error_message=error_msg,
-                operation_type=ExecutionType.MAINTENANCE.value,
-            )
-
-        dataflow_runtime.destination = dest_runtime
+        if attempt_result is not None:
+            self._apply_attempt_result(dataflow_runtime, attempt_result)
         dataflow_runtime.end_time = utc_now()
         dataflow_runtime.status = status
         dataflow_runtime.error_message = error_msg
@@ -982,7 +998,7 @@ class DataCoolieDriver:
         dataflow: DataFlow,
         do_compact: bool = True,
         do_cleanup: bool = True,
-    ) -> DestinationRuntimeInfo:
+    ) -> PipelineAttemptResult:
         """Run optimize + vacuum for *dataflow*.
 
         Called by :meth:`RetryHandler.execute`; any exception triggers
@@ -994,7 +1010,7 @@ class DataCoolieDriver:
             do_cleanup: Run the cleanup (vacuum) step.
 
         Returns:
-            :class:`DestinationRuntimeInfo` from the writer.
+            Terminal destination runtime and status for this attempt.
         """
         logger.info(
             "Starting maintenance: %s",
@@ -1002,10 +1018,11 @@ class DataCoolieDriver:
         )
 
         dest_runtime: Optional[DestinationRuntimeInfo] = None
+        writer: Optional[BaseDestinationWriter] = None
         try:
             if dataflow.destination and dataflow.destination.connection:
                 self._resolve_secrets_for_connection(dataflow.destination.connection)
-            writer = self._create_destination_writer(dataflow)
+            writer = self._create_destination_writer(dataflow.destination.connection.format)
             dest_runtime = writer.run_maintenance(
                 dataflow=dataflow,
                 do_compact=do_compact,
@@ -1013,10 +1030,31 @@ class DataCoolieDriver:
                 retention_hours=self._config.retention_hours,
             )
         except Exception as exc:
+            if writer is not None:
+                candidate = writer.get_runtime_info()
+                if candidate.operation_type == ExecutionType.MAINTENANCE.value:
+                    if candidate.status == DataFlowStatus.RUNNING.value:
+                        candidate.end_time = utc_now()
+                        candidate.status = DataFlowStatus.FAILED.value
+                        candidate.error_message = str(exc)
+                    dest_runtime = candidate
             raise PipelineError(
                 str(exc),
-                partial_result=dest_runtime,
+                partial_result=PipelineAttemptResult(
+                    status=DataFlowStatus.FAILED.value,
+                    destination=dest_runtime,
+                ),
             ) from exc
+
+        attempt_result = PipelineAttemptResult(
+            status=dest_runtime.status,
+            destination=dest_runtime,
+        )
+        if attempt_result.status == DataFlowStatus.FAILED.value:
+            raise PipelineError(
+                dest_runtime.error_message or "Maintenance failed",
+                partial_result=attempt_result,
+            )
 
         logger.info(
             "Maintenance %s — files_added=%d, files_removed=%d, bytes_added=%d, bytes_removed=%d, duration=%.1fs",
@@ -1028,7 +1066,7 @@ class DataCoolieDriver:
             dest_runtime.duration_seconds,
         )
 
-        return dest_runtime
+        return attempt_result
 
     # ------------------------------------------------------------------
     # Secret resolution
@@ -1069,11 +1107,10 @@ class DataCoolieDriver:
     # Factory methods
     # ------------------------------------------------------------------
 
-    def _create_source_reader(self, dataflow: DataFlow) -> BaseSourceReader:
+    def _create_source_reader(self, fmt: str) -> BaseSourceReader:
         """Create a source reader based on the connection format."""
         from datacoolie import source_registry
 
-        fmt = dataflow.source.connection.format
         kwargs: Dict[str, Any] = {"engine": self._engine}
         if fmt == Format.FUNCTION.value and self._config.allowed_function_prefixes:
             kwargs["allowed_prefixes"] = self._config.allowed_function_prefixes
@@ -1100,11 +1137,10 @@ class DataCoolieDriver:
                 )
         return pipeline
 
-    def _create_destination_writer(self, dataflow: DataFlow) -> BaseDestinationWriter:
+    def _create_destination_writer(self, fmt: str) -> BaseDestinationWriter:
         """Create a destination writer based on the connection format."""
         from datacoolie import destination_registry
 
-        fmt = dataflow.destination.connection.format
         return destination_registry.get(fmt, engine=self._engine)
 
     # ------------------------------------------------------------------

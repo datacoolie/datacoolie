@@ -51,8 +51,8 @@ project-owned automation, installed tooling, and current official documentation 
 ## Preflight
 
 1. Resolve the explicitly supplied build ID and receipts; never deploy from `current`, `latest`, or
-   a glob. A build current pointer may help a human choose, but authorization and preflight use the
-   resulting exact build ID and successful receipt.
+   a glob. The runnable current projection may help a human test and choose a candidate, but
+   authorization and preflight use the resulting exact build ID and successful receipt.
 2. Run the bundled release consumer validator against the exact build and successful build receipt.
    Reject modified, incomplete, symlinked, undeclared, or insufficiently verified artifacts.
 3. Confirm the build receipt, manifest, environment, platform, runner, metadata, and functions

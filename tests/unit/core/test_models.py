@@ -18,6 +18,7 @@ from datacoolie.core.models import (
     DestinationRuntimeInfo,
     JobRuntimeInfo,
     PartitionColumn,
+    PipelineAttemptResult,
     RuntimeInfo,
     SchemaHint,
     Source,
@@ -475,6 +476,32 @@ class TestDestinationRuntimeInfo:
         assert dri.rows_inserted == 0
         assert dri.rows_updated == 0
         assert dri.rows_deleted == 0
+
+
+class TestPipelineAttemptResult:
+    def test_requires_status_and_defaults_phases_to_none(self) -> None:
+        result = PipelineAttemptResult(status=DataFlowStatus.SKIPPED.value)
+
+        assert result.status == DataFlowStatus.SKIPPED.value
+        assert result.source is None
+        assert result.transform is None
+        assert result.destination is None
+
+    def test_preserves_phase_runtime_identity(self) -> None:
+        source = SourceRuntimeInfo(rows_read=3)
+        transform = TransformRuntimeInfo(transformers_applied=["schema"])
+        destination = DestinationRuntimeInfo(rows_written=3)
+
+        result = PipelineAttemptResult(
+            status=DataFlowStatus.SUCCEEDED.value,
+            source=source,
+            transform=transform,
+            destination=destination,
+        )
+
+        assert result.source is source
+        assert result.transform is transform
+        assert result.destination is destination
 
 
 class TestDataFlowRuntimeInfo:

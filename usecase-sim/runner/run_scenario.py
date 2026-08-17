@@ -284,8 +284,14 @@ def _spark_cooldown(last_spark_finish: float) -> None:
 
 def _pre_clean_paths(scenario: dict) -> None:
     """Delete stale output paths listed in a scenario's pre_clean_paths."""
+    allowed_root = (DATACOOLIE_ROOT / "usecase-sim" / "data" / "output").resolve()
     for rel_path in scenario.get("pre_clean_paths", []):
-        path = DATACOOLIE_ROOT / rel_path
+        path = (DATACOOLIE_ROOT / rel_path).resolve()
+        if path == allowed_root or not path.is_relative_to(allowed_root):
+            raise ValueError(
+                "pre_clean_paths must resolve below usecase-sim/data/output: "
+                f"{rel_path}"
+            )
         if not path.exists():
             continue
         try:

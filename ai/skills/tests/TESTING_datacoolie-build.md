@@ -36,8 +36,9 @@ Verify:
 - Every materialization is time-addressed; only byte-identical same-second output may reuse an ID.
 - Build IDs use UTC `YYMMDD-HHMMSS` plus 12 content-digest characters; manifests retain the full
   digest and verification rejects identity/date/time/collision mismatches.
-- Materialization atomically updates the minimal `.builds/current/{env}.json` pointer after artifact
-  verification; tests may resolve current or select an exact previous build ID.
+- Materialization replaces `.builds/current` with a directly runnable, byte-verified projection of
+  the whole selected build. `current/build.json` records its exact source ID; historical tests use
+  an explicit artifact build ID.
 - Checksums reject mutation and no generated file is a symlink.
 - Build-tool dependencies are explicit, schema resolution is bundled-only, and generated automation
   carries its dependency manifest, build-owned schemas, and verification tooling without sibling

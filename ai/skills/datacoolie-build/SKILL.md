@@ -42,7 +42,7 @@ skill; generated projects must not depend on skill paths.
 | Native versus custom boundary | `references/framework-boundary.md` |
 | Common entrypoint and normal run | `references/runner-contract.md`, `templates/runners/README.md`, matching template |
 | Replay or maintenance extensions | load `references/runner-contract.md`, then `references/operations-contract.md` and matching templates |
-| Immutable build, current pointer, and verification receipt | `scripts/materialize.py`, `scripts/validate_build.py`, `schemas/current-build.schema.json`, `schemas/build-verification-receipt.schema.json` |
+| Immutable build, runnable current projection, and verification receipt | `scripts/materialize.py`, `scripts/validate_build.py`, `schemas/current-build.schema.json`, `schemas/build-verification-receipt.schema.json` |
 | Requested project automation | `scripts/render_automation.py` |
 
 Load only resources needed for the current outcome. Exact metadata layouts, runner names and
@@ -77,9 +77,9 @@ dataflow transform only when it is an intentional dataflow-specific cast or over
 the source schema. Select the simplest native source address using the framework-boundary order.
 Before adding audit or partition helper columns, compare their semantics with framework-generated
 columns and native destination routing. Preserve distinct source/business timestamps, but do not
-duplicate framework write-time or job identity unless an explicit consumer contract requires a
-separate named field. For flat-file load-time folder routing, prefer the destination connection's
-`date_folder_partitions`; use `partition_columns` for data-value routing.
+duplicate framework write-time or driver-managed dataflow run identity unless an explicit consumer
+contract requires a separate named field. For flat-file load-time folder routing, prefer the
+destination connection's `date_folder_partitions`; use `partition_columns` for data-value routing.
 
 ### 4. Run fast source checks
 
@@ -90,18 +90,18 @@ helpers directly. These checks give fast feedback but do not prove the generated
 
 Run `scripts/materialize.py`; it validates its inputs, renders environment slices, packages optional
 functions, writes the manifest and checksums under `.builds/artifacts/{build_id}`, verifies the
-immutable bytes, and atomically updates `.builds/current/{env}.json` for each selected environment.
-Never symlink or mutate build contents.
+immutable bytes, and replaces `.builds/current` with a verified runnable projection of that whole
+build. The projection copies runtime files, omits artifact-only manifest/checksums, and records its
+exact source ID in `current/build.json`. Never symlink or mutate immutable artifact contents.
 
 Execute the exact generated runner/notebook, resolved metadata, and functions artifact. Keep logs
 and watermarks under persistent `.runtime/{env}/`. Apply the runner contract for normal runs and
 the operations contract for replay or maintenance, including their mutation confirmations.
 
-Resolve `current` for the normal latest-build test path or select an exact historical build ID, then
-execute that generated runner/notebook, metadata, and functions artifact. Write a typed successful
-or failed receipt under `.builds/evidence/{build_id}/{env}/{receipt_id}.json` and validate it against
-the resolved build. Receipts and handoffs always contain the exact build ID. Release never consumes
-the moving current pointer.
+Execute and validate `.builds/current` directly for the normal latest-build path. Select
+`.builds/artifacts/{build_id}` only for a historical version. Write a typed successful or failed
+receipt under `.builds/evidence/{build_id}/{env}/{receipt_id}.json`, using the exact ID from
+`current/build.json` when current was tested. Release never consumes the moving projection.
 
 ### 6. Add automation only when requested
 
@@ -121,7 +121,9 @@ skills. Release owns consume-only deployment automation. Do not generate specula
 {workspace}/.builds/artifacts/{build_id}/SHA256SUMS
 {workspace}/.builds/artifacts/{build_id}/{env}/...
 {workspace}/.builds/evidence/{build_id}/{env}/*.json
-{workspace}/.builds/current/{env}.json
+{workspace}/.builds/current/build.json
+{workspace}/.builds/current/{env}/...
+{workspace}/.builds/current/dist/                 # when functions were packaged
 ```
 
 Release receives only the exact build ID, local build directory or immutable remote artifact

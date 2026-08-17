@@ -70,7 +70,7 @@ class PipelineError(DataCoolieError):
     """Raised when a pipeline step fails, carrying partial runtime results.
 
     Attributes:
-        partial_result: The incomplete result tuple collected before the failure.
+        partial_result: The partial execution result collected before the failure.
     """
 
     def __init__(

@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 from typing import Any, List
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -22,6 +22,7 @@ from datacoolie.core.models import (
     DataFlowRuntimeInfo,
     Destination,
     DestinationRuntimeInfo,
+    PipelineAttemptResult,
     ReplayConfig,
     Source,
     SourceRuntimeInfo,
@@ -417,6 +418,42 @@ class TestRunDataflowDryRun:
 
 
 class TestProcessDataflow:
+    def test_execute_etl_returns_common_attempt_result(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+        source = SourceRuntimeInfo(
+            rows_read=2,
+            status=DataFlowStatus.SUCCEEDED.value,
+        )
+        transform = TransformRuntimeInfo(status=DataFlowStatus.SUCCEEDED.value)
+        destination = DestinationRuntimeInfo(
+            rows_written=2,
+            status=DataFlowStatus.SUCCEEDED.value,
+        )
+        reader = MagicMock()
+        reader.read.return_value = "source_df"
+        reader.get_runtime_info.return_value = source
+        pipeline = MagicMock()
+        pipeline.transform.return_value = "transformed_df"
+        pipeline.get_runtime_info.return_value = transform
+        writer = MagicMock()
+        writer.get_runtime_info.return_value = destination
+
+        with patch.object(d, "_create_source_reader", return_value=reader), \
+             patch.object(d, "_create_transformer_pipeline", return_value=pipeline), \
+             patch.object(d, "_create_destination_writer", return_value=writer):
+            result = d._execute_etl_pipeline(
+                df,
+                "run-1",
+                save_watermark=False,
+            )
+
+        assert isinstance(result, PipelineAttemptResult)
+        assert result.status == DataFlowStatus.SUCCEEDED.value
+        assert result.source is source
+        assert result.transform is transform
+        assert result.destination is destination
+
     def test_success_flow(self):
         d, engine, _, wm = _make_driver()
         df = _dataflow()
@@ -446,17 +483,27 @@ class TestProcessDataflow:
             rows_written=10, status=DataFlowStatus.SUCCEEDED.value
         )
 
-        with patch.object(d, "_create_source_reader", return_value=mock_reader), \
+        with patch.object(
+                 d,
+                 "_create_source_reader",
+                 return_value=mock_reader,
+             ) as mock_reader_factory, \
              patch.object(
                  d,
                  "_create_transformer_pipeline",
                  return_value=mock_pipeline,
              ) as mock_pipeline_factory, \
-             patch.object(d, "_create_destination_writer", return_value=mock_writer):
+             patch.object(
+                 d,
+                 "_create_destination_writer",
+                 return_value=mock_writer,
+             ) as mock_writer_factory:
             result = d._process_dataflow(df)
 
         assert result.status == DataFlowStatus.SUCCEEDED.value
         assert result.dataflow_id == "df-1"
+        mock_reader_factory.assert_called_once_with(df.source.connection.format)
+        mock_writer_factory.assert_called_once_with(df.destination.connection.format)
         mock_pipeline_factory.assert_called_once_with(
             dataflow_run_id=result.dataflow_run_id,
         )
@@ -476,11 +523,9 @@ class TestProcessDataflow:
         def execute(_fn, _dataflow, **kwargs):
             events.append(("execute", kwargs["dataflow_run_id"]))
             return (
-                (
-                    SourceRuntimeInfo(rows_read=0),
-                    None,
-                    None,
-                    DataFlowStatus.SKIPPED,
+                PipelineAttemptResult(
+                    status=DataFlowStatus.SKIPPED.value,
+                    source=SourceRuntimeInfo(rows_read=0),
                 ),
                 1,
             )
@@ -675,6 +720,25 @@ class TestProcessDataflow:
 
 
 class TestProcessMaintenance:
+    def test_execute_maintenance_returns_common_attempt_result(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+        destination = DestinationRuntimeInfo(
+            status=DataFlowStatus.SUCCEEDED.value,
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        writer = MagicMock()
+        writer.run_maintenance.return_value = destination
+
+        with patch.object(d, "_create_destination_writer", return_value=writer):
+            result = d._execute_maintenance_pipeline(df)
+
+        assert isinstance(result, PipelineAttemptResult)
+        assert result.status == DataFlowStatus.SUCCEEDED.value
+        assert result.source is None
+        assert result.transform is None
+        assert result.destination is destination
+
     def test_success(self):
         d, engine, _, _ = _make_driver()
         df = _dataflow()
@@ -711,7 +775,12 @@ class TestProcessMaintenance:
         def execute(_fn, _dataflow, **_kwargs):
             events.append(("execute", events[0][1]))
             return (
-                DestinationRuntimeInfo(status=DataFlowStatus.SUCCEEDED.value),
+                PipelineAttemptResult(
+                    status=DataFlowStatus.SUCCEEDED.value,
+                    destination=DestinationRuntimeInfo(
+                        status=DataFlowStatus.SUCCEEDED.value,
+                    ),
+                ),
                 1,
             )
 
@@ -776,6 +845,171 @@ class TestProcessMaintenance:
 
         assert result.status == DataFlowStatus.FAILED.value
         assert "maint err" in result.error_message
+        assert result.destination.status == DataFlowStatus.PENDING.value
+        assert result.destination.operation_type is None
+
+    def test_setup_failure_does_not_create_destination_failure(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+
+        with patch.object(
+            d,
+            "_create_destination_writer",
+            side_effect=RuntimeError("factory failed"),
+        ):
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.FAILED.value
+        assert result.error_message == "factory failed"
+        assert result.destination.status == DataFlowStatus.PENDING.value
+        assert result.destination.error_message is None
+        assert result.destination.operation_type is None
+
+    def test_secret_resolution_failure_does_not_start_destination(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+
+        with patch.object(
+            d,
+            "_resolve_secrets_for_connection",
+            side_effect=RuntimeError("secret resolution failed"),
+        ), patch.object(d, "_create_destination_writer") as writer_factory:
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.FAILED.value
+        assert result.error_message == "secret resolution failed"
+        assert result.destination.status == DataFlowStatus.PENDING.value
+        assert result.destination.operation_type is None
+        writer_factory.assert_not_called()
+
+    def test_writer_exception_recovers_started_maintenance_runtime(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+        partial = DestinationRuntimeInfo(
+            status=DataFlowStatus.RUNNING.value,
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        mock_writer = MagicMock()
+        mock_writer.run_maintenance.side_effect = RuntimeError("maintenance crashed")
+        mock_writer.get_runtime_info.return_value = partial
+
+        with patch.object(d, "_create_destination_writer", return_value=mock_writer):
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.FAILED.value
+        assert result.destination is partial
+        assert result.error_message == "maintenance crashed"
+        assert partial.status == DataFlowStatus.FAILED.value
+        assert partial.error_message == "maintenance crashed"
+        assert partial.end_time is not None
+
+    def test_component_pipeline_error_is_normalized_to_attempt_result(self):
+        d, *_ = _make_driver()
+        df = _dataflow()
+        partial = DestinationRuntimeInfo(
+            status=DataFlowStatus.FAILED.value,
+            error_message="writer partial",
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        original = PipelineError("writer pipeline error", partial_result=partial)
+        mock_writer = MagicMock()
+        mock_writer.run_maintenance.side_effect = original
+        mock_writer.get_runtime_info.return_value = partial
+
+        with patch.object(d, "_create_destination_writer", return_value=mock_writer):
+            with pytest.raises(PipelineError) as caught:
+                d._execute_maintenance_pipeline(df)
+
+        assert caught.value is not original
+        assert caught.value.__cause__ is original
+        assert isinstance(caught.value.partial_result, PipelineAttemptResult)
+        assert caught.value.partial_result.status == DataFlowStatus.FAILED.value
+        assert caught.value.partial_result.destination is partial
+
+    def test_returned_failure_retries_whole_maintenance_function(self):
+        config = DataCoolieRunConfig(retry_count=1, retry_delay=0)
+        d, *_ = _make_driver(config=config)
+        df = _dataflow()
+        failed = DestinationRuntimeInfo(
+            status=DataFlowStatus.FAILED.value,
+            error_message="transient failure",
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        succeeded = DestinationRuntimeInfo(
+            status=DataFlowStatus.SUCCEEDED.value,
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        first_writer = MagicMock()
+        first_writer.run_maintenance.return_value = failed
+        second_writer = MagicMock()
+        second_writer.run_maintenance.return_value = succeeded
+
+        with patch.object(
+            d,
+            "_create_destination_writer",
+            side_effect=[first_writer, second_writer],
+        ) as writer_factory:
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.SUCCEEDED.value
+        assert result.destination is succeeded
+        assert result.retry_attempts == 1
+        assert writer_factory.call_count == 2
+        assert writer_factory.call_args_list == [
+            call(df.destination.connection.format),
+            call(df.destination.connection.format),
+        ]
+
+    def test_exhausted_returned_failures_keep_last_partial_runtime(self):
+        config = DataCoolieRunConfig(retry_count=1, retry_delay=0)
+        d, *_ = _make_driver(config=config)
+        df = _dataflow()
+        first = DestinationRuntimeInfo(
+            status=DataFlowStatus.FAILED.value,
+            error_message="first failure",
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        last = DestinationRuntimeInfo(
+            status=DataFlowStatus.FAILED.value,
+            error_message="last failure",
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        writers = [MagicMock(), MagicMock()]
+        writers[0].run_maintenance.return_value = first
+        writers[1].run_maintenance.return_value = last
+
+        with patch.object(
+            d,
+            "_create_destination_writer",
+            side_effect=writers,
+        ):
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.FAILED.value
+        assert result.destination is last
+        assert result.error_message == "last failure"
+
+    def test_skipped_maintenance_does_not_retry(self):
+        config = DataCoolieRunConfig(retry_count=2, retry_delay=0)
+        d, *_ = _make_driver(config=config)
+        df = _dataflow()
+        skipped = DestinationRuntimeInfo(
+            status=DataFlowStatus.SKIPPED.value,
+            operation_type=ExecutionType.MAINTENANCE.value,
+        )
+        mock_writer = MagicMock()
+        mock_writer.run_maintenance.return_value = skipped
+
+        with patch.object(
+            d,
+            "_create_destination_writer",
+            return_value=mock_writer,
+        ) as writer_factory:
+            result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.SKIPPED.value
+        assert result.destination is skipped
+        writer_factory.assert_called_once_with(df.destination.connection.format)
 
     def test_etl_logger_not_failing(self):
         """Even if etl_logger.log raises, _process_maintenance doesn't fail."""
@@ -925,57 +1159,49 @@ class TestRunMaintenance:
 class TestFactoryMethods:
     def test_create_delta_reader(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.DELTA.value)
-        reader = d._create_source_reader(df)
+        reader = d._create_source_reader(Format.DELTA.value)
         from datacoolie.sources import DeltaReader
         assert isinstance(reader, DeltaReader)
 
     def test_create_parquet_reader(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.PARQUET.value)
-        reader = d._create_source_reader(df)
+        reader = d._create_source_reader(Format.PARQUET.value)
         from datacoolie.sources import FileReader
         assert isinstance(reader, FileReader)
 
     def test_create_jdbc_reader(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.SQL.value)
-        reader = d._create_source_reader(df)
+        reader = d._create_source_reader(Format.SQL.value)
         from datacoolie.sources import DatabaseReader
         assert isinstance(reader, DatabaseReader)
 
     def test_create_function_reader(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.FUNCTION.value)
-        reader = d._create_source_reader(df)
+        reader = d._create_source_reader(Format.FUNCTION.value)
         from datacoolie.sources import PythonFunctionReader
         assert isinstance(reader, PythonFunctionReader)
 
     def test_create_delta_writer(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.DELTA.value)
-        writer = d._create_destination_writer(df)
+        writer = d._create_destination_writer(Format.DELTA.value)
         from datacoolie.destinations import DeltaWriter
         assert isinstance(writer, DeltaWriter)
 
     def test_create_iceberg_writer(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.ICEBERG.value)
-        writer = d._create_destination_writer(df)
+        writer = d._create_destination_writer(Format.ICEBERG.value)
         from datacoolie.destinations import IcebergWriter
         assert isinstance(writer, IcebergWriter)
 
     def test_unsupported_source_format(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt="unknown")
         with pytest.raises(DataCoolieError, match="No plugin registered for 'unknown'"):
-            d._create_source_reader(df)
+            d._create_source_reader("unknown")
 
     def test_unsupported_dest_format(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt="unknown")
         with pytest.raises(DataCoolieError, match="No plugin registered for 'unknown'"):
-            d._create_destination_writer(df)
+            d._create_destination_writer("unknown")
 
     def test_create_transformer_pipeline(self):
         d, *_ = _make_driver()
@@ -1426,11 +1652,11 @@ class TestRunReplay:
         )
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = (
-                SourceRuntimeInfo(rows_read=5),
-                TransformRuntimeInfo(),
-                DestinationRuntimeInfo(rows_written=5),
-                DataFlowStatus.SUCCEEDED,
+            mock_pipeline.return_value = PipelineAttemptResult(
+                status=DataFlowStatus.SUCCEEDED.value,
+                source=SourceRuntimeInfo(rows_read=5),
+                transform=TransformRuntimeInfo(),
+                destination=DestinationRuntimeInfo(rows_written=5),
             )
             driver.run_replay(dataflow, replay)
 
@@ -1452,11 +1678,11 @@ class TestRunReplay:
         replay = ReplayConfig(start="2025-01-01", end="2025-02-01")
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = (
-                SourceRuntimeInfo(rows_read=10),
-                TransformRuntimeInfo(),
-                DestinationRuntimeInfo(rows_written=10),
-                DataFlowStatus.SUCCEEDED,
+            mock_pipeline.return_value = PipelineAttemptResult(
+                status=DataFlowStatus.SUCCEEDED.value,
+                source=SourceRuntimeInfo(rows_read=10),
+                transform=TransformRuntimeInfo(),
+                destination=DestinationRuntimeInfo(rows_written=10),
             )
             result = driver.run_replay(dataflow, replay)
 
@@ -1487,11 +1713,11 @@ class TestRunReplay:
         )
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = (
-                SourceRuntimeInfo(rows_read=10),
-                TransformRuntimeInfo(),
-                DestinationRuntimeInfo(rows_written=10),
-                DataFlowStatus.SUCCEEDED,
+            mock_pipeline.return_value = PipelineAttemptResult(
+                status=DataFlowStatus.SUCCEEDED.value,
+                source=SourceRuntimeInfo(rows_read=10),
+                transform=TransformRuntimeInfo(),
+                destination=DestinationRuntimeInfo(rows_written=10),
             )
             driver.run_replay(dataflow, replay)
 
@@ -1635,7 +1861,17 @@ class TestDriverProcessingEdgeCases:
         src = SourceRuntimeInfo(rows_read=1, status=DataFlowStatus.SUCCEEDED.value)
         trn = TransformRuntimeInfo(status=DataFlowStatus.SUCCEEDED.value)
         dst = DestinationRuntimeInfo(rows_written=1, status=DataFlowStatus.SUCCEEDED.value)
-        d._retry_handler.execute = MagicMock(return_value=((src, trn, dst, DataFlowStatus.SUCCEEDED), 1))
+        d._retry_handler.execute = MagicMock(
+            return_value=(
+                PipelineAttemptResult(
+                    status=DataFlowStatus.SUCCEEDED.value,
+                    source=src,
+                    transform=trn,
+                    destination=dst,
+                ),
+                1,
+            )
+        )
 
         result = d._process_dataflow(df)
         assert result.status == DataFlowStatus.SUCCEEDED.value
@@ -1643,12 +1879,32 @@ class TestDriverProcessingEdgeCases:
     def test_process_maintenance_pipeline_error_with_partial(self):
         d, *_ = _make_driver(etl_logger=None)
         df = _dataflow()
-        partial = DestinationRuntimeInfo(status=DataFlowStatus.FAILED.value, error_message="partial")
+        destination = DestinationRuntimeInfo(
+            status=DataFlowStatus.FAILED.value,
+            error_message="partial",
+        )
+        partial = PipelineAttemptResult(
+            status=DataFlowStatus.FAILED.value,
+            destination=destination,
+        )
         d._retry_handler.execute = MagicMock(side_effect=PipelineError("x", partial_result=partial))
 
         result = d._process_maintenance(df)
-        assert result.destination is partial
+        assert result.destination is destination
         assert result.status == DataFlowStatus.FAILED.value
+
+    def test_process_maintenance_ignores_foreign_partial_result(self):
+        d, *_ = _make_driver(etl_logger=None)
+        df = _dataflow()
+        foreign = DestinationRuntimeInfo(status=DataFlowStatus.FAILED.value)
+        d._retry_handler.execute = MagicMock(
+            side_effect=PipelineError("x", partial_result=foreign)
+        )
+
+        result = d._process_maintenance(df)
+
+        assert result.status == DataFlowStatus.FAILED.value
+        assert result.destination.status == DataFlowStatus.PENDING.value
 
     def test_process_maintenance_generic_exception_branch(self):
         d, *_ = _make_driver(etl_logger=None)
@@ -1667,11 +1923,9 @@ class TestDriverHelperBranches:
         fake_df = SimpleNamespace(source=None, destination=None)
         d._resolve_connection_secrets(fake_df)  # type: ignore[arg-type]
 
-    def test_create_source_reader_python_function_path(self):
+    def test_create_source_reader_python_function_format(self):
         d, *_ = _make_driver()
-        df = _dataflow(fmt=Format.FUNCTION.value)
-        df.source.python_function = "module.fn"
-        reader = d._create_source_reader(df)
+        reader = d._create_source_reader(Format.FUNCTION.value)
         from datacoolie.sources import PythonFunctionReader
 
         assert isinstance(reader, PythonFunctionReader)
@@ -1826,11 +2080,11 @@ class TestDriverCoverageGaps:
         )
 
         with patch.object(driver, '_execute_etl_pipeline') as mock_pipeline:
-            mock_pipeline.return_value = (
-                SourceRuntimeInfo(rows_read=5),
-                TransformRuntimeInfo(),
-                DestinationRuntimeInfo(rows_written=5),
-                DataFlowStatus.SUCCEEDED,
+            mock_pipeline.return_value = PipelineAttemptResult(
+                status=DataFlowStatus.SUCCEEDED.value,
+                source=SourceRuntimeInfo(rows_read=5),
+                transform=TransformRuntimeInfo(),
+                destination=DestinationRuntimeInfo(rows_written=5),
             )
             result = driver.run_replay(dataflow, replay)
 
@@ -1866,14 +2120,7 @@ class TestDriverRemainingCoverage:
             metadata_provider=MagicMock(),
             config=config,
         )
-        src_conn = Connection(connection_id='c1', name='c1', format='function')
-        dest_conn = Connection(connection_id='c2', name='c2', format='parquet')
-        df = DataFlow(
-            dataflow_id='df1',
-            source=Source(connection=src_conn, table=None),
-            destination=Destination(connection=dest_conn, table='out'),
-        )
         mock_source = MagicMock()
         with patch('datacoolie.source_registry.get', return_value=mock_source):
-            reader = driver._create_source_reader(df)
+            reader = driver._create_source_reader(Format.FUNCTION.value)
         assert reader == mock_source

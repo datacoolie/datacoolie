@@ -557,6 +557,14 @@ All relative paths (`./usecase-sim/data/...`) resolve correctly because the
 container's `WORKDIR` is `/datacoolie` (the mounted package directory).
 Output tables written inside the container appear on the host immediately.
 
+For local runs, the runner disables Hadoop checksum verification only on the
+local filesystem instance. This is required because Spark and non-Hadoop
+writers share the same generated Delta fixtures; AWS/S3 checksum behavior is
+unchanged. The three broad Spark scenarios reset only stateless generated Delta
+targets before each run so transaction history does not grow without bound.
+Watermark-dependent targets remain intact. The runner rejects pre-clean targets
+outside `usecase-sim/data/output`.
+
 | What works | Notes |
 |---|---|
 | P0 file scenarios (Delta, Parquet, CSV, Iceberg) | ✅ Full support — minio + iceberg-rest reached by container name |
@@ -588,8 +596,19 @@ Primary sources: [local_use_cases.json](metadata/file/local_use_cases.json),
 
 Schema files per dialect: `metadata/database/schema.sql` (SQLite),
 `schema_postgres.sql`, `schema_mysql.sql`, `schema_mssql.sql`,
-`schema_oracle.sql`. All create the same five `dc_framework_*` tables.
+`schema_oracle.sql`. All create the same four `dc_framework_*` tables.
 Seeded by `setup_metadata.py --targets db:<dialect>`.
+
+Oracle setup is safe to repeat. To reset only the simulator's local metadata
+workspace and then prove the non-truncating path is idempotent:
+
+```powershell
+python usecase-sim/scripts/setup_metadata.py --targets db:oracle --truncate
+python usecase-sim/scripts/setup_metadata.py --targets db:oracle
+```
+
+Setup now fails fast if a required framework table or expected seeded metadata
+ID is missing.
 
 Verify DB matches JSON source:
 
@@ -693,8 +712,11 @@ Notes:
 | Symptom | Fix |
 |---|---|
 | `ERROR DerbyLockFile` on second Spark run | `run_scenario.py` auto-wipes `spark-warehouse/` + `metastore_db/`; if running `run.py` directly, delete them between runs |
+| Local Spark raises `ChecksumException` for a shared Delta file | Run through `runner/run.py` or `run_scenario.py`; local runners apply the scoped Hadoop checksum policy after creating Spark. Direct framework callers keep checksum verification enabled. |
+| Broad Spark scenarios slow down after many reruns | Use `run_scenario.py`; each affected scenario resets its stateless generated Delta targets while preserving watermark-dependent state. |
 | `BucketAlreadyOwnedByYou` on MinIO | Benign; `_common.ensure_bucket` is idempotent |
 | `psycopg2` / `pymssql` / `oracledb` import error | Install the corresponding extra: `pip install psycopg2-binary pymssql oracledb` |
+| Oracle setup reports a missing `DC_FRAMEWORK_*` table or metadata ID | Rerun `setup_metadata.py --targets db:oracle`; use `--truncate` only when you intentionally want to reset `local-workspace`. The setup log now includes the full failing traceback. |
 | MSSQL auth fails with `Datacoolie@1` | Use URL-encoded form `Datacoolie%401` in SQLAlchemy URLs |
 | MSSQL `Login failed for user 'sa'` with state 38 | The `datacoolie` user database is missing — the MSSQL image has no auto-create env var. `setup_platform.py` creates it after the container is up; to do it manually: `docker exec datacoolie-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Datacoolie@1' -No -Q "IF DB_ID('datacoolie') IS NULL CREATE DATABASE datacoolie;"` |
 | API-source dataflows fail in `local_polars_file` | `mock-api` container is down; either `setup_platform.py --services mock-api` or use `--skip-api-sources` |

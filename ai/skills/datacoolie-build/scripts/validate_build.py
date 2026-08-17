@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from materialize import resolve_current_build, verify_build
+from materialize import verify_build, verify_current_build
 
 
 def _sha256(path: Path) -> str:
@@ -102,6 +102,16 @@ def _require_persistent_path(value: str, label: str) -> None:
         raise ValueError(f"Receipt {label} must remain outside .builds/")
 
 
+def _resolve_runtime_build(build_dir: Path) -> tuple[Path, Path, dict[str, Any]]:
+    runtime_dir = build_dir.resolve()
+    if runtime_dir.name == "current" and runtime_dir.parent.name == ".builds":
+        manifest = verify_current_build(runtime_dir)
+        canonical_dir = runtime_dir.parent / "artifacts" / manifest["build_id"]
+        return runtime_dir, canonical_dir.resolve(), manifest
+    manifest = verify_build(runtime_dir)
+    return runtime_dir, runtime_dir, manifest
+
+
 def validate_receipt(
     build_dir: Path,
     receipt_path: Path,
@@ -111,21 +121,20 @@ def validate_receipt(
     """Validate one explicitly selected receipt against exact generated artifacts."""
     if receipt_path.is_symlink():
         raise ValueError(f"Build verification receipt must not be a symlink: {receipt_path}")
-    build_dir = build_dir.resolve()
-    manifest = verify_build(build_dir)
+    runtime_dir, canonical_dir, manifest = _resolve_runtime_build(build_dir)
     receipt = _load_object(receipt_path, "Build verification receipt")
     _validate_receipt_schema(receipt)
 
     if receipt_path.stem != receipt["receipt_id"]:
         raise ValueError("Receipt filename must match receipt_id")
-    artifacts_dir = build_dir.parent
+    artifacts_dir = canonical_dir.parent
     builds_dir = artifacts_dir.parent
     if artifacts_dir.name != "artifacts" or builds_dir.name != ".builds":
         raise ValueError("Build must be stored under .builds/artifacts/{build_id}")
     expected_parent = (
         builds_dir
         / "evidence"
-        / build_dir.name
+        / canonical_dir.name
         / receipt["environment"]
     ).resolve()
     if receipt_path.resolve().parent != expected_parent:
@@ -146,13 +155,13 @@ def validate_receipt(
     if not isinstance(runners, list) or receipt["runner"]["path"] not in runners:
         raise ValueError("Receipt runner is not declared for the build environment")
     _require_artifact(
-        build_dir,
+        runtime_dir,
         artifacts,
         receipt["runner"],
         receipt["runner"]["path"],
     )
     _require_artifact(
-        build_dir,
+        runtime_dir,
         artifacts,
         receipt["metadata"],
         str(environment.get("metadata")),
@@ -165,7 +174,7 @@ def validate_receipt(
     if set(actual_function_paths) != set(expected_functions):
         raise ValueError("Receipt functions do not match the build manifest")
     for item in receipt["functions"]:
-        _require_artifact(build_dir, artifacts, item, item["path"])
+        _require_artifact(runtime_dir, artifacts, item, item["path"])
 
     runner_name = PurePosixPath(receipt["runner"]["path"]).name
     if not runner_name.startswith(f"{receipt['operation']}_"):
@@ -193,33 +202,22 @@ def validate_receipt(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    selector = parser.add_mutually_exclusive_group(required=True)
-    selector.add_argument("--build-dir", type=Path)
-    selector.add_argument(
-        "--current",
-        metavar="ENV",
-        help="Resolve .builds/current/<env>.json before validation",
+    parser.add_argument(
+        "--build-dir",
+        type=Path,
+        required=True,
+        help="Runnable .builds/current or historical .builds/artifacts/<build_id>",
     )
-    parser.add_argument("--workspace", type=Path)
     parser.add_argument("--receipt", type=Path, help="Explicit receipt path; never inferred")
     parser.add_argument("--require-success", action="store_true")
     args = parser.parse_args()
-    if args.current and args.workspace is None:
-        parser.error("--current requires --workspace")
-    if args.build_dir and args.workspace is not None:
-        parser.error("--workspace is used only with --current")
     if args.require_success and args.receipt is None:
         parser.error("--require-success requires --receipt")
     try:
-        build_dir = (
-            resolve_current_build(args.workspace, args.current)
-            if args.current
-            else args.build_dir
-        )
-        manifest = verify_build(build_dir)
+        runtime_dir, _canonical_dir, manifest = _resolve_runtime_build(args.build_dir)
         if args.receipt:
             receipt = validate_receipt(
-                build_dir,
+                runtime_dir,
                 args.receipt,
                 require_success=args.require_success,
             )

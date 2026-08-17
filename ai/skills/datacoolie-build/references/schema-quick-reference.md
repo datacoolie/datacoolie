@@ -163,13 +163,15 @@ Within `value_rules`, ascending `order` runs first; omitted `order` defaults to
 
 ### Framework-owned columns and file-date routing
 
-- Every dataflow receives `__created_at`, `__updated_at`, and `__updated_by`; SCD2 also owns
-  `__valid_from`, `__valid_to`, and `__is_current`. Do not configure these names yourself.
+- Every dataflow receives `__created_at`, `__updated_at`, and `__updated_by`. Driver-managed runs
+  also receive `__dataflow_run_id` from their execution ID; standalone transformer usage without
+  that ID does not add it. SCD2 also owns `__valid_from`, `__valid_to`, and `__is_current`. Do not
+  configure these names yourself.
 - Compare semantics, not similar names. If a proposed `ingested_at`, `loaded_at`, audit timestamp,
-  or job column means only the framework write time or job identity, omit it and use the framework
-  output. Preserve source-created, source-modified, event, transaction, and other business times
-  when their meaning is distinct. If an explicit downstream schema contract requires a legacy or
-  differently named duplicate, keep it only with that justification.
+  or job column means only the framework write time or driver-managed dataflow run identity, omit
+  it and use the framework output. Preserve source-created, source-modified, event, transaction,
+  and other business times when their meaning is distinct. If an explicit downstream schema
+  contract requires a legacy or differently named duplicate, keep it only with that justification.
 - System columns are added at priority 70. Earlier `additional_columns` and transform filters cannot
   reference them; do not recreate a duplicate merely to work around transformer order.
 - For a flat-file destination whose folders represent current UTC load time, prefer

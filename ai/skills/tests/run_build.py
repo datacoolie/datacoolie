@@ -20,7 +20,7 @@ TOKENS = (
     "### 6. Add automation only when requested",
     "DataCoolieDriver.run(...)",
     ".builds/artifacts/{build_id}",
-    ".builds/current/{env}.json",
+    ".builds/current/build.json",
     "scripts/render_automation.py",
 )
 RESOURCES = (

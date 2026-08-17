@@ -182,7 +182,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         Returns:
             A single :class:`DestinationRuntimeInfo` covering the full run.
         """
-        info = DestinationRuntimeInfo(
+        self._runtime_info = DestinationRuntimeInfo(
             start_time=utc_now(),
             status=DataFlowStatus.RUNNING.value,
             operation_type=ExecutionType.MAINTENANCE.value,
@@ -193,10 +193,10 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         dest_fmt = dataflow.destination.connection.format
         
         if not dest_path and not dest_table_name:
-            info.end_time = utc_now()
-            info.status = DataFlowStatus.FAILED.value
-            info.error_message = "Destination path or table name is required"
-            return info
+            self._runtime_info.end_time = utc_now()
+            self._runtime_info.status = DataFlowStatus.FAILED.value
+            self._runtime_info.error_message = "Destination path or table name is required"
+            return self._runtime_info
 
         hours = retention_hours if retention_hours is not None else DEFAULT_RETENTION_HOURS
 
@@ -235,14 +235,14 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         try:
             history = self._get_history(
                 dataflow, limit=5,
-                start_time=info.start_time, end_time=info.end_time,
+                start_time=self._runtime_info.start_time, end_time=self._runtime_info.end_time,
             )
             maint_metrics = self._parse_maintenance_metrics(history)
             for op_key, metrics in maint_metrics.items():
-                info.files_added += metrics.get("files_added", 0)
-                info.files_removed += metrics.get("files_removed", 0)
-                info.bytes_added += metrics.get("bytes_added", 0)
-                info.bytes_removed += metrics.get("bytes_removed", 0)
+                self._runtime_info.files_added += metrics.get("files_added", 0)
+                self._runtime_info.files_removed += metrics.get("files_removed", 0)
+                self._runtime_info.bytes_added += metrics.get("bytes_added", 0)
+                self._runtime_info.bytes_removed += metrics.get("bytes_removed", 0)
                 for entry in sub_results:
                     if entry.get("operation") == op_key:
                         entry["engine_metrics"] = metrics
@@ -252,18 +252,18 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         except Exception as exc:
             logger.warning("Failed to get maintenance metrics: %s", exc)
 
-        info.operation_details = sub_results
+        self._runtime_info.operation_details = sub_results
 
         if errors:
-            info.status = DataFlowStatus.FAILED.value
-            info.error_message = "; ".join(errors)
+            self._runtime_info.status = DataFlowStatus.FAILED.value
+            self._runtime_info.error_message = "; ".join(errors)
         elif any_succeeded:
-            info.status = DataFlowStatus.SUCCEEDED.value
+            self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
         else:
-            info.status = DataFlowStatus.SKIPPED.value
+            self._runtime_info.status = DataFlowStatus.SKIPPED.value
 
-        info.end_time = utc_now()
-        return info
+        self._runtime_info.end_time = utc_now()
+        return self._runtime_info
 
     def _run_op(
         self,

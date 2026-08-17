@@ -268,23 +268,25 @@
     {
       "id": 25,
       "prompt": "Materialize the dev and qa slices, test the newest dev build through current, and explain how I can rerun an older version. Keep every downstream reference exact.",
-      "expected_output": "Create a UTC time-and-digest build under immutable artifacts, atomically point current/dev.json at its build ID, resolve current for the normal test, and use an explicit build ID for history and receipts.",
+      "expected_output": "Create a UTC time-and-digest immutable artifact, generate one directly runnable current projection of the whole build, test current, and use an explicit artifact build ID for history and release identity.",
       "files": [],
       "expectations": [
         "The build ID format is YYMMDD-HHMMSS plus a 12-character content-digest suffix.",
-        "Current is an environment-scoped minimal build-ID pointer updated only after materialization verification.",
-        "Historical tests, verification receipts, release handoffs, and authorizations use the resolved exact build ID rather than current."
+        "Current copies the build runtime layout, omits manifest.json and SHA256SUMS, and records the exact source build ID in build.json.",
+        "Normal run, test, and validation execute current directly; historical tests select .builds/artifacts/{build_id}.",
+        "Verification receipts, release handoffs, and authorizations remain bound to the exact build ID rather than current."
       ]
     },
     {
       "id": 26,
       "prompt": "The source contains source_created_at and transaction_date. For ingestion, add ingested_at and load_job_id columns with the current write time and job identity so consumers can audit each row.",
-      "expected_output": "Preserve the distinct source and business timestamps, but avoid metadata columns that duplicate DataCoolie's framework write-time and job audit columns.",
+      "expected_output": "Preserve distinct source and business timestamps, but use DataCoolie's framework write-time columns and driver-managed dataflow run ID instead of duplicate audit metadata.",
       "files": [],
       "expectations": [
-        "The solution relies on framework-owned __created_at, __updated_at, and __updated_by instead of adding semantically duplicate ingestion or job columns.",
+        "The solution relies on framework-owned __created_at, __updated_at, and __updated_by, plus __dataflow_run_id for driver-managed runs, instead of adding semantically duplicate ingestion or job columns.",
+        "The solution does not claim that __dataflow_run_id is added by standalone transformer usage when no execution ID is supplied.",
         "Source-created, source-modified, event, and transaction timestamps remain when their business meaning differs from framework write time.",
-        "System columns are not configured or referenced through earlier additional_columns merely to work around transformer ordering."
+        "System columns, including __dataflow_run_id, are not configured or referenced through earlier additional_columns merely to work around transformer ordering."
       ]
     },
     {

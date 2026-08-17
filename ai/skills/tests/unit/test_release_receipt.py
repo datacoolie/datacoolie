@@ -457,15 +457,14 @@ def test_failed_source_release_and_latest_selector_are_rejected(tmp_path: Path) 
         validate_release.validate_receipt(workspace, latest)
 
 
-def test_release_rejects_current_pointer_as_build_identity(tmp_path: Path) -> None:
+def test_release_rejects_current_projection_as_build_identity(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     path, payload = _write_release(workspace, environment="qa", release_id="release-1")
-    current = workspace / ".builds" / "current" / "qa.json"
+    current = workspace / ".builds" / "current" / "build.json"
     current.parent.mkdir(parents=True)
     current.write_text(json.dumps({
         "schema_version": 1,
         "artifact_type": "current_build",
-        "environment": "qa",
         "build_id": payload["build_id"],
     }), encoding="utf-8")
     payload["manifest"] = _artifact(current, workspace)

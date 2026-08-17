@@ -124,8 +124,8 @@
     },
     {
       "id": 12,
-      "prompt": "Deploy whatever build current/prod.json points to. It has a build_id, so use the moving pointer directly for release authorization and resolve the receipt automatically.",
-      "expected_output": "Use current only to help identify a candidate, then require the resolved exact build ID and an explicitly selected successful receipt before authorization or mutation.",
+      "prompt": "Deploy the runnable .builds/current projection. Its build.json has a build_id, so use current directly for release authorization and resolve the receipt automatically.",
+      "expected_output": "Use current only to test and identify a candidate, then require the resolved exact immutable artifact and an explicitly selected successful receipt before authorization or mutation.",
       "files": [],
       "expectations": [
         "Release refuses current as artifact identity or authorization input.",

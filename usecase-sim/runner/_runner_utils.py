@@ -293,6 +293,17 @@ def _resolve_packages(
 # Public API — Spark session builder
 # ---------------------------------------------------------------------------
 
+
+def _disable_local_file_checksum_verification(spark: Any) -> None:
+    """Allow local Hadoop reads of files changed by non-Hadoop writers."""
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+    local_fs = spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.getLocal(
+        hadoop_conf,
+    )
+    local_fs.setVerifyChecksum(False)
+    logger.info("Disabled Hadoop checksum verification for local filesystem reads")
+
+
 def build_spark_session(
     app_name: str = "DataCoolie-UseCase",
     catalog_preset: str = "local",
@@ -302,6 +313,7 @@ def build_spark_session(
     needs_s3: bool = False,
     needs_iceberg: bool = False,
     extra_config: dict[str, str] | None = None,
+    verify_local_file_checksums: bool = True,
 ) -> "SparkSession":
     """Create (or reuse) a SparkSession for usecase-sim runners.
 
@@ -316,6 +328,9 @@ def build_spark_session(
             (``spark.sql.catalog.iceberg.credential``).
         needs_s3: When ``True``, inject S3A Hadoop configs and hadoop-aws JARs.
         extra_config: Any additional Spark configs that take final precedence.
+        verify_local_file_checksums: Keep Hadoop local-file checksum reads
+            enabled. Local usecase-sim runners disable this because local Delta
+            files are shared with non-Hadoop writers.
 
     Returns:
         Configured ``SparkSession``.
@@ -430,6 +445,9 @@ def build_spark_session(
         )
 
     spark = session_factory(app_name=app_name, config=spark_config)
+
+    if not verify_local_file_checksums:
+        _disable_local_file_checksum_verification(spark)
 
     # Silence the benign Windows-only shutdown warning from SparkEnv that
     # appears because the JVM classloader still holds a lock on jars under

@@ -50,6 +50,13 @@ _RESERVED_COLS = {"format", "database", "precision"}
 
 ALL_DIALECTS = ["sqlite", "postgresql", "mysql", "mssql", "oracle"]
 
+_REQUIRED_METADATA_TABLES = {
+    "dc_framework_connections",
+    "dc_framework_dataflows",
+    "dc_framework_watermarks",
+    "dc_framework_schema_hints",
+}
+
 
 # ===========================================================================
 # DDL helpers (inlined from metadata/database/_shared.py)
@@ -87,7 +94,20 @@ def apply_schema(engine) -> None:
                 stmt = stmt.strip()
                 if stmt:
                     conn.execute(text(stmt))
+    _validate_required_tables(engine)
     logger.info("Applied schema: %s (%s)", schema_path.name, dialect)
+
+
+def _validate_required_tables(engine) -> None:
+    from sqlalchemy import inspect  # noqa: PLC0415
+
+    actual = {name.lower() for name in inspect(engine).get_table_names()}
+    missing = sorted(_REQUIRED_METADATA_TABLES - actual)
+    if missing:
+        raise RuntimeError(
+            "Metadata schema bootstrap incomplete; missing tables: "
+            + ", ".join(missing)
+        )
 
 
 # ===========================================================================
@@ -206,6 +226,81 @@ def _truncate_workspace(engine, workspace_id: str) -> None:
     logger.info("Truncated workspace_id=%s", workspace_id)
 
 
+def _expected_seed_records(meta: dict) -> dict[str, dict[str, str]]:
+    connections = {
+        str(c.get("connection_id") or _name_to_uuid(c["name"])): c["name"]
+        for c in meta.get("connections", [])
+    }
+    dataflows = {
+        str(d.get("dataflow_id") or _name_to_uuid(d["name"])): d["name"]
+        for d in meta.get("dataflows", [])
+    }
+    hints: dict[str, str] = {}
+    for group in meta.get("schema_hints", []):
+        for col in group.get("hints", []) or group.get("columns", []):
+            hint_key = (
+                f"{group.get('connection_name', '')}__"
+                f"{group.get('table_name', '')}__{col['column_name']}"
+            )
+            hints[_name_to_uuid(hint_key)] = hint_key
+    return {"connections": connections, "dataflows": dataflows, "schema_hints": hints}
+
+
+def _validate_seeded_metadata(engine, meta: dict, workspace_id: str) -> None:
+    from sqlalchemy import text  # noqa: PLC0415
+
+    with engine.connect() as conn:
+        actual = {
+            "connections": {
+                str(row[0])
+                for row in conn.execute(
+                    text(
+                        "SELECT connection_id FROM dc_framework_connections "
+                        "WHERE workspace_id = :ws"
+                    ),
+                    {"ws": workspace_id},
+                )
+            },
+            "dataflows": {
+                str(row[0])
+                for row in conn.execute(
+                    text(
+                        "SELECT dataflow_id FROM dc_framework_dataflows "
+                        "WHERE workspace_id = :ws"
+                    ),
+                    {"ws": workspace_id},
+                )
+            },
+            "schema_hints": {
+                str(row[0])
+                for row in conn.execute(
+                    text(
+                        "SELECT sh.schema_hint_id FROM dc_framework_schema_hints sh "
+                        "WHERE sh.connection_id IN "
+                        "(SELECT connection_id FROM dc_framework_connections "
+                        " WHERE workspace_id = :ws) "
+                        "OR sh.dataflow_id IN "
+                        "(SELECT dataflow_id FROM dc_framework_dataflows "
+                        " WHERE workspace_id = :ws)"
+                    ),
+                    {"ws": workspace_id},
+                )
+            },
+        }
+
+    expected = _expected_seed_records(meta)
+    missing = {
+        category: [labels[item_id] for item_id in sorted(set(labels) - actual[category])]
+        for category, labels in expected.items()
+    }
+    missing = {category: names for category, names in missing.items() if names}
+    if missing:
+        details = "; ".join(
+            f"{category}: {', '.join(names)}" for category, names in missing.items()
+        )
+        raise RuntimeError(f"Metadata seed incomplete for workspace {workspace_id!r}; {details}")
+
+
 def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: bool) -> None:
     from sqlalchemy import create_engine  # noqa: PLC0415
 
@@ -314,6 +409,7 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
                     "now": now,
                 }, nested)
 
+    _validate_seeded_metadata(engine, meta, workspace_id)
     logger.info("Seeded %s (%s): %d connections, %d dataflows, %d hint groups",
                 dialect, workspace_id,
                 len(connections), len(dataflows), len(schema_hints))
@@ -376,7 +472,8 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
         "name", "stage", "group_number", "execution_order", "processing_mode",
         "is_active", "configure",
         "source_connection_name", "source_schema_name", "source_table",
-        "source_query", "source_watermark_columns", "source_configure",
+        "source_query", "source_python_function", "source_watermark_columns",
+        "source_configure",
         "destination_connection_name", "destination_schema_name", "destination_table",
         "destination_load_type", "destination_merge_keys",
         "destination_partition_columns", "destination_configure", "transform",
@@ -395,6 +492,7 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
             _json_cell(d.get("configure")),
             src.get("connection_name", ""), src.get("schema_name", ""),
             src.get("table", ""), src.get("query", ""),
+            src.get("python_function", ""),
             _list_to_csv(src.get("watermark_columns", [])),
             _json_cell(src.get("configure")),
             dst.get("connection_name", ""), dst.get("schema_name", ""),
@@ -506,8 +604,8 @@ def main() -> int:
             logger.info("--- target: db:%s ---", dialect)
             try:
                 seed_db(url, meta, args.workspace_id, truncate=args.truncate)
-            except Exception as exc:
-                logger.warning("db:%s failed: %s", dialect, exc)
+            except Exception:
+                logger.exception("db:%s failed", dialect)
                 rc = 1
     return rc
 

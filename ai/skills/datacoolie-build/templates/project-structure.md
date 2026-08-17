@@ -47,7 +47,11 @@ create empty placeholder trees.
 │   ├── evidence/
 │   │   └── {build_id}/{env}/{receipt_id}.json
 │   └── current/
-│       └── {env}.json
+│       ├── build.json                  # exact source build ID
+│       ├── {env}/
+│       │   ├── metadata.json
+│       │   └── runners/
+│       └── dist/                       # only when the build contains it
 ├── .runtime/
 │   └── {env}/
 │       ├── logs/
@@ -56,10 +60,11 @@ create empty placeholder trees.
 └── .releases/
 ```
 
-`.builds/artifacts/` contains materialized immutable copies, never symlinks. Build receipts and
-current pointers remain outside artifact directories. Durable corrections always return to
-metadata, runners, functions, or automation source. Mutable log and watermark state remains under
-`.runtime/`.
+`.builds/artifacts/` contains materialized immutable copies, never symlinks. `.builds/current/`
+copies the selected build's runtime files with the same relative layout, omits `manifest.json` and
+`SHA256SUMS`, and adds only `build.json` for provenance. It is disposable and regenerated as a
+whole. Durable corrections always return to metadata, runners, functions, or automation source.
+Mutable log and watermark state remains under `.runtime/`.
 
 ## Workspace AGENTS.md
 
@@ -162,14 +167,16 @@ environment platform.
 The command returns a UTC creation-time-prefixed build ID such as
 `260808-091011-a13f83c9d7e2`. The manifest keeps the full content digest. Each materialization creates
 a time-addressed immutable folder; only byte-identical output colliding in the same second may be
-reused. After verification, materialization atomically writes `.builds/current/{env}.json` for each
-selected environment.
+reused. After artifact verification, materialization replaces `.builds/current` with the runnable
+projection of that entire build. A subset build therefore replaces current as a whole and does not
+retain stale environments from the previous build.
 
-For the normal latest-build test path, resolve `current` and execute the exact generated files it
-identifies. To test an earlier version, select `.builds/artifacts/{build_id}` directly. Both paths
-write `.builds/evidence/{build_id}/{env}/{receipt_id}.json`; the receipt and every downstream handoff
-use the resolved build ID. Release consumes that exact ID, checksums, target slice, and successful
-receipt rather than the moving pointer.
+For the normal latest-build path, execute and validate `.builds/current` directly. Its
+`.builds/current/build.json` identifies the canonical artifact used for drift checks and evidence
+binding. To test an earlier
+version, select `.builds/artifacts/{build_id}` directly. Both paths write
+`.builds/evidence/{build_id}/{env}/{receipt_id}.json`; release consumes that exact ID, canonical
+checksums, target slice, and successful receipt rather than the moving projection.
 
 ## Optional project-owned automation
 

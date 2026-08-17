@@ -210,6 +210,7 @@ class TestMaintenanceOperations:
         writer = ConcreteWriter(engine)
         df = _make_dataflow()
         info = writer.run_maintenance(df)
+        assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.SUCCEEDED.value
         assert info.operation_type == "maintenance"
         ops = {e["operation"]: e for e in info.operation_details}
@@ -263,6 +264,7 @@ class TestMaintenanceOperations:
         writer = ConcreteWriter(engine)
         df = _make_dataflow()
         info = writer.run_maintenance(df)
+        assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.SKIPPED.value
 
     def test_run_maintenance_no_path_uses_table_name(self, engine: MockEngine) -> None:
@@ -309,8 +311,27 @@ class TestMaintenanceOperations:
             )
         )
         info = writer.run_maintenance(dataflow)  # type: ignore[arg-type]
+        assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.FAILED.value
         assert info.error_message == "Destination path or table name is required"
+
+    def test_run_maintenance_operational_failure_updates_runtime_info(
+        self,
+        engine: MockEngine,
+    ) -> None:
+        writer = ConcreteWriter(engine)
+        df = _make_dataflow()
+
+        with patch.object(
+            writer,
+            "_maintain_internal",
+            side_effect=RuntimeError("maintenance failed"),
+        ):
+            info = writer.run_maintenance(df)
+
+        assert writer.get_runtime_info() is info
+        assert info.status == DataFlowStatus.FAILED.value
+        assert info.error_message == "maintenance failed"
 
     def test_run_maintenance_enriches_sub_results_with_engine_metrics(self, engine: MockEngine) -> None:
         engine.set_table_exists(True)

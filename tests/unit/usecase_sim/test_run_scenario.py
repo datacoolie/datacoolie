@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,6 +15,7 @@ RUNNER_PATH = REPO_ROOT / "usecase-sim" / "runner" / "run_scenario.py"
 TRANSFORMER_METADATA_PATH = (
     REPO_ROOT / "usecase-sim" / "metadata" / "file" / "transformer_features.json"
 )
+SCENARIOS_PATH = REPO_ROOT / "usecase-sim" / "scenarios" / "scenarios.json"
 TRANSFORM_FEATURE_KEYS = {
     "value_rules",
     "schema_hints",
@@ -99,6 +101,49 @@ def test_transformer_failure_stages_are_isolated() -> None:
     assert counts == {stage: 1 for stage in failure_stages}
 
 
+def test_format_specific_file_scenarios_use_their_real_metadata_files() -> None:
+    scenarios = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))
+
+    yaml_scenario = scenarios["local_polars_file_yaml"]
+    excel_scenario = scenarios["local_polars_file_excel"]
+
+    assert Path(yaml_scenario["metadata_path"]).suffix == ".yaml"
+    assert not yaml_scenario.get("skip_api_sources", False)
+    assert Path(excel_scenario["metadata_path"]).suffix == ".xlsx"
+    assert excel_scenario["skip_api_sources"] is True
+
+
+def test_broad_spark_scenarios_isolate_growing_delta_schema_history() -> None:
+    scenarios = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))
+    expected_paths = {
+        "usecase-sim/data/output/delta/orders_full_load",
+        "usecase-sim/data/output/delta/orders_overwritten",
+        "usecase-sim/data/output/delta/orders_merged_nwm",
+        "usecase-sim/data/output/delta/orders_schema_evolve",
+        "usecase-sim/data/output/delta/orders_read_delta_schema_evolve",
+        "usecase-sim/data/output/delta/orders_read_delta_schema_evolve_fewer",
+    }
+
+    for scenario_name in (
+        "local_spark_file",
+        "local_spark_database",
+        "local_spark_api",
+    ):
+        assert set(scenarios[scenario_name]["pre_clean_paths"]) == expected_paths
+
+
+def test_pre_clean_paths_rejects_targets_outside_output_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(run_scenario, "DATACOOLIE_ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="must resolve below"):
+        run_scenario._pre_clean_paths(
+            {"pre_clean_paths": ["usecase-sim/data/output/../../../outside"]}
+        )
+
+
 def test_expected_failure_passes_when_console_contains_required_text(
     tmp_path: Path,
 ) -> None:
@@ -175,3 +220,29 @@ def test_non_iceberg_spark_session_omits_iceberg_configuration(
     assert captured["spark.sql.extensions"] == "io.delta.sql.DeltaSparkSessionExtension"
     assert "spark.sql.iceberg.merge-schema" not in captured
     assert not any(key.startswith("spark.sql.catalog.local_catalog") for key in captured)
+
+
+def test_local_spark_session_can_disable_local_checksum_verification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spark = MagicMock()
+    local_fs = spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.getLocal.return_value
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration.return_value
+
+    monkeypatch.setattr(
+        runner_utils,
+        "get_or_create_spark_session",
+        lambda **_: spark,
+    )
+    monkeypatch.setattr(runner_utils, "_resolve_packages", lambda **_: None)
+
+    result = runner_utils.build_spark_session(
+        needs_iceberg=False,
+        verify_local_file_checksums=False,
+    )
+
+    assert result is spark
+    spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.getLocal.assert_called_once_with(
+        hadoop_conf
+    )
+    local_fs.setVerifyChecksum.assert_called_once_with(False)

@@ -1,14 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://datacoolie.github.io/datacoolie/schema/current-build.schema.json",
-  "title": "DataCoolie Current Build Pointer",
+  "title": "DataCoolie Runnable Current Build Descriptor",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "artifact_type", "environment", "build_id"],
+  "required": ["schema_version", "artifact_type", "build_id"],
   "properties": {
     "schema_version": {"const": 1},
     "artifact_type": {"const": "current_build"},
-    "environment": {"type": "string", "minLength": 1},
     "build_id": {
       "type": "string",
       "pattern": "^[0-9]{6}-[0-9]{6}-[0-9a-f]{12}$"

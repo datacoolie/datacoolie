@@ -149,19 +149,19 @@ def test_materialize_builds_all_environments_and_engines(
         assert (build_dir / environment / "metadata.json").is_file()
     assert (build_dir / "dist/functions.zip").is_file()
     assert not any(path.is_symlink() for path in build_dir.rglob("*"))
-    for environment in ("dev", "test"):
-        pointer = json.loads(
-            (workspace / ".builds" / "current" / f"{environment}.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        assert pointer == {
-            "schema_version": 1,
-            "artifact_type": "current_build",
-            "environment": environment,
-            "build_id": result["build_id"],
-        }
-        assert build_tool.resolve_current_build(workspace, environment) == build_dir
+    current_dir = workspace / ".builds/current"
+    descriptor = json.loads((current_dir / "build.json").read_text(encoding="utf-8"))
+    assert descriptor == {
+        "schema_version": 1,
+        "artifact_type": "current_build",
+        "build_id": result["build_id"],
+    }
+    assert not (current_dir / "manifest.json").exists()
+    assert not (current_dir / "SHA256SUMS").exists()
+    assert build_tool.verify_current_build(current_dir)["build_id"] == result["build_id"]
+    for artifact in manifest["artifacts"]:
+        relative = Path(artifact["path"])
+        assert (current_dir / relative).read_bytes() == (build_dir / relative).read_bytes()
 
     test_metadata = json.loads(
         (build_dir / "test/metadata.json").read_text(encoding="utf-8")
@@ -172,7 +172,7 @@ def test_materialize_builds_all_environments_and_engines(
     assert destination["configure"]["base_path"] == "test-output"
 
 
-def test_current_pointer_schema_and_environment_scope(
+def test_current_descriptor_schema_and_projection_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     schema = json.loads(
@@ -181,9 +181,11 @@ def test_current_pointer_schema_and_environment_scope(
     Draft202012Validator.check_schema(schema)
     workspace = _workspace(tmp_path, monkeypatch)
     first = build_tool.materialize(workspace=workspace)
-    test_pointer_path = workspace / ".builds/current/test.json"
-    test_pointer = json.loads(test_pointer_path.read_text(encoding="utf-8"))
-    Draft202012Validator(schema).validate(test_pointer)
+    descriptor_path = workspace / ".builds/current/build.json"
+    Draft202012Validator(schema).validate(
+        json.loads(descriptor_path.read_text(encoding="utf-8"))
+    )
+    assert (workspace / ".builds/current/test/metadata.json").is_file()
 
     monkeypatch.setattr(
         build_tool,
@@ -192,33 +194,53 @@ def test_current_pointer_schema_and_environment_scope(
     )
     second = build_tool.materialize(workspace=workspace, environments=["dev"])
     assert second["build_id"] != first["build_id"]
-    assert json.loads(test_pointer_path.read_text(encoding="utf-8"))["build_id"] == (
-        first["build_id"]
+    assert json.loads(descriptor_path.read_text(encoding="utf-8"))["build_id"] == second["build_id"]
+    assert (workspace / ".builds/current/dev/metadata.json").is_file()
+    assert not (workspace / ".builds/current/test").exists()
+    assert build_tool.verify_current_build(workspace / ".builds/current")["build_id"] == (
+        second["build_id"]
     )
-    assert build_tool.resolve_current_build(workspace, "dev") == Path(second["build_dir"])
 
 
-def test_current_pointer_rejects_wrong_environment_and_unknown_build(
+def test_current_projection_rejects_unknown_build_and_runtime_drift(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
     result = build_tool.materialize(workspace=workspace, environments=["dev"])
-    pointer_path = workspace / ".builds/current/dev.json"
-    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
-    pointer["environment"] = "qa"
-    pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
-    with pytest.raises(ValueError, match="environment does not match"):
-        build_tool.resolve_current_build(workspace, "dev")
-
-    pointer["environment"] = "dev"
-    pointer["build_id"] = "260808-091012-000000000000"
-    pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
+    current_dir = workspace / ".builds/current"
+    descriptor_path = current_dir / "build.json"
+    descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+    descriptor["build_id"] = "260808-091012-000000000000"
+    descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
     with pytest.raises(ValueError, match="Incomplete build"):
-        build_tool.resolve_current_build(workspace, "dev")
+        build_tool.verify_current_build(current_dir)
+
+    descriptor["build_id"] = result["build_id"]
+    descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
+    (current_dir / "dev/metadata.json").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match build"):
+        build_tool.verify_current_build(current_dir)
     assert build_tool.verify_build(Path(result["build_dir"]))["build_id"] == result["build_id"]
 
 
-def test_current_pointer_rejects_symlinked_state_directory(
+def test_validate_build_cli_accepts_current_directly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["validate_build.py", "--build-dir", str(workspace / ".builds/current")],
+    )
+
+    assert build_validation.main() == 0
+    assert f"OK: verified build {result['build_id']}" in capsys.readouterr().out
+
+
+def test_current_projection_rejects_symlinked_state_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
@@ -230,18 +252,18 @@ def test_current_pointer_rejects_symlinked_state_directory(
         return path == current_root or original_is_symlink(path)
 
     monkeypatch.setattr(Path, "is_symlink", report_current_as_symlink)
-    with pytest.raises(ValueError, match="Current-build path must not be a symlink"):
-        build_tool.resolve_current_build(workspace, "dev")
+    with pytest.raises(ValueError, match="Current build path must not be a symlink"):
+        build_tool.verify_current_build(current_root)
 
 
-def test_current_pointer_atomic_failure_preserves_previous_selection(
+def test_current_projection_swap_failure_preserves_previous_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
     first = build_tool.materialize(workspace=workspace, environments=["dev"])
-    pointer_path = workspace / ".builds/current/dev.json"
-    original_pointer = pointer_path.read_bytes()
-    original_replace = build_tool.os.replace
+    current_root = workspace / ".builds/current"
+    original_descriptor = (current_root / "build.json").read_bytes()
+    original_rename = Path.rename
 
     monkeypatch.setattr(
         build_tool,
@@ -249,17 +271,21 @@ def test_current_pointer_atomic_failure_preserves_previous_selection(
         lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
     )
 
-    def fail_current_replace(source: str, target: Path) -> None:
-        if Path(target) == pointer_path:
-            raise OSError("simulated pointer replace failure")
-        original_replace(source, target)
+    def fail_current_swap(source: Path, target: Path) -> Path:
+        if (
+            Path(target) == current_root
+            and source.name.startswith(".current-")
+            and not source.name.startswith(".current-backup-")
+        ):
+            raise OSError("simulated current projection swap failure")
+        return original_rename(source, target)
 
-    monkeypatch.setattr(build_tool.os, "replace", fail_current_replace)
-    with pytest.raises(OSError, match="simulated pointer replace failure"):
+    monkeypatch.setattr(Path, "rename", fail_current_swap)
+    with pytest.raises(OSError, match="simulated current projection swap failure"):
         build_tool.materialize(workspace=workspace, environments=["dev"])
 
-    assert pointer_path.read_bytes() == original_pointer
-    assert build_tool.resolve_current_build(workspace, "dev") == Path(first["build_dir"])
+    assert (current_root / "build.json").read_bytes() == original_descriptor
+    assert build_tool.verify_current_build(current_root)["build_id"] == first["build_id"]
 
 
 def test_materialized_runner_preserves_verified_durable_bytes(
@@ -656,6 +682,10 @@ def test_successful_build_receipt_matches_exact_generated_artifacts(
         build_dir, receipt_path, require_success=True
     )
     assert receipt["build_id"] == result["build_id"]
+    current_receipt = build_validation.validate_receipt(
+        workspace / ".builds/current", receipt_path, require_success=True
+    )
+    assert current_receipt["build_id"] == result["build_id"]
 
 
 def test_failed_build_receipt_is_evidence_but_not_releasable(

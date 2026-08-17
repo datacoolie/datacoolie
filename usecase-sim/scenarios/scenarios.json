@@ -265,21 +265,22 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.yaml",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
-    "notes": "All local file-metadata stages via Polars, but only for yaml metadata (api-source dataflows skipped since they require json)"
+    "notes": "All local file-metadata stages via Polars using YAML metadata (requires mock-api for API-source dataflows)"
   },
   "local_polars_file_excel": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.xlsx",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
-    "notes": "All local file-metadata stages via Polars, but only for excel metadata (api-source dataflows skipped since they require json)"
+    "skip_api_sources": true,
+    "notes": "All local file-metadata stages via Polars using XLSX metadata; API-source dataflows skipped"
   },
   "local_spark_file": {
     "engine": "spark",
@@ -290,6 +291,14 @@
     "column_name_mode": "lower",
     "priority": "P0",
     "skip_api_sources": true,
+    "pre_clean_paths": [
+      "usecase-sim/data/output/delta/orders_full_load",
+      "usecase-sim/data/output/delta/orders_overwritten",
+      "usecase-sim/data/output/delta/orders_merged_nwm",
+      "usecase-sim/data/output/delta/orders_schema_evolve",
+      "usecase-sim/data/output/delta/orders_read_delta_schema_evolve",
+      "usecase-sim/data/output/delta/orders_read_delta_schema_evolve_fewer"
+    ],
     "notes": "All local file-metadata stages via Spark, api-source dataflows skipped"
   },
   "local_polars_database": {
@@ -357,6 +366,14 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "skip_api_sources": true,
+    "pre_clean_paths": [
+      "usecase-sim/data/output/delta/orders_full_load",
+      "usecase-sim/data/output/delta/orders_overwritten",
+      "usecase-sim/data/output/delta/orders_merged_nwm",
+      "usecase-sim/data/output/delta/orders_schema_evolve",
+      "usecase-sim/data/output/delta/orders_read_delta_schema_evolve",
+      "usecase-sim/data/output/delta/orders_read_delta_schema_evolve_fewer"
+    ],
     "notes": "All dataflows from SQLite metadata DB via Spark, api-source dataflows skipped"
   },
   "local_polars_api": {
@@ -379,6 +396,14 @@
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P1",
+    "pre_clean_paths": [
+      "usecase-sim/data/output/delta/orders_full_load",
+      "usecase-sim/data/output/delta/orders_overwritten",
+      "usecase-sim/data/output/delta/orders_merged_nwm",
+      "usecase-sim/data/output/delta/orders_schema_evolve",
+      "usecase-sim/data/output/delta/orders_read_delta_schema_evolve",
+      "usecase-sim/data/output/delta/orders_read_delta_schema_evolve_fewer"
+    ],
     "notes": "All dataflows from HTTP metadata API via Spark (requires api_metadata_server.py running)"
   },
   "local_polars_delta_maintenance": {

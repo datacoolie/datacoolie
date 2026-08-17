@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +12,12 @@ import pytest
 pl = pytest.importorskip("polars", reason="polars not installed")
 deltalake = pytest.importorskip("deltalake", reason="deltalake not installed")
 
-from datacoolie.core.constants import DEFAULT_AUTHOR, FileInfoColumn, SystemColumn  # noqa: E402
+from datacoolie.core.constants import (  # noqa: E402
+    DEFAULT_AUTHOR,
+    FileInfoColumn,
+    SystemColumn,
+    TRAILING_COLUMNS,
+)
 from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
 from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
@@ -1590,7 +1596,7 @@ class TestPolarsEngineAdvancedCoverage:
         engine.cleanup_by_name("ns.tbl", fmt="iceberg", options={"remove_orphan_files": True})
         assert "does not support remove_orphan_files" in caplog.text
 
-    @patch.object(PolarsEngine, "_reorder_arrow_to_iceberg", side_effect=lambda arrow, ice: arrow)
+    @patch.object(PolarsEngine, "_align_arrow_to_iceberg_table", side_effect=lambda arrow, ice: arrow)
     def test_write_iceberg_table_branches(self, _mock_reorder: MagicMock) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
 
@@ -1618,6 +1624,370 @@ class TestPolarsEngineAdvancedCoverage:
 
         with pytest.raises(EngineError, match="unsupported Iceberg write mode"):
             engine._write_iceberg_table(lf, "tbl", "merge")
+
+    def test_inspect_iceberg_write_target_is_non_mutating(self) -> None:
+        pa = pytest.importorskip("pyarrow")
+        target_arrow_schema = pa.schema([
+            pa.field("id", pa.int64()),
+            pa.field("__file_name", pa.string()),
+            pa.field("__created_at", pa.string()),
+        ])
+        iceberg_schema = MagicMock()
+        iceberg_schema.fields = [
+            SimpleNamespace(name=field.name) for field in target_arrow_schema
+        ]
+        iceberg_schema.as_arrow.return_value = target_arrow_schema
+
+        ice_table = MagicMock()
+        ice_table.schema.return_value = iceberg_schema
+        ice_table.spec.return_value.fields = []
+        ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=3)
+        ice_table.metadata.current_schema_id = 4
+
+        catalog = MagicMock()
+        catalog.load_table.return_value = ice_table
+        engine = PolarsEngine(iceberg_catalog=catalog)
+        source = pl.DataFrame({
+            "id": [1],
+            "new_value": ["x"],
+            "__file_name": ["a.csv"],
+            "__created_at": ["2026-08-17"],
+            "__dataflow_run_id": ["run-1"],
+        }).lazy()
+
+        target = engine._inspect_iceberg_write_target(
+            source,
+            "ns.tbl",
+            None,
+            caller="test",
+        )
+
+        assert [field.name for field in target.new_fields] == [
+            "new_value",
+            "__dataflow_run_id",
+        ]
+        assert target.expected_column_order == (
+            "id",
+            "new_value",
+            "__file_name",
+            "__created_at",
+            "__dataflow_run_id",
+        )
+        assert target.schema_reorder_required is True
+        assert target.snapshot_schema_stale is True
+        assert target.requires_transactional_write is True
+        ice_table.update_schema.assert_not_called()
+        ice_table.update_spec.assert_not_called()
+        ice_table.transaction.assert_not_called()
+        ice_table.upsert.assert_not_called()
+        ice_table.overwrite.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("snapshot_schema_id", "current_schema_id", "expected"),
+        [(None, 2, False), (2, 2, False), (1, 2, True)],
+    )
+    def test_iceberg_snapshot_schema_staleness_is_structured(
+        self,
+        snapshot_schema_id: int | None,
+        current_schema_id: int,
+        expected: bool,
+    ) -> None:
+        ice_table = MagicMock()
+        ice_table.current_snapshot.return_value = SimpleNamespace(
+            schema_id=snapshot_schema_id,
+        )
+        ice_table.metadata.current_schema_id = current_schema_id
+        assert PolarsEngine._iceberg_snapshot_schema_is_stale(ice_table) is expected
+
+        ice_table.current_snapshot.return_value = None
+        assert PolarsEngine._iceberg_snapshot_schema_is_stale(ice_table) is False
+
+    def test_merge_iceberg_uses_native_upsert_for_stable_schema(self) -> None:
+        pa = pytest.importorskip("pyarrow")
+        target_arrow_schema = pa.schema([
+            pa.field("id", pa.int64()),
+            pa.field("__dataflow_run_id", pa.string()),
+        ])
+        iceberg_schema = MagicMock()
+        iceberg_schema.fields = [
+            SimpleNamespace(name=field.name) for field in target_arrow_schema
+        ]
+        iceberg_schema.as_arrow.return_value = target_arrow_schema
+
+        ice_table = MagicMock()
+        ice_table.schema.return_value = iceberg_schema
+        ice_table.spec.return_value.fields = []
+        ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=7)
+        ice_table.metadata.current_schema_id = 7
+        catalog = MagicMock()
+        catalog.load_table.return_value = ice_table
+
+        engine = PolarsEngine(iceberg_catalog=catalog)
+        source = pl.DataFrame({
+            "id": [1],
+            "__dataflow_run_id": ["run-1"],
+        }).lazy()
+        engine._merge_iceberg_table(source, "ns.tbl", merge_keys=["id"])
+
+        ice_table.upsert.assert_called_once()
+        assert ice_table.upsert.call_args.kwargs == {"join_cols": ["id"]}
+        ice_table.transaction.assert_not_called()
+        ice_table.overwrite.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "unsafe_state",
+        ["new_fields", "reorder", "stale_snapshot", "partition"],
+    )
+    def test_merge_iceberg_selects_transactional_path(
+        self,
+        unsafe_state: str,
+    ) -> None:
+        source = pl.DataFrame({"id": [1]}).lazy()
+        target = MagicMock()
+        target.ice_table = MagicMock()
+        target.ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=1)
+        target.ice_table.metadata.current_schema_id = 2
+        target.pyice_id = "ns.tbl"
+        target.new_fields = (SimpleNamespace(name="new_value"),) if unsafe_state == "new_fields" else ()
+        target.schema_reorder_required = unsafe_state == "reorder"
+        target.snapshot_schema_stale = unsafe_state == "stale_snapshot"
+        target.missing_partition_columns = ("part",) if unsafe_state == "partition" else ()
+        target.requires_transactional_write = True
+
+        engine = PolarsEngine(iceberg_catalog=MagicMock())
+        with (
+            patch.object(engine, "_inspect_iceberg_write_target", return_value=target),
+            patch.object(engine, "_transactional_iceberg_key_overwrite") as transactional,
+        ):
+            engine._merge_iceberg_table(source, "ns.tbl", merge_keys=["id"])
+
+        transactional.assert_called_once_with(target, ["id"])
+        target.ice_table.upsert.assert_not_called()
+
+    def test_transactional_merge_stages_schema_partition_mapping_and_overwrite(
+        self,
+    ) -> None:
+        pa = pytest.importorskip("pyarrow")
+        source_arrow = pa.table({
+            "id": pa.array([1], type=pa.int64()),
+            "new_value": ["x"],
+            "__dataflow_run_id": ["run-1"],
+        })
+        target_schema = pa.schema([
+            pa.field("id", pa.int64()),
+            pa.field("new_value", pa.string()),
+            pa.field("__dataflow_run_id", pa.string()),
+        ])
+
+        transaction = MagicMock()
+        transaction.table_metadata.schema.return_value.as_arrow.return_value = target_schema
+        transaction_context = MagicMock()
+        transaction_context.__enter__.return_value = transaction
+
+        ice_table = MagicMock()
+        ice_table.properties = {}
+        ice_table.transaction.return_value = transaction_context
+
+        target = MagicMock()
+        target.ice_table = ice_table
+        target.collected = pl.DataFrame({"id": [1]})
+        target.arrow_table = source_arrow
+        target.new_fields = (
+            pa.field("new_value", pa.string()),
+            pa.field("__dataflow_run_id", pa.string()),
+        )
+        target.expected_column_order = (
+            "id",
+            "new_value",
+            "__dataflow_run_id",
+        )
+        target.schema_reorder_required = True
+        target.missing_partition_columns = ("new_value",)
+
+        engine = PolarsEngine(iceberg_catalog=MagicMock())
+        key_filter = object()
+        name_mapping = MagicMock()
+        name_mapping.model_dump_json.return_value = "mapping-json"
+        with (
+            patch.object(engine, "_build_iceberg_key_filter", return_value=key_filter),
+            patch.object(engine, "_stage_iceberg_merge_schema") as stage_schema,
+            patch.object(engine, "_stage_iceberg_merge_partitions") as stage_partitions,
+            patch(
+                "pyiceberg.table.name_mapping.create_mapping_from_schema",
+                return_value=name_mapping,
+            ),
+        ):
+            engine._transactional_iceberg_key_overwrite(target, ["id"])
+
+        stage_schema.assert_called_once_with(transaction, target)
+        stage_partitions.assert_called_once_with(transaction, ("new_value",))
+        transaction.set_properties.assert_called_once()
+        transaction.overwrite.assert_called_once()
+        assert transaction.overwrite.call_args.kwargs == {"overwrite_filter": key_filter}
+        assert transaction.overwrite.call_args.args[0].column_names == target_schema.names
+
+    def test_transactional_merge_preserves_existing_name_mapping(self) -> None:
+        pa = pytest.importorskip("pyarrow")
+        schema = pa.schema([pa.field("id", pa.int64())])
+        transaction = MagicMock()
+        transaction.table_metadata.schema.return_value.as_arrow.return_value = schema
+        transaction_context = MagicMock()
+        transaction_context.__enter__.return_value = transaction
+        ice_table = MagicMock()
+        ice_table.properties = {"schema.name-mapping.default": "existing-aliases"}
+        ice_table.transaction.return_value = transaction_context
+
+        target = MagicMock()
+        target.ice_table = ice_table
+        target.collected = pl.DataFrame({"id": [1]})
+        target.arrow_table = pa.table({"id": pa.array([1], type=pa.int64())})
+        target.new_fields = ()
+        target.schema_reorder_required = False
+        target.missing_partition_columns = ()
+
+        engine = PolarsEngine(iceberg_catalog=MagicMock())
+        with patch.object(engine, "_build_iceberg_key_filter", return_value=object()):
+            engine._transactional_iceberg_key_overwrite(target, ["id"])
+
+        transaction.set_properties.assert_not_called()
+        transaction.overwrite.assert_called_once()
+
+    def test_merge_iceberg_does_not_mask_upsert_value_error(self) -> None:
+        source = pl.DataFrame({"id": [1]}).lazy()
+        target = MagicMock()
+        target.ice_table = MagicMock()
+        target.ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=1)
+        target.ice_table.metadata.current_schema_id = 1
+        target.ice_table.upsert.side_effect = ValueError("Target table has duplicate rows")
+        target.arrow_table = source.collect().to_arrow()
+        target.pyice_id = "ns.tbl"
+        target.new_fields = ()
+        target.schema_reorder_required = False
+        target.snapshot_schema_stale = False
+        target.missing_partition_columns = ()
+        target.requires_transactional_write = False
+
+        engine = PolarsEngine(iceberg_catalog=MagicMock())
+        with (
+            patch.object(engine, "_inspect_iceberg_write_target", return_value=target),
+            patch.object(engine, "_align_arrow_to_iceberg_table", return_value=object()),
+            pytest.raises(ValueError, match="duplicate rows"),
+        ):
+            engine._merge_iceberg_table(source, "ns.tbl", merge_keys=["id"])
+
+        target.ice_table.transaction.assert_not_called()
+
+    def test_iceberg_schema_changing_merge_is_transactional(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        pa = pytest.importorskip("pyarrow")
+        pytest.importorskip("pyiceberg")
+        from pyiceberg.catalog.sql import SqlCatalog
+
+        catalog = SqlCatalog(
+            "local",
+            uri=f"sqlite:///{(tmp_path / 'catalog.db').as_posix()}",
+            warehouse=f"file://{(tmp_path / 'warehouse').as_posix()}",
+        )
+        try:
+            catalog.create_namespace("ns")
+            initial_schema = pa.schema([
+                pa.field("id", pa.int64()),
+                pa.field("value", pa.string()),
+                pa.field("__file_name", pa.string()),
+                pa.field("__created_at", pa.string()),
+            ])
+            table = catalog.create_table("ns.orders", schema=initial_schema)
+            table.append(pa.table({
+                "id": pa.array([1, 3], type=pa.int64()),
+                "value": ["old", "keep"],
+                "__file_name": ["old.csv", "keep.csv"],
+                "__created_at": ["2026-08-16", "2026-08-16"],
+            }))
+
+            engine = PolarsEngine(iceberg_catalog=catalog)
+            first_source = pl.DataFrame({
+                "id": [1, 2],
+                "value": ["updated", "inserted"],
+                "new_value": ["n1", "n2"],
+                "__file_name": ["new.csv", "new.csv"],
+                "__created_at": ["2026-08-17", "2026-08-17"],
+                "__dataflow_run_id": ["run-1", "run-1"],
+            }).lazy()
+            engine._merge_iceberg_table(
+                first_source,
+                "ns.orders",
+                merge_keys=["id"],
+                partition_columns=["new_value"],
+            )
+
+            table = catalog.load_table("ns.orders")
+            assert table.current_snapshot().schema_id == table.metadata.current_schema_id
+            assert [
+                table.schema().find_field(field.source_id).name
+                for field in table.spec().fields
+            ] == ["new_value"]
+            expected_trailing = [
+                column for column in TRAILING_COLUMNS
+                if column in table.schema().as_arrow().names
+            ]
+            assert table.schema().as_arrow().names == [
+                "id",
+                "value",
+                "new_value",
+                *expected_trailing,
+            ]
+            assert sorted(table.scan().to_arrow().to_pylist(), key=lambda row: row["id"]) == [
+                {
+                    "id": 1,
+                    "value": "updated",
+                    "new_value": "n1",
+                    "__file_name": "new.csv",
+                    "__created_at": "2026-08-17",
+                    "__dataflow_run_id": "run-1",
+                },
+                {
+                    "id": 2,
+                    "value": "inserted",
+                    "new_value": "n2",
+                    "__file_name": "new.csv",
+                    "__created_at": "2026-08-17",
+                    "__dataflow_run_id": "run-1",
+                },
+                {
+                    "id": 3,
+                    "value": "keep",
+                    "new_value": None,
+                    "__file_name": "keep.csv",
+                    "__created_at": "2026-08-16",
+                    "__dataflow_run_id": None,
+                },
+            ]
+
+            second_source = pl.DataFrame({
+                "id": [1],
+                "value": ["updated-again"],
+                "new_value": ["n3"],
+                "__file_name": ["again.csv"],
+                "__created_at": ["2026-08-17"],
+                "__dataflow_run_id": ["run-2"],
+            }).lazy()
+            engine._merge_iceberg_table(
+                second_source,
+                "ns.orders",
+                merge_keys=["id"],
+                partition_columns=["new_value"],
+            )
+            table = catalog.load_table("ns.orders")
+            row = next(
+                row for row in table.scan().to_arrow().to_pylist()
+                if row["id"] == 1
+            )
+            assert row["value"] == "updated-again"
+            assert row["__dataflow_run_id"] == "run-2"
+        finally:
+            catalog.engine.dispose()
 
 
 # =====================================================================
@@ -1670,7 +2040,7 @@ class TestRouterOverrides:
         with pytest.raises(EngineError, match="pass path instead of table_name"):
             engine.write(lf, table_name="my_table", mode="overwrite", fmt="delta")
 
-    @patch.object(PolarsEngine, "_reorder_arrow_to_iceberg", side_effect=lambda arrow, ice: arrow)
+    @patch.object(PolarsEngine, "_align_arrow_to_iceberg_table", side_effect=lambda arrow, ice: arrow)
     def test_write_iceberg_with_table_name_routes_to_catalog(self, _mock_reorder: MagicMock) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
         ice_table = MagicMock()

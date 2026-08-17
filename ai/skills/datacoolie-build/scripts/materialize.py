@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -16,7 +15,7 @@ import uuid
 import zipfile
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from _schema_resolver import find_schemas_dir, load_schema, resolve_schema_version
@@ -139,71 +138,116 @@ def _format_utc(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _current_pointer_path(workspace: Path, environment: str) -> Path:
-    if not environment or Path(environment).name != environment:
-        raise ValueError(f"Invalid current-build environment: {environment!r}")
-    return workspace / ".builds" / "current" / f"{environment}.json"
-
-
-def _write_current_pointer(workspace: Path, build_dir: Path, environment: str) -> Path:
-    manifest = verify_build(build_dir)
-    environments = manifest.get("environments")
-    if not isinstance(environments, dict) or environment not in environments:
-        raise ValueError(f"Build does not contain environment {environment!r}")
-    pointer = _current_pointer_path(workspace, environment)
-    pointer.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "schema_version": 1,
-        "artifact_type": "current_build",
-        "environment": environment,
-        "build_id": manifest["build_id"],
-    }
-    fd, temporary = tempfile.mkstemp(prefix=f".{pointer.name}.", dir=pointer.parent)
+def _load_current_descriptor(current_dir: Path) -> dict[str, Any]:
+    descriptor_path = current_dir / "build.json"
+    if descriptor_path.is_symlink() or not descriptor_path.is_file():
+        raise ValueError(f"Current build descriptor does not exist or is a symlink: {descriptor_path}")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2)
-            handle.write("\n")
-        os.replace(temporary, pointer)
-    except Exception:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
-    return pointer
-
-
-def resolve_current_build(workspace: Path, environment: str) -> Path:
-    """Resolve one environment pointer to an exact verified materialized build."""
-    workspace = workspace.resolve()
-    builds_root = workspace / ".builds"
-    current_root = builds_root / "current"
-    for directory in (builds_root, current_root):
-        if directory.is_symlink():
-            raise ValueError(f"Current-build path must not be a symlink: {directory}")
-    pointer = _current_pointer_path(workspace, environment)
-    if pointer.is_symlink() or not pointer.is_file():
-        raise ValueError(f"Current-build pointer does not exist or is a symlink: {pointer}")
-    try:
-        payload = json.loads(pointer.read_text(encoding="utf-8"))
+        payload = json.loads(descriptor_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Current-build pointer is not valid JSON: {pointer}") from exc
-    expected = {"schema_version", "artifact_type", "environment", "build_id"}
+        raise ValueError(f"Current build descriptor is not valid JSON: {descriptor_path}") from exc
+    expected = {"schema_version", "artifact_type", "build_id"}
     if not isinstance(payload, dict) or set(payload) != expected:
-        raise ValueError("Current-build pointer fields do not match the contract")
+        raise ValueError("Current build descriptor fields do not match the contract")
     if payload["schema_version"] != 1 or payload["artifact_type"] != "current_build":
-        raise ValueError("Current-build pointer contract is unsupported")
-    if payload["environment"] != environment:
-        raise ValueError("Current-build pointer environment does not match its filename")
+        raise ValueError("Current build descriptor contract is unsupported")
     build_id = payload["build_id"]
     if not isinstance(build_id, str) or BUILD_ID_PATTERN.fullmatch(build_id) is None:
-        raise ValueError("Current-build pointer contains an invalid build ID")
-    build_dir = workspace / ".builds" / "artifacts" / build_id
+        raise ValueError("Current build descriptor contains an invalid build ID")
+    return payload
+
+
+def verify_current_build(current_dir: Path) -> dict[str, Any]:
+    """Verify runnable current bytes against their exact immutable artifact."""
+    if current_dir.is_symlink():
+        raise ValueError(f"Current build path must not be a symlink: {current_dir}")
+    current_dir = current_dir.resolve()
+    _reject_symlinks(current_dir)
+    descriptor = _load_current_descriptor(current_dir)
+    builds_root = current_dir.parent
+    if builds_root.name != ".builds":
+        raise ValueError("Current build must be stored directly under .builds/current")
+    build_dir = builds_root / "artifacts" / descriptor["build_id"]
     manifest = verify_build(build_dir)
-    environments = manifest.get("environments")
-    if not isinstance(environments, dict) or environment not in environments:
-        raise ValueError("Current build does not contain the selected environment")
-    return build_dir
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("Build manifest artifacts must be an array")
+    expected_paths: set[str] = set()
+    for item in artifacts:
+        if not isinstance(item, dict):
+            raise ValueError("Build manifest contains an invalid artifact entry")
+        relative = item.get("path")
+        digest = item.get("sha256")
+        if not isinstance(relative, str) or not isinstance(digest, str):
+            raise ValueError("Build manifest contains an invalid artifact entry")
+        path = current_dir / PurePosixPath(relative)
+        try:
+            path.resolve().relative_to(current_dir)
+        except ValueError as exc:
+            raise ValueError(f"Current artifact escapes the projection: {relative}") from exc
+        if not path.is_file() or _sha256(path) != digest:
+            raise ValueError(f"Current artifact does not match build {descriptor['build_id']}: {relative}")
+        expected_paths.add(PurePosixPath(relative).as_posix())
+    actual_paths = {
+        path.relative_to(current_dir).as_posix()
+        for path in current_dir.rglob("*")
+        if path.is_file() and path.name != "build.json"
+    }
+    if actual_paths != expected_paths:
+        raise ValueError("Current build contains stale, untracked, or missing runtime files")
+    return manifest
+
+
+def _write_current_projection(workspace: Path, build_dir: Path) -> Path:
+    manifest = verify_build(build_dir)
+    builds_root = workspace / ".builds"
+    current_dir = builds_root / "current"
+    candidate = builds_root / f".current-{uuid.uuid4().hex}"
+    backup = builds_root / f".current-backup-{uuid.uuid4().hex}"
+    candidate.mkdir()
+    moved_previous = False
+    try:
+        for item in manifest["artifacts"]:
+            relative = PurePosixPath(item["path"])
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError(f"Build artifact path is unsafe: {item['path']}")
+            source = build_dir / relative
+            destination = candidate / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+        descriptor = {
+            "schema_version": 1,
+            "artifact_type": "current_build",
+            "build_id": manifest["build_id"],
+        }
+        (candidate / "build.json").write_text(
+            json.dumps(descriptor, indent=2) + "\n", encoding="utf-8"
+        )
+        verify_current_build(candidate)
+        if current_dir.exists() or current_dir.is_symlink():
+            if current_dir.is_symlink() or not current_dir.is_dir():
+                raise ValueError(f"Current build path must be a real directory: {current_dir}")
+            current_dir.rename(backup)
+            moved_previous = True
+        candidate.rename(current_dir)
+        try:
+            verify_current_build(current_dir)
+        except Exception:
+            shutil.rmtree(current_dir, ignore_errors=True)
+            if moved_previous:
+                backup.rename(current_dir)
+                moved_previous = False
+            raise
+        if moved_previous:
+            shutil.rmtree(backup, ignore_errors=True)
+            moved_previous = False
+        return current_dir
+    except Exception:
+        if candidate.exists():
+            shutil.rmtree(candidate, ignore_errors=True)
+        if moved_previous and backup.exists() and not current_dir.exists():
+            backup.rename(current_dir)
+        raise
 
 
 def _is_source_file(path: Path) -> bool:
@@ -613,14 +657,22 @@ def materialize(
             if existing.get("content_digest") != content_digest:
                 raise RuntimeError(f"Build ID collision: {build_id}")
             shutil.rmtree(staging)
-            for environment in selected_environments:
-                _write_current_pointer(workspace, target, environment)
-            return {"build_id": build_id, "build_dir": target, "reused": True}
+            current_dir = _write_current_projection(workspace, target)
+            return {
+                "build_id": build_id,
+                "build_dir": target,
+                "current_dir": current_dir,
+                "reused": True,
+            }
         staging.rename(target)
         verify_build(target)
-        for environment in selected_environments:
-            _write_current_pointer(workspace, target, environment)
-        return {"build_id": build_id, "build_dir": target, "reused": False}
+        current_dir = _write_current_projection(workspace, target)
+        return {
+            "build_id": build_id,
+            "build_dir": target,
+            "current_dir": current_dir,
+            "reused": False,
+        }
     except Exception:
         if staging.exists():
             shutil.rmtree(staging)

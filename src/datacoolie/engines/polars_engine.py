@@ -21,6 +21,7 @@ import inspect
 import io
 import os
 import re
+from dataclasses import dataclass
 from urllib.parse import quote as _url_quote, unquote as _url_unquote
 from functools import reduce  # noqa: PLC0415
 from datetime import date, datetime, timedelta, timezone
@@ -63,6 +64,31 @@ except ImportError:
 _SINK_DELTA_AVAILABLE: bool = hasattr(pl.LazyFrame, "sink_delta")
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class _IcebergWritePlan:
+    """Inspected Iceberg write state; constructing it never mutates the table."""
+
+    ice_table: Any
+    collected: pl.DataFrame
+    arrow_table: Any
+    pyice_id: str
+    new_fields: Tuple[Any, ...]
+    expected_column_order: Tuple[str, ...]
+    schema_reorder_required: bool
+    snapshot_schema_stale: bool
+    missing_partition_columns: Tuple[str, ...]
+
+    @property
+    def requires_transactional_write(self) -> bool:
+        """Return whether metadata and data must be committed together."""
+        return bool(
+            self.new_fields
+            or self.schema_reorder_required
+            or self.snapshot_schema_stale
+            or self.missing_partition_columns
+        )
 
 # ---------------------------------------------------------------------------
 # Polars type-mapping for cast_column
@@ -1216,8 +1242,8 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         return parts[0]
 
     @staticmethod
-    def _reorder_arrow_to_iceberg(arrow_table: Any, ice_table: Any) -> Any:
-        """Align Arrow table columns to the Iceberg table schema.
+    def _align_arrow_to_iceberg_schema(arrow_table: Any, target_schema: Any) -> Any:
+        """Align Arrow table columns to an Arrow representation of an Iceberg schema.
 
         pyiceberg's ``_check_schema_compatible`` performs a positional
         name check against the Iceberg schema — it does not auto-fill
@@ -1237,7 +1263,6 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         """
         import pyarrow as pa  # noqa: PLC0415
 
-        target_schema = ice_table.schema().as_arrow()
         target_names = target_schema.names
 
         # Fast path: no reorder, no backfill, no drop needed.
@@ -1275,6 +1300,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         return arrow_table.select(target_names)
 
     @staticmethod
+    def _align_arrow_to_iceberg_table(arrow_table: Any, ice_table: Any) -> Any:
+        """Align Arrow columns to the current schema of an Iceberg table."""
+        return PolarsEngine._align_arrow_to_iceberg_schema(
+            arrow_table,
+            ice_table.schema().as_arrow(),
+        )
+
+    @staticmethod
     def _align_arrow_to_iceberg_casing(arrow_table: Any, ice_table: Any) -> Any:
         """Rename Arrow columns to match existing Iceberg columns case-insensitively.
 
@@ -1282,7 +1315,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         with different casing (e.g. ``Name`` vs ``name``), rename the Arrow
         column to the Iceberg casing.  This prevents
         :meth:`_evolve_iceberg_schema` from treating case-variants as new
-        columns, and lets :meth:`_reorder_arrow_to_iceberg` keep its exact
+        columns, and lets :meth:`_align_arrow_to_iceberg_table` keep its exact
         positional matching.
 
         No-op when every Arrow column already has an exact match or no
@@ -1368,7 +1401,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
 
         # 3) Write via pyiceberg Arrow API — works for both partitioned and
         #    unpartitioned tables, and correctly handles timestamptz columns.
-        collected = self._reorder_arrow_to_iceberg(arrow_table, ice_table)
+        collected = self._align_arrow_to_iceberg_table(arrow_table, ice_table)
         if iceberg_mode == "overwrite":
             ice_table.overwrite(collected)
         elif iceberg_mode == "append":
@@ -1399,7 +1432,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         1. Rename Arrow columns whose lowercase name matches an existing
            Iceberg column with different casing (e.g. ``Name`` vs ``name``)
            so schema evolution doesn't add case-variants and
-           :meth:`_reorder_arrow_to_iceberg` keeps exact positional matching.
+           :meth:`_align_arrow_to_iceberg_table` keeps exact positional matching.
         2. ``union_by_name`` any truly-new columns into the Iceberg schema.
         3. Reorder trailing columns (SCD2 → FileInfo → System) to canonical
            order, mirroring ``ColumnNameSanitizer(90)``.
@@ -1871,38 +1904,117 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     # Iceberg merge helpers
     # ------------------------------------------------------------------
 
-    def _iceberg_prepare_target(
+    @staticmethod
+    def _iceberg_expected_column_order(column_names: List[str]) -> Tuple[str, ...]:
+        """Return business columns followed by the canonical technical tail."""
+        trailing_lower = {column.lower() for column in TRAILING_COLUMNS}
+        column_by_lower = {column.lower(): column for column in column_names}
+        leading = [
+            column for column in column_names
+            if column.lower() not in trailing_lower
+        ]
+        trailing = [
+            column_by_lower[column.lower()]
+            for column in TRAILING_COLUMNS
+            if column.lower() in column_by_lower
+        ]
+        return tuple(leading + trailing)
+
+    @staticmethod
+    def _iceberg_snapshot_schema_is_stale(ice_table: Any) -> bool:
+        """Return whether the main snapshot still projects an older schema."""
+        snapshot = ice_table.current_snapshot()
+        if snapshot is None or snapshot.schema_id is None:
+            return False
+        return snapshot.schema_id != ice_table.metadata.current_schema_id
+
+    @staticmethod
+    def _missing_iceberg_identity_partitions(
+        ice_table: Any,
+        partition_columns: Optional[List[str]],
+    ) -> Tuple[str, ...]:
+        """Return requested identity partition columns absent from the spec."""
+        if not partition_columns:
+            return ()
+
+        from pyiceberg.transforms import IdentityTransform  # noqa: PLC0415
+
+        schema = ice_table.schema()
+        existing: set[str] = set()
+        for field in ice_table.spec().fields:
+            if isinstance(field.transform, IdentityTransform):
+                try:
+                    existing.add(schema.find_field(field.source_id).name.lower())
+                except Exception:  # noqa: BLE001
+                    pass
+        return tuple(
+            column for column in partition_columns
+            if column.lower() not in existing
+        )
+
+    def _inspect_iceberg_write_target(
         self,
         df: pl.LazyFrame,
         table_name: str,
         partition_columns: Optional[List[str]],
         *,
         caller: str,
-    ) -> Tuple[Any, "pl.DataFrame", Any, str]:
-        """Load target table, materialise *df*, evolve schema + partition spec.
-
-        Shared preamble for ``_merge_iceberg_table``,
-        ``_merge_overwrite_iceberg_table`` and ``_scd2_iceberg_table``.
-
-        Returns ``(ice_table, collected, arrow_table, pyice_id)``.  The caller
-        performs the actual write (``overwrite``, ``append``, or ``upsert``).
-        """
+    ) -> _IcebergWritePlan:
+        """Inspect and materialize an Iceberg write without mutating the table."""
         if self._iceberg_catalog is None:
             raise EngineError(
                 f"PolarsEngine.{caller} requires iceberg_catalog"
             )
+
         pyice_id = self._pyiceberg_table_id(table_name)
         ice_table = self._iceberg_catalog.load_table(pyice_id)
         collected = df.collect()
-        arrow_table = collected.to_arrow()
-        ice_table, arrow_table = self._align_and_evolve_iceberg(
-            ice_table, arrow_table, pyice_id,
+        arrow_table = self._align_arrow_to_iceberg_casing(
+            collected.to_arrow(),
+            ice_table,
         )
-        if partition_columns:
+
+        current_names = [field.name for field in ice_table.schema().fields]
+        current_name_set = set(current_names)
+        new_fields = tuple(
+            field for field in arrow_table.schema
+            if field.name not in current_name_set
+        )
+        post_evolution_names = current_names + [field.name for field in new_fields]
+        expected_order = self._iceberg_expected_column_order(post_evolution_names)
+
+        return _IcebergWritePlan(
+            ice_table=ice_table,
+            collected=collected,
+            arrow_table=arrow_table,
+            pyice_id=pyice_id,
+            new_fields=new_fields,
+            expected_column_order=expected_order,
+            schema_reorder_required=tuple(post_evolution_names) != expected_order,
+            snapshot_schema_stale=self._iceberg_snapshot_schema_is_stale(ice_table),
+            missing_partition_columns=self._missing_iceberg_identity_partitions(
+                ice_table,
+                partition_columns,
+            ),
+        )
+
+    def _apply_iceberg_write_metadata(
+        self,
+        plan: _IcebergWritePlan,
+    ) -> Tuple[Any, Any]:
+        """Apply the existing non-transactional metadata preparation workflow."""
+        ice_table, arrow_table = self._align_and_evolve_iceberg(
+            plan.ice_table,
+            plan.arrow_table,
+            plan.pyice_id,
+        )
+        if plan.missing_partition_columns:
             ice_table = self._ensure_iceberg_partition_spec(
-                ice_table, partition_columns, pyice_id,
+                ice_table,
+                list(plan.missing_partition_columns),
+                plan.pyice_id,
             )
-        return ice_table, collected, arrow_table, pyice_id
+        return ice_table, arrow_table
 
     @staticmethod
     def _build_iceberg_key_filter(
@@ -1924,6 +2036,83 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             conditions.append(reduce(lambda a, b: And(a, b), parts))
         return reduce(lambda a, b: Or(a, b), conditions)
 
+    @staticmethod
+    def _stage_iceberg_merge_schema(
+        transaction: Any,
+        plan: _IcebergWritePlan,
+    ) -> None:
+        """Stage additive fields and the canonical technical tail."""
+        if not plan.new_fields and not plan.schema_reorder_required:
+            return
+
+        import pyarrow as pa  # noqa: PLC0415
+
+        trailing_lower = {column.lower() for column in TRAILING_COLUMNS}
+        leading = [
+            column for column in plan.expected_column_order
+            if column.lower() not in trailing_lower
+        ]
+        trailing = [
+            column for column in plan.expected_column_order
+            if column.lower() in trailing_lower
+        ]
+
+        with transaction.update_schema() as update:
+            if plan.new_fields:
+                update.union_by_name(pa.schema(plan.new_fields))
+            if plan.schema_reorder_required:
+                previous = leading[-1] if leading else None
+                for column in trailing:
+                    if previous is None:
+                        update.move_first(column)
+                    else:
+                        update.move_after(column, previous)
+                    previous = column
+
+    @staticmethod
+    def _stage_iceberg_merge_partitions(
+        transaction: Any,
+        missing_partition_columns: Tuple[str, ...],
+    ) -> None:
+        """Stage requested identity partitions after staged schema evolution."""
+        if not missing_partition_columns:
+            return
+        with transaction.update_spec() as update_spec:
+            for column in missing_partition_columns:
+                update_spec.add_identity(column)
+
+    def _transactional_iceberg_key_overwrite(
+        self,
+        plan: _IcebergWritePlan,
+        merge_keys: List[str],
+    ) -> None:
+        """Commit merge metadata changes and source-key replacement together."""
+        from pyiceberg.table.name_mapping import create_mapping_from_schema  # noqa: PLC0415
+
+        key_filter = self._build_iceberg_key_filter(plan.collected, merge_keys)
+        with plan.ice_table.transaction() as transaction:
+            self._stage_iceberg_merge_schema(transaction, plan)
+            self._stage_iceberg_merge_partitions(
+                transaction,
+                plan.missing_partition_columns,
+            )
+
+            if "schema.name-mapping.default" not in (
+                plan.ice_table.properties or {}
+            ):
+                name_mapping = create_mapping_from_schema(
+                    transaction.table_metadata.schema()
+                )
+                transaction.set_properties({
+                    "schema.name-mapping.default": name_mapping.model_dump_json(),
+                })
+
+            aligned = self._align_arrow_to_iceberg_schema(
+                plan.arrow_table,
+                transaction.table_metadata.schema().as_arrow(),
+            )
+            transaction.overwrite(aligned, overwrite_filter=key_filter)
+
     def _merge_iceberg_table(
         self,
         df: pl.LazyFrame,
@@ -1931,23 +2120,53 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         merge_keys: List[str],
         partition_columns: Optional[List[str]] = None,
     ) -> None:
-        """Upsert into an Iceberg table via ``ice_table.upsert(join_cols=merge_keys)``.
+        """Merge into Iceberg using native upsert or a transactional key overwrite.
 
-        Passes *merge_keys* as ``join_cols`` so no ``identifier_field_ids``
-        configuration is required on the Iceberg table schema.
+        Stable schemas use ``ice_table.upsert(join_cols=merge_keys)``. Schema,
+        order, snapshot, or partition-spec changes use one transaction so the
+        metadata and source-key replacement become visible together.
 
         Columns missing in the source are backfilled with NULL by
-        :meth:`_reorder_arrow_to_iceberg`, which — in an upsert — will
+        :meth:`_align_arrow_to_iceberg_table`, which — in an upsert — will
         overwrite existing target values with NULL for matched rows.
         Callers that need to preserve non-key columns should include them
         in the source dataframe or use ``merge_overwrite_to_table`` for a
         rolling overwrite.
         """
-        ice_table, _, arrow_table, _ = self._iceberg_prepare_target(
-            df, table_name, partition_columns, caller="_merge_iceberg_table",
+        plan = self._inspect_iceberg_write_target(
+            df,
+            table_name,
+            partition_columns,
+            caller="_merge_iceberg_table",
         )
-        ice_table.upsert(
-            self._reorder_arrow_to_iceberg(arrow_table, ice_table),
+        snapshot = plan.ice_table.current_snapshot()
+        strategy = (
+            "transactional_key_overwrite"
+            if plan.requires_transactional_write
+            else "native_upsert"
+        )
+        logger.info(
+            "Iceberg merge strategy=%s table=%s current_schema_id=%s "
+            "snapshot_schema_id=%s added_columns=%s reorder_required=%s "
+            "missing_partitions=%s",
+            strategy,
+            plan.pyice_id,
+            plan.ice_table.metadata.current_schema_id,
+            snapshot.schema_id if snapshot is not None else None,
+            [field.name for field in plan.new_fields],
+            plan.schema_reorder_required,
+            list(plan.missing_partition_columns),
+        )
+
+        if plan.requires_transactional_write:
+            self._transactional_iceberg_key_overwrite(plan, merge_keys)
+            return
+
+        plan.ice_table.upsert(
+            self._align_arrow_to_iceberg_table(
+                plan.arrow_table,
+                plan.ice_table,
+            ),
             join_cols=merge_keys,
         )
 
@@ -1964,13 +2183,18 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         appends all source rows.  Uses ``overwrite(arrow, overwrite_filter=...)``
         for atomicity.
         """
-        ice_table, collected, arrow_table, _ = self._iceberg_prepare_target(
-            df, table_name, partition_columns,
+        plan = self._inspect_iceberg_write_target(
+            df,
+            table_name,
+            partition_columns,
             caller="_merge_overwrite_iceberg_table",
         )
-        key_filter = self._build_iceberg_key_filter(collected, merge_keys)
+        ice_table, arrow_table = self._apply_iceberg_write_metadata(plan)
+        key_filter = self._build_iceberg_key_filter(plan.collected, merge_keys)
         ice_table.overwrite(
-            self._reorder_arrow_to_iceberg(arrow_table, ice_table),
+            self._align_arrow_to_iceberg_table(
+                arrow_table, ice_table,
+            ),
             overwrite_filter=key_filter,
         )
 
@@ -1995,9 +2219,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         ``overwrite`` atomically deletes + inserts without row-level
         diffing, matching the reliability of Delta's MERGE.
         """
-        ice_table, collected, arrow_table, _ = self._iceberg_prepare_target(
-            df, table_name, partition_columns, caller="_scd2_iceberg_table",
+        plan = self._inspect_iceberg_write_target(
+            df,
+            table_name,
+            partition_columns,
+            caller="_scd2_iceberg_table",
         )
+        ice_table, arrow_table = self._apply_iceberg_write_metadata(plan)
+        collected = plan.collected
 
         valid_from_col = SCD2Column.VALID_FROM.value
         valid_to_col = SCD2Column.VALID_TO.value
@@ -2050,12 +2279,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     closed, merge_keys + [valid_from_col],
                 )
                 ice_table.overwrite(
-                    self._reorder_arrow_to_iceberg(closed.to_arrow(), ice_table),
+                    self._align_arrow_to_iceberg_table(closed.to_arrow(), ice_table),
                     overwrite_filter=close_filter,
                 )
 
         # Step 2: APPEND all source rows as new versions.
-        ice_table.append(self._reorder_arrow_to_iceberg(arrow_table, ice_table))
+        ice_table.append(self._align_arrow_to_iceberg_table(arrow_table, ice_table))
 
     # ==================================================================
     # Transform

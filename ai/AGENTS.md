@@ -12,9 +12,9 @@ that matches the current state. Skills own outcomes, not mandatory phases.
   boundary.
 - Treat `discover/` as design-time evidence. Runtime metadata, code, builds, and releases must not
   depend on it.
-- Keep durable project sources as the source of truth. `.builds/artifacts/{build_id}` contains
-  immutable generated artifacts; local integration and runtime verification execute those
-  artifacts, not parallel source copies.
+- Keep durable project sources as the authoring source of truth. `.builds/artifacts/{build_id}` is
+  the immutable generated source; `.builds/current` is its verified runnable projection for normal
+  local integration and validation.
 - Keep mutable logs and watermarks outside `.builds/`.
 - Skills resolve their own bundled resources relative to `SKILL.md`. Cross-skill handoffs use
   workspace artifacts and typed receipts, never another skill's script path.
@@ -45,7 +45,9 @@ Derived and runtime state:
 ```text
 .builds/artifacts/{build_id}/         # immutable generated build
 .builds/evidence/{build_id}/{env}/    # build verification receipts
-.builds/current/{env}.json            # latest materialized build pointer for testing
+.builds/current/build.json            # exact source build ID for the runnable projection
+.builds/current/{env}/                # latest generated metadata and runners
+.builds/current/dist/                 # latest generated functions artifact when present
 .runtime/{env}/logs/                  # mutable, persistent
 .runtime/{env}/watermarks/            # mutable, persistent
 .approvals/                           # required manual approvals only
@@ -53,8 +55,10 @@ Derived and runtime state:
 provision/evidence/{env}/             # provision plans and receipts when needed
 ```
 
-Every downstream reference uses an exact build ID. `current` is a convenience pointer for testing,
-not release identity or authorization. Never edit or symlink a generated build as durable source.
+Every downstream receipt and handoff uses the exact build ID recorded by `current/build.json`.
+Normal run, test, and validation execute `current`; historical verification selects
+`artifacts/{build_id}`. `current` is disposable derived state, never release identity or
+authorization. Never edit or symlink a generated build as durable source.
 
 ## Skill Ownership
 

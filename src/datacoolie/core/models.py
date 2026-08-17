@@ -1720,6 +1720,16 @@ class DestinationRuntimeInfo(RuntimeInfo):
 
 
 @dataclass
+class PipelineAttemptResult:
+    """Terminal phase results from one retryable pipeline attempt."""
+
+    status: str
+    source: Optional[SourceRuntimeInfo] = None
+    transform: Optional[TransformRuntimeInfo] = None
+    destination: Optional[DestinationRuntimeInfo] = None
+
+
+@dataclass
 class DataFlowRuntimeInfo(RuntimeInfo):
     """Mutable orchestration record for one dataflow execution."""
 

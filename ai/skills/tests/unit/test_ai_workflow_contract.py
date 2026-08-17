@@ -179,7 +179,9 @@ def test_workspace_contract_is_canonical_and_minimal() -> None:
     assert "Paths never infer or override runtime stage" in template
     assert ".builds/artifacts/" in template
     assert "{YYMMDD-HHMMSS}-{12-char-content-digest}" in template
-    assert ".builds/current/{env}.json" in template
+    assert ".builds/current/build.json" in template
+    assert "execute and validate `.builds/current` directly" in template
+    assert "does not retain stale environments" in " ".join(template.split())
     assert ".builds/evidence/{build_id}/{env}/{receipt_id}.json" in template
     assert ".evidence/" not in template
     assert ".runtime/" in template
@@ -232,9 +234,11 @@ def test_build_reuses_framework_audit_columns_and_native_file_date_routing() -> 
     schema_text = " ".join(schema.split())
 
     assert (
-        "do not duplicate framework write-time or job identity unless an explicit consumer"
+        "do not duplicate framework write-time or driver-managed dataflow run identity"
         in skill_text
     )
+    assert "Driver-managed runs also receive `__dataflow_run_id` from their execution ID" in schema_text
+    assert "standalone transformer usage without that ID does not add it" in schema_text
     assert "Preserve source-created, source-modified, event, transaction" in schema_text
     assert "omit it and use the framework output" in schema_text
     assert "keep it only with that justification" in schema_text

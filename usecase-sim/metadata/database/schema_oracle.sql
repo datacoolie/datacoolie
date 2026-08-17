@@ -8,7 +8,7 @@
 DECLARE
     v_cnt NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'dc_framework_CONNECTIONS';
+    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'DC_FRAMEWORK_CONNECTIONS';
     IF v_cnt = 0 THEN
         EXECUTE IMMEDIATE '
             CREATE TABLE dc_framework_connections (
@@ -41,7 +41,7 @@ END;
 DECLARE
     v_cnt NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'dc_framework_DATAFLOWS';
+    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'DC_FRAMEWORK_DATAFLOWS';
     IF v_cnt = 0 THEN
         EXECUTE IMMEDIATE '
             CREATE TABLE dc_framework_dataflows (
@@ -92,7 +92,7 @@ END;
 DECLARE
     v_cnt NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'dc_framework_WATERMARKS';
+    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'DC_FRAMEWORK_WATERMARKS';
     IF v_cnt = 0 THEN
         EXECUTE IMMEDIATE '
             CREATE TABLE dc_framework_watermarks (
@@ -115,7 +115,7 @@ END;
 DECLARE
     v_cnt NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'dc_framework_SCHEMA_HINTS';
+    SELECT COUNT(*) INTO v_cnt FROM user_tables WHERE table_name = 'DC_FRAMEWORK_SCHEMA_HINTS';
     IF v_cnt = 0 THEN
         EXECUTE IMMEDIATE '
             CREATE TABLE dc_framework_schema_hints (

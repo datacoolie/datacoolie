@@ -202,6 +202,7 @@ def main() -> None:
             needs_s3=is_aws,
             needs_iceberg=needs_iceberg,
             extra_config=extra_config or None,
+            verify_local_file_checksums=is_aws,
         )
         from datacoolie.engines import SparkEngine
         engine = SparkEngine(spark_session=spark, platform=platform)
