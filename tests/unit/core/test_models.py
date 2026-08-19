@@ -279,13 +279,13 @@ class TestDestination:
         dest = Destination(connection=dest_connection, table="t", merge_keys="id,name")
         assert dest.merge_keys == ["id", "name"]
 
-    def test_table_normalised_to_lowercase(self, dest_connection: Connection) -> None:
-        dest = Destination(connection=dest_connection, table="MyTable")
-        assert dest.table == "mytable"
+    def test_table_strips_without_lowercasing(self, dest_connection: Connection) -> None:
+        dest = Destination(connection=dest_connection, table="  MyTable  ")
+        assert dest.table == "MyTable"
 
-    def test_schema_name_normalised_to_lowercase(self, dest_connection: Connection) -> None:
-        dest = Destination(connection=dest_connection, table="t", schema_name="MySchema")
-        assert dest.schema_name == "myschema"
+    def test_schema_name_strips_without_lowercasing(self, dest_connection: Connection) -> None:
+        dest = Destination(connection=dest_connection, table="t", schema_name="  MySchema  ")
+        assert dest.schema_name == "MySchema"
 
     def test_schema_name_none_remains_none(self, dest_connection: Connection) -> None:
         dest = Destination(connection=dest_connection, table="t", schema_name=None)

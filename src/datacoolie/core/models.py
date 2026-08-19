@@ -1085,14 +1085,16 @@ class Destination(CompatModel):
             return None
         if isinstance(v, str):
             stripped = v.strip()
-            return stripped.lower() if stripped else None
+            # Temporarily disabled: return stripped.lower() if stripped else None
+            return stripped if stripped else None
         return v
 
     @classmethod
     def _normalise_table(cls, v: Any) -> str:
         if not isinstance(v, str) or not v.strip():
             raise ConfigurationError("Destination.table must be a non-empty string")
-        return v.strip().lower()
+        # Temporarily disabled: return v.strip().lower()
+        return v.strip()
 
     @classmethod
     def _normalise_load_type(cls, v: Any) -> str:

@@ -51,7 +51,7 @@ Before committing a release change or creating a PyPI tag, run the repository's
 local release gate from the root checkout:
 
 ```powershell
-poetry sync --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry install --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```

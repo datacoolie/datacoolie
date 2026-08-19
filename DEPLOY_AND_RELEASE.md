@@ -45,7 +45,8 @@ release verifier is the CI gate for package, docs, and non-Spark tests.
 ## Release prerequisites
 
 - Python 3.11
-- Poetry 2.3.4 for parity with GitHub Actions
+- Poetry 2.3.4 for parity with GitHub Actions, installed outside the project
+  virtual environment (`pipx` is recommended)
 - Twine in the active Poetry environment (`poetry run python -m pip install --upgrade twine`)
 - Git access to the `datacoolie/datacoolie` repository
 - a clean standalone repository checkout
@@ -67,12 +68,17 @@ are generated from the tag by `.github/workflows/release.yml`.
 
 ## Validate locally
 
-Run the shared local gate before creating the commit that will be tagged:
+Run the shared local gate before creating the commit that will be tagged. Do
+not run `poetry sync` in a shared or already-customized virtual environment:
+`sync` removes packages that are not in the selected groups and extras. The
+standard and Spark commands below select different extras, so running both
+with `sync` can also remove dependencies installed by the other command.
+
+Use `poetry install` for local validation. It installs the locked dependencies
+that are missing without pruning unrelated packages:
 
 ```bash
-poetry sync --with dev --with docs \
-  -E polars -E polars-hash -E deltalake -E iceberg \
-  -E api -E db -E boto3 -E excel
+poetry install --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```
@@ -81,13 +87,20 @@ The verifier checks version parity, lock metadata, distributions, Twine
 metadata, a clean-wheel install/import smoke test, the strict docs build, and
 the default non-Spark test suite. Any failed stage is a release blocker.
 
-Spark is intentionally local-only. When Spark dependencies are installed, add
-the explicit local gate:
+Spark is intentionally local-only. After the standard gate, add the Spark
+dependencies with `poetry install` and run the explicit local gate:
 
 ```bash
-poetry sync --with dev --with docs -E spark -E delta-spark
+poetry install --with dev --with docs -E spark -E delta-spark
 poetry run python scripts/verify_release.py --with-spark
 ```
+
+The Spark command preserves the non-Spark dependencies already installed by
+the first command. If the Spark gate is run independently, include the
+standard extras and the Spark extras in the same `poetry install` command.
+Use a dedicated Poetry virtual environment or checkout when the current
+environment must remain completely unchanged; `poetry install` may still add
+or repair the project's dependencies.
 
 A Poetry-free diagnostic is also possible when equivalent dependencies are
 already installed:

@@ -81,7 +81,7 @@ creating a `vX.Y.Z` tag. It uses the same package, docs, distribution, and
 non-Spark test checks that the tagged PyPI workflow uses:
 
 ```powershell
-poetry sync --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry install --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```

@@ -135,9 +135,9 @@ class TestMaintenanceDedup:
         assert len(unique) == 1
 
     def test_case_insensitive_equivalence(self):
-        # Destination normalizes table to lowercase on input; force case
-        # variance through the connection catalog/database instead.
-        a = _maint_df("df-a", catalog="CAT", database="DB", table="orders")
+        # Destination preserves table case; identity comparison remains
+        # case-insensitive.
+        a = _maint_df("df-a", catalog="CAT", database="DB", table="Orders")
         b = _maint_df("df-b", catalog="cat", database="db", table="orders")
         unique = dedupe_by_destination([a, b])
         assert len(unique) == 1

@@ -10,7 +10,7 @@ import pytest
 
 from datacoolie.core.constants import ExecutionType
 from datacoolie.logging.base import LogConfig, LogManager
-from datacoolie.logging.etl_logger import ETLLogger
+from datacoolie.logging.etl_logger import ETLLogger, _build_dataflow_schema
 from datacoolie.platforms.local_platform import LocalPlatform
 
 from tests.unit.logging.support import (
@@ -68,6 +68,26 @@ class TestAnalystParquetOutput:
         assert len(lines) == 1
         assert lines[0]["_type"] == "job_run_log"
         assert lines[0]["total_dataflows"] == 2
+
+    def test_dataflow_parquet_keeps_nullable_integer_contract(self, tmp_path):
+        pa = pytest.importorskip("pyarrow")
+        pq = pytest.importorskip("pyarrow.parquet")
+
+        logger, _ = make_real_logger(tmp_path)
+        dataflow = make_dataflow("typed")
+        dataflow.group_number = 2
+        dataflow.execution_order = 10
+        logger.log(dataflow, make_runtime("typed"))
+        logger.close()
+
+        dataflow_file = next(
+            path for path in tmp_path.rglob("*.parquet") if "dataflow_" in path.name
+        )
+        parquet_schema = pq.ParquetFile(dataflow_file).schema_arrow
+
+        expected_schema = _build_dataflow_schema(pa)
+        for field in expected_schema:
+            assert parquet_schema.field(field.name).type == field.type
 
     def test_parquet_projects_typed_transform_metadata(self, tmp_path):
         pq = pytest.importorskip("pyarrow.parquet")
