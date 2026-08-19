@@ -10,7 +10,7 @@ from scripts.verify_release import distribution_files, validate_versions  # noqa
 
 
 def test_repository_versions_match() -> None:
-    assert validate_versions(REPO_ROOT) == "0.1.6"
+    assert validate_versions(REPO_ROOT) == "0.1.7"
 
 
 def test_tag_must_match_repository_version() -> None:
