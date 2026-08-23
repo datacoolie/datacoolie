@@ -3036,6 +3036,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3189,6 +3199,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3406,7 +3556,7 @@
 
 
 <h1 id="configure-file-metadata">Configure file metadata<a class="headerlink" href="#configure-file-metadata" title="Permanent link">&para;</a></h1>
-<p><strong>Prerequisites</strong> · <code>datacoolie[excel]</code> or <code>openpyxl</code> if you want <code>.xlsx</code> generation · <code>pyyaml</code> if you want <code>.yaml</code> generation · a directory you control for metadata files.
+<p><strong>Prerequisites</strong> · <code>datacoolie[metadata-excel]</code> for <code>.xlsx</code> generation · <code>datacoolie[metadata-yaml]</code> for <code>.yaml</code> generation · a directory you control for metadata files.
 <strong>End state</strong> · Working <code>FileProvider</code> reading JSON (canonical) with optional generated YAML/Excel siblings.</p>
 <h2 id="the-canonical-format-is-json">The canonical format is JSON<a class="headerlink" href="#the-canonical-format-is-json" title="Permanent link">&para;</a></h2>
 <p>Keep your source of truth as JSON. One file per use case:</p>
@@ -3589,7 +3739,7 @@ overrides the default sibling <code>watermarks/</code> location:</p>
 <tr>
 <td><code>.yaml</code> or <code>.xlsx</code> sibling was not created</td>
 <td>Required emitter dependency is missing</td>
-<td>Install <code>pyyaml</code> for YAML and <code>openpyxl</code> or <code>datacoolie[excel]</code> for XLSX, then rerun <code>setup_metadata.py --targets file</code>.</td>
+<td>Install <code>datacoolie[metadata-yaml]</code> for YAML and <code>datacoolie[metadata-excel]</code> for XLSX, then rerun <code>setup_metadata.py --targets file</code>.</td>
 </tr>
 <tr>
 <td>YAML or XLSX no longer matches JSON</td>

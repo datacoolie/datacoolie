@@ -1057,6 +1057,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#qualified-sql-relations-in-polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qualified SQL relations in Polars
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Qualified SQL relations in Polars">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#delta-and-iceberg-roots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta and Iceberg roots
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#driver-connection-keys" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3021,6 +3049,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3194,6 +3232,146 @@
   
   
     <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
@@ -3307,6 +3485,34 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qualified-sql-relations-in-polars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qualified SQL relations in Polars
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Qualified SQL relations in Polars">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#delta-and-iceberg-roots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta and Iceberg roots
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3471,6 +3677,113 @@ columns:</p>
   falling back.</li>
 </ul>
 <p>See <a href="../../adr/0001-engine-fmt-parameter/">ADR-0001</a> for history.</p>
+<h2 id="qualified-sql-relations-in-polars">Qualified SQL relations in Polars<a class="headerlink" href="#qualified-sql-relations-in-polars" title="Permanent link">&para;</a></h2>
+<p><code>PolarsEngine</code> can discover Delta tables from a path or Iceberg tables from a
+catalog namespace, then expose the same logical SQL naming behavior for both.
+Install the SQL resolver separately when you need this feature:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars-sql,polars-delta,polars-iceberg]&quot;</span>
+</span></code></pre></div>
+<p>Registration is lazy by default. <code>register_delta_tables</code> and
+<code>register_iceberg_tables</code> enumerate and index table descriptors, but do not
+create scans or bind frames to <code>SQLContext</code>. The first query that references a
+table creates its <code>LazyFrame</code> and registers one private alias. Later queries on
+the same engine reuse that registration; data is still read lazily when the
+query result is collected.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">engine</span><span class="o">.</span><span class="n">register_delta_tables</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">&quot;s3://lake/database_B&quot;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">logical_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;catalog_A&quot;</span><span class="p">,</span> <span class="s2">&quot;database_B&quot;</span><span class="p">),</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">include</span><span class="o">=</span><span class="s2">&quot;database_B.**.d_*&quot;</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">exclude</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;**.tmp.**&quot;</span><span class="p">,</span> <span class="s2">&quot;**.*_backup&quot;</span><span class="p">),</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">execute_sql</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="s2">    SELECT *</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="s2">    FROM database_B.sales.d_orders</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="s2">&quot;&quot;&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>One canonical name contains at most four components. A query may omit only
+leading components, so all unique suffixes are valid:</p>
+<table>
+<thead>
+<tr>
+<th>Indexed name</th>
+<th>Valid references when unique</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>catalog.database.schema.table</code></td>
+<td>4, 3, 2, or 1 trailing components</td>
+</tr>
+<tr>
+<td><code>database.schema.table</code></td>
+<td>3, 2, or 1 trailing components</td>
+</tr>
+<tr>
+<td><code>schema.table</code></td>
+<td>2 or 1 trailing components</td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td>1 component</td>
+</tr>
+</tbody>
+</table>
+<p>If a suffix matches multiple tables, execution raises an ambiguity error and
+lists the candidates. Qualify the reference further; the engine never chooses
+one table implicitly.</p>
+<h3 id="delta-and-iceberg-roots">Delta and Iceberg roots<a class="headerlink" href="#delta-and-iceberg-roots" title="Permanent link">&para;</a></h3>
+<p>For Delta, <code>base_path</code> is the physical discovery root and each table's relative
+folders are appended to <code>logical_prefix</code>. Recursive discovery stops at a
+directory containing <code>_delta_log</code>.</p>
+<p>For Iceberg catalog mode, <code>namespace</code> narrows catalog enumeration. By default,
+the catalog name and root namespace form the logical prefix; supplying
+<code>logical_prefix</code> replaces that root mapping. Use <code>logical_prefix=()</code> when only
+the identifier below the selected namespace should appear in the canonical
+name.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">engine</span><span class="o">.</span><span class="n">register_iceberg_tables</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">namespace</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;database_B&quot;</span><span class="p">,),</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">logical_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;catalog_A&quot;</span><span class="p">,</span> <span class="s2">&quot;database_B&quot;</span><span class="p">),</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Choose the narrowest physical root first for performance. Use patterns for
+logical selection:</p>
+<table>
+<thead>
+<tr>
+<th>Intent</th>
+<th>Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Everything below catalog A / database B</td>
+<td><code>catalog_A.database_B.**</code></td>
+</tr>
+<tr>
+<td>Database B under any catalog</td>
+<td><code>database_B.**</code></td>
+</tr>
+<tr>
+<td><code>d_</code> tables below database B, with or without schema levels</td>
+<td><code>database_B.**.d_*</code></td>
+</tr>
+<tr>
+<td><code>d_</code> tables anywhere</td>
+<td><code>d_*</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>*</code> stays within one name component; <code>**</code> crosses zero or more components.
+Exclude patterns win over include patterns.</p>
+<p>Use <code>preload=True</code> only when callers must execute directly through
+<code>engine.sql_context</code>. Set <code>on_error="skip"</code> for observable best-effort
+discovery and inspect <code>engine.last_registration_report</code>; the default is
+fail-fast. Use structured <code>logical_prefix</code> for root mapping; there is no flat
+prefix or physical-separator configuration.</p>
+<p>See <a href="../../adr/0005-polars-qualified-sql-relations/">ADR-0005</a> for the decision.</p>
 <h2 id="driver-connection-keys">Driver connection keys<a class="headerlink" href="#driver-connection-keys" title="Permanent link">&para;</a></h2>
 <p><code>BaseEngine.DRIVER_CONNECTION_KEYS</code> is a frozenset of JDBC-specific option keys
 (<code>encrypt</code>, <code>trustServerCertificate</code>, <code>hostNameInCertificate</code>) that must not

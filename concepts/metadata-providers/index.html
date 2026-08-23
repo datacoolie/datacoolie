@@ -3021,6 +3021,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3174,6 +3184,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3409,19 +3559,19 @@ See <a href="../watermarks/">Watermarks</a> and <a href="../../adr/0004-raw-json
 <tr>
 <td><code>FileProvider</code></td>
 <td>JSON · YAML · Excel</td>
-<td>core + <code>[excel]</code> for .xlsx</td>
+<td>core + <code>[metadata-yaml]</code> / <code>[metadata-excel]</code></td>
 <td>Small projects, SCM-versioned metadata, demos</td>
 </tr>
 <tr>
 <td><code>DatabaseProvider</code></td>
 <td>Any SQLAlchemy dialect</td>
-<td><code>[db]</code></td>
+<td><code>[metadata-db]</code></td>
 <td>Multi-team, mutable metadata, centralised governance</td>
 </tr>
 <tr>
 <td><code>APIClient</code></td>
 <td>REST</td>
-<td><code>[api]</code></td>
+<td><code>[source-api]</code></td>
 <td>Existing metadata service, RBAC on metadata</td>
 </tr>
 </tbody>

@@ -3033,6 +3033,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3186,6 +3196,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3408,10 +3558,10 @@ engines, cloud SDKs, and metadata backends are <strong>opt-in extras</strong> so
 install what you need.</p>
 <h2 id="recommended-first-install">Recommended first install<a class="headerlink" href="#recommended-first-install" title="Permanent link">&para;</a></h2>
 <p>For most new users, start with the smallest setup that can run a real pipeline:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars,deltalake]&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars-delta]&quot;</span>
 </span></code></pre></div>
 <p>If you already know Spark is your main runtime, install Spark + Delta instead:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[spark,delta-spark]&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[spark-delta]&quot;</span>
 </span></code></pre></div>
 <p>Use <code>datacoolie[all]</code> for contributor machines or broad local experimentation.
 The bare <code>pip install datacoolie</code> package is mainly useful for extension work,
@@ -3428,11 +3578,39 @@ runtime dependencies.</p>
 <tbody>
 <tr>
 <td>Fastest first success on one machine</td>
-<td><code>pip install "datacoolie[polars,deltalake]"</code></td>
+<td><code>pip install "datacoolie[polars-delta]"</code></td>
+</tr>
+<tr>
+<td>Run qualified SQL over registered Polars tables</td>
+<td><code>pip install "datacoolie[polars-sql,polars-delta,polars-iceberg]"</code></td>
+</tr>
+<tr>
+<td>Access OneLake or ADLS from a laptop, Azure Function, or CI</td>
+<td><code>pip install "datacoolie[fabric-external]"</code></td>
+</tr>
+<tr>
+<td>Access Databricks UC Volumes from a laptop, function, or CI</td>
+<td><code>pip install "datacoolie[databricks-external]"</code></td>
 </tr>
 <tr>
 <td>Spark/Fabric/Databricks-style local validation</td>
-<td><code>pip install "datacoolie[spark,delta-spark]"</code></td>
+<td><code>pip install "datacoolie[spark-delta]"</code></td>
+</tr>
+<tr>
+<td>Access AWS S3, MinIO, or LocalStack</td>
+<td><code>pip install "datacoolie[aws]"</code></td>
+</tr>
+<tr>
+<td>Read API-backed metadata</td>
+<td><code>pip install "datacoolie[source-api]"</code></td>
+</tr>
+<tr>
+<td>Read database metadata</td>
+<td><code>pip install "datacoolie[metadata-db]"</code></td>
+</tr>
+<tr>
+<td>Read Excel files with Polars</td>
+<td><code>pip install "datacoolie[source-excel-polars]"</code></td>
 </tr>
 <tr>
 <td>Try many engines, platforms, and metadata backends locally</td>
@@ -3449,11 +3627,17 @@ runtime dependencies.</p>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pip<span class="w"> </span>install<span class="w"> </span>datacoolie
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Most common: one engine + one table format</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars,deltalake]&quot;</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[spark,delta-spark]&quot;</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Everything</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[all]&quot;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars-delta]&quot;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[polars-sql,polars-delta,polars-iceberg]&quot;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[spark-delta]&quot;</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Platform SDKs for execution outside their native runtime</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[fabric-external]&quot;</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[databricks-external]&quot;</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[aws]&quot;</span><span class="w">  </span><span class="c1"># also covers MinIO and LocalStack</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Everything</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;datacoolie[all]&quot;</span>
 </span></code></pre></div>
 <h2 id="extras-reference">Extras reference<a class="headerlink" href="#extras-reference" title="Permanent link">&para;</a></h2>
 <table>
@@ -3468,90 +3652,108 @@ runtime dependencies.</p>
 <tr>
 <td><code>spark</code></td>
 <td><code>pyspark&gt;=3.5</code></td>
-<td>You want the Spark engine.</td>
+<td>Spark engine only. Prefer <code>spark-delta</code> for a local Spark + Delta setup.</td>
 </tr>
 <tr>
 <td><code>polars</code></td>
 <td><code>polars&gt;=1.0</code></td>
-<td>You want the Polars engine.</td>
+<td>Polars engine only.</td>
 </tr>
 <tr>
-<td><code>delta-spark</code></td>
-<td><code>delta-spark&gt;=3.0</code></td>
-<td>Spark + Delta Lake.</td>
+<td><code>polars-sql</code></td>
+<td><code>polars&gt;=1.0</code>, <code>sqlglot&gt;=30,&lt;31</code></td>
+<td>Qualified SQL over Polars relations.</td>
 </tr>
 <tr>
-<td><code>deltalake</code></td>
-<td><code>deltalake&gt;=0.15</code></td>
-<td>Polars + Delta Lake (delta-rs).</td>
+<td><code>polars-hash</code></td>
+<td><code>polars-hash&gt;=0.6</code></td>
+<td>Optional Polars hashing implementation; compose with an engine profile.</td>
 </tr>
 <tr>
-<td><code>iceberg</code></td>
-<td><code>pyiceberg&gt;=0.6</code></td>
-<td>Apache Iceberg tables (any engine).</td>
+<td><code>spark-delta</code></td>
+<td><code>pyspark&gt;=3.5</code>, <code>delta-spark&gt;=3.0</code></td>
+<td>Local or CI Spark + Delta Lake. Fabric and Databricks provide these at runtime.</td>
 </tr>
 <tr>
-<td><code>boto3</code></td>
-<td><code>boto3&gt;=1.28</code></td>
-<td>AWS SDK only.</td>
+<td><code>polars-delta</code></td>
+<td><code>polars&gt;=1.0</code>, <code>deltalake&gt;=0.15</code></td>
+<td>Polars + Delta Lake (<code>delta-rs</code>).</td>
 </tr>
 <tr>
-<td><code>api</code></td>
-<td><code>httpx&gt;=0.24</code></td>
-<td><code>APIReader</code> and the API metadata provider.</td>
-</tr>
-<tr>
-<td><code>db</code></td>
-<td><code>sqlalchemy&gt;=2.0</code></td>
-<td><code>DatabaseProvider</code> for metadata stored in an RDBMS.</td>
-</tr>
-<tr>
-<td><code>excel</code></td>
-<td><code>fastexcel</code>, <code>openpyxl</code></td>
-<td>Reading Excel files as sources or metadata.</td>
-</tr>
-<tr>
-<td><code>fabric-spark</code> / <code>fabric-polars</code></td>
-<td>One selected engine bundle</td>
-<td>Fabric with only the selected engine.</td>
-</tr>
-<tr>
-<td><code>fabric</code></td>
-<td>spark + delta-spark + polars + deltalake</td>
-<td>Microsoft Fabric notebooks / Spark pools.</td>
-</tr>
-<tr>
-<td><code>databricks-spark</code> / <code>databricks-polars</code></td>
-<td>One selected engine bundle</td>
-<td>Databricks with only the selected engine.</td>
-</tr>
-<tr>
-<td><code>databricks</code></td>
-<td>spark + delta-spark + polars + deltalake</td>
-<td>Databricks Runtime.</td>
-</tr>
-<tr>
-<td><code>aws-spark</code></td>
-<td><code>boto3</code></td>
-<td>AWS/Glue Spark; Spark and Delta are supplied by the Glue runtime.</td>
-</tr>
-<tr>
-<td><code>aws-polars</code></td>
-<td>polars + Delta + Iceberg + <code>boto3</code></td>
-<td>AWS with Polars.</td>
+<td><code>polars-iceberg</code></td>
+<td><code>polars&gt;=1.0</code>, <code>pyiceberg&gt;=0.6</code></td>
+<td>Polars + Apache Iceberg. Spark Iceberg remains a runtime/catalog/JAR concern.</td>
 </tr>
 <tr>
 <td><code>aws</code></td>
-<td>same as <code>aws-polars</code></td>
-<td>Full packaged AWS bundle; Spark/Delta Spark remain runtime-provided.</td>
+<td><code>boto3&gt;=1.43.2</code></td>
+<td>AWS S3 and services, plus S3-compatible MinIO or LocalStack.</td>
+</tr>
+<tr>
+<td><code>fabric-external</code></td>
+<td>Azure Identity, Data Lake, and Key Vault SDKs</td>
+<td><code>FabricPlatform</code> outside a Fabric notebook. Native Fabric supplies <code>notebookutils</code>; install the base package there.</td>
+</tr>
+<tr>
+<td><code>databricks-external</code></td>
+<td><code>databricks-sdk&gt;=0.121,&lt;0.122</code></td>
+<td><code>DatabricksPlatform</code> outside a Databricks notebook or job. Native Databricks supplies <code>dbutils</code>; install the base package there.</td>
+</tr>
+<tr>
+<td><code>source-api</code></td>
+<td><code>httpx&gt;=0.24</code></td>
+<td>API readers or API-backed metadata.</td>
+</tr>
+<tr>
+<td><code>source-excel-polars</code></td>
+<td>Polars, <code>fastexcel</code>, <code>openpyxl</code></td>
+<td>Excel sources read through Polars.</td>
+</tr>
+<tr>
+<td><code>source-db-polars</code></td>
+<td>Polars, <code>connectorx</code></td>
+<td>General Polars database reads.</td>
+</tr>
+<tr>
+<td><code>source-db-oracle-polars</code></td>
+<td>Polars, <code>oracledb</code></td>
+<td>Oracle reads through Polars.</td>
+</tr>
+<tr>
+<td><code>source-db-mssql-odbc-polars</code></td>
+<td>Polars, SQLAlchemy, <code>pyodbc</code></td>
+<td>MSSQL reads using ODBC; an OS ODBC driver is also required.</td>
+</tr>
+<tr>
+<td><code>metadata-yaml</code></td>
+<td><code>pyyaml&gt;=6.0,&lt;7.0</code></td>
+<td>YAML metadata files.</td>
+</tr>
+<tr>
+<td><code>metadata-excel</code></td>
+<td><code>openpyxl&gt;=3.1</code></td>
+<td>Excel metadata files.</td>
+</tr>
+<tr>
+<td><code>metadata-db</code></td>
+<td><code>sqlalchemy&gt;=2.0,&lt;3.0</code></td>
+<td>Database metadata provider.</td>
 </tr>
 <tr>
 <td><code>all</code></td>
-<td>everything above</td>
-<td>Kitchen-sink local dev.</td>
+<td>Union of every dependency above</td>
+<td>Broad local/contributor environment; not a minimal deployment image.</td>
 </tr>
 </tbody>
 </table>
+<p>Extras are composable. For example, a Polars Delta pipeline that reads an
+Oracle source and writes to S3 can use
+<code>datacoolie[polars-delta,source-db-oracle-polars,aws]</code>. There are deliberately
+no separate <code>fabric-*</code>, <code>databricks-*</code>, or <code>aws-*</code> matrix extras.</p>
+<p>Native Fabric and Databricks runtimes provide notebook utilities, Spark, and
+their cloud connectors. Do not install fake Python packages for <code>notebookutils</code>
+or <code>dbutils</code>; use the base <code>datacoolie</code> install in those runtimes and add only
+the source or table-format profile your pipeline needs.</p>
 <h2 id="system-requirements">System requirements<a class="headerlink" href="#system-requirements" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

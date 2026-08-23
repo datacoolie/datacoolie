@@ -3027,6 +3027,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3180,6 +3190,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3395,6 +3545,11 @@
 <p><strong>TL;DR</strong> Sources and destinations are plugins keyed by <strong>format name</strong>. A
 <code>FileReader</code> serves <code>parquet</code>, <code>csv</code>, <code>json</code>, <code>jsonl</code>, <code>avro</code>, <code>excel</code> — the
 plugin registry maps a format string to the reader/writer class at runtime.</p>
+<p>Install the capability profile for the format and engine you use: compose
+<code>polars-delta</code> or <code>polars-iceberg</code> for Polars lakehouse work, and
+<code>spark-delta</code> for a local or CI Spark + Delta runtime. Native Fabric,
+Databricks, and AWS Glue runtimes provide their Spark/Delta libraries; add only
+the external platform or source profile needed by that job.</p>
 <h2 id="registry-mapping">Registry mapping<a class="headerlink" href="#registry-mapping" title="Permanent link">&para;</a></h2>
 <p>From <code>pyproject.toml</code> (see <a href="../../reference/plugin-entry-points/">Plugin entry points</a>
 for the generated table):</p>

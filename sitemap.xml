@@ -28,6 +28,21 @@
          <loc>https://datacoolie.github.io/datacoolie/adr/0004-raw-json-watermark-contract/</loc>
     </url>
     <url>
+         <loc>https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/adr/0006-portable-fabric-platform-azure-backends/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/adr/0007-engine-internal-package-boundaries/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/adr/0008-portable-databricks-platform-backends/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/adr/0009-use-case-oriented-optional-dependencies/</loc>
+    </url>
+    <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/</loc>
     </url>
     <url>

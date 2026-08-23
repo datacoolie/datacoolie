@@ -6,38 +6,38 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Production guidance for DataCoolie: logging layout and file partitioning, Polars vs Spark benchmarks, troubleshooting common failures, and testing strategy.">
+        <meta name="description" content="How Delta paths and Iceberg catalog identifiers map to portable 1-4 part SQL table names without eagerly registering every table.">
       
       
       
-        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/operations/">
+        <link rel="canonical" href="https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/">
       
       
-        <link rel="prev" href="../how-to/deploy-to-aws-glue/">
+        <link rel="prev" href="../0004-raw-json-watermark-contract/">
       
       
-        <link rel="next" href="logging-layout/">
+        <link rel="next" href="../0006-portable-fabric-platform-azure-backends/">
       
       
         
       
       
-        <link rel="alternate" type="application/rss+xml" title="RSS feed" href="../feed_rss_created.xml">
-        <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../feed_rss_updated.xml">
+        <link rel="alternate" type="application/rss+xml" title="RSS feed" href="../../feed_rss_created.xml">
+        <link rel="alternate" type="application/rss+xml" title="RSS feed of updated content" href="../../feed_rss_updated.xml">
       
-      <link rel="icon" href="../images/logos/datacoolie-icon-circle-dark_32x32.png">
+      <link rel="icon" href="../../images/logos/datacoolie-icon-circle-dark_32x32.png">
       <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
   
-    <title>Operations — Running DataCoolie in Production</title>
+    <title>ADR-0005 — Qualified SQL relations in PolarsEngine | DataCoolie</title>
   
 
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -56,11 +56,11 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="../assets/stylesheets/zoomable-media.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/zoomable-media.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -98,21 +98,21 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Operations — Running DataCoolie in Production" />
-    <meta property="og:description" content="Production guidance for DataCoolie: logging layout and file partitioning, Polars vs Spark benchmarks, troubleshooting common failures, and testing strategy." />
-    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/operations/" />
+    <meta property="og:title" content="ADR-0005 — Qualified SQL relations in PolarsEngine | DataCoolie" />
+    <meta property="og:description" content="How Delta paths and Iceberg catalog identifiers map to portable 1-4 part SQL table names without eagerly registering every table." />
+    <meta property="og:url" content="https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Operations — Running DataCoolie in Production" />
+    <meta property="og:image:alt" content="ADR-0005 — Qualified SQL relations in PolarsEngine | DataCoolie" />
     
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Operations — Running DataCoolie in Production" />
-    <meta name="twitter:description" content="Production guidance for DataCoolie: logging layout and file partitioning, Polars vs Spark benchmarks, troubleshooting common failures, and testing strategy." />
+    <meta name="twitter:title" content="ADR-0005 — Qualified SQL relations in PolarsEngine | DataCoolie" />
+    <meta name="twitter:description" content="How Delta paths and Iceberg catalog identifiers map to portable 1-4 part SQL table names without eagerly registering every table." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Operations — Running DataCoolie in Production" />
+    <meta name="twitter:image:alt" content="ADR-0005 — Qualified SQL relations in PolarsEngine | DataCoolie" />
 
     <!-- JSON-LD structured data -->
     
@@ -133,8 +133,14 @@
         {
           "@type": "ListItem",
           "position": 2,
-          "name": "Operations \u2014 Running DataCoolie in Production",
-          "item": "https://datacoolie.github.io/datacoolie/operations/"
+          "name": "Adr",
+          "item": "https://datacoolie.github.io/datacoolie/adr/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "ADR-0005 \u2014 Qualified SQL relations in PolarsEngine | DataCoolie",
+          "item": "https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/"
         }
       ]
     }
@@ -150,11 +156,11 @@
       
       "@type": "WebPage",
       
-      "@id": "https://datacoolie.github.io/datacoolie/operations/#webpage",
-      "url": "https://datacoolie.github.io/datacoolie/operations/",
-      "name": "Operations \u2014 Running DataCoolie in Production",
-      "headline": "Operations \u2014 Running DataCoolie in Production",
-      "description": "Production guidance for DataCoolie: logging layout and file partitioning, Polars vs Spark benchmarks, troubleshooting common failures, and testing strategy.",
+      "@id": "https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/#webpage",
+      "url": "https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/",
+      "name": "ADR-0005 \u2014 Qualified SQL relations in PolarsEngine | DataCoolie",
+      "headline": "ADR-0005 \u2014 Qualified SQL relations in PolarsEngine | DataCoolie",
+      "description": "How Delta paths and Iceberg catalog identifiers map to portable 1-4 part SQL table names without eagerly registering every table.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
       
       "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
@@ -188,7 +194,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#operations" class="md-skip">
+        <a href="#adr-0005-qualified-sql-relations-in-polarsengine" class="md-skip">
           Skip to content
         </a>
       
@@ -204,9 +210,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="DataCoolie" class="md-header__button md-logo" aria-label="DataCoolie" data-md-component="logo">
+    <a href="../.." title="DataCoolie" class="md-header__button md-logo" aria-label="DataCoolie" data-md-component="logo">
       
-  <img src="../images/logos/datacoolie-icon-circle-dark_512x512.png" alt="logo">
+  <img src="../../images/logos/datacoolie-icon-circle-dark_512x512.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -223,7 +229,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Operations — Running DataCoolie in Production
+              ADR-0005 — Qualified SQL relations in PolarsEngine | DataCoolie
             
           </span>
         </div>
@@ -330,7 +336,7 @@
   
   
     <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -349,7 +355,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../datacoolie-studio/" class="md-tabs__link">
+      <a href="../../datacoolie-studio/" class="md-tabs__link">
         
   
   
@@ -368,7 +374,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../getting-started/" class="md-tabs__link">
+      <a href="../../getting-started/" class="md-tabs__link">
         
   
   
@@ -387,7 +393,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../concepts/" class="md-tabs__link">
+      <a href="../../concepts/" class="md-tabs__link">
         
   
   
@@ -404,11 +410,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="../how-to/" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../../how-to/" class="md-tabs__link">
         
   
   
@@ -427,7 +431,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../reference/" class="md-tabs__link">
+      <a href="../../reference/" class="md-tabs__link">
         
   
   
@@ -444,11 +448,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../adr/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -468,7 +474,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../blog/" class="md-tabs__link">
+      <a href="../../blog/" class="md-tabs__link">
         
   
   
@@ -509,9 +515,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="DataCoolie" class="md-nav__button md-logo" aria-label="DataCoolie" data-md-component="logo">
+    <a href="../.." title="DataCoolie" class="md-nav__button md-logo" aria-label="DataCoolie" data-md-component="logo">
       
-  <img src="../images/logos/datacoolie-icon-circle-dark_512x512.png" alt="logo">
+  <img src="../../images/logos/datacoolie-icon-circle-dark_512x512.png" alt="logo">
 
     </a>
     DataCoolie
@@ -538,7 +544,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -565,7 +571,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../datacoolie-studio/" class="md-nav__link">
+      <a href="../../datacoolie-studio/" class="md-nav__link">
         
   
   
@@ -623,7 +629,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../getting-started/" class="md-nav__link ">
+            <a href="../../getting-started/" class="md-nav__link ">
               
   
   
@@ -665,7 +671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../python-etl-framework/" class="md-nav__link">
+      <a href="../../python-etl-framework/" class="md-nav__link">
         
   
   
@@ -693,7 +699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -721,7 +727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/quickstart-polars/" class="md-nav__link">
+      <a href="../../getting-started/quickstart-polars/" class="md-nav__link">
         
   
   
@@ -749,7 +755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/quickstart-spark/" class="md-nav__link">
+      <a href="../../getting-started/quickstart-spark/" class="md-nav__link">
         
   
   
@@ -777,7 +783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/first-dataflow/" class="md-nav__link">
+      <a href="../../getting-started/first-dataflow/" class="md-nav__link">
         
   
   
@@ -805,7 +811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/use-your-own-data/" class="md-nav__link">
+      <a href="../../getting-started/use-your-own-data/" class="md-nav__link">
         
   
   
@@ -883,7 +889,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../concepts/" class="md-nav__link ">
+            <a href="../../concepts/" class="md-nav__link ">
               
   
   
@@ -925,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/architecture/" class="md-nav__link">
+      <a href="../../concepts/architecture/" class="md-nav__link">
         
   
   
@@ -953,7 +959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/engines/" class="md-nav__link">
+      <a href="../../concepts/engines/" class="md-nav__link">
         
   
   
@@ -981,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/platforms/" class="md-nav__link">
+      <a href="../../concepts/platforms/" class="md-nav__link">
         
   
   
@@ -1009,7 +1015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/metadata-model/" class="md-nav__link">
+      <a href="../../concepts/metadata-model/" class="md-nav__link">
         
   
   
@@ -1037,7 +1043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/metadata-providers/" class="md-nav__link">
+      <a href="../../concepts/metadata-providers/" class="md-nav__link">
         
   
   
@@ -1065,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/sources-and-destinations/" class="md-nav__link">
+      <a href="../../concepts/sources-and-destinations/" class="md-nav__link">
         
   
   
@@ -1093,7 +1099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/transformers-and-pipeline/" class="md-nav__link">
+      <a href="../../concepts/transformers-and-pipeline/" class="md-nav__link">
         
   
   
@@ -1121,7 +1127,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/load-strategies/" class="md-nav__link">
+      <a href="../../concepts/load-strategies/" class="md-nav__link">
         
   
   
@@ -1149,7 +1155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/watermarks/" class="md-nav__link">
+      <a href="../../concepts/watermarks/" class="md-nav__link">
         
   
   
@@ -1177,7 +1183,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/orchestration/" class="md-nav__link">
+      <a href="../../concepts/orchestration/" class="md-nav__link">
         
   
   
@@ -1205,7 +1211,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/logging/" class="md-nav__link">
+      <a href="../../concepts/logging/" class="md-nav__link">
         
   
   
@@ -1233,7 +1239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/secrets/" class="md-nav__link">
+      <a href="../../concepts/secrets/" class="md-nav__link">
         
   
   
@@ -1265,10 +1271,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -1312,23 +1316,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../how-to/" class="md-nav__link ">
+            <a href="../../how-to/" class="md-nav__link ">
               
   
   
@@ -1346,13 +1347,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1388,13 +1389,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -1402,7 +1400,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../how-to/metadata-guide/" class="md-nav__link ">
+            <a href="../../how-to/metadata-guide/" class="md-nav__link ">
               
   
   
@@ -1420,7 +1418,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_1" id="__nav_5_1_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1444,7 +1442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/first-metadata-file/" class="md-nav__link">
+      <a href="../../how-to/metadata-guide/first-metadata-file/" class="md-nav__link">
         
   
   
@@ -1472,7 +1470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/source-patterns/" class="md-nav__link">
+      <a href="../../how-to/metadata-guide/source-patterns/" class="md-nav__link">
         
   
   
@@ -1500,7 +1498,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/destination-and-load-patterns/" class="md-nav__link">
+      <a href="../../how-to/metadata-guide/destination-and-load-patterns/" class="md-nav__link">
         
   
   
@@ -1528,7 +1526,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/transform-patterns/" class="md-nav__link">
+      <a href="../../how-to/metadata-guide/transform-patterns/" class="md-nav__link">
         
   
   
@@ -1556,7 +1554,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/validation-checklist/" class="md-nav__link">
+      <a href="../../how-to/metadata-guide/validation-checklist/" class="md-nav__link">
         
   
   
@@ -1592,7 +1590,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/configure-file-metadata/" class="md-nav__link">
+      <a href="../../how-to/configure-file-metadata/" class="md-nav__link">
         
   
   
@@ -1620,7 +1618,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/configure-database-metadata/" class="md-nav__link">
+      <a href="../../how-to/configure-database-metadata/" class="md-nav__link">
         
   
   
@@ -1648,7 +1646,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/configure-api-metadata/" class="md-nav__link">
+      <a href="../../how-to/configure-api-metadata/" class="md-nav__link">
         
   
   
@@ -1676,7 +1674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/run-a-stage/" class="md-nav__link">
+      <a href="../../how-to/run-a-stage/" class="md-nav__link">
         
   
   
@@ -1704,7 +1702,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/merge-and-scd2/" class="md-nav__link">
+      <a href="../../how-to/merge-and-scd2/" class="md-nav__link">
         
   
   
@@ -1732,7 +1730,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/replay-and-backfill/" class="md-nav__link">
+      <a href="../../how-to/replay-and-backfill/" class="md-nav__link">
         
   
   
@@ -1760,7 +1758,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/partitioning-and-sanitization/" class="md-nav__link">
+      <a href="../../how-to/partitioning-and-sanitization/" class="md-nav__link">
         
   
   
@@ -1788,7 +1786,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/maintenance-vacuum-optimize/" class="md-nav__link">
+      <a href="../../how-to/maintenance-vacuum-optimize/" class="md-nav__link">
         
   
   
@@ -1816,7 +1814,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/expected-failure-scenarios/" class="md-nav__link">
+      <a href="../../how-to/expected-failure-scenarios/" class="md-nav__link">
         
   
   
@@ -1844,7 +1842,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/deploy-to-fabric/" class="md-nav__link">
+      <a href="../../how-to/deploy-to-fabric/" class="md-nav__link">
         
   
   
@@ -1872,7 +1870,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/deploy-to-databricks/" class="md-nav__link">
+      <a href="../../how-to/deploy-to-databricks/" class="md-nav__link">
         
   
   
@@ -1900,7 +1898,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../how-to/deploy-to-aws-glue/" class="md-nav__link">
+      <a href="../../how-to/deploy-to-aws-glue/" class="md-nav__link">
         
   
   
@@ -1925,37 +1923,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../operations/" class="md-nav__link">
         
   
   
@@ -1971,70 +1942,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#start-with-the-question-you-have" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Start with the question you have
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#whats-in-this-section" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What's in this section
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#related-sections" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Related sections
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2047,7 +1954,7 @@
   
   
     <li class="md-nav__item">
-      <a href="logging-layout/" class="md-nav__link">
+      <a href="../../operations/logging-layout/" class="md-nav__link">
         
   
   
@@ -2075,7 +1982,7 @@
   
   
     <li class="md-nav__item">
-      <a href="benchmarks/" class="md-nav__link">
+      <a href="../../operations/benchmarks/" class="md-nav__link">
         
   
   
@@ -2103,7 +2010,7 @@
   
   
     <li class="md-nav__item">
-      <a href="troubleshooting/" class="md-nav__link">
+      <a href="../../operations/troubleshooting/" class="md-nav__link">
         
   
   
@@ -2131,7 +2038,7 @@
   
   
     <li class="md-nav__item">
-      <a href="testing-strategy/" class="md-nav__link">
+      <a href="../../operations/testing-strategy/" class="md-nav__link">
         
   
   
@@ -2197,7 +2104,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../reference/" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   
@@ -2239,7 +2146,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/metadata-schema/" class="md-nav__link">
+      <a href="../../reference/metadata-schema/" class="md-nav__link">
         
   
   
@@ -2267,7 +2174,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/plugin-entry-points/" class="md-nav__link">
+      <a href="../../reference/plugin-entry-points/" class="md-nav__link">
         
   
   
@@ -2295,7 +2202,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/cli/" class="md-nav__link">
+      <a href="../../reference/cli/" class="md-nav__link">
         
   
   
@@ -2323,7 +2230,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/environment-variables/" class="md-nav__link">
+      <a href="../../reference/environment-variables/" class="md-nav__link">
         
   
   
@@ -2425,7 +2332,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/core/" class="md-nav__link">
+      <a href="../../reference/api/core/" class="md-nav__link">
         
   
   
@@ -2453,7 +2360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/engines/" class="md-nav__link">
+      <a href="../../reference/api/engines/" class="md-nav__link">
         
   
   
@@ -2481,7 +2388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/platforms/" class="md-nav__link">
+      <a href="../../reference/api/platforms/" class="md-nav__link">
         
   
   
@@ -2509,7 +2416,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/sources/" class="md-nav__link">
+      <a href="../../reference/api/sources/" class="md-nav__link">
         
   
   
@@ -2537,7 +2444,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/destinations/" class="md-nav__link">
+      <a href="../../reference/api/destinations/" class="md-nav__link">
         
   
   
@@ -2565,7 +2472,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/transformers/" class="md-nav__link">
+      <a href="../../reference/api/transformers/" class="md-nav__link">
         
   
   
@@ -2593,7 +2500,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/orchestration/" class="md-nav__link">
+      <a href="../../reference/api/orchestration/" class="md-nav__link">
         
   
   
@@ -2621,7 +2528,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/metadata/" class="md-nav__link">
+      <a href="../../reference/api/metadata/" class="md-nav__link">
         
   
   
@@ -2649,7 +2556,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/watermark/" class="md-nav__link">
+      <a href="../../reference/api/watermark/" class="md-nav__link">
         
   
   
@@ -2677,7 +2584,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/api/logging/" class="md-nav__link">
+      <a href="../../reference/api/logging/" class="md-nav__link">
         
   
   
@@ -2744,7 +2651,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../extending/" class="md-nav__link ">
+            <a href="../../extending/" class="md-nav__link ">
               
   
   
@@ -2786,7 +2693,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-source/" class="md-nav__link">
+      <a href="../../extending/writing-a-source/" class="md-nav__link">
         
   
   
@@ -2814,7 +2721,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-destination/" class="md-nav__link">
+      <a href="../../extending/writing-a-destination/" class="md-nav__link">
         
   
   
@@ -2842,7 +2749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-transformer/" class="md-nav__link">
+      <a href="../../extending/writing-a-transformer/" class="md-nav__link">
         
   
   
@@ -2870,7 +2777,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-an-engine/" class="md-nav__link">
+      <a href="../../extending/writing-an-engine/" class="md-nav__link">
         
   
   
@@ -2898,7 +2805,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-secret-resolver/" class="md-nav__link">
+      <a href="../../extending/writing-a-secret-resolver/" class="md-nav__link">
         
   
   
@@ -2926,7 +2833,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-metadata-provider/" class="md-nav__link">
+      <a href="../../extending/writing-a-metadata-provider/" class="md-nav__link">
         
   
   
@@ -2966,6 +2873,8 @@
       
   
   
+    
+  
   
   
     
@@ -2999,20 +2908,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../adr/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -3030,13 +2942,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3056,7 +2968,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0001-engine-fmt-parameter/" class="md-nav__link">
+      <a href="../0001-engine-fmt-parameter/" class="md-nav__link">
         
   
   
@@ -3084,7 +2996,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0002-secret-provider-resolver-split/" class="md-nav__link">
+      <a href="../0002-secret-provider-resolver-split/" class="md-nav__link">
         
   
   
@@ -3112,7 +3024,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0003-transformer-ordering-slots/" class="md-nav__link">
+      <a href="../0003-transformer-ordering-slots/" class="md-nav__link">
         
   
   
@@ -3140,7 +3052,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0004-raw-json-watermark-contract/" class="md-nav__link">
+      <a href="../0004-raw-json-watermark-contract/" class="md-nav__link">
         
   
   
@@ -3165,10 +3077,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3184,6 +3123,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3196,7 +3210,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+      <a href="../0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
         
   
   
@@ -3224,7 +3238,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+      <a href="../0007-engine-internal-package-boundaries/" class="md-nav__link">
         
   
   
@@ -3252,7 +3266,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+      <a href="../0008-portable-databricks-platform-backends/" class="md-nav__link">
         
   
   
@@ -3280,7 +3294,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+      <a href="../0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
         
   
   
@@ -3308,7 +3322,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -3345,7 +3359,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../blog/" class="md-nav__link">
+      <a href="../../blog/" class="md-nav__link">
         
   
   
@@ -3392,10 +3406,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#start-with-the-question-you-have" class="md-nav__link">
+  <a href="#context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Start with the question you have
+        Context
       
     </span>
   </a>
@@ -3403,10 +3417,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-in-this-section" class="md-nav__link">
+  <a href="#decision" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's in this section
+        Decision
       
     </span>
   </a>
@@ -3414,10 +3428,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#quick-checklist" class="md-nav__link">
+  <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick checklist
+        Compatibility
       
     </span>
   </a>
@@ -3425,10 +3439,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#related-sections" class="md-nav__link">
+  <a href="#consequences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Related sections
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
       
     </span>
   </a>
@@ -3452,7 +3477,7 @@
 
 
   
-    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/operations/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/datacoolie/datacoolie/edit/main/docs/adr/0005-polars-qualified-sql-relations.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3460,49 +3485,59 @@
   
 
 
-<h1 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link">&para;</a></h1>
-<p>Practical guidance for running DataCoolie pipelines reliably in production
-environments, from understanding log output to diagnosing failures.</p>
-<p>Use this section after you already have a pipeline running. If you still need a
-first successful local run, go back to <a href="../getting-started/">Getting started</a>.</p>
-<h2 id="start-with-the-question-you-have">Start with the question you have<a class="headerlink" href="#start-with-the-question-you-have" title="Permanent link">&para;</a></h2>
+<h1 id="adr-0005-qualified-sql-relations-in-polarsengine">ADR-0005 — Qualified SQL relations in PolarsEngine<a class="headerlink" href="#adr-0005-qualified-sql-relations-in-polarsengine" title="Permanent link">&para;</a></h1>
+<p><strong>Status</strong> · Accepted</p>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>Polars <code>SQLContext</code> maps frames to flat relation names, while portable
+DataCoolie SQL may refer to <code>catalog.database.schema.table</code> or any unique
+suffix of that name. Delta discovers tables from paths; Iceberg discovers
+them from a catalog and namespace. Flattening these identities with a user
+separator loses hierarchy, creates collisions, and eagerly creates scans for
+tables a query may never use.</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<p><code>PolarsEngine</code> keeps one canonical logical identifier containing one to four
+components. Delta paths and Iceberg catalog identifiers use separate discovery
+adapters but produce common lazy relation descriptors.</p>
+<p>Registration with <code>preload=False</code> indexes descriptors only. On SQL execution,
+the engine parses external table sources with the optional SQLGlot dependency,
+resolves each unique logical suffix, creates the referenced <code>LazyFrame</code> once,
+and registers it under a deterministic private SQLContext alias. Later queries
+reuse that registration for the engine lifetime.</p>
+<p>Short names are never selected implicitly when ambiguous. <code>include</code> and
+<code>exclude</code> use component-aware globs: <code>*</code> stays inside one component, <code>**</code>
+crosses zero or more components, and exclude wins.</p>
+<p>There is no public alias separator or <code>max_sql_name_levels</code>. Users control the
+canonical name with the physical discovery root and <code>logical_prefix</code>; the
+suffix index supplies the 4/3/2/1-part query forms automatically.</p>
+<p>SQL rewriting replaces only parser-verified source-name spans in the original
+text. It does not serialize or transpile the complete SQL AST.</p>
+<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
 <ul>
-<li>I need to understand what DataCoolie wrote to disk: <a href="logging-layout/">Logging layout</a></li>
-<li>I need help choosing Polars vs Spark for production workloads: <a href="benchmarks/">Benchmarks</a></li>
-<li>A run is failing and I need likely causes: <a href="troubleshooting/">Troubleshooting</a></li>
-<li>I am changing or adding framework behavior and need test guidance: <a href="testing-strategy/">Testing strategy</a></li>
+<li><code>register_table</code> and raw one-part SQL remain supported.</li>
+<li>Registration methods continue returning <code>list[str]</code>.</li>
+<li><code>logical_prefix</code> is the only root-mapping API; there is no flat-prefix or
+  physical-separator compatibility layer.</li>
+<li>Discovery errors raise by default; <code>on_error="skip"</code> provides observable
+  best-effort discovery.</li>
+<li>Indexed relations are visible through <code>PolarsEngine.execute_sql</code>. Consumers
+  that execute directly on <code>engine.sql_context</code> use <code>preload=True</code>.</li>
+<li>SQLGlot belongs to the <code>polars-sql</code> extra, not the basic <code>polars</code> extra.</li>
 </ul>
-<h2 id="whats-in-this-section">What's in this section<a class="headerlink" href="#whats-in-this-section" title="Permanent link">&para;</a></h2>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="logging-layout/">Logging layout</a> — How the ETL logger writes debug JSONL
-  and analyst Parquet files, what the <code>LogPurpose</code> values mean, and how output
-  is partitioned under <code>&lt;output_path&gt;/&lt;purpose&gt;/&lt;log_type&gt;/</code>.</li>
-<li><a href="benchmarks/">Benchmarks</a> — Polars vs Spark throughput and latency numbers
-  from the reference <code>usecase-sim</code> testbed. Helps you choose the right engine
-  for your row-count and latency targets.</li>
-<li><a href="troubleshooting/">Troubleshooting</a> — Common failure patterns and how to
-  diagnose them: watermark staleness, metadata provider errors, merge key
-  mismatches, platform credential issues, and partition path conflicts.</li>
-<li><a href="testing-strategy/">Testing strategy</a> — How the DataCoolie test suite is
-  structured, which markers/default options apply, and the fact that no global
-  coverage gate is currently configured.</li>
+<li>Delta and Iceberg share SQL behavior without pretending their discovery APIs
+  are identical.</li>
+<li>Registering a broad root remains cheap relative to eager scan creation, and
+  repeated queries reuse already-bound frames.</li>
+<li>Ambiguity becomes an explicit, diagnosable error.</li>
+<li>Qualified SQL users install one additional optional dependency.</li>
+<li>Registry and SQLContext mutations require synchronization so concurrent
+  first use of one table registers it only once.</li>
 </ul>
-<h2 id="quick-checklist">Quick checklist<a class="headerlink" href="#quick-checklist" title="Permanent link">&para;</a></h2>
-<p>Before running a pipeline in a new environment:</p>
-<ol>
-<li>Verify the platform (<code>LocalPlatform</code>, <code>AWSPlatform</code>, etc.) can reach its
-   file paths and resolve secrets.</li>
-<li>Check that the metadata provider is reachable and returns at least one active
-   dataflow.</li>
-<li>Confirm the engine has the required extras installed (<code>polars</code>, <code>spark</code>, etc.).</li>
-<li>Review the logging output path and ensure the destination directory is
-   writable with the expected partition structure.</li>
-</ol>
-<h2 id="related-sections">Related sections<a class="headerlink" href="#related-sections" title="Permanent link">&para;</a></h2>
+<h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Choosing between Polars and Spark? Read the <a href="../blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/">blog post on Polars vs Spark for ETL</a></li>
-<li>Need deployment guides? → <a href="../how-to/deploy-to-fabric/">Deploy to Fabric</a> · <a href="../how-to/deploy-to-databricks/">Deploy to Databricks</a> · <a href="../how-to/deploy-to-aws-glue/">Deploy to AWS Glue</a></li>
-<li>Building custom plugins and need test patterns? → <a href="../extending/">Extending</a></li>
+<li><a href="../../concepts/engines/">Concepts · Engines</a></li>
+<li><a href="../../reference/api/engines/">API reference · Engines</a></li>
 </ul>
 
 
@@ -3593,14 +3628,14 @@ first successful local run, go back to <a href="../getting-started/">Getting sta
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../assets/javascripts/mermaid-loader.js"></script>
+        <script src="../../assets/javascripts/mermaid-loader.js"></script>
       
-        <script src="../assets/javascripts/zoomable-media.js"></script>
+        <script src="../../assets/javascripts/zoomable-media.js"></script>
       
     
   </body>

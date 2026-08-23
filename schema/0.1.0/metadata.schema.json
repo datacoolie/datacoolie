@@ -536,7 +536,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/HashColumn" },
           "default": [],
-          "description": "Stable SHA-256 business hash columns generated from canonical scalar payloads."
+          "description": "Stable SHA-256 string or signed XXHash64 BIGINT columns generated from canonical scalar payloads."
         },
         "masking_rules": {
           "type": "array",
@@ -669,7 +669,7 @@
       "properties": {
         "target_column": { "type": "string", "minLength": 1 },
         "columns": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
-        "algorithm": { "type": "string", "enum": ["sha256"], "default": "sha256" },
+        "algorithm": { "type": "string", "enum": ["sha256", "xxhash64"], "default": "sha256" },
         "serialization": { "type": "string", "enum": ["dc_hash_v1"], "default": "dc_hash_v1" }
       },
       "additionalProperties": false

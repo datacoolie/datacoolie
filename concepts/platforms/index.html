@@ -1071,6 +1071,56 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Built-in platforms">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#local-filesystem-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local filesystem platform
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-s3-and-s3-compatible-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS S3 and S3-compatible endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portable-fabric-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Portable Fabric runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portable-databricks-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Portable Databricks runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3010,6 +3060,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3183,6 +3243,146 @@
   
   
     <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
@@ -3285,6 +3485,56 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Built-in platforms">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#local-filesystem-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local filesystem platform
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-s3-and-s3-compatible-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS S3 and S3-compatible endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portable-fabric-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Portable Fabric runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portable-databricks-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Portable Databricks runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3416,7 +3666,7 @@ the value object is created.</p>
 <tbody>
 <tr>
 <td><code>LocalPlatform</code></td>
-<td>local FS via <code>pathlib</code></td>
+<td>local FS via <code>os.scandir</code>, <code>pathlib</code>, and <code>shutil</code></td>
 <td>environment variables</td>
 <td><code>datacoolie</code> (no extra)</td>
 </tr>
@@ -3428,27 +3678,127 @@ the value object is created.</p>
 </tr>
 <tr>
 <td><code>FabricPlatform</code></td>
-<td>OneLake via <code>notebookutils</code></td>
-<td>Key Vault via <code>notebookutils.credentials</code></td>
-<td><code>datacoolie[fabric]</code></td>
+<td>OneLake/ADLS via <code>notebookutils</code> in Fabric or Azure Data Lake SDK outside Fabric</td>
+<td>Key Vault via NotebookUtils or Azure SDK</td>
+<td>base package in Fabric; <code>datacoolie[fabric-external]</code> outside Fabric</td>
 </tr>
 <tr>
 <td><code>DatabricksPlatform</code></td>
-<td>Unity Catalog Volumes via Python I/O; other paths via <code>dbutils.fs</code></td>
-<td>Databricks secrets via <code>dbutils.secrets</code></td>
-<td><code>datacoolie[databricks]</code></td>
+<td>UC Volumes via native <code>dbutils</code>/POSIX I/O or <code>WorkspaceClient.files</code> outside Databricks</td>
+<td>Databricks secrets via native or SDK-backed <code>dbutils.secrets</code></td>
+<td>base package in Databricks; <code>datacoolie[databricks-external]</code> outside Databricks</td>
 </tr>
 </tbody>
 </table>
 <p>All four are available as built-ins on <code>import datacoolie</code>, and the same names
 are also published in the <code>datacoolie.platforms</code> entry-point group for plugin
 discovery.</p>
+<p>Platform extras describe only dependencies that are not supplied by the native
+runtime. Install the base package inside Fabric or Databricks, where
+<code>notebookutils</code>, <code>dbutils</code>, Spark, and cloud connectors are host-provided. Use
+<code>fabric-external</code> or <code>databricks-external</code> when the same public platform API is
+run from a laptop, function, CI worker, or another external Python process.
+<code>aws</code> is shared by AWS and S3-compatible endpoints such as MinIO; compose it
+with an engine or source profile instead of selecting a platform matrix bundle.</p>
+<h3 id="local-filesystem-platform">Local filesystem platform<a class="headerlink" href="#local-filesystem-platform" title="Permanent link">&para;</a></h3>
+<p><code>LocalPlatform</code> keeps the standard-library implementation in one module. Reads,
+writes, appends, and file management use native local filesystem operations.
+Recursive and non-recursive listings use iterative <code>os.scandir()</code> traversal,
+reuse directory-entry metadata when constructing <code>FileInfo</code>, and leave result
+ordering unspecified. Directory symlinks are reported as direct entries but are
+not followed during recursive traversal, which prevents cycles and keeps a
+listing bounded by the requested tree. Callers that need deterministic order
+should sort the returned paths at their own boundary.</p>
+<h3 id="aws-s3-and-s3-compatible-endpoints">AWS S3 and S3-compatible endpoints<a class="headerlink" href="#aws-s3-and-s3-compatible-endpoints" title="Permanent link">&para;</a></h3>
+<p><code>AWSPlatform</code> uses the standard boto3 credential chain (environment/profile,
+shared credentials, and workload or instance roles). Its public client factory
+remains available, while platform-owned S3, Secrets Manager, Glue, and Athena
+clients are constructed once per platform instance and safely reused.</p>
+<p>AWS S3 is the optimized route: small non-overwrite writes and copies use
+conditional requests, full in-memory reads use one unbounded <code>GetObject</code>, and
+large local transfers retain boto3's managed transfer implementation. A
+configured <code>endpoint_url</code> keeps the same filesystem contract for MinIO or
+LocalStack and uses compatibility preflight checks where S3-compatible
+implementations differ. The AWS extra pins <code>boto3&gt;=1.43.2</code>.</p>
+<h3 id="portable-fabric-runtime">Portable Fabric runtime<a class="headerlink" href="#portable-fabric-runtime" title="Permanent link">&para;</a></h3>
+<p><code>FabricPlatform</code> keeps one public API across Fabric notebooks, local laptops,
+Azure Functions, CI, and other Python runtimes:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.platforms.fabric_platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">FabricPlatform</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">platform</span> <span class="o">=</span> <span class="n">FabricPlatform</span><span class="p">()</span>  <span class="c1"># runtime=&quot;auto&quot;</span>
+</span></code></pre></div>
+<p><code>auto</code> selects the native backend when <code>notebookutils</code> imports successfully;
+it does not probe methods or make a service call. Outside Fabric it uses
+<code>azure-storage-file-datalake</code> and <code>azure-keyvault-secrets</code>. Pass
+<code>runtime="fabric"</code> or <code>runtime="external"</code> when execution must be
+deterministic, including environments that happen to install <code>notebookutils</code>
+but should use Azure SDK clients.</p>
+<p>External mode requires a qualified OneLake or ADLS Gen2 <code>abfs://</code>,
+<code>abfss://</code>, or HTTPS URI. The URI already supplies the workspace/container,
+item, account, and path, so the platform has no default workspace or item.
+Relative paths such as <code>Files/output.json</code> remain available only through the
+native NotebookUtils backend.</p>
+<p>Most external callers do not pass credentials. The platform creates
+<code>DefaultAzureCredential</code> lazily, allowing Azure CLI/developer credentials on a
+laptop and managed or workload identity in Azure-hosted runtimes. To choose a
+specific identity explicitly, inject any Azure <code>TokenCredential</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">azure.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">ManagedIdentityCredential</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">platform</span> <span class="o">=</span> <span class="n">FabricPlatform</span><span class="p">(</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">runtime</span><span class="o">=</span><span class="s2">&quot;external&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">azure_credential</span><span class="o">=</span><span class="n">ManagedIdentityCredential</span><span class="p">(</span><span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;&lt;client-id&gt;&quot;</span><span class="p">),</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>The platform translates ABFS(S) URIs to the HTTPS endpoint, filesystem, and
+SDK-relative path expected by Azure clients. Engine-specific storage setup,
+such as Spark Hadoop configuration or Polars <code>storage_options</code>, remains an
+engine concern.</p>
+<p><code>read_file()</code> and <code>read_bytes()</code> always return the complete file; they do not
+use NotebookUtils preview APIs. Recursive native listing is iterative and uses
+bounded parallel directory requests, while external Azure listing uses one
+server-side paged traversal. List order is unspecified on every backend, so a
+consumer that needs ordering must sort at its own boundary.</p>
+<p><code>move_file()</code> creates missing destination parents and removes the source only
+after the destination operation succeeds. External Azure cross-filesystem
+moves verify both SHA-256 and byte length before promotion and source deletion;
+overwrite promotion protects and restores the previous destination on failure.</p>
+<h3 id="portable-databricks-runtime">Portable Databricks runtime<a class="headerlink" href="#portable-databricks-runtime" title="Permanent link">&para;</a></h3>
+<p><code>DatabricksPlatform</code> keeps the same public file and secret API in a Databricks
+notebook/job, on a laptop, or in CI:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.platforms.databricks_platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatabricksPlatform</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">platform</span> <span class="o">=</span> <span class="n">DatabricksPlatform</span><span class="p">()</span>  <span class="c1"># runtime=&quot;auto&quot;</span>
+</span></code></pre></div>
+<p><code>auto</code> chooses native <code>dbutils</code> when it can be resolved without a service
+call. Otherwise it creates a Databricks <code>WorkspaceClient</code> lazily and uses
+unified authentication. Pass <code>runtime="databricks"</code> or <code>runtime="external"</code>
+when backend selection must be deterministic. Tests and applications that
+already own a client can inject it with <code>workspace_client=</code>.</p>
+<p>The portable path contract is
+<code>/Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;volume&gt;/...</code>. The non-deprecated
+<code>dbfs:/Volumes/...</code> alias is accepted and canonicalized back to <code>/Volumes/...</code>
+in returned metadata. DBFS root, DBFS mounts, incomplete Volume roots, and
+mutations of the exact managed Volume root are rejected.</p>
+<p>Inside Databricks, validated <code>s3://</code>, <code>abfss://</code>, and <code>gs://</code> paths can still
+be handled by <code>dbutils.fs</code>. Those raw cloud URIs are not portable and are
+rejected in external mode. Workspace Files are outside this platform contract.</p>
+<p>Volume text and binary reads always return the complete file. Native execution
+uses direct POSIX I/O for content and <code>dbutils</code> for filesystem management;
+external execution uses the Files API and consumes every listing page.
+Native Volume appends use an explicit read-modify-write sequence because
+serverless Volume FUSE does not support Python's POSIX append mode reliably;
+this preserves DataCoolie's existing single-writer append contract.
+Recursive traversal is iterative with bounded directory-request concurrency,
+and platform results are not sorted. The external SDK backend defaults to 16
+listing workers after live validation on the configured metadata tree; mounted
+native Volumes use the benchmark-winning POSIX traversal with 8 workers, while
+<code>dbutils.fs.ls</code> remains the explicit baseline/fallback for non-FUSE runtimes.</p>
 <h2 id="why-platform-as-secret-provider">Why platform-as-secret-provider?<a class="headerlink" href="#why-platform-as-secret-provider" title="Permanent link">&para;</a></h2>
 <p><code>BasePlatform</code> subclasses <code>BaseSecretProvider</code> so that every platform
 <em>automatically</em> serves as its own secret backend without a separate wiring
 step. When you construct a driver:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># no secret_provider= → engine.platform is used as the default.</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">DataCoolieDriver</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">metadata_provider</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># no secret_provider= → engine.platform is used as the default.</span>
 </span></code></pre></div>
 <p>If you need a different vault (e.g. HashiCorp, 1Password) write a dedicated
 <code>BaseSecretProvider</code> and pass it as <code>secret_provider=</code>.</p>
@@ -3465,8 +3815,13 @@ normalise their own fields; arbitrary caller-created strings are not
 automatically canonicalised.</p>
 <h2 id="concurrency-notes">Concurrency notes<a class="headerlink" href="#concurrency-notes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>AWSPlatform</code> lazily caches one <code>boto3.Session</code> and one S3 client on the
-  platform instance.</li>
+<li><code>AWSPlatform</code> lazily caches one <code>boto3.Session</code> and one internal low-level
+  client per AWS service on the platform instance; client construction is
+  serialized, while completed low-level clients may be shared across threads.</li>
+<li>External <code>FabricPlatform</code> instances cache one Azure credential and SDK
+  clients by account/filesystem or vault URL.</li>
+<li>External <code>DatabricksPlatform</code> instances cache one <code>WorkspaceClient</code>; its
+  authentication is resolved by the Databricks unified authentication chain.</li>
 <li>The driver can share one platform instance across worker threads. Backend SDK
   behaviour still applies, and callers must coordinate conflicting writes to
   the same path.</li>

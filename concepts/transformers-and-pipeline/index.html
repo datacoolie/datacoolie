@@ -2999,6 +2999,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3152,6 +3162,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3363,7 +3513,7 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 <tr>
 <td><strong>18</strong></td>
 <td><code>HashColumnAdder</code></td>
-<td>Add stable SHA-256 business hashes from typed canonical payloads.</td>
+<td>Add stable SHA-256 String or signed XXHash64 BIGINT values from typed canonical payloads.</td>
 </tr>
 <tr>
 <td><strong>20</strong></td>
@@ -3431,6 +3581,12 @@ leaving <strong>40–50</strong> free for user plugins.</p>
 <p>(List order is informational; <code>TransformerPipeline</code> sorts by the transformer's
 <code>order</code> attribute, so <code>ColumnAdder</code> (30) still runs before <code>RowFilter</code> (35)
 and <code>SCD2ColumnAdder</code> (60).)</p>
+<p><code>HashColumnAdder</code> hashes only the explicitly declared ordered input columns. A
+hash target does not automatically become a merge or deduplication key, and
+hash inputs do not silently fall back to <code>transform.deduplicate_columns</code> or
+<code>destination.merge_keys</code>. See <a href="../../how-to/metadata-guide/transform-patterns/">Transform patterns — hash use cases</a>
+for guidance on surrogate-key-style hashes, hashdiffs, deterministic
+identifiers, and PII boundaries.</p>
 <h2 id="why-slots-jump-from-35-to-60">Why slots jump from 35 to 60?<a class="headerlink" href="#why-slots-jump-from-35-to-60" title="Permanent link">&para;</a></h2>
 <p>Slots <strong>40–50 are reserved for your plugins</strong>. A common third-party addition
 is a validator at 50. See

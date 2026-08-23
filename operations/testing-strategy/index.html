@@ -2128,6 +2128,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#real-cloud-integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-cloud integration tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#coverage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3002,6 +3013,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3175,6 +3196,146 @@
   
   
     <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
@@ -3281,6 +3442,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#real-cloud-integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-cloud integration tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#coverage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3358,8 +3530,15 @@ is defined in <code>pyproject.toml</code>, not in a separate CLI wrapper.</p>
 <p>So the default run is a parallel <strong>non-spark</strong> test run. It does not execute
 the Spark-marked tests unless you override the marker selection explicitly.
 GitHub Actions runs this non-Spark suite as a required job after synchronizing
-the locked <code>polars</code>, <code>deltalake</code>, and <code>polars-hash</code> extras. A restored virtual
+the locked <code>polars-delta</code> and <code>polars-hash</code> extras. A restored virtual
 environment cache never replaces <code>poetry sync</code>.</p>
+<p>The packaging contract is covered separately so a normal test run does not
+silently miss a renamed or incomplete extra:</p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">unit</span><span class="p">/</span><span class="n">test_optional_dependencies</span><span class="p">.</span><span class="n">py</span> <span class="n">-q</span> <span class="n">-n</span> <span class="n">0</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">poetry</span> <span class="n">check</span> <span class="p">-</span><span class="n">-lock</span>
+</span></code></pre></div>
+<p>That test compares the PEP 621 and Poetry dependency declarations and asserts
+that <code>all</code> is exactly the union of the capability profiles.</p>
 <h2 id="markers">Markers<a class="headerlink" href="#markers" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3382,13 +3561,117 @@ environment cache never replaces <code>poetry sync</code>.</p>
 <td>Defined marker. Still included by default unless you exclude it yourself.</td>
 </tr>
 <tr>
+<td><code>cloud_integration</code></td>
+<td>Tests against real cloud resources. Always skipped unless <code>--cloud-integration</code> is supplied.</td>
+</tr>
+<tr>
+<td><code>benchmark</code></td>
+<td>Opt-in performance benchmark. Requires <code>--run-benchmarks</code>; cloud benchmarks also require <code>--cloud-integration</code>.</td>
+</tr>
+<tr>
+<td><code>cloud_platform(name)</code></td>
+<td>Identifies the test platform as <code>fabric</code>, <code>aws</code>, or <code>databricks</code>; filter with <code>--cloud-platform</code>.</td>
+</tr>
+<tr>
 <td><code>spark</code></td>
 <td>Spark-specific tests. Excluded by default by the repo pytest config. When run directly, the Spark module also uses <code>pytest.importorskip(...)</code> for <code>pyspark</code> and <code>delta-spark</code>.</td>
 </tr>
 </tbody>
 </table>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">-m</span> <span class="s2">&quot;not slow and not integration and not spark&quot;</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">-m</span> <span class="s2">&quot;not slow and not integration and not spark&quot;</span>
 </span></code></pre></div>
+<h2 id="real-cloud-integration-tests">Real-cloud integration tests<a class="headerlink" href="#real-cloud-integration-tests" title="Permanent link">&para;</a></h2>
+<p>Real-cloud tests are explicitly opt-in and use resource coordinates from a
+local env file. Credentials are deliberately excluded: authentication remains
+with each SDK's normal chain, such as <code>DefaultAzureCredential</code>, boto3, or a
+Databricks CLI/workload identity.</p>
+<ol>
+<li>Copy <code>.env.integration.example</code> to <code>.env.integration.local</code>.</li>
+<li>Fill only the platform coordinates you intend to test.</li>
+<li>Authenticate with the platform's normal CLI, identity, or CI mechanism.</li>
+<li>Select both the opt-in flag and platform.</li>
+</ol>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c"># Fabric / OneLake contract tests (benchmarks remain skipped)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span><span class="p">/</span><span class="n">platforms</span><span class="p">/</span><span class="n">fabric</span> <span class="p">`</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  <span class="p">-</span><span class="n">-cloud-integration</span> <span class="p">-</span><span class="n">-cloud-platform</span> <span class="n">fabric</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c"># Databricks UC Volume contract tests; native-only checks skip on a laptop</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span><span class="p">/</span><span class="n">platforms</span><span class="p">/</span><span class="n">databricks</span> <span class="p">`</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  <span class="p">-</span><span class="n">-cloud-integration</span> <span class="p">-</span><span class="n">-cloud-platform</span> <span class="n">databricks</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c"># Use a non-default file. Relative paths resolve from the repository root.</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span> <span class="p">`</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>  <span class="p">-</span><span class="n">-cloud-integration</span> <span class="p">-</span><span class="n">-cloud-platform</span> <span class="n">aws</span> <span class="p">`</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>  <span class="p">-</span><span class="n">-integration-env</span><span class="o">-file</span> <span class="p">.</span><span class="n">env</span><span class="p">.</span><span class="n">integration</span><span class="p">.</span><span class="n">aws</span><span class="p">.</span><span class="n">local</span>
+</span></code></pre></div>
+<p>The AWS live contract also covers S3-compatible storage. Leave
+<code>DATACOOLIE_AWS_ENDPOINT_URL</code> empty for AWS S3, or set it to a local MinIO
+endpoint such as <code>http://localhost:9000</code>; the bucket must already exist. Keep
+MinIO access keys in the normal boto3 environment/profile chain, not in the
+committed integration file. For the existing local simulator, start its MinIO
+service before running the AWS integration command.</p>
+<p>The opt-in AWS benchmark uses a UUID-scoped tree of at least 1,024 small
+objects and measures recursive/non-recursive listing, full reads, managed
+download, append, and copy. Set <code>DATACOOLIE_AWS_LIST_BENCHMARK_ROOT</code> to a
+relative root such as <code>metadata</code>; it is resolved below
+<code>DATACOOLIE_AWS_TEST_PREFIX</code>. The benchmark verifies path sets on every run
+and removes its UUID prefix in <code>finally</code>:</p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span><span class="p">/</span><span class="n">platforms</span><span class="p">/</span><span class="n">aws</span><span class="p">/</span><span class="n">test_s3_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  <span class="p">-</span><span class="n">-cloud-integration</span> <span class="p">-</span><span class="n">-run-benchmarks</span> <span class="p">-</span><span class="n">-cloud-platform</span> <span class="n">aws</span> <span class="n">-s</span>
+</span></code></pre></div>
+<p>The benchmark output includes the boto3 version, region, endpoint kind, run
+count, p50/p95 samples, and failures. Compare runs on the same bucket,
+region, machine, and tree shape; do not use one warm-cache sample as a
+regression decision.</p>
+<p>Fabric and Databricks benchmarks use the same explicit gate:</p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span><span class="p">/</span><span class="n">platforms</span><span class="p">/</span><span class="n">fabric</span><span class="p">/</span><span class="n">test_notebookutils_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  <span class="p">-</span><span class="n">-cloud-integration</span> <span class="p">-</span><span class="n">-run-benchmarks</span> <span class="p">-</span><span class="n">-cloud-platform</span> <span class="n">fabric</span> <span class="n">-s</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span><span class="p">/</span><span class="n">platforms</span><span class="p">/</span><span class="n">databricks</span><span class="p">/</span><span class="n">test_listing_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  <span class="p">-</span><span class="n">-cloud-integration</span> <span class="p">-</span><span class="n">-run-benchmarks</span> <span class="p">-</span><span class="n">-cloud-platform</span> <span class="n">databricks</span> <span class="n">-s</span>
+</span></code></pre></div>
+<p>The LocalPlatform benchmark is filesystem-only and does not require cloud
+coordinates. It creates a temporary 8,192-file tree, checks identical path
+sets against a <code>pathlib</code> baseline, and reports p50/p95 listing times:</p>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">integration</span><span class="p">/</span><span class="n">platforms</span><span class="p">/</span><span class="n">local</span><span class="p">/</span><span class="n">test_listing_benchmark</span><span class="p">.</span><span class="n">py</span> <span class="p">`</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  <span class="p">-</span><span class="n">-run-benchmarks</span> <span class="n">-m</span> <span class="n">benchmark</span> <span class="n">-n</span> <span class="n">0</span> <span class="n">-s</span>
+</span></code></pre></div>
+<p><code>--run-benchmarks</code> is required even when <code>--cloud-integration</code> is already
+present, so a broad contract command cannot start benchmark workloads by
+accident. This also keeps the local benchmark out of ordinary integration and
+default test runs. The <code>benchmark</code> marker can be combined with normal pytest
+selection, for example <code>-m "benchmark"</code>.</p>
+<p><code>.env.integration.local</code> is ignored by Git. Values already present in the
+process environment take precedence over the env file, which lets CI inject
+resource coordinates without rewriting files. Missing variables skip only the
+affected platform's tests. Each mutating test must create a UUID-scoped child
+under its configured test root and remove only that child during cleanup.
+The env file accepts comments, optional <code>export</code>, and plain or quoted
+<code>KEY=VALUE</code> entries; shell expansion is intentionally not performed.</p>
+<p>The Fabric test accepts either an explicit
+<code>DATACOOLIE_FABRIC_ONELAKE_TEST_URI</code> or the workspace and Lakehouse GUID pair;
+the latter is converted to an <code>abfss://</code> OneLake URI. The notebook benchmark
+uses <code>DATACOOLIE_FABRIC_LIST_BENCHMARK_ROOT</code>, normally <code>Files</code>, because it runs
+inside Fabric through <code>notebookutils</code>.</p>
+<p>Databricks tests use <code>DATACOOLIE_DATABRICKS_HOST</code>, catalog, schema, volume,
+and a test prefix to build <code>/Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;volume&gt;/&lt;prefix&gt;</code>.
+<code>DATACOOLIE_DATABRICKS_LIST_BENCHMARK_ROOT</code> is a root relative to that Volume,
+for example <code>metadata</code>; the resolver expands it to
+<code>/Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;volume&gt;/metadata</code>. Existing fully qualified
+<code>/Volumes/...</code> values remain accepted.
+Authentication remains in a Databricks CLI profile or workload identity. The
+external suite injects <code>WorkspaceClient(host=...)</code>; the native suite runs only
+inside a Databricks notebook/job with <code>dbutils</code>. Optional secret scope/key and
+cluster ID values are coordinates, not credentials. Recursive-listing
+benchmarks warm each route, measure five repetitions for worker caps <code>1</code>, <code>4</code>,
+<code>8</code>, and <code>16</code>, and report p50/p95, file/directory counts, directory-list calls,
+failures, and throttling. They assert identical file sets before timing results
+are considered. The native benchmark compares the POSIX <code>/Volumes</code> strategy
+with the <code>dbutils.fs.ls</code> baseline; the serverless gate passed and mounted-Volume
+listing now defaults to POSIX, with <code>dbutils</code> retained as the explicit
+baseline/fallback. Recursive delete benchmarks use three repetitions of a
+UUID-scoped tree for sequential and bounded worker caps before a default
+changes.</p>
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
 <p>The current <code>pyproject.toml</code> does <strong>not</strong> configure <code>pytest-cov</code>, branch
 coverage, omissions, or a repository-wide failure threshold. Run coverage
@@ -3401,8 +3684,8 @@ the same worker. The current Spark engine module is grouped this way so one JVM
 is reused safely.</p>
 <p>Spark remains a local-only release gate because JVM and Delta startup are too
 expensive for the hosted CI job:</p>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">poetry</span> <span class="n">sync</span> <span class="p">-</span><span class="n">-with</span> <span class="n">dev</span> <span class="n">-E</span> <span class="n">spark</span> <span class="n">-E</span> <span class="n">delta-spark</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">unit</span><span class="p">/</span><span class="n">engines</span><span class="p">/</span><span class="n">test_spark_engine</span><span class="p">.</span><span class="n">py</span> <span class="n">-m</span> <span class="n">spark</span> <span class="n">-n</span> <span class="n">auto</span> <span class="p">-</span><span class="n">-dist</span> <span class="n">loadgroup</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">poetry</span> <span class="n">sync</span> <span class="p">-</span><span class="n">-with</span> <span class="n">dev</span> <span class="n">-E</span> <span class="n">spark-delta</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">poetry</span> <span class="n">run</span> <span class="n">pytest</span> <span class="n">tests</span><span class="p">/</span><span class="n">unit</span><span class="p">/</span><span class="n">engines</span><span class="p">/</span><span class="n">test_spark_engine</span><span class="p">.</span><span class="n">py</span> <span class="n">-m</span> <span class="n">spark</span> <span class="n">-n</span> <span class="n">auto</span> <span class="p">-</span><span class="n">-dist</span> <span class="n">loadgroup</span>
 </span></code></pre></div>
 <h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
 <p>The main automated test surface is the pytest suite under <code>tests/</code>.

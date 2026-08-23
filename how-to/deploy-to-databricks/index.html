@@ -3036,6 +3036,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3189,6 +3199,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3440,7 +3590,9 @@ it in a notebook.</p>
 <li><code>pyiceberg</code> if your pipeline uses PyIceberg-based operations.</li>
 </ul>
 <p>Databricks already provides the Spark runtime, so a large platform bundle is
-often unnecessary.</p>
+often unnecessary. Inside Databricks the base package can use native
+<code>dbutils</code>. For the same <code>DatabricksPlatform</code> API from a laptop, function, or
+CI runner, install <code>datacoolie[databricks-external]</code>.</p>
 <h2 id="3-notebook-job-code">3. Notebook / job code<a class="headerlink" href="#3-notebook-job-code" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.engines.spark_engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparkEngine</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datacoolie.platforms.databricks_platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatabricksPlatform</span>
@@ -3460,8 +3612,10 @@ often unnecessary.</p>
 <h2 id="4-paths">4. Paths<a class="headerlink" href="#4-paths" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Prefer <strong>UC Volumes</strong>: <code>/Volumes/&lt;catalog&gt;/&lt;schema&gt;/&lt;volume&gt;/...</code></li>
-<li>Use external locations or workspace files when a volume is not the right
-  boundary.</li>
+<li><code>dbfs:/Volumes/...</code> is accepted as an alias, but returned paths use the
+  canonical <code>/Volumes/...</code> form.</li>
+<li>Raw <code>s3://</code>, <code>abfss://</code>, and <code>gs://</code> paths are native-Databricks-only.</li>
+<li>Workspace Files are not part of <code>DatabricksPlatform</code>'s portable contract.</li>
 <li>Do not start a new pipeline on DBFS root or mounts. Databricks has deprecated
   both and recommends UC Volumes, external locations, or workspace files; see
   <a href="https://docs.databricks.com/aws/en/dbfs/unity-catalog">DBFS and Unity Catalog best practices</a>.</li>
@@ -3486,10 +3640,9 @@ as <code>workspace.default.orders_appended</code>. If you set <code>schema_name<
 qualified-name builder will include it and produce a four-part name, which is
 usually not what you want for Unity Catalog.</p>
 <h2 id="6-secrets">6. Secrets<a class="headerlink" href="#6-secrets" title="Permanent link">&para;</a></h2>
-<p><code>DatabricksPlatform._fetch_secret</code> always uses <code>dbutils.secrets.get(scope,
-key)</code>; there is no separate native secret backend on Databricks. Put the
-secret key name in <code>configure</code>, then map the Databricks scope in
-<code>secrets_ref</code>:</p>
+<p><code>DatabricksPlatform._fetch_secret</code> uses native <code>dbutils.secrets</code> inside
+Databricks and <code>WorkspaceClient.dbutils.secrets</code> in external mode. Put the
+secret key name in <code>configure</code>, then map the Databricks scope in <code>secrets_ref</code>:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;configure&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sample-db-password&quot;</span>

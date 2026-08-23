@@ -3014,6 +3014,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3167,6 +3177,146 @@
     
   
     0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
   
 
     
@@ -3362,7 +3512,7 @@
 
 
 <h1 id="configure-database-metadata">Configure database metadata<a class="headerlink" href="#configure-database-metadata" title="Permanent link">&para;</a></h1>
-<p><strong>Prerequisites</strong> · <code>pip install "datacoolie[db]"</code> · an RDBMS the team can share · DDL privileges to create the metadata schema.
+<p><strong>Prerequisites</strong> · <code>pip install "datacoolie[metadata-db]"</code> · an RDBMS the team can share · DDL privileges to create the metadata schema.
 <strong>End state</strong> · <code>DatabaseProvider</code> reading <code>dc_framework_connections</code>, <code>dc_framework_dataflows</code>, <code>dc_framework_watermarks</code>, and <code>dc_framework_schema_hints</code> tables.</p>
 <h2 id="supported-dialects">Supported dialects<a class="headerlink" href="#supported-dialects" title="Permanent link">&para;</a></h2>
 <p>Any dialect supported by SQLAlchemy 2.x. The usecase-sim testbed ships DDL

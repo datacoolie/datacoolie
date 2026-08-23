@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Architectural decisions (ADRs) for DataCoolie: engine format dispatch, secret provider/resolver split, transformer ordering slots, and watermark contract.">
+        <meta name="description" content="Architectural decisions (ADRs) for DataCoolie, including engine contracts, qualified Polars SQL relations, secrets, transformers, and watermarks.">
       
       
       
@@ -99,7 +99,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
     <meta property="og:title" content="Architecture Decision Records — DataCoolie" />
-    <meta property="og:description" content="Architectural decisions (ADRs) for DataCoolie: engine format dispatch, secret provider/resolver split, transformer ordering slots, and watermark contract." />
+    <meta property="og:description" content="Architectural decisions (ADRs) for DataCoolie, including engine contracts, qualified Polars SQL relations, secrets, transformers, and watermarks." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/adr/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
@@ -110,7 +110,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Architecture Decision Records — DataCoolie" />
-    <meta name="twitter:description" content="Architectural decisions (ADRs) for DataCoolie: engine format dispatch, secret provider/resolver split, transformer ordering slots, and watermark contract." />
+    <meta name="twitter:description" content="Architectural decisions (ADRs) for DataCoolie, including engine contracts, qualified Polars SQL relations, secrets, transformers, and watermarks." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta name="twitter:image:alt" content="Architecture Decision Records — DataCoolie" />
 
@@ -154,7 +154,7 @@
       "url": "https://datacoolie.github.io/datacoolie/adr/",
       "name": "Architecture Decision Records \u2014 DataCoolie",
       "headline": "Architecture Decision Records \u2014 DataCoolie",
-      "description": "Architectural decisions (ADRs) for DataCoolie: engine format dispatch, secret provider/resolver split, transformer ordering slots, and watermark contract.",
+      "description": "Architectural decisions (ADRs) for DataCoolie, including engine contracts, qualified Polars SQL relations, secrets, transformers, and watermarks.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
       
       "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
@@ -2888,6 +2888,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3064,6 +3074,146 @@
   
   
     <li class="md-nav__item">
+      <a href="0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="0007-engine-internal-package-boundaries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0007 Private engine implementation packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="0008-portable-databricks-platform-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0008 Portable DatabricksPlatform backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0009 Use-case-oriented optional dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../contributing/" class="md-nav__link">
         
   
@@ -3203,6 +3353,31 @@ evolves. After 1.0, overturned decisions get a new ADR marked
 <td><a href="0004-raw-json-watermark-contract/">0004</a></td>
 <td>Accepted</td>
 <td>Metadata provider returns raw JSON watermark text</td>
+</tr>
+<tr>
+<td><a href="0005-polars-qualified-sql-relations/">0005</a></td>
+<td>Accepted</td>
+<td>Qualified SQL relations in PolarsEngine</td>
+</tr>
+<tr>
+<td><a href="0006-portable-fabric-platform-azure-backends/">0006</a></td>
+<td>Accepted</td>
+<td>Portable FabricPlatform Azure backends</td>
+</tr>
+<tr>
+<td><a href="0007-engine-internal-package-boundaries/">0007</a></td>
+<td>Accepted</td>
+<td>Private engine implementation packages</td>
+</tr>
+<tr>
+<td><a href="0008-portable-databricks-platform-backends/">0008</a></td>
+<td>Accepted</td>
+<td>Portable DatabricksPlatform native and SDK backends</td>
+</tr>
+<tr>
+<td><a href="0009-use-case-oriented-optional-dependencies/">0009</a></td>
+<td>Accepted</td>
+<td>Use-case-oriented optional dependencies</td>
 </tr>
 </tbody>
 </table>
