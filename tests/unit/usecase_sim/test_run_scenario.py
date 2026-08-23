@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -85,6 +86,23 @@ def test_transformer_fixture_declares_one_primary_feature_per_dataflow() -> None
     assert len(output_tables) == len(set(output_tables))
 
 
+def test_transformer_scenarios_clean_every_positive_output() -> None:
+    metadata = json.loads(TRANSFORMER_METADATA_PATH.read_text(encoding="utf-8"))
+    scenarios = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))
+    expected_paths = {
+        f"usecase-sim/data/output/parquet/{dataflow['destination']['table']}"
+        for dataflow in metadata["dataflows"]
+        if dataflow["stage"] == "transform_features"
+    }
+
+    assert len(expected_paths) == 25
+    for scenario_name in (
+        "local_polars_transform_features",
+        "local_spark_transform_features",
+    ):
+        assert set(scenarios[scenario_name]["pre_clean_paths"]) == expected_paths
+
+
 def test_transformer_failure_stages_are_isolated() -> None:
     metadata = json.loads(TRANSFORMER_METADATA_PATH.read_text(encoding="utf-8"))
     failure_stages = {
@@ -144,6 +162,176 @@ def test_pre_clean_paths_rejects_targets_outside_output_root(
         )
 
 
+def test_setup_script_rejects_path_outside_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(run_scenario, "DATACOOLIE_ROOT", repo_root)
+
+    result = run_scenario._run_scenario_setup(
+        "unsafe",
+        {"setup": {"script": "../outside.py"}},
+    )
+
+    assert result == (1, "FAIL (setup script must stay inside repository root)")
+
+
+def test_setup_script_receives_argument_list_and_writes_separate_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = tmp_path / "setup.py"
+    script.write_text(
+        "import sys\nprint('|'.join(sys.argv[1:]))\n",
+        encoding="utf-8",
+    )
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    monkeypatch.setattr(run_scenario, "DATACOOLIE_ROOT", tmp_path)
+    monkeypatch.setattr(run_scenario, "SCENARIO_LOG_DIR", log_dir)
+
+    result = run_scenario._run_scenario_setup(
+        "args",
+        {
+            "setup": {
+                "script": "setup.py",
+                "args": ["--suite", "delta-positive"],
+            }
+        },
+    )
+
+    assert result == (0, "PASS")
+    assert (log_dir / "args.setup.log").read_text(encoding="utf-8").strip() == (
+        "--suite|delta-positive"
+    )
+
+
+def test_setup_timeout_is_reported_and_logged(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = tmp_path / "setup.py"
+    script.write_text("", encoding="utf-8")
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    monkeypatch.setattr(run_scenario, "DATACOOLIE_ROOT", tmp_path)
+    monkeypatch.setattr(run_scenario, "SCENARIO_LOG_DIR", log_dir)
+    monkeypatch.setattr(
+        run_scenario.subprocess,
+        "run",
+        MagicMock(
+            side_effect=subprocess.TimeoutExpired(
+                cmd=["setup.py"], timeout=7, output="partial output"
+            )
+        ),
+    )
+
+    result = run_scenario._run_scenario_setup(
+        "timeout",
+        {"setup": {"script": "setup.py", "timeout_seconds": 7}},
+    )
+
+    assert result == (124, "FAIL (setup timed out)")
+    assert (log_dir / "timeout.setup.log").read_text(encoding="utf-8") == (
+        "partial output"
+    )
+
+
+def test_setup_failure_prevents_etl_child(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    child = MagicMock()
+    monkeypatch.setattr(run_scenario, "_setup_log_dirs", lambda: None)
+    monkeypatch.setattr(run_scenario, "_docker_spark_running", lambda: False)
+    monkeypatch.setattr(run_scenario, "_pre_clean_paths", lambda scenario: None)
+    monkeypatch.setattr(
+        run_scenario,
+        "_run_scenario_setup",
+        lambda name, scenario: (3, "FAIL (setup exit 3)"),
+    )
+    monkeypatch.setattr(run_scenario, "_run_with_tee", child)
+
+    result = run_scenario.run_scenarios(
+        ["failed_setup"],
+        {
+            "failed_setup": {
+                "engine": "polars",
+                "metadata_type": "file",
+                "metadata_path": "metadata.json",
+            }
+        },
+    )
+
+    assert result == 1
+    child.assert_not_called()
+
+
+def test_explicit_services_are_started_for_polars_scenario(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started: list[str] = []
+    monkeypatch.setattr(run_scenario, "SCENARIO_LOG_DIR", tmp_path)
+    monkeypatch.setattr(run_scenario, "_setup_log_dirs", lambda: None)
+    monkeypatch.setattr(run_scenario, "_docker_spark_running", lambda: False)
+    monkeypatch.setattr(
+        run_scenario, "_ensure_service_running", lambda service: started.append(service)
+    )
+    monkeypatch.setattr(run_scenario, "_pre_clean_paths", lambda scenario: None)
+    monkeypatch.setattr(
+        run_scenario, "_run_scenario_setup", lambda name, scenario: (0, "SKIP")
+    )
+    monkeypatch.setattr(run_scenario, "build_command", lambda *args, **kwargs: ["run"])
+    monkeypatch.setattr(
+        run_scenario, "_run_with_tee", lambda *args, **kwargs: (0, "PASS")
+    )
+    monkeypatch.setattr(
+        run_scenario,
+        "_validate_scenario_result",
+        lambda *args, **kwargs: (0, "PASS"),
+    )
+
+    result = run_scenario.run_scenarios(
+        ["iceberg"],
+        {
+            "iceberg": {
+                "engine": "polars",
+                "metadata_type": "file",
+                "metadata_path": "metadata.json",
+                "services": ["minio", "iceberg-rest"],
+            }
+        },
+    )
+
+    assert result == 0
+    assert started == ["iceberg-rest", "minio"]
+
+
+def test_build_command_forwards_same_process_engine_setup() -> None:
+    scenario = {
+        "engine": "polars",
+        "metadata_type": "file",
+        "metadata_path": "metadata.json",
+        "stage": "qualified_sql",
+        "engine_setup": {
+            "python_function": "runner.qualified_sql_setup.register_tables",
+            "args": ["--suite", "delta-positive"],
+        },
+    }
+
+    command = run_scenario.build_command("qualified", scenario)
+
+    assert command[-4:] == [
+        "--engine-setup-function",
+        "runner.qualified_sql_setup.register_tables",
+        "--engine-setup-arg=--suite",
+        "--engine-setup-arg=delta-positive",
+    ]
+
+
 def test_expected_failure_passes_when_console_contains_required_text(
     tmp_path: Path,
 ) -> None:
@@ -196,9 +384,7 @@ def test_repository_local_validation_script_controls_result(
     monkeypatch.setattr(run_scenario, "DATACOOLIE_ROOT", tmp_path)
     scenario = {"validation": {"script": "validator.py"}}
 
-    result_code, _ = run_scenario._validate_scenario_result(
-        scenario, 0, console_log
-    )
+    result_code, _ = run_scenario._validate_scenario_result(scenario, 0, console_log)
 
     assert result_code == expected_code
 
@@ -219,14 +405,18 @@ def test_non_iceberg_spark_session_omits_iceberg_configuration(
 
     assert captured["spark.sql.extensions"] == "io.delta.sql.DeltaSparkSessionExtension"
     assert "spark.sql.iceberg.merge-schema" not in captured
-    assert not any(key.startswith("spark.sql.catalog.local_catalog") for key in captured)
+    assert not any(
+        key.startswith("spark.sql.catalog.local_catalog") for key in captured
+    )
 
 
 def test_local_spark_session_can_disable_local_checksum_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     spark = MagicMock()
-    local_fs = spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.getLocal.return_value
+    local_fs = (
+        spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.getLocal.return_value
+    )
     hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration.return_value
 
     monkeypatch.setattr(

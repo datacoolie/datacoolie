@@ -16,7 +16,7 @@ and cluster setup so you can validate the metadata model first.
 **Prerequisites**
 
 - Python 3.11+
-- `pip install "datacoolie[polars,deltalake]"`
+- `pip install "datacoolie[polars-delta]"`
 
 **End state**
 

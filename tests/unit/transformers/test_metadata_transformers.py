@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from datacoolie.core.exceptions import ConfigurationError
-from datacoolie.core.models import MaskingRule, Transform, ValueRule
+from datacoolie.core.models import HashColumn, MaskingRule, Transform, ValueRule
 from datacoolie.transformers.column_projector import ColumnProjector
 from datacoolie.transformers.column_value_transformer import ColumnValueTransformer
 from datacoolie.transformers.data_masker import DataMasker
@@ -268,6 +268,40 @@ def test_hash_column_adder_uses_explicit_target() -> None:
     assert result["customer_hash"] == "sha256"
     assert engine._hash_columns[0].algorithm == "sha256"
     assert HashColumnAdder(engine).order == 18
+
+
+@pytest.mark.parametrize(
+    ("configured", "normalized"),
+    [("sha256", "sha256"), ("XXHASH64", "xxhash64")],
+)
+def test_hash_column_accepts_supported_algorithms(
+    configured: str, normalized: str
+) -> None:
+    definition = HashColumn(
+        target_column="business_hash",
+        columns=["customer_id"],
+        algorithm=configured,
+    )
+
+    assert definition.algorithm == normalized
+
+
+def test_hash_column_rejects_unsupported_algorithm() -> None:
+    with pytest.raises(ConfigurationError, match="supports only"):
+        HashColumn(
+            target_column="business_hash",
+            columns=["customer_id"],
+            algorithm="md5",
+        )
+
+
+def test_hash_column_rejects_configurable_seed() -> None:
+    with pytest.raises(ConfigurationError, match="Unknown field"):
+        HashColumn(
+            target_column="business_hash",
+            columns=["customer_id"],
+            seed=42,
+        )
 
 
 def test_hash_column_rejects_duplicate_targets() -> None:

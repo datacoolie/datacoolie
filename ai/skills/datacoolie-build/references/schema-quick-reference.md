@@ -147,7 +147,7 @@ table path.
 | `drop_columns` | string[] | no | Business columns to remove; mutually exclusive with `select_columns` |
 | `rename_columns` | object | no | Atomic `{old_name: new_name}` mapping applied after select/drop |
 | `value_rules` | ValueRule[] | no | Typed normalization rules applied before schema casting |
-| `hash_columns` | HashColumn[] | no | Stable SHA-256 business hashes using `dc_hash_v1` serialization |
+| `hash_columns` | HashColumn[] | no | Stable SHA-256 String or signed XXHash64 BIGINT values using `dc_hash_v1` serialization |
 | `masking_rules` | MaskingRule[] | no | Structured scalar PII masking applied before projection |
 | `configure` | object | no | `convert_timestamp_ntz` (default true), `deduplicate_by_rank` (default false), `missing_column_policy` (`error` or `ignore`, default `error`) |
 
@@ -207,10 +207,18 @@ metadata declaration order.
 
 ### HashColumn object
 
-Requires `target_column` and an ordered, non-empty `columns` list. Only
-`algorithm: sha256` and `serialization: dc_hash_v1` are supported. Declared
-input order is significant. Hash targets are not inferred as merge or dedup
-keys. Polars requires the optional `datacoolie[polars-hash]` extra.
+Requires `target_column` and an ordered, non-empty `columns` list. Supported
+algorithms are `sha256` (the default, a lowercase 64-character String) and
+`xxhash64` (a signed BIGINT using fixed seed `42`). Both use
+`serialization: dc_hash_v1`; declared input order is significant. Spark and
+Polars return the same value for the same typed inputs. Hash targets are not
+inferred as merge or dedup keys. Polars requires the optional
+`datacoolie[polars-hash]` extra.
+
+XXHash64 is non-cryptographic and may be negative. Do not apply `abs()` or
+discard the sign bit. Use SHA-256 or an identity/mapping-table surrogate when
+authoritative uniqueness matters at large scale, and do not change an existing
+SHA-256 target to XXHash64 without a coordinated String-to-BIGINT migration.
 
 ### MaskingRule object
 
@@ -291,7 +299,7 @@ columns are deep-merged, and new columns are appended.
   "$schema": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
   "connections": [
     { "name": "raw_csv", "connection_type": "file", "format": "csv" },
-    { "name": "bronze_lake", "connection_type": "lakehouse", "format": "delta", "configure": { "base_path": "/mnt/lake/bronze" } }
+    { "name": "bronze_lake", "connection_type": "lakehouse", "format": "delta", "configure": { "base_path": "./lake/bronze" } }
   ],
   "dataflows": [
     {
@@ -315,6 +323,11 @@ columns are deep-merged, and new columns are appended.
   ]
 }
 ```
+
+Platform-qualified examples include `s3://bucket/lake/bronze`,
+`abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/Files/bronze`, and
+`/Volumes/catalog/schema/volume/bronze`. Do not use Databricks DBFS root or mount paths. Pass the
+selected root unchanged; `references/platform-contract.md` owns platform path validity.
 
 ## Common patterns
 
@@ -369,6 +382,11 @@ contract lives in `references/framework-boundary.md`.
 ### SQL query source (when relational shaping is required)
 
 - **DB or lakehouse custom query**: replace `source.table` with `source.query: "SELECT order_id, amount FROM orders WHERE amount > 100"` — no `table` key needed
+- **Polars Delta/Iceberg qualified query**: keep the portable 1-4-part relation name in
+  `source.query`; register its relation descriptors on the same `PolarsEngine` before the driver
+  runs. Registration settings such as `logical_prefix`, `recursive`, `include`, and `exclude` are
+  runner/bootstrap code, never `source.configure`. Load `references/polars-qualified-sql.md` for the
+  complete contract.
 
 ### Python function source (verified final fallback)
 

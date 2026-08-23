@@ -1,4 +1,4 @@
-"""Stable SHA-256 business hash columns."""
+"""Stable portable business hash columns."""
 
 from __future__ import annotations
 

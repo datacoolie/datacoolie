@@ -98,9 +98,11 @@ def test_all_missing_ignored_rule_returns_same_lazy_frame(engine: PolarsEngine) 
     assert result is frame
 
 
+@pytest.mark.parametrize("algorithm", ["sha256", "xxhash64"])
 def test_polars_hash_dependency_is_lazy_and_explicit(
     engine: PolarsEngine,
     monkeypatch: pytest.MonkeyPatch,
+    algorithm: str,
 ) -> None:
     frame = pl.DataFrame({"id": [1]}).lazy()
     real_import = importlib.import_module
@@ -115,5 +117,9 @@ def test_polars_hash_dependency_is_lazy_and_explicit(
     with pytest.raises(EngineError, match="optional polars-hash"):
         engine.add_hash_column(
             frame,
-            HashColumn(target_column="id_hash", columns=["id"]),
+            HashColumn(
+                target_column="id_hash",
+                columns=["id"],
+                algorithm=algorithm,
+            ),
         )

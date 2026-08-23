@@ -30,6 +30,11 @@ Install the matching framework extra or runtime dependency, then test the combin
 presence alone does not prove authentication, addressing, session, catalog, storage-option, or
 engine compatibility.
 
+For Local, AWS, Fabric, or Databricks, load `references/platform-contract.md` before choosing the
+runtime mode, credential flow, path form, or platform extra. A registered Fabric or Databricks
+facade does not prove that the current process is its native notebook runtime or that its external
+SDK profile is installed.
+
 Use `references/capability-catalog.md` only when a built-in inventory is needed. The installed
 runtime remains authoritative when that versioned snapshot differs.
 
@@ -61,6 +66,10 @@ Choose the least expressive native source form that preserves the required behav
 Record evidence before moving down the order. Keep direct-address and query-capable parts native
 even when one narrow custom function remains necessary. This reference owns the selection rule;
 field syntax and examples remain in `references/schema-quick-reference.md`.
+
+For a Delta or Iceberg query executed by Polars, relation discovery is native engine bootstrap, not
+a Python-function fallback. Keep the query in `source.query` and load
+`references/polars-qualified-sql.md` for the same-process registration contract.
 
 ## Unsupported boundary
 

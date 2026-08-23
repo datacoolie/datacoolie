@@ -28,8 +28,8 @@ flowchart LR
   Each platform is a native provider by subclassing `BasePlatform`, so every
   platform brings its own secret backend:
   Local uses `os.environ`, Fabric uses Azure Key Vault through
-  `notebookutils.credentials`, Databricks uses `dbutils.secrets`, and AWS uses
-  AWS Secrets Manager.
+  `notebookutils.credentials`, Databricks uses native or SDK-backed
+  `dbutils.secrets`, and AWS uses AWS Secrets Manager.
 - **Resolver** (`BaseSecretResolver`) = **how** to resolve a key when the
   `secrets_ref` source begins with a registered prefix. Built-in `EnvResolver`
   handles sources such as `env:APP_`; you can add more.
@@ -117,8 +117,11 @@ ensures secrets **never reach** log formatters in the first place.
 ## Built-in providers
 
 All four platforms. `AWSPlatform._fetch_secret` goes to AWS Secrets Manager;
-`FabricPlatform` uses `notebookutils.credentials`; `DatabricksPlatform` uses
-`dbutils.secrets`; `LocalPlatform` reads `os.environ`.
+`FabricPlatform` uses `notebookutils.credentials` in Fabric and
+`azure-keyvault-secrets` with an injected credential or
+`DefaultAzureCredential` outside Fabric; `DatabricksPlatform` uses native
+`dbutils.secrets` in Databricks and `WorkspaceClient.dbutils.secrets` outside
+Databricks; `LocalPlatform` reads `os.environ`.
 
 ## Related
 

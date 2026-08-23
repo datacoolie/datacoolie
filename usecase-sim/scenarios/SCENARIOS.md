@@ -23,6 +23,9 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `max_workers` | | Parallel dataflow workers (forwarded to `DataCoolieRunConfig`) |
 | `timeout_seconds` | | Override dispatcher timeout |
 | `pre_clean_paths` | | Repository-relative output directories removed before the scenario |
+| `services` | | Docker Compose services ensured before setup and execution |
+| `setup` | | Repository-local setup script, optional args, and timeout |
+| `engine_setup` | | Same-process repository-local function and args invoked after engine creation |
 | `validation` | | Expected exit code, required console text, and optional output-validator script |
 | `priority` | | `P0`, `P1`, or `P2` (for `--priority` filter) |
 | `notes` | | Free-form description |
@@ -31,6 +34,15 @@ Consult [../README.md](../README.md) for narrative context and usage.
 `required_console_text` (string or list), `script` (repository-relative Python
 file), optional `args`, and `timeout_seconds` for that script. A scenario is
 reported as PASS only when every configured assertion succeeds.
+
+`setup` supports `script`, optional `args`, and `timeout_seconds`. The script
+must resolve inside the repository and writes to a separate scenario setup
+log. A setup failure prevents the ETL child from starting.
+
+`engine_setup` supports `python_function` and optional `args`. Unlike `setup`,
+it runs inside the ETL child after engine construction, so it can register
+relations in the active Polars SQLContext. It is simulator configuration, not
+DataCoolie source metadata.
 
 ## Dataflow authoring invariant
 
@@ -50,10 +62,10 @@ value-rule ordering case with two ordered rules.
 
 Runs the dedicated `transformer_features.json` metadata fixture. Both variants
 assert the aggregate missing-schema-hint warning and then validate persisted
-Parquet schemas and values across 24 independent, single-case outputs covering
+Parquet schemas and values across 25 independent, single-case outputs covering
 normalization, literal replacement, mapping, rule order, value-rule/schema-cast
-order, schema hints, hash parity, PII masking, select/drop, multi-column rename,
-and missing-column policies.
+order, schema hints, portable SHA-256 and signed XXHash64 parity, PII masking,
+select/drop, multi-column rename, and missing-column policies.
 
 ### `local_polars_transform_dedup_strict` / `local_spark_transform_dedup_strict`
 
@@ -69,6 +81,21 @@ literals cannot be applied to integer columns. The paired
 distinct source names cannot collapse to the same sanitized name. Every case
 runs in its own one-dataflow stage and requires exit code `2` plus its stable
 diagnostic text.
+
+### `local_polars_qualified_sql_delta`
+
+Runs seven independent dataflows from `polars_qualified_sql.json`. The cases
+prove Delta 4/3/2/1-part references, component include/exclude filters, lazy
+indexing, and reuse within one query. A scoped setup script recreates the
+nested Delta fixtures; the same-process engine setup registers them; normal
+DeltaReader instances execute `source.query`; and a validator reconciles every
+unique Parquet result.
+
+### `local_polars_qualified_sql_delta_ambiguity`
+
+Runs one isolated expected-failure dataflow. Two different Delta tables share
+the suffix `shared.orders_ambiguous`; the scenario requires exit code `2` and
+both fully qualified candidates in the diagnostic.
 
 ### `local_polars_file`
 
@@ -268,6 +295,16 @@ diagnostic text.
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |
+
+### Qualified Iceberg SQL scenarios
+
+`local_polars_qualified_sql_iceberg` runs six independent dataflows for
+default catalog mapping, structured `logical_prefix` replacement, short-name
+resolution, include/exclude filters, and lazy reuse.
+`local_polars_qualified_sql_iceberg_ambiguity` contains exactly one expected
+failure dataflow. Both use explicit `minio` and `iceberg-rest` services and
+scoped `qsql_*` namespaces in the local REST catalog. Registration is runner
+setup; each dataflow uses a normal Iceberg source and metadata `source.query`.
 
 ---
 

@@ -59,7 +59,7 @@ By contributing, you represent and agree that:
 The default test command excludes Spark and matches the GitHub Actions job:
 
 ```bash
-poetry sync --with dev -E polars -E deltalake -E polars-hash
+poetry sync --with dev -E polars-delta -E polars-hash
 poetry run pytest tests/
 ```
 
@@ -70,7 +70,7 @@ Spark dependencies, then run the Spark module locally. The module's
 share one local JVM/session:
 
 ```bash
-poetry sync --with dev -E spark -E delta-spark
+poetry sync --with dev -E spark-delta
 poetry run pytest tests/unit/engines/test_spark_engine.py -m spark -n auto --dist loadgroup
 ```
 
@@ -81,7 +81,7 @@ creating a `vX.Y.Z` tag. It uses the same package, docs, distribution, and
 non-Spark test checks that the tagged PyPI workflow uses:
 
 ```powershell
-poetry install --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry install --with dev --with docs -E polars-delta -E polars-hash -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```

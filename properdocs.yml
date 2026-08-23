@@ -222,5 +222,10 @@ nav:
       - 0002 Secret provider/resolver split: adr/0002-secret-provider-resolver-split.md
       - 0003 Transformer ordering slots: adr/0003-transformer-ordering-slots.md
       - 0004 Raw-JSON watermark contract: adr/0004-raw-json-watermark-contract.md
+      - 0005 Polars qualified SQL relations: adr/0005-polars-qualified-sql-relations.md
+      - 0006 Portable FabricPlatform Azure backends: adr/0006-portable-fabric-platform-azure-backends.md
+      - 0007 Private engine implementation packages: adr/0007-engine-internal-package-boundaries.md
+      - 0008 Portable DatabricksPlatform backends: adr/0008-portable-databricks-platform-backends.md
+      - 0009 Use-case-oriented optional dependencies: adr/0009-use-case-oriented-optional-dependencies.md
       - Contributing: contributing.md
   - Blog: blog/index.md

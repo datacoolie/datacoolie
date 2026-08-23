@@ -111,8 +111,16 @@ def _docker_spark_running() -> bool:
     """Return True when the datacoolie-spark Docker container is running."""
     try:
         result = subprocess.run(
-            ["docker", "inspect", "--format", "{{.State.Running}}", DOCKER_SPARK_CONTAINER],
-            capture_output=True, text=True, timeout=5,
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{.State.Running}}",
+                DOCKER_SPARK_CONTAINER,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return result.stdout.strip() == "true"
     except Exception:
@@ -129,13 +137,17 @@ def _ensure_service_running(service: str) -> None:
     try:
         result = subprocess.run(
             ["docker", "inspect", "--format", "{{.State.Running}}", container],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.stdout.strip() == "true":
             return  # already up
     except Exception:
         pass
-    logger.info("[docker] Service '%s' not running — starting via docker compose ...", service)
+    logger.info(
+        "[docker] Service '%s' not running — starting via docker compose ...", service
+    )
     subprocess.run(
         ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "up", "-d", "--wait", service],
         timeout=120,
@@ -175,13 +187,17 @@ def _metadata_source_args(name: str, scenario: dict) -> list[str]:
         return ["--metadata-path", scenario["metadata_path"]]
     if meta_type == "database":
         return [
-            "--metadata-db-connection-string", scenario["metadata_db_connection_string"],
-            "--metadata-workspace-id", scenario["metadata_workspace_id"],
+            "--metadata-db-connection-string",
+            scenario["metadata_db_connection_string"],
+            "--metadata-workspace-id",
+            scenario["metadata_workspace_id"],
         ]
     if meta_type == "api":
         args = [
-            "--metadata-api-url", scenario["metadata_api_url"],
-            "--metadata-workspace-id", scenario["metadata_workspace_id"],
+            "--metadata-api-url",
+            scenario["metadata_api_url"],
+            "--metadata-workspace-id",
+            scenario["metadata_workspace_id"],
         ]
         if scenario.get("metadata_api_key"):
             args += ["--metadata-api-key", scenario["metadata_api_key"]]
@@ -207,20 +223,32 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
         docker_log = AWS_LOG_PATH if platform == "aws" else container_log
         # `-e` sets PYTHONUNBUFFERED so tee streams work the same as -u on the host.
         cmd = [
-            "docker", "exec", "-e", "PYTHONUNBUFFERED=1",
+            "docker",
+            "exec",
+            "-e",
+            "PYTHONUNBUFFERED=1",
             DOCKER_SPARK_CONTAINER,
-            "python3", script_path,
-            "--engine", scenario["engine"],
-            "--platform", platform,
-            "--log-path", docker_log,
+            "python3",
+            script_path,
+            "--engine",
+            scenario["engine"],
+            "--platform",
+            platform,
+            "--log-path",
+            docker_log,
         ]
     else:
         # `-u` forces unbuffered stdout in the child so the tee streams live.
         cmd = [
-            sys.executable, "-u", str(script),
-            "--engine", scenario["engine"],
-            "--platform", platform,
-            "--log-path", log_path,
+            sys.executable,
+            "-u",
+            str(script),
+            "--engine",
+            scenario["engine"],
+            "--platform",
+            platform,
+            "--log-path",
+            log_path,
         ]
 
     if meta_type == "maintenance":
@@ -241,6 +269,14 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
     _add_flag(cmd, scenario, "skip_api_sources", "--skip-api-sources")
     if scenario.get("max_workers") is not None:
         cmd += ["--max-workers", str(scenario["max_workers"])]
+    engine_setup = scenario.get("engine_setup")
+    if engine_setup:
+        function_path = engine_setup.get("python_function")
+        if not function_path:
+            raise ValueError(f"engine_setup.python_function is required for {name}")
+        cmd += ["--engine-setup-function", str(function_path)]
+        for arg in engine_setup.get("args", []):
+            cmd.append(f"--engine-setup-arg={arg}")
     # Replay mode — append --replay-* args when present in the scenario.
     if scenario.get("replay_start"):
         cmd += ["--replay-start", str(scenario["replay_start"])]
@@ -268,7 +304,9 @@ def _cleanup_spark_state(reason: str) -> None:
         except OSError as exc:
             logger.warning(
                 "  [%s] could not remove %s: %s (JVM may still hold a lock)",
-                reason, d, exc,
+                reason,
+                d,
+                exc,
             )
 
 
@@ -299,6 +337,56 @@ def _pre_clean_paths(scenario: dict) -> None:
             logger.info("  [pre-clean] removed stale output: %s", path)
         except OSError as exc:
             logger.warning("  [pre-clean] could not remove %s: %s", path, exc)
+
+
+def _run_scenario_setup(name: str, scenario: dict) -> tuple[int, str]:
+    """Run an optional repository-local setup script before the ETL child."""
+
+    setup = scenario.get("setup")
+    if not setup:
+        return 0, "SKIP"
+    script = setup.get("script")
+    if not script:
+        return 1, "FAIL (setup.script is required)"
+
+    repo_root = DATACOOLIE_ROOT.resolve()
+    script_path = (repo_root / str(script)).resolve()
+    if not script_path.is_relative_to(repo_root):
+        return 1, "FAIL (setup script must stay inside repository root)"
+    if not script_path.is_file():
+        return 1, f"FAIL (setup script not found: {script})"
+
+    setup_log = SCENARIO_LOG_DIR / f"{name}.setup.log"
+    cmd = [sys.executable, str(script_path)]
+    cmd.extend(str(arg) for arg in setup.get("args", []))
+    logger.info("  Setup: %s", " ".join(cmd))
+    logger.info("  Setup log: %s", setup_log)
+
+    try:
+        completed = subprocess.run(
+            cmd,
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=int(setup.get("timeout_seconds", 60)),
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = (exc.stdout or "") + (exc.stderr or "")
+        setup_log.write_text(output, encoding="utf-8")
+        return 124, "FAIL (setup timed out)"
+    except OSError as exc:
+        setup_log.write_text(str(exc), encoding="utf-8")
+        return 1, f"FAIL (could not run setup script: {exc})"
+
+    output = (completed.stdout or "") + (completed.stderr or "")
+    setup_log.write_text(output, encoding="utf-8")
+    if output:
+        sys.stdout.write(output)
+    if completed.returncode != 0:
+        return completed.returncode, f"FAIL (setup exit {completed.returncode})"
+    return 0, "PASS"
 
 
 def _validate_scenario_result(
@@ -357,7 +445,10 @@ def _validate_scenario_result(
                 log_fh.write("\n--- scenario validation ---\n")
                 log_fh.write(validator_output)
         if completed.returncode != 0:
-            return completed.returncode, f"FAIL (validation exit {completed.returncode})"
+            return (
+                completed.returncode,
+                f"FAIL (validation exit {completed.returncode})",
+            )
 
     if expected_exit_code:
         return 0, f"PASS (expected exit {expected_exit_code})"
@@ -367,7 +458,9 @@ def _validate_scenario_result(
 # ---------------------------------------------------------------------------
 # Subprocess tee runner
 # ---------------------------------------------------------------------------
-def _send_cancel_signal(proc: subprocess.Popen, cmd: list[str], is_docker: bool) -> None:
+def _send_cancel_signal(
+    proc: subprocess.Popen, cmd: list[str], is_docker: bool
+) -> None:
     """Send a *graceful* cancel signal so the child can flush + push its logs.
 
     Mirrors real-platform cancellation (SIGTERM). Never hard-kills here — the
@@ -379,13 +472,23 @@ def _send_cancel_signal(proc: subprocess.Popen, cmd: list[str], is_docker: bool)
             # never ``docker stop`` the container itself (other scenarios reuse
             # it).  Best-effort; falls back to killing the local exec client.
             marker = next(
-                (Path(a).name for a in cmd if a.endswith(".py")), "run.py",
+                (Path(a).name for a in cmd if a.endswith(".py")),
+                "run.py",
             )
             try:
                 subprocess.run(
-                    ["docker", "exec", DOCKER_SPARK_CONTAINER,
-                     "pkill", "-TERM", "-f", marker],
-                    timeout=10, capture_output=True, text=True,
+                    [
+                        "docker",
+                        "exec",
+                        DOCKER_SPARK_CONTAINER,
+                        "pkill",
+                        "-TERM",
+                        "-f",
+                        marker,
+                    ],
+                    timeout=10,
+                    capture_output=True,
+                    text=True,
                 )
             except (OSError, subprocess.SubprocessError):
                 pass
@@ -441,7 +544,8 @@ def _run_with_tee(cmd: list[str], console_log: Path, timeout: int) -> tuple[int,
             timed_out.set()
             logger.warning(
                 "  [cancel] timeout after %ss - sending graceful signal (grace=%ss)",
-                timeout, GRACEFUL_SHUTDOWN_SECS,
+                timeout,
+                GRACEFUL_SHUTDOWN_SECS,
             )
             _send_cancel_signal(proc, cmd, is_docker)
             # Give the child time to flush + push logs and tear down cleanly.
@@ -480,8 +584,12 @@ def _run_with_tee(cmd: list[str], console_log: Path, timeout: int) -> tuple[int,
 def _setup_log_dirs() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     SCENARIO_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    fh = logging.FileHandler(SCENARIO_LOG_DIR / "run_scenario.log", mode="w", encoding="utf-8")
-    fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    fh = logging.FileHandler(
+        SCENARIO_LOG_DIR / "run_scenario.log", mode="w", encoding="utf-8"
+    )
+    fh.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    )
     logging.getLogger().addHandler(fh)
     logger.info("Framework log dir: %s", LOG_DIR)
     logger.info("Scenario log dir:  %s", SCENARIO_LOG_DIR)
@@ -511,27 +619,34 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
     docker_spark = has_spark_scenarios and _docker_spark_running()
     if has_spark_scenarios:
         if docker_spark:
-            logger.info("[spark] Docker container '%s' is running — Spark scenarios will execute inside the container.", DOCKER_SPARK_CONTAINER)
+            logger.info(
+                "[spark] Docker container '%s' is running — Spark scenarios will execute inside the container.",
+                DOCKER_SPARK_CONTAINER,
+            )
         else:
-            logger.warning("[spark] Docker container '%s' is NOT running — falling back to local PySpark.", DOCKER_SPARK_CONTAINER)
+            logger.warning(
+                "[spark] Docker container '%s' is NOT running — falling back to local PySpark.",
+                DOCKER_SPARK_CONTAINER,
+            )
             _cleanup_spark_state("pre-flight")
 
-    # Ensure dependent services are running for docker Spark scenarios.
-    if docker_spark:
-        needed: set[str] = set()
-        for n in names:
-            s = scenarios.get(n, {})
-            if _is_spark(s):
-                # metadata-api: needed when metadata source is "api"
-                svc = METADATA_TYPE_SERVICES.get(s.get("metadata_type", ""))
-                if svc:
-                    needed.add(svc)
-                # mock-api: needed when the scenario actually runs API data-source
-                # dataflows (i.e. skip_api_sources is not set)
-                if not s.get("skip_api_sources", False):
-                    needed.add(MOCK_API_SERVICE)
-        for svc in needed:
-            _ensure_service_running(svc)
+    # Explicit services apply to every engine. Preserve the implicit services
+    # historically required by Docker-hosted Spark scenarios.
+    needed: set[str] = set()
+    for n in names:
+        s = scenarios.get(n, {})
+        needed.update(str(service) for service in s.get("services", []))
+        if docker_spark and _is_spark(s):
+            # metadata-api: needed when metadata source is "api"
+            svc = METADATA_TYPE_SERVICES.get(s.get("metadata_type", ""))
+            if svc:
+                needed.add(svc)
+            # mock-api: needed when the scenario actually runs API data-source
+            # dataflows (i.e. skip_api_sources is not set)
+            if not s.get("skip_api_sources", False):
+                needed.add(MOCK_API_SERVICE)
+    for svc in sorted(needed):
+        _ensure_service_running(svc)
 
     for name in names:
         if name not in scenarios:
@@ -553,6 +668,12 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             continue
 
         _pre_clean_paths(scenario)
+
+        setup_rc, setup_status = _run_scenario_setup(name, scenario)
+        if setup_rc != 0:
+            results[name] = setup_rc
+            logger.info("  Result: %s", setup_status)
+            continue
 
         console_log = SCENARIO_LOG_DIR / f"{name}.console.log"
         timeout = _resolve_timeout(scenario)
@@ -592,8 +713,12 @@ def main() -> None:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--scenario", help="Name of a single scenario to run")
     group.add_argument("--all", action="store_true", help="Run all scenarios")
-    group.add_argument("--priority", help="Run all scenarios with this priority (P0, P1, P2)")
-    parser.add_argument("--scenarios-path", default=str(SCENARIOS_PATH), help="Path to scenarios.json")
+    group.add_argument(
+        "--priority", help="Run all scenarios with this priority (P0, P1, P2)"
+    )
+    parser.add_argument(
+        "--scenarios-path", default=str(SCENARIOS_PATH), help="Path to scenarios.json"
+    )
     args = parser.parse_args()
 
     scenarios = load_scenarios(Path(args.scenarios_path))

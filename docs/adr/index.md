@@ -1,6 +1,6 @@
 ---
 title: Architecture Decision Records — DataCoolie
-description: "Architectural decisions (ADRs) for DataCoolie: engine format dispatch, secret provider/resolver split, transformer ordering slots, and watermark contract."
+description: "Architectural decisions (ADRs) for DataCoolie, including engine contracts, qualified Polars SQL relations, secrets, transformers, and watermarks."
 ---
 
 # Architecture Decision Records
@@ -24,4 +24,9 @@ evolves. After 1.0, overturned decisions get a new ADR marked
 | [0002](0002-secret-provider-resolver-split.md) | Accepted | Split secret **provider** from secret **resolver** |
 | [0003](0003-transformer-ordering-slots.md) | Accepted | Number-slot transformer ordering (10/20/30/70/80/90) |
 | [0004](0004-raw-json-watermark-contract.md) | Accepted | Metadata provider returns raw JSON watermark text |
+| [0005](0005-polars-qualified-sql-relations.md) | Accepted | Qualified SQL relations in PolarsEngine |
+| [0006](0006-portable-fabric-platform-azure-backends.md) | Accepted | Portable FabricPlatform Azure backends |
+| [0007](0007-engine-internal-package-boundaries.md) | Accepted | Private engine implementation packages |
+| [0008](0008-portable-databricks-platform-backends.md) | Accepted | Portable DatabricksPlatform native and SDK backends |
+| [0009](0009-use-case-oriented-optional-dependencies.md) | Accepted | Use-case-oriented optional dependencies |
 

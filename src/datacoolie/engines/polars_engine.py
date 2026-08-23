@@ -16,219 +16,54 @@ Catalog support:
 
 from __future__ import annotations
 
-import importlib
-import inspect
-import io
-import os
-import re
-from dataclasses import dataclass
-from urllib.parse import quote as _url_quote, unquote as _url_unquote
-from functools import reduce  # noqa: PLC0415
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import polars as pl
 
-from datacoolie.core.constants import (
-    DEFAULT_AUTHOR,
-    DatabaseAuthType,
-    DatabaseType,
-    FileInfoColumn,
-    SCD2Column,
-    SystemColumn,
-    Format,
-    LoadType,
-    TRAILING_COLUMNS,
-)
-from datacoolie.core.exceptions import EngineError, TransformError
+from datacoolie.core.constants import Format
+from datacoolie.core.exceptions import EngineError
 from datacoolie.core.models import HashColumn, MaskingRule, ValueRule
+from datacoolie.core.qualified_names import NameInput
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.engines.base import BaseEngine, FileInfo
+from datacoolie.engines._polars.relations import (
+    PatternInput,
+    PolarsRelationRegistry,
+    RegistrationReport,
+)
+from datacoolie.engines._polars.sql import PolarsSqlResolver
+from datacoolie.engines._polars import registration as polars_registration
+from datacoolie.engines._polars.database import read_database as read_database_frame
+from datacoolie.engines._polars import delta as delta_ops
+from datacoolie.engines._polars import metrics as polars_metrics
+from datacoolie.engines._polars import temporal as polars_temporal
+from datacoolie.engines._polars import transforms as polars_transforms
+from datacoolie.engines._polars.iceberg import operations as iceberg_ops
+from datacoolie.engines._polars.file_io import (
+    add_file_info_columns as add_polars_file_info_columns,
+    read_avro_files,
+    read_excel_files,
+    read_json_files,
+    scan_csv,
+    scan_jsonl,
+    scan_parquet,
+    write_flat_eager,
+    write_flat_sink,
+)
+from datacoolie.engines._polars.type_mapping import (
+    build_cast_expr,
+)
 from datacoolie.logging.base import get_logger
-from datacoolie.utils.path_utils import normalize_path
-
-# Cached set of parameter names accepted by pl.scan_csv.
-# Computed once at import time so runtime checks are O(1).
-_SCAN_CSV_PARAMS: frozenset[str] = frozenset(inspect.signature(pl.scan_csv).parameters)
-
-# fastexcel powers the Polars "calamine" Excel engine (Polars >= 1.0 default).
-# Fall back to openpyxl when fastexcel is not installed.
-try:
-    import fastexcel as _fastexcel  # noqa: F401
-    _FASTEXCEL_AVAILABLE: bool = True
-except ImportError:
-    _FASTEXCEL_AVAILABLE = False
 
 # LazyFrame.sink_delta was added in Polars 0.20.x.
 # Fall back to DataFrame.collect().write_delta on older installations.
-_SINK_DELTA_AVAILABLE: bool = hasattr(pl.LazyFrame, "sink_delta")
-
 logger = get_logger(__name__)
 
-
-@dataclass(frozen=True)
-class _IcebergWritePlan:
-    """Inspected Iceberg write state; constructing it never mutates the table."""
-
-    ice_table: Any
-    collected: pl.DataFrame
-    arrow_table: Any
-    pyice_id: str
-    new_fields: Tuple[Any, ...]
-    expected_column_order: Tuple[str, ...]
-    schema_reorder_required: bool
-    snapshot_schema_stale: bool
-    missing_partition_columns: Tuple[str, ...]
-
-    @property
-    def requires_transactional_write(self) -> bool:
-        """Return whether metadata and data must be committed together."""
-        return bool(
-            self.new_fields
-            or self.schema_reorder_required
-            or self.snapshot_schema_stale
-            or self.missing_partition_columns
-        )
-
-# ---------------------------------------------------------------------------
-# Polars type-mapping for cast_column
-# Keys cover engine-native types and all common SQL/database aliases an end-user
-# might provide (SQL standard, PostgreSQL, MySQL, SQL Server, Oracle, Teradata,
-# Snowflake, DuckDB, Spark, and Polars-native names).
-# ---------------------------------------------------------------------------
-_POLARS_TYPE_MAP: Dict[str, pl.DataType] = {
-    # ---- String / text ----
-    "string": pl.Utf8,
-    "str": pl.Utf8,
-    "utf8": pl.Utf8,
-    "varchar": pl.Utf8,
-    "varchar2": pl.Utf8,          # Oracle
-    "nvarchar": pl.Utf8,
-    "nvarchar2": pl.Utf8,         # Oracle
-    "char": pl.Utf8,
-    "nchar": pl.Utf8,
-    "character": pl.Utf8,         # SQL standard
-    "character varying": pl.Utf8, # SQL standard
-    "text": pl.Utf8,
-    "ntext": pl.Utf8,             # SQL Server
-    "tinytext": pl.Utf8,          # MySQL
-    "mediumtext": pl.Utf8,        # MySQL
-    "longtext": pl.Utf8,          # MySQL
-    "clob": pl.Utf8,              # Oracle / DB2
-    "nclob": pl.Utf8,             # Oracle
-    "enum": pl.Utf8,              # MySQL
-    "set": pl.Utf8,               # MySQL
-    "uuid": pl.Utf8,              # PostgreSQL
-    "uniqueidentifier": pl.Utf8,  # SQL Server
-    "json": pl.Utf8,              # PostgreSQL / MySQL
-    "jsonb": pl.Utf8,             # PostgreSQL
-    "xml": pl.Utf8,               # SQL Server / PostgreSQL
-    "citext": pl.Utf8,            # PostgreSQL (case-insensitive text)
-    # ---- Integer (signed) ----
-    # Widths mirror SparkEngine._SPARK_TYPE_MAP so that a metadata alias
-    # resolves to the same logical width across engines.  In particular
-    # ``int``/``integer`` → 32-bit (SQL standard), ``long``/``bigint`` → 64-bit,
-    # ``tinyint`` → 8-bit, ``smallint`` → 16-bit.
-    "byte": pl.Int8,
-    "short": pl.Int16,
-    "int": pl.Int32,
-    "integer": pl.Int32,
-    "int2": pl.Int16,             # PostgreSQL
-    "int4": pl.Int32,             # PostgreSQL
-    "int8": pl.Int64,             # PostgreSQL
-    "int16": pl.Int16,
-    "int32": pl.Int32,
-    "int64": pl.Int64,
-    "long": pl.Int64,
-    "tinyint": pl.Int8,
-    "smallint": pl.Int16,
-    "mediumint": pl.Int32,        # MySQL
-    "bigint": pl.Int64,
-    "byteint": pl.Int8,           # Teradata
-    "hugeint": pl.Int64,          # DuckDB (no Int128 in Polars; promote)
-    "serial": pl.Int32,           # PostgreSQL auto-increment
-    "smallserial": pl.Int16,      # PostgreSQL
-    "bigserial": pl.Int64,        # PostgreSQL
-    "number": pl.Decimal,         # Oracle (treated as decimal; see also below)
-    # ---- Integer (unsigned) ----
-    "uint8": pl.UInt8,
-    "uint16": pl.UInt16,
-    "uint32": pl.UInt32,
-    "uint64": pl.UInt64,
-    "unsigned": pl.UInt64,        # MySQL shorthand
-    # ---- Float ----
-    # Widths mirror SparkEngine: ``float``/``real`` → 32-bit,
-    # ``double``/``float8``/``double precision`` → 64-bit.
-    "float": pl.Float32,
-    "real": pl.Float32,
-    "float4": pl.Float32,         # PostgreSQL
-    "float8": pl.Float64,         # PostgreSQL
-    "float32": pl.Float32,
-    "float64": pl.Float64,
-    "double": pl.Float64,
-    "double precision": pl.Float64,  # SQL standard
-    # ---- Decimal / exact numeric ----
-    "decimal": pl.Decimal,
-    "numeric": pl.Decimal,
-    "dec": pl.Decimal,            # SQL standard short form
-    "money": pl.Decimal,          # SQL Server / PostgreSQL
-    "smallmoney": pl.Decimal,     # SQL Server
-    # ---- Boolean ----
-    "boolean": pl.Boolean,
-    "bool": pl.Boolean,
-    "bit": pl.Boolean,            # SQL Server / MySQL
-    "logical": pl.Boolean,        # some systems
-    # ---- Date ----
-    "date": pl.Date,
-    "date32": pl.Date,            # Arrow / Polars internal
-    # ---- Time ----
-    "time": pl.Time,
-    "timetz": pl.Time,            # PostgreSQL
-    "time with time zone": pl.Time,
-    "time without time zone": pl.Time,
-    # ---- Timestamp with time zone → Datetime("us", "UTC") ----
-    # Mirrors Spark: timestamp is TZ-aware (stores UTC internally)
-    "timestamp": pl.Datetime("us", "UTC"),
-    "timestamptz": pl.Datetime("us", "UTC"),          # PostgreSQL shorthand
-    "timestamp_tz": pl.Datetime("us", "UTC"),
-    "timestamp with time zone": pl.Datetime("us", "UTC"),
-    "datetimeoffset": pl.Datetime("us", "UTC"),        # SQL Server (carries tz offset)
-    # ---- Timestamp without time zone → Datetime("us") ----
-    # Mirrors Spark: no-TZ aliases map to timestamp_ntz semantics
-    "timestamp_ntz": pl.Datetime("us"),               # Snowflake / Spark
-    "datetime": pl.Datetime("us"),
-    "datetime2": pl.Datetime("us"),                    # SQL Server (no TZ)
-    "smalldatetime": pl.Datetime("us"),               # SQL Server (no TZ)
-    "timestamp without time zone": pl.Datetime("us"),
-    # ---- Duration / interval ----
-    "interval": pl.Duration,      # SQL standard
-    "duration": pl.Duration,      # Arrow / Polars
-    # ---- Binary ----
-    "binary": pl.Binary,
-    "varbinary": pl.Binary,
-    "bytea": pl.Binary,           # PostgreSQL
-    "blob": pl.Binary,            # MySQL / SQLite
-    "tinyblob": pl.Binary,        # MySQL
-    "mediumblob": pl.Binary,      # MySQL
-    "longblob": pl.Binary,        # MySQL
-    "image": pl.Binary,           # SQL Server (deprecated)
-    "bytes": pl.Binary,
-    "raw": pl.Binary,             # Oracle
-    "long raw": pl.Binary,        # Oracle (deprecated)
-}
-
-_DECIMAL_RE = re.compile(r"^(?:decimal|numeric|dec|number)\((\d+),\s*(\d+)\)$")
 
 # Matches pure-numeric segments (e.g. "2026", "04") and hive key=value
 # segments (e.g. "year=2026", "region=US-East") that are appended to a
 # path when writing date- or hive-partitioned data.
-_PARTITION_SEGMENT_RE: re.Pattern[str] = re.compile(r"^\d+$|^[^=]+=.+$")
-
-
-# Pattern for valid SQL table identifiers: word chars and dots (for schema.table).
-_SAFE_TABLE_RE: re.Pattern[str] = re.compile(r"^[\w]+(?:\.[\w]+)*$")
-
-
 class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     """Polars implementation of :class:`BaseEngine` bound to ``pl.LazyFrame``.
 
@@ -247,11 +82,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     """
 
     # Default target file size for PartitionBy-based writes.
-    _DEFAULT_BYTES_PER_FILE: int = 256 * 1024 * 1024  # 256 MB
-
     # delta-rs does not auto-create checkpoints; replicate Spark's default interval.
-    _DELTA_CHECKPOINT_INTERVAL: int = 10
-
     # ==================================================================
     # Construction
     # ==================================================================
@@ -263,12 +94,15 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         *,
         iceberg_catalog: Optional[Any] = None,
         sql_context: Optional[pl.SQLContext] = None,
+        sql_dialect: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(platform=platform)
         self._storage_options = storage_options or {}
         self._iceberg_catalog = iceberg_catalog
         self._sql_context = sql_context if sql_context is not None else pl.SQLContext()
+        self._relation_registry = PolarsRelationRegistry()
+        self._sql_resolver = PolarsSqlResolver(dialect=sql_dialect)
 
     # ==================================================================
     # Polars extras
@@ -302,137 +136,117 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         """Register a frame as a named table in the SQLContext."""
         self._sql_context.register(name, data)
 
+    def registered_tables(self) -> List[str]:
+        """Return sorted logical names indexed by discovery registration."""
+
+        return self._relation_registry.registered_tables()
+
+    @property
+    def last_registration_report(self) -> RegistrationReport:
+        """Return the observable result of the latest discovery call."""
+
+        return self._relation_registry.last_report
+
     def register_delta_tables(
         self,
         base_path: str,
         *,
-        prefix: str = "",
+        logical_prefix: NameInput | None = (),
+        recursive: bool = False,
+        max_depth: Optional[int] = None,
+        include: PatternInput = None,
+        exclude: PatternInput = None,
+        max_tables: Optional[int] = None,
+        preload: bool = False,
+        on_error: Literal["raise", "skip"] = "raise",
     ) -> List[str]:
-        """Discover Delta tables under *base_path* and register them.
+        """Index Delta tables below *base_path* for lazy SQL registration.
 
-        Each immediate sub-directory that is a valid Delta table is
-        registered with its folder name as the table name.
-
-        Requires :attr:`platform` to be set.
+        Relative table-directory components are appended to ``logical_prefix``.
+        Unique trailing suffixes of the resulting 1-4 part name can be used in
+        :meth:`execute_sql`. With the default ``preload=False``, table scans are
+        created only when a query first references them.
 
         Args:
-            base_path: Root directory to scan for Delta tables.
-            prefix: Optional prefix prepended to every registered table name
-                (e.g. ``"db1__"`` → ``"db1__orders"``).  Useful when
-                registering tables from multiple databases into the same
-                SQLContext to avoid name collisions.
-
-        Returns:
-            List of registered table names (including any prefix).
-
-        Raises:
-            EngineError: If no platform is attached.
+            base_path: Physical folder root to enumerate.
+            logical_prefix: Structured SQL components prepended to relative paths.
+            recursive: Descend into non-table directories.
+            max_depth: Optional traversal depth relative to ``base_path``.
+            include: Component glob or globs selecting logical names.
+            exclude: Component glob or globs removed after include matching.
+            max_tables: Safety ceiling; exceeding it aborts without indexing.
+            preload: Create and bind every discovered frame immediately.
+            on_error: ``"raise"`` or observable best-effort ``"skip"``.
         """
-        if self._platform is None:
-            raise EngineError(
-                "register_delta_tables requires a platform — call set_platform() first"
-            )
-        registered: List[str] = []
-        try:
-            child_paths = self._platform.list_folders(base_path)
-        except Exception:  # noqa: BLE001
-            return registered
-
-        for child in sorted(child_paths):
-            stripped = normalize_path(child)
-            entry = prefix + stripped.rsplit("/", 1)[-1]
-            if not self._platform.folder_exists(stripped + "/_delta_log"):
-                continue
-            try:
-                lf = self.read_delta(child)
-            except Exception:  # noqa: BLE001
-                continue
-            self._sql_context.register(entry, lf)
-            registered.append(entry)
-        return registered
+        return polars_registration.register_delta_tables(
+            platform=self._platform,
+            sql_context=self._sql_context,
+            registry=self._relation_registry,
+            loader_factory=self.read_delta,
+            base_path=base_path,
+            logical_prefix=logical_prefix,
+            recursive=recursive,
+            max_depth=max_depth,
+            include=include,
+            exclude=exclude,
+            max_tables=max_tables,
+            preload=preload,
+            on_error=on_error,
+        )
 
     def register_iceberg_tables(
         self,
-        namespace: Optional[str] = None,
-        *,
+        namespace: NameInput | None = None,
         base_path: Optional[str] = None,
-        prefix: str = "",
+        *,
+        logical_prefix: NameInput | None = None,
+        recursive: bool = False,
+        max_depth: Optional[int] = None,
+        include: PatternInput = None,
+        exclude: PatternInput = None,
+        max_tables: Optional[int] = None,
+        preload: bool = False,
+        on_error: Literal["raise", "skip"] = "raise",
     ) -> List[str]:
-        """Discover Iceberg tables and register them in the SQLContext.
+        """Index Iceberg catalog identifiers or table paths for lazy SQL use.
 
-        Discovery strategy (evaluated in order):
-
-        1. **Catalog + namespace** — if *namespace* is given and
-           ``iceberg_catalog`` is configured, list tables from the catalog
-           (preferred).
-        2. **Path scan** — if *base_path* is given, scan immediate
-           sub-directories for an Iceberg ``metadata/`` directory and
-           register each valid table.
-
-        At least one of *namespace* or *base_path* must be provided.
+        Catalog mode is used when ``base_path`` is absent and an Iceberg catalog
+        is attached. ``namespace=None`` starts at the catalog root. A supplied
+        ``logical_prefix`` replaces the catalog/root-namespace mapping; relative
+        child namespaces and the table name are appended.
 
         Args:
-            namespace: Catalog namespace to list tables from.
-            base_path: Filesystem path whose sub-directories are scanned
-                for Iceberg tables (fallback when no catalog is configured).
-            prefix: Optional prefix prepended to every registered table name
-                (e.g. ``"cat1__"`` → ``"cat1__orders"``).  Useful when
-                registering tables from multiple catalogs/namespaces into
-                the same SQLContext to avoid name collisions.
-
-        Returns:
-            List of registered table names (including any prefix).
+            namespace: Physical Iceberg namespace root in catalog mode.
+            base_path: Compatibility path-discovery root; mutually exclusive
+                with ``namespace``.
+            logical_prefix: Replacement logical root, or ``None`` to preserve
+                catalog name and root namespace.
+            recursive: Enumerate child namespaces/directories.
+            max_depth: Optional traversal depth relative to the source root.
+            include: Component glob or globs selecting logical names.
+            exclude: Component glob or globs removed after include matching.
+            max_tables: Safety ceiling; exceeding it aborts without indexing.
+            preload: Load metadata and bind all discovered frames immediately.
+            on_error: ``"raise"`` or observable best-effort ``"skip"``.
         """
-        if namespace is None and base_path is None:
-            raise EngineError(
-                "register_iceberg_tables: provide namespace (catalog) or base_path"
-            )
-
-        # --- catalog-based discovery (preferred) ---
-        if namespace is not None and self._iceberg_catalog is not None:
-            registered: List[str] = []
-            scan_kwargs: Dict[str, Any] = {}
-            if self._storage_options:
-                scan_kwargs["storage_options"] = self._storage_options
-            tables = self._iceberg_catalog.list_tables(namespace)
-            for table_id in tables:
-                tbl_name = prefix + (table_id[-1] if isinstance(table_id, (list, tuple)) else str(table_id))
-                ice_table = self._iceberg_catalog.load_table(table_id)
-                lf = pl.scan_iceberg(ice_table, **scan_kwargs)
-                self._sql_context.register(tbl_name, lf)
-                registered.append(tbl_name)
-            return registered
-
-        # --- path-based discovery ---
-        if base_path is None:
-            raise EngineError(
-                "register_iceberg_tables: iceberg_catalog is not configured "
-                "— provide base_path for path-based discovery or call set_iceberg_catalog()"
-            )
-        if self._platform is None:
-            raise EngineError(
-                "register_iceberg_tables with base_path requires a platform — call set_platform() first"
-            )
-
-        registered = []
-        try:
-            child_paths_ice = self._platform.list_folders(base_path)
-        except Exception:  # noqa: BLE001
-            return registered
-
-        for child in sorted(child_paths_ice):
-            # Iceberg tables always contain a metadata/ subdirectory.
-            metadata_dir = normalize_path(child) + "/metadata"
-            if not self._platform.folder_exists(metadata_dir):
-                continue
-            try:
-                lf = self.read_iceberg(child)
-            except Exception:  # noqa: BLE001
-                continue
-            tbl_name = prefix + normalize_path(child).rsplit("/", 1)[-1]
-            self._sql_context.register(tbl_name, lf)
-            registered.append(tbl_name)
-        return registered
+        return polars_registration.register_iceberg_tables(
+            catalog=self._iceberg_catalog,
+            platform=self._platform,
+            storage_options=self._storage_options,
+            sql_context=self._sql_context,
+            registry=self._relation_registry,
+            path_loader_factory=self.read_iceberg,
+            namespace=namespace,
+            base_path=base_path,
+            logical_prefix=logical_prefix,
+            recursive=recursive,
+            max_depth=max_depth,
+            include=include,
+            exclude=exclude,
+            max_tables=max_tables,
+            preload=preload,
+            on_error=on_error,
+        )
 
     # ==================================================================
     # Read
@@ -443,28 +257,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        merged: Dict[str, Any] = dict(options or {})
-        if merged.pop("use_hive_partitioning", None):
-            merged["hive_partitioning"] = True
-        merged.setdefault("missing_columns", "insert")
-        merged.setdefault("extra_columns", "ignore")
-        if self._storage_options:
-            merged["storage_options"] = self._storage_options
-        return pl.scan_parquet(
-            path,
-            include_file_paths=FileInfoColumn.FILE_PATH,
-            **merged,
-        )
+        return scan_parquet(path, options, self._storage_options)
 
     def read_delta(
         self,
         path: str,
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        merged: Dict[str, Any] = dict(options or {})
-        if self._storage_options:
-            merged["storage_options"] = self._storage_options
-        return pl.scan_delta(path, **merged)
+        return delta_ops.scan_delta(path, options, self._storage_options)
 
     def read_iceberg(
         self,
@@ -486,143 +286,49 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        merged: Dict[str, Any] = dict(options or {})
-        merged.pop("use_hive_partitioning", None)  # scan_csv has no hive_partitioning support
-        # Normalise framework-level aliases to Polars kwarg names
-        if "sep" in merged:
-            merged.setdefault("separator", merged.pop("sep"))
-        else:
-            merged.setdefault("separator", ",")
-        if "header" in merged:
-            val = merged.pop("header")
-            merged.setdefault("has_header", str(val).lower() == "true")
-        else:
-            merged.setdefault("has_header", True)
-        if "quote" in merged:
-            merged.setdefault("quote_char", merged.pop("quote"))
-        else:
-            merged.setdefault("quote_char", '"')
-        if "inferSchema" in merged:
-            val = merged.pop("inferSchema")
-            merged.setdefault("infer_schema", str(val).lower() == "true")
-        else:
-            merged.setdefault("infer_schema", True)
-        if "missing_columns" in _SCAN_CSV_PARAMS:
-            merged.setdefault("missing_columns", "insert")
-        if self._storage_options:
-            merged["storage_options"] = self._storage_options
-        return pl.scan_csv(
-            path,
-            include_file_paths=FileInfoColumn.FILE_PATH,
-            **merged,
-        )
+        return scan_csv(path, options, self._storage_options)
 
     def read_json(
         self,
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        # Polars has no scan_json — read eagerly then convert to lazy.
-        # Inject __file_path manually so add_file_info_columns can map metadata.
-        merged: Dict[str, Any] = dict(options or {})
-        merged.pop("use_hive_partitioning", None)
-        path_col = FileInfoColumn.FILE_PATH
-
         ext = self.FORMAT_EXTENSIONS.get(Format.JSON.value, f".{Format.JSON.value}")
         resolved = self._resolve_file_paths(path, ext)
         if not resolved:
             raise FileNotFoundError(f"No JSON files found at: {path}")
-        # pl.read_json has no storage_options support — fetch bytes via the
-        # platform so any backend (local, S3, ADLS, DBFS) works uniformly.
-        frames = [
-            pl.read_json(io.BytesIO(self.platform.read_bytes(f))).with_columns(
-                pl.lit(f).alias(path_col)
-            )
-            for f in resolved
-        ]
-        return pl.concat(frames).lazy()
+        return read_json_files(resolved, self.platform)
 
     def read_jsonl(
         self,
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        merged: Dict[str, Any] = dict(options or {})
-        merged.pop("use_hive_partitioning", None)
-        if self._storage_options:
-            merged["storage_options"] = self._storage_options
-        return pl.scan_ndjson(
-            path,
-            include_file_paths=FileInfoColumn.FILE_PATH,
-            **merged,
-        )
+        return scan_jsonl(path, options, self._storage_options)
 
     def read_avro(
         self,
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        # Polars has no scan_avro — read eagerly then convert to lazy.
-        # Inject __file_path manually so add_file_info_columns can map metadata.
-        merged: Dict[str, Any] = dict(options or {})
-        merged.pop("use_hive_partitioning", None)
-        path_col = FileInfoColumn.FILE_PATH
-
         ext = self.FORMAT_EXTENSIONS.get(Format.AVRO.value, f".{Format.AVRO.value}")
         resolved = self._resolve_file_paths(path, ext)
         if not resolved:
             raise FileNotFoundError(f"No Avro files found at: {path}")
-        # pl.read_avro has no storage_options support — fetch bytes via the
-        # platform so any backend (local, S3, ADLS, DBFS) works uniformly.
-        frames = [
-            pl.read_avro(io.BytesIO(self.platform.read_bytes(f)), **merged).with_columns(
-                pl.lit(f).alias(path_col)
-            )
-            for f in resolved
-        ]
-        return pl.concat(frames).lazy()
+        return read_avro_files(resolved, self.platform, options)
 
     def read_excel(
         self,
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        # Polars has no scan_excel — read eagerly then convert to lazy.
-        # Inject __file_path manually so add_file_info_columns can map metadata.
-        merged: Dict[str, Any] = dict(options or {})
-        merged.pop("use_hive_partitioning", None)
-        path_col = FileInfoColumn.FILE_PATH
-
         ext = self.FORMAT_EXTENSIONS.get(Format.EXCEL.value, ".xlsx")
         resolved = self._resolve_file_paths(path, ext)
         if not resolved:
             raise FileNotFoundError(f"No Excel files found at: {path}")
-        # pl.read_excel has no storage_options support — fetch bytes via the
-        # platform so any backend (local, S3, ADLS, DBFS) works uniformly.
-        # Default to calamine (fastexcel); fall back to openpyxl if not installed.
-        merged.setdefault("engine", "calamine" if _FASTEXCEL_AVAILABLE else "openpyxl")
-        frames = []
-        for f in resolved:
-            result = pl.read_excel(io.BytesIO(self.platform.read_bytes(f)), **merged)
-            if isinstance(result, dict):
-                # Multi-sheet workbook: concat all sheets into a single frame.
-                frame = pl.concat(result.values())
-            else:
-                frame = result
-            frames.append(frame.with_columns(pl.lit(f).alias(path_col)))
-        return pl.concat(frames).lazy()
+        return read_excel_files(resolved, self.platform, options)
 
     # Keys consumed by the framework that must not leak to connectorx / pyodbc.
-    _FRAMEWORK_DB_KEYS: frozenset[str] = frozenset({
-        "database_type", "host", "port", "database", "user", "password",
-        "driver", "tenant_id", "token",
-    })
-
-    def _strip_framework_keys(self, opts: Dict[str, Any]) -> None:
-        """Remove framework and driver-specific keys from *opts* in-place."""
-        for key in self._FRAMEWORK_DB_KEYS | self.DRIVER_CONNECTION_KEYS:
-            opts.pop(key, None)
-
     def read_database(
         self,
         *,
@@ -630,214 +336,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         query: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> pl.LazyFrame:
-        merged: Dict[str, Any] = dict(options or {})
-        db_type = merged.get("database_type", "")
-        auth_type = merged.pop("auth_type", DatabaseAuthType.PASSWORD)
-
-        # Validate table name when used in SQL interpolation
-        if table and not query and not _SAFE_TABLE_RE.match(table):
-            raise EngineError(f"Invalid table name: {table!r}")
-
-        # SPN / MI auth is only supported for MSSQL (ODBC driver handles it)
-        if auth_type in (DatabaseAuthType.SERVICE_PRINCIPAL, DatabaseAuthType.MANAGED_IDENTITY):
-            if db_type not in (DatabaseType.MSSQL, "mssql"):
-                raise EngineError(
-                    f"PolarsEngine: {auth_type} auth is only supported for MSSQL, "
-                    f"got database_type={db_type!r}"
-                )
-            connection_uri, attrs_before = self._build_mssql_odbc_connection(auth_type, merged)
-            sql = query if query else f"SELECT * FROM {table}"
-            self._strip_framework_keys(merged)
-            return self._read_database_odbc(sql, connection_uri, attrs_before, **merged)
-
-        # Access-token MSSQL: route through pyodbc/ODBC path
-        if auth_type == DatabaseAuthType.ACCESS_TOKEN and db_type in (DatabaseType.MSSQL, "mssql"):
-            connection_uri, attrs_before = self._build_mssql_odbc_connection(auth_type, merged)
-            sql = query if query else f"SELECT * FROM {table}"
-            self._strip_framework_keys(merged)
-            return self._read_database_odbc(sql, connection_uri, attrs_before, **merged)
-
-        # Access-token non-MSSQL: inject token as password (AWS RDS IAM / GCP Cloud SQL IAM)
-        if auth_type == DatabaseAuthType.ACCESS_TOKEN:
-            token = merged.pop("token", "")
-            if token:
-                merged["password"] = token
-            merged.pop("tenant_id", None)
-
-        connection_uri = merged.pop("url", None)
-        if connection_uri is None:
-            connection_uri = self._build_connection_string(merged)
-        self._strip_framework_keys(merged)
-        sql = query if query else f"SELECT * FROM {table}"
-
-        # Oracle: use oracledb thin mode (no Oracle Instant Client needed)
-        if db_type in (DatabaseType.ORACLE, "oracle"):
-            return self._read_database_oracle(sql, connection_uri, **merged)
-
-        return pl.read_database_uri(sql, connection_uri, **merged).lazy()
-
-    @staticmethod
-    def _read_database_oracle(sql: str, connection_uri: str, **kwargs: Any) -> pl.LazyFrame:
-        """Read from Oracle using ``oracledb`` in thin mode.
-
-        connectorx requires Oracle Instant Client which is often unavailable.
-        This method uses ``oracledb`` (thin mode, pure-Python) via
-        ``pl.read_database`` instead.
-        """
-        try:
-            import oracledb  # noqa: PLC0415
-        except ImportError as exc:
-            raise EngineError(
-                "oracledb package is required for Oracle reads — pip install oracledb"
-            ) from exc
-
-        # Parse oracle://user:pass@host:port/service from the connection URI
-        m = re.match(
-            r"oracle://(?:([^:@]+)(?::([^@]*))?@)?([^:/]+):(\d+)/(.+)",
-            connection_uri,
+        return read_database_frame(
+            table=table,
+            query=query,
+            options=options,
+            driver_connection_keys=self.DRIVER_CONNECTION_KEYS,
         )
-        if not m:
-            raise EngineError(f"Cannot parse Oracle connection URI: {connection_uri!r}")
-
-        user, password, host, port, service = m.groups()
-        conn = oracledb.connect(
-            user=_url_unquote(user) if user else user,
-            password=_url_unquote(password) if password else password,
-            dsn=f"{host}:{port}/{service}",
-        )
-        try:
-            return pl.read_database(sql, connection=conn, **kwargs).lazy()
-        finally:
-            conn.close()
-
-    @staticmethod
-    def _build_mssql_odbc_connection(
-        auth_type: str, opts: Dict[str, Any]
-    ) -> Tuple[str, Optional[bytes]]:
-        """Build MSSQL connection via pyodbc ODBC connection string for non-password auth.
-
-        Returns ``(odbc_connection_string, attrs_before_token_struct)``.
-        The token struct is only set for ``access_token`` auth; otherwise ``None``.
-        """
-        from urllib.parse import quote_plus
-
-        host = opts.get("host", "localhost")
-        port = opts.get("port", 1433)
-        database = opts.get("database", "")
-        driver = opts.get("driver", "ODBC Driver 18 for SQL Server")
-
-        if auth_type == DatabaseAuthType.SERVICE_PRINCIPAL:
-            conn_str = (
-                f"Driver={{{driver}}};Server={host},{port};Database={database};"
-                f"Authentication=ActiveDirectoryServicePrincipal;"
-                f"UID={opts.get('user', '')};PWD={opts.get('password', '')}"
-            )
-            return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}", None
-
-        elif auth_type == DatabaseAuthType.MANAGED_IDENTITY:
-            conn_str = (
-                f"Driver={{{driver}}};Server={host},{port};Database={database};"
-                f"Authentication=ActiveDirectoryMsi"
-            )
-            user = opts.get("user")
-            if user:  # user-assigned managed identity
-                conn_str += f";UID={user}"
-            return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}", None
-
-        elif auth_type == DatabaseAuthType.ACCESS_TOKEN:
-            import struct
-            token = opts.get("token", "")
-            token_bytes = token.encode("UTF-16-LE")
-            token_struct = struct.pack(
-                f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
-            )
-            conn_str = (
-                f"Driver={{{driver}}};Server={host},{port};Database={database}"
-            )
-            return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}", token_struct
-
-        raise EngineError(f"PolarsEngine: unsupported MSSQL auth_type {auth_type!r}")
-
-    @staticmethod
-    def _read_database_odbc(
-        sql: str,
-        connection_uri: str,
-        attrs_before: Optional[bytes] = None,
-        **kwargs: Any,
-    ) -> pl.LazyFrame:
-        """Read from a database via SQLAlchemy + pyodbc.
-
-        Used for MSSQL non-password auth where connectorx is not supported.
-        When *attrs_before* is provided (access_token auth), it is passed
-        as ``connect_args`` to ``sqlalchemy.create_engine``.
-        """
-        try:
-            from sqlalchemy import create_engine  # noqa: PLC0415
-        except ImportError as exc:
-            raise EngineError(
-                "sqlalchemy is required for non-password MSSQL auth — "
-                "pip install sqlalchemy"
-            ) from exc
-
-        SQL_COPT_SS_ACCESS_TOKEN = 1256  # noqa: N806
-        connect_args: Dict[str, Any] = {}
-        if attrs_before is not None:
-            connect_args["attrs_before"] = {SQL_COPT_SS_ACCESS_TOKEN: attrs_before}
-
-        engine = create_engine(connection_uri, connect_args=connect_args)
-        try:
-            return pl.read_database(sql, connection=engine, **kwargs).lazy()
-        finally:
-            engine.dispose()
-
-    # ------------------------------------------------------------------
-    # Connection string helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _build_connection_string(opts: Dict[str, Any]) -> str:
-        """Build a connection string from ``database_type``, ``user``, ``password``,
-        ``host``, ``port``, ``database``.
-
-        Generates URIs compatible with connectorx / SQLAlchemy
-        (e.g. ``postgresql://user:pass@host:5432/db``).
-
-        Raises:
-            EngineError: If ``database_type`` is missing.
-        """
-        db_type = opts.get("database_type")
-        if not db_type:
-            raise EngineError(
-                "PolarsEngine.read_database requires 'url' or 'database_type' in options"
-            )
-        user = opts.get("user", "")
-        password = opts.get("password", "")
-        host = opts.get("host", "localhost")
-        port = opts.get("port")
-        database = opts.get("database", "")
-
-        if db_type == DatabaseType.MYSQL:
-            port = port or 3306
-            scheme = "mysql"
-        elif db_type == DatabaseType.MSSQL:
-            port = port or 1433
-            scheme = "mssql"
-        elif db_type == DatabaseType.POSTGRESQL:
-            port = port or 5432
-            scheme = "postgresql"
-        elif db_type == DatabaseType.ORACLE:
-            port = port or 1521
-            scheme = "oracle"
-        elif db_type == DatabaseType.SQLITE:
-            # connectorx requires an absolute path; resolve relative paths
-            if not os.path.isabs(database):
-                database = os.path.abspath(database)
-            return f"sqlite:///{database}"
-        else:
-            raise EngineError(f"PolarsEngine: unsupported database_type {db_type!r}")
-
-        auth = f"{_url_quote(user, safe='')}:{_url_quote(password, safe='')}@" if user else ""
-        return f"{scheme}://{auth}{host}:{port}/{database}"
 
     @staticmethod
     def _schema_names(df: "pl.LazyFrame") -> List[str]:
@@ -868,7 +372,16 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         Register tables first via :meth:`register_table`,
         :meth:`register_delta_tables`, or :meth:`register_iceberg_tables`.
         """
-        return self._sql_context.execute(sql)
+        prepared_sql = (
+            self._sql_resolver.prepare(
+                sql,
+                registry=self._relation_registry,
+                sql_context=self._sql_context,
+            )
+            if self._relation_registry
+            else sql
+        )
+        return self._sql_context.execute(prepared_sql)
 
     def read_table(
         self,
@@ -888,12 +401,11 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     "pass iceberg_catalog= to the constructor or call set_iceberg_catalog(). "
                     "For path-based reads use read_iceberg(path) instead."
                 )
-            pyice_id = self._pyiceberg_table_id(table_name)
-            ice_table = self._iceberg_catalog.load_table(pyice_id)
-            scan_kwargs: Dict[str, Any] = {}
-            if self._storage_options:
-                scan_kwargs["storage_options"] = self._storage_options
-            return pl.scan_iceberg(ice_table, **scan_kwargs)
+            return iceberg_ops.read_table(
+                table_name,
+                catalog=self._iceberg_catalog,
+                storage_options=self._storage_options,
+            )
         raise EngineError(f"PolarsEngine.read_table: unsupported format {fmt!r}")
 
     def read_path(
@@ -952,14 +464,33 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         merged: Dict[str, Any] = dict(options or {})
 
         if partition_columns:
-            partition_columns = self._resolve_column_names(self._schema_names(df), partition_columns)
+            partition_columns = self._resolve_column_names(
+                self._schema_names(df), partition_columns
+            )
 
         if fmt == Format.DELTA.value:
-            self._write_delta_path(df, path, mode, partition_columns, merged)
+            delta_ops.write_path(
+                df,
+                path,
+                mode,
+                partition_columns,
+                merged,
+                storage_options=self._storage_options,
+                delta_table_cls=self.delta,
+            )
         elif fmt in (Format.PARQUET.value, Format.CSV.value, Format.JSONL.value):
-            self._write_flat_sink(df, path, mode, fmt, partition_columns, merged)
+            write_flat_sink(
+                df,
+                path,
+                mode,
+                fmt,
+                partition_columns,
+                merged,
+                platform=self._platform,
+                storage_options=self._storage_options,
+            )
         elif fmt in (Format.JSON.value, Format.AVRO.value):
-            self._write_flat_eager(df, path, mode, fmt, merged)
+            write_flat_eager(df, path, mode, fmt, merged, platform=self.platform)
         else:
             raise EngineError(f"PolarsEngine write_to_path: unsupported format {fmt!r}")
 
@@ -979,583 +510,28 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             )
         elif fmt_lower == Format.ICEBERG.value:
             if partition_columns:
-                partition_columns = self._resolve_column_names(self._schema_names(df), partition_columns)
-            self._write_iceberg_table(df, table_name, mode, partition_columns=partition_columns)
-        else:
-            raise EngineError(f"PolarsEngine.write_to_table: unsupported format {fmt!r}")
-
-    # ------------------------------------------------------------------
-    # Delta write helpers
-    # ------------------------------------------------------------------
-
-    def _write_delta_path(
-        self,
-        df: pl.LazyFrame,
-        path: str,
-        mode: str,
-        partition_columns: Optional[List[str]],
-        options: Dict[str, Any],
-    ) -> None:
-        if mode in (LoadType.OVERWRITE.value, LoadType.FULL_LOAD.value):
-            delta_mode = "overwrite"
-            schema_mode = "overwrite"
-        elif mode in (LoadType.APPEND.value,):
-            delta_mode = "append"
-            schema_mode = "merge"
-        else:
-            raise EngineError(f"PolarsEngine._write_delta_path: unsupported mode {mode!r}")
-
-        write_opts: Dict[str, Any] = {}
-        if self._storage_options:
-            write_opts["storage_options"] = self._storage_options
-        delta_write_options: Dict[str, Any] = dict(options)
-        if partition_columns:
-            delta_write_options["partition_by"] = partition_columns
-        delta_write_options.setdefault("schema_mode", schema_mode)
-        write_opts["delta_write_options"] = delta_write_options
-        self._sink_or_write_delta(df, path, mode=delta_mode, **write_opts)
-        self._delta_post_commit(path)
-
-    def _delta_post_commit(self, path: str) -> None:
-        """Run post-commit maintenance matching Spark's automatic behaviour.
-
-        delta-rs does not auto-create checkpoints, compact the log, or
-        clean up expired metadata the way Spark does.  This helper
-        replicates that behaviour:
-
-        1. **Checkpoint** — created every ``_DELTA_CHECKPOINT_INTERVAL``
-           commits (default 10, same as Spark's ``delta.checkpointInterval``).
-        2. **Cleanup metadata** — removes log files older than
-           ``delta.logRetentionDuration`` (30 days by default in delta-rs).
-        """
-        try:
-            dt = self.delta(path, storage_options=self._storage_options or None)
-            version = dt.version()
-            if version % self._DELTA_CHECKPOINT_INTERVAL == 0 and version > 0:
-                dt.create_checkpoint()
-            dt.cleanup_metadata()
-        except Exception:  # noqa: BLE001
-            logger.debug(
-                "Delta post-commit maintenance skipped for %s", path, exc_info=True,
+                partition_columns = self._resolve_column_names(
+                    self._schema_names(df), partition_columns
+                )
+            if self._iceberg_catalog is None:
+                raise EngineError(
+                    "PolarsEngine._write_iceberg_table requires iceberg_catalog"
+                )
+            iceberg_ops.write_table(
+                df,
+                table_name,
+                mode,
+                partition_columns,
+                catalog=self._iceberg_catalog,
             )
-
-    def _sink_or_write_delta(self, df: pl.LazyFrame, path: str, **kwargs: Any) -> Any:
-        """Dispatch to ``sink_delta`` (streaming) or ``collect + write_delta`` (eager fallback).
-
-        ``LazyFrame.sink_delta`` was introduced in Polars 0.20.x.  On older
-        installations ``DataFrame.write_delta`` is used instead — it accepts
-        the same keyword arguments (``mode``, ``storage_options``,
-        ``delta_write_options``, ``delta_merge_options``) and, for
-        ``mode="merge"``, returns the same ``TableMerger`` object so caller
-        builder chains work unchanged.
-        """
-        if _SINK_DELTA_AVAILABLE:
-            return df.sink_delta(path, **kwargs)
-        return df.collect().write_delta(path, **kwargs)
-
-    # ------------------------------------------------------------------
-    # Flat-file writes (streaming via sink_)
-    # ------------------------------------------------------------------
-
-    def _write_flat_sink(
-        self,
-        df: pl.LazyFrame,
-        path: str,
-        mode: str,
-        fmt: str,
-        partition_columns: Optional[List[str]],
-        options: Dict[str, Any],
-    ) -> None:
-        """Write parquet / csv / jsonl using streaming ``sink_*``.
-
-        When *partition_columns* are provided the target is a
-        :class:`polars.PartitionBy` so that data is split into
-        sub-directories by the given columns.  Otherwise files are
-        written directly into the folder at *path*.
-        """
-        is_overwrite = mode in (LoadType.OVERWRITE.value, LoadType.FULL_LOAD.value)
-        if is_overwrite and self._platform is not None:
-            try:
-                self._platform.delete_folder(path, recursive=True)
-            except Exception:  # noqa: BLE001
-                pass  # folder may not exist on first write
-
-        sink_opts: Dict[str, Any] = dict(options)
-        if self._storage_options:
-            sink_opts["storage_options"] = self._storage_options
-        sink_opts.setdefault("mkdir", True)
-
-        if partition_columns:
-            target: str | pl.PartitionBy = pl.PartitionBy(path, key=partition_columns, approximate_bytes_per_file=self._DEFAULT_BYTES_PER_FILE)
         else:
-            file_name = self._make_file_name(path, fmt, is_overwrite)
-            target = normalize_path(path) + "/" + file_name
-
-        if fmt == Format.PARQUET.value:
-            df.sink_parquet(target, **sink_opts)
-        elif fmt == Format.CSV.value:
-            df.sink_csv(target, **sink_opts)
-        elif fmt == Format.JSONL.value:
-            df.sink_ndjson(target, **sink_opts)
-        else:
-            raise EngineError(f"PolarsEngine._write_flat_sink: unsupported format {fmt!r}")
-
-    # ------------------------------------------------------------------
-    # Flat-file writes (eager fallback for json / avro)
-    # ------------------------------------------------------------------
-
-    def _write_flat_eager(
-        self,
-        df: pl.LazyFrame,
-        path: str,
-        mode: str,
-        fmt: str,
-        options: Dict[str, Any],
-    ) -> None:
-        """Write json / avro — no ``sink_`` available, collect first."""
-        is_overwrite = mode in (LoadType.OVERWRITE.value, LoadType.FULL_LOAD.value)
-        if is_overwrite and self._platform is not None:
-            try:
-                self._platform.delete_folder(path, recursive=True)
-            except Exception:  # noqa: BLE001
-                pass  # folder may not exist on first write
-
-        file_name = self._make_file_name(path, fmt, is_overwrite)
-        file_path = normalize_path(path) + "/" + file_name
-        self._platform.create_folder(path)
-
-        write_opts: Dict[str, Any] = dict(options)
-        if fmt == Format.AVRO.value:
-            # Polars cannot write TZ-aware timestamps to Avro ("not yet implemented"),
-            # and TZ-naive timestamps produce "local-timestamp-micros" which DuckDB
-            # and many other readers do not support.  Cast all Datetime columns to
-            # UTF-8 ISO strings so the output is universally readable.
-            dt_casts = [
-                pl.col(name).cast(pl.String)
-                for name, dtype in df.collect_schema().items()
-                if isinstance(dtype, pl.Datetime)
-            ]
-            if dt_casts:
-                df = df.with_columns(dt_casts)
-            # Polars defaults to name="" which is invalid per the Avro spec.
-            # Use the folder name so external tools can open the file.
-            write_opts.setdefault("name", normalize_path(path).rsplit("/", 1)[-1])
-        collected = df.collect()
-        # write_json / write_avro have no storage_options support — serialise
-        # to bytes in memory, then push via the platform so any backend
-        # (local, S3, ADLS, DBFS) works uniformly.
-        buf = io.BytesIO()
-        if fmt == Format.JSON.value:
-            collected.write_json(buf)
-        elif fmt == Format.AVRO.value:
-            collected.write_avro(buf, **write_opts)
-        self._platform.write_bytes(file_path, buf.getvalue(), overwrite=True)
-
-    # ------------------------------------------------------------------
-    # Delta merge helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _build_delta_merge_options(
-        merge_keys: List[str],
-        options: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], str, str]:
-        """Build ``delta_merge_options`` with source/target aliases and a key predicate.
-
-        Centralises the alias + predicate construction used by
-        ``merge_to_path``, ``merge_overwrite_to_path`` and ``scd2_to_path``.
-
-        Returns ``(options_dict, src_alias, tgt_alias)``.  Callers that
-        need extra predicate clauses (e.g. SCD2's ``is_current = true``)
-        append them to ``options_dict["predicate"]`` using the returned
-        aliases.
-        """
-        merged: Dict[str, Any] = dict(options or {})
-        merged.setdefault("source_alias", "source")
-        merged.setdefault("target_alias", "target")
-        src_alias = merged["source_alias"]
-        tgt_alias = merged["target_alias"]
-        merged["predicate"] = " AND ".join(
-            f"{tgt_alias}.`{c}` = {src_alias}.`{c}`" for c in merge_keys
-        )
-        return merged, src_alias, tgt_alias
-
-    @staticmethod
-    def _raise_if_delta_target_missing(exc: Exception, path: str, op: str) -> None:
-        """Re-raise *exc* as EngineError when it indicates a missing Delta target."""
-        name = type(exc).__name__
-        msg = str(exc).lower()
-        if "NotFound" in name or "not found" in msg or "does not exist" in msg:
             raise EngineError(
-                f"{op} failed — target path does not exist or is not a Delta table: {path}"
-            ) from exc
-
-    # ------------------------------------------------------------------
-    # Write helpers
-    # ------------------------------------------------------------------
-
-
-    @staticmethod
-    def _make_file_name(path: str, fmt: str, is_overwrite: bool) -> str:
-        """Build the output file name.
-
-        When *path* contains trailing date or hive-partition segments the
-        logical folder name is recovered by stripping those segments first:
-
-        * ``…/orders_dest/2026/04/09``       → folder ``orders_dest``
-        * ``…/orders_dest_02/year=2026/m=04``   → folder ``orders_dest_02``
-
-        Otherwise the deepest directory component is used as-is.
-
-        * overwrite → ``{folder_name}.{ext}``
-        * append    → ``{folder_name}_{yyyyMMdd_HHmmss}.{ext}``
-        """
-        parts = [p for p in normalize_path(path).split("/") if p]
-        # Strip trailing partition segments, keeping at least 1 part (the logical folder name).
-        while len(parts) > 1 and _PARTITION_SEGMENT_RE.match(parts[-1]):
-            parts.pop()
-        folder_name = parts[-1] if parts else "data"
-        if is_overwrite:
-            return f"{folder_name}.{fmt}"
-        ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        return f"{folder_name}_{ts}.{fmt}"
+                f"PolarsEngine.write_to_table: unsupported format {fmt!r}"
+            )
 
     # ------------------------------------------------------------------
     # Iceberg write helpers
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _pyiceberg_table_id(table_name: str) -> str:
-        """Strip backticks and drop the catalog prefix for pyiceberg.
-
-        ``full_table_name`` returns e.g. `` `catalog`.`ns`.`table` ``.
-        pyiceberg expects ``ns.table`` (the catalog is implicit in the
-        Catalog instance).
-        """
-        parts = [p.strip().strip("`") for p in table_name.split(".")]
-        # 3+ parts → first part is the catalog prefix, drop it
-        if len(parts) >= 3:
-            return ".".join(parts[1:])
-        # 2-part → namespace.table (already correct)
-        if len(parts) == 2:
-            return f"{parts[0]}.{parts[1]}"
-        return parts[0]
-
-    @staticmethod
-    def _align_arrow_to_iceberg_schema(arrow_table: Any, target_schema: Any) -> Any:
-        """Align Arrow table columns to an Arrow representation of an Iceberg schema.
-
-        pyiceberg's ``_check_schema_compatible`` performs a positional
-        name check against the Iceberg schema — it does not auto-fill
-        missing columns.  This helper does the minimal work needed:
-
-        1. **Fast path**: when ``arrow_table.column_names`` already match
-           the Iceberg schema order, return *arrow_table* unchanged.
-        2. Append a typed NULL array for each Iceberg column missing from
-           the source (using ``pa.nulls`` with the Iceberg field's type).
-        3. ``select`` the Iceberg column order, which also drops extras.
-
-        No type casting is performed on existing columns — pyiceberg
-        handles safe promotions (e.g. int→long, float→double, timestamp
-        unit widening) internally via ``_cast_if_needed``, and raises
-        ``ValueError`` for incompatible types so the user can fix them in
-        the transform step.
-        """
-        import pyarrow as pa  # noqa: PLC0415
-
-        target_names = target_schema.names
-
-        # Fast path: no reorder, no backfill, no drop needed.
-        if arrow_table.column_names == target_names:
-            return arrow_table
-
-        # Case-insensitive lookup of source columns.
-        # Built once here and reused for both missing-detection and casing rename.
-        arrow_col_lower = {n.lower(): n for n in arrow_table.column_names}
-
-        # 1) Backfill missing Iceberg columns with typed NULLs.
-        #    "Missing" means no case-insensitive match in the source.
-        missing = [f for f in target_schema if f.name.lower() not in arrow_col_lower]
-        if missing:
-            num_rows = arrow_table.num_rows
-            for field in missing:
-                # append_column accepts a pa.Field; the column is added at the
-                # end with field.name (Iceberg-canonical casing).
-                arrow_table = arrow_table.append_column(
-                    field, pa.nulls(num_rows, type=field.type),
-                )
-            # Refresh the lookup so the rename step below includes new columns.
-            arrow_col_lower = {n.lower(): n for n in arrow_table.column_names}
-
-        # 2) Rename any case-mismatched columns to Iceberg-canonical names so
-        #    that select(target_names) works with exact positional matching.
-        #    This makes the function self-sufficient even when called without
-        #    a prior _align_arrow_to_iceberg_casing pass.
-        ice_name_by_lower = {n.lower(): n for n in target_names}
-        renamed = [ice_name_by_lower.get(c.lower(), c) for c in arrow_table.column_names]
-        if renamed != arrow_table.column_names:
-            arrow_table = arrow_table.rename_columns(renamed)
-
-        # 3) Reorder to Iceberg order and drop any source-only extras.
-        return arrow_table.select(target_names)
-
-    @staticmethod
-    def _align_arrow_to_iceberg_table(arrow_table: Any, ice_table: Any) -> Any:
-        """Align Arrow columns to the current schema of an Iceberg table."""
-        return PolarsEngine._align_arrow_to_iceberg_schema(
-            arrow_table,
-            ice_table.schema().as_arrow(),
-        )
-
-    @staticmethod
-    def _align_arrow_to_iceberg_casing(arrow_table: Any, ice_table: Any) -> Any:
-        """Rename Arrow columns to match existing Iceberg columns case-insensitively.
-
-        When an Arrow column matches an Iceberg column by lowercase name but
-        with different casing (e.g. ``Name`` vs ``name``), rename the Arrow
-        column to the Iceberg casing.  This prevents
-        :meth:`_evolve_iceberg_schema` from treating case-variants as new
-        columns, and lets :meth:`_align_arrow_to_iceberg_table` keep its exact
-        positional matching.
-
-        No-op when every Arrow column already has an exact match or no
-        case-insensitive match in the Iceberg schema.
-        """
-        ice_names = [f.name for f in ice_table.schema().fields]
-        ice_exact = set(ice_names)
-        ice_by_lower = {n.lower(): n for n in ice_names}
-
-        renames: Dict[str, str] = {}
-        for arrow_name in arrow_table.column_names:
-            if arrow_name in ice_exact:
-                continue
-            ice_match = ice_by_lower.get(arrow_name.lower())
-            if ice_match is not None:
-                renames[arrow_name] = ice_match
-
-        if not renames:
-            return arrow_table
-        new_names = [renames.get(n, n) for n in arrow_table.column_names]
-        return arrow_table.rename_columns(new_names)
-
-    def _write_iceberg_table(
-        self,
-        df: pl.LazyFrame,
-        table_name: str,
-        mode: str,
-        partition_columns: Optional[List[str]] = None,
-    ) -> None:
-        """Write a LazyFrame to an Iceberg table via pyiceberg (Arrow path)."""
-        if self._iceberg_catalog is None:
-            raise EngineError(
-                "PolarsEngine._write_iceberg_table requires iceberg_catalog"
-            )
-        from pyiceberg.exceptions import (  # noqa: PLC0415
-            NoSuchTableError,
-            TableAlreadyExistsError,
-        )
-
-        pyice_id = self._pyiceberg_table_id(table_name)
-
-        # Single materialisation: LazyFrame → Polars → Arrow once.
-        arrow_table = df.collect().to_arrow()
-
-        table_created = False
-        try:
-            ice_table = self._iceberg_catalog.load_table(pyice_id)
-        except NoSuchTableError:
-            # Table genuinely absent (HTTP 404) — create with Arrow schema.
-            ns = pyice_id.rsplit(".", 1)[0] if "." in pyice_id else "default"
-            self._iceberg_catalog.create_namespace_if_not_exists(ns)
-            try:
-                ice_table = self._iceberg_catalog.create_table(pyice_id, schema=arrow_table.schema)
-                table_created = True
-            except TableAlreadyExistsError:
-                # Race condition: another writer created the table between our
-                # load_table and create_table calls.  Load it normally.
-                ice_table = self._iceberg_catalog.load_table(pyice_id)
-
-        mode_lower = mode.lower()
-        if mode_lower in (LoadType.OVERWRITE.value, LoadType.FULL_LOAD.value):
-            iceberg_mode = "overwrite"
-        elif mode_lower == LoadType.APPEND.value:
-            iceberg_mode = "append"
-        else:
-            raise EngineError(f"PolarsEngine: unsupported Iceberg write mode {mode!r}")
-
-        # 1) Align casing + evolve schema + refresh name mapping.  New columns
-        #    must exist before being referenced by a partition spec.
-        if not table_created:
-            ice_table, arrow_table = self._align_and_evolve_iceberg(
-                ice_table, arrow_table, pyice_id,
-            )
-        elif "schema.name-mapping.default" not in (ice_table.properties or {}):
-            # New table — set initial name mapping.
-            ice_table = self._refresh_iceberg_name_mapping(ice_table, pyice_id)
-
-        # 2) Partition spec evolution — after schema so new columns are present.
-        if partition_columns:
-            ice_table = self._ensure_iceberg_partition_spec(
-                ice_table, partition_columns, pyice_id,
-            )
-
-        # 3) Write via pyiceberg Arrow API — works for both partitioned and
-        #    unpartitioned tables, and correctly handles timestamptz columns.
-        collected = self._align_arrow_to_iceberg_table(arrow_table, ice_table)
-        if iceberg_mode == "overwrite":
-            ice_table.overwrite(collected)
-        elif iceberg_mode == "append":
-            ice_table.append(collected)
-        else:
-            raise EngineError(f"PolarsEngine: unsupported Iceberg write mode {mode!r}")
-
-    def _refresh_iceberg_name_mapping(self, ice_table: Any, pyice_id: str) -> Any:
-        """Set ``schema.name-mapping.default`` and return the reloaded table.
-
-        Single source of truth for Iceberg name-mapping updates — called
-        after table creation and after schema evolution / reorder.
-        """
-        from pyiceberg.table.name_mapping import create_mapping_from_schema  # noqa: PLC0415
-
-        nm = create_mapping_from_schema(ice_table.schema())
-        with ice_table.transaction() as txn:
-            txn.set_properties({"schema.name-mapping.default": nm.model_dump_json()})
-        return self._iceberg_catalog.load_table(pyice_id)
-
-    def _align_and_evolve_iceberg(
-        self, ice_table: Any, arrow_table: Any, pyice_id: str,
-    ) -> Tuple[Any, Any]:
-        """Align Arrow casing to Iceberg, evolve schema, reorder, refresh mapping.
-
-        Single seam for the Iceberg pre-write flow:
-
-        1. Rename Arrow columns whose lowercase name matches an existing
-           Iceberg column with different casing (e.g. ``Name`` vs ``name``)
-           so schema evolution doesn't add case-variants and
-           :meth:`_align_arrow_to_iceberg_table` keeps exact positional matching.
-        2. ``union_by_name`` any truly-new columns into the Iceberg schema.
-        3. Reorder trailing columns (SCD2 → FileInfo → System) to canonical
-           order, mirroring ``ColumnNameSanitizer(90)``.
-        4. Refresh ``schema.name-mapping.default`` only when the schema
-           actually changed.
-
-        Returns:
-            Tuple of the (possibly reloaded) ``ice_table`` and the
-            (possibly renamed) ``arrow_table``.
-        """
-        # 1) Align source casing to existing Iceberg columns.
-        arrow_table = self._align_arrow_to_iceberg_casing(arrow_table, ice_table)
-
-        # 2) Evolve schema with aligned names.
-        schema_evolved = self._evolve_iceberg_schema(ice_table, arrow_table.schema)
-        if schema_evolved:
-            # Reload once after evolve so the reorder sees the new columns.
-            ice_table = self._iceberg_catalog.load_table(pyice_id)
-
-        # 3) Reorder trailing columns in the Iceberg schema.
-        reordered = self._reorder_iceberg_trailing_columns(ice_table)
-
-        # 4) Refresh name-mapping only when the schema actually changed.
-        if schema_evolved or reordered:
-            if reordered:
-                # Reorder committed a new schema version; reload before mapping.
-                ice_table = self._iceberg_catalog.load_table(pyice_id)
-            ice_table = self._refresh_iceberg_name_mapping(ice_table, pyice_id)
-        return ice_table, arrow_table
-
-    @staticmethod
-    def _evolve_iceberg_schema(ice_table: Any, arrow_schema: Any) -> bool:
-        """Union new source columns into the Iceberg table schema (mergeSchema).
-
-        Accepts a ``pa.Schema`` (Arrow) derived from the materialized data
-        and uses ``union_by_name`` which natively accepts ``pa.Schema``,
-        eliminating custom Polars→Iceberg type mapping.
-
-        Returns:
-            True if new columns were added, False if the schema was unchanged.
-        """
-        import pyarrow as pa  # noqa: PLC0415
-
-        target_col_names = {f.name for f in ice_table.schema().fields}
-        new_fields = [f for f in arrow_schema if f.name not in target_col_names]
-        if not new_fields:
-            return False
-
-        with ice_table.update_schema() as update:
-            update.union_by_name(pa.schema(new_fields))
-        return True
-
-    @staticmethod
-    def _reorder_iceberg_trailing_columns(ice_table: Any) -> bool:
-        """Reorder the Iceberg schema so ``TRAILING_COLUMNS`` are at the end.
-
-        Uses pyiceberg ``move_after`` to keep the Iceberg table schema
-        in the same canonical order that :class:`ColumnNameSanitizer`
-        produces, preventing positional mismatches on subsequent writes.
-
-        Returns True if the schema was reordered, False if already correct.
-        """
-        current = [f.name for f in ice_table.schema().fields]
-        trailing_set = set(TRAILING_COLUMNS)
-        current_set = set(current)
-        leading = [c for c in current if c not in trailing_set]
-        trailing_present = [c for c in TRAILING_COLUMNS if c in current_set]
-
-        if not trailing_present:
-            return False
-
-        expected = leading + trailing_present
-        if current == expected:
-            return False
-
-        with ice_table.update_schema() as update:
-            prev = leading[-1] if leading else None
-            for tc in trailing_present:
-                if prev is None:
-                    update.move_first(tc)
-                else:
-                    update.move_after(tc, prev)
-                prev = tc
-        return True
-
-    def _ensure_iceberg_partition_spec(
-        self,
-        ice_table: Any,
-        partition_columns: List[str],
-        pyice_id: str,
-    ) -> Any:
-        """Ensure the Iceberg table has identity partition fields for the given columns.
-
-        Uses ``update_spec().add_identity()`` which handles field-ID
-        assignment automatically (pyiceberg best practice).  Only adds
-        fields that are not already present in the current spec, making
-        this safe to call on every write (idempotent).
-
-        Returns the (possibly reloaded) ``ice_table``.
-        """
-        from pyiceberg.transforms import IdentityTransform  # noqa: PLC0415
-
-        spec = ice_table.spec()
-        schema = ice_table.schema()
-
-        # Build a set of source column names that already have an identity partition.
-        existing_identity_names: set[str] = set()
-        for pf in spec.fields:
-            if isinstance(pf.transform, IdentityTransform):
-                try:
-                    existing_identity_names.add(schema.find_field(pf.source_id).name)
-                except Exception:  # noqa: BLE001
-                    pass
-
-        missing = [c for c in partition_columns if c not in existing_identity_names]
-        if not missing:
-            return ice_table
-
-        with ice_table.update_spec() as update_spec:
-            for col in missing:
-                update_spec.add_identity(col)
-
-        return self._iceberg_catalog.load_table(pyice_id)
 
     # ==================================================================
     # Merge
@@ -1571,43 +547,24 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         options: Optional[Dict[str, str]] = None,
     ) -> None:
         if fmt.lower() != Format.DELTA.value:
-            raise EngineError(f"PolarsEngine merge_to_path only supports Delta, got {fmt!r}")
+            raise EngineError(
+                f"PolarsEngine merge_to_path only supports Delta, got {fmt!r}"
+            )
 
         actual = self._schema_names(df)
         merge_keys = self._resolve_column_names(actual, merge_keys)
         if partition_columns:
             partition_columns = self._resolve_column_names(actual, partition_columns)
 
-        delta_merge_options, src_alias, _ = self._build_delta_merge_options(
-            merge_keys, options,
+        delta_ops.merge_path(
+            df,
+            path,
+            actual,
+            merge_keys,
+            options,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
         )
-
-        write_opts: Dict[str, Any] = {}
-        if self._storage_options:
-            write_opts["storage_options"] = self._storage_options
-
-        exclude = set(merge_keys) | {SystemColumn.CREATED_AT}
-        update_cols = {
-            c: f"{src_alias}.`{c}`" for c in actual if c not in exclude
-        }
-
-        try:
-            (
-                self._sink_or_write_delta(
-                    df,
-                    path,
-                    mode="merge",
-                    delta_merge_options=delta_merge_options,
-                    **write_opts,
-                )
-                .when_matched_update(updates=update_cols)
-                .when_not_matched_insert_all()
-                .execute()
-            )
-        except Exception as exc:
-            self._raise_if_delta_target_missing(exc, path, "Merge")
-            raise
-        self._delta_post_commit(path)
 
     def merge_overwrite_to_path(
         self,
@@ -1620,44 +577,23 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> None:
         """Rolling overwrite via MERGE DELETE + APPEND (mirrors SparkEngine)."""
         if fmt.lower() != Format.DELTA.value:
-            raise EngineError(f"PolarsEngine merge_overwrite_to_path only supports Delta, got {fmt!r}")
+            raise EngineError(
+                f"PolarsEngine merge_overwrite_to_path only supports Delta, got {fmt!r}"
+            )
 
         actual = self._schema_names(df)
         merge_keys = self._resolve_column_names(actual, merge_keys)
         if partition_columns:
             partition_columns = self._resolve_column_names(actual, partition_columns)
 
-        # Step 1: use only distinct merge keys to DELETE matched rows.
-        keys_df = df.select(merge_keys).unique()
-
-        delta_merge_options, _, _ = self._build_delta_merge_options(
-            merge_keys, options,
-        )
-
-        write_opts: Dict[str, Any] = {}
-        if self._storage_options:
-            write_opts["storage_options"] = self._storage_options
-
-        try:
-            (
-                self._sink_or_write_delta(
-                    keys_df,
-                    path,
-                    mode="merge",
-                    delta_merge_options=delta_merge_options,
-                    **write_opts,
-                )
-                .when_matched_delete()
-                .execute()
-            )
-        except Exception as exc:
-            self._raise_if_delta_target_missing(exc, path, "Merge")
-            raise
-
-        # Step 2: append all source rows (also triggers _delta_post_commit via _write_delta_path).
-        self.write_to_path(
-            df, path, mode=LoadType.APPEND.value, fmt=fmt,
-            partition_columns=partition_columns, options=options,
+        delta_ops.merge_overwrite_path(
+            df,
+            path,
+            merge_keys,
+            partition_columns,
+            options,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
         )
 
     def merge_to_table(
@@ -1678,8 +614,20 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             actual = self._schema_names(df)
             merge_keys = self._resolve_column_names(actual, merge_keys)
             if partition_columns:
-                partition_columns = self._resolve_column_names(actual, partition_columns)
-            self._merge_iceberg_table(df, table_name, merge_keys, partition_columns=partition_columns)
+                partition_columns = self._resolve_column_names(
+                    actual, partition_columns
+                )
+            if self._iceberg_catalog is None:
+                raise EngineError(
+                    "PolarsEngine._merge_iceberg_table requires iceberg_catalog"
+                )
+            iceberg_ops.merge_table(
+                df,
+                table_name,
+                merge_keys,
+                partition_columns,
+                catalog=self._iceberg_catalog,
+            )
         else:
             raise EngineError(
                 f"PolarsEngine.merge_to_table: unsupported format {fmt!r}"
@@ -1703,8 +651,20 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             actual = self._schema_names(df)
             merge_keys = self._resolve_column_names(actual, merge_keys)
             if partition_columns:
-                partition_columns = self._resolve_column_names(actual, partition_columns)
-            self._merge_overwrite_iceberg_table(df, table_name, merge_keys, partition_columns=partition_columns)
+                partition_columns = self._resolve_column_names(
+                    actual, partition_columns
+                )
+            if self._iceberg_catalog is None:
+                raise EngineError(
+                    "PolarsEngine._merge_overwrite_iceberg_table requires iceberg_catalog"
+                )
+            iceberg_ops.merge_overwrite_table(
+                df,
+                table_name,
+                merge_keys,
+                partition_columns,
+                catalog=self._iceberg_catalog,
+            )
         else:
             raise EngineError(
                 f"PolarsEngine.merge_overwrite_to_table: unsupported format {fmt!r}"
@@ -1714,33 +674,6 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     # Delete by window (replace_by_watermark)
     # ==================================================================
 
-    @staticmethod
-    def _to_iso8601(value: Any) -> str:
-        """Normalise a datetime/date/str bound to strict ISO-8601 for PyIceberg predicates.
-
-        * ``datetime`` / ``date`` — call ``.isoformat()`` directly.
-        * ``str`` — replace any space separator with ``T``.
-        """
-        if isinstance(value, (datetime, date)):
-            return value.isoformat()
-        return str(value).replace(" ", "T")
-
-    @staticmethod
-    def _build_window_predicate(window: Dict[str, tuple], quote_char: str = "`") -> str:
-        """Build a SQL-style predicate for a watermark window.
-
-        Uses ``col > lower AND col <= upper`` — exclusive lower bound
-        to match the source watermark filter semantics.
-
-        ``quote_char`` controls column-name quoting: backtick for Delta/Spark SQL,
-        empty string for PyIceberg (which uses its own expression grammar).
-        """
-        q = quote_char
-        return " AND ".join(
-            f"{q}{col}{q} > '{lower}' AND {q}{col}{q} <= '{upper}'"
-            for col, (lower, upper) in window.items()
-        )
-
     def delete_by_window_path(
         self,
         path: str,
@@ -1749,16 +682,16 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> None:
         """Delete rows in a Delta path where columns fall within the window bounds."""
         if fmt.lower() != Format.DELTA.value:
-            raise EngineError(f"PolarsEngine delete_by_window_path only supports Delta, got {fmt!r}")
+            raise EngineError(
+                f"PolarsEngine delete_by_window_path only supports Delta, got {fmt!r}"
+            )
 
-        predicate = self._build_window_predicate(window)
-        storage_opts = self._storage_options or None
-        try:
-            dt = self.delta(path, storage_options=storage_opts)
-            dt.delete(predicate)
-        except Exception as exc:
-            self._raise_if_delta_target_missing(exc, path, "DeleteByWindow")
-            raise
+        delta_ops.delete_by_window_path(
+            path,
+            polars_temporal.build_window_predicate(window),
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
+        )
 
     def delete_by_window_table(
         self,
@@ -1779,13 +712,18 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 )
             # PyIceberg requires strict ISO-8601 timestamps (T separator, not space).
             iso_window = {
-                col: (self._to_iso8601(lower), self._to_iso8601(upper))
+                col: (
+                    polars_temporal.to_iso8601(lower),
+                    polars_temporal.to_iso8601(upper),
+                )
                 for col, (lower, upper) in window.items()
             }
-            predicate = self._build_window_predicate(iso_window, quote_char="")
-            pyice_id = self._pyiceberg_table_id(table_name)
-            ice_table = self._iceberg_catalog.load_table(pyice_id)
-            ice_table.delete(delete_filter=predicate)
+            predicate = polars_temporal.build_window_predicate(
+                iso_window, quote_char=""
+            )
+            iceberg_ops.delete_by_window(
+                table_name, predicate, catalog=self._iceberg_catalog
+            )
             return
         raise EngineError(
             f"PolarsEngine.delete_by_window_table: unsupported format {fmt!r}"
@@ -1815,58 +753,23 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         approach as :meth:`merge_overwrite_to_path`.
         """
         if fmt.lower() != Format.DELTA.value:
-            raise EngineError(f"PolarsEngine scd2_to_path only supports Delta, got {fmt!r}")
+            raise EngineError(
+                f"PolarsEngine scd2_to_path only supports Delta, got {fmt!r}"
+            )
 
         actual = self._schema_names(df)
         merge_keys = self._resolve_column_names(actual, merge_keys)
         if partition_columns:
             partition_columns = self._resolve_column_names(actual, partition_columns)
 
-        delta_merge_options, src_alias, tgt_alias = self._build_delta_merge_options(
-            merge_keys, options,
-        )
-        delta_merge_options["predicate"] = (
-            f"{delta_merge_options['predicate']}"
-            f" AND {tgt_alias}.`{SCD2Column.IS_CURRENT.value}` = true"
-        )
-
-        write_opts: Dict[str, Any] = {}
-        if self._storage_options:
-            write_opts["storage_options"] = self._storage_options
-
-        # Step 1: MERGE — close current rows where source is strictly newer
-        update_set = {
-            SCD2Column.VALID_TO.value: f"{src_alias}.`{SCD2Column.VALID_FROM.value}`",
-            SCD2Column.IS_CURRENT.value: "false",
-        }
-        late_guard = (
-            f"{src_alias}.`{SCD2Column.VALID_FROM.value}` > "
-            f"{tgt_alias}.`{SCD2Column.VALID_FROM.value}`"
-        )
-
-        try:
-            (
-                self._sink_or_write_delta(
-                    df,
-                    path,
-                    mode="merge",
-                    delta_merge_options=delta_merge_options,
-                    **write_opts,
-                )
-                .when_matched_update(
-                    updates=update_set,
-                    predicate=late_guard,
-                )
-                .execute()
-            )
-        except Exception as exc:
-            self._raise_if_delta_target_missing(exc, path, "SCD2 merge")
-            raise
-
-        # Step 2: APPEND all source rows as new versions
-        self.write_to_path(
-            df, path, mode=LoadType.APPEND.value, fmt=fmt,
-            partition_columns=partition_columns, options=options,
+        delta_ops.scd2_path(
+            df,
+            path,
+            merge_keys,
+            partition_columns,
+            options,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
         )
 
     def scd2_to_table(
@@ -1893,423 +796,53 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             actual = self._schema_names(df)
             merge_keys = self._resolve_column_names(actual, merge_keys)
             if partition_columns:
-                partition_columns = self._resolve_column_names(actual, partition_columns)
-            self._scd2_iceberg_table(df, table_name, merge_keys, partition_columns=partition_columns)
-        else:
-            raise EngineError(
-                f"PolarsEngine.scd2_to_table: unsupported format {fmt!r}"
+                partition_columns = self._resolve_column_names(
+                    actual, partition_columns
+                )
+            if self._iceberg_catalog is None:
+                raise EngineError(
+                    "PolarsEngine._scd2_iceberg_table requires iceberg_catalog"
+                )
+            iceberg_ops.scd2_table(
+                df,
+                table_name,
+                merge_keys,
+                partition_columns,
+                catalog=self._iceberg_catalog,
             )
+        else:
+            raise EngineError(f"PolarsEngine.scd2_to_table: unsupported format {fmt!r}")
 
     # ------------------------------------------------------------------
     # Iceberg merge helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _iceberg_expected_column_order(column_names: List[str]) -> Tuple[str, ...]:
-        """Return business columns followed by the canonical technical tail."""
-        trailing_lower = {column.lower() for column in TRAILING_COLUMNS}
-        column_by_lower = {column.lower(): column for column in column_names}
-        leading = [
-            column for column in column_names
-            if column.lower() not in trailing_lower
-        ]
-        trailing = [
-            column_by_lower[column.lower()]
-            for column in TRAILING_COLUMNS
-            if column.lower() in column_by_lower
-        ]
-        return tuple(leading + trailing)
-
-    @staticmethod
-    def _iceberg_snapshot_schema_is_stale(ice_table: Any) -> bool:
-        """Return whether the main snapshot still projects an older schema."""
-        snapshot = ice_table.current_snapshot()
-        if snapshot is None or snapshot.schema_id is None:
-            return False
-        return snapshot.schema_id != ice_table.metadata.current_schema_id
-
-    @staticmethod
-    def _missing_iceberg_identity_partitions(
-        ice_table: Any,
-        partition_columns: Optional[List[str]],
-    ) -> Tuple[str, ...]:
-        """Return requested identity partition columns absent from the spec."""
-        if not partition_columns:
-            return ()
-
-        from pyiceberg.transforms import IdentityTransform  # noqa: PLC0415
-
-        schema = ice_table.schema()
-        existing: set[str] = set()
-        for field in ice_table.spec().fields:
-            if isinstance(field.transform, IdentityTransform):
-                try:
-                    existing.add(schema.find_field(field.source_id).name.lower())
-                except Exception:  # noqa: BLE001
-                    pass
-        return tuple(
-            column for column in partition_columns
-            if column.lower() not in existing
-        )
-
-    def _inspect_iceberg_write_target(
-        self,
-        df: pl.LazyFrame,
-        table_name: str,
-        partition_columns: Optional[List[str]],
-        *,
-        caller: str,
-    ) -> _IcebergWritePlan:
-        """Inspect and materialize an Iceberg write without mutating the table."""
-        if self._iceberg_catalog is None:
-            raise EngineError(
-                f"PolarsEngine.{caller} requires iceberg_catalog"
-            )
-
-        pyice_id = self._pyiceberg_table_id(table_name)
-        ice_table = self._iceberg_catalog.load_table(pyice_id)
-        collected = df.collect()
-        arrow_table = self._align_arrow_to_iceberg_casing(
-            collected.to_arrow(),
-            ice_table,
-        )
-
-        current_names = [field.name for field in ice_table.schema().fields]
-        current_name_set = set(current_names)
-        new_fields = tuple(
-            field for field in arrow_table.schema
-            if field.name not in current_name_set
-        )
-        post_evolution_names = current_names + [field.name for field in new_fields]
-        expected_order = self._iceberg_expected_column_order(post_evolution_names)
-
-        return _IcebergWritePlan(
-            ice_table=ice_table,
-            collected=collected,
-            arrow_table=arrow_table,
-            pyice_id=pyice_id,
-            new_fields=new_fields,
-            expected_column_order=expected_order,
-            schema_reorder_required=tuple(post_evolution_names) != expected_order,
-            snapshot_schema_stale=self._iceberg_snapshot_schema_is_stale(ice_table),
-            missing_partition_columns=self._missing_iceberg_identity_partitions(
-                ice_table,
-                partition_columns,
-            ),
-        )
-
-    def _apply_iceberg_write_metadata(
-        self,
-        plan: _IcebergWritePlan,
-    ) -> Tuple[Any, Any]:
-        """Apply the existing non-transactional metadata preparation workflow."""
-        ice_table, arrow_table = self._align_and_evolve_iceberg(
-            plan.ice_table,
-            plan.arrow_table,
-            plan.pyice_id,
-        )
-        if plan.missing_partition_columns:
-            ice_table = self._ensure_iceberg_partition_spec(
-                ice_table,
-                list(plan.missing_partition_columns),
-                plan.pyice_id,
-            )
-        return ice_table, arrow_table
-
-    @staticmethod
-    def _build_iceberg_key_filter(
-        collected: pl.DataFrame, merge_keys: List[str],
-    ) -> Any:
-        """Build a pyiceberg filter expression matching source key combos."""
-        from pyiceberg.expressions import And, EqualTo, In, Or  # noqa: PLC0415
-
-        if len(merge_keys) == 1:
-            key = merge_keys[0]
-            values = tuple(collected.get_column(key).unique().to_list())
-            return In(key, values)
-
-        # Compound keys: OR of AND(key1 == v1, key2 == v2, ...)
-        key_combos = collected.select(merge_keys).unique()
-        conditions = []
-        for row in key_combos.iter_rows(named=True):
-            parts = [EqualTo(k, row[k]) for k in merge_keys]
-            conditions.append(reduce(lambda a, b: And(a, b), parts))
-        return reduce(lambda a, b: Or(a, b), conditions)
-
-    @staticmethod
-    def _stage_iceberg_merge_schema(
-        transaction: Any,
-        plan: _IcebergWritePlan,
-    ) -> None:
-        """Stage additive fields and the canonical technical tail."""
-        if not plan.new_fields and not plan.schema_reorder_required:
-            return
-
-        import pyarrow as pa  # noqa: PLC0415
-
-        trailing_lower = {column.lower() for column in TRAILING_COLUMNS}
-        leading = [
-            column for column in plan.expected_column_order
-            if column.lower() not in trailing_lower
-        ]
-        trailing = [
-            column for column in plan.expected_column_order
-            if column.lower() in trailing_lower
-        ]
-
-        with transaction.update_schema() as update:
-            if plan.new_fields:
-                update.union_by_name(pa.schema(plan.new_fields))
-            if plan.schema_reorder_required:
-                previous = leading[-1] if leading else None
-                for column in trailing:
-                    if previous is None:
-                        update.move_first(column)
-                    else:
-                        update.move_after(column, previous)
-                    previous = column
-
-    @staticmethod
-    def _stage_iceberg_merge_partitions(
-        transaction: Any,
-        missing_partition_columns: Tuple[str, ...],
-    ) -> None:
-        """Stage requested identity partitions after staged schema evolution."""
-        if not missing_partition_columns:
-            return
-        with transaction.update_spec() as update_spec:
-            for column in missing_partition_columns:
-                update_spec.add_identity(column)
-
-    def _transactional_iceberg_key_overwrite(
-        self,
-        plan: _IcebergWritePlan,
-        merge_keys: List[str],
-    ) -> None:
-        """Commit merge metadata changes and source-key replacement together."""
-        from pyiceberg.table.name_mapping import create_mapping_from_schema  # noqa: PLC0415
-
-        key_filter = self._build_iceberg_key_filter(plan.collected, merge_keys)
-        with plan.ice_table.transaction() as transaction:
-            self._stage_iceberg_merge_schema(transaction, plan)
-            self._stage_iceberg_merge_partitions(
-                transaction,
-                plan.missing_partition_columns,
-            )
-
-            if "schema.name-mapping.default" not in (
-                plan.ice_table.properties or {}
-            ):
-                name_mapping = create_mapping_from_schema(
-                    transaction.table_metadata.schema()
-                )
-                transaction.set_properties({
-                    "schema.name-mapping.default": name_mapping.model_dump_json(),
-                })
-
-            aligned = self._align_arrow_to_iceberg_schema(
-                plan.arrow_table,
-                transaction.table_metadata.schema().as_arrow(),
-            )
-            transaction.overwrite(aligned, overwrite_filter=key_filter)
-
-    def _merge_iceberg_table(
-        self,
-        df: pl.LazyFrame,
-        table_name: str,
-        merge_keys: List[str],
-        partition_columns: Optional[List[str]] = None,
-    ) -> None:
-        """Merge into Iceberg using native upsert or a transactional key overwrite.
-
-        Stable schemas use ``ice_table.upsert(join_cols=merge_keys)``. Schema,
-        order, snapshot, or partition-spec changes use one transaction so the
-        metadata and source-key replacement become visible together.
-
-        Columns missing in the source are backfilled with NULL by
-        :meth:`_align_arrow_to_iceberg_table`, which — in an upsert — will
-        overwrite existing target values with NULL for matched rows.
-        Callers that need to preserve non-key columns should include them
-        in the source dataframe or use ``merge_overwrite_to_table`` for a
-        rolling overwrite.
-        """
-        plan = self._inspect_iceberg_write_target(
-            df,
-            table_name,
-            partition_columns,
-            caller="_merge_iceberg_table",
-        )
-        snapshot = plan.ice_table.current_snapshot()
-        strategy = (
-            "transactional_key_overwrite"
-            if plan.requires_transactional_write
-            else "native_upsert"
-        )
-        logger.info(
-            "Iceberg merge strategy=%s table=%s current_schema_id=%s "
-            "snapshot_schema_id=%s added_columns=%s reorder_required=%s "
-            "missing_partitions=%s",
-            strategy,
-            plan.pyice_id,
-            plan.ice_table.metadata.current_schema_id,
-            snapshot.schema_id if snapshot is not None else None,
-            [field.name for field in plan.new_fields],
-            plan.schema_reorder_required,
-            list(plan.missing_partition_columns),
-        )
-
-        if plan.requires_transactional_write:
-            self._transactional_iceberg_key_overwrite(plan, merge_keys)
-            return
-
-        plan.ice_table.upsert(
-            self._align_arrow_to_iceberg_table(
-                plan.arrow_table,
-                plan.ice_table,
-            ),
-            join_cols=merge_keys,
-        )
-
-    def _merge_overwrite_iceberg_table(
-        self,
-        df: pl.LazyFrame,
-        table_name: str,
-        merge_keys: List[str],
-        partition_columns: Optional[List[str]] = None,
-    ) -> None:
-        """Rolling overwrite for an Iceberg table (mirrors merge_overwrite_to_path).
-
-        Deletes target rows matching any source key combination, then
-        appends all source rows.  Uses ``overwrite(arrow, overwrite_filter=...)``
-        for atomicity.
-        """
-        plan = self._inspect_iceberg_write_target(
-            df,
-            table_name,
-            partition_columns,
-            caller="_merge_overwrite_iceberg_table",
-        )
-        ice_table, arrow_table = self._apply_iceberg_write_metadata(plan)
-        key_filter = self._build_iceberg_key_filter(plan.collected, merge_keys)
-        ice_table.overwrite(
-            self._align_arrow_to_iceberg_table(
-                arrow_table, ice_table,
-            ),
-            overwrite_filter=key_filter,
-        )
-
-    def _scd2_iceberg_table(
-        self,
-        df: pl.LazyFrame,
-        table_name: str,
-        merge_keys: List[str],
-        partition_columns: Optional[List[str]] = None,
-    ) -> None:
-        """SCD2 for Iceberg tables (two-step, non-atomic).
-
-        Step 1: Close current rows (``__valid_to``, ``__is_current = false``)
-                via ``overwrite(overwrite_filter=...)`` where source
-                ``__valid_from > target``.
-        Step 2: Append all source rows as new versions.
-
-        Uses ``overwrite`` instead of ``upsert`` because pyiceberg's
-        ``upsert`` silently skips rows whose non-key columns appear
-        unchanged after Arrow ↔ Iceberg type coercion, causing
-        ``__valid_to`` / ``__is_current`` updates to be lost.
-        ``overwrite`` atomically deletes + inserts without row-level
-        diffing, matching the reliability of Delta's MERGE.
-        """
-        plan = self._inspect_iceberg_write_target(
-            df,
-            table_name,
-            partition_columns,
-            caller="_scd2_iceberg_table",
-        )
-        ice_table, arrow_table = self._apply_iceberg_write_metadata(plan)
-        collected = plan.collected
-
-        valid_from_col = SCD2Column.VALID_FROM.value
-        valid_to_col = SCD2Column.VALID_TO.value
-        is_current_col = SCD2Column.IS_CURRENT.value
-
-        # Step 1: close current rows via overwrite
-        key_filter = self._build_iceberg_key_filter(collected, merge_keys)
-
-        from pyiceberg.expressions import And, EqualTo  # noqa: PLC0415
-
-        current_filter = And(key_filter, EqualTo(is_current_col, True))
-        target_arrow = ice_table.scan(row_filter=current_filter).to_arrow()
-
-        if len(target_arrow) > 0:
-            target_df = pl.from_arrow(target_arrow)
-            src_vf = (
-                collected
-                .select(merge_keys + [pl.col(valid_from_col).alias("__src_vf")])
-                .unique(subset=merge_keys)
-            )
-
-            # Build an expression that casts __src_vf to match
-            # __valid_to's type (typically Timestamp from
-            # SCD2ColumnAdder's CAST(NULL AS TIMESTAMP)).
-            # __src_vf inherits the effective column's type, which
-            # may be String when the source has a text date column.
-            _target_vt_dtype = target_df[valid_to_col].dtype
-            _src_vf_dtype = src_vf.schema["__src_vf"]
-            if _src_vf_dtype == _target_vt_dtype:
-                _vt_expr = pl.col("__src_vf")
-            elif _src_vf_dtype == pl.Utf8 and isinstance(_target_vt_dtype, pl.Datetime):
-                _vt_expr = pl.col("__src_vf").str.to_datetime(
-                    time_unit=_target_vt_dtype.time_unit,
-                    time_zone=_target_vt_dtype.time_zone,
-                )
-            else:
-                _vt_expr = pl.col("__src_vf").cast(_target_vt_dtype)
-
-            closed = (
-                target_df.join(src_vf, on=merge_keys)
-                .filter(pl.col("__src_vf") > pl.col(valid_from_col))
-                .with_columns(
-                    _vt_expr.alias(valid_to_col),
-                    pl.lit(False).alias(is_current_col),
-                )
-                .drop("__src_vf")
-            )
-            if len(closed) > 0:
-                close_filter = self._build_iceberg_key_filter(
-                    closed, merge_keys + [valid_from_col],
-                )
-                ice_table.overwrite(
-                    self._align_arrow_to_iceberg_table(closed.to_arrow(), ice_table),
-                    overwrite_filter=close_filter,
-                )
-
-        # Step 2: APPEND all source rows as new versions.
-        ice_table.append(self._align_arrow_to_iceberg_table(arrow_table, ice_table))
-
     # ==================================================================
     # Transform
     # ==================================================================
 
-    def add_column(self, df: pl.LazyFrame, column_name: str, expression: str) -> pl.LazyFrame:
-        return df.with_columns(pl.sql_expr(expression).alias(column_name))
+    def add_column(
+        self, df: pl.LazyFrame, column_name: str, expression: str
+    ) -> pl.LazyFrame:
+        return polars_transforms.add_column(df, column_name, expression)
 
     def drop_columns(self, df: pl.LazyFrame, columns: List[str]) -> pl.LazyFrame:
         actual = self._schema_names(df)
         lower_map = {c.lower(): c for c in actual}
         to_drop = [lower_map[c.lower()] for c in columns if c.lower() in lower_map]
-        return df.drop(to_drop) if to_drop else df
+        return polars_transforms.drop_columns(df, to_drop)
 
     def select_columns(self, df: pl.LazyFrame, columns: List[str]) -> pl.LazyFrame:
         resolved = self._resolve_column_names(self._schema_names(df), columns)
-        return df.select(resolved)
+        return polars_transforms.select_columns(df, resolved)
 
-    def rename_column(self, df: pl.LazyFrame, old_name: str, new_name: str) -> pl.LazyFrame:
-        actual_old = self._resolve_column_name(self._schema_names(df), old_name)
-        return df.rename({actual_old: new_name})
-
-    def rename_columns(
-        self, df: pl.LazyFrame, mapping: Dict[str, str]
+    def rename_column(
+        self, df: pl.LazyFrame, old_name: str, new_name: str
     ) -> pl.LazyFrame:
+        actual_old = self._resolve_column_name(self._schema_names(df), old_name)
+        return polars_transforms.rename_column(df, actual_old, new_name)
+
+    def rename_columns(self, df: pl.LazyFrame, mapping: Dict[str, str]) -> pl.LazyFrame:
         if not mapping:
             return df
         actual = self._schema_names(df)
@@ -2317,7 +850,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             self._resolve_column_name(actual, old_name): new_name
             for old_name, new_name in mapping.items()
         }
-        return df.rename(resolved)
+        return polars_transforms.rename_columns(df, resolved)
 
     def apply_value_rule(
         self, df: pl.LazyFrame, rule: ValueRule, *, missing_column_policy: str = "error"
@@ -2333,42 +866,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     continue
                 raise
 
-        expressions: List[pl.Expr] = []
-        for column in resolved_columns:
-            dtype = schema[column]
-            source = pl.col(column)
-            if rule.operation in {"trim", "case", "regex_replace", "empty_to_null", "map"} and dtype != pl.String:
-                raise TransformError(
-                    f"Value rule {rule.operation!r} requires a string column",
-                    details={"column": column, "data_type": str(dtype)},
-                )
-            if rule.operation == "trim":
-                result = source.str.strip_chars(" ")
-            elif rule.operation == "case":
-                result = source.str.to_lowercase() if rule.mode == "lower" else source.str.to_uppercase()
-            elif rule.operation == "regex_replace":
-                result = source.str.replace_all(
-                    rule.pattern or "",
-                    self._escape_regex_replacement(rule.replacement),
-                )
-            elif rule.operation == "empty_to_null":
-                result = pl.when(source == "").then(None).otherwise(source)
-            elif rule.operation == "fill_null":
-                literal = self._coerce_transform_literal(
-                    rule.value,
-                    dtype,
-                    field_path="value_rules.value",
-                    column=column,
-                )
-                result = source.fill_null(pl.lit(literal).cast(dtype))
-            else:  # map
-                mapped = source.replace_strict(rule.mapping, default=None, return_dtype=pl.String)
-                result = pl.coalesce(mapped, source) if rule.on_unmapped == "keep" else mapped
-            expressions.append(result.alias(column))
-        return df.with_columns(expressions) if expressions else df
+        return polars_transforms.apply_value_rule(df, rule, schema, resolved_columns)
 
     def apply_masking_rule(
-        self, df: pl.LazyFrame, rule: MaskingRule, *, missing_column_policy: str = "error"
+        self,
+        df: pl.LazyFrame,
+        rule: MaskingRule,
+        *,
+        missing_column_policy: str = "error",
     ) -> pl.LazyFrame:
         schema = df.collect_schema()
         actual = schema.names()
@@ -2381,159 +886,20 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     continue
                 raise
 
-        expressions: List[pl.Expr] = []
-        for column in resolved_columns:
-            dtype = schema[column]
-            source = pl.col(column)
-            if rule.method == "redact":
-                literal = self._coerce_transform_literal(
-                    rule.value,
-                    dtype,
-                    field_path="masking_rules.value",
-                    column=column,
-                )
-                result = pl.when(source.is_null()).then(source).otherwise(pl.lit(literal).cast(dtype))
-            elif rule.method == "nullify":
-                result = pl.lit(None).cast(dtype)
-            elif rule.method == "partial":
-                if dtype != pl.String:
-                    raise TransformError("partial masking requires a string column", details={"column": column})
-                prefix = source.str.slice(0, rule.keep_start) if rule.keep_start else pl.lit("")
-                suffix = source.str.slice(-rule.keep_end, rule.keep_end) if rule.keep_end else pl.lit("")
-                masked = pl.concat_str(prefix, pl.lit(rule.mask_char), suffix)
-                result = (
-                    pl.when(source.is_null())
-                    .then(source)
-                    .when(source == "")
-                    .then(source)
-                    .when(source.str.len_chars() <= rule.keep_start + rule.keep_end)
-                    .then(pl.lit(rule.mask_char))
-                    .otherwise(masked)
-                )
-            elif rule.method == "numeric_bucket":
-                if not dtype.is_numeric():
-                    raise TransformError("numeric_bucket requires a numeric column", details={"column": column})
-                result = ((source / rule.bucket_size).floor() * rule.bucket_size).cast(dtype)
-            else:  # date_truncate
-                if dtype == pl.Date and rule.unit == "hour":
-                    raise TransformError("date_truncate hour requires a datetime column", details={"column": column})
-                if dtype != pl.Date and not isinstance(dtype, pl.Datetime):
-                    raise TransformError("date_truncate requires a date or datetime column", details={"column": column})
-                every = {"year": "1y", "month": "1mo", "day": "1d", "hour": "1h"}[rule.unit]
-                result = source.dt.truncate(every).cast(dtype)
-            expressions.append(result.alias(column))
-        return df.with_columns(expressions) if expressions else df
-
-    @staticmethod
-    def _escape_regex_replacement(value: str) -> str:
-        """Escape literal text for Rust-regex replacement syntax."""
-        return value.replace("$", "$$")
-
-    @classmethod
-    def _coerce_transform_literal(
-        cls,
-        value: Any,
-        dtype: pl.DataType,
-        *,
-        field_path: str,
-        column: str,
-    ) -> Any:
-        kwargs: Dict[str, Any] = {"field_path": field_path, "column": column}
-        if dtype == pl.String:
-            return cls._coerce_scalar_literal(value, kind="string", **kwargs)
-        if dtype == pl.Boolean:
-            return cls._coerce_scalar_literal(value, kind="boolean", **kwargs)
-        integer_bounds = {
-            pl.Int8: (-(2**7), 2**7 - 1),
-            pl.Int16: (-(2**15), 2**15 - 1),
-            pl.Int32: (-(2**31), 2**31 - 1),
-            pl.Int64: (-(2**63), 2**63 - 1),
-            pl.UInt8: (0, 2**8 - 1),
-            pl.UInt16: (0, 2**16 - 1),
-            pl.UInt32: (0, 2**32 - 1),
-            pl.UInt64: (0, 2**64 - 1),
-        }
-        if dtype in integer_bounds:
-            minimum, maximum = integer_bounds[dtype]
-            return cls._coerce_scalar_literal(
-                value,
-                kind="integer",
-                minimum=minimum,
-                maximum=maximum,
-                **kwargs,
-            )
-        if dtype in {pl.Float32, pl.Float64}:
-            return cls._coerce_scalar_literal(value, kind="float", **kwargs)
-        if isinstance(dtype, pl.Decimal):
-            return cls._coerce_scalar_literal(
-                value,
-                kind="decimal",
-                precision=dtype.precision,
-                scale=dtype.scale,
-                **kwargs,
-            )
-        if dtype == pl.Date:
-            return cls._coerce_scalar_literal(value, kind="date", **kwargs)
-        if isinstance(dtype, pl.Datetime):
-            return cls._coerce_scalar_literal(
-                value,
-                kind="timestamp",
-                timezone_aware=dtype.time_zone is not None,
-                **kwargs,
-            )
-        return cls._coerce_scalar_literal(value, kind="unsupported", **kwargs)
+        return polars_transforms.apply_masking_rule(df, rule, schema, resolved_columns)
 
     def add_hash_column(self, df: pl.LazyFrame, definition: HashColumn) -> pl.LazyFrame:
-        """Add SHA-256 over DataCoolie's canonical scalar payload."""
-        try:
-            polars_hash = importlib.import_module("polars_hash")
-        except (ImportError, OSError) as exc:
-            raise EngineError(
-                "hash_columns with the Polars engine requires the optional polars-hash package",
-                details={"install": "pip install 'datacoolie[polars-hash]'"},
-            ) from exc
-
+        """Add a stable hash over DataCoolie's canonical scalar payload."""
         schema = df.collect_schema()
         actual = schema.names()
-        components: List[pl.Expr] = []
-        for requested in definition.columns:
-            column = self._resolve_column_name(actual, requested)
-            dtype = schema[column]
-            source = pl.col(column)
-            if dtype == pl.String:
-                tag, text = "S", source
-            elif dtype.is_integer():
-                tag, text = "I", source.cast(pl.String)
-            elif dtype == pl.Boolean:
-                tag = "B"
-                text = pl.when(source).then(pl.lit("true")).otherwise(pl.lit("false"))
-            elif dtype == pl.Date:
-                tag, text = "D", source.dt.strftime("%Y-%m-%d")
-            else:
-                raise TransformError(
-                    "hash_columns supports only string, integer, boolean, and date inputs",
-                    details={"column": column, "data_type": str(dtype)},
-                )
-            component = (
-                pl.when(source.is_null())
-                .then(pl.lit(f"{tag}N;"))
-                .otherwise(
-                    pl.concat_str(
-                        pl.lit(tag),
-                        text.str.len_bytes().cast(pl.String),
-                        pl.lit(":"),
-                        text,
-                        pl.lit(";"),
-                    )
-                )
-            )
-            components.append(component)
-        payload = polars_hash.concat_str([pl.lit("DCH1;"), *components])
-        digest = payload.chash.sha2_256()
-        return df.with_columns(digest.alias(definition.target_column))
+        columns = [
+            self._resolve_column_name(actual, requested)
+            for requested in definition.columns
+        ]
+        return polars_transforms.add_hash_column(df, definition, schema, columns)
 
     def filter_rows(self, df: pl.LazyFrame, condition: str) -> pl.LazyFrame:
-        return df.filter(pl.sql_expr(condition))
+        return polars_transforms.filter_rows(df, condition)
 
     def apply_watermark_filter(
         self,
@@ -2546,35 +912,20 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         end_operator: str = "<",
     ) -> pl.LazyFrame:
         actual = self._schema_names(df)
-        combined: Optional[pl.Expr] = None
+        resolved = []
         for col_name in watermark_columns:
             lower_val = watermark_start.get(col_name)
             upper_val = (watermark_end or {}).get(col_name)
-
             if lower_val is None and upper_val is None:
                 continue
-
             resolved_col = self._resolve_column_name(actual, col_name)
-            col_expr = pl.col(resolved_col)
-            cond: Optional[pl.Expr] = None
-
-            if lower_val is not None:
-                if isinstance(lower_val, (datetime, date)):
-                    lower_val = lower_val.isoformat()
-                lower_cond = col_expr >= pl.lit(lower_val) if start_operator == ">=" else col_expr > pl.lit(lower_val)
-                cond = lower_cond
-
-            if upper_val is not None:
-                if isinstance(upper_val, (datetime, date)):
-                    upper_val = upper_val.isoformat()
-                upper_cond = col_expr <= pl.lit(upper_val) if end_operator == "<=" else col_expr < pl.lit(upper_val)
-                cond = (cond & upper_cond) if cond is not None else upper_cond
-
-            combined = cond if combined is None else (combined | cond)
-
-        if combined is None:
-            return df
-        return df.filter(combined)
+            resolved.append((resolved_col, lower_val, upper_val))
+        return polars_transforms.apply_watermark_filter(
+            df,
+            resolved,
+            start_operator=start_operator,
+            end_operator=end_operator,
+        )
 
     def deduplicate(
         self,
@@ -2585,11 +936,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> pl.LazyFrame:
         actual = self._schema_names(df)
         resolved_partition = self._resolve_column_names(actual, partition_columns)
-        resolved_order = self._resolve_column_names(actual, order_columns) if order_columns else None
-        _order = resolved_order or resolved_partition
-        descending = order != "asc"
-        df_sorted = df.sort(_order, descending=descending)
-        return df_sorted.unique(subset=resolved_partition, keep="first")
+        resolved_order = (
+            self._resolve_column_names(actual, order_columns) if order_columns else None
+        )
+        return polars_transforms.deduplicate(
+            df, resolved_partition, resolved_order, order
+        )
 
     def deduplicate_by_rank(
         self,
@@ -2601,51 +953,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         actual = self._schema_names(df)
         resolved_partition = self._resolve_column_names(actual, partition_columns)
         resolved_order = self._resolve_column_names(actual, order_columns)
-        descending = order != "asc"
-        if len(resolved_order) == 1:
-            # Single column: O(n) max/min scan per partition, no sort overhead.
-            col = resolved_order[0]
-            best = (
-                pl.col(col).max() if descending else pl.col(col).min()
-            ).over(resolved_partition)
-            return df.filter(pl.col(col) == best)
-        # Multiple columns: lexicographic sort within each partition, take the
-        # extremal tuple, filter all rows that match (keeps ties).
-        descending_flags = [descending] * len(resolved_order)
-        best_exprs = [
-            pl.col(c)
-            .sort_by(resolved_order, descending=descending_flags)
-            .first()
-            .over(resolved_partition)
-            .alias(f"__best_{c}")
-            for c in resolved_order
-        ]
-        filter_expr = pl.all_horizontal(
-            pl.col(c) == pl.col(f"__best_{c}") for c in resolved_order
+        return polars_transforms.deduplicate_by_rank(
+            df, resolved_partition, resolved_order, order
         )
-        return (
-            df.with_columns(best_exprs)
-            .filter(filter_expr)
-            .drop([f"__best_{c}" for c in resolved_order])
-        )
-
-    @staticmethod
-    def _to_chrono_fmt(fmt: str) -> str:
-        """Convert a Java DateTimeFormatter pattern to chrono (strftime)."""
-        if "%" in fmt:
-            return fmt
-        
-        # Replace longer tokens first to avoid partial matches
-        _JAVA_TOKENS = [
-            ("yyyy", "%Y"), ("yy", "%y"),
-            ("MM", "%m"), ("dd", "%d"),
-            ("HH", "%H"), ("mm", "%M"), ("ss", "%S"),
-            ("SSS", "%f"),
-        ]
-        result = fmt
-        for java, chrono in _JAVA_TOKENS:
-            result = result.replace(java, chrono)
-        return result
 
     def cast_column(
         self,
@@ -2657,75 +967,10 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         # Collect schema once — reused for name resolution and dtype inspection.
         schema = df.collect_schema()
         actual_name = self._resolve_column_name(schema.names(), column_name)
-        expr = self._build_cast_expr(actual_name, target_type.lower(), schema[actual_name], fmt)
+        expr = build_cast_expr(actual_name, target_type, schema[actual_name], fmt)
         if expr is None:
             return df
         return df.with_columns(expr.alias(actual_name))
-
-    @staticmethod
-    def _build_cast_expr(
-        col_name: str,
-        target_lower: str,
-        src_dtype: pl.DataType,
-        fmt: Optional[str],
-    ) -> Optional[pl.Expr]:
-        """Build a Polars expression that casts *col_name* to *target_lower*.
-
-        Returns ``None`` when the type is unknown (caller should bypass the
-        cast).  This is a pure static method — no DataFrame access — so it is
-        fast and easily unit-tested.
-        """
-        col = pl.col(col_name)
-
-        # ---- Parameterised decimal: DECIMAL(18,2), NUMERIC(10,4), … ----
-        m = _DECIMAL_RE.match(target_lower)
-        if m:
-            precision, scale = int(m.group(1)), int(m.group(2))
-            return col.cast(pl.Decimal(precision=precision, scale=scale))
-
-        # ---- Type-alias lookup ----
-        pl_type = _POLARS_TYPE_MAP.get(target_lower)
-        if pl_type is None:
-            logger.debug(
-                "PolarsEngine.cast_column: unknown type %r — bypassing cast, column kept as-is",
-                target_lower,
-            )
-            return None
-
-        # ---- Date ----
-        if pl_type == pl.Date:
-            if fmt:
-                return col.str.to_date(PolarsEngine._to_chrono_fmt(fmt))
-            return col.cast(pl.Date)
-
-        # ---- Datetime (with or without TZ, with or without format) ----
-        if isinstance(pl_type, pl.Datetime):
-            tz = pl_type.time_zone
-            tu = pl_type.time_unit or "us"
-
-            if fmt:
-                # str.to_datetime parses the string using the format and attaches
-                # the target TZ (tz=None → naive).
-                return col.str.to_datetime(
-                    PolarsEngine._to_chrono_fmt(fmt), time_unit=tu, time_zone=tz
-                )
-
-            if tz:
-                # No format string — source-dtype-aware TZ handling:
-                #   String         → parse ISO, attach/convert to target TZ
-                #   TZ-aware dt    → shift instant to target TZ
-                #   Naive dt/other → stamp TZ without shifting (wall-clock preserved)
-                if isinstance(src_dtype, pl.String):
-                    return col.str.to_datetime(time_unit=tu, time_zone=tz)
-                if isinstance(src_dtype, pl.Datetime) and src_dtype.time_zone:
-                    return col.dt.convert_time_zone(tz)
-                return col.cast(pl.Datetime(tu)).dt.replace_time_zone(tz)
-
-            # No TZ (timestamp_ntz semantics)
-            return col.cast(pl.Datetime(tu))
-
-        # ---- All other types ----
-        return col.cast(pl_type)
 
     # ==================================================================
     # System columns
@@ -2737,30 +982,10 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         author: Optional[str] = None,
         dataflow_run_id: Optional[str] = None,
     ) -> pl.LazyFrame:
-        _author = author or DEFAULT_AUTHOR
-        now = datetime.now(tz=timezone.utc)
-        expressions = [
-            pl.lit(now).alias(SystemColumn.CREATED_AT),
-            pl.lit(now).alias(SystemColumn.UPDATED_AT),
-            pl.lit(_author).alias(SystemColumn.UPDATED_BY),
-        ]
-        if dataflow_run_id is not None:
-            expressions.append(
-                pl.lit(dataflow_run_id).alias(SystemColumn.DATAFLOW_RUN_ID)
-            )
-        return df.with_columns(expressions)
+        return polars_transforms.add_system_columns(df, author, dataflow_run_id)
 
     def convert_timestamp_ntz_to_timestamp(self, df: pl.LazyFrame) -> pl.LazyFrame:
-        schema = df.collect_schema()
-        conversions = [
-            pl.col(name)
-            .cast(pl.Datetime(dtype.time_unit or "us"))
-            .dt.replace_time_zone("UTC")
-            .alias(name)
-            for name, dtype in schema.items()
-            if isinstance(dtype, pl.Datetime) and dtype.time_zone is None
-        ]
-        return df.with_columns(conversions) if conversions else df
+        return polars_transforms.convert_timestamp_ntz_to_timestamp(df)
 
     def add_file_info_columns(
         self,
@@ -2778,27 +1003,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         ``__file_modification_time``.  When *file_infos* is ``None`` the name
         is derived from the path and modification-time is set to ``null``.
         """
-        path_col = FileInfoColumn.FILE_PATH
-        name_col = FileInfoColumn.FILE_NAME
-        mtime_col = FileInfoColumn.FILE_MODIFICATION_TIME
-
-        if file_infos:
-            # Polars normalises embedded paths to forward slashes regardless of OS,
-            # so normalise fi.path the same way before building the join key.
-            mapping = pl.LazyFrame(
-                {
-                    path_col: [fi.path.replace("\\", "/") for fi in file_infos],
-                    name_col: [fi.name for fi in file_infos],
-                    mtime_col: [fi.modification_time for fi in file_infos],
-                }
-            )
-            return df.join(mapping, on=path_col, how="left")
-
-        # No file_infos: extract name from the embedded path, mtime unknown.
-        return df.with_columns(
-            pl.col(path_col).str.split("/").list.last().alias(name_col),
-            pl.lit(None).cast(pl.Datetime(time_zone="UTC")).alias(mtime_col),
-        )
+        return add_polars_file_info_columns(df, file_infos)
 
     # ==================================================================
     # Symlink manifest
@@ -2806,112 +1011,35 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
 
     def generate_symlink_manifest(self, path: str) -> None:
         """Generate a symlink manifest using delta-rs ``DeltaTable.generate()``."""
-        logger.debug("PolarsEngine: generating symlink manifest for %s", path)
-        dt = self.delta(path, storage_options=self._storage_options or None)
-        dt.generate()
+        delta_ops.generate_manifest(
+            path,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
+        )
 
     # ==================================================================
     # Metrics
     # ==================================================================
 
     def count_rows(self, df: pl.LazyFrame) -> int:
-        return df.select(pl.len()).collect().item()
+        return polars_metrics.count_rows(df)
 
     def is_empty(self, df: pl.LazyFrame) -> bool:
-        return len(df.head(1).collect()) == 0
+        return polars_metrics.is_empty(df)
 
     def get_columns(self, df: pl.LazyFrame) -> List[str]:
-        return self._schema_names(df)
+        return polars_metrics.get_columns(df)
 
     def get_schema(self, df: pl.LazyFrame) -> Dict[str, str]:
-        schema = df.collect_schema()
-        return {name: str(dtype) for name, dtype in schema.items()}
+        return polars_metrics.get_schema(df)
 
     def get_hive_schema(self, df: pl.LazyFrame) -> Dict[str, str]:
         """Return ``{column_name: hive_type}`` using native Polars dtype objects."""
-        schema = df.collect_schema()
-        return {
-            name: self._polars_type_to_hive(dtype)
-            for name, dtype in schema.items()
-        }
-
-    @staticmethod
-    def _polars_type_to_hive(dtype: pl.DataType) -> str:
-        """Recursively convert a Polars DataType to a Hive/Athena DDL string."""
-        if isinstance(dtype, pl.Int64):
-            return "BIGINT"
-        if isinstance(dtype, pl.Int32):
-            return "INT"
-        if isinstance(dtype, pl.Int16):
-            return "SMALLINT"
-        if isinstance(dtype, pl.Int8):
-            return "TINYINT"
-        if isinstance(dtype, pl.UInt8):
-            return "SMALLINT"
-        if isinstance(dtype, pl.UInt16):
-            return "INT"
-        if isinstance(dtype, (pl.UInt32, pl.UInt64)):
-            return "BIGINT"
-        if isinstance(dtype, pl.Float32):
-            return "FLOAT"
-        if isinstance(dtype, pl.Float64):
-            return "DOUBLE"
-        if isinstance(dtype, pl.Boolean):
-            return "BOOLEAN"
-        if isinstance(dtype, pl.Binary):
-            return "BINARY"
-        if isinstance(dtype, pl.Date):
-            return "DATE"
-        if isinstance(dtype, pl.Datetime):
-            return "TIMESTAMP"
-        if isinstance(dtype, pl.Decimal):
-            p = dtype.precision if dtype.precision is not None else 38
-            s = dtype.scale if dtype.scale is not None else 0
-            return f"DECIMAL({p},{s})"
-        if isinstance(dtype, (pl.Duration, pl.Time)):
-            return "STRING"
-        if isinstance(dtype, pl.Null):
-            return "STRING"
-        if isinstance(dtype, (pl.String, pl.Utf8, pl.Categorical)):
-            return "STRING"
-        if isinstance(dtype, pl.List):
-            return f"ARRAY<{PolarsEngine._polars_type_to_hive(dtype.inner)}>"
-        if isinstance(dtype, pl.Struct):
-            fields = [
-                f"{f.name}:{PolarsEngine._polars_type_to_hive(f.dtype)}"
-                for f in dtype.fields
-            ]
-            return f"STRUCT<{','.join(fields)}>"
-        return "STRING"
-
-    @staticmethod
-    def _collect_row_safe(result: pl.LazyFrame) -> Dict[str, Any]:
-        """Collect a single-row LazyFrame to a dict, avoiding ``zoneinfo`` failures
-        on Windows (Microsoft Store Python) where ``ZoneInfo('UTC')`` raises
-        ``ZoneInfoNotFoundError``.  TZ-aware datetime columns are stripped to
-        naive UTC before ``.row()`` and reattached using ``datetime.timezone.utc``.
-        """
-        schema = result.collect_schema()
-        tz_cols = [
-            name
-            for name, dtype in schema.items()
-            if isinstance(dtype, pl.Datetime) and dtype.time_zone is not None
-        ]
-        if tz_cols:
-            result = result.with_columns(
-                pl.col(c).dt.convert_time_zone("UTC").dt.replace_time_zone(None) for c in tz_cols
-            )
-        row = result.collect().row(0, named=True)
-        d = dict(row)
-        for c in tz_cols:
-            if d.get(c) is not None:
-                d[c] = d[c].replace(tzinfo=timezone.utc)
-        return d
+        return polars_metrics.get_hive_schema(df)
 
     def get_max_values(self, df: pl.LazyFrame, columns: List[str]) -> Dict[str, Any]:
         resolved = self._resolve_column_names(self._schema_names(df), columns)
-        agg_exprs = [pl.col(c).max().alias(c) for c in resolved]
-        return self._collect_row_safe(df.select(agg_exprs))
+        return polars_metrics.get_max_values(df, resolved)
 
     def get_count_and_max_values(
         self,
@@ -2919,50 +1047,21 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         columns: List[str],
     ) -> Tuple[int, Dict[str, Any]]:
         resolved = self._resolve_column_names(self._schema_names(df), columns)
-        agg_exprs = [pl.len().alias("__row_count")]
-        agg_exprs.extend(pl.col(c).max().alias(c) for c in resolved)
-        d = self._collect_row_safe(df.select(agg_exprs))
-        count = d.pop("__row_count", 0)
-        return count, d
+        return polars_metrics.get_count_and_max_values(df, resolved)
 
     # ==================================================================
     # Maintenance
     # ==================================================================
 
-    @staticmethod
-    def _align_ms_boundaries(
-        start_time: "Optional[datetime]",
-        end_time: "Optional[datetime]",
-    ) -> "Tuple[Optional[datetime], Optional[datetime]]":
-        """Truncate *start_time* / ceil *end_time* to millisecond precision.
-
-        Delta and Iceberg timestamps are stored as millisecond integers.
-        Aligning comparison boundaries avoids sub-millisecond mismatches
-        (mirrors SparkEngine behaviour).
-        """
-        _start = None
-        _end = None
-        if start_time is not None:
-            _start = start_time.replace(
-                microsecond=(start_time.microsecond // 1000) * 1000
-            )
-        if end_time is not None:
-            ceil_us = ((end_time.microsecond + 999) // 1000) * 1000
-            if ceil_us >= 1_000_000:
-                _end = end_time.replace(microsecond=0) + timedelta(seconds=1)
-            else:
-                _end = end_time.replace(microsecond=ceil_us)
-        return _start, _end
-
     def table_exists_by_path(self, path: str, *, fmt: str = "delta") -> bool:
         try:
             fmt_lower = fmt.lower()
             if fmt_lower == Format.DELTA.value:
-                # Fast path: check marker directory without loading the whole table.
-                if self._platform is not None:
-                    return self._platform.folder_exists(f"{path.rstrip('/')}/_delta_log")
-                return self.delta.is_deltatable(
-                    path, storage_options=self._storage_options or None
+                return delta_ops.table_exists(
+                    path,
+                    platform=self._platform,
+                    storage_options=self._storage_options,
+                    delta_table_cls=self.delta,
                 )
             if fmt_lower == Format.ICEBERG.value:
                 # Fast path: Iceberg tables always contain a metadata/ subdirectory.
@@ -2970,7 +1069,8 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     return self._platform.folder_exists(f"{path.rstrip('/')}/metadata")
                 return False
             logger.warning(
-                "PolarsEngine table_exists_by_path: unsupported format %s", fmt,
+                "PolarsEngine table_exists_by_path: unsupported format %s",
+                fmt,
             )
             return False
         except Exception:  # noqa: BLE001
@@ -2987,13 +1087,10 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 raise EngineError(
                     "PolarsEngine.table_exists_by_name requires iceberg_catalog for Iceberg"
                 )
-            pyice_id = self._pyiceberg_table_id(table_name)
-            try:
-                return self._iceberg_catalog.table_exists(pyice_id)
-            except Exception as exc:
-                logger.debug("table_exists check failed, assuming absent: %s", exc)
-                return False
-        raise EngineError(f"PolarsEngine.table_exists_by_name: unsupported format {fmt!r}")
+            return iceberg_ops.table_exists(table_name, catalog=self._iceberg_catalog)
+        raise EngineError(
+            f"PolarsEngine.table_exists_by_name: unsupported format {fmt!r}"
+        )
 
     def get_history_by_path(
         self,
@@ -3006,26 +1103,15 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> List[Dict[str, Any]]:
         if fmt.lower() != Format.DELTA.value:
             return []
-        try:
-            dt = self.delta(path, storage_options=self._storage_options or None)
-            history = dt.history(limit)
-        except Exception:  # noqa: BLE001
-            return []
-
-        _start, _end = self._align_ms_boundaries(start_time, end_time)
-
-        result: List[Dict[str, Any]] = []
-        for entry in history:
-            ts = entry.get("timestamp")
-            if ts is not None and isinstance(ts, (int, float)):
-                entry = {**entry, "timestamp": datetime.fromtimestamp(ts / 1000, tz=timezone.utc)}
-            ts_val = entry.get("timestamp")
-            if _start is not None and ts_val is not None and ts_val <= _start:
-                continue
-            if _end is not None and ts_val is not None and ts_val >= _end:
-                continue
-            result.append(entry)
-        return result
+        _start, _end = polars_temporal.align_ms_boundaries(start_time, end_time)
+        return delta_ops.history(
+            path,
+            limit,
+            _start,
+            _end,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
+        )
 
     def get_history_by_name(
         self,
@@ -3046,58 +1132,40 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 raise EngineError(
                     "PolarsEngine.get_history_by_name requires iceberg_catalog for Iceberg"
                 )
-            pyice_id = self._pyiceberg_table_id(table_name)
-            try:
-                ice_table = self._iceberg_catalog.load_table(pyice_id)
-                _start, _end = self._align_ms_boundaries(start_time, end_time)
+            _start, _end = polars_temporal.align_ms_boundaries(start_time, end_time)
+            return iceberg_ops.history(
+                table_name,
+                limit,
+                _start,
+                _end,
+                catalog=self._iceberg_catalog,
+            )
+        raise EngineError(
+            f"PolarsEngine.get_history_by_name: unsupported format {fmt!r}"
+        )
 
-                # Pre-filter snapshots by time range, then intersect with
-                # history() to keep only "current" snapshots (meaningful
-                # writes).  Intermediate DELETE steps from overwrite ops
-                # exist in snapshots() but not in history().
-                snap_index: Dict[int, Any] = {}
-                for s in ice_table.snapshots() or []:
-                    ts = datetime.fromtimestamp(s.timestamp_ms / 1000, tz=timezone.utc)
-                    if _start is not None and ts <= _start:
-                        continue
-                    if _end is not None and ts >= _end:
-                        continue
-                    snap_index[s.snapshot_id] = s
-            except Exception:  # noqa: BLE001
-                return []
-
-            result: List[Dict[str, Any]] = []
-            for snap in sorted(
-                snap_index.values(),
-                key=lambda s: s.timestamp_ms,
-                reverse=True,
-            ):
-                _snap = snap.dict()
-                result.append({
-                    "snapshot_id": _snap.get("snapshot_id"),
-                    "parent_id": _snap.get("parent_snapshot_id"),
-                    "timestamp": datetime.fromtimestamp(
-                        _snap.get("timestamp_ms") / 1000, tz=timezone.utc,
-                    ),
-                    "operation": (
-                        _snap.get("summary").get("operation") if _snap.get("summary") else None
-                    ),
-                    "manifest_list": _snap.get("manifest_list"),
-                    "summary": dict(_snap.get("summary")) if _snap.get("summary") else None,
-                })
-            return result[:limit]
-        raise EngineError(f"PolarsEngine.get_history_by_name: unsupported format {fmt!r}")
-
-    def compact_by_path(self, path: str, *, fmt: str = "delta", options: Optional[Dict[str, Any]] = None) -> None:
+    def compact_by_path(
+        self, path: str, *, fmt: str = "delta", options: Optional[Dict[str, Any]] = None
+    ) -> None:
         if fmt.lower() != Format.DELTA.value:
             logger.warning(
-                "PolarsEngine compact_by_path only supports Delta, got %s", fmt,
+                "PolarsEngine compact_by_path only supports Delta, got %s",
+                fmt,
             )
             return
-        dt = self.delta(path, storage_options=self._storage_options or None)
-        dt.optimize.compact()
+        delta_ops.compact(
+            path,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
+        )
 
-    def compact_by_name(self, table_name: str, *, fmt: str = "delta", options: Optional[Dict[str, Any]] = None) -> None:
+    def compact_by_name(
+        self,
+        table_name: str,
+        *,
+        fmt: str = "delta",
+        options: Optional[Dict[str, Any]] = None,
+    ) -> None:
         fmt_lower = fmt.lower()
         if fmt_lower == Format.DELTA.value:
             raise EngineError(
@@ -3122,11 +1190,16 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> None:
         if fmt.lower() != Format.DELTA.value:
             logger.warning(
-                "PolarsEngine cleanup_by_path only supports Delta, got %s", fmt,
+                "PolarsEngine cleanup_by_path only supports Delta, got %s",
+                fmt,
             )
             return
-        dt = self.delta(path, storage_options=self._storage_options or None)
-        dt.vacuum(retention_hours=retention_hours, enforce_retention_duration=False)
+        delta_ops.cleanup(
+            path,
+            retention_hours,
+            storage_options=self._storage_options,
+            delta_table_cls=self.delta,
+        )
 
     def cleanup_by_name(
         self,
@@ -3147,45 +1220,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 raise EngineError(
                     "PolarsEngine.cleanup_by_name requires iceberg_catalog for Iceberg"
                 )
-            pyice_id = self._pyiceberg_table_id(table_name)
-            ice_table = self._iceberg_catalog.load_table(pyice_id)
-            if opts.get("expire_snapshots", True):
-                self._iceberg_expire_snapshots(ice_table, retention_hours)
-            if opts.get("remove_orphan_files", True):
-                logger.warning(
-                    "PolarsEngine cleanup_by_name: pyiceberg does not support remove_orphan_files; skipping"
-                )
+            iceberg_ops.cleanup(
+                table_name,
+                retention_hours,
+                opts,
+                catalog=self._iceberg_catalog,
+            )
             return
         raise EngineError(f"PolarsEngine.cleanup_by_name: unsupported format {fmt!r}")
-
-    @staticmethod
-    def _iceberg_expire_snapshots(ice_table: Any, retention_hours: int) -> None:
-        """Expire Iceberg snapshots older than *retention_hours*.
-
-        Pre-checks snapshot metadata so that no-op calls are skipped
-        entirely — pyiceberg otherwise sends an empty remove-snapshots
-        request which the REST catalog rejects with HTTP 500.
-        """
-        cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=retention_hours)
-        cutoff_ms = int(cutoff.timestamp() * 1000)
-        current_id = getattr(ice_table.metadata, "current_snapshot_id", None)
-        expired = [
-            s for s in (ice_table.snapshots() or [])
-            if getattr(s, "timestamp_ms", 0) < cutoff_ms
-            and s.snapshot_id != current_id
-        ]
-        if not expired:
-            logger.debug(
-                "PolarsEngine cleanup_by_name: no snapshots older than %dh; skipping expire_snapshots",
-                retention_hours,
-            )
-            return
-        try:
-            ice_table.maintenance.expire_snapshots().older_than(cutoff).commit()
-        except Exception as exc:
-            logger.warning(
-                "PolarsEngine cleanup_by_name: expire_snapshots skipped (%s)", exc,
-            )
 
     # ==================================================================
     # Navigation
@@ -3230,7 +1272,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> None:
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
-                self.write_to_table(df, table_name, mode=mode, fmt=fmt, partition_columns=partition_columns, options=options)
+                self.write_to_table(
+                    df,
+                    table_name,
+                    mode=mode,
+                    fmt=fmt,
+                    partition_columns=partition_columns,
+                    options=options,
+                )
                 return
             if path:
                 raise EngineError(
@@ -3239,13 +1288,27 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             raise EngineError("write() requires table_name or path")
         # Delta and flat-file formats → path-based
         if path:
-            self.write_to_path(df, path, mode=mode, fmt=fmt, partition_columns=partition_columns, options=options)
+            self.write_to_path(
+                df,
+                path,
+                mode=mode,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
+            )
         elif table_name and fmt.lower() == Format.DELTA.value:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — pass path instead of table_name"
             )
         elif table_name:
-            self.write_to_table(df, table_name, mode=mode, fmt=fmt, partition_columns=partition_columns, options=options)
+            self.write_to_table(
+                df,
+                table_name,
+                mode=mode,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
+            )
         else:
             raise EngineError("write() requires table_name or path")
 
@@ -3263,8 +1326,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
                 self.merge_to_table(
-                    df, table_name, merge_keys=merge_keys, fmt=fmt,
-                    partition_columns=partition_columns, options=options,
+                    df,
+                    table_name,
+                    merge_keys=merge_keys,
+                    fmt=fmt,
+                    partition_columns=partition_columns,
+                    options=options,
                 )
                 return
             if path:
@@ -3274,7 +1341,14 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             raise EngineError("merge() requires table_name or path")
         # Delta → path-based
         if path:
-            self.merge_to_path(df, path, merge_keys=merge_keys, fmt=fmt, partition_columns=partition_columns, options=options)
+            self.merge_to_path(
+                df,
+                path,
+                merge_keys=merge_keys,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
+            )
         elif table_name:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — pass path instead of table_name"
@@ -3296,8 +1370,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
                 self.merge_overwrite_to_table(
-                    df, table_name, merge_keys=merge_keys, fmt=fmt,
-                    partition_columns=partition_columns, options=options,
+                    df,
+                    table_name,
+                    merge_keys=merge_keys,
+                    fmt=fmt,
+                    partition_columns=partition_columns,
+                    options=options,
                 )
                 return
             if path:
@@ -3308,8 +1386,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         # Delta → path-based
         if path:
             self.merge_overwrite_to_path(
-                df, path, merge_keys=merge_keys, fmt=fmt,
-                partition_columns=partition_columns, options=options,
+                df,
+                path,
+                merge_keys=merge_keys,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
             )
         elif table_name:
             raise EngineError(
@@ -3332,8 +1414,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
                 self.scd2_to_table(
-                    df, table_name, merge_keys=merge_keys, fmt=fmt,
-                    partition_columns=partition_columns, options=options,
+                    df,
+                    table_name,
+                    merge_keys=merge_keys,
+                    fmt=fmt,
+                    partition_columns=partition_columns,
+                    options=options,
                 )
                 return
             if path:
@@ -3344,8 +1430,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         # Delta → path-based
         if path:
             self.scd2_to_path(
-                df, path, merge_keys=merge_keys, fmt=fmt,
-                partition_columns=partition_columns, options=options,
+                df,
+                path,
+                merge_keys=merge_keys,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
             )
         elif table_name:
             raise EngineError(
@@ -3390,13 +1480,19 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> List[Dict[str, Any]]:
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
-                return self.get_history_by_name(table_name, limit, start_time, end_time=end_time, fmt=fmt)
+                return self.get_history_by_name(
+                    table_name, limit, start_time, end_time=end_time, fmt=fmt
+                )
             if path:
-                return self.get_history_by_path(path, limit, start_time, end_time=end_time, fmt=fmt)
+                return self.get_history_by_path(
+                    path, limit, start_time, end_time=end_time, fmt=fmt
+                )
             raise EngineError("get_history() requires table_name or path")
         # Delta → path-based
         if path:
-            return self.get_history_by_path(path, limit, start_time, end_time=end_time, fmt=fmt)
+            return self.get_history_by_path(
+                path, limit, start_time, end_time=end_time, fmt=fmt
+            )
         if table_name:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — pass path instead of table_name"
@@ -3440,15 +1536,24 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> None:
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
-                self.cleanup_by_name(table_name, retention_hours=retention_hours, fmt=fmt, options=options)
+                self.cleanup_by_name(
+                    table_name,
+                    retention_hours=retention_hours,
+                    fmt=fmt,
+                    options=options,
+                )
                 return
             if path:
-                self.cleanup_by_path(path, retention_hours=retention_hours, fmt=fmt, options=options)
+                self.cleanup_by_path(
+                    path, retention_hours=retention_hours, fmt=fmt, options=options
+                )
                 return
             raise EngineError("cleanup() requires table_name or path")
         # Delta → path-based
         if path:
-            self.cleanup_by_path(path, retention_hours=retention_hours, fmt=fmt, options=options)
+            self.cleanup_by_path(
+                path, retention_hours=retention_hours, fmt=fmt, options=options
+            )
         elif table_name:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — pass path instead of table_name"

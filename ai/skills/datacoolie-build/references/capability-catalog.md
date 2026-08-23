@@ -1,6 +1,6 @@
 # DataCoolie Built-in Capability Catalog
 
-This catalog is a quick implementation index for DataCoolie 0.1.3. The
+This catalog is a quick implementation index for DataCoolie 0.1.7. The
 installed runtime and its discovered plugins are authoritative. Re-check them before choosing a
 native path because optional dependencies, engine differences, authentication modes, and third-party
 plugins can change the usable combinations.
@@ -11,7 +11,8 @@ plugins can change the usable combinations.
 - Owns the built-in source, destination, transform, and load-strategy snapshot only.
 - Does not decide native versus custom implementation, define metadata syntax, or specify runner
   behavior. Route those decisions to `framework-boundary.md`, `schema-quick-reference.md`, and the
-  runner contracts.
+  runner contracts. Route platform runtime, path, credential, and extra selection to
+  `platform-contract.md`.
 
 ## Contents
 
@@ -43,8 +44,8 @@ full-combination decision from `framework-boundary.md` before selecting a native
 | Source family | Registry/format | Built-in scope | Important checks |
 |---|---|---|---|
 | Flat files | `parquet`, `csv`, `json`, `jsonl`, `avro`, `excel` | Local and platform-backed path reads; file lineage and incremental patterns are available | Reader options and engine/platform storage support; Excel is read-only |
-| Delta Lake | `delta` | Path-based Delta reads; named-table behavior depends on engine/platform | `deltalake` or Spark Delta dependencies and addressing mode |
-| Apache Iceberg | `iceberg` | Path- or catalog-based Iceberg reads | `pyiceberg`/Spark catalog configuration and engine limitations |
+| Delta Lake | `delta` | Path-based Delta reads; Polars can index path-discovered relations for qualified metadata SQL | `deltalake` or Spark Delta dependencies, addressing mode, and `polars-qualified-sql.md` when Polars executes `source.query` |
+| Apache Iceberg | `iceberg` | Path- or catalog-based Iceberg reads; Polars can index catalog/namespace relations for qualified metadata SQL | `pyiceberg`/Spark catalog configuration, engine limitations, and `polars-qualified-sql.md` when Polars executes `source.query` |
 | SQL database | `sql` | Table or query reads, watermark push-down, URL or structured connection config | Driver, authentication, SQL dialect, and source data types |
 | REST API | `api` | HTTP endpoint reads with request configuration, pagination, watermark push-down, and range splitting | Authentication, response extraction, pagination contract, rate limits |
 | Python function | `function` | Metadata-addressed function returning an engine-compatible DataFrame | Restrict `allowed_function_prefixes`; use only for a justified custom edge |
@@ -82,7 +83,7 @@ field shown below instead of calling transformer classes directly.
 |---|---|---|
 | `column_value_transformer` | `transform.value_rules` | `trim`, lower/upper `case`, `regex_replace`, `empty_to_null`, `fill_null`, `map` |
 | `schema_converter` | `transform.schema_hints` | Portable target-schema casts and schema-hint configuration |
-| `hash_column_adder` | `transform.hash_columns` | Deterministic SHA-256 using `dc_hash_v1` serialization |
+| `hash_column_adder` | `transform.hash_columns` | Deterministic SHA-256 String or signed XXHash64 BIGINT using `dc_hash_v1` serialization |
 | `deduplicator` | `deduplicate_columns`, `latest_data_columns` | Latest-wins deduplication; can fall back to merge keys/watermarks |
 | `column_adder` | `transform.additional_columns` | Computed columns from engine-supported SQL expressions |
 | `row_filter` | `transform.filter_expression` | Post-computed-column SQL predicate filtering |
@@ -114,7 +115,7 @@ lakehouse capabilities and verify the selected Delta or Iceberg engine path.
 
 ## 6. Unsupported-by-default Boundaries
 
-The 0.1.3 built-ins do not provide:
+The 0.1.7 built-ins do not provide:
 
 - a streaming source or destination implementation, even though `streaming` is reserved in the
   connection model;

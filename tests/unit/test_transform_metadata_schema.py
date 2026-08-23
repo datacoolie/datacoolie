@@ -92,6 +92,16 @@ def _is_valid(validator: Draft202012Validator, transform: dict) -> bool:
                 }
             ]
         },
+        {
+            "hash_columns": [
+                {
+                    "target_column": "surrogate_key",
+                    "columns": ["customer_id", "country"],
+                    "algorithm": "xxhash64",
+                    "serialization": "dc_hash_v1",
+                }
+            ]
+        },
         {"masking_rules": [{"method": "redact", "columns": ["email"], "value": "***"}]},
         {"masking_rules": [{"method": "nullify", "columns": ["secret"]}]},
         {
@@ -188,6 +198,11 @@ def test_valid_transform_contracts(
         {
             "hash_columns": [
                 {"target_column": "row_hash", "columns": ["id"], "salt": "secret"}
+            ]
+        },
+        {
+            "hash_columns": [
+                {"target_column": "row_hash", "columns": ["id"], "seed": 42}
             ]
         },
         {"masking_rules": [{"method": "redact", "columns": ["email"]}]},

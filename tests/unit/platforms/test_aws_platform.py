@@ -81,8 +81,18 @@ class TestWriteFile:
         platform.write_file("data/file.txt", "content")
         mock_client.put_object.assert_called_once()
 
-    def test_write_exists_no_overwrite(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
-        mock_client.head_object.return_value = {}
+    def test_write_exists_no_overwrite(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
+        from botocore.exceptions import ClientError
+
+        mock_client.put_object.side_effect = ClientError(
+            {
+                "Error": {"Code": "PreconditionFailed"},
+                "ResponseMetadata": {"HTTPStatusCode": 412},
+            },
+            "PutObject",
+        )
         with pytest.raises(PlatformError, match="already exists"):
             platform.write_file("data/file.txt", "content")
 
@@ -93,14 +103,19 @@ class TestAppendFile:
         platform.append_file("data/file.txt", "new")
         mock_client.put_object.assert_called_once()
 
-    def test_append_existing(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_append_existing(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.head_object.return_value = {}
         body = MagicMock()
         body.read.return_value = b"old"
         mock_client.get_object.return_value = {"Body": body}
         platform.append_file("data/file.txt", "new")
         call_args = mock_client.put_object.call_args
-        assert b"oldnew" in call_args.kwargs.get("Body", b"") or call_args[1].get("Body", b"") == b"oldnew"
+        assert (
+            b"oldnew" in call_args.kwargs.get("Body", b"")
+            or call_args[1].get("Body", b"") == b"oldnew"
+        )
 
 
 class TestDeleteFile:
@@ -121,7 +136,9 @@ class TestCreateFolder:
 
 
 class TestDeleteFolder:
-    def test_delete_recursive(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_recursive(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
         paginator.paginate.return_value = [
             {"Contents": [{"Key": "data/folder/a.txt"}, {"Key": "data/folder/b.txt"}]}
@@ -131,7 +148,9 @@ class TestDeleteFolder:
         platform.delete_folder("data/folder", recursive=True)
         mock_client.delete_objects.assert_called_once()
 
-    def test_delete_two_pages(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_two_pages(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         """Each page batch is processed sequentially via the paginator."""
         paginator = MagicMock()
         paginator.paginate.return_value = [
@@ -143,15 +162,21 @@ class TestDeleteFolder:
         platform.delete_folder("data/folder", recursive=True)
         assert mock_client.delete_objects.call_count == 2
 
-    def test_delete_partial_failure_raises(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_partial_failure_raises(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         """Partial failures from delete_objects are surfaced as PlatformError."""
         paginator = MagicMock()
-        paginator.paginate.return_value = [
-            {"Contents": [{"Key": "data/folder/a.txt"}]}
-        ]
+        paginator.paginate.return_value = [{"Contents": [{"Key": "data/folder/a.txt"}]}]
         mock_client.get_paginator.return_value = paginator
         mock_client.delete_objects.return_value = {
-            "Errors": [{"Key": "data/folder/a.txt", "Code": "AccessDenied", "Message": "Access Denied"}]
+            "Errors": [
+                {
+                    "Key": "data/folder/a.txt",
+                    "Code": "AccessDenied",
+                    "Message": "Access Denied",
+                }
+            ]
         }
         with pytest.raises(PlatformError, match="Failed to delete 1 object"):
             platform.delete_folder("data/folder", recursive=True)
@@ -163,8 +188,16 @@ class TestListFiles:
         paginator.paginate.return_value = [
             {
                 "Contents": [
-                    {"Key": "data/a.parquet", "Size": 100, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
-                    {"Key": "data/b.csv", "Size": 200, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
+                    {
+                        "Key": "data/a.parquet",
+                        "Size": 100,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
+                    {
+                        "Key": "data/b.csv",
+                        "Size": 200,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
                 ]
             }
         ]
@@ -172,13 +205,23 @@ class TestListFiles:
         result = platform.list_files("data")
         assert len(result) == 2
 
-    def test_extension_filter(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_extension_filter(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
         paginator.paginate.return_value = [
             {
                 "Contents": [
-                    {"Key": "data/a.parquet", "Size": 100, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
-                    {"Key": "data/b.csv", "Size": 200, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
+                    {
+                        "Key": "data/a.parquet",
+                        "Size": 100,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
+                    {
+                        "Key": "data/b.csv",
+                        "Size": 200,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
                 ]
             }
         ]
@@ -186,13 +229,19 @@ class TestListFiles:
         result = platform.list_files("data", extension=".parquet")
         assert len(result) == 1
 
-    def test_list_recursive_parallel(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_recursive_parallel(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         """Recursive listing uses the eager per-page parallel tree-walk."""
         paginator = MagicMock()
         paginator.paginate.return_value = [
             {
                 "Contents": [
-                    {"Key": "data/a.parquet", "Size": 100, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
+                    {
+                        "Key": "data/a.parquet",
+                        "Size": 100,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
                 ],
                 "CommonPrefixes": [],
             }
@@ -224,15 +273,27 @@ class TestExistence:
         mock_client.head_object.return_value = {}
         assert platform.file_exists("data/file.txt") is True
 
-    def test_file_not_exists(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
-        mock_client.head_object.side_effect = Exception("not found")
+    def test_file_not_exists(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
+        from botocore.exceptions import ClientError
+
+        mock_client.head_object.side_effect = ClientError(
+            {
+                "Error": {"Code": "NotFound"},
+                "ResponseMetadata": {"HTTPStatusCode": 404},
+            },
+            "HeadObject",
+        )
         assert platform.file_exists("data/file.txt") is False
 
     def test_folder_exists(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
         mock_client.list_objects_v2.return_value = {"KeyCount": 1}
         assert platform.folder_exists("data/folder") is True
 
-    def test_folder_not_exists(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_folder_not_exists(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.list_objects_v2.return_value = {"KeyCount": 0}
         assert platform.folder_exists("data/folder") is False
 
@@ -244,7 +305,15 @@ class TestExistence:
 
 class TestUploadFile:
     def test_upload(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
-        mock_client.head_object.side_effect = Exception("not found")
+        from botocore.exceptions import ClientError
+
+        mock_client.head_object.side_effect = ClientError(
+            {
+                "Error": {"Code": "NotFound"},
+                "ResponseMetadata": {"HTTPStatusCode": 404},
+            },
+            "HeadObject",
+        )
         platform.upload_file("/local/file.txt", "data/file.txt")
         mock_client.upload_file.assert_called_once()
 
@@ -252,13 +321,21 @@ class TestUploadFile:
 class TestDownloadFile:
     def test_download(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
         platform.download_file("s3://test-bucket/data/file.txt", "/tmp/local.txt")
-        mock_client.download_file.assert_called_once_with("test-bucket", "data/file.txt", "/tmp/local.txt")
+        mock_client.download_file.assert_called_once_with(
+            "test-bucket", "data/file.txt", "/tmp/local.txt"
+        )
 
-    def test_download_plain_key(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_download_plain_key(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         platform.download_file("data/file.txt", "/tmp/local.txt")
-        mock_client.download_file.assert_called_once_with("test-bucket", "data/file.txt", "/tmp/local.txt")
+        mock_client.download_file.assert_called_once_with(
+            "test-bucket", "data/file.txt", "/tmp/local.txt"
+        )
 
-    def test_download_failure(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_download_failure(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.download_file.side_effect = Exception("no access")
         with pytest.raises(PlatformError, match="download"):
             platform.download_file("data/file.txt", "/tmp/local.txt")
@@ -266,7 +343,15 @@ class TestDownloadFile:
 
 class TestCopyFile:
     def test_copy(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
-        mock_client.head_object.side_effect = Exception("not found")
+        from botocore.exceptions import ClientError
+
+        mock_client.head_object.side_effect = ClientError(
+            {
+                "Error": {"Code": "NotFound"},
+                "ResponseMetadata": {"HTTPStatusCode": 404},
+            },
+            "HeadObject",
+        )
         platform.copy_file("s3://test-bucket/src.txt", "s3://test-bucket/dest.txt")
         mock_client.copy_object.assert_called_once()
 
@@ -277,6 +362,19 @@ class TestMoveFile:
         platform.move_file("s3://test-bucket/src.txt", "s3://test-bucket/dest.txt")
         mock_client.copy_object.assert_called_once()
         mock_client.delete_object.assert_called_once()
+
+    def test_move_retains_source_when_copy_fails(
+        self,
+        platform: AWSPlatform,
+        mock_client: MagicMock,
+    ) -> None:
+        mock_client.head_object.side_effect = Exception("not found")
+        mock_client.copy_object.side_effect = Exception("copy failed")
+
+        with pytest.raises(PlatformError, match="Failed to copy"):
+            platform.move_file("s3://test-bucket/src.txt", "s3://test-bucket/dest.txt")
+
+        mock_client.delete_object.assert_not_called()
 
 
 class TestGetFileInfo:
@@ -298,6 +396,7 @@ class TestGetFileInfo:
 class TestRegistry:
     def test_aws_in_registry(self) -> None:
         from datacoolie import platform_registry
+
         assert platform_registry.is_available("aws")
 
 
@@ -384,6 +483,7 @@ class TestGetSecret:
 
     def test_fetch_json_secret_extracts_key(self) -> None:
         import json
+
         with patch("boto3.Session") as mock_session_cls:
             mock_session = MagicMock()
             mock_session_cls.return_value = mock_session
@@ -408,6 +508,7 @@ class TestGetSecret:
 
     def test_missing_json_key_raises(self) -> None:
         import json
+
         with patch("boto3.Session") as mock_session_cls:
             mock_session = MagicMock()
             mock_session_cls.return_value = mock_session
@@ -437,6 +538,7 @@ class TestGetSecret:
     def test_region_from_platform_not_source(self) -> None:
         """Region always comes from AWSPlatform, never from source."""
         import json
+
         with patch("boto3.Session") as mock_session_cls:
             mock_session = MagicMock()
             mock_session_cls.return_value = mock_session
@@ -452,13 +554,16 @@ class TestGetSecret:
             mock_session = MagicMock()
             mock_session_cls.return_value = mock_session
             mock_session.client.return_value = MagicMock(
-                get_secret_value=MagicMock(return_value={"SecretBinary": b"binary-value"})
+                get_secret_value=MagicMock(
+                    return_value={"SecretBinary": b"binary-value"}
+                )
             )
             p = AWSPlatform(region="us-east-1")
             assert p.get_secret("any_key", "prod/binary-secret") == "binary-value"
 
     def test_is_base_secret_provider(self) -> None:
         from datacoolie.core.secret_provider import BaseSecretProvider
+
         assert isinstance(AWSPlatform(), BaseSecretProvider)
 
 
@@ -492,81 +597,129 @@ class TestAWSAdvancedPaths:
             with pytest.raises(PlatformError, match="boto3 is not available"):
                 _ = p._session
 
-    def test_delete_folder_non_recursive_calls_delete_object(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_folder_non_recursive_calls_delete_object(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
+        mock_client.list_objects_v2.return_value = {
+            "KeyCount": 1,
+            "Contents": [{"Key": "data/folder/"}],
+        }
         platform.delete_folder("data/folder", recursive=False)
         mock_client.delete_object.assert_called_once()
 
-    def test_delete_folder_non_recursive_with_trailing_slash(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_folder_non_recursive_with_trailing_slash(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
+        mock_client.list_objects_v2.return_value = {
+            "KeyCount": 1,
+            "Contents": [{"Key": "data/folder/"}],
+        }
         platform.delete_folder("data/folder/", recursive=False)
-        mock_client.delete_object.assert_called_once_with(Bucket="test-bucket", Key="data/folder/")
+        mock_client.delete_object.assert_called_once_with(
+            Bucket="test-bucket", Key="data/folder/"
+        )
 
-    def test_delete_folder_recursive_with_no_contents(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_folder_recursive_with_no_contents(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
         paginator.paginate.return_value = [{"Contents": []}]
         mock_client.get_paginator.return_value = paginator
         platform.delete_folder("data/folder", recursive=True)
         mock_client.delete_objects.assert_not_called()
 
-    def test_delete_folder_recursive_outer_exception_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_folder_recursive_outer_exception_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.get_paginator.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to delete folder"):
             platform.delete_folder("data/folder", recursive=True)
 
-    def test_list_files_skips_folder_marker_and_empty_name(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_files_skips_folder_marker_and_empty_name(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
-        paginator.paginate.return_value = [{
-            "Contents": [
-                {"Key": "data/", "Size": 0, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
-                {"Key": "data/a.txt", "Size": 1, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
-            ]
-        }]
+        paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {
+                        "Key": "data/",
+                        "Size": 0,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
+                    {
+                        "Key": "data/a.txt",
+                        "Size": 1,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
+                ]
+            }
+        ]
         mock_client.get_paginator.return_value = paginator
         result = platform.list_files("data")
         assert [f.name for f in result] == ["a.txt"]
 
-    def test_list_files_error_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_files_error_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.get_paginator.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to list files"):
             platform.list_files("data")
 
-    def test_list_files_with_root_prefix_key_empty(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_files_with_root_prefix_key_empty(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
-        paginator.paginate.return_value = [{
-            "Contents": [
-                {"Key": "a.txt", "Size": 1, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
-            ]
-        }]
+        paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {
+                        "Key": "a.txt",
+                        "Size": 1,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
+                ]
+            }
+        ]
         mock_client.get_paginator.return_value = paginator
         files = platform.list_files("")
         assert len(files) == 1
         assert files[0].name == "a.txt"
 
-    def test_list_files_reraises_platform_error(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_files_reraises_platform_error(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.get_paginator.side_effect = PlatformError("boom")
         with pytest.raises(PlatformError, match="boom"):
             platform.list_files("data")
 
-    def test_list_folders_recursive_derives_intermediate_paths(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_folders_recursive_derives_intermediate_paths(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
-        paginator.paginate.return_value = [{
-            "Contents": [{"Key": "data/a/b/file.txt"}]
-        }]
+        paginator.paginate.return_value = [{"Contents": [{"Key": "data/a/b/file.txt"}]}]
         mock_client.get_paginator.return_value = paginator
         folders = platform.list_folders("data", recursive=True)
         assert "s3://test-bucket/data/a/" in folders
         assert "s3://test-bucket/data/a/b/" in folders
 
-    def test_list_folders_error_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_folders_error_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.get_paginator.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to list folders"):
             platform.list_folders("data")
 
-    def test_list_folders_reraises_platform_error(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_folders_reraises_platform_error(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.get_paginator.side_effect = PlatformError("boom")
         with pytest.raises(PlatformError, match="boom"):
             platform.list_folders("data")
 
-    def test_list_folders_with_empty_key_prefix(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_folders_with_empty_key_prefix(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
         paginator.paginate.return_value = [{"CommonPrefixes": [{"Prefix": "a/"}]}]
         mock_client.get_paginator.return_value = paginator
@@ -579,34 +732,59 @@ class TestAWSAdvancedPaths:
         assert p.file_exists("x") is False
         assert p.folder_exists("x") is False
 
-    def test_upload_conflict_and_error(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_upload_conflict_and_error(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
+        from botocore.exceptions import ClientError
+
         mock_client.head_object.return_value = {}
         with pytest.raises(PlatformError, match="already exists"):
             platform.upload_file("/tmp/a", "data/a")
 
-        mock_client.head_object.side_effect = Exception("not found")
+        mock_client.head_object.side_effect = ClientError(
+            {
+                "Error": {"Code": "NotFound"},
+                "ResponseMetadata": {"HTTPStatusCode": 404},
+            },
+            "HeadObject",
+        )
         mock_client.upload_file.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to upload"):
             platform.upload_file("/tmp/a", "data/a")
 
-    def test_copy_conflict_and_error(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
-        mock_client.head_object.return_value = {}
+    def test_copy_conflict_and_error(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
+        from botocore.exceptions import ClientError
+
+        mock_client.copy_object.side_effect = ClientError(
+            {
+                "Error": {"Code": "PreconditionFailed"},
+                "ResponseMetadata": {"HTTPStatusCode": 412},
+            },
+            "CopyObject",
+        )
         with pytest.raises(PlatformError, match="already exists"):
             platform.copy_file("data/src", "data/dst")
 
-        mock_client.head_object.side_effect = Exception("not found")
         mock_client.copy_object.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to copy"):
             platform.copy_file("data/src", "data/dst")
 
-    def test_get_file_info_error_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_get_file_info_error_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.head_object.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to get file info"):
             platform.get_file_info("data/x")
 
     def test_fetch_secret_platform_error_is_rewrapped(self) -> None:
         p = AWSPlatform(region="us-east-1")
-        with patch.object(AWSPlatform, "boto3_client", side_effect=PlatformError("boto3 not installed")):
+        with patch.object(
+            AWSPlatform,
+            "boto3_client",
+            side_effect=PlatformError("boto3 not installed"),
+        ):
             with pytest.raises(Exception, match="boto3 not installed"):
                 p._fetch_secret("key", "source")
 
@@ -625,7 +803,9 @@ class TestAWSAdvancedPaths:
             mock_session_cls.return_value = MagicMock()
             p = AWSPlatform(region="us-east-1", profile="dev")
             _ = p._session
-            mock_session_cls.assert_called_once_with(region_name="us-east-1", profile_name="dev")
+            mock_session_cls.assert_called_once_with(
+                region_name="us-east-1", profile_name="dev"
+            )
 
     def test_s3_property_initializes_client_once(self) -> None:
         p = AWSPlatform(bucket="b")
@@ -634,7 +814,9 @@ class TestAWSAdvancedPaths:
             _ = p.s3
             mk.assert_called_once_with("s3")
 
-    def test_write_append_create_error_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_write_append_create_error_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.head_object.side_effect = Exception("missing")
         mock_client.put_object.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to write file"):
@@ -681,7 +863,10 @@ class TestExecuteAthenaDDL:
         athena.start_query_execution.assert_called_once()
         call_kwargs = athena.start_query_execution.call_args[1]
         assert call_kwargs["QueryString"] == "CREATE TABLE foo"
-        assert call_kwargs["ResultConfiguration"]["OutputLocation"] == "s3://bucket/results/"
+        assert (
+            call_kwargs["ResultConfiguration"]["OutputLocation"]
+            == "s3://bucket/results/"
+        )
 
     def test_passes_database_context(self) -> None:
         p, athena = self._make_platform()
@@ -689,9 +874,7 @@ class TestExecuteAthenaDDL:
         athena.get_query_execution.return_value = {
             "QueryExecution": {"Status": {"State": "SUCCEEDED"}}
         }
-        p.execute_athena_ddl(
-            "SELECT 1", database="mydb", output_location="s3://b/r/"
-        )
+        p.execute_athena_ddl("SELECT 1", database="mydb", output_location="s3://b/r/")
         call_kwargs = athena.start_query_execution.call_args[1]
         assert call_kwargs["QueryExecutionContext"]["Database"] == "mydb"
 
@@ -779,8 +962,10 @@ class TestRegisterDeltaTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_delta_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="mydb",
+            output_location="s3://b/r/",
         )
         p.delete_glue_table.assert_not_called()
         assert p.execute_athena_ddl.call_count == 1
@@ -797,8 +982,10 @@ class TestRegisterDeltaTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_delta_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="mydb",
+            output_location="s3://b/r/",
             recreate=True,
         )
         p.delete_glue_table.assert_called_once_with("mydb", "my_table")
@@ -816,8 +1003,10 @@ class TestRegisterSymlinkTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="symlink_mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="symlink_mydb",
+            output_location="s3://b/r/",
             schema_ddl="`id` INT, `name` STRING",
         )
         p.delete_glue_table.assert_not_called()
@@ -833,8 +1022,10 @@ class TestRegisterSymlinkTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="symlink_mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="symlink_mydb",
+            output_location="s3://b/r/",
             schema_ddl="`id` INT, `name` STRING",
             partition_ddl="PARTITIONED BY (`year` STRING)",
         )
@@ -849,8 +1040,10 @@ class TestRegisterSymlinkTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="symlink_mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="symlink_mydb",
+            output_location="s3://b/r/",
             schema_ddl="`id` INT",
             recreate=False,
         )
@@ -862,8 +1055,10 @@ class TestRegisterSymlinkTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="symlink_mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="symlink_mydb",
+            output_location="s3://b/r/",
             schema_ddl="`id` INT",
             recreate=True,
         )
@@ -875,19 +1070,26 @@ class TestRegisterSymlinkTable:
         p.delete_glue_table = MagicMock()
         p.execute_athena_ddl = MagicMock(return_value="q-1")
         p.register_symlink_table(
-            "my_table", "s3://bucket/data/my_table",
-            database="symlink_mydb", output_location="s3://b/r/",
+            "my_table",
+            "s3://bucket/data/my_table",
+            database="symlink_mydb",
+            output_location="s3://b/r/",
             schema_ddl="`id` INT",
             partition_ddl="PARTITIONED BY (`year` STRING)",
             run_msck=False,
         )
         assert p.execute_athena_ddl.call_count == 1
 
-    def test_delete_file_exception_is_idempotent(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_file_operational_exception_is_raised(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.delete_object.side_effect = RuntimeError("boom")
-        platform.delete_file("data/f.txt")
+        with pytest.raises(PlatformError, match="Failed to delete file"):
+            platform.delete_file("data/f.txt")
 
-    def test_delete_folder_recursive_platform_error_reraised(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_delete_folder_recursive_platform_error_reraised(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
         paginator.paginate.return_value = [{"Contents": [{"Key": "data/a.txt"}]}]
         mock_client.get_paginator.return_value = paginator
@@ -895,34 +1097,51 @@ class TestRegisterSymlinkTable:
         with pytest.raises(PlatformError, match="Failed to delete"):
             platform.delete_folder("data", recursive=True)
 
-    def test_list_files_recursive_keeps_nested_items(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_files_recursive_keeps_nested_items(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
-        paginator.paginate.return_value = [{
-            "Contents": [
-                {"Key": "data/x/y.txt", "Size": 2, "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc)},
-            ]
-        }]
+        paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {
+                        "Key": "data/x/y.txt",
+                        "Size": 2,
+                        "LastModified": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    },
+                ]
+            }
+        ]
         mock_client.get_paginator.return_value = paginator
         files = platform.list_files("data", recursive=True)
         assert len(files) == 1
         assert files[0].name == "y.txt"
 
-    def test_list_folders_recursive_error_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_list_folders_recursive_error_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         paginator = MagicMock()
         paginator.paginate.side_effect = RuntimeError("boom")
         mock_client.get_paginator.return_value = paginator
         with pytest.raises(PlatformError, match="Failed to list folders"):
             platform.list_folders("data", recursive=True)
 
-    def test_folder_exists_with_trailing_slash_path(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_folder_exists_with_trailing_slash_path(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.list_objects_v2.return_value = {"KeyCount": 1}
         assert platform.folder_exists("data/folder/") is True
 
-    def test_folder_exists_exception_returns_false(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_folder_exists_exception_returns_false(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.list_objects_v2.side_effect = RuntimeError("boom")
-        assert platform.folder_exists("data/folder") is False
+        with pytest.raises(PlatformError, match="Failed to check folder"):
+            platform.folder_exists("data/folder")
 
-    def test_copy_download_failures_wrapped(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_copy_download_failures_wrapped(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         mock_client.head_object.side_effect = Exception("missing")
         mock_client.copy_object.side_effect = RuntimeError("boom")
         with pytest.raises(PlatformError, match="Failed to copy"):
@@ -932,9 +1151,13 @@ class TestRegisterSymlinkTable:
         with pytest.raises(PlatformError, match="Failed to download"):
             platform.download_file("data/src.txt", "/tmp/out.txt")
 
-    def test_create_folder_keeps_trailing_slash(self, platform: AWSPlatform, mock_client: MagicMock) -> None:
+    def test_create_folder_keeps_trailing_slash(
+        self, platform: AWSPlatform, mock_client: MagicMock
+    ) -> None:
         platform.create_folder("data/folder/")
-        mock_client.put_object.assert_called_once_with(Bucket="test-bucket", Key="data/folder/", Body=b"")
+        mock_client.put_object.assert_called_once_with(
+            Bucket="test-bucket", Key="data/folder/", Body=b""
+        )
 
     def test_fetch_secret_with_empty_payload_returns_empty_string(self) -> None:
         with patch("boto3.Session") as mock_session_cls:
@@ -948,7 +1171,9 @@ class TestRegisterSymlinkTable:
 
     def test_fetch_secret_platform_error_propagates(self) -> None:
         p = AWSPlatform(region="us-east-1")
-        with patch.object(AWSPlatform, "boto3_client", side_effect=PlatformError("boto3 missing")):
+        with patch.object(
+            AWSPlatform, "boto3_client", side_effect=PlatformError("boto3 missing")
+        ):
             with pytest.raises(PlatformError, match="boto3 missing"):
                 p._fetch_secret("k", "src")
 
@@ -958,76 +1183,75 @@ class TestAWSPlatformCoverageGaps:
 
     def test_parse_path_plain_path_no_s3_prefix(self) -> None:
         """Line 190: path without s3:// returns default bucket."""
-        p = AWSPlatform(bucket='mybucket')
-        bucket, key = p._parse_path('some/plain/path.txt')
-        assert bucket == 'mybucket'
-        assert key == 'some/plain/path.txt'
+        p = AWSPlatform(bucket="mybucket")
+        bucket, key = p._parse_path("some/plain/path.txt")
+        assert bucket == "mybucket"
+        assert key == "some/plain/path.txt"
 
     def test_read_bytes_large_file_uses_download_fileobj(self) -> None:
-        """Lines 226-237: large file goes through download_fileobj."""
-        p = AWSPlatform(bucket='test-bucket')
+        """Full reads use one unbounded GetObject regardless of size."""
+        p = AWSPlatform(bucket="test-bucket")
         mock_s3 = MagicMock()
-        import io
-        # head_object returns size > threshold
-        mock_s3.head_object.return_value = {'ContentLength': 100 * 1024 * 1024}
-        def fake_download(bucket, key, buf):
-            buf.write(b'large data')
-        mock_s3.download_fileobj.side_effect = fake_download
+        mock_s3.get_object.return_value = {"Body": MagicMock()}
+        mock_s3.get_object.return_value["Body"].read.return_value = b"large data"
         p._client = mock_s3
-        data = p.read_bytes('s3://test-bucket/big-file.bin')
-        assert data == b'large data'
-        mock_s3.download_fileobj.assert_called_once()
+        data = p.read_bytes("s3://test-bucket/big-file.bin")
+        assert data == b"large data"
+        mock_s3.head_object.assert_not_called()
+        mock_s3.download_fileobj.assert_not_called()
 
     def test_write_bytes_large_data_uses_upload_fileobj(self) -> None:
         """Lines 245-255: large data payload goes through upload_fileobj."""
-        p = AWSPlatform(bucket='test-bucket')
+        p = AWSPlatform(bucket="test-bucket")
         mock_s3 = MagicMock()
-        mock_s3.head_object.side_effect = Exception('not found')
+        mock_s3.head_object.side_effect = Exception("not found")
         p._client = mock_s3
-        large_data = b'x' * (10 * 1024 * 1024)
-        p.write_bytes('s3://test-bucket/large.bin', large_data, overwrite=True)
+        large_data = b"x" * (10 * 1024 * 1024)
+        p.write_bytes("s3://test-bucket/large.bin", large_data, overwrite=True)
         mock_s3.upload_fileobj.assert_called_once()
 
     def test_delete_glue_table_entity_not_found_is_suppressed(self) -> None:
         """Lines 520-521: EntityNotFoundException is swallowed."""
-        p = AWSPlatform(bucket='test-bucket')
+        p = AWSPlatform(bucket="test-bucket")
         mock_glue = MagicMock()
         mock_glue.exceptions.EntityNotFoundException = Exception
-        mock_glue.delete_table.side_effect = Exception('EntityNotFound')
+        mock_glue.delete_table.side_effect = Exception("EntityNotFound")
         mock_boto = MagicMock(return_value=mock_glue)
-        with patch.object(p, 'boto3_client', mock_boto):
+        with patch.object(p, "boto3_client", mock_boto):
             # Should not raise
-            p.delete_glue_table('mydb', 'mytable')
+            p.delete_glue_table("mydb", "mytable")
 
     def test_delete_glue_table_generic_exception_warns(self) -> None:
-        """Lines 524-527: non-EntityNotFound exception logs warning."""
-        p = AWSPlatform(bucket='test-bucket')
+        """Operational Glue delete failures are surfaced to the caller."""
+        p = AWSPlatform(bucket="test-bucket")
         mock_glue = MagicMock()
+
         # Make EntityNotFoundException a distinct type so generic Exception is caught
         class _EntityNotFoundError(Exception):
             pass
+
         mock_glue.exceptions.EntityNotFoundException = _EntityNotFoundError
-        mock_glue.delete_table.side_effect = RuntimeError('some other error')
+        mock_glue.delete_table.side_effect = RuntimeError("some other error")
         mock_boto = MagicMock(return_value=mock_glue)
-        with patch.object(p, 'boto3_client', mock_boto):
-            # Should not raise; logs warning
-            p.delete_glue_table('mydb', 'mytable')
+        with patch.object(p, "boto3_client", mock_boto):
+            with pytest.raises(PlatformError, match="Failed to delete Glue table"):
+                p.delete_glue_table("mydb", "mytable")
 
     def test_execute_athena_ddl_failed_state_raises(self) -> None:
         """Lines 610-612: FAILED state raises PlatformError."""
-        p = AWSPlatform(bucket='test-bucket')
+        p = AWSPlatform(bucket="test-bucket")
         mock_athena = MagicMock()
-        mock_athena.start_query_execution.return_value = {'QueryExecutionId': 'qid-123'}
+        mock_athena.start_query_execution.return_value = {"QueryExecutionId": "qid-123"}
         mock_athena.get_query_execution.return_value = {
-            'QueryExecution': {
-                'Status': {
-                    'State': 'FAILED',
-                    'StateChangeReason': 'syntax error',
+            "QueryExecution": {
+                "Status": {
+                    "State": "FAILED",
+                    "StateChangeReason": "syntax error",
                 }
             }
         }
         mock_boto = MagicMock(return_value=mock_athena)
-        with patch.object(p, 'boto3_client', mock_boto):
-            with patch('time.sleep'):
-                with pytest.raises(PlatformError, match='FAILED'):
-                    p.execute_athena_ddl('SELECT 1', output_location='s3://bucket/out/')
+        with patch.object(p, "boto3_client", mock_boto):
+            with patch("time.sleep"):
+                with pytest.raises(PlatformError, match="FAILED"):
+                    p.execute_athena_ddl("SELECT 1", output_location="s3://bucket/out/")

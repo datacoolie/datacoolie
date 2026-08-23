@@ -17,7 +17,7 @@ need the fastest first success, start with [Quickstart · Polars](quickstart-pol
 **Prerequisites**
 
 - Python 3.11+, Java 17
-- `pip install "datacoolie[spark,delta-spark]"`
+- `pip install "datacoolie[spark-delta]"`
 
 **End state** — same as the [Polars quickstart](quickstart-polars.md): CSV →
 Delta table with watermark.

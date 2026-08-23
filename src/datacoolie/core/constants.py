@@ -6,9 +6,8 @@ that serialises naturally to JSON/YAML and matches database values.
 
 from __future__ import annotations
 
-import os
 from enum import Enum
-from typing import Dict, List
+from typing import Dict
 
 
 # ---------------------------------------------------------------------------
@@ -231,4 +230,8 @@ DEFAULT_MAX_WORKERS: int = 8
 DEFAULT_RETRY_COUNT: int = 0
 DEFAULT_RETRY_DELAY: float = 5.0
 DEFAULT_RETENTION_HOURS: int = 168  # 7 days
+
+# Spark's public xxhash64 expression fixes this seed. Polars must use the
+# same value to preserve the portable cross-engine hash contract.
+XXHASH64_SEED: int = 42
 

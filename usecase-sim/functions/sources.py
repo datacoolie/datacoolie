@@ -69,11 +69,12 @@ def sql_query_orders_iceberg(engine, source, watermark_start=None, watermark_end
     namespace = source.connection.database or "default"
 
     if hasattr(engine, "register_iceberg_tables"):
-        # Polars: register into SQLContext, then query by short name.
+        # Polars: qualify by namespace so the query stays unambiguous if the
+        # same table has also been registered with a one-level logical name.
         registered = engine.register_iceberg_tables(namespace)
         if not registered:
             return None
-        table_ref = "orders_overwritten"
+        table_ref = f"{namespace}.orders_overwritten"
     else:
         # Spark: use fully-qualified catalog.namespace.table reference.
         catalog = (
@@ -110,7 +111,7 @@ def read_iceberg_orders_query(engine, source, watermark_start=None, watermark_en
     """Read from Iceberg table with a filter — used by ``read_iceberg__query``.
 
     * **Polars**: registers Iceberg tables from the catalog namespace
-      into the SQLContext before querying by short name.
+      into the SQLContext before querying by namespace-qualified name.
     * **Spark**: uses the fully-qualified catalog.namespace.table reference.
 
     Pre-requisite stage: ``load_iceberg`` (writes ``orders_from_json``).
@@ -121,7 +122,7 @@ def read_iceberg_orders_query(engine, source, watermark_start=None, watermark_en
         registered = engine.register_iceberg_tables(namespace)
         if not registered:
             return None
-        table_ref = "orders_from_json"
+        table_ref = f"{namespace}.orders_from_json"
     else:
         catalog = (
             source.configure.get("catalog")

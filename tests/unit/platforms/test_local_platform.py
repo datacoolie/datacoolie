@@ -185,7 +185,9 @@ class TestListFolders:
         with pytest.raises(PlatformError, match="not a directory"):
             platform.list_folders("file.txt")
 
-    def test_ignores_files_when_listing_folders(self, platform: LocalPlatform, root: Path) -> None:
+    def test_ignores_files_when_listing_folders(
+        self, platform: LocalPlatform, root: Path
+    ) -> None:
         d = root / "parent"
         d.mkdir()
         (d / "child").mkdir()
@@ -234,18 +236,24 @@ class TestUploadFile:
         platform.upload_file(str(local_file), "dest.txt")
         assert (root / "dest.txt").read_text(encoding="utf-8") == "uploaded"
 
-    def test_upload_src_missing_raises(self, platform: LocalPlatform, tmp_path: Path) -> None:
+    def test_upload_src_missing_raises(
+        self, platform: LocalPlatform, tmp_path: Path
+    ) -> None:
         with pytest.raises(PlatformError, match="not found"):
             platform.upload_file(str(tmp_path / "no.txt"), "dest.txt")
 
-    def test_upload_dest_exists_raises(self, platform: LocalPlatform, root: Path, tmp_path: Path) -> None:
+    def test_upload_dest_exists_raises(
+        self, platform: LocalPlatform, root: Path, tmp_path: Path
+    ) -> None:
         local_file = tmp_path / "upload.txt"
         local_file.write_text("data", encoding="utf-8")
         (root / "dest.txt").write_text("existing", encoding="utf-8")
         with pytest.raises(PlatformError, match="already exists"):
             platform.upload_file(str(local_file), "dest.txt")
 
-    def test_upload_overwrite(self, platform: LocalPlatform, root: Path, tmp_path: Path) -> None:
+    def test_upload_overwrite(
+        self, platform: LocalPlatform, root: Path, tmp_path: Path
+    ) -> None:
         local_file = tmp_path / "upload.txt"
         local_file.write_text("new", encoding="utf-8")
         (root / "dest.txt").write_text("old", encoding="utf-8")
@@ -254,18 +262,24 @@ class TestUploadFile:
 
 
 class TestDownloadFile:
-    def test_download(self, platform: LocalPlatform, root: Path, tmp_path: Path) -> None:
+    def test_download(
+        self, platform: LocalPlatform, root: Path, tmp_path: Path
+    ) -> None:
         (root / "data.txt").write_text("hello", encoding="utf-8")
         dest = tmp_path / "downloaded.txt"
         platform.download_file("data.txt", str(dest))
         assert dest.read_text(encoding="utf-8") == "hello"
 
-    def test_download_src_missing_raises(self, platform: LocalPlatform, tmp_path: Path) -> None:
+    def test_download_src_missing_raises(
+        self, platform: LocalPlatform, tmp_path: Path
+    ) -> None:
         dest = tmp_path / "out.txt"
         with pytest.raises(PlatformError, match="not found"):
             platform.download_file("ghost.txt", str(dest))
 
-    def test_download_creates_parent_dirs(self, platform: LocalPlatform, root: Path, tmp_path: Path) -> None:
+    def test_download_creates_parent_dirs(
+        self, platform: LocalPlatform, root: Path, tmp_path: Path
+    ) -> None:
         (root / "f.txt").write_text("x", encoding="utf-8")
         dest = tmp_path / "nested" / "dir" / "output.txt"
         platform.download_file("f.txt", str(dest))
@@ -301,6 +315,18 @@ class TestMoveFile:
         (root / "src.txt").write_text("data", encoding="utf-8")
         platform.move_file("src.txt", "dst.txt")
         assert (root / "dst.txt").read_text(encoding="utf-8") == "data"
+        assert not (root / "src.txt").exists()
+
+    def test_move_creates_missing_destination_parents(
+        self,
+        platform: LocalPlatform,
+        root: Path,
+    ) -> None:
+        (root / "src.txt").write_text("data", encoding="utf-8")
+
+        platform.move_file("src.txt", "new/deep/dst.txt")
+
+        assert (root / "new/deep/dst.txt").read_text(encoding="utf-8") == "data"
         assert not (root / "src.txt").exists()
 
     def test_move_src_missing_raises(self, platform: LocalPlatform) -> None:
@@ -357,26 +383,34 @@ class TestLocalPlatformErrorPaths:
             with pytest.raises(PlatformError, match="Cannot create folder"):
                 platform.create_folder("x")
 
-    def test_upload_copy_oserror_wrapped(self, platform: LocalPlatform, tmp_path: Path) -> None:
+    def test_upload_copy_oserror_wrapped(
+        self, platform: LocalPlatform, tmp_path: Path
+    ) -> None:
         src = tmp_path / "src.txt"
         src.write_text("x", encoding="utf-8")
         with patch("shutil.copy2", side_effect=OSError("boom")):
             with pytest.raises(PlatformError, match="Cannot upload file"):
                 platform.upload_file(str(src), "dst.txt", overwrite=True)
 
-    def test_download_copy_oserror_wrapped(self, platform: LocalPlatform, root: Path) -> None:
+    def test_download_copy_oserror_wrapped(
+        self, platform: LocalPlatform, root: Path
+    ) -> None:
         (root / "s.txt").write_text("x", encoding="utf-8")
         with patch("shutil.copy2", side_effect=OSError("boom")):
             with pytest.raises(PlatformError, match="Cannot download file"):
                 platform.download_file("s.txt", str(root / "out" / "d.txt"))
 
-    def test_copy_file_oserror_wrapped(self, platform: LocalPlatform, root: Path) -> None:
+    def test_copy_file_oserror_wrapped(
+        self, platform: LocalPlatform, root: Path
+    ) -> None:
         (root / "s.txt").write_text("x", encoding="utf-8")
         with patch("shutil.copy2", side_effect=OSError("boom")):
             with pytest.raises(PlatformError, match="Cannot copy file"):
                 platform.copy_file("s.txt", "d.txt", overwrite=True)
 
-    def test_move_file_oserror_wrapped(self, platform: LocalPlatform, root: Path) -> None:
+    def test_move_file_oserror_wrapped(
+        self, platform: LocalPlatform, root: Path
+    ) -> None:
         (root / "s.txt").write_text("x", encoding="utf-8")
         with patch("shutil.move", side_effect=OSError("boom")):
             with pytest.raises(PlatformError, match="Cannot move file"):
@@ -411,6 +445,7 @@ class TestResolve:
 
     def test_absolute_not_changed(self, tmp_path: Path) -> None:
         from datacoolie.core.exceptions import PlatformError
+
         platform = LocalPlatform(base_path=str(tmp_path))
         abs_path = str(tmp_path / "other.txt")
         with pytest.raises(PlatformError, match="Absolute paths are not allowed"):
@@ -438,24 +473,33 @@ class TestResolve:
 
 
 class TestGetSecret:
-    def test_fetch_secret_from_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_fetch_secret_from_env(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("MY_SECRET", "s3cr3t")
         platform = LocalPlatform(base_path=str(tmp_path))
         assert platform.get_secret("MY_SECRET") == "s3cr3t"
 
-    def test_fetch_secret_with_prefix(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_fetch_secret_with_prefix(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("APP_DB_PASS", "pass123")
         platform = LocalPlatform(base_path=str(tmp_path))
         assert platform.get_secret("DB_PASS", "APP_") == "pass123"
 
-    def test_missing_env_var_raises(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_missing_env_var_raises(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.delenv("MISSING_VAR", raising=False)
         platform = LocalPlatform(base_path=str(tmp_path))
         from datacoolie.core.exceptions import DataCoolieError
+
         with pytest.raises(DataCoolieError, match="not set"):
             platform.get_secret("MISSING_VAR")
 
-    def test_secret_cached(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_secret_cached(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("CACHE_VAR", "value")
         platform = LocalPlatform(base_path=str(tmp_path), cache_ttl=60)
         # First call fetches; second uses cache even with env removed
@@ -463,7 +507,9 @@ class TestGetSecret:
         monkeypatch.delenv("CACHE_VAR")
         assert platform.get_secret("CACHE_VAR") == "value"
 
-    def test_cache_disabled(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_cache_disabled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("NO_CACHE_VAR", "first")
         platform = LocalPlatform(base_path=str(tmp_path), cache_ttl=0)
         assert platform.get_secret("NO_CACHE_VAR") == "first"
@@ -472,6 +518,7 @@ class TestGetSecret:
 
     def test_is_base_secret_provider(self, tmp_path: Path) -> None:
         from datacoolie.core.secret_provider import BaseSecretProvider
+
         platform = LocalPlatform(base_path=str(tmp_path))
         assert isinstance(platform, BaseSecretProvider)
 
@@ -480,37 +527,46 @@ class TestReadBytesErrors:
     def test_file_not_found_raises_platform_error(self, tmp_path: Path) -> None:
         from datacoolie.core.exceptions import PlatformError
         from datacoolie.platforms.local_platform import LocalPlatform
+
         p = LocalPlatform(base_path=str(tmp_path))
-        with pytest.raises(PlatformError, match='File not found'):
-            p.read_bytes('nonexistent_file.bin')
+        with pytest.raises(PlatformError, match="File not found"):
+            p.read_bytes("nonexistent_file.bin")
 
     def test_os_error_raises_platform_error(self, tmp_path: Path, monkeypatch) -> None:
         from datacoolie.core.exceptions import PlatformError
         from datacoolie.platforms.local_platform import LocalPlatform
         import pathlib
+
         p = LocalPlatform(base_path=str(tmp_path))
         # Create file, then mock read_bytes to raise OSError
-        f = tmp_path / 'test.bin'
-        f.write_bytes(b'data')
+        f = tmp_path / "test.bin"
+        f.write_bytes(b"data")
         orig_read_bytes = pathlib.Path.read_bytes
-        def _raise(self):
-            if 'test.bin' in str(self):
-                raise OSError('permission denied')
-            return orig_read_bytes(self)
-        monkeypatch.setattr(pathlib.Path, 'read_bytes', _raise)
-        with pytest.raises(PlatformError, match='Cannot read file'):
-            p.read_bytes('test.bin')
 
-    def test_write_bytes_os_error_raises_platform_error(self, tmp_path: Path, monkeypatch) -> None:
+        def _raise(self):
+            if "test.bin" in str(self):
+                raise OSError("permission denied")
+            return orig_read_bytes(self)
+
+        monkeypatch.setattr(pathlib.Path, "read_bytes", _raise)
+        with pytest.raises(PlatformError, match="Cannot read file"):
+            p.read_bytes("test.bin")
+
+    def test_write_bytes_os_error_raises_platform_error(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
         from datacoolie.core.exceptions import PlatformError
         from datacoolie.platforms.local_platform import LocalPlatform
         import pathlib
+
         p = LocalPlatform(base_path=str(tmp_path))
         orig_write_bytes = pathlib.Path.write_bytes
+
         def _raise(self, data):
-            if 'test_write.bin' in str(self):
-                raise OSError('disk full')
+            if "test_write.bin" in str(self):
+                raise OSError("disk full")
             return orig_write_bytes(self, data)
-        monkeypatch.setattr(pathlib.Path, 'write_bytes', _raise)
-        with pytest.raises(PlatformError, match='Cannot write file'):
-            p.write_bytes('test_write.bin', b'data', overwrite=True)
+
+        monkeypatch.setattr(pathlib.Path, "write_bytes", _raise)
+        with pytest.raises(PlatformError, match="Cannot write file"):
+            p.write_bytes("test_write.bin", b"data", overwrite=True)

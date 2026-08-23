@@ -49,7 +49,10 @@ Then add only the extra Python packages your specific job needs, for example:
 - `pyiceberg` for PyIceberg-based Iceberg workflows.
 
 Glue already provides the Spark runtime, so treat DataCoolie extras as optional
-convenience, not the default install path.
+convenience, not the default install path. For a Python 3.11 local or container
+runner that uses the same `AWSPlatform`, install `datacoolie[aws]`; compose it
+with `polars-delta` or another engine-format profile when that runtime owns the
+engine installation.
 
 For production, AWS recommends a frozen wheel artifact or zip of wheels rather
 than resolving unpinned dependencies from PyPI during every startup. See

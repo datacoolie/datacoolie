@@ -76,6 +76,7 @@ boundary; build must prove it before introducing narrow custom code.
 
 ## Runtime Selection Intent
 
+- Execution hosts and platform runtime modes: {{ execution_hosts_and_platform_runtime_modes }}
 - Compatible platform/engine combinations: {{ compatible_platform_engine_combinations }}
 - Runtime selection rule: invoke the exact runner or notebook for the selected platform and engine.
 - Stage execution rule: pass one stage value to the selected runner; do not encode stage-to-engine mappings
@@ -84,8 +85,8 @@ boundary; build must prove it before introducing narrow custom code.
 
 ## Environment And Resource Requirements
 
-| Environment | Platform intent | Required resources | Secret mechanism | Policy constraints |
-|---|---|---|---|---|
+| Environment | Execution host | Platform intent | Runtime mode | Required resources | Secret mechanism | Policy constraints |
+|---|---|---|---|---|---|---|
 | {{ environment_rows }} |
 
 These are requirements only. Provisioning owns resource creation.

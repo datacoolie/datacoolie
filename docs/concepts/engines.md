@@ -79,6 +79,93 @@ Rules:
 
 See [ADR-0001](../adr/0001-engine-fmt-parameter.md) for history.
 
+## Qualified SQL relations in Polars
+
+`PolarsEngine` can discover Delta tables from a path or Iceberg tables from a
+catalog namespace, then expose the same logical SQL naming behavior for both.
+Install the SQL resolver separately when you need this feature:
+
+```bash
+pip install "datacoolie[polars-sql,polars-delta,polars-iceberg]"
+```
+
+Registration is lazy by default. `register_delta_tables` and
+`register_iceberg_tables` enumerate and index table descriptors, but do not
+create scans or bind frames to `SQLContext`. The first query that references a
+table creates its `LazyFrame` and registers one private alias. Later queries on
+the same engine reuse that registration; data is still read lazily when the
+query result is collected.
+
+```python
+engine.register_delta_tables(
+    "s3://lake/database_B",
+    logical_prefix=("catalog_A", "database_B"),
+    recursive=True,
+    include="database_B.**.d_*",
+    exclude=("**.tmp.**", "**.*_backup"),
+)
+
+result = engine.execute_sql("""
+    SELECT *
+    FROM database_B.sales.d_orders
+""")
+```
+
+One canonical name contains at most four components. A query may omit only
+leading components, so all unique suffixes are valid:
+
+| Indexed name | Valid references when unique |
+|---|---|
+| `catalog.database.schema.table` | 4, 3, 2, or 1 trailing components |
+| `database.schema.table` | 3, 2, or 1 trailing components |
+| `schema.table` | 2 or 1 trailing components |
+| `table` | 1 component |
+
+If a suffix matches multiple tables, execution raises an ambiguity error and
+lists the candidates. Qualify the reference further; the engine never chooses
+one table implicitly.
+
+### Delta and Iceberg roots
+
+For Delta, `base_path` is the physical discovery root and each table's relative
+folders are appended to `logical_prefix`. Recursive discovery stops at a
+directory containing `_delta_log`.
+
+For Iceberg catalog mode, `namespace` narrows catalog enumeration. By default,
+the catalog name and root namespace form the logical prefix; supplying
+`logical_prefix` replaces that root mapping. Use `logical_prefix=()` when only
+the identifier below the selected namespace should appear in the canonical
+name.
+
+```python
+engine.register_iceberg_tables(
+    namespace=("database_B",),
+    logical_prefix=("catalog_A", "database_B"),
+    recursive=True,
+)
+```
+
+Choose the narrowest physical root first for performance. Use patterns for
+logical selection:
+
+| Intent | Pattern |
+|---|---|
+| Everything below catalog A / database B | `catalog_A.database_B.**` |
+| Database B under any catalog | `database_B.**` |
+| `d_` tables below database B, with or without schema levels | `database_B.**.d_*` |
+| `d_` tables anywhere | `d_*` |
+
+`*` stays within one name component; `**` crosses zero or more components.
+Exclude patterns win over include patterns.
+
+Use `preload=True` only when callers must execute directly through
+`engine.sql_context`. Set `on_error="skip"` for observable best-effort
+discovery and inspect `engine.last_registration_report`; the default is
+fail-fast. Use structured `logical_prefix` for root mapping; there is no flat
+prefix or physical-separator configuration.
+
+See [ADR-0005](../adr/0005-polars-qualified-sql-relations.md) for the decision.
+
 ## Driver connection keys
 
 `BaseEngine.DRIVER_CONNECTION_KEYS` is a frozenset of JDBC-specific option keys

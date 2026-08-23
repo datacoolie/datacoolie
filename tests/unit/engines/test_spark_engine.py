@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,7 +27,17 @@ from datacoolie.core.constants import (  # noqa: E402
 from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
 from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.destinations.delta_writer import DeltaWriter  # noqa: E402
+from datacoolie.engines._spark import database as spark_database  # noqa: E402
+from datacoolie.engines._spark import file_io as spark_file_io  # noqa: E402
+from datacoolie.engines._spark.iceberg import operations as spark_iceberg  # noqa: E402
+from datacoolie.engines._spark import table_operations as spark_tables  # noqa: E402
+from datacoolie.engines._spark import type_mapping as spark_type_mapping  # noqa: E402
 from datacoolie.engines.spark_engine import SparkEngine  # noqa: E402
+from tests.unit.engines.hash_contract_vectors import (  # noqa: E402
+    HASH_CONTRACT_ROWS,
+    SHA256_HASHES,
+    XXHASH64_HASHES,
+)
 
 # Mark every test in this module; group into one xdist worker to share the JVM.
 pytestmark = [pytest.mark.spark, pytest.mark.xdist_group("spark")]
@@ -69,35 +79,48 @@ def _data_dir(tmp_path_factory: pytest.TempPathFactory, spark: SparkSession) -> 
     """Write all test data to Parquet once, shared across the module."""
     d = tmp_path_factory.mktemp("spark_test_data")
     spark.createDataFrame(
-        [(1, "Alice", "2026-01-01"), (2, "Bob", "2026-01-02"), (3, "Carol", "2026-01-03")],
+        [
+            (1, "Alice", "2026-01-01"),
+            (2, "Bob", "2026-01-02"),
+            (3, "Carol", "2026-01-03"),
+        ],
         ["id", "name", "date_str"],
     ).write.parquet(str(d / "sample"))
     spark.createDataFrame(
-        [(1, "x"), (2, "y")], ["id", "val"],
+        [(1, "x"), (2, "y")],
+        ["id", "val"],
     ).write.parquet(str(d / "two_rows"))
     spark.createDataFrame(
-        [(1, "a", 2026), (2, "b", 2025)], ["id", "val", "year"],
+        [(1, "a", 2026), (2, "b", 2025)],
+        ["id", "val", "year"],
     ).write.parquet(str(d / "partition"))
     spark.createDataFrame(
-        [(1, "Alice", 10), (2, "Bob", 20)], ["id", "name", "score"],
+        [(1, "Alice", 10), (2, "Bob", 20)],
+        ["id", "name", "score"],
     ).write.parquet(str(d / "merge_seed_2"))
     spark.createDataFrame(
-        [(1, "Alice_v2", 15), (3, "Carol", 30)], ["id", "name", "score"],
+        [(1, "Alice_v2", 15), (3, "Carol", 30)],
+        ["id", "name", "score"],
     ).write.parquet(str(d / "merge_upsert"))
     spark.createDataFrame(
-        [(1, "Alice", 10), (2, "Bob", 20), (3, "Carol", 30)], ["id", "name", "score"],
+        [(1, "Alice", 10), (2, "Bob", 20), (3, "Carol", 30)],
+        ["id", "name", "score"],
     ).write.parquet(str(d / "merge_seed_3"))
     spark.createDataFrame(
-        [(1, "Alice_v2", 15), (2, "Bob", 20), (4, "Dave", 40)], ["id", "name", "score"],
+        [(1, "Alice_v2", 15), (2, "Bob", 20), (4, "Dave", 40)],
+        ["id", "name", "score"],
     ).write.parquet(str(d / "merge_overwrite"))
     spark.createDataFrame(
-        [(1, "a", 10), (1, "a", 20), (2, "b", 30)], ["id", "name", "score"],
+        [(1, "a", 10), (1, "a", 20), (2, "b", 30)],
+        ["id", "name", "score"],
     ).write.parquet(str(d / "dedup"))
     spark.createDataFrame(
-        [(1, 10), (1, 10), (1, 20), (2, 30)], ["id", "score"],
+        [(1, 10), (1, 10), (1, 20), (2, 30)],
+        ["id", "score"],
     ).write.parquet(str(d / "rank"))
     spark.createDataFrame(
-        [(1, "2026-01-01")], ["id", "ts"],
+        [(1, "2026-01-01")],
+        ["id", "ts"],
     ).write.parquet(str(d / "timestamp"))
     return d
 
@@ -137,7 +160,9 @@ class TestReadParquet:
         assert engine.count_rows(df) == 2
         assert "id" in engine.get_columns(df)
 
-    def test_file_info_columns_added(self, engine: SparkEngine, parquet_path: str) -> None:
+    def test_file_info_columns_added(
+        self, engine: SparkEngine, parquet_path: str
+    ) -> None:
         df = engine.read_parquet(parquet_path)
         df = engine.add_file_info_columns(df)
         cols = engine.get_columns(df)
@@ -196,17 +221,27 @@ class TestWriteTable:
         assert engine.count_rows(df) == 6
 
     def test_with_partition(
-        self, engine: SparkEngine, spark: SparkSession, delta_path: str, _data_dir: Path,
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+        delta_path: str,
+        _data_dir: Path,
     ) -> None:
         df = spark.read.parquet(str(_data_dir / "partition"))
-        engine.write_to_path(df, delta_path, "overwrite", "delta", partition_columns=["year"])
+        engine.write_to_path(
+            df, delta_path, "overwrite", "delta", partition_columns=["year"]
+        )
         result = engine.read_delta(delta_path)
         assert engine.count_rows(result) == 2
 
 
 class TestMergeTable:
     def test_upsert(
-        self, engine: SparkEngine, spark: SparkSession, delta_path: str, _data_dir: Path,
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+        delta_path: str,
+        _data_dir: Path,
     ) -> None:
         # Seed
         initial = spark.read.parquet(str(_data_dir / "merge_seed_2"))
@@ -233,7 +268,11 @@ class TestMergeTable:
 
 class TestMergeOverwrite:
     def test_rolling_overwrite(
-        self, engine: SparkEngine, spark: SparkSession, delta_path: str, _data_dir: Path,
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+        delta_path: str,
+        _data_dir: Path,
     ) -> None:
         # Seed
         initial = spark.read.parquet(str(_data_dir / "merge_seed_3"))
@@ -267,7 +306,9 @@ class TestTransforms:
         assert "date_str" not in engine.get_columns(result)
         assert "name" in engine.get_columns(result)
 
-    def test_drop_nonexistent_is_noop(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_drop_nonexistent_is_noop(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         result = engine.drop_columns(sample_df, ["no_such_col"])
         assert engine.count_rows(result) == 3
 
@@ -294,14 +335,18 @@ class TestTransforms:
         schema = engine.get_schema(result)
         assert "string" in schema["id"].lower()
 
-    def test_cast_date_with_format(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_cast_date_with_format(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         result = engine.cast_column(sample_df, "date_str", "date", fmt="yyyy-MM-dd")
         schema = engine.get_schema(result)
         assert "date" in schema["date_str"].lower()
 
 
 class TestDeduplicate:
-    def test_row_number(self, engine: SparkEngine, spark: SparkSession, _data_dir: Path) -> None:
+    def test_row_number(
+        self, engine: SparkEngine, spark: SparkSession, _data_dir: Path
+    ) -> None:
         df = spark.read.parquet(str(_data_dir / "dedup"))
         result = engine.deduplicate(
             df, partition_columns=["id"], order_columns=["score"], order="first"
@@ -310,7 +355,9 @@ class TestDeduplicate:
         rows = {r["id"]: r for r in result.collect()}
         assert rows[1]["score"] == 20  # desc order → highest first
 
-    def test_rank(self, engine: SparkEngine, spark: SparkSession, _data_dir: Path) -> None:
+    def test_rank(
+        self, engine: SparkEngine, spark: SparkSession, _data_dir: Path
+    ) -> None:
         df = spark.read.parquet(str(_data_dir / "rank"))
         result = engine.deduplicate_by_rank(
             df, partition_columns=["id"], order_columns=["score"], order="first"
@@ -328,7 +375,9 @@ class TestDeduplicate:
 
 
 class TestSystemColumns:
-    def test_add_system_columns(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_add_system_columns(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         result = engine.add_system_columns(sample_df)
         cols = engine.get_columns(result)
         assert SystemColumn.CREATED_AT in cols
@@ -352,9 +401,14 @@ class TestSystemColumns:
         )
         assert result.count() == sample_df.count()
         assert dict(result.dtypes)[SystemColumn.DATAFLOW_RUN_ID] == "string"
-        assert result.select(SystemColumn.DATAFLOW_RUN_ID).distinct().first()[0] == "run-123"
+        assert (
+            result.select(SystemColumn.DATAFLOW_RUN_ID).distinct().first()[0]
+            == "run-123"
+        )
 
-    def test_remove_system_columns(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_remove_system_columns(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         with_sys = engine.add_system_columns(sample_df)
         without = engine.remove_system_columns(with_sys)
         cols = engine.get_columns(without)
@@ -362,14 +416,16 @@ class TestSystemColumns:
             assert sys_col not in cols
 
     def test_scd2_close_step_preserves_dataflow_run_id(self) -> None:
-        _, update_map, _ = SparkEngine._scd2_merge_parts(["id"])
+        _, update_map, _ = spark_tables.scd2_merge_parts(["id"])
         assert set(update_map) == {"`__valid_to`", "`__is_current`"}
         assert all(
             SystemColumn.DATAFLOW_RUN_ID not in expression
             for expression in update_map.values()
         )
 
-    def test_convert_timestamp_ntz(self, engine: SparkEngine, spark: SparkSession, _data_dir: Path) -> None:
+    def test_convert_timestamp_ntz(
+        self, engine: SparkEngine, spark: SparkSession, _data_dir: Path
+    ) -> None:
         df = spark.read.parquet(str(_data_dir / "timestamp"))
         df = df.withColumn("ts", sf.to_timestamp("ts"))
         # Just ensure no error
@@ -386,7 +442,9 @@ class TestMetrics:
     def test_count_rows(self, engine: SparkEngine, sample_df: DataFrame) -> None:
         assert engine.count_rows(sample_df) == 3
 
-    def test_is_empty(self, engine: SparkEngine, spark: SparkSession, sample_df: DataFrame) -> None:
+    def test_is_empty(
+        self, engine: SparkEngine, spark: SparkSession, sample_df: DataFrame
+    ) -> None:
         assert engine.is_empty(sample_df) is False
         empty = sample_df.limit(0)
         assert engine.is_empty(empty) is True
@@ -432,7 +490,9 @@ class TestTableOps:
         assert len(history) == 1
         assert "operation" in history[0]
 
-    def test_history_empty_when_no_table(self, engine: SparkEngine, delta_path: str) -> None:
+    def test_history_empty_when_no_table(
+        self, engine: SparkEngine, delta_path: str
+    ) -> None:
         assert engine.get_history_by_path(delta_path) == []
 
     def test_history_with_start_time_filters(
@@ -493,33 +553,52 @@ class TestSparkEngineAdvanced:
                 return self
 
         reader = StubReader()
-        out = SparkEngine._apply_options(reader, {"a": 1, "b": "x"})
+        out = spark_file_io.apply_options(reader, {"a": 1, "b": "x"})
         assert out is reader
         assert ("a", 1) in reader.calls
         assert ("b", "x") in reader.calls
 
     def test_apply_options_none_is_noop(self) -> None:
         obj = object()
-        assert SparkEngine._apply_options(obj, None) is obj
+        assert spark_file_io.apply_options(obj, None) is obj
 
-    def test_read_database_builds_dbtable_for_table_and_query(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_read_database_builds_dbtable_for_table_and_query(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
+        fake_spark = MagicMock()
         fake_reader = MagicMock()
+        fake_spark.read.format.return_value = fake_reader
+        fake_reader.option.return_value = fake_reader
         fake_reader.load.return_value = sample_df
 
-        with patch.object(engine, "_apply_options", return_value=fake_reader) as apply_opts:
-            out = engine.read_database(table="public.users", options={"url": "jdbc://x"})
-            assert engine.count_rows(out) == 3
-            merged = apply_opts.call_args.args[1]
-            assert merged["dbtable"] == "public.users"
+        out = spark_database.read_database(
+            fake_spark,
+            table="public.users",
+            query=None,
+            options={"url": "jdbc://x"},
+            driver_connection_keys=(),
+        )
+        assert out is sample_df
+        assert ("dbtable", "public.users") in [
+            call.args for call in fake_reader.option.call_args_list
+        ]
 
-            out2 = engine.read_database(query="  SELECT 1 ", options={"url": "jdbc://x"})
-            assert engine.count_rows(out2) == 3
-            merged2 = apply_opts.call_args.args[1]
-            # Alias syntax may be rendered as either "AS q" or "q" depending on engine implementation.
-            assert merged2["dbtable"].startswith("(SELECT 1)")
-            assert merged2["dbtable"].endswith(" q")
+        fake_reader.option.reset_mock()
+        out2 = spark_database.read_database(
+            fake_spark,
+            table=None,
+            query="  SELECT 1 ",
+            options={"url": "jdbc://x"},
+            driver_connection_keys=(),
+        )
+        assert out2 is sample_df
+        assert ("dbtable", "(SELECT 1) q") in [
+            call.args for call in fake_reader.option.call_args_list
+        ]
 
-    def test_execute_sql_with_and_without_parameters(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_execute_sql_with_and_without_parameters(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         with patch.object(engine.spark, "sql", return_value=sample_df) as spark_sql:
             out = engine.execute_sql("SELECT * FROM t", parameters={"x": 1})
             assert engine.count_rows(out) == 3
@@ -529,23 +608,31 @@ class TestSparkEngineAdvanced:
             assert engine.count_rows(out2) == 3
             spark_sql.assert_any_call("SELECT * FROM t")
 
-    def test_build_merge_condition_col_single_key(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_build_merge_condition_col_single_key(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         from pyspark.sql import Column
 
-        cond = SparkEngine._build_merge_condition_col(sample_df, "db.tbl", ["id"])
+        cond = spark_tables.build_merge_condition_col(sample_df, "db.tbl", ["id"])
         assert isinstance(cond, Column)
 
-    def test_build_merge_condition_col_multi_key(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_build_merge_condition_col_multi_key(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         from pyspark.sql import Column
 
-        cond = SparkEngine._build_merge_condition_col(sample_df, "cat.db.tbl", ["id", "name"])
+        cond = spark_tables.build_merge_condition_col(
+            sample_df, "cat.db.tbl", ["id", "name"]
+        )
         assert isinstance(cond, Column)
         # String representation should reference both keys
         cond_str = str(cond)
         assert "id" in cond_str
         assert "name" in cond_str
 
-    def test_merge_into_upsert_passes_column_condition(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_merge_into_upsert_passes_column_condition(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         from pyspark.sql import Column
 
         captured: Dict[str, Any] = {}
@@ -561,15 +648,19 @@ class TestSparkEngineAdvanced:
             writer.merge.return_value = None
             return writer
 
-        with patch.object(sample_df, "mergeInto", side_effect=fake_merge_into, create=True):
-            engine._merge_into_upsert(sample_df, "cat.db.tbl", ["id"])
+        with patch.object(
+            sample_df, "mergeInto", side_effect=fake_merge_into, create=True
+        ):
+            spark_tables.merge_into_upsert(sample_df, "cat.db.tbl", ["id"])
 
         assert captured["table"] == "cat.db.tbl"
         assert isinstance(captured["cond"], Column), (
             f"mergeInto condition must be a Column, got {type(captured['cond'])}"
         )
 
-    def test_merge_into_overwrite_passes_column_condition(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_merge_into_overwrite_passes_column_condition(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         from pyspark.sql import Column
 
         captured: Dict[str, Any] = {}
@@ -583,17 +674,30 @@ class TestSparkEngineAdvanced:
             writer.merge.return_value = None
             return writer
 
-        with patch.object(engine, "write_to_table"):
+        with patch.object(spark_tables, "write_to_table"):
             # Spark 4 may return a runtime DataFrame subclass from .select().
-            with patch.object(type(sample_df), "mergeInto", side_effect=fake_merge_into, create=True):
-                engine._merge_into_overwrite(sample_df, "cat.db.tbl", ["id"], fmt="delta")
+            with patch.object(
+                type(sample_df), "mergeInto", side_effect=fake_merge_into, create=True
+            ):
+                spark_tables.merge_into_overwrite(
+                    engine.spark,
+                    sample_df,
+                    "cat.db.tbl",
+                    ["id"],
+                    "delta",
+                    None,
+                    None,
+                    skip_iceberg_evolution=False,
+                )
 
         assert captured["table"] == "cat.db.tbl"
         assert isinstance(captured["cond"], Column), (
             f"mergeInto condition must be a Column, got {type(captured['cond'])}"
         )
 
-    def test_merge_into_upsert_update_map_values_are_columns(self, engine: SparkEngine, sample_df: DataFrame) -> None:
+    def test_merge_into_upsert_update_map_values_are_columns(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
         from pyspark.sql import Column
 
         captured: Dict[str, Any] = {}
@@ -614,8 +718,10 @@ class TestSparkEngineAdvanced:
         mock_writer = MagicMock()
         mock_writer.whenMatched.side_effect = fake_when_matched
 
-        with patch.object(sample_df, "mergeInto", return_value=mock_writer, create=True):
-            engine._merge_into_upsert(sample_df, "cat.db.tbl", ["id"])
+        with patch.object(
+            sample_df, "mergeInto", return_value=mock_writer, create=True
+        ):
+            spark_tables.merge_into_upsert(sample_df, "cat.db.tbl", ["id"])
 
         assert captured.get("update_map"), "update_map was not passed to .update()"
         for col_val in captured["update_map"].values():
@@ -623,31 +729,67 @@ class TestSparkEngineAdvanced:
                 f"update map value must be Column, got {type(col_val)}"
             )
 
-    def test_merge_to_table_dispatches_by_supports_merge_into(self, engine: SparkEngine, sample_df: DataFrame) -> None:
-        with patch.object(SparkEngine, "_supports_merge_into", new_callable=PropertyMock, return_value=True):
-            with patch.object(engine, "_merge_into_upsert") as merge_into, patch.object(engine, "_merge_sql_upsert") as merge_sql:
+    def test_merge_to_table_dispatches_by_supports_merge_into(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
+        with patch.object(
+            spark_tables.runtime, "supports_merge_into", return_value=True
+        ):
+            with (
+                patch.object(spark_tables, "merge_into_upsert") as merge_into,
+                patch.object(spark_tables, "merge_sql_upsert") as merge_sql,
+            ):
                 engine.merge_to_table(sample_df, "catalog.db.tbl", ["id"], fmt="delta")
                 merge_into.assert_called_once()
                 merge_sql.assert_not_called()
 
-        with patch.object(SparkEngine, "_supports_merge_into", new_callable=PropertyMock, return_value=False):
-            with patch.object(engine, "_merge_into_upsert") as merge_into, patch.object(engine, "_merge_sql_upsert") as merge_sql:
+        with patch.object(
+            spark_tables.runtime, "supports_merge_into", return_value=False
+        ):
+            with (
+                patch.object(spark_tables, "merge_into_upsert") as merge_into,
+                patch.object(spark_tables, "merge_sql_upsert") as merge_sql,
+            ):
                 engine.merge_to_table(sample_df, "catalog.db.tbl", ["id"], fmt="delta")
                 merge_sql.assert_called_once()
                 merge_into.assert_not_called()
 
-    def test_merge_overwrite_to_table_dispatches_by_supports_merge_into(self, engine: SparkEngine, sample_df: DataFrame) -> None:
-        with patch.object(SparkEngine, "_supports_merge_into", new_callable=PropertyMock, return_value=True):
-            with patch.object(engine, "_merge_into_overwrite") as merge_into_overwrite, patch.object(engine, "write_to_table") as write_to_table:
-                engine.merge_overwrite_to_table(sample_df, "catalog.db.tbl", ["id"], fmt="delta")
+    def test_merge_overwrite_to_table_dispatches_by_supports_merge_into(
+        self, engine: SparkEngine, sample_df: DataFrame
+    ) -> None:
+        with patch.object(
+            spark_tables.runtime, "supports_merge_into", return_value=True
+        ):
+            with (
+                patch.object(
+                    spark_tables, "merge_into_overwrite"
+                ) as merge_into_overwrite,
+                patch.object(
+                    spark_tables, "merge_sql_overwrite"
+                ) as merge_sql_overwrite,
+            ):
+                engine.merge_overwrite_to_table(
+                    sample_df, "catalog.db.tbl", ["id"], fmt="delta"
+                )
                 merge_into_overwrite.assert_called_once()
-                write_to_table.assert_not_called()
+                merge_sql_overwrite.assert_not_called()
 
-        with patch.object(SparkEngine, "_supports_merge_into", new_callable=PropertyMock, return_value=False):
-            with patch.object(engine, "_merge_sql_overwrite") as merge_sql_overwrite, patch.object(engine, "write_to_table") as write_to_table:
-                engine.merge_overwrite_to_table(sample_df, "catalog.db.tbl", ["id"], fmt="delta")
+        with patch.object(
+            spark_tables.runtime, "supports_merge_into", return_value=False
+        ):
+            with (
+                patch.object(
+                    spark_tables, "merge_into_overwrite"
+                ) as merge_into_overwrite,
+                patch.object(
+                    spark_tables, "merge_sql_overwrite"
+                ) as merge_sql_overwrite,
+            ):
+                engine.merge_overwrite_to_table(
+                    sample_df, "catalog.db.tbl", ["id"], fmt="delta"
+                )
                 merge_sql_overwrite.assert_called_once()
-                write_to_table.assert_not_called()
+                merge_into_overwrite.assert_not_called()
 
     def test_table_exists_by_path_platform_branches(self, engine: SparkEngine) -> None:
         platform = MagicMock()
@@ -665,7 +807,9 @@ class TestSparkEngineAdvanced:
         assert engine.table_exists_by_path("/generic/path", fmt="parquet") is True
         platform.folder_exists.assert_called_with("/generic/path")
 
-    def test_table_exists_by_path_without_platform_delta_branches(self, engine: SparkEngine) -> None:
+    def test_table_exists_by_path_without_platform_delta_branches(
+        self, engine: SparkEngine
+    ) -> None:
         with patch.object(engine.spark, "sql") as spark_sql:
             spark_sql.return_value = MagicMock()
             assert engine.table_exists_by_path("/tmp/delta", fmt="delta") is True
@@ -673,18 +817,22 @@ class TestSparkEngineAdvanced:
             spark_sql.side_effect = RuntimeError("not found")
             assert engine.table_exists_by_path("/tmp/delta", fmt="delta") is False
 
-    def test_table_exists_by_name_exception_returns_false(self, engine: SparkEngine) -> None:
-        with patch.object(engine.spark.catalog, "tableExists", side_effect=RuntimeError("boom")):
+    def test_table_exists_by_name_exception_returns_false(
+        self, engine: SparkEngine
+    ) -> None:
+        with patch.object(
+            engine.spark.catalog, "tableExists", side_effect=RuntimeError("boom")
+        ):
             assert engine.table_exists_by_name("catalog.db.tbl") is False
 
-    def test_history_dispatch_unsupported_formats_return_empty(self, engine: SparkEngine) -> None:
+    def test_history_dispatch_unsupported_formats_return_empty(
+        self, engine: SparkEngine
+    ) -> None:
         assert engine.get_history_by_path("/tmp/x", fmt="parquet") == []
         assert engine.get_history_by_name("db.tbl", fmt="parquet") == []
 
     def test_compact_by_name_iceberg_option_toggles(self, engine: SparkEngine) -> None:
-        with patch.object(engine, "_iceberg_rewrite_data_files") as data_files, \
-             patch.object(engine, "_iceberg_rewrite_position_delete_files") as pos_delete, \
-             patch.object(engine, "_iceberg_rewrite_manifests") as manifests:
+        with patch.object(engine.spark, "sql") as spark_sql:
             engine.compact_by_name(
                 "catalog.db.tbl",
                 fmt="iceberg",
@@ -694,13 +842,14 @@ class TestSparkEngineAdvanced:
                     "rewrite_manifests": True,
                 },
             )
-            data_files.assert_called_once_with("catalog.db.tbl")
-            pos_delete.assert_not_called()
-            manifests.assert_called_once_with("catalog.db.tbl")
+        statements = [call.args[0] for call in spark_sql.call_args_list]
+        assert len(statements) == 2
+        assert "rewrite_data_files" in statements[0]
+        assert all("rewrite_position_delete_files" not in sql for sql in statements)
+        assert "rewrite_manifests" in statements[1]
 
     def test_cleanup_by_name_iceberg_option_toggles(self, engine: SparkEngine) -> None:
-        with patch.object(engine, "_iceberg_expire_snapshots") as expire, \
-             patch.object(engine, "_iceberg_remove_orphan_files") as orphan:
+        with patch.object(engine.spark, "sql") as spark_sql:
             engine.cleanup_by_name(
                 "catalog.db.tbl",
                 retention_hours=24,
@@ -710,77 +859,112 @@ class TestSparkEngineAdvanced:
                     "remove_orphan_files": True,
                 },
             )
-            expire.assert_not_called()
-            orphan.assert_called_once_with("catalog.db.tbl", 24)
+        spark_sql.assert_called_once()
+        statement = spark_sql.call_args.args[0]
+        assert "expire_snapshots" not in statement
+        assert "remove_orphan_files" in statement
+        assert "catalog.db.tbl" in statement
 
     def test_extract_catalog(self) -> None:
-        assert SparkEngine._extract_catalog("my_catalog.db.table") == "my_catalog"
+        assert spark_iceberg.extract_catalog("my_catalog.db.table") == "my_catalog"
 
 
 class TestSparkToHiveType:
-    """Test SparkEngine._spark_type_to_hive with native PySpark type objects."""
+    """Test Spark-to-Hive conversion with native PySpark type objects."""
 
     def test_scalars(self) -> None:
         from pyspark.sql import types as T
-        assert SparkEngine._spark_type_to_hive(T.LongType()) == "BIGINT"
-        assert SparkEngine._spark_type_to_hive(T.IntegerType()) == "INT"
-        assert SparkEngine._spark_type_to_hive(T.ShortType()) == "SMALLINT"
-        assert SparkEngine._spark_type_to_hive(T.ByteType()) == "TINYINT"
-        assert SparkEngine._spark_type_to_hive(T.FloatType()) == "FLOAT"
-        assert SparkEngine._spark_type_to_hive(T.DoubleType()) == "DOUBLE"
-        assert SparkEngine._spark_type_to_hive(T.BooleanType()) == "BOOLEAN"
-        assert SparkEngine._spark_type_to_hive(T.StringType()) == "STRING"
-        assert SparkEngine._spark_type_to_hive(T.BinaryType()) == "BINARY"
-        assert SparkEngine._spark_type_to_hive(T.DateType()) == "DATE"
-        assert SparkEngine._spark_type_to_hive(T.TimestampType()) == "TIMESTAMP"
-        assert SparkEngine._spark_type_to_hive(T.TimestampNTZType()) == "TIMESTAMP"
+
+        assert spark_type_mapping.spark_type_to_hive(T.LongType()) == "BIGINT"
+        assert spark_type_mapping.spark_type_to_hive(T.IntegerType()) == "INT"
+        assert spark_type_mapping.spark_type_to_hive(T.ShortType()) == "SMALLINT"
+        assert spark_type_mapping.spark_type_to_hive(T.ByteType()) == "TINYINT"
+        assert spark_type_mapping.spark_type_to_hive(T.FloatType()) == "FLOAT"
+        assert spark_type_mapping.spark_type_to_hive(T.DoubleType()) == "DOUBLE"
+        assert spark_type_mapping.spark_type_to_hive(T.BooleanType()) == "BOOLEAN"
+        assert spark_type_mapping.spark_type_to_hive(T.StringType()) == "STRING"
+        assert spark_type_mapping.spark_type_to_hive(T.BinaryType()) == "BINARY"
+        assert spark_type_mapping.spark_type_to_hive(T.DateType()) == "DATE"
+        assert spark_type_mapping.spark_type_to_hive(T.TimestampType()) == "TIMESTAMP"
+        assert (
+            spark_type_mapping.spark_type_to_hive(T.TimestampNTZType()) == "TIMESTAMP"
+        )
 
     def test_decimal(self) -> None:
         from pyspark.sql import types as T
-        assert SparkEngine._spark_type_to_hive(T.DecimalType(10, 2)) == "DECIMAL(10,2)"
-        assert SparkEngine._spark_type_to_hive(T.DecimalType(38, 18)) == "DECIMAL(38,18)"
+
+        assert (
+            spark_type_mapping.spark_type_to_hive(T.DecimalType(10, 2))
+            == "DECIMAL(10,2)"
+        )
+        assert (
+            spark_type_mapping.spark_type_to_hive(T.DecimalType(38, 18))
+            == "DECIMAL(38,18)"
+        )
 
     def test_array(self) -> None:
         from pyspark.sql import types as T
-        assert SparkEngine._spark_type_to_hive(T.ArrayType(T.StringType())) == "ARRAY<STRING>"
+
+        assert (
+            spark_type_mapping.spark_type_to_hive(T.ArrayType(T.StringType()))
+            == "ARRAY<STRING>"
+        )
 
     def test_nested_array(self) -> None:
         from pyspark.sql import types as T
-        assert SparkEngine._spark_type_to_hive(
-            T.ArrayType(T.ArrayType(T.IntegerType()))
-        ) == "ARRAY<ARRAY<INT>>"
+
+        assert (
+            spark_type_mapping.spark_type_to_hive(
+                T.ArrayType(T.ArrayType(T.IntegerType()))
+            )
+            == "ARRAY<ARRAY<INT>>"
+        )
 
     def test_map(self) -> None:
         from pyspark.sql import types as T
-        assert SparkEngine._spark_type_to_hive(
-            T.MapType(T.StringType(), T.LongType())
-        ) == "MAP<STRING,BIGINT>"
+
+        assert (
+            spark_type_mapping.spark_type_to_hive(
+                T.MapType(T.StringType(), T.LongType())
+            )
+            == "MAP<STRING,BIGINT>"
+        )
 
     def test_struct(self) -> None:
         from pyspark.sql import types as T
-        dt = T.StructType([
-            T.StructField("a", T.IntegerType()),
-            T.StructField("b", T.StringType()),
-        ])
-        assert SparkEngine._spark_type_to_hive(dt) == "STRUCT<a:INT,b:STRING>"
+
+        dt = T.StructType(
+            [
+                T.StructField("a", T.IntegerType()),
+                T.StructField("b", T.StringType()),
+            ]
+        )
+        assert spark_type_mapping.spark_type_to_hive(dt) == "STRUCT<a:INT,b:STRING>"
 
     def test_get_hive_schema(self, spark: SparkSession) -> None:
         from pyspark.sql import types as T
-        schema = T.StructType([
-            T.StructField("id", T.LongType()),
-            T.StructField("name", T.StringType()),
-            T.StructField("tags", T.ArrayType(T.StringType())),
-        ])
+
+        schema = T.StructType(
+            [
+                T.StructField("id", T.LongType()),
+                T.StructField("name", T.StringType()),
+                T.StructField("tags", T.ArrayType(T.StringType())),
+            ]
+        )
         df = spark.createDataFrame([], schema)
         engine = SparkEngine(spark)
         result = engine.get_hive_schema(df)
         assert result == {"id": "BIGINT", "name": "STRING", "tags": "ARRAY<STRING>"}
+
+
 class TestTypedValueAndMaskingRules:
     def test_native_value_rules(self, engine: SparkEngine, spark: SparkSession) -> None:
         frame = spark.createDataFrame(
             [(" A@X.COM ", "A"), (None, "X")], ["email", "status"]
         )
-        frame = engine.apply_value_rule(frame, ValueRule(operation="trim", columns=["email"]))
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="trim", columns=["email"])
+        )
         frame = engine.apply_value_rule(
             frame, ValueRule(operation="case", columns=["email"], mode="lower")
         )
@@ -788,9 +972,14 @@ class TestTypedValueAndMaskingRules:
             frame,
             ValueRule(operation="map", columns=["status"], mapping={"A": "active"}),
         )
-        assert [tuple(row) for row in frame.collect()] == [("a@x.com", "active"), (None, "X")]
+        assert [tuple(row) for row in frame.collect()] == [
+            ("a@x.com", "active"),
+            (None, "X"),
+        ]
 
-    def test_native_masking_rules(self, engine: SparkEngine, spark: SparkSession) -> None:
+    def test_native_masking_rules(
+        self, engine: SparkEngine, spark: SparkSession
+    ) -> None:
         frame = spark.createDataFrame(
             [("1234567", 17), ("12", 25), (None, None)], ["phone", "amount"]
         )
@@ -798,13 +987,18 @@ class TestTypedValueAndMaskingRules:
             frame, MaskingRule(method="partial", columns=["phone"], keep_end=2)
         )
         frame = engine.apply_masking_rule(
-            frame, MaskingRule(method="numeric_bucket", columns=["amount"], bucket_size=10)
+            frame,
+            MaskingRule(method="numeric_bucket", columns=["amount"], bucket_size=10),
         )
         assert [tuple(row) for row in frame.collect()] == [
-            ("*67", 10), ("*", 20), (None, None)
+            ("*67", 10),
+            ("*", 20),
+            (None, None),
         ]
 
-    def test_trim_is_ascii_space_only(self, engine: SparkEngine, spark: SparkSession) -> None:
+    def test_trim_is_ascii_space_only(
+        self, engine: SparkEngine, spark: SparkSession
+    ) -> None:
         frame = spark.createDataFrame([(" \tA\u00a0 ",)], ["text"])
         result = engine.apply_value_rule(
             frame,
@@ -868,7 +1062,9 @@ class TestTypedValueAndMaskingRules:
         analyzed = result._jdf.queryExecution().analyzed().toString()
         assert analyzed.count("Project") == 1
 
-    def test_remaining_native_rule_operations(self, engine: SparkEngine, spark: SparkSession) -> None:
+    def test_remaining_native_rule_operations(
+        self, engine: SparkEngine, spark: SparkSession
+    ) -> None:
         from datetime import datetime
 
         frame = spark.createDataFrame(
@@ -905,8 +1101,21 @@ class TestTypedValueAndMaskingRules:
 
 
 class TestStableHashColumns:
-    def test_sha256_canonical_payload(self, engine: SparkEngine, spark: SparkSession) -> None:
-        from datetime import date
+    @pytest.mark.parametrize(
+        ("algorithm", "expected", "expected_type"),
+        [
+            pytest.param("sha256", SHA256_HASHES, "string", id="sha256"),
+            pytest.param("xxhash64", XXHASH64_HASHES, "bigint", id="xxhash64"),
+        ],
+    )
+    def test_canonical_payload(
+        self,
+        engine: SparkEngine,
+        spark: SparkSession,
+        algorithm: str,
+        expected: list[str] | list[int],
+        expected_type: str,
+    ) -> None:
         from pyspark.sql import types as T
 
         schema = T.StructType(
@@ -917,25 +1126,16 @@ class TestStableHashColumns:
                 T.StructField("business_date", T.DateType(), True),
             ]
         )
-        frame = spark.createDataFrame(
-            [
-                ("VN", 123, True, date(2026, 8, 1)),
-                ("Việt Nam", -4, False, date(2024, 1, 2)),
-                ("", 0, True, date(1970, 1, 1)),
-                (None, None, None, None),
-            ],
-            schema,
-        )
+        frame = spark.createDataFrame(HASH_CONTRACT_ROWS, schema)
         result = engine.add_hash_column(
             frame,
             HashColumn(
                 target_column="business_hash",
                 columns=["country", "customer_id", "active", "business_date"],
+                algorithm=algorithm,
             ),
         )
-        assert [row.business_hash for row in result.select("business_hash").collect()] == [
-            "842577920fb330d701994d15e8e4fb4a0a2ab2e0042d7b6f8aebb8251f9bfb8c",
-            "5cb808ee58dfd69c938d9ecacf7f4c39b923a0b9c38a966b8d9ab8341424e0c6",
-            "036414af1fb43b2fd0761dea6c72827f810d4cb1134a471ee1d41e63864f2c2b",
-            "3486794cdeaf9e4af12ee78b4cd9738d29b833149974c7aff14eccc86192dc52",
-        ]
+        assert [
+            row.business_hash for row in result.select("business_hash").collect()
+        ] == expected
+        assert result.schema["business_hash"].dataType.simpleString() == expected_type

@@ -78,7 +78,7 @@ Use `poetry install` for local validation. It installs the locked dependencies
 that are missing without pruning unrelated packages:
 
 ```bash
-poetry install --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry install --with dev --with docs -E polars-delta -E polars-hash -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```
@@ -91,7 +91,7 @@ Spark is intentionally local-only. After the standard gate, add the Spark
 dependencies with `poetry install` and run the explicit local gate:
 
 ```bash
-poetry install --with dev --with docs -E spark -E delta-spark
+poetry install --with dev --with docs -E spark-delta
 poetry run python scripts/verify_release.py --with-spark
 ```
 

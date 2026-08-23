@@ -45,7 +45,8 @@ def _file_item(name: str, path: str, size: int = 100, is_dir: bool = False) -> S
 
 class TestReadFile:
     def test_read(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
-        platform.download_file = MagicMock()  # type: ignore[method-assign]
+        backend = platform._get_backend()
+        backend.download_file = MagicMock()  # type: ignore[method-assign]
         m = mock_open(read_data="hello")
         with patch("tempfile.mkstemp", return_value=(5, "/tmp/t.tmp")), \
              patch("os.close"), \
@@ -54,10 +55,13 @@ class TestReadFile:
             result = platform.read_file("abfss://c@s/file.txt")
         assert result == "hello"
         mock_fs.head.assert_not_called()
-        platform.download_file.assert_called_once_with("abfss://c@s/file.txt", "/tmp/t.tmp")
+        backend.download_file.assert_called_once_with("abfss://c@s/file.txt", "/tmp/t.tmp")
 
     def test_read_failure(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
-        platform.download_file = MagicMock(side_effect=PlatformError("fail"))  # type: ignore[method-assign]
+        backend = platform._get_backend()
+        backend.download_file = MagicMock(  # type: ignore[method-assign]
+            side_effect=PlatformError("fail")
+        )
         with patch("tempfile.mkstemp", return_value=(5, "/tmp/t.tmp")), \
              patch("os.close"), \
              patch("os.unlink"):
@@ -237,6 +241,51 @@ class TestRegistry:
         assert platform_registry.is_available("fabric")
 
 
+class TestPortableRuntime:
+    def test_explicit_external_delegates_with_injected_credential(self) -> None:
+        credential = object()
+        backend = MagicMock()
+        backend.read_file.return_value = "external"
+        with patch(
+            "datacoolie.platforms.fabric_platform.AzureSdkBackend",
+            return_value=backend,
+        ) as backend_class:
+            platform = FabricPlatform(runtime="external", azure_credential=credential)
+            assert platform.read_file("abfss://raw@a.dfs.core.windows.net/file") == "external"
+        backend_class.assert_called_once_with(credential=credential)
+
+    def test_auto_native_wins_even_when_credential_is_injected(self) -> None:
+        notebookutils = MagicMock()
+        with patch.dict("sys.modules", {"notebookutils": notebookutils}):
+            platform = FabricPlatform(azure_credential=object())
+            assert platform.fs is notebookutils.fs
+
+    def test_external_compatibility_properties_are_native_only(self) -> None:
+        platform = FabricPlatform(runtime="external")
+        with pytest.raises(PlatformError, match="only when"):
+            _ = platform.fs
+        with pytest.raises(PlatformError, match="only when"):
+            _ = platform.notebookutils
+
+    def test_backend_selection_is_cached_after_operation_failure(self) -> None:
+        backend = MagicMock()
+        backend.read_file.side_effect = PlatformError("auth failed")
+        with patch(
+            "datacoolie.platforms.fabric_platform.AzureSdkBackend",
+            return_value=backend,
+        ) as backend_class:
+            platform = FabricPlatform(runtime="external")
+            for _ in range(2):
+                with pytest.raises(PlatformError, match="auth failed"):
+                    platform.read_file("abfss://raw@a.dfs.core.windows.net/file")
+        backend_class.assert_called_once()
+
+    def test_package_export_is_same_public_class(self) -> None:
+        from datacoolie.platforms import FabricPlatform as ExportedFabricPlatform
+
+        assert ExportedFabricPlatform is FabricPlatform
+
+
 # =====================================================================
 # Secrets
 # =====================================================================
@@ -261,7 +310,7 @@ class TestGetSecret:
 
     def test_notebookutils_unavailable_raises(self) -> None:
         from datacoolie.core.exceptions import DataCoolieError
-        p = FabricPlatform()
+        p = FabricPlatform(runtime="fabric")
         with patch.dict("sys.modules", {"notebookutils": None}):
             with pytest.raises(DataCoolieError, match="notebookutils"):
                 p._fetch_secret("key", "https://myvault.vault.azure.net/")
@@ -272,24 +321,26 @@ class TestGetSecret:
 
 
 class TestFabricAdvancedPaths:
-    def test_read_file_generic_exception_wrapped(self) -> None:
-        p = FabricPlatform()
-        p.download_file = MagicMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+    def test_read_file_generic_exception_wrapped(self, platform: FabricPlatform) -> None:
+        backend = platform._get_backend()
+        backend.download_file = MagicMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError("boom")
+        )
         with patch("tempfile.mkstemp", return_value=(5, "/tmp/t.tmp")), \
              patch("os.close"), \
              patch("os.unlink"):
             with pytest.raises(PlatformError, match="Failed to read file"):
-                p.read_file("abfss://x")
+                platform.read_file("abfss://x")
 
-    def test_read_file_cleanup_oserror_ignored(self) -> None:
-        p = FabricPlatform()
-        p.download_file = MagicMock()  # type: ignore[method-assign]
+    def test_read_file_cleanup_oserror_ignored(self, platform: FabricPlatform) -> None:
+        backend = platform._get_backend()
+        backend.download_file = MagicMock()  # type: ignore[method-assign]
         m = mock_open(read_data="ok")
         with patch("tempfile.mkstemp", return_value=(5, "/tmp/t.tmp")), \
              patch("os.close"), \
              patch("builtins.open", m), \
              patch("os.unlink", side_effect=OSError("cannot delete")):
-            assert p.read_file("abfss://x") == "ok"
+            assert platform.read_file("abfss://x") == "ok"
 
     def test_write_append_create_delete_error_wrapped(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
         mock_fs.exists.return_value = False
@@ -335,10 +386,16 @@ class TestFabricAdvancedPaths:
         result = platform.list_folders("/data", recursive=True)
         assert "/data/sub" in result
 
-    def test_exists_exception_paths_return_false(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
+    def test_exists_permission_errors_are_visible(
+        self,
+        platform: FabricPlatform,
+        mock_fs: MagicMock,
+    ) -> None:
         mock_fs.exists.side_effect = Exception("boom")
-        assert platform.file_exists("x") is False
-        assert platform.folder_exists("x") is False
+        with pytest.raises(PlatformError, match="existence"):
+            platform.file_exists("x")
+        with pytest.raises(PlatformError, match="existence"):
+            platform.folder_exists("x")
 
     def test_upload_copy_move_conflict_and_error_paths(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
         mock_fs.exists.return_value = True
@@ -386,25 +443,33 @@ class TestFabricAdvancedPaths:
             with pytest.raises(Exception, match="Failed to fetch secret"):
                 p._fetch_secret("k", "https://vault")
 
-    def test_delete_file_exception_is_idempotent(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
+    def test_delete_file_non_not_found_error_is_visible(
+        self,
+        platform: FabricPlatform,
+        mock_fs: MagicMock,
+    ) -> None:
         mock_fs.rm.side_effect = Exception("boom")
-        platform.delete_file("abfss://x")
+        with pytest.raises(PlatformError, match="Failed to delete file"):
+            platform.delete_file("abfss://x")
 
 
 class TestReadBytes:
     def test_read_bytes_success(self, platform: FabricPlatform, mock_fs: MagicMock, tmp_path) -> None:
         data = b'hello world'
         def fake_download(src, dst, **kw):
-            import shutil, os
             # write the data to dst
             with open(dst, 'wb') as f:
                 f.write(data)
-        platform.download_file = fake_download
+        backend = platform._get_backend()
+        backend.download_file = fake_download  # type: ignore[method-assign]
         result = platform.read_bytes('abfss://path/to/file.txt')
         assert result == data
 
     def test_read_bytes_platform_error_reraises(self, platform: FabricPlatform) -> None:
-        platform.download_file = lambda *a, **kw: (_ for _ in ()).throw(PlatformError('dl fail'))
+        backend = platform._get_backend()
+        backend.download_file = lambda *a, **kw: (_ for _ in ()).throw(  # type: ignore[method-assign]
+            PlatformError('dl fail')
+        )
         with pytest.raises(PlatformError, match='dl fail'):
             platform.read_bytes('abfss://path/to/file.txt')
 
@@ -412,7 +477,8 @@ class TestReadBytes:
         def fake_download(src, dst, **kw):
             import os
             os.unlink(dst)  # delete the tmp file so open fails
-        platform.download_file = fake_download
+        backend = platform._get_backend()
+        backend.download_file = fake_download  # type: ignore[method-assign]
         with pytest.raises(PlatformError, match='Failed to read bytes'):
             platform.read_bytes('abfss://path/to/file.txt')
 
@@ -422,24 +488,32 @@ class TestWriteBytes:
         calls = []
         def fake_upload(src, dst, **kw):
             calls.append((src, dst))
-        platform.upload_file = fake_upload
-        platform.file_exists = lambda p: False
+        backend = platform._get_backend()
+        backend.upload_file = fake_upload  # type: ignore[method-assign]
+        backend.file_exists = lambda p: False  # type: ignore[method-assign]
         platform.write_bytes('abfss://x/f.bin', b'data')
         assert len(calls) == 1
 
     def test_write_bytes_exists_no_overwrite(self, platform: FabricPlatform) -> None:
-        platform.file_exists = lambda p: True
+        backend = platform._get_backend()
+        backend.file_exists = lambda p: True  # type: ignore[method-assign]
         with pytest.raises(PlatformError, match='File already exists'):
             platform.write_bytes('abfss://x/f.bin', b'data', overwrite=False)
 
     def test_write_bytes_generic_exception_wrapped(self, platform: FabricPlatform) -> None:
-        platform.file_exists = lambda p: False
-        platform.upload_file = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError('upload fail'))
+        backend = platform._get_backend()
+        backend.file_exists = lambda p: False  # type: ignore[method-assign]
+        backend.upload_file = lambda *a, **kw: (_ for _ in ()).throw(  # type: ignore[method-assign]
+            RuntimeError('upload fail')
+        )
         with pytest.raises(PlatformError, match='Failed to write bytes'):
             platform.write_bytes('abfss://x/f.bin', b'data')
 
     def test_write_bytes_platform_error_reraises(self, platform: FabricPlatform) -> None:
-        platform.file_exists = lambda p: False
-        platform.upload_file = lambda *a, **kw: (_ for _ in ()).throw(PlatformError('up fail'))
+        backend = platform._get_backend()
+        backend.file_exists = lambda p: False  # type: ignore[method-assign]
+        backend.upload_file = lambda *a, **kw: (_ for _ in ()).throw(  # type: ignore[method-assign]
+            PlatformError('up fail')
+        )
         with pytest.raises(PlatformError, match='up fail'):
             platform.write_bytes('abfss://x/f.bin', b'data')

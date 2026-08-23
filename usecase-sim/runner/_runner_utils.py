@@ -440,7 +440,7 @@ def build_spark_session(
     logger.debug("Spark config: %s", spark_config)
     session_factory = get_or_create_spark_session
     if session_factory is None:
-        from datacoolie.engines.spark_session_builder import (
+        from datacoolie.engines._spark.session_builder import (
             get_or_create_spark_session as session_factory,
         )
 

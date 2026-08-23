@@ -224,7 +224,7 @@
     {
       "id": 21,
       "prompt": "Create a scheduled maintenance runner that accepts connection, compact/cleanup, retention, and worker parameters. DataCoolie already owns eligible-target selection, physical deduplication, dispatch, logging, and results; keep the runner minimal and require confirmation.",
-      "expected_output": "Decode only platform transport, require mutation confirmation, invoke DataCoolieDriver.run_maintenance once, and surface framework failure without adding inspection or preview logic.",
+      "expected_output": "Decode only execution-host transport, require mutation confirmation, invoke DataCoolieDriver.run_maintenance once, and surface framework failure without adding inspection or preview logic.",
       "files": [],
       "expectations": [
         "The runner contains no load_maintenance_dataflows call, inspect-only mode, or target preview formatter.",
@@ -332,6 +332,96 @@
         "Both file sources prefer __file_modification_time and do not fabricate it as a physical source-schema column.",
         "Only the time-folder source configures a year/month/day/hour date_folder_partitions pattern, and its lookback covers corrected old folders because pruning precedes mtime filtering.",
         "File destinations use their own date_folder_partitions for ingestion-time routing without adding a helper data column or confusing it with source pruning."
+      ]
+    },
+    {
+      "id": 31,
+      "prompt": "Build a local Polars dataflow whose Delta source metadata query joins catalog_A.database_B.schema_C.orders and schema_C.customers. Discover tables below /lake/database_B, expose the four-part logical names, include only order/customer tables, and avoid loading unrelated tables before the query needs them.",
+      "expected_output": "Keep the join in normal Delta source.query metadata and adapt the fixed local Polars runner to register path-discovered Delta descriptors on the same engine before constructing the driver, using a structured logical prefix, component globs, and lazy default binding.",
+      "files": [],
+      "expectations": [
+        "The metadata source uses its Delta connection and source.query; registration options are not written to source.configure or a Python-function source.",
+        "The runner calls register_delta_tables on the exact PolarsEngine later passed to DataCoolieDriver, with the physical root, logical_prefix=(\"catalog_A\", \"database_B\"), recursive discovery, and bounded include/max_tables choices.",
+        "The default preload=False is retained so registration indexes descriptors and the first execute_sql use binds only referenced tables.",
+        "The environment includes datacoolie[polars-sql,polars-delta], and verification covers both full and unique suffix references."
+      ]
+    },
+    {
+      "id": 32,
+      "prompt": "Build a Polars Iceberg metadata query over catalog_A.database_B.schema_C.orders. The PyIceberg catalog is named catalog_A, enumeration should start at database_B, temporary tables must be excluded, and two dataflows reuse orders. Also prove that a short ambiguous orders reference is rejected.",
+      "expected_output": "Attach the configured catalog to PolarsEngine, register its database_B namespace in the same process before the driver, preserve the default catalog/root logical mapping, filter with component globs, and execute normal metadata queries through one reusable engine.",
+      "files": [],
+      "expectations": [
+        "Catalog mode uses register_iceberg_tables(namespace=(\"database_B\",), recursive=True) with logical_prefix omitted unless an explicit remapping is required.",
+        "Exclude patterns are component-aware and remain bootstrap configuration rather than metadata fields.",
+        "Both dataflows run through the same engine so the referenced relation is bound once and reused; registration itself remains lazy by default.",
+        "A collision fixture asserts deterministic ambiguity candidates, and the environment includes datacoolie[polars-sql,polars-iceberg]."
+      ]
+    },
+    {
+      "id": 33,
+      "prompt": "Create a Polars pipeline that reads one Delta table directly by path, applies LazyFrame transformations, and never uses source.query or engine SQL. Add the qualified SQL resolver and register every table under the lake root in case it is useful later.",
+      "expected_output": "Reject the speculative SQL setup: keep the supported direct Delta path read and normal Polars dependency path without relation discovery or the optional SQLGlot resolver.",
+      "files": [],
+      "expectations": [
+        "The source stays directly addressed because no relational SQL shaping is required.",
+        "No register_delta_tables or register_iceberg_tables call is added to the runner.",
+        "The polars-sql extra is omitted; only dependencies required by the direct Delta path are selected."
+      ]
+    },
+    {
+      "id": 34,
+      "prompt": "Build a Polars runner in an Azure Function that uses FabricPlatform to read metadata and logs from a fully qualified OneLake abfss URI. The function uses its managed identity and is not a Fabric notebook.",
+      "expected_output": "Use a Python-host runner with FabricPlatform(runtime=\"external\"), install datacoolie[fabric-external] plus the selected Polars profiles, pass the qualified path unchanged, and let DefaultAzureCredential resolve the managed identity lazily.",
+      "files": [],
+      "expectations": [
+        "The execution host is distinguished from the Fabric platform adapter, so no Fabric parameter cell or NotebookUtils dependency is introduced.",
+        "The runner selects runtime=\"external\" and does not embed or require an explicit credential object.",
+        "The qualified abfss URI is passed unchanged and no default workspace or lakehouse is invented."
+      ]
+    },
+    {
+      "id": 35,
+      "prompt": "Build a local Python runner that uses DatabricksPlatform to manage metadata under /Volumes/main/ops/config. Databricks CLI authentication is already configured. Use s3://bucket/config instead because both paths reach the same data.",
+      "expected_output": "Keep the portable /Volumes path, use DatabricksPlatform(runtime=\"external\") with datacoolie[databricks-external], and rely on Databricks unified authentication rather than replacing the path with a native-only raw cloud URI.",
+      "files": [],
+      "expectations": [
+        "The local execution host uses Python transport rather than Databricks widgets.",
+        "The runner omits workspace_client unless the application explicitly owns one.",
+        "The external runner rejects raw s3/abfss/gs addressing and preserves /Volumes/<catalog>/<schema>/<volume>."
+      ]
+    },
+    {
+      "id": 36,
+      "prompt": "Before deciding whether to process a large cloud metadata file, check whether it exists, obtain its size and modification time, and enumerate neighboring JSON files. Optimize this check by reading each file and inspecting the first line.",
+      "expected_output": "Use file_exists, get_file_info, and list_files with an extension filter; do not call read_file or read_bytes because both APIs return complete content rather than a metadata head.",
+      "files": [],
+      "expectations": [
+        "Existence uses file_exists and metadata uses FileInfo from get_file_info/list_files.",
+        "Full-file read APIs are absent from the metadata-only path.",
+        "Sorting is added only if a consumer requires deterministic order."
+      ]
+    },
+    {
+      "id": 37,
+      "prompt": "Create fixed native Fabric and Databricks notebook runners. Their host libraries and Spark runtimes are already attached, but install the external SDK extras inside each notebook so runtime detection can choose the best backend.",
+      "expected_output": "Use explicit runtime=\"fabric\" and runtime=\"databricks\" constructors, rely on NotebookUtils/dbutils supplied by the hosts, and perform no inline installation of external SDK profiles.",
+      "files": [],
+      "expectations": [
+        "Fixed native runners fail closed through explicit native modes rather than runtime=\"auto\".",
+        "The notebooks do not install, upgrade, or restart packages.",
+        "fabric-external and databricks-external are omitted from native host requirements."
+      ]
+    },
+    {
+      "id": 38,
+      "prompt": "Run AWSPlatform against MinIO for metadata files while using normal AWS Glue and Secrets Manager endpoints. Configure one endpoint URL and route every boto3 service through it.",
+      "expected_output": "Use datacoolie[aws], configure endpoint_url only as the S3-compatible storage override, and keep Glue, Athena, and Secrets Manager on their normal AWS endpoints unless an explicit per-service endpoint is supplied.",
+      "files": [],
+      "expectations": [
+        "AWSPlatform remains the public adapter for AWS and MinIO storage.",
+        "The standard boto3 credential chain is used without embedded keys.",
+        "The platform-level endpoint_url is not generalized to non-S3 services."
       ]
     }
   ]

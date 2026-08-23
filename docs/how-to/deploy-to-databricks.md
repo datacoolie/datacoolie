@@ -45,7 +45,9 @@ Add optional dependencies individually only when needed. Common examples:
 - `pyiceberg` if your pipeline uses PyIceberg-based operations.
 
 Databricks already provides the Spark runtime, so a large platform bundle is
-often unnecessary.
+often unnecessary. Inside Databricks the base package can use native
+`dbutils`. For the same `DatabricksPlatform` API from a laptop, function, or
+CI runner, install `datacoolie[databricks-external]`.
 
 ## 3. Notebook / job code
 
@@ -69,8 +71,10 @@ with DataCoolieDriver(engine=engine, metadata_provider=metadata,
 ## 4. Paths
 
 - Prefer **UC Volumes**: `/Volumes/<catalog>/<schema>/<volume>/...`
-- Use external locations or workspace files when a volume is not the right
-  boundary.
+- `dbfs:/Volumes/...` is accepted as an alias, but returned paths use the
+  canonical `/Volumes/...` form.
+- Raw `s3://`, `abfss://`, and `gs://` paths are native-Databricks-only.
+- Workspace Files are not part of `DatabricksPlatform`'s portable contract.
 - Do not start a new pipeline on DBFS root or mounts. Databricks has deprecated
   both and recommends UC Volumes, external locations, or workspace files; see
   [DBFS and Unity Catalog best practices](https://docs.databricks.com/aws/en/dbfs/unity-catalog).
@@ -101,10 +105,9 @@ usually not what you want for Unity Catalog.
 
 ## 6. Secrets
 
-`DatabricksPlatform._fetch_secret` always uses `dbutils.secrets.get(scope,
-key)`; there is no separate native secret backend on Databricks. Put the
-secret key name in `configure`, then map the Databricks scope in
-`secrets_ref`:
+`DatabricksPlatform._fetch_secret` uses native `dbutils.secrets` inside
+Databricks and `WorkspaceClient.dbutils.secrets` in external mode. Put the
+secret key name in `configure`, then map the Databricks scope in `secrets_ref`:
 
 ```json
 {

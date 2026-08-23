@@ -71,7 +71,7 @@ built-in transformer pipeline, which runs between read and write in this order:
 | `filter_expression` | Discard rows by a SQL WHERE-style predicate after computed columns are available |
 | `value_rules` | Normalize source values with native engine expressions before schema casting |
 | `masking_rules` | Irreversibly mask structured scalar columns late in the pipeline |
-| `hash_columns` | Add stable SHA-256 business hashes from explicitly ordered source columns |
+| `hash_columns` | Add stable SHA-256 String or signed XXHash64 BIGINT values from explicitly ordered source columns |
 | `select_columns` / `drop_columns` | Keep or remove business columns; the two fields are mutually exclusive |
 | `rename_columns` | Atomically rename columns with an old-name to new-name object |
 | `configure` | Control transformer behavior such as `convert_timestamp_ntz` and `deduplicate_by_rank` |
@@ -107,18 +107,74 @@ implicitly:
     "target_column": "customer_hash",
     "columns": ["country_code", "customer_id"],
     "algorithm": "sha256"
+  },
+  {
+    "target_column": "customer_key",
+    "columns": ["country_code", "customer_id"],
+    "algorithm": "xxhash64"
   }
 ]
 ```
 
+### Choose the hash use case deliberately
+
+The columns that identify a record are often called a **business key** or
+**natural key**. They are frequently the same columns used by
+`transform.deduplicate_columns` and `destination.merge_keys`, but those fields
+serve different pipeline stages. Hashing does not infer either field: every
+`hash_columns` entry must list its own ordered `columns`.
+
+| Use case | Recommended input columns | Algorithm and caution |
+|---|---|---|
+| Compact surrogate-key-style value | The complete natural/business key | `xxhash64` is compact and fast, but can collide. Use an identity/mapping table when the key must be authoritative. |
+| Deterministic cross-system identifier | Explicitly ordered stable identifier columns | `sha256` is the safer default when collision resistance matters. Keep the same column order and types in every producer. |
+| Row hash / hashdiff for change detection | Non-key attributes whose changes should create a new version | Prefer `sha256`; do not include volatile audit columns or ingestion timestamps unless they are part of the change definition. |
+| Plain-text masking or PII protection | No direct hash recommendation | Plain SHA-256 is reversible by dictionary attack for low-entropy values such as phone numbers. Use the masking rules or an approved keyed pseudonymization service. |
+| File or payload integrity digest | Not a `hash_columns` use case | `hash_columns` hashes typed row columns. Use a file/payload digest mechanism when the object bytes—not row identity—must be verified. |
+
+For a surrogate-key-style hash, start from the same business columns as the
+deduplication and merge configuration, then declare them explicitly:
+
+```json
+{
+  "destination": {
+    "load_type": "merge_upsert",
+    "merge_keys": ["country_code", "customer_id"]
+  },
+  "transform": {
+    "deduplicate_columns": ["country_code", "customer_id"],
+    "hash_columns": [{
+      "target_column": "customer_sk",
+      "columns": ["country_code", "customer_id"],
+      "algorithm": "xxhash64"
+    }]
+  }
+}
+```
+
+This intentional repetition protects persisted keys from silently changing
+when deduplication or merge behavior is later adjusted. It also avoids a
+self-reference when a generated hash column itself is used as a destination
+merge key. If the deduplication columns and merge keys differ, do not guess
+which one is the hash input—choose the actual key definition explicitly.
+
 Hash inputs currently support string, integer, boolean, and date columns. The
 declared column order is significant. DataCoolie builds a shared canonical
 payload with type tags, null markers, and UTF-8 byte lengths, so Spark and
-Polars produce identical lowercase SHA-256 output and distinguish null from an
-empty string. This immutable format is named `dc_hash_v1`; changing the format
-requires a new serialization name and target column. Polars loads `polars-hash`
-only when this feature runs; install it
-with `pip install 'datacoolie[polars-hash]'`.
+Polars distinguish null from an empty string and produce identical output. The
+default `sha256` algorithm returns a lowercase 64-character String. `xxhash64`
+uses fixed seed `42` and returns a signed BIGINT, so negative values are normal.
+This immutable format is named `dc_hash_v1`; changing the format requires a new
+serialization name and target column. Polars loads `polars-hash` only when this
+feature runs; install it with `pip install 'datacoolie[polars-hash]'`.
+
+XXHash64 is a compact non-cryptographic hashed key, not a collision-free
+surrogate-key guarantee. Do not apply `abs()` or discard the sign bit, because
+that reduces the key space. Prefer SHA-256 or an identity/mapping-table
+surrogate when authoritative uniqueness matters at large scale, and add a
+collision quality check when XXHash64 is used as a key. Changing an existing
+hash target from SHA-256 to XXHash64 also changes its type from String to BIGINT;
+use a new target column or coordinate a destination schema migration.
 
 Plain SHA-256 is suitable for deterministic business identifiers, but not for
 protecting low-entropy PII such as phone numbers or national identifiers. Use

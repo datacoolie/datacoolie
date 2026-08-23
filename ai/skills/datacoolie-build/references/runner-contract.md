@@ -39,13 +39,17 @@ framework and platform own path interpretation and validation. Workspace layout 
 receipt validation remain separate concerns. Another metadata provider may use a provider-specific
 entrypoint and omit irrelevant file-provider parameters.
 
-Notebooks expose equivalent values through the platform's parameter transport:
+Expose equivalent values through the execution host's parameter transport. The host and the
+DataCoolie platform adapter may differ; for example, a Python process can use `FabricPlatform` in
+external mode. Load `references/platform-contract.md` for runtime/backend selection.
+A normal CLI Python runner keeps one optional `--stage` string; another Python host may adapt that
+single scalar through its own environment or event transport.
 
-| Runtime | Stage transport |
+| Execution host | Stage transport |
 |---|---|
-| Local Python | one optional `--stage` string |
-| Databricks | one named `STAGE` widget string |
-| Fabric | one `STAGE` parameter-cell string |
+| Python process (local, CI, function, container) | one optional scalar through its CLI, environment, or host adapter |
+| Databricks notebook/job | one named `STAGE` widget string |
+| Fabric notebook/pipeline | one `STAGE` parameter-cell string |
 | AWS Glue | one optional named `STAGE` job argument |
 
 Pass the stage value unchanged. Do not split comma strings, decode a stage list, accept repeated
@@ -63,16 +67,24 @@ deployment configuration.
 
 Every concrete entrypoint performs only:
 
-1. Platform parameter transport and operation-specific decoding only.
+1. Execution-host parameter transport and operation-specific decoding only.
 2. Metadata-provider construction with explicit persistent watermark state when relevant.
 3. Fixed platform, engine, provider, and session bootstrap.
-4. Explicit base-log configuration.
-5. DataCoolie driver construction.
-6. Calls to the selected framework operation.
+4. Required engine-local setup through public APIs.
+5. Explicit base-log configuration.
+6. DataCoolie driver construction.
+7. Calls to the selected framework operation.
+
+When Polars metadata queries reference indexed Delta or Iceberg relations, step 4 registers them on
+the active engine before driver construction. Load `references/polars-qualified-sql.md`; do not run
+registration in a subprocess, a Python-function source, or metadata `source.configure`. Omit this
+setup from Polars runners that do not use indexed SQL relations.
 
 Load environment variables or platform secrets before DataCoolie resolves secret references. Local
 `.env` loading is an optional local-launcher concern, not a universal cloud dependency. Capability
-selection and custom-edge decisions belong to `references/framework-boundary.md`.
+selection and custom-edge decisions belong to `references/framework-boundary.md`. A fixed native
+or external runner uses the explicit platform runtime mode from `references/platform-contract.md`;
+reserve automatic detection for ad hoc or user-authored construction.
 
 ## Normal run stage passthrough
 
@@ -103,7 +115,7 @@ editing the durable source and materializing a new build ID.
 - Filename platform matches the selected environment binding.
 - Engine, provider, and operation are fixed by entrypoint identity.
 - No runtime `--env`, platform, engine, provider, or operation selector exists.
-- Notebook/job parameters are read through the named platform transport and stage is passed
+- Notebook/job parameters are read through the named execution-host transport and stage is passed
   unchanged to one framework operation.
 - The runner does not install packages or restart its runtime.
 - Metadata/provider parameters are explicit and relevant.

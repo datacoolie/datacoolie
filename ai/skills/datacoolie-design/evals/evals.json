@@ -121,6 +121,17 @@
         "The filename is exactly architecture-{first 12 architecture digest characters}.approved.json and the payload retains the full SHA-256.",
         "A short-prefix collision, stale payload, alias, or renamed receipt fails closed."
       ]
+    },
+    {
+      "id": 12,
+      "prompt": "Design two environments that both use FabricPlatform: production runs as a Fabric notebook while development runs as an Azure Function against OneLake. Keep platform intent portable without treating both execution hosts as identical.",
+      "expected_output": "Record Fabric as the platform intent for both environments while documenting separate execution hosts, native/external runtime modes, dependency requirements, path contracts, and ambient identity mechanisms.",
+      "files": [],
+      "expectations": [
+        "Execution host is recorded separately from platform intent.",
+        "Production selects the native Fabric runtime and development selects the external runtime without assigning either choice to a data stage.",
+        "The architecture records requirements only; build owns constructors and provision/release own resources and deployment."
+      ]
     }
   ]
 }

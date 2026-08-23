@@ -139,6 +139,17 @@ Quick database connectivity check:
       hints to take effect.
 - [ ] `deduplicate_columns` and `latest_data_columns` reference columns that
       actually exist in the source data.
+- [ ] Every `hash_columns` entry declares a non-empty, ordered `columns` list;
+      hash inputs do not fall back automatically to deduplication or merge keys.
+- [ ] For a surrogate-key-style hash, the explicit hash columns match the
+      intended business/natural key; do not assume deduplication and merge keys
+      always mean the same thing.
+- [ ] The selected algorithm matches the use case: `xxhash64` only when signed
+      64-bit collision risk is acceptable, `sha256` when a larger digest is
+      preferred, and neither as plain low-entropy PII protection.
+- [ ] If a hash target or its input columns change, downstream type/value
+      migration has been planned; changing SHA-256 to XXHash64 changes String
+      output to signed BIGINT.
 - [ ] If you rely on deduplication but left `latest_data_columns` empty, you
       intentionally want ordering to fall back to `source.watermark_columns`.
 - [ ] SQL expressions in `additional_columns` are valid for your engine:

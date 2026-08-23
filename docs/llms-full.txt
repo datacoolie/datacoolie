@@ -85,7 +85,7 @@ DataCoolie is complementary to (not a replacement for):
 
 ```bash
 pip install "datacoolie[polars]"      # Polars engine (lightest)
-pip install "datacoolie[spark,delta-spark]" # Spark engine with Delta Lake
+pip install "datacoolie[spark-delta]" # Spark engine with Delta Lake
 pip install "datacoolie[all]"         # Everything
 ```
 

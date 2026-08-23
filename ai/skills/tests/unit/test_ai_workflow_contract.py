@@ -152,8 +152,10 @@ def test_build_owns_all_deterministic_workspace_tooling() -> None:
         "schemas/0.1.0/metadata.schema.json",
         "templates/project-structure.md",
         "references/capability-catalog.md",
+        "references/platform-contract.md",
         "references/framework-boundary.md",
         "references/runner-contract.md",
+        "references/polars-qualified-sql.md",
     ]
     for relative in required:
         assert (build_dir / relative).is_file(), relative
@@ -292,9 +294,11 @@ def test_build_references_have_narrow_non_overlapping_boundaries() -> None:
     }
     for name in (
         "capability-catalog.md",
+        "platform-contract.md",
         "framework-boundary.md",
         "schema-quick-reference.md",
         "runner-contract.md",
+        "polars-qualified-sql.md",
         "operations-contract.md",
     ):
         assert "## Scope" in references[name], name
@@ -305,6 +309,104 @@ def test_build_references_have_narrow_non_overlapping_boundaries() -> None:
     assert "references/runner-contract.md" in references["operations-contract.md"]
     assert "inherits common identity" in references["operations-contract.md"].lower()
     assert not (build_dir / "references/framework-usage.md").exists()
+
+
+def test_build_platform_contract_matches_portable_runtime_boundaries() -> None:
+    build_dir = SKILLS_DIR / "datacoolie-build"
+    skill = (build_dir / "SKILL.md").read_text(encoding="utf-8")
+    platform = (build_dir / "references/platform-contract.md").read_text(
+        encoding="utf-8"
+    )
+    platform_text = " ".join(platform.split())
+    runner = (build_dir / "references/runner-contract.md").read_text(encoding="utf-8")
+    schema = (build_dir / "references/schema-quick-reference.md").read_text(
+        encoding="utf-8"
+    )
+    design = (
+        SKILLS_DIR / "datacoolie-design/templates/architecture.tpl.md"
+    ).read_text(encoding="utf-8")
+    design_skill = (SKILLS_DIR / "datacoolie-design/SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    integration_requirements = (
+        SKILLS_DIR / "tests/requirements-integration.txt"
+    ).read_text(encoding="utf-8")
+
+    assert "references/platform-contract.md" in skill
+    assert "Platform is not the execution host" in platform
+    for token in (
+        'FabricPlatform(runtime="fabric")',
+        'FabricPlatform(runtime="external")',
+        'DatabricksPlatform(runtime="databricks")',
+        'DatabricksPlatform(runtime="external")',
+        "datacoolie[fabric-external]",
+        "datacoolie[databricks-external]",
+        "DefaultAzureCredential",
+        "Databricks unified authentication",
+        "/Volumes/<catalog>/<schema>/<volume>/...",
+        "DBFS root and DBFS mounts are unsupported",
+        "standard boto3 credential chain",
+        "applies automatically only to the S3 client",
+        "With `base_path`, pass only relative paths",
+        "read_file` and `read_bytes` return the complete file",
+        "Never use them as a head/stat/existence probe",
+    ):
+        assert token in platform_text
+
+    assert "execution host's parameter transport" in runner
+    assert "DataCoolie platform adapter may differ" in runner
+    assert "Execution hosts and platform runtime modes" in design
+    assert "Record execution host and" in design_skill
+    assert "separately from platform intent" in design_skill
+    assert "/mnt/lake/bronze" not in schema
+    assert "boto3>=1.43.2,<2" in integration_requirements
+
+
+def test_build_teaches_polars_qualified_sql_registration_boundary() -> None:
+    build_dir = SKILLS_DIR / "datacoolie-build"
+    skill = (build_dir / "SKILL.md").read_text(encoding="utf-8")
+    qualified = (build_dir / "references/polars-qualified-sql.md").read_text(
+        encoding="utf-8"
+    )
+    runner = (build_dir / "references/runner-contract.md").read_text(encoding="utf-8")
+    schema = (build_dir / "references/schema-quick-reference.md").read_text(
+        encoding="utf-8"
+    )
+    generic_polars_runner = (
+        build_dir / "templates/runners/run_local_polars.py.example"
+    ).read_text(encoding="utf-8")
+    qualified_text = " ".join(qualified.split())
+    runner_text = " ".join(runner.split())
+
+    assert "references/polars-qualified-sql.md" in skill
+    assert "same active `PolarsEngine` before constructing or running the driver" in skill
+    assert "## Metadata and runner ownership" in qualified
+    assert "register_delta_tables" in qualified
+    assert "register_iceberg_tables" in qualified
+    assert "`logical_prefix=None` (the default)" in qualified_text
+    assert "one to four non-empty components" in qualified_text
+    assert "There is no configurable separator and no `max_sql_name_levels`" in qualified_text
+    assert "The default `preload=False` only enumerates and indexes descriptors" in qualified_text
+    assert "reuses those bindings for later queries on the same engine" in qualified_text
+    assert "Exclude patterns win" not in qualified  # wording is "Any matching exclude wins"
+    assert "Any matching exclude wins" in qualified
+    assert "datacoolie[polars-sql,polars-delta]" in qualified
+    assert "datacoolie[polars-sql,polars-iceberg]" in qualified
+
+    for forbidden_metadata_setting in (
+        "`logical_prefix`",
+        "`recursive`",
+        "`include`",
+        "`exclude`",
+    ):
+        assert forbidden_metadata_setting in qualified
+    assert "Do not put `logical_prefix`" in qualified
+    assert "never `source.configure`" in schema
+    assert "before driver construction" in runner_text
+    assert "Omit this setup from Polars runners" in runner_text
+
+    assert "register_delta_tables" not in generic_polars_runner
+    assert "register_iceberg_tables" not in generic_polars_runner
 
 
 def test_build_verification_receipt_contract_is_named_explicitly() -> None:

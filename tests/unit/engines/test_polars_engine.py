@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,13 +15,19 @@ from datacoolie.core.constants import (  # noqa: E402
     DEFAULT_AUTHOR,
     FileInfoColumn,
     SystemColumn,
-    TRAILING_COLUMNS,
 )
 from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
 from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
+from datacoolie.engines._polars import delta as delta_ops  # noqa: E402
+from datacoolie.engines._polars.iceberg import operations as iceberg_ops  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
 from datacoolie.platforms.base import FileInfo  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
+from tests.unit.engines.hash_contract_vectors import (  # noqa: E402
+    HASH_CONTRACT_ROWS,
+    SHA256_HASHES,
+    XXHASH64_HASHES,
+)
 
 
 # =====================================================================
@@ -69,8 +74,12 @@ def delta_path(tmp_path: Path) -> Path:
 
 class TestTypedValueAndMaskingRules:
     def test_native_value_rules(self, engine: PolarsEngine) -> None:
-        frame = pl.DataFrame({"email": [" A@X.COM ", None], "status": ["A", "X"]}).lazy()
-        frame = engine.apply_value_rule(frame, ValueRule(operation="trim", columns=["email"]))
+        frame = pl.DataFrame(
+            {"email": [" A@X.COM ", None], "status": ["A", "X"]}
+        ).lazy()
+        frame = engine.apply_value_rule(
+            frame, ValueRule(operation="trim", columns=["email"])
+        )
         frame = engine.apply_value_rule(
             frame, ValueRule(operation="case", columns=["email"], mode="lower")
         )
@@ -84,12 +93,15 @@ class TestTypedValueAndMaskingRules:
         }
 
     def test_native_masking_rules(self, engine: PolarsEngine) -> None:
-        frame = pl.DataFrame({"phone": ["1234567", "12", None], "amount": [17, 25, None]}).lazy()
+        frame = pl.DataFrame(
+            {"phone": ["1234567", "12", None], "amount": [17, 25, None]}
+        ).lazy()
         frame = engine.apply_masking_rule(
             frame, MaskingRule(method="partial", columns=["phone"], keep_end=2)
         )
         frame = engine.apply_masking_rule(
-            frame, MaskingRule(method="numeric_bucket", columns=["amount"], bucket_size=10)
+            frame,
+            MaskingRule(method="numeric_bucket", columns=["amount"], bucket_size=10),
         )
         assert frame.collect().to_dict(as_series=False) == {
             "phone": ["*67", "*", None],
@@ -209,18 +221,26 @@ class TestTypedValueAndMaskingRules:
 
 
 class TestStableHashColumns:
-    def test_sha256_canonical_payload(self, engine: PolarsEngine) -> None:
+    @pytest.mark.parametrize(
+        ("algorithm", "expected", "expected_type"),
+        [
+            pytest.param("sha256", SHA256_HASHES, pl.String, id="sha256"),
+            pytest.param("xxhash64", XXHASH64_HASHES, pl.Int64, id="xxhash64"),
+        ],
+    )
+    def test_canonical_payload(
+        self,
+        engine: PolarsEngine,
+        algorithm: str,
+        expected: list[str] | list[int],
+        expected_type: pl.DataType,
+    ) -> None:
         frame = pl.DataFrame(
             {
-                "country": ["VN", "Việt Nam", "", None],
-                "customer_id": [123, -4, 0, None],
-                "active": [True, False, True, None],
-                "business_date": [
-                    date(2026, 8, 1),
-                    date(2024, 1, 2),
-                    date(1970, 1, 1),
-                    None,
-                ],
+                "country": [row[0] for row in HASH_CONTRACT_ROWS],
+                "customer_id": [row[1] for row in HASH_CONTRACT_ROWS],
+                "active": [row[2] for row in HASH_CONTRACT_ROWS],
+                "business_date": [row[3] for row in HASH_CONTRACT_ROWS],
             }
         ).lazy()
         result = engine.add_hash_column(
@@ -228,25 +248,29 @@ class TestStableHashColumns:
             HashColumn(
                 target_column="business_hash",
                 columns=["country", "customer_id", "active", "business_date"],
+                algorithm=algorithm,
             ),
         ).collect()
-        assert result["business_hash"].to_list() == [
-            "842577920fb330d701994d15e8e4fb4a0a2ab2e0042d7b6f8aebb8251f9bfb8c",
-            "5cb808ee58dfd69c938d9ecacf7f4c39b923a0b9c38a966b8d9ab8341424e0c6",
-            "036414af1fb43b2fd0761dea6c72827f810d4cb1134a471ee1d41e63864f2c2b",
-            "3486794cdeaf9e4af12ee78b4cd9738d29b833149974c7aff14eccc86192dc52",
-        ]
+        assert result["business_hash"].to_list() == expected
+        assert result["business_hash"].dtype == expected_type
 
-    def test_missing_optional_dependency_has_install_hint(self, engine: PolarsEngine) -> None:
+    def test_missing_optional_dependency_has_install_hint(
+        self, engine: PolarsEngine
+    ) -> None:
         frame = pl.DataFrame({"id": ["A"]}).lazy()
-        with patch(
-            "datacoolie.engines.polars_engine.importlib.import_module",
-            side_effect=ImportError("missing"),
-        ), pytest.raises(EngineError, match="optional polars-hash") as exc_info:
+        with (
+            patch(
+                "datacoolie.engines._polars.transforms.importlib.import_module",
+                side_effect=ImportError("missing"),
+            ),
+            pytest.raises(EngineError, match="optional polars-hash") as exc_info,
+        ):
             engine.add_hash_column(
                 frame, HashColumn(target_column="id_hash", columns=["id"])
             )
-        assert exc_info.value.details["install"] == "pip install 'datacoolie[polars-hash]'"
+        assert (
+            exc_info.value.details["install"] == "pip install 'datacoolie[polars-hash]'"
+        )
 
 
 # =====================================================================
@@ -255,7 +279,9 @@ class TestStableHashColumns:
 
 
 class TestReadParquet:
-    def test_read_parquet(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_parquet(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.parquet"
         sample_lf.collect().write_parquet(str(path))
         result = engine.read_parquet(str(path))
@@ -275,7 +301,9 @@ class TestReadDelta:
 
 
 class TestReadCsv:
-    def test_read_csv(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_csv(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.csv"
         sample_lf.collect().write_csv(str(path))
         result = engine.read_csv(str(path))
@@ -284,7 +312,9 @@ class TestReadCsv:
 
 
 class TestReadJson:
-    def test_read_json(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_json(
+        self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.json"
         sample_lf.collect().write_json(str(path))
         result = platform_engine.read_json(str(path))
@@ -293,20 +323,26 @@ class TestReadJson:
 
 
 class TestReadExcel:
-    def test_read_excel_single_file(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_excel_single_file(
+        self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.xlsx"
         sample_lf.collect().write_excel(str(path))
         result = platform_engine.read_excel(str(path))
         assert isinstance(result, pl.LazyFrame)
         assert result.collect().height == 3
 
-    def test_read_excel_injects_file_path(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_excel_injects_file_path(
+        self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.xlsx"
         sample_lf.collect().write_excel(str(path))
         result = platform_engine.read_excel(str(path)).collect()
         assert FileInfoColumn.FILE_PATH in result.columns
 
-    def test_read_excel_multi_file(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_multi_file(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         p1 = tmp_path / "a.xlsx"
         p2 = tmp_path / "b.xlsx"
         pl.DataFrame({"id": [1]}).write_excel(str(p1))
@@ -315,11 +351,15 @@ class TestReadExcel:
         assert out.height == 2
         assert FileInfoColumn.FILE_PATH in out.columns
 
-    def test_read_excel_no_files_raises(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_no_files_raises(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         with pytest.raises((FileNotFoundError, Exception)):
             platform_engine.read_excel(str(tmp_path / "nonexistent.xlsx"))
 
-    def test_read_excel_directory(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_directory(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """read_excel resolves .xlsx files from a directory."""
         p1 = tmp_path / "a.xlsx"
         p2 = tmp_path / "b.xlsx"
@@ -328,16 +368,21 @@ class TestReadExcel:
         out = platform_engine.read_excel(str(tmp_path)).collect()
         assert out.height == 2
 
-    def test_read_excel_with_sheet_id(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_with_sheet_id(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         path = tmp_path / "data.xlsx"
         pl.DataFrame({"v": [1, 2]}).write_excel(str(path))
         result = platform_engine.read_excel(str(path), options={"sheet_id": 1})
         assert result.collect().height == 2
 
-    def test_read_excel_multi_sheet(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_multi_sheet(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """Multi-sheet dict return is flattened into a single DataFrame."""
         path = tmp_path / "multi.xlsx"
         from openpyxl import Workbook
+
         wb = Workbook()
         ws1 = wb.active
         ws1.title = "Sheet1"
@@ -352,10 +397,13 @@ class TestReadExcel:
         collected = result.collect()
         assert collected.height == 2
 
-    def test_read_excel_default_first_sheet_only(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_default_first_sheet_only(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """Without sheet_id/sheet_name, only the first sheet is read."""
         path = tmp_path / "multi.xlsx"
         from openpyxl import Workbook
+
         wb = Workbook()
         ws1 = wb.active
         ws1.title = "First"
@@ -370,10 +418,13 @@ class TestReadExcel:
         # Default reads only first sheet (2 rows), NOT both sheets (3 rows)
         assert result.height == 2
 
-    def test_read_excel_with_sheet_name(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_with_sheet_name(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """sheet_name option selects a specific sheet by name."""
         path = tmp_path / "named.xlsx"
         from openpyxl import Workbook
+
         wb = Workbook()
         ws1 = wb.active
         ws1.title = "Alpha"
@@ -384,11 +435,15 @@ class TestReadExcel:
         ws2.append([200])
         ws2.append([300])
         wb.save(str(path))
-        result = platform_engine.read_excel(str(path), options={"sheet_name": "Beta"}).collect()
+        result = platform_engine.read_excel(
+            str(path), options={"sheet_name": "Beta"}
+        ).collect()
         assert result.height == 2
         assert result["val"].to_list() == [200, 300]
 
-    def test_read_excel_file_path_values_correct(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_file_path_values_correct(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """__file_path column contains the actual file paths."""
         p1 = tmp_path / "a.xlsx"
         p2 = tmp_path / "b.xlsx"
@@ -398,10 +453,13 @@ class TestReadExcel:
         paths = sorted(out[FileInfoColumn.FILE_PATH].to_list())
         assert paths == sorted([str(p1), str(p2)])
 
-    def test_read_excel_multi_sheet_has_file_path(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_multi_sheet_has_file_path(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """Multi-sheet result includes __file_path column."""
         path = tmp_path / "multi.xlsx"
         from openpyxl import Workbook
+
         wb = Workbook()
         ws1 = wb.active
         ws1.title = "S1"
@@ -411,24 +469,34 @@ class TestReadExcel:
         ws2.append(["id"])
         ws2.append([2])
         wb.save(str(path))
-        result = platform_engine.read_excel(str(path), options={"sheet_id": 0}).collect()
+        result = platform_engine.read_excel(
+            str(path), options={"sheet_id": 0}
+        ).collect()
         assert FileInfoColumn.FILE_PATH in result.columns
         assert all(v == str(path) for v in result[FileInfoColumn.FILE_PATH].to_list())
 
-    def test_read_excel_empty_directory_raises(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_empty_directory_raises(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """Directory with no .xlsx files raises FileNotFoundError."""
         (tmp_path / "readme.txt").write_text("not excel")
         with pytest.raises(FileNotFoundError, match="No Excel files"):
             platform_engine.read_excel(str(tmp_path))
 
-    def test_read_excel_use_hive_partitioning_stripped(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_excel_use_hive_partitioning_stripped(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         """use_hive_partitioning is silently removed before calling pl.read_excel."""
         path = tmp_path / "data.xlsx"
         pl.DataFrame({"n": [1]}).write_excel(str(path))
-        result = platform_engine.read_excel(str(path), options={"use_hive_partitioning": True})
+        result = platform_engine.read_excel(
+            str(path), options={"use_hive_partitioning": True}
+        )
         assert result.collect().height == 1
 
-    def test_read_path_excel(self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_read_path_excel(
+        self, platform_engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.xlsx"
         sample_lf.collect().write_excel(str(path))
         result = platform_engine.read_path(str(path), "excel")
@@ -442,13 +510,17 @@ class TestReadIceberg:
         lf = engine.read_iceberg(str(tmp_path))
         assert isinstance(lf, pl.LazyFrame)
 
-    def test_read_table_iceberg_raises_without_catalog(self, engine: PolarsEngine) -> None:
+    def test_read_table_iceberg_raises_without_catalog(
+        self, engine: PolarsEngine
+    ) -> None:
         with pytest.raises(EngineError, match="iceberg_catalog"):
             engine.read_table("myns.mytable", fmt="iceberg")
 
 
 class TestReadPath:
-    def test_parquet(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_parquet(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = tmp_path / "data.parquet"
         sample_lf.collect().write_parquet(str(path))
         result = engine.read_path(str(path), "parquet")
@@ -464,13 +536,17 @@ class TestReadPath:
 
 
 class TestExecuteSQL:
-    def test_execute_sql_with_registered_table(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_execute_sql_with_registered_table(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         engine.register_table("people", sample_lf)
         result = engine.execute_sql("SELECT * FROM people WHERE id > 1")
         assert isinstance(result, pl.LazyFrame)
         assert result.collect().height == 2
 
-    def test_execute_sql_aggregation(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_execute_sql_aggregation(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         engine.register_table("people", sample_lf)
         result = engine.execute_sql("SELECT COUNT(*) AS cnt FROM people")
         assert result.collect().item() == 3
@@ -538,20 +614,26 @@ class TestCreateDataframe:
 
 
 class TestWriteToPath:
-    def test_write_delta_overwrite(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_delta_overwrite(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "out_delta")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="delta")
         result = engine.read_delta(path)
         assert result.collect().height == 3
 
-    def test_write_delta_append(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_delta_append(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "out_delta_append")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="delta")
         engine.write_to_path(sample_lf, path, mode="append", fmt="delta")
         result = engine.read_delta(path)
         assert result.collect().height == 6
 
-    def test_write_parquet(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_parquet(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "out_parquet")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="parquet")
         files = list(Path(path).glob("*.parquet"))
@@ -559,7 +641,9 @@ class TestWriteToPath:
         result = engine.read_parquet(str(files[0]))
         assert result.collect().height == 3
 
-    def test_write_csv(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_csv(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "out_csv")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="csv")
         files = list(Path(path).glob("*.csv"))
@@ -577,7 +661,9 @@ class TestWriteToPath:
         result = engine.read_json(str(files[0]))
         assert result.collect().height == 3
 
-    def test_write_jsonl(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_jsonl(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "out_jsonl")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="jsonl")
         files = list(Path(path).glob("*.jsonl"))
@@ -585,34 +671,44 @@ class TestWriteToPath:
         result = engine.read_jsonl(str(files[0]))
         assert result.collect().height == 3
 
-    def test_write_parquet_overwrite_clears_folder(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_parquet_overwrite_clears_folder(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "parquet_ow")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="parquet")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="parquet")
         files = list(Path(path).glob("*.parquet"))
         assert len(files) == 1
 
-    def test_write_parquet_append_adds_file(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_parquet_append_adds_file(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "parquet_ap")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="parquet")
         engine.write_to_path(sample_lf, path, mode="append", fmt="parquet")
         files = list(Path(path).glob("*.parquet"))
         assert len(files) == 2
 
-    def test_write_overwrite_file_naming(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_overwrite_file_naming(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "my_table")
         engine.write_to_path(sample_lf, path, mode="overwrite", fmt="parquet")
         files = [f.name for f in Path(path).glob("*.parquet")]
         assert "my_table.parquet" in files
 
-    def test_write_append_file_naming(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_write_append_file_naming(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         path = str(tmp_path / "my_table")
         engine.write_to_path(sample_lf, path, mode="append", fmt="csv")
         files = [f.name for f in Path(path).glob("*.csv")]
         assert len(files) == 1
         assert files[0].startswith("my_table_") and files[0].endswith(".csv")
 
-    def test_unsupported_format(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_unsupported_format(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="unsupported format"):
             engine.write_to_path(sample_lf, "/fake", mode="overwrite", fmt="xml")
 
@@ -632,13 +728,19 @@ class TestMergeToPath:
         bobby = result.filter(pl.col("id") == 2)
         assert bobby["name"][0] == "Bobby"
 
-    def test_non_delta_raises(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_non_delta_raises(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="Delta"):
             engine.merge_to_path(sample_lf, "/fake", merge_keys=["id"], fmt="parquet")
 
-    def test_missing_table_raises(self, engine: PolarsEngine, sample_lf: pl.LazyFrame, tmp_path: Path) -> None:
+    def test_missing_table_raises(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame, tmp_path: Path
+    ) -> None:
         with pytest.raises(EngineError, match="does not exist"):
-            engine.merge_to_path(sample_lf, str(tmp_path / "nonexistent"), merge_keys=["id"])
+            engine.merge_to_path(
+                sample_lf, str(tmp_path / "nonexistent"), merge_keys=["id"]
+            )
 
 
 class TestMergeOverwriteToPath:
@@ -663,19 +765,27 @@ class TestMergeOverwriteToPath:
 
 
 class TestCatalogWrites:
-    def test_write_to_table_no_catalog(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_write_to_table_no_catalog(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="named Delta"):
             engine.write_to_table(sample_lf, "t", mode="overwrite", fmt="delta")
 
-    def test_merge_to_table_no_catalog(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_merge_to_table_no_catalog(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="named Delta"):
             engine.merge_to_table(sample_lf, "t", merge_keys=["id"], fmt="delta")
 
-    def test_merge_overwrite_to_table_no_catalog(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_merge_overwrite_to_table_no_catalog(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="named Delta"):
             engine.merge_overwrite_to_table(sample_lf, "t", merge_keys=["id"])
 
-    def test_write_to_table_unsupported_format(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_write_to_table_unsupported_format(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="unsupported format"):
             engine.write_to_table(sample_lf, "t", mode="overwrite", fmt="avro")
 
@@ -699,7 +809,9 @@ class TestDropColumns:
         result = engine.drop_columns(sample_lf, ["name"]).collect()
         assert "name" not in result.columns
 
-    def test_drop_nonexistent(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_drop_nonexistent(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.drop_columns(sample_lf, ["nonexistent"]).collect()
         assert result.columns == sample_lf.collect().columns
 
@@ -710,7 +822,9 @@ class TestRenameColumn:
         assert "full_name" in result.columns
         assert "name" not in result.columns
 
-    def test_rename_multiple(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_rename_multiple(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.rename_columns(
             sample_lf, {"NAME": "full_name", "date_str": "event_date"}
         ).collect()
@@ -730,7 +844,9 @@ class TestFilterRows:
 class TestDeduplicate:
     def test_dedup_desc(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"key": [1, 1, 2], "val": [10, 20, 30]}).lazy()
-        result = engine.deduplicate(lf, partition_columns=["key"], order_columns=["val"], order="desc")
+        result = engine.deduplicate(
+            lf, partition_columns=["key"], order_columns=["val"], order="desc"
+        )
         collected = result.collect()
         assert collected.height == 2
         row_key1 = collected.filter(pl.col("key") == 1)
@@ -738,7 +854,9 @@ class TestDeduplicate:
 
     def test_dedup_asc(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"key": [1, 1, 2], "val": [10, 20, 30]}).lazy()
-        result = engine.deduplicate(lf, partition_columns=["key"], order_columns=["val"], order="asc")
+        result = engine.deduplicate(
+            lf, partition_columns=["key"], order_columns=["val"], order="asc"
+        )
         collected = result.collect()
         assert collected.height == 2
         row_key1 = collected.filter(pl.col("key") == 1)
@@ -748,7 +866,9 @@ class TestDeduplicate:
 class TestDeduplicateByRank:
     def test_rank_desc_returns_max(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"key": [1, 1, 1, 2], "val": [10, 10, 20, 30]}).lazy()
-        result = engine.deduplicate_by_rank(lf, partition_columns=["key"], order_columns=["val"], order="desc")
+        result = engine.deduplicate_by_rank(
+            lf, partition_columns=["key"], order_columns=["val"], order="desc"
+        )
         collected = result.collect()
         key1 = collected.filter(pl.col("key") == 1)
         assert key1.height == 1
@@ -758,7 +878,9 @@ class TestDeduplicateByRank:
 
     def test_rank_asc_returns_min(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"key": [1, 1, 2, 2], "val": [5, 10, 3, 7]}).lazy()
-        result = engine.deduplicate_by_rank(lf, partition_columns=["key"], order_columns=["val"], order="asc")
+        result = engine.deduplicate_by_rank(
+            lf, partition_columns=["key"], order_columns=["val"], order="asc"
+        )
         collected = result.collect()
         assert collected.filter(pl.col("key") == 1)["val"][0] == 5
         assert collected.filter(pl.col("key") == 2)["val"][0] == 3
@@ -766,7 +888,9 @@ class TestDeduplicateByRank:
     def test_rank_returns_all_tied_rows(self, engine: PolarsEngine) -> None:
         # key=1 has two rows tied at the max value — both must be returned
         lf = pl.DataFrame({"key": [1, 1, 1], "val": [20, 20, 10]}).lazy()
-        result = engine.deduplicate_by_rank(lf, partition_columns=["key"], order_columns=["val"], order="desc")
+        result = engine.deduplicate_by_rank(
+            lf, partition_columns=["key"], order_columns=["val"], order="desc"
+        )
         collected = result.collect()
         assert collected.height == 2
         assert set(collected["val"].to_list()) == {20}
@@ -775,11 +899,13 @@ class TestDeduplicateByRank:
         # Lexicographic order: ("date", "amount") desc
         # key=1: (2024-02-01, 100) > (2024-01-01, 200) → row with date 2024-02-01 wins
         # key=2: two rows tied on date, tiebreak by amount → amount=300 wins
-        lf = pl.DataFrame({
-            "key":    [1,            1,            2,            2           ],
-            "date":   ["2024-02-01", "2024-01-01", "2024-02-01", "2024-02-01"],
-            "amount": [100,          200,          100,          300         ],
-        }).lazy()
+        lf = pl.DataFrame(
+            {
+                "key": [1, 1, 2, 2],
+                "date": ["2024-02-01", "2024-01-01", "2024-02-01", "2024-02-01"],
+                "amount": [100, 200, 100, 300],
+            }
+        ).lazy()
         result = engine.deduplicate_by_rank(
             lf,
             partition_columns=["key"],
@@ -797,7 +923,9 @@ class TestDeduplicateByRank:
 
 
 class TestCastColumn:
-    def test_cast_to_string(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_cast_to_string(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.cast_column(sample_lf, "id", "string").collect()
         assert result["id"].dtype == pl.Utf8
 
@@ -816,14 +944,22 @@ class TestCastColumn:
         result = engine.cast_column(lf, "amount", "decimal(10,2)").collect()
         assert result["amount"].dtype == pl.Decimal(precision=10, scale=2)
 
-    def test_cast_date_with_format(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
-        result = engine.cast_column(sample_lf, "date_str", "date", fmt="%Y-%m-%d").collect()
+    def test_cast_date_with_format(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
+        result = engine.cast_column(
+            sample_lf, "date_str", "date", fmt="%Y-%m-%d"
+        ).collect()
         assert result["date_str"].dtype == pl.Date
 
-    def test_unsupported_type_bypasses_cast(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_unsupported_type_bypasses_cast(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         # Unknown types bypass the cast — column keeps its original dtype
         original_schema = sample_lf.collect_schema()
-        result_schema = engine.cast_column(sample_lf, "id", "bizarre_type").collect_schema()
+        result_schema = engine.cast_column(
+            sample_lf, "id", "bizarre_type"
+        ).collect_schema()
         assert result_schema["id"] == original_schema["id"]
 
 
@@ -833,14 +969,18 @@ class TestCastColumn:
 
 
 class TestSystemColumns:
-    def test_add_system_columns(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_add_system_columns(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.add_system_columns(sample_lf).collect()
         assert SystemColumn.CREATED_AT in result.columns
         assert SystemColumn.UPDATED_AT in result.columns
         assert SystemColumn.UPDATED_BY in result.columns
         assert result[SystemColumn.UPDATED_BY][0] == DEFAULT_AUTHOR
 
-    def test_add_system_columns_custom_author(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_add_system_columns_custom_author(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.add_system_columns(sample_lf, author="TestBot").collect()
         assert result[SystemColumn.UPDATED_BY][0] == "TestBot"
 
@@ -858,7 +998,9 @@ class TestSystemColumns:
         assert result.schema[SystemColumn.DATAFLOW_RUN_ID] == pl.String
         assert result[SystemColumn.DATAFLOW_RUN_ID].unique().to_list() == ["run-123"]
 
-    def test_remove_system_columns(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_remove_system_columns(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with_sys = engine.add_system_columns(sample_lf)
         result = engine.remove_system_columns(with_sys).collect()
         for col in SystemColumn:
@@ -882,13 +1024,13 @@ class TestSystemColumns:
                 return None
 
         monkeypatch.setattr(
-            engine,
-            "_sink_or_write_delta",
+            delta_ops,
+            "sink_or_write_delta",
             lambda *_args, **_kwargs: MergeBuilder(),
         )
         monkeypatch.setattr(
-            engine,
-            "write_to_path",
+            delta_ops,
+            "write_path",
             lambda *_args, **_kwargs: None,
         )
 
@@ -897,7 +1039,9 @@ class TestSystemColumns:
         assert set(captured["updates"]) == {"__valid_to", "__is_current"}
         assert SystemColumn.DATAFLOW_RUN_ID not in captured["updates"]
 
-    def test_add_file_info_columns_with_file_infos(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_add_file_info_columns_with_file_infos(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         """file_infos joined by __file_path injects name and modification_time."""
         path = tmp_path / "data.parquet"
         sample_lf.collect().write_parquet(str(path))
@@ -915,7 +1059,9 @@ class TestSystemColumns:
         )[FileInfoColumn.FILE_MODIFICATION_TIME][0]
         assert actual_us == expected_us
 
-    def test_add_file_info_columns_no_file_infos(self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame) -> None:
+    def test_add_file_info_columns_no_file_infos(
+        self, engine: PolarsEngine, tmp_path: Path, sample_lf: pl.LazyFrame
+    ) -> None:
         """Without file_infos, name is derived from path; mtime is null."""
         path = tmp_path / "data.parquet"
         sample_lf.collect().write_parquet(str(path))
@@ -946,11 +1092,15 @@ class TestMetrics:
         assert "id" in schema
         assert "name" in schema
 
-    def test_get_max_values(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_get_max_values(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         maxes = engine.get_max_values(sample_lf, ["id"])
         assert maxes["id"] == 3
 
-    def test_get_count_and_max(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_get_count_and_max(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         count, maxes = engine.get_count_and_max_values(sample_lf, ["id"])
         assert count == 3
         assert maxes["id"] == 3
@@ -1001,11 +1151,15 @@ class TestTableOps:
 
 
 class TestWatermarkFilter:
-    def test_filter_by_int_watermark(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_filter_by_int_watermark(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.apply_watermark_filter(sample_lf, ["id"], {"id": 1})
         assert result.collect().height == 2
 
-    def test_no_watermark_value(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_no_watermark_value(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         result = engine.apply_watermark_filter(sample_lf, ["id"], {})
         assert result.collect().height == 3
 
@@ -1016,7 +1170,9 @@ class TestWatermarkFilter:
 
 
 class TestSQLContext:
-    def test_register_table_and_query(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_register_table_and_query(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         engine.register_table("t1", sample_lf)
         result = engine.execute_sql("SELECT name FROM t1 WHERE id = 2")
         collected = result.collect()
@@ -1025,6 +1181,7 @@ class TestSQLContext:
 
     def test_register_delta_tables(self, tmp_path: Path) -> None:
         from datacoolie.platforms.local_platform import LocalPlatform
+
         # Create two delta tables in sub-directories
         for name in ("orders", "customers"):
             sub = tmp_path / name
@@ -1036,7 +1193,40 @@ class TestSQLContext:
         result = engine.execute_sql("SELECT * FROM orders").collect()
         assert result.height == 2
 
-    def test_register_delta_tables_requires_platform(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_delta_qualified_names_resolve_all_unique_suffix_levels(
+        self, tmp_path: Path
+    ) -> None:
+        from datacoolie.platforms.local_platform import LocalPlatform
+
+        table_path = tmp_path / "schema_C" / "orders"
+        pl.DataFrame({"id": [1, 2]}).write_delta(str(table_path))
+        engine = PolarsEngine(platform=LocalPlatform())
+
+        registered = engine.register_delta_tables(
+            str(tmp_path),
+            logical_prefix=("catalog_A", "database_B"),
+            recursive=True,
+        )
+
+        assert registered == ["catalog_A.database_B.schema_C.orders"]
+        assert engine.sql_context.tables() == []
+        for reference in (
+            "catalog_A.database_B.schema_C.orders",
+            "database_B.schema_C.orders",
+            "schema_C.orders",
+            "orders",
+        ):
+            assert (
+                engine.execute_sql(f"SELECT COUNT(*) AS n FROM {reference}").collect()[
+                    "n"
+                ][0]
+                == 2
+            )
+        assert len(engine.sql_context.tables()) == 1
+
+    def test_register_delta_tables_requires_platform(
+        self, engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         with pytest.raises(EngineError, match="requires a platform"):
             engine.register_delta_tables(str(tmp_path))
 
@@ -1065,6 +1255,7 @@ class TestCatalogSetters:
     def test_set_platform(self, engine: PolarsEngine) -> None:
         from unittest.mock import MagicMock
         from datacoolie.platforms.base import BasePlatform
+
         mock_platform = MagicMock(spec=BasePlatform)
         engine.set_platform(mock_platform)
         assert engine.platform is mock_platform
@@ -1072,6 +1263,7 @@ class TestCatalogSetters:
     def test_platform_via_init(self) -> None:
         from unittest.mock import MagicMock
         from datacoolie.platforms.base import BasePlatform
+
         mock_platform = MagicMock(spec=BasePlatform)
         engine = PolarsEngine(platform=mock_platform)
         assert engine.platform is mock_platform
@@ -1090,10 +1282,12 @@ class TestCatalogSetters:
 class TestRegistryIntegration:
     def test_polars_in_engine_registry(self) -> None:
         from datacoolie import engine_registry
+
         assert engine_registry.is_available("polars")
 
     def test_create_engine(self) -> None:
         from datacoolie import create_engine
+
         engine = create_engine("polars")
         assert isinstance(engine, PolarsEngine)
 
@@ -1109,105 +1303,191 @@ class TestPolarsEngineAdvancedCoverage:
             with pytest.raises(EngineError, match="deltalake package is required"):
                 _ = engine.delta
 
-    def test_register_delta_tables_list_folders_error_returns_empty(self) -> None:
+    def test_register_delta_tables_list_folders_error_is_explicit(self) -> None:
         mock_platform = MagicMock()
         mock_platform.list_folders.side_effect = RuntimeError("boom")
         engine = PolarsEngine(platform=mock_platform)
-        assert engine.register_delta_tables("/root") == []
+        with pytest.raises(EngineError, match="Failed to list table root"):
+            engine.register_delta_tables("/root")
+        assert engine.register_delta_tables("/root", on_error="skip") == []
+        assert engine.last_registration_report.failed
 
     def test_register_delta_tables_skips_non_delta_and_scan_errors(self) -> None:
         mock_platform = MagicMock()
         mock_platform.list_folders.return_value = ["/root/a", "/root/b"]
         mock_platform.folder_exists.side_effect = [False, True]
         engine = PolarsEngine(platform=mock_platform)
-        with patch("polars.scan_delta", side_effect=RuntimeError("bad scan")):
-            assert engine.register_delta_tables("/root") == []
+        with patch.object(
+            engine, "read_delta", side_effect=RuntimeError("bad scan")
+        ) as mock_scan:
+            assert engine.register_delta_tables("/root") == ["b"]
+            mock_scan.assert_not_called()
+            with pytest.raises(EngineError, match="bad scan"):
+                engine.execute_sql("SELECT * FROM b")
 
-    def test_register_delta_tables_prefix(self, tmp_path: Path) -> None:
+    def test_register_delta_tables_logical_prefix(self, tmp_path: Path) -> None:
         from datacoolie.platforms.local_platform import LocalPlatform
+
         for name in ("orders", "customers"):
             pl.DataFrame({"col": [1]}).write_delta(str(tmp_path / name))
         engine = PolarsEngine(platform=LocalPlatform())
-        registered = engine.register_delta_tables(str(tmp_path), prefix="db1__")
-        assert registered == ["db1__customers", "db1__orders"]
-        result = engine.execute_sql("SELECT * FROM db1__orders").collect()
+        registered = engine.register_delta_tables(
+            str(tmp_path), logical_prefix=("db1",)
+        )
+        assert registered == ["db1.customers", "db1.orders"]
+        result = engine.execute_sql("SELECT * FROM db1.orders").collect()
         assert result.height == 1
 
     def test_register_iceberg_tables_requires_input(self, engine: PolarsEngine) -> None:
-        with pytest.raises(EngineError, match="provide namespace"):
+        with pytest.raises(EngineError, match="provide base_path"):
             engine.register_iceberg_tables()
 
     def test_register_iceberg_tables_catalog_discovery(self) -> None:
         catalog = MagicMock()
+        catalog.name = "catalog"
         catalog.list_tables.return_value = [("ns", "tbl_a"), "tbl_b"]
-        catalog.load_table.side_effect = [MagicMock(name="ice_a"), MagicMock(name="ice_b")]
+        catalog.load_table.side_effect = [
+            MagicMock(name="ice_a"),
+            MagicMock(name="ice_b"),
+        ]
         engine = PolarsEngine(iceberg_catalog=catalog)
 
-        with patch("polars.scan_iceberg", side_effect=[pl.DataFrame({"x": [1]}).lazy(), pl.DataFrame({"y": [2]}).lazy()]):
+        with patch(
+            "polars.scan_iceberg",
+            side_effect=[
+                pl.DataFrame({"x": [1]}).lazy(),
+                pl.DataFrame({"y": [2]}).lazy(),
+            ],
+        ):
             registered = engine.register_iceberg_tables(namespace="ns")
 
-        assert registered == ["tbl_a", "tbl_b"]
+        assert registered == ["catalog.ns.tbl_a", "catalog.ns.tbl_b"]
+        catalog.load_table.assert_not_called()
 
-    def test_register_iceberg_tables_catalog_prefix(self) -> None:
+    def test_iceberg_qualified_query_loads_once_and_reuses_registration(self) -> None:
+        catalog = MagicMock()
+        catalog.name = "catalog_A"
+        catalog.list_tables.return_value = [("database_B", "schema_C", "orders")]
+        ice_table = MagicMock()
+        catalog.load_table.return_value = ice_table
+        engine = PolarsEngine(iceberg_catalog=catalog)
+
+        with patch(
+            "polars.scan_iceberg",
+            return_value=pl.DataFrame({"id": [1, 2]}).lazy(),
+        ) as mock_scan:
+            registered = engine.register_iceberg_tables(namespace="database_B")
+            assert registered == ["catalog_A.database_B.schema_C.orders"]
+            catalog.load_table.assert_not_called()
+
+            for reference in (
+                "database_B.schema_C.orders",
+                "schema_C.orders",
+                "orders",
+            ):
+                assert (
+                    engine.execute_sql(f"SELECT * FROM {reference}").collect().height
+                    == 2
+                )
+
+        catalog.load_table.assert_called_once_with(("database_B", "schema_C", "orders"))
+        mock_scan.assert_called_once_with(ice_table)
+        assert len(engine.sql_context.tables()) == 1
+
+    def test_register_iceberg_tables_catalog_logical_prefix(self) -> None:
         catalog = MagicMock()
         catalog.list_tables.return_value = [("ns", "sales"), "returns"]
         catalog.load_table.side_effect = [MagicMock(), MagicMock()]
         engine = PolarsEngine(iceberg_catalog=catalog)
 
-        with patch("polars.scan_iceberg", side_effect=[pl.DataFrame({"x": [1]}).lazy(), pl.DataFrame({"y": [2]}).lazy()]):
-            registered = engine.register_iceberg_tables(namespace="ns", prefix="cat1__")
+        with patch(
+            "polars.scan_iceberg",
+            side_effect=[
+                pl.DataFrame({"x": [1]}).lazy(),
+                pl.DataFrame({"y": [2]}).lazy(),
+            ],
+        ):
+            registered = engine.register_iceberg_tables(
+                namespace="ns", logical_prefix=("cat1",)
+            )
 
-        assert registered == ["cat1__sales", "cat1__returns"]
+        assert registered == ["cat1.returns", "cat1.sales"]
 
-    def test_register_iceberg_tables_base_path_prefix(self) -> None:
+    def test_register_iceberg_tables_base_path_logical_prefix(self) -> None:
         mock_platform = MagicMock()
         mock_platform.list_folders.return_value = ["/root/orders"]
         mock_platform.folder_exists.return_value = True
         engine = PolarsEngine(platform=mock_platform)
 
-        with patch("polars.scan_iceberg", return_value=pl.DataFrame({"id": [1]}).lazy()):
-            registered = engine.register_iceberg_tables(base_path="/root", prefix="dw__")
+        with patch(
+            "polars.scan_iceberg", return_value=pl.DataFrame({"id": [1]}).lazy()
+        ):
+            registered = engine.register_iceberg_tables(
+                base_path="/root", logical_prefix=("dw",)
+            )
 
-        assert registered == ["dw__orders"]
+        assert registered == ["dw.orders"]
 
-    def test_register_iceberg_tables_base_path_without_platform_raises(self, engine: PolarsEngine) -> None:
+    def test_register_iceberg_tables_base_path_without_platform_raises(
+        self, engine: PolarsEngine
+    ) -> None:
         with pytest.raises(EngineError, match="requires a platform"):
             engine.register_iceberg_tables(base_path="/root")
 
-    def test_register_iceberg_tables_namespace_without_catalog_and_no_base_path_raises(self, engine: PolarsEngine) -> None:
+    def test_register_iceberg_tables_namespace_without_catalog_and_no_base_path_raises(
+        self, engine: PolarsEngine
+    ) -> None:
         with pytest.raises(EngineError, match="iceberg_catalog is not configured"):
             engine.register_iceberg_tables(namespace="ns")
 
-    def test_register_iceberg_tables_base_path_list_error_returns_empty(self) -> None:
+    def test_register_iceberg_tables_base_path_list_error_is_explicit(self) -> None:
         mock_platform = MagicMock()
         mock_platform.list_folders.side_effect = RuntimeError("boom")
         engine = PolarsEngine(platform=mock_platform)
-        assert engine.register_iceberg_tables(base_path="/root") == []
+        with pytest.raises(EngineError, match="Failed to list table root"):
+            engine.register_iceberg_tables(base_path="/root")
+        assert engine.register_iceberg_tables(base_path="/root", on_error="skip") == []
+        assert engine.last_registration_report.failed
 
     def test_register_iceberg_tables_base_path_skip_and_register(self) -> None:
         mock_platform = MagicMock()
-        mock_platform.list_folders.return_value = ["/root/no_meta", "/root/scan_fail", "/root/ok"]
+        mock_platform.list_folders.return_value = [
+            "/root/no_meta",
+            "/root/scan_fail",
+            "/root/ok",
+        ]
         mock_platform.folder_exists.side_effect = [False, True, True]
         engine = PolarsEngine(platform=mock_platform)
+
         def _scan(path: str) -> pl.LazyFrame:
             if path.endswith("scan_fail"):
                 raise RuntimeError("bad")
             return pl.DataFrame({"id": [1]}).lazy()
 
-        with patch("polars.scan_iceberg", side_effect=_scan):
+        with patch.object(engine, "read_iceberg", side_effect=_scan) as mock_scan:
             registered = engine.register_iceberg_tables(base_path="/root")
-        assert registered == ["ok"]
+            assert registered == ["ok", "scan_fail"]
+            mock_scan.assert_not_called()
+            assert engine.execute_sql("SELECT * FROM ok").collect().height == 1
+            with pytest.raises(EngineError, match="bad"):
+                engine.execute_sql("SELECT * FROM scan_fail")
 
     def test_read_parquet_maps_basepath_and_storage_options(self) -> None:
         engine = PolarsEngine(storage_options={"token": "x"})
-        with patch("polars.scan_parquet", return_value=pl.DataFrame({"a": [1]}).lazy()) as mock_scan:
-            _ = engine.read_parquet("/tmp/data.parquet", options={"use_hive_partitioning": "/tmp"})
+        with patch(
+            "polars.scan_parquet", return_value=pl.DataFrame({"a": [1]}).lazy()
+        ) as mock_scan:
+            _ = engine.read_parquet(
+                "/tmp/data.parquet", options={"use_hive_partitioning": "/tmp"}
+            )
         kwargs = mock_scan.call_args.kwargs
         assert kwargs["hive_partitioning"] is True
         assert kwargs["storage_options"] == {"token": "x"}
         assert "use_hive_partitioning" not in kwargs
 
-    def test_read_json_list_paths(self, platform_engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_read_json_list_paths(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         p1 = tmp_path / "a.json"
         p2 = tmp_path / "b.json"
         pl.DataFrame({"id": [1]}).write_json(str(p1))
@@ -1217,7 +1497,9 @@ class TestPolarsEngineAdvancedCoverage:
         assert FileInfoColumn.FILE_PATH in out.columns
 
     def test_read_database_default_sql_from_table(self, engine: PolarsEngine) -> None:
-        with patch("polars.read_database_uri", return_value=pl.DataFrame({"id": [1]})) as mock_read:
+        with patch(
+            "polars.read_database_uri", return_value=pl.DataFrame({"id": [1]})
+        ) as mock_read:
             out = engine.read_database(table="users", options={"url": "sqlite:///x.db"})
         assert out.collect().height == 1
         assert mock_read.call_args.args[0] == "SELECT * FROM users"
@@ -1227,57 +1509,105 @@ class TestPolarsEngineAdvancedCoverage:
         ice_table = MagicMock()
         catalog.load_table.return_value = ice_table
         engine = PolarsEngine(iceberg_catalog=catalog)
-        with patch("polars.scan_iceberg", return_value=pl.DataFrame({"v": [1]}).lazy()) as mock_scan:
+        with patch(
+            "polars.scan_iceberg", return_value=pl.DataFrame({"v": [1]}).lazy()
+        ) as mock_scan:
             out = engine.read_table("ns.tbl", fmt="iceberg")
         assert out.collect().height == 1
         assert mock_scan.call_args.args[0] is ice_table
 
-    def test_write_to_path_delta_with_storage_and_partition(self, sample_lf: pl.LazyFrame) -> None:
+    def test_write_to_path_delta_with_storage_and_partition(
+        self, sample_lf: pl.LazyFrame
+    ) -> None:
         engine = PolarsEngine(storage_options={"k": "v"})
         with patch("polars.LazyFrame.sink_delta") as mock_sink_delta:
-            engine.write_to_path(sample_lf, "/tmp/delta", mode="full_load", fmt="delta", partition_columns=["id"])
+            engine.write_to_path(
+                sample_lf,
+                "/tmp/delta",
+                mode="full_load",
+                fmt="delta",
+                partition_columns=["id"],
+            )
         kwargs = mock_sink_delta.call_args.kwargs
         assert kwargs["mode"] == "overwrite"
         assert kwargs["storage_options"] == {"k": "v"}
-        assert kwargs["delta_write_options"] == {"partition_by": ["id"], "schema_mode": "overwrite"}
+        assert kwargs["delta_write_options"] == {
+            "partition_by": ["id"],
+            "schema_mode": "overwrite",
+        }
 
-    def test_merge_overwrite_to_path_non_delta_raises(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_merge_overwrite_to_path_non_delta_raises(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="only supports Delta"):
-            engine.merge_overwrite_to_path(sample_lf, "/tmp/x", merge_keys=["id"], fmt="parquet")
+            engine.merge_overwrite_to_path(
+                sample_lf, "/tmp/x", merge_keys=["id"], fmt="parquet"
+            )
 
-    def test_merge_overwrite_to_path_missing_delta_table_raises(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_merge_overwrite_to_path_missing_delta_table_raises(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="does not exist"):
-            engine.merge_overwrite_to_path(sample_lf, "/tmp/nonexistent", merge_keys=["id"])
+            engine.merge_overwrite_to_path(
+                sample_lf, "/tmp/nonexistent", merge_keys=["id"]
+            )
 
-    def test_write_to_table_iceberg_calls_internal_writer(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
-        with patch.object(engine, "_write_iceberg_table") as mock_write:
+    def test_write_to_table_iceberg_calls_internal_writer(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
+        engine.set_iceberg_catalog(MagicMock())
+        with patch.object(iceberg_ops, "write_table") as mock_write:
             engine.write_to_table(sample_lf, "ns.tbl", mode="append", fmt="iceberg")
         mock_write.assert_called_once()
         assert mock_write.call_args.args[0] is sample_lf
 
-    def test_merge_to_table_iceberg_calls_merge(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
-        with patch.object(engine, "_merge_iceberg_table") as mock_merge:
+    def test_merge_to_table_iceberg_calls_merge(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
+        engine.set_iceberg_catalog(MagicMock())
+        with patch.object(iceberg_ops, "merge_table") as mock_merge:
             engine.merge_to_table(sample_lf, "ns.tbl", merge_keys=["id"], fmt="iceberg")
-        mock_merge.assert_called_once_with(sample_lf, "ns.tbl", ["id"], partition_columns=None)
+        mock_merge.assert_called_once_with(
+            sample_lf, "ns.tbl", ["id"], None, catalog=engine._iceberg_catalog
+        )
 
-    def test_merge_to_table_unsupported_format_raises(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_merge_to_table_unsupported_format_raises(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="unsupported format"):
             engine.merge_to_table(sample_lf, "t", merge_keys=["id"], fmt="parquet")
 
-    def test_merge_overwrite_to_table_iceberg_calls_merge_overwrite(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
-        with patch.object(engine, "_merge_overwrite_iceberg_table") as mock_merge:
-            engine.merge_overwrite_to_table(sample_lf, "ns.tbl", merge_keys=["id"], fmt="iceberg")
-        mock_merge.assert_called_once_with(sample_lf, "ns.tbl", ["id"], partition_columns=None)
+    def test_merge_overwrite_to_table_iceberg_calls_merge_overwrite(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
+        engine.set_iceberg_catalog(MagicMock())
+        with patch.object(iceberg_ops, "merge_overwrite_table") as mock_merge:
+            engine.merge_overwrite_to_table(
+                sample_lf, "ns.tbl", merge_keys=["id"], fmt="iceberg"
+            )
+        mock_merge.assert_called_once_with(
+            sample_lf, "ns.tbl", ["id"], None, catalog=engine._iceberg_catalog
+        )
 
-    def test_merge_overwrite_to_table_unsupported_format_raises(self, engine: PolarsEngine, sample_lf: pl.LazyFrame) -> None:
+    def test_merge_overwrite_to_table_unsupported_format_raises(
+        self, engine: PolarsEngine, sample_lf: pl.LazyFrame
+    ) -> None:
         with pytest.raises(EngineError, match="unsupported format"):
-            engine.merge_overwrite_to_table(sample_lf, "t", merge_keys=["id"], fmt="parquet")
+            engine.merge_overwrite_to_table(
+                sample_lf, "t", merge_keys=["id"], fmt="parquet"
+            )
 
-    def test_apply_watermark_filter_datetime_and_end(self, engine: PolarsEngine) -> None:
+    def test_apply_watermark_filter_datetime_and_end(
+        self, engine: PolarsEngine
+    ) -> None:
         lf = pl.DataFrame(
             {
                 "id": [1, 2, 3],
-                "ts": ["2026-01-01T00:00:00", "2026-01-03T00:00:00", "2026-01-05T00:00:00"],
+                "ts": [
+                    "2026-01-01T00:00:00",
+                    "2026-01-03T00:00:00",
+                    "2026-01-05T00:00:00",
+                ],
             }
         ).lazy()
         out = engine.apply_watermark_filter(
@@ -1289,10 +1619,14 @@ class TestPolarsEngineAdvancedCoverage:
 
     def test_cast_timestamp_with_format(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"ts": ["2026-01-01 01:02:03"]}).lazy()
-        out = engine.cast_column(lf, "ts", "timestamp", fmt="%Y-%m-%d %H:%M:%S").collect()
+        out = engine.cast_column(
+            lf, "ts", "timestamp", fmt="%Y-%m-%d %H:%M:%S"
+        ).collect()
         assert str(out["ts"].dtype).startswith("Datetime")
 
-    def test_table_exists_by_path_iceberg_branches_and_unsupported(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_table_exists_by_path_iceberg_branches_and_unsupported(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         # iceberg_catalog.table_exists does not work with paths — always False without a platform
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
@@ -1316,7 +1650,9 @@ class TestPolarsEngineAdvancedCoverage:
         mock_platform.folder_exists.return_value = False
         assert engine.table_exists_by_path("/data/tbl") is False
 
-    def test_table_exists_by_path_iceberg_with_platform_uses_metadata_check(self) -> None:
+    def test_table_exists_by_path_iceberg_with_platform_uses_metadata_check(
+        self,
+    ) -> None:
         mock_platform = MagicMock()
         engine = PolarsEngine(platform=mock_platform)
         mock_platform.folder_exists.return_value = True
@@ -1339,15 +1675,23 @@ class TestPolarsEngineAdvancedCoverage:
         catalog.table_exists.return_value = False
         assert engine.table_exists_by_name("tbl", fmt="iceberg") is False
 
-    def test_table_exists_by_name_unsupported_format_raises(self, engine: PolarsEngine) -> None:
+    def test_table_exists_by_name_unsupported_format_raises(
+        self, engine: PolarsEngine
+    ) -> None:
         with pytest.raises(EngineError, match="unsupported format"):
             engine.table_exists_by_name("tbl", fmt="avro")
 
-    def test_get_history_by_path_branches(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_get_history_by_path_branches(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         assert engine.get_history_by_path(str(delta_path), fmt="parquet") == []
 
         # Force dt.history failure branch.
-        with patch.object(PolarsEngine, "delta", new=property(lambda _self: MagicMock(side_effect=RuntimeError("boom")))):
+        with patch.object(
+            PolarsEngine,
+            "delta",
+            new=property(lambda _self: MagicMock(side_effect=RuntimeError("boom"))),
+        ):
             assert engine.get_history_by_path(str(delta_path), fmt="delta") == []
 
         fake_dt = MagicMock()
@@ -1357,7 +1701,11 @@ class TestPolarsEngineAdvancedCoverage:
             {"timestamp": 1740787200000, "version": 4},  # 2025-03-01
             {"timestamp": None, "version": 3},
         ]
-        with patch.object(PolarsEngine, "delta", new=property(lambda _self: MagicMock(return_value=fake_dt))):
+        with patch.object(
+            PolarsEngine,
+            "delta",
+            new=property(lambda _self: MagicMock(return_value=fake_dt)),
+        ):
             # No time filter — all entries returned, timestamps normalized to datetime.
             all_entries = engine.get_history_by_path(str(delta_path), limit=10)
             assert all(
@@ -1373,9 +1721,13 @@ class TestPolarsEngineAdvancedCoverage:
             )
         assert [e["version"] for e in out] == [2, 3]
         # Filtered entries also have datetime timestamps (None entries pass through).
-        assert all(isinstance(e["timestamp"], datetime) or e["timestamp"] is None for e in out)
+        assert all(
+            isinstance(e["timestamp"], datetime) or e["timestamp"] is None for e in out
+        )
 
-    def test_get_history_by_name_unsupported_non_delta(self, engine: PolarsEngine) -> None:
+    def test_get_history_by_name_unsupported_non_delta(
+        self, engine: PolarsEngine
+    ) -> None:
         with pytest.raises(EngineError, match="unsupported format"):
             engine.get_history_by_name("t", fmt="avro")
 
@@ -1492,32 +1844,70 @@ class TestPolarsEngineAdvancedCoverage:
         # Create 10 commits (version 0..9) → version 10 triggers checkpoint
         lf = pl.DataFrame({"id": [1]}).lazy()
         for _ in range(10):
-            engine._write_delta_path(lf, path, "append", None, {})
+            delta_ops.write_path(
+                lf,
+                path,
+                "append",
+                None,
+                {},
+                storage_options={},
+                delta_table_cls=engine.delta,
+            )
         dt = engine.delta(path)
         assert dt.version() == 9
         # Write one more to reach version 10
-        engine._write_delta_path(lf, path, "append", None, {})
+        delta_ops.write_path(
+            lf,
+            path,
+            "append",
+            None,
+            {},
+            storage_options={},
+            delta_table_cls=engine.delta,
+        )
         # Checkpoint file should exist for version 10
         ckpt_dir = tmp_path / "ckpt_table" / "_delta_log"
         ckpt_files = list(ckpt_dir.glob("*.checkpoint.parquet"))
         assert len(ckpt_files) >= 1
 
-    def test_delta_post_commit_skips_non_checkpoint_version(self, tmp_path: Path) -> None:
+    def test_delta_post_commit_skips_non_checkpoint_version(
+        self, tmp_path: Path
+    ) -> None:
         """_delta_post_commit does NOT create a checkpoint when version%10!=0."""
         engine = PolarsEngine()
         path = str(tmp_path / "no_ckpt")
         lf = pl.DataFrame({"id": [1]}).lazy()
-        engine._write_delta_path(lf, path, "overwrite", None, {})  # version 0
-        engine._write_delta_path(lf, path, "append", None, {})  # version 1
+        delta_ops.write_path(
+            lf,
+            path,
+            "overwrite",
+            None,
+            {},
+            storage_options={},
+            delta_table_cls=engine.delta,
+        )
+        delta_ops.write_path(
+            lf,
+            path,
+            "append",
+            None,
+            {},
+            storage_options={},
+            delta_table_cls=engine.delta,
+        )
         ckpt_dir = tmp_path / "no_ckpt" / "_delta_log"
         ckpt_files = list(ckpt_dir.glob("*.checkpoint.parquet"))
         assert len(ckpt_files) == 0
 
-    def test_delta_post_commit_error_is_swallowed(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_delta_post_commit_error_is_swallowed(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """_delta_post_commit should not raise on bad path."""
         engine = PolarsEngine()
         # Non-existent path; should log debug and not raise
-        engine._delta_post_commit("/tmp/nonexistent_delta_table_xyz")
+        delta_ops.post_commit(
+            "/tmp/nonexistent_delta_table_xyz", engine.delta, {}
+        )
 
     def test_compact_cleanup_non_delta_paths_and_name_unsupported(
         self,
@@ -1536,16 +1926,22 @@ class TestPolarsEngineAdvancedCoverage:
         with pytest.raises(EngineError, match="requires iceberg_catalog"):
             engine.cleanup_by_name("t", fmt="iceberg")
 
-    def test_compact_by_name_iceberg_noop(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_compact_by_name_iceberg_noop(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
         engine.compact_by_name("ns.tbl", fmt="iceberg")
         assert "does not support compaction" in caplog.text
 
-    def test_compact_by_name_iceberg_options(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_compact_by_name_iceberg_options(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.compact_by_name("ns.tbl", fmt="iceberg", options={"rewrite_data_files": False})
+        engine.compact_by_name(
+            "ns.tbl", fmt="iceberg", options={"rewrite_data_files": False}
+        )
         assert "does not support compaction" in caplog.text
 
     def test_cleanup_by_name_iceberg_expire_snapshots(self) -> None:
@@ -1572,19 +1968,24 @@ class TestPolarsEngineAdvancedCoverage:
         expire.older_than.assert_called_once()
         expire.commit.assert_called_once()
 
-    def test_cleanup_by_name_iceberg_skip_expire(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_cleanup_by_name_iceberg_skip_expire(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         ice_table = MagicMock()
         catalog = MagicMock()
         catalog.load_table.return_value = ice_table
 
         engine = PolarsEngine(iceberg_catalog=catalog)
         engine.cleanup_by_name(
-            "ns.tbl", fmt="iceberg",
+            "ns.tbl",
+            fmt="iceberg",
             options={"expire_snapshots": False, "remove_orphan_files": False},
         )
         ice_table.maintenance.expire_snapshots.assert_not_called()
 
-    def test_cleanup_by_name_iceberg_remove_orphan_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_cleanup_by_name_iceberg_remove_orphan_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         ice_table = MagicMock()
         expire = MagicMock()
         ice_table.maintenance.expire_snapshots.return_value = expire
@@ -1593,401 +1994,11 @@ class TestPolarsEngineAdvancedCoverage:
         catalog.load_table.return_value = ice_table
 
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.cleanup_by_name("ns.tbl", fmt="iceberg", options={"remove_orphan_files": True})
+        engine.cleanup_by_name(
+            "ns.tbl", fmt="iceberg", options={"remove_orphan_files": True}
+        )
         assert "does not support remove_orphan_files" in caplog.text
 
-    @patch.object(PolarsEngine, "_align_arrow_to_iceberg_table", side_effect=lambda arrow, ice: arrow)
-    def test_write_iceberg_table_branches(self, _mock_reorder: MagicMock) -> None:
-        lf = pl.DataFrame({"id": [1]}).lazy()
-
-        engine = PolarsEngine()
-        with pytest.raises(EngineError, match="requires iceberg_catalog"):
-            engine._write_iceberg_table(lf, "tbl", "append")
-
-        ice_table = MagicMock()
-        id_field = MagicMock()
-        id_field.name = "id"
-        ice_table.schema.return_value.fields = [id_field]
-        ice_table.spec.return_value.fields = []
-        catalog = MagicMock()
-        catalog.load_table.return_value = ice_table
-        engine = PolarsEngine(iceberg_catalog=catalog)
-
-        engine._write_iceberg_table(lf, "tbl", "overwrite")
-        ice_table.overwrite.assert_called_once()
-        ice_table.append.assert_not_called()
-
-        ice_table.reset_mock()
-        engine._write_iceberg_table(lf, "tbl", "append")
-        ice_table.append.assert_called_once()
-        ice_table.overwrite.assert_not_called()
-
-        with pytest.raises(EngineError, match="unsupported Iceberg write mode"):
-            engine._write_iceberg_table(lf, "tbl", "merge")
-
-    def test_inspect_iceberg_write_target_is_non_mutating(self) -> None:
-        pa = pytest.importorskip("pyarrow")
-        target_arrow_schema = pa.schema([
-            pa.field("id", pa.int64()),
-            pa.field("__file_name", pa.string()),
-            pa.field("__created_at", pa.string()),
-        ])
-        iceberg_schema = MagicMock()
-        iceberg_schema.fields = [
-            SimpleNamespace(name=field.name) for field in target_arrow_schema
-        ]
-        iceberg_schema.as_arrow.return_value = target_arrow_schema
-
-        ice_table = MagicMock()
-        ice_table.schema.return_value = iceberg_schema
-        ice_table.spec.return_value.fields = []
-        ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=3)
-        ice_table.metadata.current_schema_id = 4
-
-        catalog = MagicMock()
-        catalog.load_table.return_value = ice_table
-        engine = PolarsEngine(iceberg_catalog=catalog)
-        source = pl.DataFrame({
-            "id": [1],
-            "new_value": ["x"],
-            "__file_name": ["a.csv"],
-            "__created_at": ["2026-08-17"],
-            "__dataflow_run_id": ["run-1"],
-        }).lazy()
-
-        target = engine._inspect_iceberg_write_target(
-            source,
-            "ns.tbl",
-            None,
-            caller="test",
-        )
-
-        assert [field.name for field in target.new_fields] == [
-            "new_value",
-            "__dataflow_run_id",
-        ]
-        assert target.expected_column_order == (
-            "id",
-            "new_value",
-            "__file_name",
-            "__created_at",
-            "__dataflow_run_id",
-        )
-        assert target.schema_reorder_required is True
-        assert target.snapshot_schema_stale is True
-        assert target.requires_transactional_write is True
-        ice_table.update_schema.assert_not_called()
-        ice_table.update_spec.assert_not_called()
-        ice_table.transaction.assert_not_called()
-        ice_table.upsert.assert_not_called()
-        ice_table.overwrite.assert_not_called()
-
-    @pytest.mark.parametrize(
-        ("snapshot_schema_id", "current_schema_id", "expected"),
-        [(None, 2, False), (2, 2, False), (1, 2, True)],
-    )
-    def test_iceberg_snapshot_schema_staleness_is_structured(
-        self,
-        snapshot_schema_id: int | None,
-        current_schema_id: int,
-        expected: bool,
-    ) -> None:
-        ice_table = MagicMock()
-        ice_table.current_snapshot.return_value = SimpleNamespace(
-            schema_id=snapshot_schema_id,
-        )
-        ice_table.metadata.current_schema_id = current_schema_id
-        assert PolarsEngine._iceberg_snapshot_schema_is_stale(ice_table) is expected
-
-        ice_table.current_snapshot.return_value = None
-        assert PolarsEngine._iceberg_snapshot_schema_is_stale(ice_table) is False
-
-    def test_merge_iceberg_uses_native_upsert_for_stable_schema(self) -> None:
-        pa = pytest.importorskip("pyarrow")
-        target_arrow_schema = pa.schema([
-            pa.field("id", pa.int64()),
-            pa.field("__dataflow_run_id", pa.string()),
-        ])
-        iceberg_schema = MagicMock()
-        iceberg_schema.fields = [
-            SimpleNamespace(name=field.name) for field in target_arrow_schema
-        ]
-        iceberg_schema.as_arrow.return_value = target_arrow_schema
-
-        ice_table = MagicMock()
-        ice_table.schema.return_value = iceberg_schema
-        ice_table.spec.return_value.fields = []
-        ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=7)
-        ice_table.metadata.current_schema_id = 7
-        catalog = MagicMock()
-        catalog.load_table.return_value = ice_table
-
-        engine = PolarsEngine(iceberg_catalog=catalog)
-        source = pl.DataFrame({
-            "id": [1],
-            "__dataflow_run_id": ["run-1"],
-        }).lazy()
-        engine._merge_iceberg_table(source, "ns.tbl", merge_keys=["id"])
-
-        ice_table.upsert.assert_called_once()
-        assert ice_table.upsert.call_args.kwargs == {"join_cols": ["id"]}
-        ice_table.transaction.assert_not_called()
-        ice_table.overwrite.assert_not_called()
-
-    @pytest.mark.parametrize(
-        "unsafe_state",
-        ["new_fields", "reorder", "stale_snapshot", "partition"],
-    )
-    def test_merge_iceberg_selects_transactional_path(
-        self,
-        unsafe_state: str,
-    ) -> None:
-        source = pl.DataFrame({"id": [1]}).lazy()
-        target = MagicMock()
-        target.ice_table = MagicMock()
-        target.ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=1)
-        target.ice_table.metadata.current_schema_id = 2
-        target.pyice_id = "ns.tbl"
-        target.new_fields = (SimpleNamespace(name="new_value"),) if unsafe_state == "new_fields" else ()
-        target.schema_reorder_required = unsafe_state == "reorder"
-        target.snapshot_schema_stale = unsafe_state == "stale_snapshot"
-        target.missing_partition_columns = ("part",) if unsafe_state == "partition" else ()
-        target.requires_transactional_write = True
-
-        engine = PolarsEngine(iceberg_catalog=MagicMock())
-        with (
-            patch.object(engine, "_inspect_iceberg_write_target", return_value=target),
-            patch.object(engine, "_transactional_iceberg_key_overwrite") as transactional,
-        ):
-            engine._merge_iceberg_table(source, "ns.tbl", merge_keys=["id"])
-
-        transactional.assert_called_once_with(target, ["id"])
-        target.ice_table.upsert.assert_not_called()
-
-    def test_transactional_merge_stages_schema_partition_mapping_and_overwrite(
-        self,
-    ) -> None:
-        pa = pytest.importorskip("pyarrow")
-        source_arrow = pa.table({
-            "id": pa.array([1], type=pa.int64()),
-            "new_value": ["x"],
-            "__dataflow_run_id": ["run-1"],
-        })
-        target_schema = pa.schema([
-            pa.field("id", pa.int64()),
-            pa.field("new_value", pa.string()),
-            pa.field("__dataflow_run_id", pa.string()),
-        ])
-
-        transaction = MagicMock()
-        transaction.table_metadata.schema.return_value.as_arrow.return_value = target_schema
-        transaction_context = MagicMock()
-        transaction_context.__enter__.return_value = transaction
-
-        ice_table = MagicMock()
-        ice_table.properties = {}
-        ice_table.transaction.return_value = transaction_context
-
-        target = MagicMock()
-        target.ice_table = ice_table
-        target.collected = pl.DataFrame({"id": [1]})
-        target.arrow_table = source_arrow
-        target.new_fields = (
-            pa.field("new_value", pa.string()),
-            pa.field("__dataflow_run_id", pa.string()),
-        )
-        target.expected_column_order = (
-            "id",
-            "new_value",
-            "__dataflow_run_id",
-        )
-        target.schema_reorder_required = True
-        target.missing_partition_columns = ("new_value",)
-
-        engine = PolarsEngine(iceberg_catalog=MagicMock())
-        key_filter = object()
-        name_mapping = MagicMock()
-        name_mapping.model_dump_json.return_value = "mapping-json"
-        with (
-            patch.object(engine, "_build_iceberg_key_filter", return_value=key_filter),
-            patch.object(engine, "_stage_iceberg_merge_schema") as stage_schema,
-            patch.object(engine, "_stage_iceberg_merge_partitions") as stage_partitions,
-            patch(
-                "pyiceberg.table.name_mapping.create_mapping_from_schema",
-                return_value=name_mapping,
-            ),
-        ):
-            engine._transactional_iceberg_key_overwrite(target, ["id"])
-
-        stage_schema.assert_called_once_with(transaction, target)
-        stage_partitions.assert_called_once_with(transaction, ("new_value",))
-        transaction.set_properties.assert_called_once()
-        transaction.overwrite.assert_called_once()
-        assert transaction.overwrite.call_args.kwargs == {"overwrite_filter": key_filter}
-        assert transaction.overwrite.call_args.args[0].column_names == target_schema.names
-
-    def test_transactional_merge_preserves_existing_name_mapping(self) -> None:
-        pa = pytest.importorskip("pyarrow")
-        schema = pa.schema([pa.field("id", pa.int64())])
-        transaction = MagicMock()
-        transaction.table_metadata.schema.return_value.as_arrow.return_value = schema
-        transaction_context = MagicMock()
-        transaction_context.__enter__.return_value = transaction
-        ice_table = MagicMock()
-        ice_table.properties = {"schema.name-mapping.default": "existing-aliases"}
-        ice_table.transaction.return_value = transaction_context
-
-        target = MagicMock()
-        target.ice_table = ice_table
-        target.collected = pl.DataFrame({"id": [1]})
-        target.arrow_table = pa.table({"id": pa.array([1], type=pa.int64())})
-        target.new_fields = ()
-        target.schema_reorder_required = False
-        target.missing_partition_columns = ()
-
-        engine = PolarsEngine(iceberg_catalog=MagicMock())
-        with patch.object(engine, "_build_iceberg_key_filter", return_value=object()):
-            engine._transactional_iceberg_key_overwrite(target, ["id"])
-
-        transaction.set_properties.assert_not_called()
-        transaction.overwrite.assert_called_once()
-
-    def test_merge_iceberg_does_not_mask_upsert_value_error(self) -> None:
-        source = pl.DataFrame({"id": [1]}).lazy()
-        target = MagicMock()
-        target.ice_table = MagicMock()
-        target.ice_table.current_snapshot.return_value = SimpleNamespace(schema_id=1)
-        target.ice_table.metadata.current_schema_id = 1
-        target.ice_table.upsert.side_effect = ValueError("Target table has duplicate rows")
-        target.arrow_table = source.collect().to_arrow()
-        target.pyice_id = "ns.tbl"
-        target.new_fields = ()
-        target.schema_reorder_required = False
-        target.snapshot_schema_stale = False
-        target.missing_partition_columns = ()
-        target.requires_transactional_write = False
-
-        engine = PolarsEngine(iceberg_catalog=MagicMock())
-        with (
-            patch.object(engine, "_inspect_iceberg_write_target", return_value=target),
-            patch.object(engine, "_align_arrow_to_iceberg_table", return_value=object()),
-            pytest.raises(ValueError, match="duplicate rows"),
-        ):
-            engine._merge_iceberg_table(source, "ns.tbl", merge_keys=["id"])
-
-        target.ice_table.transaction.assert_not_called()
-
-    def test_iceberg_schema_changing_merge_is_transactional(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        pa = pytest.importorskip("pyarrow")
-        pytest.importorskip("pyiceberg")
-        from pyiceberg.catalog.sql import SqlCatalog
-
-        catalog = SqlCatalog(
-            "local",
-            uri=f"sqlite:///{(tmp_path / 'catalog.db').as_posix()}",
-            warehouse=f"file://{(tmp_path / 'warehouse').as_posix()}",
-        )
-        try:
-            catalog.create_namespace("ns")
-            initial_schema = pa.schema([
-                pa.field("id", pa.int64()),
-                pa.field("value", pa.string()),
-                pa.field("__file_name", pa.string()),
-                pa.field("__created_at", pa.string()),
-            ])
-            table = catalog.create_table("ns.orders", schema=initial_schema)
-            table.append(pa.table({
-                "id": pa.array([1, 3], type=pa.int64()),
-                "value": ["old", "keep"],
-                "__file_name": ["old.csv", "keep.csv"],
-                "__created_at": ["2026-08-16", "2026-08-16"],
-            }))
-
-            engine = PolarsEngine(iceberg_catalog=catalog)
-            first_source = pl.DataFrame({
-                "id": [1, 2],
-                "value": ["updated", "inserted"],
-                "new_value": ["n1", "n2"],
-                "__file_name": ["new.csv", "new.csv"],
-                "__created_at": ["2026-08-17", "2026-08-17"],
-                "__dataflow_run_id": ["run-1", "run-1"],
-            }).lazy()
-            engine._merge_iceberg_table(
-                first_source,
-                "ns.orders",
-                merge_keys=["id"],
-                partition_columns=["new_value"],
-            )
-
-            table = catalog.load_table("ns.orders")
-            assert table.current_snapshot().schema_id == table.metadata.current_schema_id
-            assert [
-                table.schema().find_field(field.source_id).name
-                for field in table.spec().fields
-            ] == ["new_value"]
-            expected_trailing = [
-                column for column in TRAILING_COLUMNS
-                if column in table.schema().as_arrow().names
-            ]
-            assert table.schema().as_arrow().names == [
-                "id",
-                "value",
-                "new_value",
-                *expected_trailing,
-            ]
-            assert sorted(table.scan().to_arrow().to_pylist(), key=lambda row: row["id"]) == [
-                {
-                    "id": 1,
-                    "value": "updated",
-                    "new_value": "n1",
-                    "__file_name": "new.csv",
-                    "__created_at": "2026-08-17",
-                    "__dataflow_run_id": "run-1",
-                },
-                {
-                    "id": 2,
-                    "value": "inserted",
-                    "new_value": "n2",
-                    "__file_name": "new.csv",
-                    "__created_at": "2026-08-17",
-                    "__dataflow_run_id": "run-1",
-                },
-                {
-                    "id": 3,
-                    "value": "keep",
-                    "new_value": None,
-                    "__file_name": "keep.csv",
-                    "__created_at": "2026-08-16",
-                    "__dataflow_run_id": None,
-                },
-            ]
-
-            second_source = pl.DataFrame({
-                "id": [1],
-                "value": ["updated-again"],
-                "new_value": ["n3"],
-                "__file_name": ["again.csv"],
-                "__created_at": ["2026-08-17"],
-                "__dataflow_run_id": ["run-2"],
-            }).lazy()
-            engine._merge_iceberg_table(
-                second_source,
-                "ns.orders",
-                merge_keys=["id"],
-                partition_columns=["new_value"],
-            )
-            table = catalog.load_table("ns.orders")
-            row = next(
-                row for row in table.scan().to_arrow().to_pylist()
-                if row["id"] == 1
-            )
-            assert row["value"] == "updated-again"
-            assert row["__dataflow_run_id"] == "run-2"
-        finally:
-            catalog.engine.dispose()
 
 
 # =====================================================================
@@ -2001,7 +2012,9 @@ class TestRouterOverrides:
 
     # ---- read ----
 
-    def test_read_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_read_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         result = engine.read("delta", path=str(delta_path))
         assert isinstance(result, pl.LazyFrame)
 
@@ -2029,7 +2042,9 @@ class TestRouterOverrides:
 
     # ---- write ----
 
-    def test_write_delta_routes_to_path(self, engine: PolarsEngine, tmp_path: Path) -> None:
+    def test_write_delta_routes_to_path(
+        self, engine: PolarsEngine, tmp_path: Path
+    ) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
         path = str(tmp_path / "write_delta")
         engine.write(lf, path=path, mode="overwrite", fmt="delta")
@@ -2040,8 +2055,14 @@ class TestRouterOverrides:
         with pytest.raises(EngineError, match="pass path instead of table_name"):
             engine.write(lf, table_name="my_table", mode="overwrite", fmt="delta")
 
-    @patch.object(PolarsEngine, "_align_arrow_to_iceberg_table", side_effect=lambda arrow, ice: arrow)
-    def test_write_iceberg_with_table_name_routes_to_catalog(self, _mock_reorder: MagicMock) -> None:
+    @patch.object(
+        iceberg_ops.iceberg_schema,
+        "align_arrow_to_table",
+        side_effect=lambda arrow, ice: arrow,
+    )
+    def test_write_iceberg_with_table_name_routes_to_catalog(
+        self, _mock_reorder: MagicMock
+    ) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
         ice_table = MagicMock()
         id_field = MagicMock()
@@ -2064,7 +2085,9 @@ class TestRouterOverrides:
 
     # ---- merge ----
 
-    def test_merge_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_merge_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         lf = pl.DataFrame({"id": [1], "val": [99]}).lazy()
         engine.merge(lf, path=str(delta_path), merge_keys=["id"], fmt="delta")
 
@@ -2093,21 +2116,29 @@ class TestRouterOverrides:
 
     # ---- merge_overwrite ----
 
-    def test_merge_overwrite_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_merge_overwrite_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         lf = pl.DataFrame({"id": [1], "val": [99]}).lazy()
         engine.merge_overwrite(lf, path=str(delta_path), merge_keys=["id"], fmt="delta")
 
-    def test_merge_overwrite_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
+    def test_merge_overwrite_delta_with_table_name_raises(
+        self, engine: PolarsEngine
+    ) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
         with pytest.raises(EngineError, match="pass path instead of table_name"):
-            engine.merge_overwrite(lf, table_name="my_table", merge_keys=["id"], fmt="delta")
+            engine.merge_overwrite(
+                lf, table_name="my_table", merge_keys=["id"], fmt="delta"
+            )
 
     def test_merge_overwrite_iceberg_with_table_name_routes_to_catalog(self) -> None:
         lf = pl.DataFrame({"id": [1], "val": [10]}).lazy()
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
         with patch.object(engine, "merge_overwrite_to_table") as mock_mo:
-            engine.merge_overwrite(lf, table_name="ns.tbl", merge_keys=["id"], fmt="iceberg")
+            engine.merge_overwrite(
+                lf, table_name="ns.tbl", merge_keys=["id"], fmt="iceberg"
+            )
             mock_mo.assert_called_once()
 
     def test_merge_overwrite_no_args_raises(self, engine: PolarsEngine) -> None:
@@ -2117,7 +2148,9 @@ class TestRouterOverrides:
 
     # ---- exists ----
 
-    def test_exists_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_exists_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         assert engine.exists(path=str(delta_path), fmt="delta") is True
 
     def test_exists_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
@@ -2141,11 +2174,15 @@ class TestRouterOverrides:
 
     # ---- get_history ----
 
-    def test_get_history_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_get_history_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         result = engine.get_history(path=str(delta_path), fmt="delta")
         assert isinstance(result, list)
 
-    def test_get_history_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
+    def test_get_history_delta_with_table_name_raises(
+        self, engine: PolarsEngine
+    ) -> None:
         with pytest.raises(EngineError, match="pass path instead of table_name"):
             engine.get_history(table_name="my_table", fmt="delta")
 
@@ -2165,7 +2202,9 @@ class TestRouterOverrides:
 
     # ---- compact ----
 
-    def test_compact_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_compact_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         engine.compact(path=str(delta_path), fmt="delta")
 
     def test_compact_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
@@ -2185,7 +2224,9 @@ class TestRouterOverrides:
 
     # ---- cleanup ----
 
-    def test_cleanup_delta_routes_to_path(self, engine: PolarsEngine, delta_path: Path) -> None:
+    def test_cleanup_delta_routes_to_path(
+        self, engine: PolarsEngine, delta_path: Path
+    ) -> None:
         engine.cleanup(path=str(delta_path), fmt="delta")
 
     def test_cleanup_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
@@ -2208,61 +2249,14 @@ class TestRouterOverrides:
 
 
 class TestPolarsToHiveType:
-    """Test PolarsEngine._polars_type_to_hive with native Polars dtype objects."""
-
-    def test_scalars(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.Int64()) == "BIGINT"
-        assert PolarsEngine._polars_type_to_hive(pl.Int32()) == "INT"
-        assert PolarsEngine._polars_type_to_hive(pl.Int16()) == "SMALLINT"
-        assert PolarsEngine._polars_type_to_hive(pl.Int8()) == "TINYINT"
-        assert PolarsEngine._polars_type_to_hive(pl.Float32()) == "FLOAT"
-        assert PolarsEngine._polars_type_to_hive(pl.Float64()) == "DOUBLE"
-        assert PolarsEngine._polars_type_to_hive(pl.Boolean()) == "BOOLEAN"
-        assert PolarsEngine._polars_type_to_hive(pl.String()) == "STRING"
-        assert PolarsEngine._polars_type_to_hive(pl.Binary()) == "BINARY"
-        assert PolarsEngine._polars_type_to_hive(pl.Date()) == "DATE"
-
-    def test_unsigned_ints(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.UInt8()) == "SMALLINT"
-        assert PolarsEngine._polars_type_to_hive(pl.UInt16()) == "INT"
-        assert PolarsEngine._polars_type_to_hive(pl.UInt32()) == "BIGINT"
-        assert PolarsEngine._polars_type_to_hive(pl.UInt64()) == "BIGINT"
-
-    def test_datetime(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.Datetime("us", "UTC")) == "TIMESTAMP"
-        assert PolarsEngine._polars_type_to_hive(pl.Datetime("us")) == "TIMESTAMP"
-
-    def test_decimal(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.Decimal(10, 2)) == "DECIMAL(10,2)"
-        assert PolarsEngine._polars_type_to_hive(pl.Decimal(38, 18)) == "DECIMAL(38,18)"
-
-    def test_duration(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.Duration("us")) == "STRING"
-
-    def test_time(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.Time()) == "STRING"
-
-    def test_null(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.Null()) == "STRING"
-
-    def test_list(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(pl.List(pl.Int64())) == "ARRAY<BIGINT>"
-
-    def test_nested_list(self) -> None:
-        assert PolarsEngine._polars_type_to_hive(
-            pl.List(pl.List(pl.String()))
-        ) == "ARRAY<ARRAY<STRING>>"
-
-    def test_struct(self) -> None:
-        dtype = pl.Struct({"a": pl.Int64(), "b": pl.String()})
-        assert PolarsEngine._polars_type_to_hive(dtype) == "STRUCT<a:BIGINT,b:STRING>"
-
     def test_get_hive_schema(self) -> None:
-        lf = pl.DataFrame({
-            "id": pl.Series([1, 2], dtype=pl.Int64),
-            "name": ["Alice", "Bob"],
-            "tags": [[1, 2], [3]],
-        }).lazy()
+        lf = pl.DataFrame(
+            {
+                "id": pl.Series([1, 2], dtype=pl.Int64),
+                "name": ["Alice", "Bob"],
+                "tags": [[1, 2], [3]],
+            }
+        ).lazy()
         engine = PolarsEngine()
         result = engine.get_hive_schema(lf)
         assert result == {"id": "BIGINT", "name": "STRING", "tags": "ARRAY<BIGINT>"}
@@ -2271,9 +2265,10 @@ class TestPolarsToHiveType:
 class TestReadAvro:
     def test_read_avro_success(self, tmp_path: Path) -> None:
         import io
+
         # Create a real avro file
-        df = pl.DataFrame({'a': [1, 2], 'b': ['x', 'y']})
-        avro_path = tmp_path / 'test.avro'
+        df = pl.DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        avro_path = tmp_path / "test.avro"
         buf = io.BytesIO()
         df.write_avro(buf)
         avro_path.write_bytes(buf.getvalue())
@@ -2285,71 +2280,38 @@ class TestReadAvro:
 
     def test_read_avro_no_files_raises(self, tmp_path: Path) -> None:
         # When a directory with no avro files is passed, _resolve_file_paths returns []
-        empty_dir = tmp_path / 'empty_dir'
+        empty_dir = tmp_path / "empty_dir"
         empty_dir.mkdir()
         engine = PolarsEngine(platform=LocalPlatform())
-        with pytest.raises(FileNotFoundError, match='No Avro files found'):
+        with pytest.raises(FileNotFoundError, match="No Avro files found"):
             engine.read_avro(str(empty_dir))
 
 
 class TestWriteAvro:
     def test_write_json_via_flat_eager(self, tmp_path: Path) -> None:
         engine = PolarsEngine(platform=LocalPlatform())
-        df = pl.DataFrame({'id': [1, 2], 'name': ['a', 'b']}).lazy()
-        engine.write_to_path(df, str(tmp_path / 'output'), mode='overwrite', fmt='json')
-        files = list(tmp_path.glob('output/*.json'))
+        df = pl.DataFrame({"id": [1, 2], "name": ["a", "b"]}).lazy()
+        engine.write_to_path(df, str(tmp_path / "output"), mode="overwrite", fmt="json")
+        files = list(tmp_path.glob("output/*.json"))
         assert len(files) == 1
 
     def test_write_avro_via_flat_eager(self, tmp_path: Path) -> None:
         engine = PolarsEngine(platform=LocalPlatform())
-        df = pl.DataFrame({'id': [1, 2], 'val': ['a', 'b']}).lazy()
-        engine.write_to_path(df, str(tmp_path / 'avro_out'), mode='overwrite', fmt='avro')
-        files = list(tmp_path.glob('avro_out/*.avro'))
+        df = pl.DataFrame({"id": [1, 2], "val": ["a", "b"]}).lazy()
+        engine.write_to_path(
+            df, str(tmp_path / "avro_out"), mode="overwrite", fmt="avro"
+        )
+        files = list(tmp_path.glob("avro_out/*.avro"))
         assert len(files) == 1
 
     def test_write_avro_with_datetime_casts(self, tmp_path: Path) -> None:
         from datetime import datetime
+
         engine = PolarsEngine(platform=LocalPlatform())
-        df = pl.DataFrame({'id': [1], 'ts': [datetime(2024, 1, 1, 12, 0, 0)]}).lazy()
+        df = pl.DataFrame({"id": [1], "ts": [datetime(2024, 1, 1, 12, 0, 0)]}).lazy()
         # Should not raise despite datetime column
-        engine.write_to_path(df, str(tmp_path / 'avro_dt'), mode='overwrite', fmt='avro')
-        files = list(tmp_path.glob('avro_dt/*.avro'))
+        engine.write_to_path(
+            df, str(tmp_path / "avro_dt"), mode="overwrite", fmt="avro"
+        )
+        files = list(tmp_path.glob("avro_dt/*.avro"))
         assert len(files) == 1
-
-
-class TestBuildConnectionString:
-    def test_mysql_default_port(self) -> None:
-        opts = {'database_type': 'mysql', 'user': 'root', 'password': 'pass', 'host': 'localhost', 'database': 'mydb'}
-        result = PolarsEngine._build_connection_string(opts)
-        assert 'mysql://' in result
-        assert '3306' in result
-
-    def test_mssql_default_port(self) -> None:
-        opts = {'database_type': 'mssql', 'user': 'sa', 'password': 'pw', 'host': 'server', 'database': 'db'}
-        result = PolarsEngine._build_connection_string(opts)
-        assert 'mssql://' in result
-        assert '1433' in result
-
-    def test_postgresql_default_port(self) -> None:
-        opts = {'database_type': 'postgresql', 'user': 'u', 'password': 'p', 'host': 'h', 'database': 'd'}
-        result = PolarsEngine._build_connection_string(opts)
-        assert 'postgresql://' in result
-
-    def test_oracle_default_port(self) -> None:
-        opts = {'database_type': 'oracle', 'user': 'u', 'password': 'p', 'host': 'h', 'database': 'mydb'}
-        result = PolarsEngine._build_connection_string(opts)
-        assert 'oracle://' in result
-        assert '1521' in result
-
-    def test_sqlite_relative_path(self) -> None:
-        opts = {'database_type': 'sqlite', 'database': 'mydb.sqlite'}
-        result = PolarsEngine._build_connection_string(opts)
-        assert 'sqlite:///' in result
-
-    def test_unsupported_type_raises(self) -> None:
-        with pytest.raises(EngineError, match='unsupported database_type'):
-            PolarsEngine._build_connection_string({'database_type': 'redis'})
-
-    def test_no_database_type_raises(self) -> None:
-        with pytest.raises(EngineError, match='requires'):
-            PolarsEngine().read_database(table='t', options={'database': 'db'})

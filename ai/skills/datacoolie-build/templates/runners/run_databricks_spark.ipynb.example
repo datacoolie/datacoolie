@@ -51,7 +51,7 @@
     "from datacoolie.orchestration.driver import DataCoolieDriver\n",
     "from datacoolie.platforms.databricks_platform import DatabricksPlatform\n",
     "\n",
-    "platform = DatabricksPlatform()\n",
+    "platform = DatabricksPlatform(runtime=\"databricks\")\n",
     "engine = SparkEngine(spark_session=spark, platform=platform)  # type: ignore[name-defined]\n",
     "metadata = FileProvider(config_path=metadata_path, platform=platform, watermark_base_path=watermark_base_path)\n",
     "config = DataCoolieRunConfig(max_workers=4, stop_on_error=True)\n",

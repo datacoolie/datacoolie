@@ -5,7 +5,7 @@ description: Connect DataCoolie to an API-backed metadata service for connection
 
 # Configure API metadata
 
-**Prerequisites** · `pip install "datacoolie[api]"` · a REST service matching the expected OpenAPI contract.
+**Prerequisites** · `pip install "datacoolie[source-api]"` · a REST service matching the expected OpenAPI contract.
 **End state** · `APIClient` reading connections, dataflows, schema hints, and watermarks over HTTP.
 
 ## Reference implementation

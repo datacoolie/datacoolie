@@ -19,6 +19,7 @@ logs/
 __pycache__/
 *.pyc
 *.pyo
+.env
 
 # Spark artifacts are gitignored at the datacoolie/ level (see datacoolie/.gitignore)
 

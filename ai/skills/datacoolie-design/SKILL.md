@@ -55,8 +55,9 @@ decision and is not runtime or package CLI functionality.
    load, platform, and dependencies. Prefer a credible native DataCoolie path; identify only a
    suspected unsupported boundary for build-time proof.
 5. Record required resources and release policy without provisioning or deploying.
-6. List compatible engines/platforms without binding stages to engines. Runtime orchestration
-   selects an exact runner and supplies the stage value.
+6. List compatible engines/platforms without binding stages to engines. Record execution host and
+   native/external platform runtime mode separately from platform intent when an adapter can run on
+   multiple hosts. Runtime orchestration selects an exact runner and supplies the stage value.
 7. Write the complete candidate to `architecture/current.md`. It is the only design source of
    truth; use Git and approval receipts for history rather than layer files or amendments. Do not
    embed its own hash or approval state in the file.

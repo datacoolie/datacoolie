@@ -149,6 +149,13 @@ def _validate_schema_and_hash(output_root: Path) -> None:
             "5c998958d3e2eed3f2b82e5b66f9ac871d0a24421bd3b583c1f79338122c9a0a",
         ],
     )
+    xxhash_schema, xxhash_rows = _read_case(output_root, "tf_hash_xxhash64")
+    assert pa.types.is_int64(xxhash_schema.field("identity_hash").type)
+    assert [row["identity_hash"] for row in xxhash_rows] == [
+        3358934696592113072,
+        -6754721066692335378,
+        -9025743781421754486,
+    ]
 
 
 def _validate_masking(output_root: Path) -> None:
@@ -228,7 +235,7 @@ def main() -> None:
     _validate_missing_column_policy(args.output_root)
     print(
         "Transformer feature output validation passed: "
-        "24 single-case tables, 72 reconciled rows"
+        "25 single-case tables, 75 reconciled rows"
     )
 
 

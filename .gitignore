@@ -32,3 +32,6 @@ build/
 .mypy_cache/
 .pip-cache/
 plans/
+
+# Local cloud integration coordinates. Credentials remain in SDK/CLI stores.
+.env.integration.local

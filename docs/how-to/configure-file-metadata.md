@@ -5,7 +5,7 @@ description: Author DataCoolie metadata in JSON, YAML, or Excel files and load c
 
 # Configure file metadata
 
-**Prerequisites** · `datacoolie[excel]` or `openpyxl` if you want `.xlsx` generation · `pyyaml` if you want `.yaml` generation · a directory you control for metadata files.
+**Prerequisites** · `datacoolie[metadata-excel]` for `.xlsx` generation · `datacoolie[metadata-yaml]` for `.yaml` generation · a directory you control for metadata files.
 **End state** · Working `FileProvider` reading JSON (canonical) with optional generated YAML/Excel siblings.
 
 ## The canonical format is JSON
@@ -161,7 +161,7 @@ If `pyyaml` is not installed, YAML output is skipped with a warning. If
 | Symptom | Cause | Fix |
 |---|---|---|
 | All rows load as inactive | Excel `is_active` treated as `False` when blank | Leave `is_active` blank = unset (falls back to `True`); generator preserves this. |
-| `.yaml` or `.xlsx` sibling was not created | Required emitter dependency is missing | Install `pyyaml` for YAML and `openpyxl` or `datacoolie[excel]` for XLSX, then rerun `setup_metadata.py --targets file`. |
+| `.yaml` or `.xlsx` sibling was not created | Required emitter dependency is missing | Install `datacoolie[metadata-yaml]` for YAML and `datacoolie[metadata-excel]` for XLSX, then rerun `setup_metadata.py --targets file`. |
 | YAML or XLSX no longer matches JSON | Generated siblings are not auto-synced after JSON edits | Treat JSON as canonical and rerun `setup_metadata.py --targets file` after each JSON change. |
 | Excel parse error in nested fields | A JSON cell such as `configure`, `secrets_ref`, `source_configure`, `destination_configure`, or `transform` contains invalid JSON | Fix the cell to valid JSON. `configure_*` and `transform_*` columns are supported, but any JSON cell must still be valid JSON. |
 

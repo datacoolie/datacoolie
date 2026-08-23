@@ -9,6 +9,12 @@ description: Understand how DataCoolie sources read into engine dataframes and d
 `FileReader` serves `parquet`, `csv`, `json`, `jsonl`, `avro`, `excel` — the
 plugin registry maps a format string to the reader/writer class at runtime.
 
+Install the capability profile for the format and engine you use: compose
+`polars-delta` or `polars-iceberg` for Polars lakehouse work, and
+`spark-delta` for a local or CI Spark + Delta runtime. Native Fabric,
+Databricks, and AWS Glue runtimes provide their Spark/Delta libraries; add only
+the external platform or source profile needed by that job.
+
 ## Registry mapping
 
 From `pyproject.toml` (see [Plugin entry points](../reference/plugin-entry-points.md)

@@ -16,6 +16,16 @@ Verify:
 - Canonical modular JSON supports the five approved dataflow fragment layouts, requires explicit
   content `stage`, rejects duplicate names, and resolves environment overlays correctly.
 - A supported path remains metadata-driven and calls `DataCoolieDriver.run(...)`.
+- Polars qualified Delta/Iceberg SQL remains a normal metadata `source.query`; source-native table
+  registration runs on the same engine before driver construction, indexes lazily by default, and
+  is omitted from non-SQL Polars runners.
+- Platform selection distinguishes the DataCoolie adapter from the execution host. Fixed native
+  Fabric/Databricks notebooks use explicit native modes, while external Python templates use SDK
+  modes, ambient/default authentication, and the matching platform extras.
+- Platform path checks cover qualified Fabric ABFS(S)/HTTPS paths, portable Databricks Volumes,
+  AWS/MinIO S3 addressing, and Local sandboxed paths without runner-owned parsing or normalization.
+- Metadata-only checks use existence/stat/list operations; `read_file` and `read_bytes` remain
+  full-content operations and are not used as head probes.
 - One environment can materialize multiple engine-specific runners.
 - Local, Databricks, Fabric, and Glue runners pass one optional stage value unchanged to one
   framework operation; no runner creates a stage plan or accepts repeated stage arguments.

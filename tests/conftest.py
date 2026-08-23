@@ -18,6 +18,25 @@ from datacoolie.core.models import (
     Source,
     Transform,
 )
+from tests.integration.cloud_config import (
+    pytest_add_cloud_options as _add_cloud_options,
+    pytest_configure_cloud as _configure_cloud,
+    pytest_gate_cloud_items as _gate_cloud_items,
+)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    _add_cloud_options(parser)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    _configure_cloud(config)
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    _gate_cloud_items(config, items)
 
 
 # ---------------------------------------------------------------------------

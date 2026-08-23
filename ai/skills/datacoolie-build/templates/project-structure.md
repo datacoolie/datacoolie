@@ -141,6 +141,10 @@ runners/maintenance_{platform}_{engine}[_{provider}].py|ipynb
 
 Add the provider suffix only when provider bootstrap changes code, authentication, session, or
 lifecycle. Do not put environment in the name; environment binds to platform during build.
+For example, external SDK variants may use `run_fabric_polars_azure_sdk.py` or
+`run_databricks_polars_sdk.py`. The platform name identifies the DataCoolie adapter, not necessarily
+the execution host; select runtime mode and parameter transport through
+`references/platform-contract.md` and `references/runner-contract.md`.
 
 Runtime parameters may include metadata/provider settings, base log path, watermark path, ordered
 one stage value, and supported operational options. Do not accept environment, platform, or engine as

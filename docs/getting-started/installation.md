@@ -14,13 +14,13 @@ install what you need.
 For most new users, start with the smallest setup that can run a real pipeline:
 
 ```bash
-pip install "datacoolie[polars,deltalake]"
+pip install "datacoolie[polars-delta]"
 ```
 
 If you already know Spark is your main runtime, install Spark + Delta instead:
 
 ```bash
-pip install "datacoolie[spark,delta-spark]"
+pip install "datacoolie[spark-delta]"
 ```
 
 Use `datacoolie[all]` for contributor machines or broad local experimentation.
@@ -32,8 +32,15 @@ runtime dependencies.
 
 | You want to do first | Install |
 |---|---|
-| Fastest first success on one machine | `pip install "datacoolie[polars,deltalake]"` |
-| Spark/Fabric/Databricks-style local validation | `pip install "datacoolie[spark,delta-spark]"` |
+| Fastest first success on one machine | `pip install "datacoolie[polars-delta]"` |
+| Run qualified SQL over registered Polars tables | `pip install "datacoolie[polars-sql,polars-delta,polars-iceberg]"` |
+| Access OneLake or ADLS from a laptop, Azure Function, or CI | `pip install "datacoolie[fabric-external]"` |
+| Access Databricks UC Volumes from a laptop, function, or CI | `pip install "datacoolie[databricks-external]"` |
+| Spark/Fabric/Databricks-style local validation | `pip install "datacoolie[spark-delta]"` |
+| Access AWS S3, MinIO, or LocalStack | `pip install "datacoolie[aws]"` |
+| Read API-backed metadata | `pip install "datacoolie[source-api]"` |
+| Read database metadata | `pip install "datacoolie[metadata-db]"` |
+| Read Excel files with Polars | `pip install "datacoolie[source-excel-polars]"` |
 | Try many engines, platforms, and metadata backends locally | `pip install "datacoolie[all]"` |
 | Only inspect APIs or develop extensions | `pip install datacoolie` |
 
@@ -44,8 +51,14 @@ runtime dependencies.
 pip install datacoolie
 
 # Most common: one engine + one table format
-pip install "datacoolie[polars,deltalake]"
-pip install "datacoolie[spark,delta-spark]"
+pip install "datacoolie[polars-delta]"
+pip install "datacoolie[polars-sql,polars-delta,polars-iceberg]"
+pip install "datacoolie[spark-delta]"
+
+# Platform SDKs for execution outside their native runtime
+pip install "datacoolie[fabric-external]"
+pip install "datacoolie[databricks-external]"
+pip install "datacoolie[aws]"  # also covers MinIO and LocalStack
 
 # Everything
 pip install "datacoolie[all]"
@@ -55,23 +68,35 @@ pip install "datacoolie[all]"
 
 | Extra | Installs | Use when |
 |---|---|---|
-| `spark` | `pyspark>=3.5` | You want the Spark engine. |
-| `polars` | `polars>=1.0` | You want the Polars engine. |
-| `delta-spark` | `delta-spark>=3.0` | Spark + Delta Lake. |
-| `deltalake` | `deltalake>=0.15` | Polars + Delta Lake (delta-rs). |
-| `iceberg` | `pyiceberg>=0.6` | Apache Iceberg tables (any engine). |
-| `boto3` | `boto3>=1.28` | AWS SDK only. |
-| `api` | `httpx>=0.24` | `APIReader` and the API metadata provider. |
-| `db` | `sqlalchemy>=2.0` | `DatabaseProvider` for metadata stored in an RDBMS. |
-| `excel` | `fastexcel`, `openpyxl` | Reading Excel files as sources or metadata. |
-| `fabric-spark` / `fabric-polars` | One selected engine bundle | Fabric with only the selected engine. |
-| `fabric` | spark + delta-spark + polars + deltalake | Microsoft Fabric notebooks / Spark pools. |
-| `databricks-spark` / `databricks-polars` | One selected engine bundle | Databricks with only the selected engine. |
-| `databricks` | spark + delta-spark + polars + deltalake | Databricks Runtime. |
-| `aws-spark` | `boto3` | AWS/Glue Spark; Spark and Delta are supplied by the Glue runtime. |
-| `aws-polars` | polars + Delta + Iceberg + `boto3` | AWS with Polars. |
-| `aws` | same as `aws-polars` | Full packaged AWS bundle; Spark/Delta Spark remain runtime-provided. |
-| `all` | everything above | Kitchen-sink local dev. |
+| `spark` | `pyspark>=3.5` | Spark engine only. Prefer `spark-delta` for a local Spark + Delta setup. |
+| `polars` | `polars>=1.0` | Polars engine only. |
+| `polars-sql` | `polars>=1.0`, `sqlglot>=30,<31` | Qualified SQL over Polars relations. |
+| `polars-hash` | `polars-hash>=0.6` | Optional Polars hashing implementation; compose with an engine profile. |
+| `spark-delta` | `pyspark>=3.5`, `delta-spark>=3.0` | Local or CI Spark + Delta Lake. Fabric and Databricks provide these at runtime. |
+| `polars-delta` | `polars>=1.0`, `deltalake>=0.15` | Polars + Delta Lake (`delta-rs`). |
+| `polars-iceberg` | `polars>=1.0`, `pyiceberg>=0.6` | Polars + Apache Iceberg. Spark Iceberg remains a runtime/catalog/JAR concern. |
+| `aws` | `boto3>=1.43.2` | AWS S3 and services, plus S3-compatible MinIO or LocalStack. |
+| `fabric-external` | Azure Identity, Data Lake, and Key Vault SDKs | `FabricPlatform` outside a Fabric notebook. Native Fabric supplies `notebookutils`; install the base package there. |
+| `databricks-external` | `databricks-sdk>=0.121,<0.122` | `DatabricksPlatform` outside a Databricks notebook or job. Native Databricks supplies `dbutils`; install the base package there. |
+| `source-api` | `httpx>=0.24` | API readers or API-backed metadata. |
+| `source-excel-polars` | Polars, `fastexcel`, `openpyxl` | Excel sources read through Polars. |
+| `source-db-polars` | Polars, `connectorx` | General Polars database reads. |
+| `source-db-oracle-polars` | Polars, `oracledb` | Oracle reads through Polars. |
+| `source-db-mssql-odbc-polars` | Polars, SQLAlchemy, `pyodbc` | MSSQL reads using ODBC; an OS ODBC driver is also required. |
+| `metadata-yaml` | `pyyaml>=6.0,<7.0` | YAML metadata files. |
+| `metadata-excel` | `openpyxl>=3.1` | Excel metadata files. |
+| `metadata-db` | `sqlalchemy>=2.0,<3.0` | Database metadata provider. |
+| `all` | Union of every dependency above | Broad local/contributor environment; not a minimal deployment image. |
+
+Extras are composable. For example, a Polars Delta pipeline that reads an
+Oracle source and writes to S3 can use
+`datacoolie[polars-delta,source-db-oracle-polars,aws]`. There are deliberately
+no separate `fabric-*`, `databricks-*`, or `aws-*` matrix extras.
+
+Native Fabric and Databricks runtimes provide notebook utilities, Spark, and
+their cloud connectors. Do not install fake Python packages for `notebookutils`
+or `dbutils`; use the base `datacoolie` install in those runtimes and add only
+the source or table-format profile your pipeline needs.
 
 ## System requirements
 

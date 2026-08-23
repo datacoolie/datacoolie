@@ -44,31 +44,40 @@ Databricks, or AWS platforms.
 
 If you are evaluating DataCoolie for the first time, use this order:
 
-1. Install the smallest useful runtime: `pip install "datacoolie[polars,deltalake]"`
+1. Install the smallest useful runtime: `pip install "datacoolie[polars-delta]"`
 2. Run the quick start below
 3. Then move to the docs for using your own input and building a multi-stage flow
 
 If you already know your runtime will be Spark, swap the install to
-`pip install "datacoolie[spark,delta-spark]"` and keep the same metadata pattern.
+`pip install "datacoolie[spark-delta]"` and keep the same metadata pattern.
 
 ## Installation
 
 ```bash
 # Most common first install
-pip install "datacoolie[polars,deltalake]"
+pip install "datacoolie[polars-delta]"
 
 # Spark-first local validation
-pip install "datacoolie[spark,delta-spark]"
+pip install "datacoolie[spark-delta]"
 
 # Add stable hash_columns support to a Polars runtime
-pip install "datacoolie[polars,deltalake,polars-hash]"
+pip install "datacoolie[polars-delta,polars-hash]"
 
 # Core only (mainly useful for extension work)
 pip install datacoolie
 
 # All engines
 pip install datacoolie[all]
+
+# External platform SDKs (native Fabric/Databricks runtimes use base install)
+pip install "datacoolie[fabric-external]"
+pip install "datacoolie[databricks-external]"
+pip install "datacoolie[aws]"  # AWS, MinIO, or LocalStack
 ```
+
+Extras are composable by use case rather than by a platform × engine matrix.
+For example, `polars-delta,source-db-oracle-polars,aws` covers a Polars Delta
+pipeline that reads Oracle and writes to S3.
 
 ## Quick Start
 

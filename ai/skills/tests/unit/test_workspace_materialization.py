@@ -606,6 +606,25 @@ def test_operational_runner_names_match_environment_platform(runner_name: str) -
 
 
 @pytest.mark.parametrize(
+    ("runner_name", "platform", "provider"),
+    [
+        ("run_fabric_polars_azure_sdk.py", "fabric", "azure_sdk"),
+        ("run_databricks_polars_sdk.py", "databricks", "sdk"),
+    ],
+)
+def test_external_platform_runner_names_encode_backend_variant(
+    runner_name: str,
+    platform: str,
+    provider: str,
+) -> None:
+    assert build_tool._runner_identity(runner_name, platform, {"polars"}) == {
+        "operation": "run",
+        "engine": "polars",
+        "provider": provider,
+    }
+
+
+@pytest.mark.parametrize(
     "runner_name",
     ["execute_local_polars.py", "replay_cloud_polars.py", "maintenance_local_.py"],
 )

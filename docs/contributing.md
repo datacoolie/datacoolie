@@ -29,7 +29,7 @@ environment for DataCoolie.
    # activate the root .venv for the current checkout
    # nested workspace example: ..\.venv\Scripts\Activate.ps1
    # standalone repo example: .\.venv\Scripts\Activate.ps1
-   poetry install --only main,docs --extras "spark polars db api excel aws iceberg deltalake"
+   poetry install --only main,docs --extras "spark polars-delta polars-iceberg metadata-db source-api source-excel-polars aws"
    poetry run properdocs serve
    ```
    Default local docs port is `8000`. If another project already uses that
@@ -51,7 +51,7 @@ Before committing a release change or creating a PyPI tag, run the repository's
 local release gate from the root checkout:
 
 ```powershell
-poetry install --with dev --with docs -E polars -E polars-hash -E deltalake -E iceberg -E api -E db -E boto3 -E excel
+poetry install --with dev --with docs -E polars-delta -E polars-hash -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```

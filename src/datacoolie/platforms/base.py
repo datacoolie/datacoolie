@@ -6,14 +6,11 @@ Every concrete platform — Local, Fabric, Databricks, AWS — inherits from
 
 from __future__ import annotations
 
-import os
-import tempfile
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from datacoolie.core.exceptions import PlatformError
 from datacoolie.core.secret_provider import BaseSecretProvider
 from datacoolie.utils.path_utils import normalize_path
 
@@ -237,6 +234,9 @@ class BasePlatform(BaseSecretProvider):
     def copy_file(self, src: str, dest: str, *, overwrite: bool = False) -> None:
         """Copy a file from *src* to *dest*.
 
+        A normalized source/destination pair that identifies the same file is
+        an idempotent no-op and must not issue a destructive self-copy.
+
         Args:
             src: Source file path.
             dest: Destination file path.
@@ -250,6 +250,13 @@ class BasePlatform(BaseSecretProvider):
     @abstractmethod
     def move_file(self, src: str, dest: str, *, overwrite: bool = False) -> None:
         """Move (rename) a file from *src* to *dest*.
+
+        A normalized source/destination pair that identifies the same file is
+        an idempotent no-op.
+
+        Implementations create missing destination parent directories. A
+        failed move retains the source. When *overwrite* is ``False``, an
+        existing destination is preserved and causes an error.
 
         Args:
             src: Source file path.

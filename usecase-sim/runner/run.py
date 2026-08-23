@@ -20,9 +20,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib
 import logging
 import os
 import sys
+from pathlib import Path
 
 # Make usecase-sim/ importable so that ``functions.*`` modules can be resolved
 # by PythonFunctionReader when running this script directly.
@@ -46,86 +48,149 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("run")
+USECASE_SIM_ROOT = Path(__file__).resolve().parent.parent
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="DataCoolie unified runner")
 
     parser.add_argument("--engine", required=True, choices=["polars", "spark"])
-    parser.add_argument("--metadata-source", required=True,
-                        choices=["file", "database", "api"],
-                        help="Where to load metadata from")
-    parser.add_argument("--platform", default="local", choices=["local", "aws"],
-                        help="Storage platform: 'local' filesystem or 'aws' (S3/MinIO)")
+    parser.add_argument(
+        "--metadata-source",
+        required=True,
+        choices=["file", "database", "api"],
+        help="Where to load metadata from",
+    )
+    parser.add_argument(
+        "--platform",
+        default="local",
+        choices=["local", "aws"],
+        help="Storage platform: 'local' filesystem or 'aws' (S3/MinIO)",
+    )
 
     # File source
-    parser.add_argument("--metadata-path", default=None,
-                        help="Path to metadata file (.json|.yaml|.xlsx)")
+    parser.add_argument(
+        "--metadata-path",
+        default=None,
+        help="Path to metadata file (.json|.yaml|.xlsx)",
+    )
     # Database source
-    parser.add_argument("--metadata-db-connection-string", default=None,
-                        help="SQLAlchemy connection string for metadata DB")
+    parser.add_argument(
+        "--metadata-db-connection-string",
+        default=None,
+        help="SQLAlchemy connection string for metadata DB",
+    )
     # API source
-    parser.add_argument("--metadata-api-url", default=None,
-                        help="Base URL of metadata API")
-    parser.add_argument("--metadata-api-key", default="",
-                        help="Optional API key")
+    parser.add_argument(
+        "--metadata-api-url", default=None, help="Base URL of metadata API"
+    )
+    parser.add_argument("--metadata-api-key", default="", help="Optional API key")
     # Database + API share this
-    parser.add_argument("--metadata-workspace-id", default=None,
-                        help="Workspace ID (database + api sources)")
+    parser.add_argument(
+        "--metadata-workspace-id",
+        default=None,
+        help="Workspace ID (database + api sources)",
+    )
 
     # Common
-    parser.add_argument("--stage", required=True,
-                        help="Stage name(s) — passed raw to driver.run()")
-    parser.add_argument("--column-name-mode", default="lower", choices=["lower", "snake"])
+    parser.add_argument(
+        "--stage", required=True, help="Stage name(s) — passed raw to driver.run()"
+    )
+    parser.add_argument(
+        "--column-name-mode", default="lower", choices=["lower", "snake"]
+    )
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--storage-options", action="append", default=[], metavar="KEY=VALUE")
+    parser.add_argument(
+        "--storage-options", action="append", default=[], metavar="KEY=VALUE"
+    )
     parser.add_argument("--iceberg-catalog-uri", default=None)
-    parser.add_argument("--catalog-preset", default="local", choices=["local", "unity_catalog"])
+    parser.add_argument(
+        "--catalog-preset", default="local", choices=["local", "unity_catalog"]
+    )
     parser.add_argument("--uc-token", default="")
     parser.add_argument("--uc-credential", default="")
     parser.add_argument("--log-path", default=None)
     parser.add_argument("--max-workers", type=int, default=None)
-    parser.add_argument("--skip-api-sources", action="store_true",
-                        help="Skip any dataflow whose source connection_type is 'api'")
+    parser.add_argument(
+        "--skip-api-sources",
+        action="store_true",
+        help="Skip any dataflow whose source connection_type is 'api'",
+    )
+    parser.add_argument(
+        "--engine-setup-function",
+        default=None,
+        help="Repository-local callable invoked with the active engine before metadata execution",
+    )
+    parser.add_argument(
+        "--engine-setup-arg",
+        action="append",
+        default=[],
+        help="Argument forwarded to --engine-setup-function (repeatable)",
+    )
 
     # Replay mode (mutually exclusive with normal run)
-    parser.add_argument("--replay-start", default=None,
-                        help="Inclusive replay range start (ISO date/datetime or int)")
-    parser.add_argument("--replay-end", default=None,
-                        help="Exclusive replay range end (ISO date/datetime or int)")
-    parser.add_argument("--replay-chunk-interval", action="append", default=[],
-                        metavar="KEY=VALUE",
-                        help="Chunk interval, e.g. days=1  (repeatable)")
-    parser.add_argument("--replay-save-watermark", action="store_true",
-                        help="Save watermark after each chunk (init/crash-resume mode)")
-    parser.add_argument("--replay-chunk-column", default=None,
-                        help="Override auto-resolved chunk column")
+    parser.add_argument(
+        "--replay-start",
+        default=None,
+        help="Inclusive replay range start (ISO date/datetime or int)",
+    )
+    parser.add_argument(
+        "--replay-end",
+        default=None,
+        help="Exclusive replay range end (ISO date/datetime or int)",
+    )
+    parser.add_argument(
+        "--replay-chunk-interval",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Chunk interval, e.g. days=1  (repeatable)",
+    )
+    parser.add_argument(
+        "--replay-save-watermark",
+        action="store_true",
+        help="Save watermark after each chunk (init/crash-resume mode)",
+    )
+    parser.add_argument(
+        "--replay-chunk-column",
+        default=None,
+        help="Override auto-resolved chunk column",
+    )
 
     # Spark-only (ignored when --engine polars)
     parser.add_argument("--app-name", default="DataCoolie-UseCase")
-    parser.add_argument("--spark-config", action="append", default=[], metavar="KEY=VALUE")
+    parser.add_argument(
+        "--spark-config", action="append", default=[], metavar="KEY=VALUE"
+    )
 
     args = parser.parse_args()
     _validate_source_args(parser, args)
     return args
 
 
-def _validate_source_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+def _validate_source_args(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
     src = args.metadata_source
     if src == "file" and not args.metadata_path:
         parser.error("--metadata-source file requires --metadata-path")
     if src == "database":
         if not args.metadata_db_connection_string or not args.metadata_workspace_id:
-            parser.error("--metadata-source database requires --metadata-db-connection-string and --metadata-workspace-id")
+            parser.error(
+                "--metadata-source database requires --metadata-db-connection-string and --metadata-workspace-id"
+            )
     if src == "api":
         if not args.metadata_api_url or not args.metadata_workspace_id:
-            parser.error("--metadata-source api requires --metadata-api-url and --metadata-workspace-id")
+            parser.error(
+                "--metadata-source api requires --metadata-api-url and --metadata-workspace-id"
+            )
 
 
 def _build_metadata(source: str, args: argparse.Namespace):
     """Instantiate the correct MetadataProvider for the requested source."""
     if source == "file":
         from datacoolie.metadata import FileProvider
+
         return FileProvider(
             config_path=args.metadata_path,
             platform=LocalPlatform(),
@@ -133,6 +198,7 @@ def _build_metadata(source: str, args: argparse.Namespace):
         )
     if source == "database":
         from datacoolie.metadata import DatabaseProvider
+
         return DatabaseProvider(
             connection_string=args.metadata_db_connection_string,
             workspace_id=args.metadata_workspace_id,
@@ -140,6 +206,7 @@ def _build_metadata(source: str, args: argparse.Namespace):
         )
     if source == "api":
         from datacoolie.metadata import APIClient
+
         return APIClient(
             base_url=args.metadata_api_url,
             api_key=args.metadata_api_key,
@@ -157,11 +224,44 @@ def _parse_kv_list(pairs: list[str]) -> dict[str, str]:
     return out
 
 
+def _run_engine_setup(
+    function_path: str | None,
+    setup_args: list[str],
+    engine: object,
+) -> None:
+    """Invoke an optional usecase-local setup hook in the active engine process."""
+
+    if not function_path:
+        return
+    module_name, separator, function_name = function_path.rpartition(".")
+    if not separator:
+        raise ValueError(
+            "--engine-setup-function must be a dotted module.function path"
+        )
+    module_spec = importlib.util.find_spec(module_name)
+    module_file = module_spec.origin if module_spec is not None else None
+    if not module_file:
+        raise ValueError(f"Engine setup module has no local file: {module_name}")
+    resolved_module = Path(module_file).resolve()
+    if not resolved_module.is_relative_to(USECASE_SIM_ROOT):
+        raise ValueError(
+            f"Engine setup module must resolve inside usecase-sim: {resolved_module}"
+        )
+    module = importlib.import_module(module_name)
+    setup_function = getattr(module, function_name, None)
+    if not callable(setup_function):
+        raise ValueError(f"Engine setup function is not callable: {function_path}")
+    logger.info("Running engine setup: %s", function_path)
+    setup_function(engine=engine, args=list(setup_args))
+
+
 def main() -> None:
     args = parse_args()
 
     is_aws = args.platform == "aws"
     is_spark = args.engine == "spark"
+    if is_spark and args.engine_setup_function:
+        raise ValueError("--engine-setup-function is supported only for Polars")
     needs_iceberg = not args.stage or "iceberg" in args.stage.lower()
 
     storage_opts = _parse_kv_list(args.storage_options)
@@ -184,8 +284,12 @@ def main() -> None:
 
     logger.info(
         "Engine: %s | Source: %s | Platform: %s | Stage: %s | Mode: %s | DryRun: %s",
-        args.engine, args.metadata_source, args.platform, args.stage,
-        args.column_name_mode, args.dry_run,
+        args.engine,
+        args.metadata_source,
+        args.platform,
+        args.stage,
+        args.column_name_mode,
+        args.dry_run,
     )
 
     platform = setup_platform(is_aws, storage_opts, logger)
@@ -205,6 +309,7 @@ def main() -> None:
             verify_local_file_checksums=is_aws,
         )
         from datacoolie.engines import SparkEngine
+
         engine = SparkEngine(spark_session=spark, platform=platform)
         cleanup_fn = spark.stop
     else:
@@ -218,11 +323,14 @@ def main() -> None:
                 storage_opts=storage_opts or None,
             )
         from datacoolie.engines import PolarsEngine
+
         engine = PolarsEngine(
             platform=platform,
             storage_options=storage_opts or None,
             iceberg_catalog=iceberg_catalog,
         )
+
+    _run_engine_setup(args.engine_setup_function, args.engine_setup_arg, engine)
 
     metadata = _build_metadata(args.metadata_source, args)
     watermark = WatermarkManager(metadata_provider=metadata)
@@ -257,7 +365,10 @@ def main() -> None:
         )
     else:
         run_and_report(
-            driver, args.stage, args.column_name_mode, logger,
+            driver,
+            args.stage,
+            args.column_name_mode,
+            logger,
             cleanup_fn=cleanup_fn,
             skip_api_sources=args.skip_api_sources,
         )

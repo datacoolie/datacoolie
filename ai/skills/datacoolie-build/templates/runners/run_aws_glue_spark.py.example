@@ -10,6 +10,8 @@ Optional Glue job parameters:
   --STAGE  Stage value passed unchanged; omission runs all stages
 
 This example uses DataCoolie watermark state and does not enable AWS Glue bookmarks.
+Attach ``datacoolie[aws]`` before execution; Glue supplies Spark and the job
+role is resolved through the standard boto3 credential chain.
 """
 
 from __future__ import annotations

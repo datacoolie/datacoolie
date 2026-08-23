@@ -16,7 +16,7 @@ leaving **40–50** free for user plugins.
 |---|---|---|
 | **5** | `ColumnValueTransformer` | Apply typed value rules in stable `(order, declaration)` order before schema casting. |
 | **10** | `SchemaConverter` | Cast columns to `schema_hints` types after value normalization — downstream typed transforms see the target schema. |
-| **18** | `HashColumnAdder` | Add stable SHA-256 business hashes from typed canonical payloads. |
+| **18** | `HashColumnAdder` | Add stable SHA-256 String or signed XXHash64 BIGINT values from typed canonical payloads. |
 | **20** | `Deduplicator` | Drop duplicates by `transform.deduplicate_columns` (partition keys) and `dataflow.order_columns` (latest-row selector, from `transform.latest_data_columns` or `source.watermark_columns`) before any compute work is wasted on them. |
 | **30** | `ColumnAdder` | User-configured calculated columns from `transform.additional_columns`. |
 | **35** | `RowFilter` | Discard rows by `transform.filter_expression` after computed columns exist but before SCD2 logic. |
@@ -49,6 +49,13 @@ DEFAULT_TRANSFORMERS = [
 (List order is informational; `TransformerPipeline` sorts by the transformer's
 `order` attribute, so `ColumnAdder` (30) still runs before `RowFilter` (35)
 and `SCD2ColumnAdder` (60).)
+
+`HashColumnAdder` hashes only the explicitly declared ordered input columns. A
+hash target does not automatically become a merge or deduplication key, and
+hash inputs do not silently fall back to `transform.deduplicate_columns` or
+`destination.merge_keys`. See [Transform patterns — hash use cases](../how-to/metadata-guide/transform-patterns.md)
+for guidance on surrogate-key-style hashes, hashdiffs, deterministic
+identifiers, and PII boundaries.
 
 ## Why slots jump from 35 to 60?
 

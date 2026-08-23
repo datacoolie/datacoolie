@@ -27,9 +27,9 @@ See [Watermarks](watermarks.md) and [ADR-0004](../adr/0004-raw-json-watermark-co
 
 | Provider | Backend | Install | Good for |
 |---|---|---|---|
-| `FileProvider` | JSON · YAML · Excel | core + `[excel]` for .xlsx | Small projects, SCM-versioned metadata, demos |
-| `DatabaseProvider` | Any SQLAlchemy dialect | `[db]` | Multi-team, mutable metadata, centralised governance |
-| `APIClient` | REST | `[api]` | Existing metadata service, RBAC on metadata |
+| `FileProvider` | JSON · YAML · Excel | core + `[metadata-yaml]` / `[metadata-excel]` | Small projects, SCM-versioned metadata, demos |
+| `DatabaseProvider` | Any SQLAlchemy dialect | `[metadata-db]` | Multi-team, mutable metadata, centralised governance |
+| `APIClient` | REST | `[source-api]` | Existing metadata service, RBAC on metadata |
 
 ## File provider
 

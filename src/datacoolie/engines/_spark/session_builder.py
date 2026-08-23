@@ -6,7 +6,7 @@ Provides :func:`get_or_create_spark_session` and the
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from pyspark.sql import SparkSession
 

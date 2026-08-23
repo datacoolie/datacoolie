@@ -524,6 +524,13 @@ class TestNavigationMethods:
 
 
 class TestEnginesInitLazyImport:
+    def test_public_exports_are_engine_contracts_only(self) -> None:
+        import datacoolie.engines as eng_mod
+
+        assert eng_mod.__all__ == ["BaseEngine", "PolarsEngine", "SparkEngine"]
+        with pytest.raises(AttributeError):
+            eng_mod.__getattr__("get_or_create_spark_session")
+
     def test_polars_engine_lazy_import(self) -> None:
         import datacoolie.engines as eng_mod
         cls = eng_mod.__getattr__("PolarsEngine")

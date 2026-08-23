@@ -134,6 +134,39 @@ def test_fabric_parameter_cell_exposes_one_optional_stage() -> None:
     assert "parse_stage_plan" not in code
 
 
+def test_native_notebooks_select_native_platform_runtime() -> None:
+    fabric = _notebook_code(RUNNERS / "run_fabric_spark.ipynb.example")
+    assert 'FabricPlatform(runtime="fabric")' in fabric
+
+    for name in (
+        "run_databricks_spark.ipynb.example",
+        "replay_databricks_spark.ipynb.example",
+        "maintenance_databricks_spark.ipynb.example",
+    ):
+        assert 'DatabricksPlatform(runtime="databricks")' in _notebook_code(
+            RUNNERS / name
+        )
+
+
+def test_external_platform_runners_use_sdk_mode_and_ambient_authentication() -> None:
+    fabric = (
+        RUNNERS / "run_fabric_polars_azure_sdk.py.example"
+    ).read_text(encoding="utf-8")
+    databricks = (
+        RUNNERS / "run_databricks_polars_sdk.py.example"
+    ).read_text(encoding="utf-8")
+
+    assert 'FabricPlatform(runtime="external")' in fabric
+    assert "azure_credential=" not in fabric
+    assert "datacoolie[fabric-external]" in fabric
+    assert 'DatabricksPlatform(runtime="external")' in databricks
+    assert "workspace_client=" not in databricks
+    assert "datacoolie[databricks-external]" in databricks
+    for content in (fabric, databricks):
+        assert "driver.run(stage=args.stage)" in content
+        assert "%pip" not in content
+
+
 def test_replay_widget_decodes_transport_and_delegates_replay_semantics() -> None:
     path = RUNNERS / "replay_databricks_spark.ipynb.example"
     functions = _notebook_functions(
@@ -200,3 +233,8 @@ def test_glue_stage_is_optional() -> None:
     namespace["resolve_options"](["job.py", "--STAGE", "bronze,silver"])
     assert "STAGE" in requested[-1]
     assert "JOB_NAME" not in requested[-1]
+
+    content = path.read_text(encoding="utf-8")
+    assert "datacoolie[aws]" in content
+    assert "standard boto3 credential chain" in content
+    assert "aws_access_key_id" not in content

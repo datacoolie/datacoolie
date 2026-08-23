@@ -40,8 +40,10 @@ RESOURCES = (
     "schemas/build-verification-receipt.schema.json",
     "schemas/current-build.schema.json",
     "references/capability-catalog.md",
+    "references/platform-contract.md",
     "references/framework-boundary.md",
     "references/runner-contract.md",
+    "references/polars-qualified-sql.md",
     "references/operations-contract.md",
     "templates/project-structure.md",
     "templates/runners/README.md",
@@ -50,6 +52,8 @@ RESOURCES = (
     "templates/runners/maintenance_local_polars.py.example",
     "templates/runners/replay_databricks_spark.ipynb.example",
     "templates/runners/maintenance_databricks_spark.ipynb.example",
+    "templates/runners/run_fabric_polars_azure_sdk.py.example",
+    "templates/runners/run_databricks_polars_sdk.py.example",
 )
 
 

@@ -274,18 +274,18 @@ not** include them in `--additional-python-modules`.
 
 ### Extras reference (`pyproject.toml`)
 
-The `datacoolie` package ships platform bundle extras you can use for local
+The `datacoolie` package uses composable capability extras for local
 `pip install` when testing outside Lambda or Glue:
 
 | Extra | Purpose |
 |---|---|
-| `datacoolie[aws-polars]` | Polars path — Polars + Delta + Iceberg + boto3 (Python 3.11+) |
-| `datacoolie[aws]` | Same as `aws-polars`; convenience alias |
-| `datacoolie[aws-spark]` | Spark job — only `boto3` (Spark/Delta supplied by Glue) |
+| `datacoolie[aws]` | AWS S3, Glue, and S3-compatible MinIO/LocalStack through boto3 |
+| `datacoolie[polars-delta,aws]` | Local Polars + Delta path with AWS storage |
+| `datacoolie[spark,aws]` | Local client for a Spark runtime that supplies Spark/Delta |
 
 Example install for the local Polars scenario:
 ```bash
-pip install "datacoolie[aws-polars]"
+pip install "datacoolie[polars-delta,aws]"
 ```
 
 ---
@@ -420,7 +420,7 @@ resources.  No Glue job required.
 ### Prerequisites
 
 ```bash
-pip install "datacoolie[aws-polars]"
+pip install "datacoolie[polars-delta,aws]"
 aws configure            # sets up ~/.aws/credentials (default profile)
 # — or —
 aws configure --profile my-sso-profile
@@ -526,7 +526,7 @@ aws secretsmanager create-secret \
 
 1. Install dependencies and configure credentials:
    ```bash
-   pip install "datacoolie[aws-polars]"
+   pip install "datacoolie[polars-delta,aws]"
    aws configure    # enter Access Key ID, Secret, Region, output format
    ```
 2. Upload input data from `usecase-sim/data/input/` to the corresponding S3 input paths.

@@ -1,0 +1,211 @@
+{
+  "connections": [
+    {
+      "name": "qualified_sql_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/qualified_sql/fixtures"
+      }
+    },
+    {
+      "name": "qualified_sql_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "datacoolie",
+      "database": "qsql_positive",
+      "configure": {}
+    },
+    {
+      "name": "qualified_sql_result_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/data/output/qualified_sql/results"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "qualified_sql__delta_name_4",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM catalog_A.database_B.schema_C.orders_l4"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_name_4", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_name_3",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM database_B.schema_C.orders_l3"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_name_3", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_name_2",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM schema_C.orders_l2"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_name_2", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_name_1",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM orders_l1"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_name_1", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_include",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM d_daily"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_include", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_exclude",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM orders_keep"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_exclude", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_lazy_reuse",
+      "stage": "polars_qualified_sql_delta",
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(a.amount) AS total_amount FROM orders_reuse AS a JOIN orders_reuse AS b ON a.order_id = b.order_id"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_lazy_reuse", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__delta_ambiguity",
+      "stage": "polars_qualified_sql_delta_ambiguity",
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_delta_source",
+        "query": "SELECT COUNT(*) AS matched_rows FROM shared.orders_ambiguous"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "delta_ambiguity", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_default_root",
+      "stage": "polars_qualified_sql_iceberg",
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM datacoolie.qsql_positive.default_root.orders_default"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_default_root", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_logical_prefix",
+      "stage": "polars_qualified_sql_iceberg",
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM warehouse.analytics.curated.orders_prefixed"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_logical_prefix", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_name_1",
+      "stage": "polars_qualified_sql_iceberg",
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM orders_short"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_name_1", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_include",
+      "stage": "polars_qualified_sql_iceberg",
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM d_daily"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_include", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_exclude",
+      "stage": "polars_qualified_sql_iceberg",
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(amount) AS total_amount FROM orders_keep"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_exclude", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_lazy_reuse",
+      "stage": "polars_qualified_sql_iceberg",
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows, SUM(a.amount) AS total_amount FROM orders_reuse AS a JOIN orders_reuse AS b ON a.order_id = b.order_id"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_lazy_reuse", "load_type": "overwrite"},
+      "transform": {}
+    },
+    {
+      "name": "qualified_sql__iceberg_ambiguity",
+      "stage": "polars_qualified_sql_iceberg_ambiguity",
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "qualified_sql_iceberg_source",
+        "query": "SELECT COUNT(*) AS matched_rows FROM shared.orders_ambiguous"
+      },
+      "destination": {"connection_name": "qualified_sql_result_destination", "table": "iceberg_ambiguity", "load_type": "overwrite"},
+      "transform": {}
+    }
+  ],
+  "schema_hints": []
+}

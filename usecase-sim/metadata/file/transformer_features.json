@@ -223,6 +223,24 @@
       }
     },
     {
+      "name": "transform_hash__xxhash64",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {"connection_name": "transform_features_source", "table": "sample"},
+      "transform": {
+        "hash_columns": [{
+          "target_column": "identity_hash",
+          "columns": ["country_code", "customer_id"],
+          "algorithm": "xxhash64"
+        }]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_hash_xxhash64",
+        "load_type": "overwrite"
+      }
+    },
+    {
       "name": "transform_mask__redact",
       "stage": "transform_features",
       "processing_mode": "batch",

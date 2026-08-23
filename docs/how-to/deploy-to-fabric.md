@@ -50,7 +50,7 @@ from datacoolie.platforms.fabric_platform import FabricPlatform
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
 
-platform = FabricPlatform()           # uses notebookutils under the hood
+platform = FabricPlatform()           # auto-selects notebookutils in Fabric
 engine = SparkEngine(spark_session=spark, platform=platform)  # Fabric's SparkSession
 metadata = FileProvider(config_path="Files/metadata/orders.json", platform=platform)
 
@@ -68,12 +68,38 @@ native Python notebook with `PolarsEngine`. The checked-in example is
 
 - Use **ABFSS** paths or `Files/...` relative to the lakehouse:
   `abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse/Files/...`
-- `FabricPlatform` normalises both forms.
+- Native Fabric execution accepts both forms. External execution requires the
+  qualified ABFS(S) path because no default workspace or lakehouse is assumed.
+
+The same platform can access OneLake or ADLS Gen2 from a laptop, Azure
+Function, container, or CI runner:
+
+```bash
+pip install "datacoolie[fabric-external]"
+```
+
+```python
+from datacoolie.platforms.fabric_platform import FabricPlatform
+
+platform = FabricPlatform()  # falls back to Azure SDK outside Fabric
+text = platform.read_file(
+    "abfss://workspace@onelake.dfs.fabric.microsoft.com/"
+    "lakehouse.Lakehouse/Files/input/orders.csv"
+)
+```
+
+External mode converts the ABFS(S) URI into the HTTPS endpoint and relative
+path required by Azure SDK clients. It uses `DefaultAzureCredential` unless an
+Azure `TokenCredential` is supplied through `azure_credential=`. This affects
+platform file and secret operations only; Spark and Polars configure their own
+storage connectors.
 
 ## 5. Secrets
 
 `FabricPlatform._fetch_secret` reads from Key Vault via
-`notebookutils.credentials.getSecret(vault_url, secret_name)`. In
+`notebookutils.credentials.getSecret(vault_url, secret_name)` in Fabric and
+`SecretClient.get_secret(secret_name)` outside Fabric. Both backends use the
+same `secrets_ref` contract. In
 `secrets_ref`, the outer key is the vault URL, and each listed field must
 already exist in `configure` with the Key Vault secret name as its current
 value:

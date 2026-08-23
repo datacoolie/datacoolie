@@ -32,7 +32,7 @@ Parameters (all optional — defaults shown below)
 
 Prerequisites
 -------------
-    pip install "datacoolie[aws-polars]"   # polars + deltalake + pyiceberg + boto3
+    pip install "datacoolie[polars-delta,polars-iceberg,aws]"
     aws configure                           # or: aws configure --profile <name>
 
 Required AWS permissions for the local IAM user / role

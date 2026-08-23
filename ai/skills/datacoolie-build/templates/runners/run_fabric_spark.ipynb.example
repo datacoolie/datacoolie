@@ -39,7 +39,7 @@
     "from datacoolie.orchestration.driver import DataCoolieDriver\n",
     "from datacoolie.platforms.fabric_platform import FabricPlatform\n",
     "\n",
-    "platform = FabricPlatform()\n",
+    "platform = FabricPlatform(runtime=\"fabric\")\n",
     "engine = SparkEngine(spark_session=spark, platform=platform)  # type: ignore[name-defined]\n",
     "metadata = FileProvider(config_path=METADATA_PATH, platform=platform, watermark_base_path=WATERMARK_BASE_PATH)\n",
     "config = DataCoolieRunConfig(max_workers=4, stop_on_error=True)\n",

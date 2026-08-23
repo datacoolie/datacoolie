@@ -31,7 +31,7 @@ The metadata sets delta `schema_name` to `demo`, so table paths resolve as:
 ## Prerequisites
 
 1. Fabric workspace + lakehouse available.
-2. Notebook kernel has DataCoolie installed (`datacoolie[fabric]` preferred).
+2. Notebook kernel has DataCoolie installed (`datacoolie` is preferred in native Fabric).
 3. Input files uploaded under the lakehouse Files input folders used in the
    metadata (for example `Files/input/csv`, `Files/input/parquet`, etc.).
 4. Metadata file available to the notebook path you configure.
@@ -62,3 +62,14 @@ Polars delta operations may require extra `storage_options`.
   - Fabric metadata and notebook samples.
 - Still deferred in usecase-sim runner stack:
   - `run.py` / `run_scenario.py` `--platform fabric` wiring.
+
+## Running platform I/O outside Fabric
+
+Install `datacoolie[fabric-external]` and keep the qualified OneLake ABFSS paths shown
+above. `FabricPlatform()` automatically uses Azure SDK clients and
+`DefaultAzureCredential` when NotebookUtils is unavailable. The checked-in
+notebooks continue to prefer NotebookUtils when they run inside Fabric.
+
+This portability applies to `FabricPlatform` file and Key Vault operations.
+Engine-specific Spark or Polars storage authentication is configured by the
+engine, not by the platform.

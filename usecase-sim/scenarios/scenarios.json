@@ -20,6 +20,7 @@
       "usecase-sim/data/output/parquet/tf_schema_cast",
       "usecase-sim/data/output/parquet/tf_schema_missing_warning",
       "usecase-sim/data/output/parquet/tf_hash_sha256",
+      "usecase-sim/data/output/parquet/tf_hash_xxhash64",
       "usecase-sim/data/output/parquet/tf_mask_redact",
       "usecase-sim/data/output/parquet/tf_mask_nullify",
       "usecase-sim/data/output/parquet/tf_mask_partial",
@@ -66,6 +67,7 @@
       "usecase-sim/data/output/parquet/tf_schema_cast",
       "usecase-sim/data/output/parquet/tf_schema_missing_warning",
       "usecase-sim/data/output/parquet/tf_hash_sha256",
+      "usecase-sim/data/output/parquet/tf_hash_xxhash64",
       "usecase-sim/data/output/parquet/tf_mask_redact",
       "usecase-sim/data/output/parquet/tf_mask_nullify",
       "usecase-sim/data/output/parquet/tf_mask_partial",
@@ -498,5 +500,138 @@
     "connection": "aws_iceberg_dest",
     "priority": "P2",
     "notes": "Maintenance compact + cleanup on AWS iceberg via Spark (requires MinIO + iceberg-rest)"
+  },
+  "local_polars_qualified_sql_delta": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "stage": "polars_qualified_sql_delta",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "max_workers": 1,
+    "pre_clean_paths": [
+      "usecase-sim/data/output/qualified_sql/results/delta_name_4",
+      "usecase-sim/data/output/qualified_sql/results/delta_name_3",
+      "usecase-sim/data/output/qualified_sql/results/delta_name_2",
+      "usecase-sim/data/output/qualified_sql/results/delta_name_1",
+      "usecase-sim/data/output/qualified_sql/results/delta_include",
+      "usecase-sim/data/output/qualified_sql/results/delta_exclude",
+      "usecase-sim/data/output/qualified_sql/results/delta_lazy_reuse"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
+      "args": ["--suite", "delta-positive"],
+      "timeout_seconds": 60
+    },
+    "engine_setup": {
+      "python_function": "runner.qualified_sql_setup.register_tables",
+      "args": ["--suite", "delta-positive"]
+    },
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/validate_polars_qualified_sql.py",
+      "args": ["--suite", "delta"]
+    },
+    "notes": "Seven isolated Delta qualified-SQL cases with output reconciliation"
+  },
+  "local_polars_qualified_sql_delta_ambiguity": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "stage": "polars_qualified_sql_delta_ambiguity",
+    "column_name_mode": "lower",
+    "priority": "P0",
+    "max_workers": 1,
+    "pre_clean_paths": [
+      "usecase-sim/data/output/qualified_sql/results/delta_ambiguity"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
+      "args": ["--suite", "delta-ambiguity"],
+      "timeout_seconds": 60
+    },
+    "engine_setup": {
+      "python_function": "runner.qualified_sql_setup.register_tables",
+      "args": ["--suite", "delta-ambiguity"]
+    },
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": [
+        "Ambiguous table reference 'shared.orders_ambiguous'",
+        "catalog_A.database_A.shared.orders_ambiguous",
+        "catalog_A.database_B.shared.orders_ambiguous"
+      ]
+    },
+    "notes": "Expected failure for an ambiguous two-part Delta suffix"
+  },
+  "local_polars_qualified_sql_iceberg": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "stage": "polars_qualified_sql_iceberg",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "max_workers": 1,
+    "timeout_seconds": 120,
+    "services": ["minio", "iceberg-rest"],
+    "pre_clean_paths": [
+      "usecase-sim/data/output/qualified_sql/results/iceberg_default_root",
+      "usecase-sim/data/output/qualified_sql/results/iceberg_logical_prefix",
+      "usecase-sim/data/output/qualified_sql/results/iceberg_name_1",
+      "usecase-sim/data/output/qualified_sql/results/iceberg_include",
+      "usecase-sim/data/output/qualified_sql/results/iceberg_exclude",
+      "usecase-sim/data/output/qualified_sql/results/iceberg_lazy_reuse"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
+      "args": ["--suite", "iceberg-positive"],
+      "timeout_seconds": 120
+    },
+    "engine_setup": {
+      "python_function": "runner.qualified_sql_setup.register_tables",
+      "args": ["--suite", "iceberg-positive"]
+    },
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/validate_polars_qualified_sql.py",
+      "args": ["--suite", "iceberg"]
+    },
+    "notes": "Six isolated Iceberg catalog qualified-SQL cases with output reconciliation"
+  },
+  "local_polars_qualified_sql_iceberg_ambiguity": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "stage": "polars_qualified_sql_iceberg_ambiguity",
+    "column_name_mode": "lower",
+    "priority": "P1",
+    "max_workers": 1,
+    "timeout_seconds": 120,
+    "services": ["minio", "iceberg-rest"],
+    "pre_clean_paths": [
+      "usecase-sim/data/output/qualified_sql/results/iceberg_ambiguity"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
+      "args": ["--suite", "iceberg-ambiguity"],
+      "timeout_seconds": 120
+    },
+    "engine_setup": {
+      "python_function": "runner.qualified_sql_setup.register_tables",
+      "args": ["--suite", "iceberg-ambiguity"]
+    },
+    "validation": {
+      "expected_exit_code": 2,
+      "required_console_text": [
+        "Ambiguous table reference 'shared.orders_ambiguous'",
+        "catalog_A.database_A.shared.orders_ambiguous",
+        "catalog_A.database_B.shared.orders_ambiguous"
+      ]
+    },
+    "notes": "Expected failure for an ambiguous two-part Iceberg suffix"
   }
 }

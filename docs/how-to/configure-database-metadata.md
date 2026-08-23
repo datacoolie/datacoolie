@@ -5,7 +5,7 @@ description: Store DataCoolie metadata in a relational database and configure sh
 
 # Configure database metadata
 
-**Prerequisites** · `pip install "datacoolie[db]"` · an RDBMS the team can share · DDL privileges to create the metadata schema.
+**Prerequisites** · `pip install "datacoolie[metadata-db]"` · an RDBMS the team can share · DDL privileges to create the metadata schema.
 **End state** · `DatabaseProvider` reading `dc_framework_connections`, `dc_framework_dataflows`, `dc_framework_watermarks`, and `dc_framework_schema_hints` tables.
 
 ## Supported dialects

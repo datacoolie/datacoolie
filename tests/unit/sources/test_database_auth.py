@@ -1,13 +1,11 @@
 """Tests for database auth_type support.
 
-Covers auth_type forwarding in DatabaseReader._build_options,
-Spark JDBC auth property mapping, Polars connection string building,
-and Connection model validation.
+Covers auth_type forwarding in DatabaseReader._build_options, Polars
+connection string building, and Connection model validation.
 """
 
 from __future__ import annotations
 
-from typing import Any
 from urllib.parse import unquote_plus
 
 import pytest
@@ -15,14 +13,9 @@ import pytest
 from datacoolie.core.constants import DatabaseAuthType
 from datacoolie.core.exceptions import ConfigurationError, EngineError
 from datacoolie.core.models import Connection, Source
+from datacoolie.engines._polars.database import build_mssql_odbc_connection
 from datacoolie.engines.polars_engine import PolarsEngine
 from datacoolie.sources.database_reader import DatabaseReader
-
-try:
-    from datacoolie.engines.spark_engine import SparkEngine
-except ModuleNotFoundError:  # PySpark is an optional, local-only CI dependency.
-    SparkEngine: Any = None
-
 
 # ============================================================================
 # Helper: build a database Source with given configure
@@ -103,82 +96,7 @@ class TestBuildOptionsAuthType:
 
 
 # ============================================================================
-# SparkEngine._build_jdbc_auth_properties
-# ============================================================================
-
-
-@pytest.mark.spark
-@pytest.mark.skipif(SparkEngine is None, reason="PySpark not installed")
-class TestSparkJdbcAuthProperties:
-    """Verify Spark JDBC auth property mapping."""
-
-    def test_password_returns_empty(self) -> None:
-        opts = {"auth_type": DatabaseAuthType.PASSWORD, "user": "u", "password": "p"}
-        props = SparkEngine._build_jdbc_auth_properties(opts)
-        assert props == {}
-        assert "auth_type" not in opts  # consumed
-        assert opts["user"] == "u"  # preserved for JDBC
-
-    def test_service_principal_mssql(self) -> None:
-        opts = {
-            "auth_type": DatabaseAuthType.SERVICE_PRINCIPAL,
-            "database_type": "mssql",
-            "user": "client-id",
-            "password": "client-secret",
-            "tenant_id": "tenant-xyz",
-        }
-        props = SparkEngine._build_jdbc_auth_properties(opts)
-        assert props["authentication"] == "ActiveDirectoryServicePrincipal"
-        assert props["AADSecurePrincipalId"] == "client-id"
-        assert props["AADSecurePrincipalSecret"] == "client-secret"
-        # user/password/tenant_id consumed from opts
-        assert "user" not in opts
-        assert "password" not in opts
-        assert "tenant_id" not in opts
-
-    def test_managed_identity(self) -> None:
-        opts = {
-            "auth_type": DatabaseAuthType.MANAGED_IDENTITY,
-            "database_type": "mssql",
-        }
-        props = SparkEngine._build_jdbc_auth_properties(opts)
-        assert props["authentication"] == "ActiveDirectoryMSI"
-        assert "msiClientId" not in props  # no user → system-assigned
-
-    def test_managed_identity_user_assigned(self) -> None:
-        opts = {
-            "auth_type": DatabaseAuthType.MANAGED_IDENTITY,
-            "database_type": "mssql",
-            "user": "msi-client-id",
-        }
-        props = SparkEngine._build_jdbc_auth_properties(opts)
-        assert props["authentication"] == "ActiveDirectoryMSI"
-        assert props["msiClientId"] == "msi-client-id"
-
-    def test_access_token_mssql(self) -> None:
-        opts = {
-            "auth_type": DatabaseAuthType.ACCESS_TOKEN,
-            "database_type": "mssql",
-            "token": "eyJhbGciOi...",
-        }
-        props = SparkEngine._build_jdbc_auth_properties(opts)
-        assert props["accessToken"] == "eyJhbGciOi..."
-        assert "token" not in opts
-
-    def test_access_token_postgresql(self) -> None:
-        opts = {
-            "auth_type": DatabaseAuthType.ACCESS_TOKEN,
-            "database_type": "postgresql",
-            "token": "iam-token-123",
-            "user": "iam_user",
-        }
-        props = SparkEngine._build_jdbc_auth_properties(opts)
-        assert "accessToken" not in props
-        assert opts["password"] == "iam-token-123"  # token injected as password
-
-
-# ============================================================================
-# PolarsEngine._build_mssql_odbc_connection
+# Polars MSSQL ODBC connection construction
 # ============================================================================
 
 
@@ -193,7 +111,7 @@ class TestPolarsMssqlOdbcConnection:
             "user": "client-id",
             "password": "client-secret",
         }
-        uri, attrs = PolarsEngine._build_mssql_odbc_connection(
+        uri, attrs = build_mssql_odbc_connection(
             DatabaseAuthType.SERVICE_PRINCIPAL, opts
         )
         decoded = unquote_plus(uri)
@@ -208,7 +126,7 @@ class TestPolarsMssqlOdbcConnection:
             "port": 1433,
             "database": "mydb",
         }
-        uri, attrs = PolarsEngine._build_mssql_odbc_connection(
+        uri, attrs = build_mssql_odbc_connection(
             DatabaseAuthType.MANAGED_IDENTITY, opts
         )
         assert "ActiveDirectoryMsi" in uri
@@ -221,7 +139,7 @@ class TestPolarsMssqlOdbcConnection:
             "database": "mydb",
             "user": "msi-client-id",
         }
-        uri, attrs = PolarsEngine._build_mssql_odbc_connection(
+        uri, attrs = build_mssql_odbc_connection(
             DatabaseAuthType.MANAGED_IDENTITY, opts
         )
         decoded = unquote_plus(uri)
@@ -235,9 +153,7 @@ class TestPolarsMssqlOdbcConnection:
             "database": "mydb",
             "token": "eyJhbGciOi...",
         }
-        uri, attrs = PolarsEngine._build_mssql_odbc_connection(
-            DatabaseAuthType.ACCESS_TOKEN, opts
-        )
+        uri, attrs = build_mssql_odbc_connection(DatabaseAuthType.ACCESS_TOKEN, opts)
         assert "mssql+pyodbc" in uri
         assert attrs is not None  # token struct bytes
         assert isinstance(attrs, bytes)
@@ -254,7 +170,9 @@ class TestConnectionAuthValidation:
     def test_password_no_validation_error(self) -> None:
         """Password auth requires no extra validation."""
         conn = Connection(
-            name="test", connection_type="database", format="sql",
+            name="test",
+            connection_type="database",
+            format="sql",
             configure={"auth_type": "password", "username": "u", "password": "p"},
         )
         assert conn.auth_type == "password"
@@ -262,14 +180,18 @@ class TestConnectionAuthValidation:
     def test_no_auth_type_backward_compat(self) -> None:
         """No auth_type at all → no validation error."""
         conn = Connection(
-            name="test", connection_type="database", format="sql",
+            name="test",
+            connection_type="database",
+            format="sql",
             configure={"username": "u", "password": "p"},
         )
         assert conn.auth_type is None
 
     def test_service_principal_valid(self) -> None:
         conn = Connection(
-            name="test", connection_type="database", format="sql",
+            name="test",
+            connection_type="database",
+            format="sql",
             configure={
                 "auth_type": "service_principal",
                 "username": "client-id",
@@ -283,7 +205,9 @@ class TestConnectionAuthValidation:
     def test_service_principal_missing_tenant_raises(self) -> None:
         with pytest.raises(ConfigurationError, match="tenant_id"):
             Connection(
-                name="test", connection_type="database", format="sql",
+                name="test",
+                connection_type="database",
+                format="sql",
                 configure={
                     "auth_type": "service_principal",
                     "username": "client-id",
@@ -294,7 +218,9 @@ class TestConnectionAuthValidation:
     def test_service_principal_missing_credentials_raises(self) -> None:
         with pytest.raises(ConfigurationError, match="username.*password"):
             Connection(
-                name="test", connection_type="database", format="sql",
+                name="test",
+                connection_type="database",
+                format="sql",
                 configure={
                     "auth_type": "service_principal",
                     "tenant_id": "tenant-123",
@@ -303,7 +229,9 @@ class TestConnectionAuthValidation:
 
     def test_access_token_valid(self) -> None:
         conn = Connection(
-            name="test", connection_type="database", format="sql",
+            name="test",
+            connection_type="database",
+            format="sql",
             configure={"auth_type": "access_token", "token": "jwt-token"},
         )
         assert conn.token == "jwt-token"
@@ -311,13 +239,17 @@ class TestConnectionAuthValidation:
     def test_access_token_missing_token_raises(self) -> None:
         with pytest.raises(ConfigurationError, match="token"):
             Connection(
-                name="test", connection_type="database", format="sql",
+                name="test",
+                connection_type="database",
+                format="sql",
                 configure={"auth_type": "access_token"},
             )
 
     def test_managed_identity_no_extra_fields(self) -> None:
         conn = Connection(
-            name="test", connection_type="database", format="sql",
+            name="test",
+            connection_type="database",
+            format="sql",
             configure={"auth_type": "managed_identity"},
         )
         assert conn.auth_type == "managed_identity"
@@ -325,7 +257,9 @@ class TestConnectionAuthValidation:
     def test_fabric_host_rejects_password(self) -> None:
         with pytest.raises(ConfigurationError, match="Fabric SQL endpoint"):
             Connection(
-                name="test", connection_type="database", format="sql",
+                name="test",
+                connection_type="database",
+                format="sql",
                 configure={
                     "auth_type": "password",
                     "host": "xyz.datawarehouse.fabric.microsoft.com",
@@ -336,7 +270,9 @@ class TestConnectionAuthValidation:
 
     def test_fabric_host_allows_service_principal(self) -> None:
         conn = Connection(
-            name="test", connection_type="database", format="sql",
+            name="test",
+            connection_type="database",
+            format="sql",
             configure={
                 "auth_type": "service_principal",
                 "host": "xyz.datawarehouse.fabric.microsoft.com",
@@ -350,7 +286,9 @@ class TestConnectionAuthValidation:
     def test_non_database_connection_skips_auth_validation(self) -> None:
         """auth_type validation only applies to database connections."""
         conn = Connection(
-            name="test", connection_type="file", format="parquet",
+            name="test",
+            connection_type="file",
+            format="parquet",
             configure={"base_path": "/data"},
         )
         assert conn.auth_type is None

@@ -39,8 +39,10 @@ skill; generated projects must not depend on skill paths.
 | Metadata fields and authoring | `references/schema-quick-reference.md`, `schemas/`, `scripts/validate.py` |
 | Metadata import/merge/lint | `scripts/convert.py`, `scripts/merge.py`, `scripts/lint.py` |
 | Built-in capability inventory | `scripts/inspect_capabilities.py`, `references/capability-catalog.md` |
+| Platform runtime, path, credential, or extra | `references/platform-contract.md`, then the matching runner template |
 | Native versus custom boundary | `references/framework-boundary.md` |
 | Common entrypoint and normal run | `references/runner-contract.md`, `templates/runners/README.md`, matching template |
+| Polars Delta/Iceberg `source.query` | `references/polars-qualified-sql.md`, then `references/runner-contract.md` |
 | Replay or maintenance extensions | load `references/runner-contract.md`, then `references/operations-contract.md` and matching templates |
 | Immutable build, runnable current projection, and verification receipt | `scripts/materialize.py`, `scripts/validate_build.py`, `schemas/current-build.schema.json`, `schemas/build-verification-receipt.schema.json` |
 | Requested project automation | `scripts/render_automation.py` |
@@ -64,6 +66,8 @@ load, platform, and dependencies. Inspect the installed registries before decidi
 optional dependency is setup work, not evidence that a registered capability is unsupported. Use
 metadata and `DataCoolieDriver.run(...)` for a supported path. Add custom code only around a
 verified unsupported boundary, record the evidence, and leave the supported remainder native.
+When platform execution context, path, credentials, or dependencies affect the combination, load
+`references/platform-contract.md`; platform is the adapter and does not imply the execution host.
 
 ### 3. Author durable sources
 
@@ -89,6 +93,11 @@ can reprocess the window. For file sources, prefer `__file_modification_time` wh
 are reliable. Add source `date_folder_partitions` only for an observed year/month/day/hour path
 layout; it prunes folders and may be combined with file modification time. Destination
 `date_folder_partitions` is a separate load-time routing concern.
+
+When Polars executes a Delta or Iceberg `source.query`, load
+`references/polars-qualified-sql.md`. Keep the SQL in normal metadata and register the required
+relations on the same active `PolarsEngine` before constructing or running the driver. Registration
+options are runner/bootstrap concerns, not `source.configure` fields.
 
 ### 4. Run fast source checks
 

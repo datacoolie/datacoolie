@@ -599,8 +599,10 @@ class HashColumn(CompatModel):
         self.columns = ensure_list(self.columns)
         _validate_column_list(self.columns, "hash_columns.columns")
         self.algorithm = str(self.algorithm).strip().lower()
-        if self.algorithm != "sha256":
-            raise ConfigurationError("hash_columns.algorithm currently supports only 'sha256'")
+        if self.algorithm not in {"sha256", "xxhash64"}:
+            raise ConfigurationError(
+                "hash_columns.algorithm currently supports only 'sha256' and 'xxhash64'"
+            )
         self.serialization = str(self.serialization).strip().lower()
         if self.serialization != "dc_hash_v1":
             raise ConfigurationError(

@@ -1,0 +1,63 @@
+"""DataCoolie external Fabric/ADLS Polars runner reference.
+
+Install the verified project environment with ``datacoolie[fabric-external]``
+plus the selected Polars source/format profiles before starting the process.
+Paths passed to the platform must be qualified ABFS(S) or HTTPS URIs.
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+
+from datacoolie.core.models import DataCoolieRunConfig
+from datacoolie.engines.polars_engine import PolarsEngine
+from datacoolie.metadata.file_provider import FileProvider
+from datacoolie.orchestration.driver import DataCoolieDriver
+from datacoolie.platforms.fabric_platform import FabricPlatform
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--metadata-path", required=True)
+    parser.add_argument("--watermark-base-path", required=True)
+    parser.add_argument("--base-log-path", required=True)
+    parser.add_argument("--stage")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--max-workers", type=int, default=4)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    # DefaultAzureCredential is created lazily; inject a credential only when
+    # the host application intentionally owns identity selection.
+    platform = FabricPlatform(runtime="external")
+    engine = PolarsEngine(platform=platform)
+    metadata = FileProvider(
+        config_path=args.metadata_path,
+        platform=platform,
+        watermark_base_path=args.watermark_base_path,
+    )
+    config = DataCoolieRunConfig(
+        dry_run=args.dry_run,
+        max_workers=args.max_workers,
+        stop_on_error=True,
+    )
+
+    failed = 0
+    with DataCoolieDriver(
+        engine=engine,
+        metadata_provider=metadata,
+        base_log_path=args.base_log_path,
+        config=config,
+    ) as driver:
+        result = driver.run(stage=args.stage)
+        failed = result.failed
+
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    raise SystemExit(main())
