@@ -3530,7 +3530,7 @@ is defined in <code>pyproject.toml</code>, not in a separate CLI wrapper.</p>
 <p>So the default run is a parallel <strong>non-spark</strong> test run. It does not execute
 the Spark-marked tests unless you override the marker selection explicitly.
 GitHub Actions runs this non-Spark suite as a required job after synchronizing
-the locked <code>polars-delta</code> and <code>polars-hash</code> extras. A restored virtual
+the locked <code>polars-delta</code>, <code>polars-hash</code>, and <code>polars-sql</code> extras. A restored virtual
 environment cache never replaces <code>poetry sync</code>.</p>
 <p>The packaging contract is covered separately so a normal test run does not
 silently miss a renamed or incomplete extra:</p>
