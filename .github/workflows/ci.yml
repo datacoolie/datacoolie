@@ -34,14 +34,14 @@ jobs:
           POETRY_VIRTUALENVS_IN_PROJECT: true
         run: >-
           poetry sync --with dev --with docs
-          -E polars
+          -E polars-delta
           -E polars-hash
-          -E deltalake
-          -E iceberg
-          -E api
-          -E db
-          -E boto3
-          -E excel
+          -E polars-iceberg
+          -E source-api
+          -E metadata-db
+          -E aws
+          -E source-excel-polars
+          -E spark-delta
 
       - name: Install release validation tools
         run: poetry run python -m pip install --upgrade twine
