@@ -36,6 +36,7 @@ jobs:
           poetry sync --with dev --with docs
           -E polars-delta
           -E polars-hash
+          -E polars-sql
           -E polars-iceberg
           -E source-api
           -E metadata-db

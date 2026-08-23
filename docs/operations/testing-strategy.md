@@ -28,7 +28,7 @@ This picks up the current default pytest options from `pyproject.toml`:
 So the default run is a parallel **non-spark** test run. It does not execute
 the Spark-marked tests unless you override the marker selection explicitly.
 GitHub Actions runs this non-Spark suite as a required job after synchronizing
-the locked `polars-delta` and `polars-hash` extras. A restored virtual
+the locked `polars-delta`, `polars-hash`, and `polars-sql` extras. A restored virtual
 environment cache never replaces `poetry sync`.
 
 The packaging contract is covered separately so a normal test run does not
