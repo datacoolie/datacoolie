@@ -76,7 +76,7 @@ def _artifact_map(manifest: dict[str, Any]) -> dict[str, str]:
 def _require_artifact(
     build_dir: Path,
     artifacts: dict[str, str],
-    receipt_artifact: dict[str, str],
+    receipt_artifact: dict[str, Any],
     expected_path: str,
 ) -> None:
     actual_path = receipt_artifact["path"]
@@ -160,21 +160,26 @@ def validate_receipt(
         receipt["runner"],
         receipt["runner"]["path"],
     )
-    _require_artifact(
-        runtime_dir,
-        artifacts,
-        receipt["metadata"],
-        str(environment.get("metadata")),
-    )
+    expected_metadata = environment.get("metadata")
+    actual_metadata = receipt["metadata"]
+    if actual_metadata != expected_metadata:
+        raise ValueError("Receipt metadata set does not match the build manifest")
+    if not isinstance(actual_metadata, dict) or not isinstance(actual_metadata.get("files"), dict):
+        raise ValueError("Receipt metadata set is invalid")
+    for metadata_file in actual_metadata["files"].values():
+        _require_artifact(
+            runtime_dir,
+            artifacts,
+            metadata_file,
+            metadata_file["path"],
+        )
 
-    expected_functions = manifest.get("functions") or []
-    actual_function_paths = [item["path"] for item in receipt["functions"]]
-    if len(actual_function_paths) != len(set(actual_function_paths)):
-        raise ValueError("Receipt contains duplicate functions artifacts")
-    if set(actual_function_paths) != set(expected_functions):
-        raise ValueError("Receipt functions do not match the build manifest")
-    for item in receipt["functions"]:
-        _require_artifact(runtime_dir, artifacts, item, item["path"])
+    expected_function = manifest.get("functions_artifact")
+    actual_function = receipt["functions_artifact"]
+    if actual_function != expected_function:
+        raise ValueError("Receipt functions artifact does not match the build manifest")
+    if actual_function is not None:
+        _require_artifact(runtime_dir, artifacts, actual_function, actual_function["path"])
 
     runner_name = PurePosixPath(receipt["runner"]["path"]).name
     if not runner_name.startswith(f"{receipt['operation']}_"):
@@ -189,12 +194,23 @@ def validate_receipt(
     if finished < started:
         raise ValueError("Receipt finished_at must not precede started_at")
     if receipt["status"] == "succeeded" and not any(
-        check["name"] == "generated-runtime-execution" and check["status"] == "passed"
+        check["name"] == "generated-artifact-validation" and check["status"] == "passed"
         for check in receipt["checks"]
     ):
         raise ValueError(
-            "A successful receipt requires a passed generated-runtime-execution check"
+            "A successful receipt requires a passed generated-artifact-validation check"
         )
+    if receipt["status"] == "succeeded" and actual_function is not None:
+        required_checks = {"functions-artifact-import"}
+        passed_checks = {
+            check["name"] for check in receipt["checks"] if check["status"] == "passed"
+        }
+        missing = sorted(required_checks - passed_checks)
+        if missing:
+            raise ValueError(
+                "A successful function build requires passed artifact checks: "
+                + ", ".join(missing)
+            )
     if require_success and receipt["status"] != "succeeded":
         raise ValueError("A successful build verification receipt is required")
     return receipt

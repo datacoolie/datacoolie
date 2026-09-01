@@ -37,10 +37,12 @@ skill; generated projects must not depend on skill paths.
 | Build-tool dependencies | `scripts/requirements.txt`; add `requirements-excel.txt` only for Excel conversion |
 | Workspace/config | `templates/project-structure.md`, `schemas/workspace-config.schema.json`, `scripts/validate_config.py` |
 | Metadata fields and authoring | `references/schema-quick-reference.md`, `schemas/`, `scripts/validate.py` |
+| Generated metadata layout | `templates/project-structure.md`, `scripts/materialize.py` |
 | Metadata import/merge/lint | `scripts/convert.py`, `scripts/merge.py`, `scripts/lint.py` |
 | Built-in capability inventory | `scripts/inspect_capabilities.py`, `references/capability-catalog.md` |
 | Platform runtime, path, credential, or extra | `references/platform-contract.md`, then the matching runner template |
 | Native versus custom boundary | `references/framework-boundary.md` |
+| Python-function source or artifact | `references/python-functions-contract.md`, `scripts/validate_functions.py` |
 | Common entrypoint and normal run | `references/runner-contract.md`, `templates/runners/README.md`, matching template |
 | Polars Delta/Iceberg `source.query` | `references/polars-qualified-sql.md`, then `references/runner-contract.md` |
 | Replay or maintenance extensions | load `references/runner-contract.md`, then `references/operations-contract.md` and matching templates |
@@ -57,7 +59,10 @@ the routed build resources rather than this prompt.
 
 Keep `config.yaml` limited to project identity and environment-to-platform mapping. Validate it
 against installed platform registrations. Engines, stages, runtime paths, secrets, and gate state
-do not belong there.
+do not belong there. Environment names are project-defined non-empty values, not a fixed
+`dev/test/prod` vocabulary.
+Materialization always produces one complete snapshot of every configured environment. Environment
+selection belongs to run, test-receipt, and release slices, never to Build scope or build identity.
 
 ### 2. Prove capability fit
 
@@ -72,9 +77,22 @@ When platform execution context, path, credentials, or dependencies affect the c
 ### 3. Author durable sources
 
 Use the canonical metadata contract and environment overlays; do not clone full metadata per
-environment. Create only required normal, replay, or maintenance entrypoints. The selected file
+environment. Use ordered selector patches for changes shared by matching canonical entities and
+exact keyed overrides for additions or final exceptions; exact overrides win. Global
+`schema_hints` selectors operate at connection/schema/table/column grain, while schema hints under
+a selected dataflow remain local to that dataflow. Load `templates/project-structure.md` and
+`references/schema-quick-reference.md` when authoring overlays. Create only required normal,
+replay, or maintenance entrypoints. The selected file
 fixes platform, engine, provider, and operation; runtime inputs carry only values allowed by the
 runner and operation contracts. Keep credentials in environment or platform secret services.
+
+Resolve metadata, log, and watermark paths inside the environment's approved persistent control
+namespace and pass them unchanged. Deployed metadata is a build-scoped immutable projection; logs
+and watermarks remain mutable and outside build artifacts. For a cloud platform used by an
+on-premises runner, select the external runtime explicitly and keep the actual execution host
+separate from the platform adapter.
+Assume source query and action text can appear in framework logs. Do not embed secret literals;
+apply the approved log classification, access, and retention policy to generated runtime paths.
 
 Treat a file or lakehouse connection `base_path` as the root; the framework appends each non-empty
 dataflow `schema_name` and `table`, so do not repeat those segments in the connection. Author exact
@@ -106,15 +124,23 @@ helpers directly. These checks give fast feedback but do not prove the generated
 
 ### 5. Materialize and verify
 
-Run `scripts/materialize.py`; it validates its inputs, renders environment slices, packages optional
-functions, writes the manifest and checksums under `.builds/artifacts/{build_id}`, verifies the
+Run `scripts/materialize.py`; select `single` (default), `split-connections`, or `split-all` metadata
+layout explicitly when needed. It validates its inputs, renders typed metadata sets under each
+environment's fixed `metadata/` component, packages zero or one function artifact under the fixed
+`functions/` component, writes the manifest and checksums under `.builds/artifacts/{build_id}`, verifies the
 immutable bytes, and replaces `.builds/current` with a verified runnable projection of that whole
 build. The projection copies runtime files, omits artifact-only manifest/checksums, and records its
 exact source ID in `current/build.json`. Never symlink or mutate immutable artifact contents.
 
-Execute the exact generated runner/notebook, resolved metadata, and functions artifact. Keep logs
-and watermarks under persistent `.runtime/{env}/`. Apply the runner contract for normal runs and
-the operations contract for replay or maintenance, including their mutation confirmations.
+Always validate the immutable build, resolved metadata, exact runner, and optional functions
+artifact. Execute the generated runner on the Build host when that host is compatible and the
+approved check is safe; record the result as useful Build-host evidence, not target qualification.
+Do not block an artifact-qualified receipt solely because the runner requires staging on its target
+execution host. Release always qualifies the exact staged runner slice before activation.
+
+Keep any Build-host logs and watermarks under persistent `.runtime/{env}/` or another approved
+isolated test namespace. Apply the runner contract for normal runs and the operations contract for
+replay or maintenance, including their mutation confirmations.
 
 Execute and validate `.builds/current` directly for the normal latest-build path. Select
 `.builds/artifacts/{build_id}` only for a historical version. Write a typed successful or failed
@@ -141,10 +167,14 @@ skills. Release owns consume-only deployment automation. Do not generate specula
 {workspace}/.builds/evidence/{build_id}/{env}/*.json
 {workspace}/.builds/current/build.json
 {workspace}/.builds/current/{env}/...
-{workspace}/.builds/current/dist/                 # when functions were packaged
+{workspace}/.builds/current/functions/            # when functions were packaged
 ```
 
-Release receives only the exact build ID, local build directory or immutable remote artifact
-identity, manifest/checksums, target slice, and successful matching verification receipt. Build or
-design approval never authorizes deployment. End with verification evidence, skipped checks, and
-unresolved questions.
+Release may receive `current` as a convenience selector, but resolves `current/build.json` once and
+then consumes only the exact build ID, canonical local build directory or immutable remote artifact
+identity, manifest/checksums, target slice, and successful matching artifact-verification receipt.
+Build manifest v3 and Build receipt v4 bind the full metadata set and optional fixed-component
+function artifact. The receipt requires `generated-artifact-validation`; Build-host runtime execution is
+optional and never authorizes target activation. Build current is never a transfer source or
+authorization identity. Build or design approval never authorizes deployment. End with verification
+evidence, skipped checks, and unresolved questions.

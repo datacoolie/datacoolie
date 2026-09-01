@@ -17,6 +17,7 @@ Catalog support:
 from __future__ import annotations
 
 from datetime import datetime
+from threading import RLock
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import polars as pl
@@ -101,6 +102,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         self._storage_options = storage_options or {}
         self._iceberg_catalog = iceberg_catalog
         self._sql_context = sql_context if sql_context is not None else pl.SQLContext()
+        self._sql_context_lock = RLock()
         self._relation_registry = PolarsRelationRegistry()
         self._sql_resolver = PolarsSqlResolver(dialect=sql_dialect)
 
@@ -134,7 +136,8 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         data: Union["pl.LazyFrame", "pl.DataFrame"],
     ) -> None:
         """Register a frame as a named table in the SQLContext."""
-        self._sql_context.register(name, data)
+        with self._sql_context_lock:
+            self._sql_context.register(name, data)
 
     def registered_tables(self) -> List[str]:
         """Return sorted logical names indexed by discovery registration."""
@@ -178,21 +181,22 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             preload: Create and bind every discovered frame immediately.
             on_error: ``"raise"`` or observable best-effort ``"skip"``.
         """
-        return polars_registration.register_delta_tables(
-            platform=self._platform,
-            sql_context=self._sql_context,
-            registry=self._relation_registry,
-            loader_factory=self.read_delta,
-            base_path=base_path,
-            logical_prefix=logical_prefix,
-            recursive=recursive,
-            max_depth=max_depth,
-            include=include,
-            exclude=exclude,
-            max_tables=max_tables,
-            preload=preload,
-            on_error=on_error,
-        )
+        with self._sql_context_lock:
+            return polars_registration.register_delta_tables(
+                platform=self._platform,
+                sql_context=self._sql_context,
+                registry=self._relation_registry,
+                loader_factory=self.read_delta,
+                base_path=base_path,
+                logical_prefix=logical_prefix,
+                recursive=recursive,
+                max_depth=max_depth,
+                include=include,
+                exclude=exclude,
+                max_tables=max_tables,
+                preload=preload,
+                on_error=on_error,
+            )
 
     def register_iceberg_tables(
         self,
@@ -229,24 +233,25 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             preload: Load metadata and bind all discovered frames immediately.
             on_error: ``"raise"`` or observable best-effort ``"skip"``.
         """
-        return polars_registration.register_iceberg_tables(
-            catalog=self._iceberg_catalog,
-            platform=self._platform,
-            storage_options=self._storage_options,
-            sql_context=self._sql_context,
-            registry=self._relation_registry,
-            path_loader_factory=self.read_iceberg,
-            namespace=namespace,
-            base_path=base_path,
-            logical_prefix=logical_prefix,
-            recursive=recursive,
-            max_depth=max_depth,
-            include=include,
-            exclude=exclude,
-            max_tables=max_tables,
-            preload=preload,
-            on_error=on_error,
-        )
+        with self._sql_context_lock:
+            return polars_registration.register_iceberg_tables(
+                catalog=self._iceberg_catalog,
+                platform=self._platform,
+                storage_options=self._storage_options,
+                sql_context=self._sql_context,
+                registry=self._relation_registry,
+                path_loader_factory=self.read_iceberg,
+                namespace=namespace,
+                base_path=base_path,
+                logical_prefix=logical_prefix,
+                recursive=recursive,
+                max_depth=max_depth,
+                include=include,
+                exclude=exclude,
+                max_tables=max_tables,
+                preload=preload,
+                on_error=on_error,
+            )
 
     # ==================================================================
     # Read
@@ -372,16 +377,20 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         Register tables first via :meth:`register_table`,
         :meth:`register_delta_tables`, or :meth:`register_iceberg_tables`.
         """
-        prepared_sql = (
-            self._sql_resolver.prepare(
-                sql,
-                registry=self._relation_registry,
-                sql_context=self._sql_context,
+        # SQLContext plan construction and relation registration are not safe
+        # to overlap across threads.  The returned LazyFrame is independent,
+        # so collection and destination writes remain parallel after this block.
+        with self._sql_context_lock:
+            prepared_sql = (
+                self._sql_resolver.prepare(
+                    sql,
+                    registry=self._relation_registry,
+                    sql_context=self._sql_context,
+                )
+                if self._relation_registry
+                else sql
             )
-            if self._relation_registry
-            else sql
-        )
-        return self._sql_context.execute(prepared_sql)
+            return self._sql_context.execute(prepared_sql)
 
     def read_table(
         self,

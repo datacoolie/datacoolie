@@ -82,8 +82,8 @@ Detailed manual/forward cases live in the matching `TESTING_datacoolie-*.md` fil
 - No maintained workflow references removed skills, phase journals, or cross-skill script paths.
 - Metadata has one canonical modular authoring layout.
 - Equal build inputs are reusable; changed inputs create another immutable ID.
-- Generated runners preserve platform/engine identity, persistent runtime paths, and ordered stage
-  groups.
+- Generated runners preserve platform/engine identity, persistent runtime paths, and unchanged
+  stage passthrough.
 - Release verifies and consumes the exact build without rebuilding it.
 - No project lifecycle CLI is added to the DataCoolie package.
 

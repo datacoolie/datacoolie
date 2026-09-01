@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import importlib.util
 import sys
 import types
@@ -159,7 +158,21 @@ def test_stage_cli_is_one_unmodified_framework_argument() -> None:
 
 def test_runner_passes_paths_directly_to_framework() -> None:
     content = LOCAL_RUNNER_PATH.read_text(encoding="utf-8")
+    assert 'parser.add_argument("--connections-path")' in content
+    assert 'parser.add_argument("--schema-hints-path")' in content
+    assert "connections_path=args.connections_path" in content
+    assert "schema_hints_path=args.schema_hints_path" in content
     assert "watermark_base_path=args.watermark_base_path" in content
     assert "base_log_path=args.base_log_path" in content
     assert 'parser.add_argument("--watermark-base-path", required=True)' in content
     assert 'parser.add_argument("--base-log-path", required=True)' in content
+
+
+def test_all_file_provider_templates_support_declared_metadata_roles() -> None:
+    templates = AI_DIR / "skills" / "datacoolie-build" / "templates" / "runners"
+    for path in templates.glob("*.example"):
+        content = path.read_text(encoding="utf-8")
+        if "FileProvider(" not in content:
+            continue
+        assert "connections_path" in content or "CONNECTIONS_PATH" in content, path.name
+        assert "schema_hints_path" in content or "SCHEMA_HINTS_PATH" in content, path.name

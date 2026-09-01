@@ -67,3 +67,31 @@ def test_lint_cli_exit_codes_distinguish_clean_warning_and_input_error(tmp_path:
     assert warning_run.returncode == 1
     assert missing_run.returncode == 2
     assert "File not found" in missing_run.stderr
+
+
+def test_lint_cli_accepts_project_defined_environment_names(tmp_path: Path) -> None:
+    clean = tmp_path / "clean.json"
+    clean.write_text(json.dumps(_metadata()), encoding="utf-8")
+
+    for environment in ("qa", "uat", "team_blue"):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(LINT_SCRIPT),
+                str(clean),
+                "--env",
+                environment,
+                "--quiet",
+            ],
+            check=False,
+        )
+        assert result.returncode == 0, environment
+
+    blank = subprocess.run(
+        [sys.executable, str(LINT_SCRIPT), str(clean), "--env", "   ", "--quiet"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert blank.returncode == 2
+    assert "environment must be a non-empty value" in blank.stderr

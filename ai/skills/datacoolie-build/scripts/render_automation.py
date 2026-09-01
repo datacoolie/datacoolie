@@ -21,7 +21,10 @@ SCRIPT_NAMES = (
     "validate.py",
     "validate_build.py",
     "validate_config.py",
+    "validate_functions.py",
 )
+
+METADATA_LAYOUTS = ("single", "split-connections", "split-all")
 
 WRAPPER = '''#!/usr/bin/env python3
 """Project-owned entrypoint for immutable DataCoolie build materialization."""
@@ -34,6 +37,8 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent / "datacoolie_build" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
+if "--metadata-layout" not in sys.argv:
+    sys.argv.extend(["--metadata-layout", "{metadata_layout}"])
 runpy.run_path(str(SCRIPTS / "materialize.py"), run_name="__main__")
 '''
 
@@ -46,8 +51,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def render(workspace: Path, *, force: bool = False) -> Path:
+def render(
+    workspace: Path,
+    *,
+    force: bool = False,
+    metadata_layout: str = "single",
+) -> Path:
     workspace = workspace.resolve()
+    if metadata_layout not in METADATA_LAYOUTS:
+        raise ValueError(f"Unsupported metadata layout: {metadata_layout}")
     if not (workspace / "config.yaml").is_file():
         raise ValueError(f"Workspace config not found: {workspace / 'config.yaml'}")
 
@@ -78,11 +90,12 @@ def render(workspace: Path, *, force: bool = False) -> Path:
         shutil.copy2(source, destination)
         copied.append(destination)
     wrapper = automation / "build.py"
-    wrapper.write_text(WRAPPER, encoding="utf-8")
+    wrapper.write_text(WRAPPER.format(metadata_layout=metadata_layout), encoding="utf-8")
     copied.append(wrapper)
     manifest = {
         "schema_version": 1,
         "source": "datacoolie-build",
+        "metadata_layout": metadata_layout,
         "files": [
             {
                 "path": path.relative_to(automation).as_posix(),
@@ -102,9 +115,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--metadata-layout", choices=METADATA_LAYOUTS, default="single")
     args = parser.parse_args()
     try:
-        output = render(args.workspace, force=args.force)
+        output = render(
+            args.workspace,
+            force=args.force,
+            metadata_layout=args.metadata_layout,
+        )
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

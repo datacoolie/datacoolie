@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 7,
   "artifact_type": "release_receipt",
   "release_id": "release-example",
   "action": "deploy",
-  "status": "succeeded",
+  "status": "active",
   "build_id": "260810-120000-000000000000",
   "environment": "example",
   "platform": "example",
@@ -20,10 +20,17 @@
     "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
   },
   "metadata": {
-    "path": ".builds/artifacts/260810-120000-000000000000/example/metadata.json",
-    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    "layout": "single",
+    "files": {
+      "config_path": {
+        "path": ".builds/artifacts/260810-120000-000000000000/example/metadata/metadata.json",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    "sha256": "c85e566a669b98e241f1aa9b67ab8cc4290514ea95be20c4310c48adbbe9a8f0"
   },
-  "functions": [],
+  "functions_artifact": null,
+  "functions_attachment": null,
   "provision_receipt": null,
   "provision_requirements": null,
   "source_release": null,
@@ -34,23 +41,54 @@
     "action": "deploy",
     "environment": "example",
     "build_id": "260810-120000-000000000000",
-    "deployment_intent_sha256": "009eb43d5eb192b722f90cc13d30f6dc896300f2f9e820fdb2fb2d70003f9e59"
+    "deployment_intent_sha256": "2a2f591885bd00559ffb7ba8a53d9950e3cdd01f5a8ec1e4baf42645259b4406"
   },
   "target": {
     "identity": "target-environment/example",
     "activation_mechanism": "target-native-association",
+    "runner_deployment_kind": "external-python",
+    "runner_runtime_kind": "python",
     "protection": "standard",
-    "release_reference": "target/releases/260810-120000-000000000000/example",
-    "activation_reference": "target/deployment/example",
+    "candidate_reference": "target/candidates/example/run_example/release-example",
+    "current_reference": "target/active/example/run_example/current",
     "status": "active"
+  },
+  "deployment_marker": {
+    "sha256": "e0dadb281d54bf2d414ef1cd93c60d571a755759b24920cbb04ea88e85d9384c",
+    "observed_sha256": "e0dadb281d54bf2d414ef1cd93c60d571a755759b24920cbb04ea88e85d9384c",
+    "observed_build_id": "260810-120000-000000000000",
+    "observed_release_id": "release-example"
+  },
+  "runtime_paths": {
+    "base_log_path": "target/control/example/logs",
+    "watermark_base_path": "target/control/example/watermarks"
+  },
+  "qualification_scope": {
+    "base_log_path": "target/control/example/qualification/release-example/logs",
+    "watermark_base_path": "target/control/example/qualification/release-example/watermarks",
+    "destination_effect": "isolated"
+  },
+  "runtime_state": {
+    "action": "initialize",
+    "reference": "target observation: no active watermark state"
   },
   "transfers": [
     {
       "source": {
-        "path": ".builds/artifacts/260810-120000-000000000000/example/metadata.json",
+        "path": ".builds/artifacts/260810-120000-000000000000/example/runners/run_example.py",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "target_reference": "target/candidates/example/run_example/release-example/run_example.py",
+      "observed_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "status": "succeeded",
+      "evidence": "target-side digest"
+    },
+    {
+      "source": {
+        "path": ".builds/artifacts/260810-120000-000000000000/example/metadata/metadata.json",
         "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
       },
-      "target_reference": "target/releases/260810-120000-000000000000/example/metadata.json",
+      "target_reference": "target/candidates/example/run_example/release-example/metadata/metadata.json",
       "observed_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
       "status": "succeeded",
       "evidence": "target-side digest"
@@ -61,6 +99,47 @@
       "name": "build-preflight",
       "status": "passed",
       "evidence": "release consumer validator"
+    },
+    {
+      "name": "resource-readiness",
+      "status": "passed",
+      "evidence": "required resources are present and accessible"
+    },
+    {
+      "name": "environment-isolation",
+      "status": "passed",
+      "evidence": "target paths are isolated for environment example"
+    },
+    {
+      "name": "runtime-state-preflight",
+      "status": "passed",
+      "evidence": "no active watermark state"
+    },
+    {
+      "name": "shared-component-compatibility",
+      "status": "passed",
+      "evidence": "target metadata and functions components are unbound or match this build"
+    },
+    {
+      "name": "candidate-artifact-integrity",
+      "status": "passed",
+      "evidence": "candidate contents match the exact release slice"
+    },
+    {
+      "name": "deployment-marker-integrity",
+      "status": "passed",
+      "evidence": "candidate and target current report the exact deployment marker"
+    },
+    {
+      "name": "candidate-runtime-qualification",
+      "status": "passed",
+      "evidence": "exact runner and metadata completed in the isolated target scope",
+      "method": "isolated-smoke"
+    },
+    {
+      "name": "activation-preflight",
+      "status": "passed",
+      "evidence": "candidate, authorization, resources, runtime state, and expected active reference rechecked"
     },
     {
       "name": "target-observation",

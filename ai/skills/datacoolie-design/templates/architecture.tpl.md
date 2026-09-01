@@ -74,19 +74,48 @@ imply a platform, engine, or storage format.
 Prefer a native DataCoolie route when credible. A suspected gap identifies only the unsupported
 boundary; build must prove it before introducing narrow custom code.
 
+## Python Function Packaging Intent
+
+- Required: {{ yes_or_no }}
+- Format: {{ wheel_zip_or_none }}
+- Distribution: {{ project_distribution_or_not_applicable }}
+- Import prefix: {{ project_specific_prefix_or_not_applicable }}
+- Dependency strategy: {{ pinned_wheel_requirements_or_approved_runtime_only }}
+- Compatible execution targets and attachment mechanisms: {{ targets_or_not_applicable }}
+- Rationale and unsupported boundary: {{ rationale_or_not_applicable }}
+- Build proof: package inspection, isolated import, signature validation, and representative
+  function-backed runtime execution when required.
+
+Select one format for the build, never both. Prefer `wheel`; select `zip` only for a compatible
+pure-Python execution host. Packaging and attachment remain Build and Release responsibilities.
+
 ## Runtime Selection Intent
 
 - Execution hosts and platform runtime modes: {{ execution_hosts_and_platform_runtime_modes }}
+- Runner deployment kinds and native target identities: {{ runner_deployment_kinds_and_targets }}
 - Compatible platform/engine combinations: {{ compatible_platform_engine_combinations }}
 - Runtime selection rule: invoke the exact runner or notebook for the selected platform and engine.
 - Stage execution rule: pass one stage value to the selected runner; do not encode stage-to-engine mappings
   in project config or architecture.
 - Required runtime paths and provider inputs: {{ metadata_logs_watermarks_and_provider_inputs }}
 
+## DataCoolie Control Storage
+
+- Control resource and environment namespace: {{ control_resource_and_environment_namespace }}
+- Fixed metadata component and selected one-, two-, or three-file projection: {{ deployed_metadata_projection }}
+- Optional fixed functions component and attachment boundary: {{ deployed_functions_projection_or_none }}
+- Mutable log location, classification, access, and retention: {{ log_location_and_policy }}
+- Mutable watermark location, backup, recovery, and outage behavior: {{ watermark_location_and_recovery }}
+- Watermark writer ownership: one active writer per environment, watermark path, and dataflow unless
+  {{ verified_coordination_mechanism_or_none }}
+
+Keep this control boundary separate from ungoverned business-data roots. A shared physical resource
+is acceptable only when environment paths and access controls remain distinct.
+
 ## Environment And Resource Requirements
 
-| Environment | Execution host | Platform intent | Runtime mode | Required resources | Secret mechanism | Policy constraints |
-|---|---|---|---|---|---|---|
+| Environment | Execution host | Platform intent | Runtime mode | Control resource/path | Required resources | Secret mechanism | Policy constraints |
+|---|---|---|---|---|---|---|---|
 | {{ environment_rows }} |
 
 These are requirements only. Provisioning owns resource creation.
@@ -97,10 +126,17 @@ These are requirements only. Provisioning owns resource creation.
 - Observability and alerting: {{ observability_contract }}
 - Replay and maintenance: {{ operational_contract }}
 - Retention and data handling: {{ retention_security_and_privacy }}
+- Write-after-target recovery and idempotent rerun: {{ target_write_before_watermark_recovery }}
 
 ## Release And Approval Policy
 
 - Release targets and promotion expectations: {{ release_policy }}
+- Stable target current identity per runner activation boundary: {{ target_current_identity }}
+- Candidate activation and target observation mechanism: {{ candidate_activation_and_observation }}
+- In-flight execution or scheduler quiescence behavior: {{ in_flight_execution_policy }}
+- Non-atomic exposure, failure boundary, and recovery: {{ non_atomic_policy_or_not_applicable }}
+- Dependent-runner activation order and partial-state recovery: {{ runner_order_and_recovery }}
+- Canonical artifact retention required for rollback: {{ artifact_retention_policy }}
 - Protected-target authorization: {{ authorization_policy }}
 - Material-decision reason: {{ material_decision_reason }}
 

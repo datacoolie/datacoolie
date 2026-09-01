@@ -28,13 +28,17 @@ maintenance semantics.
 
 A file-provider entrypoint accepts:
 
-- `metadata_path`.
+- Required primary `metadata_path`/`config_path`.
+- Optional `connections_path`.
+- Optional `schema_hints_path`.
 - Persistent `watermark_base_path`.
 - Persistent `base_log_path`.
 - One optional stage value when the operation supports stage selection.
 - Only additional options owned by its selected operation and installed runtime.
 
-Pass metadata, log, and watermark paths unchanged to the selected framework constructors. The
+Pass exactly the paths declared by the build metadata set to `FileProvider`; omitted optional roles
+remain `None`. Do not scan a directory, infer a layout, merge JSON in the runner, or use placeholder
+paths. Pass metadata, log, and watermark paths unchanged to the selected framework constructors. The
 framework and platform own path interpretation and validation. Workspace layout guidance and build
 receipt validation remain separate concerns. Another metadata provider may use a provider-specific
 entrypoint and omit irrelevant file-provider parameters.
@@ -58,10 +62,19 @@ use the documented `*_JSON` convention. Decode those before constructing DataCoo
 The file fixes platform, engine, provider, and operation; do not expose them again as runtime
 selectors.
 
-The platform environment or job must install DataCoolie and attach any functions artifact before
+The platform environment or job must install DataCoolie and attach the selected function artifact before
 the runner starts. Executable runners may report the installed version but must not install or
 restart their own runtime. Provision owns platform readiness; release owns artifact attachment and
 deployment configuration.
+
+Function-capable generated entrypoints set one build-authored allowlist:
+
+```python
+DataCoolieRunConfig(allowed_function_prefixes=["project_specific_package"])
+```
+
+Use `[]` when resolved metadata has no Python-function source. Never accept the prefix as a runtime
+parameter, and never install, download, extract, mutate `sys.path`, or restart from the runner.
 
 ## Construction boundary
 
@@ -112,13 +125,16 @@ editing the durable source and materializing a new build ID.
 
 ## Common verification
 
-- Filename platform matches the selected environment binding.
+- Filename platform matches its configured environment binding.
 - Engine, provider, and operation are fixed by entrypoint identity.
 - No runtime `--env`, platform, engine, provider, or operation selector exists.
 - Notebook/job parameters are read through the named execution-host transport and stage is passed
   unchanged to one framework operation.
 - The runner does not install packages or restart its runtime.
+- `allowed_function_prefixes` is the fixed manifest import prefix, or an empty list when no
+  function artifact exists.
 - Metadata/provider parameters are explicit and relevant.
+- FileProvider receives the primary path plus only the optional metadata roles declared by Build.
 - Metadata, log, watermark, and stage values reach framework APIs without runner-side validation.
 - Supported paths construct DataCoolie components and call the selected driver API.
 - The exact generated entrypoint and metadata are executed; hashes match the build manifest.

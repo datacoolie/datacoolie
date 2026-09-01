@@ -1,7 +1,7 @@
 """Lint DataCoolie metadata for best-practice warnings beyond schema validation.
 
 Usage:
-    python lint.py <metadata_file> [--engine polars|spark] [--env dev|test|prod]
+    python lint.py <metadata_file> [--engine polars|spark] [--env <environment>]
 
 Exit codes:
     0 = no warnings
@@ -235,13 +235,26 @@ def run_lint(metadata: dict, engine: str, env: str) -> list[LintWarning]:
     return [w for rule in LINT_RULES for w in rule(ctx)]
 
 
+def non_empty_environment(value: str) -> str:
+    """Return one project-defined environment name or reject blank CLI input."""
+    environment = value.strip()
+    if not environment:
+        raise argparse.ArgumentTypeError("environment must be a non-empty value")
+    return environment
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Lint DataCoolie metadata for best-practice warnings."
     )
     parser.add_argument("metadata_file", type=Path, help="Path to metadata JSON or YAML file.")
     parser.add_argument("--engine", choices=["polars", "spark"], default="polars", help="Target engine.")
-    parser.add_argument("--env", choices=["dev", "test", "prod"], default="dev", help="Target environment.")
+    parser.add_argument(
+        "--env",
+        type=non_empty_environment,
+        default="dev",
+        help="Project-defined target environment (default: dev).",
+    )
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output; exit code only (for CI).")
     args = parser.parse_args()
 

@@ -146,6 +146,7 @@ def test_build_owns_all_deterministic_workspace_tooling() -> None:
         "scripts/merge.py",
         "scripts/validate.py",
         "scripts/materialize.py",
+        "scripts/validate_functions.py",
         "scripts/render_automation.py",
         "schemas/workspace-config.schema.json",
         "schemas/current-build.schema.json",
@@ -154,6 +155,7 @@ def test_build_owns_all_deterministic_workspace_tooling() -> None:
         "references/capability-catalog.md",
         "references/platform-contract.md",
         "references/framework-boundary.md",
+        "references/python-functions-contract.md",
         "references/runner-contract.md",
         "references/polars-qualified-sql.md",
     ]
@@ -183,11 +185,17 @@ def test_workspace_contract_is_canonical_and_minimal() -> None:
     assert "{YYMMDD-HHMMSS}-{12-char-content-digest}" in template
     assert ".builds/current/build.json" in template
     assert "execute and validate `.builds/current` directly" in template
-    assert "does not retain stale environments" in " ".join(template.split())
+    normalized = " ".join(template.split())
+    assert "validates and emits all configured environments" in normalized
+    assert "not a Build parameter" in normalized
     assert ".builds/evidence/{build_id}/{env}/{receipt_id}.json" in template
     assert ".evidence/" not in template
     assert ".runtime/" in template
     assert "environment-to-platform mapping" in template
+    assert "canonical < patches in array order < exact keyed overrides" in template
+    assert "unchanged canonical snapshot" in template
+    assert "connection/schema/table/column grain" in template
+    assert "select `type: dataflows`" in normalized
     assert "project_management" not in template
     assert "generated/" not in template
     assert "initialization phase" in template
@@ -236,6 +244,9 @@ def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None
     assert "Use `transform.schema_hints` only when a few columns or a few dataflows" in schema_text
     assert "the two sources are not merged at runtime" in schema_text
     assert "author the complete effective hint set for that dataflow" in schema_text
+    assert "connection + schema + table + column" in schema_text
+    assert "Global selectors never find local hints" in schema
+    assert "dataflow-local hint patches never modify the global" in schema_text
 
 
 def test_build_reuses_framework_audit_columns_and_native_file_date_routing() -> None:
@@ -300,6 +311,7 @@ def test_build_references_have_narrow_non_overlapping_boundaries() -> None:
         "runner-contract.md",
         "polars-qualified-sql.md",
         "operations-contract.md",
+        "python-functions-contract.md",
     ):
         assert "## Scope" in references[name], name
 
@@ -437,13 +449,77 @@ def test_provision_resources_have_narrow_machine_checked_boundaries() -> None:
     assert (provision_dir / "scripts/validate_provision.py").is_file()
 
 
+def test_provision_and_release_route_fabric_tools_by_control_plane_safely() -> None:
+    agents = " ".join(_read("AGENTS.md").split())
+    provision = _read("skills/datacoolie-provision/references/platform-tooling.md")
+    release = _read("skills/datacoolie-release/references/platform-tooling.md")
+    for contract in (provision, release):
+        for cli_name in ("AWS CLI", "Azure CLI", "Databricks CLI", "Microsoft Fabric CLI"):
+            assert cli_name in contract
+        assert "Azure/ARM" in contract
+        assert "Fabric-native" in contract
+        assert "`fab api`" in contract
+        assert "`az rest`" in contract
+        assert "skills-for-fabric" in contract
+        assert "not a runtime dependency" in contract
+        assert "Resolve only the executable and extension required" in contract
+        assert "do not hardcode a minimum version" in contract
+        assert "Do not assume `az` and `fab` share authentication state" in contract
+        assert "current user" in contract
+        assert "administrator" in contract
+        assert "never install" in contract.lower()
+    assert "existing IaC source" in provision
+    assert "az fabric capacity" in provision
+    assert "already-approved project deployment mechanism" in release
+    assert "route any required resource mutation to Provision" in release
+    assert "route Fabric by control plane" in agents
+    assert "Azure/ARM uses Azure CLI" in agents
+    assert "Fabric-native work uses Fabric CLI" in agents
+
+    provision_evals = json.loads(
+        _read("skills/datacoolie-provision/evals/evals.json")
+    )["evals"]
+    release_evals = json.loads(
+        _read("skills/datacoolie-release/evals/evals.json")
+    )["evals"]
+    provision_behavior = " ".join(
+        eval_case["prompt"]
+        + " "
+        + eval_case["expected_output"]
+        + " "
+        + " ".join(eval_case["expectations"])
+        for eval_case in provision_evals
+    )
+    release_behavior = " ".join(
+        eval_case["prompt"]
+        + " "
+        + eval_case["expected_output"]
+        + " "
+        + " ".join(eval_case["expectations"])
+        for eval_case in release_evals
+    )
+    for behavior in (provision_behavior, release_behavior):
+        assert "Fabric-native" in behavior
+        assert "fab api" in behavior
+        assert "az rest" in behavior
+    assert "Fabric Capacity routes to Azure CLI" in provision_behavior
+    assert "high-level Fabric CLI commands" in release_behavior
+    assert "verified remaining gap permits az rest" in release_behavior
+
+
 def test_release_resources_are_consume_only_and_machine_checked() -> None:
     release_dir = SKILLS_DIR / "datacoolie-release"
     references = {
         path.name: path.read_text(encoding="utf-8")
         for path in (release_dir / "references").glob("*.md")
     }
-    for name in ("deployment-contract.md", "automation-contract.md", "platform-tooling.md"):
+    for name in (
+        "deployment-contract.md",
+        "automation-contract.md",
+        "platform-tooling.md",
+        "python-functions-deployment.md",
+        "runner-deployment-mapping.md",
+    ):
         assert "## Scope" in references[name]
     assert "never materializes" in references["automation-contract.md"]
     assert "installed skill directories" in " ".join(references["automation-contract.md"].split())
@@ -456,15 +532,52 @@ def test_release_resources_are_consume_only_and_machine_checked() -> None:
 
 
 def test_receipt_templates_are_machine_readable() -> None:
-    for relative in (
-        "skills/datacoolie-build/templates/build-verification-receipt.json.example",
-        "skills/datacoolie-release/templates/release-receipt.json.example",
-        "skills/datacoolie-provision/templates/provision-receipt.json.example",
-    ):
+    expected_versions = {
+        "skills/datacoolie-build/templates/build-verification-receipt.json.example": 4,
+        "skills/datacoolie-release/templates/release-receipt.json.example": 7,
+        "skills/datacoolie-provision/templates/provision-receipt.json.example": 1,
+    }
+    for relative, version in expected_versions.items():
         data = json.loads(_read(relative))
-        assert data["schema_version"] == 1
+        assert data["schema_version"] == version
         assert "status" in data
         assert "unresolved_issues" in data
+
+
+def test_control_storage_and_runtime_state_have_one_owner_per_outcome() -> None:
+    agents = " ".join(_read("AGENTS.md").split())
+    design = " ".join(_read("skills/datacoolie-design/SKILL.md").split())
+    provision = " ".join(_read("skills/datacoolie-provision/SKILL.md").split())
+    build = " ".join(_read("skills/datacoolie-build/SKILL.md").split())
+    operations = " ".join(
+        _read("skills/datacoolie-build/references/operations-contract.md").split()
+    )
+    release = " ".join(_read("skills/datacoolie-release/SKILL.md").split())
+
+    assert "environment-isolated control-storage" in agents
+    assert "Define one environment-isolated DataCoolie control-storage boundary" in design
+    assert "without forcing a no-op apply" in provision
+    assert "approved persistent control namespace" in build
+    assert "{environment, watermark_base_path, dataflow_id}" in operations
+    assert "resource-readiness" in release
+    assert "runtime-state-preflight" in release
+    assert "Earlier receipt schemas remain audit evidence only" in release
+
+
+def test_catalog_namespace_and_hybrid_runtime_contracts_are_explicit() -> None:
+    schema = " ".join(
+        _read("skills/datacoolie-build/references/schema-quick-reference.md").split()
+    )
+    platform = " ".join(
+        _read("skills/datacoolie-build/references/platform-contract.md").split()
+    )
+
+    assert "<catalog>.<database-or-schema>.<table>" in schema
+    assert "<workspace>.<lakehouse>.<schema>.<table>" in schema
+    assert "Neither `catalog` nor `database` is automatically appended to `base_path`" in schema
+    assert "A relational database table read retains" in schema
+    assert "external cloud adapter runs on premises" in platform
+    assert "scheduler, container, VM, or host remains the release target" in platform
 
 
 def test_ai_schema_ids_use_one_canonical_namespace() -> None:

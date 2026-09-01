@@ -12,7 +12,21 @@ from typing import Any
 
 
 SECTION_KEYS = ("connections", "dataflows", "schema_hints")
-ALLOWED_OVERLAY_KEYS = {"$schema", *SECTION_KEYS}
+PATCH_TYPES = frozenset(SECTION_KEYS)
+ALLOWED_OVERLAY_KEYS = {"$schema", "patches", *SECTION_KEYS}
+IDENTITY_FIELDS = {
+    "connections": frozenset({"name"}),
+    "dataflows": frozenset({"name"}),
+    "schema_hints": frozenset(
+        {
+            "connection_name",
+            "connection_id",
+            "schema_name",
+            "table_name",
+            "column_name",
+        }
+    ),
+}
 
 
 def _load_json(path: Path) -> Any:
@@ -44,6 +58,82 @@ def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = deepcopy(value)
+    return result
+
+
+def _validate_selector(value: Any, label: str) -> None:
+    if isinstance(value, list):
+        raise ValueError(f"{label} must not contain arrays")
+    if isinstance(value, dict):
+        if not value:
+            raise ValueError(f"{label} must not contain empty objects")
+        for key, nested in value.items():
+            if not isinstance(key, str) or not key:
+                raise ValueError(f"{label} keys must be non-empty strings")
+            _validate_selector(nested, f"{label}.{key}")
+
+
+def _matches_selector(candidate: Any, selector: Any) -> bool:
+    if isinstance(selector, dict):
+        return isinstance(candidate, dict) and all(
+            key in candidate and _matches_selector(candidate[key], value)
+            for key, value in selector.items()
+        )
+    return candidate == selector
+
+
+def _validated_patches(overlay: dict[str, Any], path: Path) -> list[dict[str, Any]]:
+    patches = overlay.get("patches", [])
+    if not isinstance(patches, list):
+        raise ValueError(f"{path} patches must be an array")
+    result: list[dict[str, Any]] = []
+    for index, item in enumerate(patches):
+        label = f"{path} patches[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{label} must be an object")
+        unknown = sorted(set(item) - {"match", "patch"})
+        missing = sorted({"match", "patch"} - set(item))
+        if unknown or missing:
+            detail = []
+            if missing:
+                detail.append(f"missing {', '.join(missing)}")
+            if unknown:
+                detail.append(f"unsupported {', '.join(unknown)}")
+            raise ValueError(f"{label} has invalid keys: {'; '.join(detail)}")
+
+        match = item["match"]
+        patch = item["patch"]
+        if not isinstance(match, dict):
+            raise ValueError(f"{label}.match must be an object")
+        match_unknown = sorted(set(match) - {"type", "where"})
+        match_missing = sorted({"type", "where"} - set(match))
+        if match_unknown or match_missing:
+            detail = []
+            if match_missing:
+                detail.append(f"missing {', '.join(match_missing)}")
+            if match_unknown:
+                detail.append(f"unsupported {', '.join(match_unknown)}")
+            raise ValueError(f"{label}.match has invalid keys: {'; '.join(detail)}")
+
+        patch_type = match["type"]
+        if not isinstance(patch_type, str) or patch_type not in PATCH_TYPES:
+            supported = ", ".join(sorted(PATCH_TYPES))
+            raise ValueError(
+                f"{label}.match.type must be one of {supported}; got {patch_type!r}"
+            )
+        where = match["where"]
+        if not isinstance(where, dict) or not where:
+            raise ValueError(f"{label}.match.where must be a non-empty object")
+        _validate_selector(where, f"{label}.match.where")
+        if not isinstance(patch, dict) or not patch:
+            raise ValueError(f"{label}.patch must be a non-empty object")
+        forbidden = sorted(set(patch) & IDENTITY_FIELDS[patch_type])
+        if forbidden:
+            raise ValueError(
+                f"{label}.patch must not contain immutable identity fields: "
+                f"{', '.join(forbidden)}"
+            )
+        result.append(item)
     return result
 
 
@@ -128,6 +218,48 @@ def _merge_hint_group(
     return merged
 
 
+def _merge_hint_items(
+    base_items: list[dict[str, Any]],
+    overlay_items: list[dict[str, Any]],
+    label: str,
+) -> list[dict[str, Any]]:
+    base_columns = _hint_columns(base_items, f"base {label}")
+    overlay_columns = _hint_columns(overlay_items, f"overlay {label}")
+    merged = {
+        name: _deep_merge(item, overlay_columns[name])
+        if name in overlay_columns
+        else item
+        for name, item in base_columns.items()
+    }
+    for name, item in overlay_columns.items():
+        if name not in merged:
+            merged[name] = item
+    return list(merged.values())
+
+
+def _merge_dataflow_patch(
+    base: dict[str, Any], patch: dict[str, Any], label: str
+) -> dict[str, Any]:
+    merged = _deep_merge(base, patch)
+    patch_transform = patch.get("transform")
+    if not isinstance(patch_transform, dict) or "schema_hints" not in patch_transform:
+        return merged
+
+    base_transform = base.get("transform", {})
+    if not isinstance(base_transform, dict):
+        raise ValueError(f"{label} canonical transform must be an object")
+    base_hints = base_transform.get("schema_hints", [])
+    patch_hints = patch_transform["schema_hints"]
+    if not isinstance(base_hints, list) or not isinstance(patch_hints, list):
+        raise ValueError(f"{label}.patch.transform.schema_hints must be an array")
+    merged["transform"]["schema_hints"] = _merge_hint_items(
+        base_hints,
+        patch_hints,
+        f"{label}.transform.schema_hints",
+    )
+    return merged
+
+
 def _merge_schema_hints(
     base_items: list[dict[str, Any]], overlay_items: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -151,6 +283,85 @@ def _merge_schema_hints(
         if key not in merged:
             merged[key] = item
     return list(merged.values())
+
+
+def _global_hint_records(
+    groups: list[dict[str, Any]],
+) -> list[tuple[int, int, dict[str, Any]]]:
+    records: list[tuple[int, int, dict[str, Any]]] = []
+    for group_index, group in enumerate(groups):
+        _hint_group_key(group, f"schema_hints[{group_index}]")
+        hints = group.get("hints")
+        _hint_columns(hints, f"schema_hints[{group_index}]")
+        group_fields = {
+            key: deepcopy(value) for key, value in group.items() if key != "hints"
+        }
+        group_fields["schema_name"] = (
+            None if group.get("schema_name") in (None, "") else str(group["schema_name"])
+        )
+        for hint_index, hint in enumerate(hints):
+            record = deepcopy(hint)
+            record.update(group_fields)
+            records.append((group_index, hint_index, record))
+    return records
+
+
+def _apply_selector_patches(
+    connections: list[dict[str, Any]],
+    dataflows: list[dict[str, Any]],
+    schema_hints: list[dict[str, Any]],
+    patches: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    canonical_connections = deepcopy(connections)
+    canonical_dataflows = deepcopy(dataflows)
+    canonical_hints = deepcopy(schema_hints)
+    resolved_connections = deepcopy(connections)
+    resolved_dataflows = deepcopy(dataflows)
+    resolved_hints = deepcopy(schema_hints)
+    canonical_hint_records = _global_hint_records(canonical_hints)
+
+    for index, item in enumerate(patches):
+        patch_type = item["match"]["type"]
+        where = item["match"]["where"]
+        patch = item["patch"]
+        label = f"patches[{index}] ({patch_type})"
+
+        if patch_type == "connections":
+            matches = [
+                item_index
+                for item_index, candidate in enumerate(canonical_connections)
+                if _matches_selector(candidate, where)
+            ]
+            for item_index in matches:
+                resolved_connections[item_index] = _deep_merge(
+                    resolved_connections[item_index], patch
+                )
+        elif patch_type == "dataflows":
+            matches = [
+                item_index
+                for item_index, candidate in enumerate(canonical_dataflows)
+                if _matches_selector(candidate, where)
+            ]
+            for item_index in matches:
+                resolved_dataflows[item_index] = _merge_dataflow_patch(
+                    resolved_dataflows[item_index], patch, label
+                )
+        else:
+            hint_matches = [
+                (group_index, hint_index)
+                for group_index, hint_index, candidate in canonical_hint_records
+                if _matches_selector(candidate, where)
+            ]
+            matches = hint_matches
+            for group_index, hint_index in hint_matches:
+                resolved_hints[group_index]["hints"][hint_index] = _deep_merge(
+                    resolved_hints[group_index]["hints"][hint_index], patch
+                )
+
+        if not matches:
+            raise ValueError(f"{label} matched zero canonical entities")
+
+    return resolved_connections, resolved_dataflows, resolved_hints
 
 
 def _load_dataflows(metadata_dir: Path) -> list[dict[str, Any]]:
@@ -211,6 +422,14 @@ def merge_metadata(metadata_dir: Path, environment: str) -> dict[str, Any]:
         if unknown:
             raise ValueError(f"Unsupported overlay keys in {overlay_path}: {', '.join(unknown)}")
         overlay = loaded
+
+    patches = _validated_patches(overlay, overlay_path)
+    connections, dataflows, schema_hints = _apply_selector_patches(
+        connections,
+        dataflows,
+        schema_hints,
+        patches,
+    )
 
     resolved: dict[str, Any] = {}
     if isinstance(connections_data, dict) and "$schema" in connections_data:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -22,10 +23,24 @@ from _schema_resolver import find_schemas_dir, load_schema, resolve_schema_versi
 from merge import merge_metadata, write_metadata
 from validate import validate_metadata
 from validate_config import validate_config
+from validate_functions import inspect_artifact, referenced_functions, sha256_file, validate_metadata_files
 
 
 RUNNER_SUFFIXES = (".py", ".ipynb")
 RUNNER_OPERATIONS = ("run", "replay", "maintenance")
+METADATA_LAYOUTS = ("single", "split-connections", "split-all")
+METADATA_LAYOUT_ROLES = {
+    "single": {"config_path": "metadata.json"},
+    "split-connections": {
+        "config_path": "dataflows.json",
+        "connections_path": "connections.json",
+    },
+    "split-all": {
+        "config_path": "dataflows.json",
+        "connections_path": "connections.json",
+        "schema_hints_path": "schema_hints.json",
+    },
+}
 BUILD_ID_PATTERN = re.compile(
     r"^(?P<date>\d{6})-(?P<time>\d{6})-(?P<digest>[0-9a-f]{12})$"
 )
@@ -36,6 +51,7 @@ TOOLING_FILES = (
     "merge.py",
     "validate.py",
     "validate_config.py",
+    "validate_functions.py",
     "_schema_resolver.py",
     "requirements.txt",
 )
@@ -50,6 +66,10 @@ def _sha256(path: Path) -> str:
 def _canonical_digest(value: Any) -> str:
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _metadata_set_digest(files: dict[str, dict[str, str]]) -> str:
+    return _canonical_digest({role: item["sha256"] for role, item in files.items()})
 
 
 def _validate_design_receipt(payload: Any, digest: str) -> None:
@@ -263,7 +283,7 @@ def _is_source_file(path: Path) -> bool:
 def _input_entries(
     workspace: Path,
     selected_runners: set[Path],
-    selected_environments: list[str],
+    environments: list[str],
 ) -> list[dict[str, str]]:
     metadata_dir = workspace / "metadata"
     candidates = [metadata_dir / "connections.json"]
@@ -275,7 +295,7 @@ def _input_entries(
         candidates.extend(
             path for path in dataflows_dir.rglob("*.json") if _is_source_file(path)
         )
-    for environment in selected_environments:
+    for environment in environments:
         overlay = metadata_dir / "environments" / f"{environment}.json"
         if overlay.is_file():
             candidates.append(overlay)
@@ -393,7 +413,7 @@ def _select_runners(
         unused = sorted(set(requested_names) - used)
         if unused:
             raise ValueError(
-                "Requested runner(s) do not match any selected environment platform: "
+                "Requested runner(s) do not match any configured environment platform: "
                 + ", ".join(unused)
             )
     return selected
@@ -412,7 +432,7 @@ def _validate_resolved_metadata(metadata: dict[str, Any], environment: str) -> N
 def _deterministic_zip(functions_dir: Path, output_path: Path) -> None:
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for source in sorted(path for path in functions_dir.rglob("*") if _is_source_file(path)):
-            relative = Path("functions") / source.relative_to(functions_dir)
+            relative = source.relative_to(functions_dir)
             info = zipfile.ZipInfo(relative.as_posix(), date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
@@ -423,13 +443,10 @@ def _package_functions(
     workspace: Path,
     dist_dir: Path,
     reuse_artifact: Path | None,
-    enabled: bool,
-) -> list[Path]:
-    if not enabled:
-        return []
+) -> tuple[Path, dict[str, str | None]] | None:
     functions_dir = workspace / "functions"
     if reuse_artifact is None and not functions_dir.is_dir():
-        return []
+        return None
     dist_dir.mkdir(parents=True, exist_ok=True)
 
     if reuse_artifact is not None:
@@ -438,30 +455,76 @@ def _package_functions(
             raise ValueError("Reusable functions artifact must be an existing .whl or .zip")
         destination = dist_dir / artifact.name
         shutil.copy2(artifact, destination)
-        return [destination]
+        return destination, inspect_artifact(destination)
 
+    _reject_symlinks(functions_dir)
     if (functions_dir / "pyproject.toml").is_file():
         with tempfile.TemporaryDirectory(prefix="datacoolie-functions-") as temporary:
+            temporary_path = Path(temporary)
+            source_copy = temporary_path / "source"
+            wheel_output = temporary_path / "wheel"
+            shutil.copytree(functions_dir, source_copy)
+            environment = os.environ.copy()
+            environment["SOURCE_DATE_EPOCH"] = "315532800"
+            environment["PYTHONHASHSEED"] = "0"
             subprocess.run(
-                [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", temporary, "."],
-                cwd=functions_dir,
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "wheel",
+                    "--no-deps",
+                    "--no-build-isolation",
+                    "-w",
+                    str(wheel_output),
+                    ".",
+                ],
+                cwd=source_copy,
+                env=environment,
                 check=True,
             )
-            wheels = sorted(Path(temporary).glob("*.whl"))
-            if not wheels:
-                raise RuntimeError("Functions wheel build produced no artifact")
-            outputs = []
-            for wheel in wheels:
-                destination = dist_dir / wheel.name
-                shutil.copy2(wheel, destination)
-                outputs.append(destination)
-            return outputs
+            wheels = sorted(wheel_output.glob("*.whl"))
+            if len(wheels) != 1:
+                raise RuntimeError("Functions wheel build must produce exactly one artifact")
+            destination = dist_dir / wheels[0].name
+            shutil.copy2(wheels[0], destination)
+            return destination, inspect_artifact(destination)
 
-    if (functions_dir / "__init__.py").is_file():
-        destination = dist_dir / "functions.zip"
-        _deterministic_zip(functions_dir, destination)
-        return [destination]
-    return []
+    destination = dist_dir / "functions.zip"
+    _deterministic_zip(functions_dir, destination)
+    identity = inspect_artifact(destination)
+    prefix = identity["import_prefix"]
+    if not isinstance(prefix, str):
+        raise ValueError("Functions ZIP import prefix is invalid")
+    named_destination = dist_dir / f"{prefix}.zip"
+    destination.replace(named_destination)
+    return named_destination, identity
+
+
+def _reject_wheel_version_collision(
+    builds_dir: Path,
+    artifact: dict[str, Any] | None,
+) -> None:
+    if artifact is None or artifact.get("format") != "wheel":
+        return
+    for manifest_path in sorted(builds_dir.glob("*/manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        existing = manifest.get("functions_artifact")
+        if not isinstance(existing, dict):
+            continue
+        same_identity = (
+            existing.get("format") == "wheel"
+            and existing.get("distribution") == artifact.get("distribution")
+            and existing.get("version") == artifact.get("version")
+        )
+        if same_identity and existing.get("sha256") != artifact.get("sha256"):
+            raise ValueError(
+                "Functions wheel distribution/version already exists with different bytes; "
+                "advance the package version"
+            )
 
 
 def _reject_symlinks(path: Path) -> None:
@@ -479,6 +542,103 @@ def _artifact_entries(build_dir: Path) -> list[dict[str, str]]:
         for path in sorted(build_dir.rglob("*"))
         if path.is_file() and path.name not in {"manifest.json", "SHA256SUMS"}
     ]
+
+
+def _write_metadata_projection(
+    environment_dir: Path,
+    staging: Path,
+    resolved: dict[str, Any],
+    layout: str,
+) -> tuple[dict[str, Any], list[Path]]:
+    if layout not in METADATA_LAYOUTS:
+        raise ValueError(f"Unsupported metadata layout: {layout}")
+    metadata_dir = environment_dir / "metadata"
+    payloads: dict[str, dict[str, Any]]
+    if layout == "single":
+        payloads = {"config_path": resolved}
+    elif layout == "split-connections":
+        primary = {"dataflows": resolved.get("dataflows", [])}
+        if "$schema" in resolved:
+            primary["$schema"] = resolved["$schema"]
+        if "schema_hints" in resolved:
+            primary["schema_hints"] = resolved["schema_hints"]
+        payloads = {
+            "config_path": primary,
+            "connections_path": {"connections": resolved.get("connections", [])},
+        }
+    else:
+        payloads = {
+            "config_path": {"dataflows": resolved.get("dataflows", [])},
+            "connections_path": {"connections": resolved.get("connections", [])},
+            "schema_hints_path": {"schema_hints": resolved.get("schema_hints", [])},
+        }
+        if "$schema" in resolved:
+            payloads["config_path"]["$schema"] = resolved["$schema"]
+
+    files: dict[str, dict[str, str]] = {}
+    outputs: list[Path] = []
+    for role, filename in METADATA_LAYOUT_ROLES[layout].items():
+        output = metadata_dir / filename
+        write_metadata(output, payloads[role])
+        outputs.append(output)
+        files[role] = {
+            "path": output.relative_to(staging).as_posix(),
+            "sha256": _sha256(output),
+        }
+    return {"layout": layout, "files": files, "sha256": _metadata_set_digest(files)}, outputs
+
+
+def _validate_metadata_projection(
+    build_dir: Path,
+    environment_name: str,
+    metadata: Any,
+    declared: dict[str, str],
+) -> None:
+    if not isinstance(metadata, dict) or set(metadata) != {"layout", "files", "sha256"}:
+        raise ValueError(f"Invalid metadata set contract for environment {environment_name}")
+    layout = metadata.get("layout")
+    expected_roles = METADATA_LAYOUT_ROLES.get(layout)
+    files = metadata.get("files")
+    if expected_roles is None or not isinstance(files, dict) or set(files) != set(expected_roles):
+        raise ValueError(f"Invalid metadata layout/roles for environment {environment_name}")
+    if metadata.get("sha256") != _metadata_set_digest(files):
+        raise ValueError(f"Metadata set digest mismatch for environment {environment_name}")
+
+    payloads: dict[str, dict[str, Any]] = {}
+    for role, filename in expected_roles.items():
+        item = files.get(role)
+        if not isinstance(item, dict) or set(item) != {"path", "sha256"}:
+            raise ValueError(f"Invalid metadata file role {role} for environment {environment_name}")
+        expected_path = f"{environment_name}/metadata/{filename}"
+        if item.get("path") != expected_path or declared.get(expected_path) != item.get("sha256"):
+            raise ValueError(f"Metadata file role {role} is not bound to {expected_path}")
+        path = build_dir / PurePosixPath(expected_path)
+        if not path.is_file() or _sha256(path) != item["sha256"]:
+            raise ValueError(f"Metadata file role {role} does not match generated bytes")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError(f"Metadata file role {role} must contain an object")
+        payloads[role] = payload
+
+    if layout == "single":
+        allowed = {"$schema", "connections", "dataflows", "schema_hints"}
+        if not {"connections", "dataflows"}.issubset(payloads["config_path"]):
+            raise ValueError("Single metadata file must contain connections and dataflows")
+        if set(payloads["config_path"]) - allowed:
+            raise ValueError("Single metadata file contains unsupported sections")
+    else:
+        if set(payloads["connections_path"]) != {"connections"}:
+            raise ValueError("connections.json must own only the connections section")
+        primary_expected = (
+            {"$schema", "dataflows", "schema_hints"}
+            if layout == "split-connections"
+            else {"$schema", "dataflows"}
+        )
+        primary_keys = set(payloads["config_path"])
+        if "dataflows" not in primary_keys or primary_keys - primary_expected:
+            raise ValueError("dataflows.json contains invalid or duplicate section ownership")
+        if layout == "split-all" and set(payloads["schema_hints_path"]) != {"schema_hints"}:
+            raise ValueError("schema_hints.json must own only the schema_hints section")
 
 
 def _write_checksums(build_dir: Path) -> None:
@@ -499,6 +659,8 @@ def verify_build(build_dir: Path) -> dict[str, Any]:
     if not manifest_path.is_file() or not checksums_path.is_file():
         raise ValueError(f"Incomplete build: {build_dir}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != 3:
+        raise ValueError(f"Unsupported build manifest schema: {build_dir}")
     build_id = manifest.get("build_id")
     if build_id != build_dir.name:
         raise ValueError(f"Build directory/name mismatch: {build_dir}")
@@ -530,6 +692,44 @@ def verify_build(build_dir: Path) -> dict[str, Any]:
     if match.group("time") != created.astimezone(timezone.utc).strftime("%H%M%S"):
         raise ValueError(f"Build ID/creation time mismatch: {build_dir}")
 
+    declared = {
+        item.get("path"): item.get("sha256")
+        for item in manifest.get("artifacts", [])
+        if isinstance(item, dict)
+    }
+    environments = manifest.get("environments")
+    if not isinstance(environments, dict) or not environments:
+        raise ValueError(f"Build manifest environments must be a non-empty object: {build_dir}")
+    for environment_name, environment in environments.items():
+        if not isinstance(environment_name, str) or not isinstance(environment, dict):
+            raise ValueError(f"Invalid build environment contract: {build_dir}")
+        _validate_metadata_projection(
+            build_dir,
+            environment_name,
+            environment.get("metadata"),
+            declared,
+        )
+
+    function_artifact = manifest.get("functions_artifact")
+    if function_artifact is not None:
+        required = {
+            "format",
+            "path",
+            "sha256",
+            "import_prefix",
+            "distribution",
+            "version",
+        }
+        if not isinstance(function_artifact, dict) or set(function_artifact) != required:
+            raise ValueError(f"Invalid functions artifact contract: {build_dir}")
+        if function_artifact.get("format") not in {"wheel", "zip"}:
+            raise ValueError(f"Invalid functions artifact format: {build_dir}")
+        function_path = function_artifact.get("path")
+        if not isinstance(function_path, str) or PurePosixPath(function_path).parent.as_posix() != "functions":
+            raise ValueError(f"Invalid functions artifact path: {build_dir}")
+        if declared.get(function_path) != function_artifact.get("sha256"):
+            raise ValueError(f"Functions artifact is not bound to the build manifest: {build_dir}")
+
     expected_paths: set[str] = set()
     for line in checksums_path.read_text(encoding="utf-8").splitlines():
         if not line.strip() or "  " not in line:
@@ -552,31 +752,25 @@ def verify_build(build_dir: Path) -> dict[str, Any]:
 def materialize(
     *,
     workspace: Path,
-    environments: list[str] | None = None,
     runner_names: list[str] | None = None,
     functions_artifact: Path | None = None,
-    package_functions: bool = True,
+    metadata_layout: str = "single",
 ) -> dict[str, Any]:
     workspace = workspace.resolve()
+    if metadata_layout not in METADATA_LAYOUTS:
+        raise ValueError(f"Unsupported metadata layout: {metadata_layout}")
     design = _validate_design_approval(workspace)
-    config = validate_config(
-        workspace / "config.yaml",
-        selected_environments=environments,
-    )
+    config = validate_config(workspace / "config.yaml")
     configured = config["environments"]
-    selected_environments = list(dict.fromkeys(environments or configured.keys()))
-    unknown = sorted(set(selected_environments) - set(configured))
-    if unknown:
-        raise ValueError(f"Unknown environment(s): {', '.join(unknown)}")
     platforms = {
         environment: configured[environment]["platform"]
-        for environment in selected_environments
+        for environment in configured
     }
     selected = _select_runners(workspace, platforms, runner_names)
     selected_runner_paths = {path for paths in selected.values() for path in paths}
 
     tooling = _tooling_entries()
-    inputs = _input_entries(workspace, selected_runner_paths, selected_environments)
+    inputs = _input_entries(workspace, selected_runner_paths, list(configured))
     if functions_artifact is not None:
         artifact = functions_artifact.resolve()
         inputs.append({"path": f"external-functions/{artifact.name}", "sha256": _sha256(artifact)})
@@ -588,8 +782,8 @@ def materialize(
         "runners": {
             env: [path.name for path in paths] for env, paths in selected.items()
         },
-        "package_functions": package_functions,
         "design": design,
+        "metadata_layout": metadata_layout,
         "inputs": sorted(inputs, key=lambda item: item["path"]),
         "tooling": tooling,
     }
@@ -602,13 +796,19 @@ def materialize(
     staging.mkdir()
     try:
         environment_manifest: dict[str, Any] = {}
+        metadata_outputs: list[Path] = []
         metadata_dir = workspace / "metadata"
         for environment, platform in platforms.items():
             environment_dir = staging / environment
-            metadata_output = environment_dir / "metadata.json"
             resolved = merge_metadata(metadata_dir, environment)
             _validate_resolved_metadata(resolved, environment)
-            write_metadata(metadata_output, resolved)
+            metadata_record, outputs = _write_metadata_projection(
+                environment_dir,
+                staging,
+                resolved,
+                metadata_layout,
+            )
+            metadata_outputs.extend(outputs)
             runner_outputs = []
             for runner_source in selected[environment]:
                 destination = environment_dir / "runners" / runner_source.name
@@ -617,23 +817,42 @@ def materialize(
                 runner_outputs.append(destination.relative_to(staging).as_posix())
             environment_manifest[environment] = {
                 "platform": platform,
-                "metadata": metadata_output.relative_to(staging).as_posix(),
+                "metadata": metadata_record,
                 "runners": runner_outputs,
             }
 
-        function_outputs = _package_functions(
+        packaged_function = _package_functions(
             workspace,
-            staging / "dist",
+            staging / "functions",
             functions_artifact,
-            package_functions,
         )
+        configured_functions: set[str] = set()
+        for metadata_output in metadata_outputs:
+            configured_functions.update(
+                referenced_functions(json.loads(metadata_output.read_text(encoding="utf-8")))
+            )
+        function_record: dict[str, Any] | None = None
+        if packaged_function is None:
+            if configured_functions:
+                raise ValueError("Resolved metadata references Python functions but no artifact exists")
+        else:
+            function_path, identity = packaged_function
+            validation = validate_metadata_files(function_path, metadata_outputs)
+            if any(validation.get(key) != value for key, value in identity.items()):
+                raise ValueError("Functions artifact identity changed during validation")
+            function_record = {
+                **identity,
+                "path": function_path.relative_to(staging).as_posix(),
+                "sha256": sha256_file(function_path),
+            }
+            _reject_wheel_version_collision(builds_dir, function_record)
         artifacts = _artifact_entries(staging)
         identity = {"input_digest": input_digest, "artifacts": artifacts}
         content_digest = _canonical_digest(identity)
         created_at = _utc_now()
         build_id = _build_id(content_digest, created_at)
         manifest = {
-            "schema_version": 1,
+            "schema_version": 3,
             "build_id": build_id,
             "content_digest": content_digest,
             "created_at": _format_utc(created_at),
@@ -644,7 +863,7 @@ def materialize(
             "tooling_digest": _canonical_digest(tooling),
             "inputs": input_contract["inputs"],
             "environments": environment_manifest,
-            "functions": [path.relative_to(staging).as_posix() for path in function_outputs],
+            "functions_artifact": function_record,
             "artifacts": artifacts,
         }
         (staging / "manifest.json").write_text(
@@ -683,29 +902,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument(
-        "--environment",
-        action="append",
-        dest="environments",
-        help="Environment to include; repeat or omit for all configured environments",
-    )
-    parser.add_argument(
         "--runner-name",
         action="append",
         dest="runner_names",
         help="Durable runner to include; repeat or omit for all compatible runners",
     )
     parser.add_argument("--functions-artifact", type=Path)
-    parser.add_argument("--no-package-functions", action="store_true")
+    parser.add_argument(
+        "--metadata-layout",
+        choices=METADATA_LAYOUTS,
+        default="single",
+        help="Generated FileProvider layout; defaults to one metadata.json",
+    )
     args = parser.parse_args()
-    if args.functions_artifact and args.no_package_functions:
-        parser.error("--functions-artifact and --no-package-functions are mutually exclusive")
     try:
         result = materialize(
             workspace=args.workspace,
-            environments=args.environments,
             runner_names=args.runner_names,
             functions_artifact=args.functions_artifact,
-            package_functions=not args.no_package_functions,
+            metadata_layout=args.metadata_layout,
         )
     except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

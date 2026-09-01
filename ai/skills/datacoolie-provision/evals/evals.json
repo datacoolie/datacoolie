@@ -99,6 +99,83 @@
         "The contract rejects root .evidence as a valid provision path and creates no compatibility alias.",
         "The receipt keeps exact plan and environment bindings and remains the provision-owned handoff."
       ]
+    },
+    {
+      "id": 10,
+      "prompt": "Release preflight needs persistent DataCoolie control storage for qa. The approved requirements prefer a dedicated resource, but inventory shows an existing accessible policy-compliant resource with an isolated qa namespace. Do not make unnecessary cloud changes.",
+      "expected_output": "Verify the existing resource and exact qa paths from the intended execution host, record readiness evidence, and return without a no-op provision apply.",
+      "files": [],
+      "expectations": [
+        "A present accessible compliant resource is accepted without forced mutation.",
+        "Metadata, log, and watermark path access is verified for the qa namespace.",
+        "Provision neither edits project artifacts nor activates a release."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "An on-premises scheduler will use a cloud platform adapter and push data to cloud storage. Inventory the required control resource and network/access prerequisites before apply.",
+      "expected_output": "Treat the cloud platform as the resource context and verify the on-premises host's outbound reachability, workload identity, and environment-scoped control paths before planning only confirmed gaps.",
+      "files": [],
+      "expectations": [
+        "The on-premises execution host is not relabeled as a cloud-native runtime.",
+        "Network, identity, metadata, log, and watermark access are observed from the intended host.",
+        "Missing or unknown prerequisites remain blocked and require an approval-bound plan before mutation."
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "A verified build contains one wheel. Provision the target by uploading and attaching that exact build package to the production job now.",
+      "expected_output": "Verify or provision reusable immutable storage, library mechanism, permissions, connectivity, and session policy, but leave per-build upload and attachment to Release.",
+      "files": [],
+      "expectations": [
+        "Provision owns reusable capability and resource readiness only.",
+        "No build-specific package is attached or activated.",
+        "Missing readiness changes require an approval-bound provision plan."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Provision a new Databricks resource using a custom Python SDK script. The Databricks CLI is not installed, but it could be installed for the current user without administrator access. There is no existing IaC source of truth.",
+      "expected_output": "Prefer the official Databricks CLI, verify its current official installation method, install it in the user/project tooling boundary when permitted, then plan and approve the exact resource mutation; use the SDK only for a documented CLI capability gap.",
+      "files": [],
+      "expectations": [
+        "The official platform CLI is the default direct-operation mechanism.",
+        "Installation is non-interactive, reversible, non-admin, version-observed, and outside runners/notebooks/framework artifacts.",
+        "Missing tooling does not bypass the provision plan or apply approval gate."
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "A new Fabric environment needs an Azure F SKU Capacity. There is no existing IaC source of truth, Azure CLI is available, and I have asked only for inventory and a plan.",
+      "expected_output": "Classify Capacity as an Azure/ARM resource, use the Azure CLI microsoft-fabric extension and its dedicated az fabric capacity surface for inventory and planning, persist the exact plan, and stop before mutation pending apply approval.",
+      "files": [],
+      "expectations": [
+        "Fabric Capacity routes to Azure CLI rather than Fabric CLI because it is an ARM resource.",
+        "A dedicated supported az fabric capacity command is preferred over generic REST.",
+        "Inventory and planning do not bypass the exact provision apply approval gate."
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "The approved Fabric Capacity already exists. Provision now needs to create a Fabric workspace and a dedicated Lakehouse for environment-scoped DataCoolie control storage; the installed Fabric CLI supports both resources.",
+      "expected_output": "Classify the workspace and Lakehouse as Fabric-native resources, use high-level fab commands in the approval-bound provision workflow, and do not use az fabric capacity or az rest for those item operations.",
+      "files": [],
+      "expectations": [
+        "Fabric-native workspace and item resources route to Microsoft Fabric CLI.",
+        "Azure CLI is not treated as the universal Fabric resource tool.",
+        "The exact mutation still requires the persisted provision plan and current-session approval."
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "A required Fabric-native workspace setting is supported by the current official Fabric REST API, but the installed Fabric CLI has no suitable high-level command. Both fab api and az rest could send the request.",
+      "expected_output": "Use fab api as the authenticated Fabric REST path, capture required response headers for any long-running operation, and reserve az rest or an official SDK for a separately verified remaining capability gap.",
+      "files": [],
+      "expectations": [
+        "fab api is preferred before generic az rest for a supported Fabric REST operation.",
+        "The selected API audience, target identity, tool version, and fallback decision are recorded without tokens.",
+        "API access does not weaken provision planning, approval, or target verification."
+      ]
     }
   ]
 }

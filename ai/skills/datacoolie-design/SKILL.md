@@ -9,7 +9,7 @@ description: Design or materially revise a DataCoolie project's stage graph, tra
 
 Produce one coherent `architecture/current.md` that gives build enough intent to implement without
 inventing contracts. Own material system behavior: stage graph, transition grain and keys,
-load/change strategy, compatible platform intent, quality and recovery policy, resource
+load/change strategy, compatible platform intent, control-storage and recovery policy, resource
 requirements, and release policy.
 
 Design does not inspect sources, author exact metadata or code, create resources, verify runtime
@@ -54,14 +54,33 @@ decision and is not runtime or package CLI functionality.
 4. Describe capability intent across source, authentication, engine, transforms, destination,
    load, platform, and dependencies. Prefer a credible native DataCoolie path; identify only a
    suspected unsupported boundary for build-time proof.
-5. Record required resources and release policy without provisioning or deploying.
-6. List compatible engines/platforms without binding stages to engines. Record execution host and
+5. When a verified unsupported boundary requires a Python function, select exactly one artifact
+   format for the whole build: `wheel` by default, or `zip` only for a compatible pure-Python host.
+   Record a project-specific import prefix, dependency strategy, compatible execution targets,
+   rationale, and required build proof. Otherwise record `none`. Never request both formats.
+6. Record required resources and release policy without provisioning or deploying. The policy
+   defines each runner's deployment kind and native target identity, stable target current identity,
+   candidate activation mechanism, in-flight execution
+   behavior, non-atomic exposure/recovery when applicable, dependent-runner order, and canonical
+   artifact retention needed for rollback. Define one
+   environment-isolated DataCoolie control-storage boundary for immutable deployed metadata,
+   mutable logs, and critical watermark state. Only target components `metadata` and optional
+   `functions` have fixed names; all runner and runtime-state references remain target-defined.
+   Prefer a dedicated persistent resource separate
+   from business data; when policy requires sharing, require isolated paths and access controls.
+7. List compatible engines/platforms without binding stages to engines. Record execution host and
    native/external platform runtime mode separately from platform intent when an adapter can run on
    multiple hosts. Runtime orchestration selects an exact runner and supplies the stage value.
-7. Write the complete candidate to `architecture/current.md`. It is the only design source of
+   For external cloud adapters, identify the actual scheduler or host separately from the cloud
+   platform/resource context.
+8. Define retention and access for logs, backup/recovery and outage behavior for watermarks, and
+   single-writer ownership for each environment/dataflow state key. Account for the possibility
+   that target writes succeed before watermark persistence. Keep those mutable paths outside the
+   candidate and stable target current replacement boundary.
+9. Write the complete candidate to `architecture/current.md`. It is the only design source of
    truth; use Git and approval receipts for history rather than layer files or amendments. Do not
    embed its own hash or approval state in the file.
-8. Stop for explicit current-session approval after the candidate bytes are final, then record and
+10. Stop for explicit current-session approval after the candidate bytes are final, then record and
    verify the hash-bound receipt. Never infer or pre-create approval. Any architecture creation or
    byte change requires a matching receipt before build.
 

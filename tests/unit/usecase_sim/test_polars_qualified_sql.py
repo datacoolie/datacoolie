@@ -152,6 +152,19 @@ def test_metadata_fixture_parses_through_file_provider() -> None:
     assert all(dataflow.source.python_function is None for dataflow in dataflows)
 
 
+def test_delta_positive_flows_share_one_parallel_execution_order_bucket() -> None:
+    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    dataflows = [
+        dataflow
+        for dataflow in metadata["dataflows"]
+        if dataflow["stage"] == "polars_qualified_sql_delta"
+    ]
+
+    assert len(dataflows) == 7
+    assert {dataflow["group_number"] for dataflow in dataflows} == {3}
+    assert {dataflow["execution_order"] for dataflow in dataflows} == {10}
+
+
 def test_ambiguity_stages_are_isolated() -> None:
     metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
     negative_stages = {
@@ -170,23 +183,25 @@ def test_ambiguity_stages_are_isolated() -> None:
 def test_qualified_sql_scenarios_are_focused_and_self_preparing() -> None:
     scenarios = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))
     expected = {
-        "local_polars_qualified_sql_delta": ("delta-positive", None),
-        "local_polars_qualified_sql_delta_ambiguity": ("delta-ambiguity", None),
+        "local_polars_qualified_sql_delta": ("delta-positive", None, 8),
+        "local_polars_qualified_sql_delta_ambiguity": ("delta-ambiguity", None, 1),
         "local_polars_qualified_sql_iceberg": (
             "iceberg-positive",
             {"minio", "iceberg-rest"},
+            1,
         ),
         "local_polars_qualified_sql_iceberg_ambiguity": (
             "iceberg-ambiguity",
             {"minio", "iceberg-rest"},
+            1,
         ),
     }
 
-    for scenario_name, (suite, services) in expected.items():
+    for scenario_name, (suite, services, max_workers) in expected.items():
         scenario = scenarios[scenario_name]
         assert scenario["engine"] == "polars"
         assert scenario["metadata_path"].endswith("polars_qualified_sql.json")
-        assert scenario["max_workers"] == 1
+        assert scenario["max_workers"] == max_workers
         assert scenario["setup"]["script"].endswith("prepare_polars_qualified_sql.py")
         assert scenario["setup"]["args"] == ["--suite", suite]
         assert scenario["engine_setup"] == {

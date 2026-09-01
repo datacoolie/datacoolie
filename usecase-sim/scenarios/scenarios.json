@@ -509,7 +509,7 @@
     "stage": "polars_qualified_sql_delta",
     "column_name_mode": "lower",
     "priority": "P0",
-    "max_workers": 1,
+    "max_workers": 8,
     "pre_clean_paths": [
       "usecase-sim/data/output/qualified_sql/results/delta_name_4",
       "usecase-sim/data/output/qualified_sql/results/delta_name_3",

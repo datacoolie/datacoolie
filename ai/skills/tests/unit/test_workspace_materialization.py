@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import json
 import shutil
+import subprocess
 import sys
 import types
 from datetime import datetime, timezone
@@ -17,6 +19,7 @@ from jsonschema import Draft202012Validator
 import design_approval
 import materialize as build_tool
 import validate_build as build_validation
+import validate_functions
 
 
 RUNNER_TEMPLATE = (
@@ -46,7 +49,6 @@ def _workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (workspace / "metadata/dataflows").mkdir(parents=True)
     (workspace / "metadata/environments").mkdir()
     (workspace / "runners").mkdir()
-    (workspace / "functions").mkdir()
     (workspace / "config.yaml").write_text(
         yaml.safe_dump(
             {
@@ -98,6 +100,15 @@ def _workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (workspace / "metadata/environments/test.json").write_text(
         json.dumps(
             {
+                "patches": [
+                    {
+                        "match": {
+                            "type": "dataflows",
+                            "where": {"stage": "bronze"},
+                        },
+                        "patch": {"destination": {"load_type": "overwrite"}},
+                    }
+                ],
                 "connections": [
                     {"name": "destination", "configure": {"base_path": "test-output"}}
                 ]
@@ -115,11 +126,133 @@ def _workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (workspace / "runners/maintenance_local_spark.ipynb").write_text(
         "{}\n", encoding="utf-8"
     )
-    (workspace / "functions/__init__.py").write_text("", encoding="utf-8")
-    (workspace / "functions/transforms.py").write_text(
-        "def clean(frame): return frame\n", encoding="utf-8"
-    )
     return workspace
+
+
+def _add_function_source(workspace: Path, *, wheel: bool = False) -> None:
+    connections_path = workspace / "metadata/connections.json"
+    connections = json.loads(connections_path.read_text(encoding="utf-8"))
+    source = next(item for item in connections["connections"] if item["name"] == "source")
+    source.update({"connection_type": "function", "format": "function", "configure": {}})
+    connections_path.write_text(json.dumps(connections), encoding="utf-8")
+
+    flow_path = workspace / "metadata/dataflows/bronze.json"
+    flows = json.loads(flow_path.read_text(encoding="utf-8"))
+    flows["dataflows"][0]["source"] = {
+        "connection_name": "source",
+        "python_function": "example_functions.sources.load_orders",
+    }
+    flow_path.write_text(json.dumps(flows), encoding="utf-8")
+
+    if wheel:
+        package = workspace / "functions/src/example_functions"
+        package.mkdir(parents=True)
+        (workspace / "functions/pyproject.toml").write_text(
+            """[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "example-functions"
+version = "1.0.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+""",
+            encoding="utf-8",
+        )
+    else:
+        package = workspace / "functions/example_functions"
+        package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "sources.py").write_text(
+        "def load_orders(engine, source, watermark_start, watermark_end): return None\n",
+        encoding="utf-8",
+    )
+
+
+def test_materialize_creates_one_project_named_zip_and_validates_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    _add_function_source(workspace)
+
+    result = build_tool.materialize(workspace=workspace)
+    manifest = build_tool.verify_build(Path(result["build_dir"]))
+
+    assert manifest["functions_artifact"] == {
+        "format": "zip",
+        "import_prefix": "example_functions",
+        "distribution": None,
+        "version": None,
+        "path": "functions/example_functions.zip",
+        "sha256": manifest["functions_artifact"]["sha256"],
+    }
+    assert (Path(result["build_dir"]) / "functions/example_functions.zip").is_file()
+    shutil.move(workspace / "functions", workspace / "authoring-functions-away")
+    current = Path(result["current_dir"])
+    validation = validate_functions.validate_metadata_files(
+        current / "functions/example_functions.zip",
+        [current / "dev/metadata/metadata.json"],
+    )
+    assert validation["functions"] == ["example_functions.sources.load_orders"]
+
+
+def test_materialize_rejects_invalid_function_signature(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    _add_function_source(workspace)
+    (workspace / "functions/example_functions/sources.py").write_text(
+        "def load_orders(engine): return None\n", encoding="utf-8"
+    )
+
+    with pytest.raises(subprocess.CalledProcessError):
+        build_tool.materialize(workspace=workspace)
+
+
+def test_materialize_creates_one_pure_python_wheel_and_rejects_version_collision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    _add_function_source(workspace, wheel=True)
+
+    first = build_tool.materialize(workspace=workspace)
+    first_manifest = build_tool.verify_build(Path(first["build_dir"]))
+    artifact = first_manifest["functions_artifact"]
+    assert artifact["format"] == "wheel"
+    assert artifact["distribution"] == "example-functions"
+    assert artifact["version"] == "1.0.0"
+    assert artifact["import_prefix"] == "example_functions"
+    assert artifact["path"].endswith("-py3-none-any.whl")
+
+    (workspace / "functions/src/example_functions/sources.py").write_text(
+        "def load_orders(engine, source, watermark_start, watermark_end): return engine\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        build_tool,
+        "_utc_now",
+        lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
+    )
+    with pytest.raises(ValueError, match="advance the package version"):
+        build_tool.materialize(workspace=workspace)
+
+
+def test_wheel_packaging_is_byte_stable_for_unchanged_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    _add_function_source(workspace, wheel=True)
+
+    first = build_tool._package_functions(workspace, tmp_path / "dist-1", None)
+    second = build_tool._package_functions(workspace, tmp_path / "dist-2", None)
+
+    assert first is not None and second is not None
+    assert build_tool._sha256(first[0]) == build_tool._sha256(second[0])
+    assert first[1] == second[1]
+    assert not (workspace / "functions/build").exists()
+    assert not list((workspace / "functions").rglob("*.egg-info"))
 
 
 def test_materialize_builds_all_environments_and_engines(
@@ -146,8 +279,10 @@ def test_materialize_builds_all_environments_and_engines(
         assert (runners / "run_local_spark.py").is_file()
         assert (runners / "replay_local_polars.py").is_file()
         assert (runners / "maintenance_local_spark.ipynb").is_file()
-        assert (build_dir / environment / "metadata.json").is_file()
-    assert (build_dir / "dist/functions.zip").is_file()
+        assert (build_dir / environment / "metadata/metadata.json").is_file()
+    assert manifest["schema_version"] == 3
+    assert manifest["functions_artifact"] is None
+    assert not (build_dir / "functions").exists()
     assert not any(path.is_symlink() for path in build_dir.rglob("*"))
     current_dir = workspace / ".builds/current"
     descriptor = json.loads((current_dir / "build.json").read_text(encoding="utf-8"))
@@ -164,12 +299,108 @@ def test_materialize_builds_all_environments_and_engines(
         assert (current_dir / relative).read_bytes() == (build_dir / relative).read_bytes()
 
     test_metadata = json.loads(
-        (build_dir / "test/metadata.json").read_text(encoding="utf-8")
+        (build_dir / "test/metadata/metadata.json").read_text(encoding="utf-8")
     )
     destination = next(
         item for item in test_metadata["connections"] if item["name"] == "destination"
     )
     assert destination["configure"]["base_path"] == "test-output"
+    assert test_metadata["dataflows"][0]["destination"]["load_type"] == "overwrite"
+    dev_metadata = json.loads(
+        (build_dir / "dev/metadata/metadata.json").read_text(encoding="utf-8")
+    )
+    assert dev_metadata["dataflows"][0]["destination"]["load_type"] == "full_load"
+
+
+def test_materialize_exposes_no_environment_selector() -> None:
+    assert "environments" not in inspect.signature(build_tool.materialize).parameters
+    source = Path(build_tool.__file__).read_text(encoding="utf-8")
+    assert '"--environment"' not in source
+
+
+@pytest.mark.parametrize(
+    ("layout", "roles", "filenames"),
+    [
+        ("single", {"config_path"}, {"metadata.json"}),
+        (
+            "split-connections",
+            {"config_path", "connections_path"},
+            {"dataflows.json", "connections.json"},
+        ),
+        (
+            "split-all",
+            {"config_path", "connections_path", "schema_hints_path"},
+            {"dataflows.json", "connections.json", "schema_hints.json"},
+        ),
+    ],
+)
+def test_materialize_supports_exact_metadata_layouts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    layout: str,
+    roles: set[str],
+    filenames: set[str],
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    (workspace / "metadata/schema_hints.json").write_text(
+        json.dumps({
+            "schema_hints": [{
+                "connection_name": "source",
+                "table_name": "orders",
+                "hints": [{"column_name": "id", "data_type": "long"}],
+            }]
+        }),
+        encoding="utf-8",
+    )
+    result = build_tool.materialize(
+        workspace=workspace, metadata_layout=layout
+    )
+    build_dir = Path(result["build_dir"])
+    manifest = build_tool.verify_build(build_dir)
+    metadata = manifest["environments"]["dev"]["metadata"]
+
+    assert metadata["layout"] == layout
+    assert set(metadata["files"]) == roles
+    assert {Path(item["path"]).name for item in metadata["files"].values()} == filenames
+    assert {path.name for path in (build_dir / "dev/metadata").iterdir()} == filenames
+    primary = json.loads(
+        (build_dir / metadata["files"]["config_path"]["path"]).read_text(encoding="utf-8")
+    )
+    if layout == "split-all":
+        hints = json.loads(
+            (build_dir / metadata["files"]["schema_hints_path"]["path"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        assert "schema_hints" not in primary
+        assert hints["schema_hints"]
+    else:
+        assert primary["schema_hints"]
+
+
+def test_metadata_layout_changes_build_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    single = build_tool.materialize(
+        workspace=workspace, metadata_layout="single"
+    )
+    split = build_tool.materialize(
+        workspace=workspace,
+        metadata_layout="split-connections",
+    )
+
+    assert single["build_id"] != split["build_id"]
+
+
+def test_materialize_rejects_unknown_metadata_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="Unsupported metadata layout"):
+        build_tool.materialize(
+            workspace=workspace, metadata_layout="automatic"
+        )
 
 
 def test_current_descriptor_schema_and_projection_replacement(
@@ -185,18 +416,18 @@ def test_current_descriptor_schema_and_projection_replacement(
     Draft202012Validator(schema).validate(
         json.loads(descriptor_path.read_text(encoding="utf-8"))
     )
-    assert (workspace / ".builds/current/test/metadata.json").is_file()
+    assert (workspace / ".builds/current/test/metadata/metadata.json").is_file()
 
     monkeypatch.setattr(
         build_tool,
         "_utc_now",
         lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
     )
-    second = build_tool.materialize(workspace=workspace, environments=["dev"])
+    second = build_tool.materialize(workspace=workspace)
     assert second["build_id"] != first["build_id"]
     assert json.loads(descriptor_path.read_text(encoding="utf-8"))["build_id"] == second["build_id"]
-    assert (workspace / ".builds/current/dev/metadata.json").is_file()
-    assert not (workspace / ".builds/current/test").exists()
+    assert (workspace / ".builds/current/dev/metadata/metadata.json").is_file()
+    assert (workspace / ".builds/current/test/metadata/metadata.json").is_file()
     assert build_tool.verify_current_build(workspace / ".builds/current")["build_id"] == (
         second["build_id"]
     )
@@ -206,7 +437,7 @@ def test_current_projection_rejects_unknown_build_and_runtime_drift(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     current_dir = workspace / ".builds/current"
     descriptor_path = current_dir / "build.json"
     descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
@@ -217,7 +448,7 @@ def test_current_projection_rejects_unknown_build_and_runtime_drift(
 
     descriptor["build_id"] = result["build_id"]
     descriptor_path.write_text(json.dumps(descriptor), encoding="utf-8")
-    (current_dir / "dev/metadata.json").write_text("{}\n", encoding="utf-8")
+    (current_dir / "dev/metadata/metadata.json").write_text("{}\n", encoding="utf-8")
     with pytest.raises(ValueError, match="does not match build"):
         build_tool.verify_current_build(current_dir)
     assert build_tool.verify_build(Path(result["build_dir"]))["build_id"] == result["build_id"]
@@ -229,7 +460,7 @@ def test_validate_build_cli_accepts_current_directly(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -244,7 +475,7 @@ def test_current_projection_rejects_symlinked_state_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    build_tool.materialize(workspace=workspace, environments=["dev"])
+    build_tool.materialize(workspace=workspace)
     current_root = workspace.resolve() / ".builds/current"
     original_is_symlink = Path.is_symlink
 
@@ -260,7 +491,7 @@ def test_current_projection_swap_failure_preserves_previous_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    first = build_tool.materialize(workspace=workspace, environments=["dev"])
+    first = build_tool.materialize(workspace=workspace)
     current_root = workspace / ".builds/current"
     original_descriptor = (current_root / "build.json").read_bytes()
     original_rename = Path.rename
@@ -282,7 +513,7 @@ def test_current_projection_swap_failure_preserves_previous_build(
 
     monkeypatch.setattr(Path, "rename", fail_current_swap)
     with pytest.raises(OSError, match="simulated current projection swap failure"):
-        build_tool.materialize(workspace=workspace, environments=["dev"])
+        build_tool.materialize(workspace=workspace)
 
     assert (current_root / "build.json").read_bytes() == original_descriptor
     assert build_tool.verify_current_build(current_root)["build_id"] == first["build_id"]
@@ -298,7 +529,6 @@ def test_materialized_runner_preserves_verified_durable_bytes(
 
     result = build_tool.materialize(
         workspace=workspace,
-        environments=["dev"],
         runner_names=["run_local_polars.py"],
     )
     generated = Path(result["build_dir"]) / "dev/runners/run_local_polars.py"
@@ -358,6 +588,8 @@ def test_materialized_runner_preserves_verified_durable_bytes(
     namespace["parse_args"] = lambda: types.SimpleNamespace(
         stage=None,
         metadata_path="metadata.json",
+        connections_path=None,
+        schema_hints_path=None,
         watermark_base_path=".runtime/dev/watermarks",
         base_log_path=".runtime/dev/logs",
         dry_run=False,
@@ -385,7 +617,7 @@ def test_materialized_manifest_binds_approved_design(
         approved_scope="material design",
     )
 
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     manifest = build_tool.verify_build(Path(result["build_dir"]))
     assert manifest["design"] == {
         "architecture_path": "architecture/current.md",
@@ -398,13 +630,13 @@ def test_build_id_uses_invocation_time_and_content_digest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    first = build_tool.materialize(workspace=workspace, environments=["dev"])
+    first = build_tool.materialize(workspace=workspace)
     monkeypatch.setattr(
         build_tool,
         "_utc_now",
         lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
     )
-    second = build_tool.materialize(workspace=workspace, environments=["dev"])
+    second = build_tool.materialize(workspace=workspace)
     assert second["build_id"] != first["build_id"]
     assert second["build_id"].startswith("260808-091012-")
     assert second["reused"] is False
@@ -419,16 +651,17 @@ def test_build_id_uses_invocation_time_and_content_digest(
         "_utc_now",
         lambda: datetime(2026, 8, 8, 9, 10, 13, tzinfo=timezone.utc),
     )
-    third = build_tool.materialize(workspace=workspace, environments=["dev"])
+    third = build_tool.materialize(workspace=workspace)
     assert third["build_id"].startswith("260808-091013-")
     assert Path(first["build_dir"]).is_dir()
 
 
-def test_unselected_environment_changes_do_not_invalidate_subset_build(
+def test_every_environment_overlay_participates_in_build_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    first = build_tool.materialize(workspace=workspace, environments=["dev"])
+    first = build_tool.materialize(workspace=workspace)
+    first_manifest = build_tool.verify_build(Path(first["build_dir"]))
 
     (workspace / "metadata/environments/test.json").write_text(
         json.dumps(
@@ -436,24 +669,37 @@ def test_unselected_environment_changes_do_not_invalidate_subset_build(
         ),
         encoding="utf-8",
     )
+    monkeypatch.setattr(
+        build_tool,
+        "_utc_now",
+        lambda: datetime(2026, 8, 8, 9, 10, 12, tzinfo=timezone.utc),
+    )
+
+    second = build_tool.materialize(workspace=workspace)
+    second_manifest = build_tool.verify_build(Path(second["build_dir"]))
+    assert second["build_id"] != first["build_id"]
+    assert (
+        second_manifest["environments"]["test"]["metadata"]["sha256"]
+        != first_manifest["environments"]["test"]["metadata"]["sha256"]
+    )
+    assert (
+        second_manifest["environments"]["dev"]["metadata"]["sha256"]
+        == first_manifest["environments"]["dev"]["metadata"]["sha256"]
+    )
+
+
+def test_invalid_configured_environment_blocks_complete_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
     config = yaml.safe_load((workspace / "config.yaml").read_text(encoding="utf-8"))
     config["environments"]["test"]["platform"] = "not_installed_here"
     (workspace / "config.yaml").write_text(
         yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
     )
 
-    second = build_tool.materialize(workspace=workspace, environments=["dev"])
-    assert second["build_id"] == first["build_id"]
-    assert second["reused"] is True
-
-    (workspace / "metadata/environments/dev.json").write_text(
-        json.dumps(
-            {"connections": [{"name": "destination", "configure": {"base_path": "dev-changed"}}]}
-        ),
-        encoding="utf-8",
-    )
-    third = build_tool.materialize(workspace=workspace, environments=["dev"])
-    assert third["build_id"] != first["build_id"]
+    with pytest.raises(ValueError, match="test=not_installed_here"):
+        build_tool.materialize(workspace=workspace)
 
 
 def test_materialization_rejects_unregistered_runner_engine(
@@ -465,7 +711,6 @@ def test_materialization_rejects_unregistered_runner_engine(
     with pytest.raises(ValueError, match="unregistered engine"):
         build_tool.materialize(
             workspace=workspace,
-            environments=["dev"],
             runner_names=["run_local_unknown.py"],
         )
 
@@ -474,6 +719,7 @@ def test_materialization_tooling_identity_covers_runtime_helpers() -> None:
     paths = {item["path"] for item in build_tool._tooling_entries()}
     assert "scripts/_loaders.py" in paths
     assert "scripts/requirements.txt" in paths
+    assert "scripts/validate_functions.py" in paths
     assert "schemas/current-build.schema.json" in paths
 
 
@@ -481,11 +727,11 @@ def test_checksum_tampering_is_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
-    (build_dir / "dev/metadata.json").write_text("{}\n", encoding="utf-8")
+    (build_dir / "dev/metadata/metadata.json").write_text("{}\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Checksum mismatch"):
+    with pytest.raises(ValueError, match="does not match generated bytes"):
         build_tool.verify_build(build_dir)
 
 
@@ -493,7 +739,7 @@ def test_content_digest_tampering_is_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     manifest_path = build_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -504,11 +750,28 @@ def test_content_digest_tampering_is_rejected(
         build_tool.verify_build(build_dir)
 
 
+def test_legacy_build_manifest_schema_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    result = build_tool.materialize(workspace=workspace)
+    build_dir = Path(result["build_dir"])
+    manifest_path = build_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schema_version"] = 1
+    manifest["functions"] = []
+    manifest.pop("functions_artifact")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unsupported build manifest schema"):
+        build_tool.verify_build(build_dir)
+
+
 def test_invalid_date_prefixed_build_id_is_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     invalid_dir = build_dir.parent / "not-a-build-id"
     build_dir.rename(invalid_dir)
@@ -525,7 +788,7 @@ def test_build_id_must_match_creation_date_and_content_digest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     suffix = result["build_id"].split("-", 1)[1]
 
@@ -552,7 +815,7 @@ def test_short_build_id_collision_never_overwrites_existing_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    first = build_tool.materialize(workspace=workspace, environments=["dev"])
+    first = build_tool.materialize(workspace=workspace)
     original = Path(first["build_dir"])
     original_manifest = (original / "manifest.json").read_bytes()
 
@@ -561,7 +824,7 @@ def test_short_build_id_collision_never_overwrites_existing_build(
     monkeypatch.setattr(build_tool, "_build_id", lambda content_digest, created_at: first["build_id"])
 
     with pytest.raises(RuntimeError, match="Build ID collision"):
-        build_tool.materialize(workspace=workspace, environments=["dev"])
+        build_tool.materialize(workspace=workspace)
     assert (original / "manifest.json").read_bytes() == original_manifest
 
 
@@ -580,7 +843,7 @@ def test_build_directory_symlink_is_rejected_before_resolution(
         build_tool.verify_build(alias)
 
 
-def test_requested_runner_must_match_selected_environment(
+def test_requested_runner_must_cover_configured_environments(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
@@ -588,7 +851,6 @@ def test_requested_runner_must_match_selected_environment(
     with pytest.raises(ValueError, match="No runner compatible"):
         build_tool.materialize(
             workspace=workspace,
-            environments=["dev"],
             runner_names=["run_cloud_spark.py"],
         )
 
@@ -644,16 +906,27 @@ def _write_build_receipt(
     artifacts = {item["path"]: item["sha256"] for item in manifest["artifacts"]}
     environment = "dev"
     runner_path = f"{environment}/runners/run_local_polars.py"
-    metadata_path = manifest["environments"][environment]["metadata"]
+    metadata = manifest["environments"][environment]["metadata"]
     checks = [
         {
-            "name": "generated-runtime-execution",
+            "name": "generated-artifact-validation",
             "status": "passed" if status == "succeeded" else "failed",
-            "evidence": ".runtime/dev/logs/run.log",
+            "evidence": "immutable build and generated slice validator",
         }
     ]
+    function_artifact = manifest["functions_artifact"]
+    if function_artifact is not None:
+        checks.extend(
+            [
+                {
+                    "name": "functions-artifact-import",
+                    "status": "passed" if status == "succeeded" else "failed",
+                    "evidence": "isolated import",
+                },
+            ]
+        )
     receipt = {
-        "schema_version": 1,
+        "schema_version": 4,
         "artifact_type": "build_verification",
         "receipt_id": receipt_id,
         "status": status,
@@ -662,10 +935,8 @@ def _write_build_receipt(
         "platform": manifest["environments"][environment]["platform"],
         "datacoolie_version": manifest["datacoolie_version"],
         "runner": {"path": runner_path, "sha256": artifacts[runner_path]},
-        "metadata": {"path": metadata_path, "sha256": artifacts[metadata_path]},
-        "functions": [
-            {"path": path, "sha256": artifacts[path]} for path in manifest["functions"]
-        ],
+        "metadata": metadata,
+        "functions_artifact": function_artifact,
         "operation": "run",
         "stage": "bronze",
         "execution_reference": "pytest generated build execution",
@@ -693,7 +964,7 @@ def test_successful_build_receipt_matches_exact_generated_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     receipt_path = _write_build_receipt(workspace, build_dir)
 
@@ -707,11 +978,36 @@ def test_successful_build_receipt_matches_exact_generated_artifacts(
     assert current_receipt["build_id"] == result["build_id"]
 
 
+def test_build_host_runtime_execution_is_optional_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    result = build_tool.materialize(workspace=workspace)
+    build_dir = Path(result["build_dir"])
+    receipt_path = _write_build_receipt(workspace, build_dir)
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["checks"].append({
+        "name": "generated-runtime-execution",
+        "status": "skipped",
+        "evidence": "exact runner requires its target execution host",
+    })
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    assert build_validation.validate_receipt(
+        build_dir, receipt_path, require_success=True
+    )["status"] == "succeeded"
+
+    receipt["checks"][-1]["status"] = "failed"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid build verification receipt"):
+        build_validation.validate_receipt(build_dir, receipt_path)
+
+
 def test_failed_build_receipt_is_evidence_but_not_releasable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     receipt_path = _write_build_receipt(
         workspace, build_dir, receipt_id="verification-failed", status="failed"
@@ -722,6 +1018,21 @@ def test_failed_build_receipt_is_evidence_but_not_releasable(
         build_validation.validate_receipt(
             build_dir, receipt_path, require_success=True
         )
+
+
+def test_build_receipt_v3_is_audit_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+    result = build_tool.materialize(workspace=workspace)
+    build_dir = Path(result["build_dir"])
+    receipt_path = _write_build_receipt(workspace, build_dir)
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["schema_version"] = 3
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="schema_version"):
+        build_validation.validate_receipt(build_dir, receipt_path)
 
 
 @pytest.mark.parametrize(
@@ -739,7 +1050,7 @@ def test_build_receipt_rejects_invalid_runtime_evidence(
     message: str,
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     receipt_path = _write_build_receipt(workspace, build_dir)
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
@@ -754,7 +1065,7 @@ def test_build_receipt_rejects_artifact_hash_and_filename_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = _workspace(tmp_path, monkeypatch)
-    result = build_tool.materialize(workspace=workspace, environments=["dev"])
+    result = build_tool.materialize(workspace=workspace)
     build_dir = Path(result["build_dir"])
     receipt_path = _write_build_receipt(workspace, build_dir)
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))

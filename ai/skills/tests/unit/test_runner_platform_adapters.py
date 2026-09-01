@@ -60,6 +60,10 @@ def test_notebooks_parse_have_one_parameter_cell_and_do_not_install(path: Path) 
 @pytest.mark.parametrize("path", RUNNER_TEMPLATES, ids=lambda path: path.name)
 def test_runners_delegate_framework_owned_validation(path: Path) -> None:
     content = _notebook_code(path) if ".ipynb." in path.name else path.read_text(encoding="utf-8")
+    assert content.count("allowed_function_prefixes") == 1
+    assert '"{{ functions_import_prefix }}"' in content
+    assert "sys.path" not in content
+    assert "pip install" not in content
     for stale in (
         "non_empty_stage",
         "require_persistent_path",

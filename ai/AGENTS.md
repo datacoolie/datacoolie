@@ -13,15 +13,26 @@ that matches the current state. Skills own outcomes, not mandatory phases.
 - Treat `discover/` as design-time evidence. Runtime metadata, code, builds, and releases must not
   depend on it.
 - Keep durable project sources as the authoring source of truth. `.builds/artifacts/{build_id}` is
-  the immutable generated source; `.builds/current` is its verified runnable projection for normal
+  the immutable all-configured-environment source; `.builds/current` is its verified runnable projection for normal
   local integration and validation.
-- Keep mutable logs and watermarks outside `.builds/`.
+- Release resolves build `current` once to an exact canonical artifact. Each runner exposes one stable
+  target current; candidates are temporary and release-addressed, never build-addressed.
+- Keep mutable logs and watermarks outside `.builds/` in an environment-isolated control-storage
+  namespace. Deployed metadata is an immutable build projection, not another authoring source.
 - Skills resolve their own bundled resources relative to `SKILL.md`. Cross-skill handoffs use
   workspace artifacts and typed receipts, never another skill's script path.
 - A consumer validates the exact handoff invariants it needs and fails closed; optional generated
   automation is never a prerequisite for interactive validation.
 - The installed `datacoolie` package is the runtime framework. Project lifecycle automation belongs
   to skills or generated project files, not a framework lifecycle CLI.
+- Preserve established IaC/deployment automation. For direct operations, prefer the official AWS
+  or Databricks CLI; route Fabric by control plane: Azure/ARM uses Azure CLI and Fabric-native work
+  uses Fabric CLI. Owning skills define fallback and safe installation.
+- A build contains no custom-function artifact or exactly one approved WHL/ZIP artifact. Design
+  selects its format; Build packages and verifies it; Provision prepares reusable target
+  capability; Release attaches the exact immutable artifact; runners only allowlist its fixed
+  project import prefix and invoke DataCoolie. Only `metadata` and optional `functions` have fixed
+  component names; runners are platform-native and all runtime/activation references target-defined.
 
 ## Project State
 
@@ -46,19 +57,17 @@ Derived and runtime state:
 .builds/artifacts/{build_id}/         # immutable generated build
 .builds/evidence/{build_id}/{env}/    # build verification receipts
 .builds/current/build.json            # exact source build ID for the runnable projection
-.builds/current/{env}/                # latest generated metadata and runners
-.builds/current/dist/                 # latest generated functions artifact when present
-.runtime/{env}/logs/                  # mutable, persistent
-.runtime/{env}/watermarks/            # mutable, persistent
+.builds/current/{env}/                # generated metadata/ set and runner artifacts
+.builds/current/functions/            # latest generated functions artifact when present
+.runtime/{env}/logs/                  # local default; mutable, persistent
+.runtime/{env}/watermarks/            # local default; mutable, critical state
 .approvals/                           # required manual approvals only
 .releases/                            # deploy/promote/rollback receipts
 provision/evidence/{env}/             # provision plans and receipts when needed
 ```
-
-Every downstream receipt and handoff uses the exact build ID recorded by `current/build.json`.
-Normal run, test, and validation execute `current`; historical verification selects
-`artifacts/{build_id}`. `current` is disposable derived state, never release identity or
-authorization. Never edit or symlink a generated build as durable source.
+Normal run, test, and validation execute build `current`; historical verification selects an exact artifact.
+Release may select `current`, then pins `current/build.json` and reads canonical artifacts.
+Build current is disposable, never release identity. Never edit or symlink generated state.
 
 ## Skill Ownership
 
@@ -82,8 +91,8 @@ owner.
    contracts, modeling, load behavior, platform/resource boundaries, or release policy.
 4. Build owns all compatible implementation and local verification. It bootstraps missing project
    structure as part of the requested work.
-5. Provision only when requested resources are missing; resume the blocked build or release after
-   verification.
+5. Provision only when required resources are missing, drifted, inaccessible, or unknown; resume
+   the blocked build or release after verification.
 6. Release only on an explicit deployment-lifecycle request. It consumes an exact verified build
    and never rebuilds it.
 
@@ -108,12 +117,14 @@ Shortest common routes:
   approval for the target and plan.
 - Implementation or design approval never authorizes deployment. Protected-target release follows
   its environment policy, and production mutation requires explicit current-session authorization.
-- A receipt authorizes only its exact artifact hash, build ID, target, and declared scope.
+- Release verifies required resources, environment-isolated runtime paths, watermark-state
+  compatibility, and authorization before staging. It qualifies the runner slice before replacing
+  stable target current and observing its marker. Authorization binds the exact build, target,
+  candidate/current references, runtime paths, state intent, and scope.
 
 ## Handoff
 
 Handoffs identify the owning artifact, exact path or ID, verification evidence, skipped checks, and
 unresolved questions. Never advance by wrapping a failed check in a success receipt.
 
-Load detailed capability, metadata, runner, operation, materialization, provisioning, or release
-contracts only from the skill that owns the requested outcome.
+Load detailed capability, metadata, runner, operation, materialization, provisioning, or release contracts only from the skill that owns the requested outcome.

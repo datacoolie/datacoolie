@@ -38,6 +38,17 @@ In addition to common parameters, accept `start`, `end`, optional `chunk_interva
 Within one replay call, DataCoolie runs dataflows in parallel and chunks for each dataflow
 sequentially. Do not recreate either scheduler in the entrypoint.
 
+## Persistent state safety
+
+Use one active writer for each `{environment, watermark_base_path, dataflow_id}` state key unless
+the project has a separately verified coordination mechanism. This applies across normal runs,
+replay with `save_watermark=true`, and overlapping scheduler instances; the runner does not invent
+locking around the framework.
+
+Treat watermark storage as critical state. If target output succeeds but watermark persistence
+fails, stop and retain the failure evidence. Retry only through the project's idempotent load or an
+explicit replay/recovery action; never advance or reset the watermark merely to clear the error.
+
 ## Maintenance extension
 
 In addition to common parameters, accept optional connection filters, compact/cleanup selection,

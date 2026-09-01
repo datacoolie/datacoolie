@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -550,6 +553,34 @@ class TestExecuteSQL:
         engine.register_table("people", sample_lf)
         result = engine.execute_sql("SELECT COUNT(*) AS cnt FROM people")
         assert result.collect().item() == 3
+
+    def test_shared_sql_context_execution_is_serialized(self) -> None:
+        class TrackingSQLContext:
+            def __init__(self) -> None:
+                self.active_calls = 0
+                self.max_active_calls = 0
+                self.lock = Lock()
+
+            def execute(self, sql: str) -> str:
+                with self.lock:
+                    self.active_calls += 1
+                    self.max_active_calls = max(
+                        self.max_active_calls, self.active_calls
+                    )
+                time.sleep(0.02)
+                with self.lock:
+                    self.active_calls -= 1
+                return sql
+
+        context = TrackingSQLContext()
+        engine = PolarsEngine(sql_context=context)  # type: ignore[arg-type]
+        queries = [f"SELECT {index}" for index in range(8)]
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(engine.execute_sql, queries))
+
+        assert results == queries
+        assert context.max_active_calls == 1
 
 
 class TestReadTable:

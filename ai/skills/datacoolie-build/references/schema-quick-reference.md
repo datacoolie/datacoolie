@@ -122,6 +122,22 @@ segments in `base_path` when the dataflow already declares them, or the final pa
 those segments. A query or function source without a table identity does not get this composed
 table path.
 
+### Logical catalog qualification
+
+For catalog-backed table sources, map logical names without changing physical path composition:
+
+- `<catalog>.<database-or-schema>.<table>` uses `connection.catalog`,
+  `connection.database`, an empty nested `schema_name`, and `table`.
+- `<workspace>.<lakehouse>.<schema>.<table>` uses `connection.catalog` for the
+  workspace, `connection.database` for the lakehouse, nested `schema_name` for
+  the schema, and `table`.
+
+Prefer `connection.database` for the middle catalog namespace so table addressing and qualified
+queries use the same identity. Apply this to catalog/lakehouse sources only. A relational database
+table read retains its supported `schema_name.table` addressing. `source.query` is raw query text;
+use the same qualified convention only when the selected engine and catalog session support it.
+Neither `catalog` nor `database` is automatically appended to `base_path`.
+
 ## Destination object
 
 | Field | Type | Required | Description |
@@ -281,6 +297,19 @@ Environment overlays merge shared schema hints by `connection_name` + `schema_na
 Nested `hints` merge by `column_name`; unmentioned columns stay unchanged, matching
 columns are deep-merged, and new columns are appended.
 
+Selector patches preserve the same scope boundary:
+
+- `match.type: schema_hints` exposes global hints as a flattened
+  `connection + schema + table + column` selector view. Its patch changes only the matched existing
+  global column hint; group and column identity fields are immutable.
+- `match.type: dataflows` selects whole dataflows. A patch under `transform.schema_hints` changes
+  local hints for each selected dataflow, merging those local hints by `column_name` and preserving
+  unmentioned local columns.
+
+Global selectors never find local hints, and dataflow-local hint patches never modify the global
+hint set. All selectors match the unchanged canonical metadata; exact keyed environment overrides
+apply after ordered patches.
+
 ```json
 {
   "connection_name": "raw_db",
@@ -390,7 +419,11 @@ contract lives in `references/framework-boundary.md`.
 
 ### Python function source (verified final fallback)
 
-- **Custom loader**: set `connection.connection_type: "function"` + `source.python_function: "functions.sources.load_orders_custom"` — function returns a DataFrame; `source.table` is passed as argument when provided
+- **Custom loader**: set `connection.connection_type: "function"` +
+  `source.python_function: "project_package.sources.load_orders_custom"` — use the exact
+  project-specific prefix selected by the single-artifact contract; the function returns a
+  DataFrame and `source.table` is passed as an argument when provided. Load
+  `references/python-functions-contract.md` for packaging and isolated validation.
 
 ### Database authentication
 

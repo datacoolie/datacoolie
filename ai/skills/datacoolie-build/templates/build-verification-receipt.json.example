@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 4,
   "artifact_type": "build_verification",
   "receipt_id": "<unique-build-verification-receipt-id>",
   "status": "succeeded",
@@ -12,20 +12,26 @@
     "sha256": "<sha256>"
   },
   "metadata": {
-    "path": "<environment>/metadata.json",
-    "sha256": "<sha256>"
+    "layout": "single",
+    "files": {
+      "config_path": {
+        "path": "<environment>/metadata/metadata.json",
+        "sha256": "<sha256>"
+      }
+    },
+    "sha256": "<canonical-metadata-set-sha256>"
   },
-  "functions": [],
+  "functions_artifact": null,
   "operation": "run",
   "stage": null,
-  "execution_reference": "<command-or-platform-job-reference>",
+  "execution_reference": "<validator-command-or-build-host-job-reference>",
   "base_log_path": ".runtime/<environment>/logs",
   "watermark_base_path": ".runtime/<environment>/watermarks",
   "checks": [
     {
-      "name": "generated-runtime-execution",
+      "name": "generated-artifact-validation",
       "status": "passed",
-      "evidence": "<log-or-test-reference>"
+      "evidence": "<validator-output-reference>"
     }
   ],
   "started_at": "<ISO-8601 UTC>",

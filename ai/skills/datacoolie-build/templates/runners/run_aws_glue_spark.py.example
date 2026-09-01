@@ -7,6 +7,8 @@ Required Glue job parameters:
   --LOG_BASE_PATH
 
 Optional Glue job parameters:
+  --CONNECTIONS_PATH  Separate connections metadata file
+  --SCHEMA_HINTS_PATH  Separate global schema-hints metadata file
   --STAGE  Stage value passed unchanged; omission runs all stages
 
 This example uses DataCoolie watermark state and does not enable AWS Glue bookmarks.
@@ -31,7 +33,11 @@ from datacoolie.platforms.aws_platform import AWSPlatform
 
 def resolve_options(argv: list[str]) -> dict[str, str]:
     required = ["REGION", "METADATA_PATH", "WATERMARK_BASE_PATH", "LOG_BASE_PATH"]
-    optional = ["STAGE"] if "--STAGE" in argv else []
+    optional = [
+        name
+        for name in ("CONNECTIONS_PATH", "SCHEMA_HINTS_PATH", "STAGE")
+        if f"--{name}" in argv
+    ]
     return getResolvedOptions(argv, [*required, *optional])
 
 
@@ -43,10 +49,16 @@ platform = AWSPlatform(region=args["REGION"])
 engine = SparkEngine(spark_session=spark, platform=platform)
 metadata = FileProvider(
     config_path=args["METADATA_PATH"],
+    connections_path=args.get("CONNECTIONS_PATH"),
+    schema_hints_path=args.get("SCHEMA_HINTS_PATH"),
     platform=platform,
     watermark_base_path=args["WATERMARK_BASE_PATH"],
 )
-config = DataCoolieRunConfig(max_workers=4, stop_on_error=True)
+config = DataCoolieRunConfig(
+    max_workers=4,
+    stop_on_error=True,
+    allowed_function_prefixes=["{{ functions_import_prefix }}"],
+)
 
 failed = 0
 with DataCoolieDriver(

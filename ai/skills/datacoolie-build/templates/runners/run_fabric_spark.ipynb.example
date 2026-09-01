@@ -16,6 +16,8 @@
    "outputs": [],
    "source": [
     "METADATA_PATH = \"{metadata_path}\"\n",
+    "CONNECTIONS_PATH = None\n",
+    "SCHEMA_HINTS_PATH = None\n",
     "WATERMARK_BASE_PATH = \"{watermark_base_path}\"\n",
     "BASE_LOG_PATH = \"{base_log_path}\"\n",
     "STAGE = \"\""
@@ -41,8 +43,8 @@
     "\n",
     "platform = FabricPlatform(runtime=\"fabric\")\n",
     "engine = SparkEngine(spark_session=spark, platform=platform)  # type: ignore[name-defined]\n",
-    "metadata = FileProvider(config_path=METADATA_PATH, platform=platform, watermark_base_path=WATERMARK_BASE_PATH)\n",
-    "config = DataCoolieRunConfig(max_workers=4, stop_on_error=True)\n",
+    "metadata = FileProvider(config_path=METADATA_PATH, connections_path=CONNECTIONS_PATH, schema_hints_path=SCHEMA_HINTS_PATH, platform=platform, watermark_base_path=WATERMARK_BASE_PATH)\n",
+    "config = DataCoolieRunConfig(max_workers=4, stop_on_error=True, allowed_function_prefixes=[\"{{ functions_import_prefix }}\"])\n",
     "\n",
     "failed = 0\n",
     "with DataCoolieDriver(engine=engine, metadata_provider=metadata, base_log_path=BASE_LOG_PATH, config=config) as driver:\n",

@@ -32,6 +32,7 @@ REQUIRED_TEMPLATE_TOKENS = (
     "## Stage Graph",
     "## Transition Contracts",
     "## Framework Capability Intent",
+    "## Python Function Packaging Intent",
     "## Runtime Selection Intent",
     "## Environment And Resource Requirements",
     "## Release And Approval Policy",

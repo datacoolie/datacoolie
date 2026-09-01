@@ -157,24 +157,24 @@
     },
     {
       "id": 15,
-      "prompt": "Build only the development environment. Another configured environment uses a platform that is not installed on this workstation, and its metadata overlay is changing independently.",
-      "expected_output": "Validate and materialize only the selected environment slice, exclude the unrelated overlay from its identity, and retain all shared inputs that actually affect the generated build.",
+      "prompt": "Build only the development environment and let current omit the other configured environments because their overlays change independently.",
+      "expected_output": "Reject environment-scoped materialization: validate and emit one complete build containing every configured environment, include every binding and overlay in build identity, and keep current as the full runnable projection.",
       "files": [],
       "expectations": [
-        "An unselected platform does not block the selected environment build.",
-        "Changing an unselected overlay does not create a new subset build ID.",
-        "Shared metadata and selected environment changes still invalidate reuse."
+        "Build exposes no environment selector.",
+        "A missing platform or compatible runner in any configured environment blocks the complete build.",
+        "Changing any environment overlay invalidates build identity and current retains every environment."
       ]
     },
     {
       "id": 16,
-      "prompt": "The generated build has two runners for the same environment. Verify one of them locally and hand it to release with enough evidence to reject stale or ambiguous results.",
-      "expected_output": "Execute the exact generated runner, write a uniquely identified typed receipt bound to its environment and artifact hashes, validate it against the build, and hand release the explicit receipt path.",
+      "prompt": "The generated build has two runners for the same environment. Artifact-verify one runner slice on a host that cannot execute that target-native runner, then hand it to release without weakening activation safety.",
+      "expected_output": "Validate the exact generated runner, typed metadata set, optional function artifact, and hashes; write a successful Build v4 artifact receipt without fabricating runtime proof; hand Release the explicit receipt so it can stage and target-qualify that runner before activation.",
       "files": [],
       "expectations": [
-        "Verification runs the generated runner and resolved metadata rather than durable sources.",
-        "The receipt binds the exact build, environment, runner, metadata, optional functions, and hashes.",
-        "Release receives an explicit successful receipt path and never selects latest evidence."
+        "Build requires generated-artifact-validation while Build-host runtime execution remains optional evidence.",
+        "The receipt binds the exact build, environment, runner, metadata, optional singular function artifact, and hashes.",
+        "Release receives an explicit successful artifact receipt path, never selects latest evidence, and still target-qualifies before activation."
       ]
     },
     {
@@ -422,6 +422,127 @@
         "AWSPlatform remains the public adapter for AWS and MinIO storage.",
         "The standard boto3 credential chain is used without embedded keys.",
         "The platform-level endpoint_url is not generalized to non-S3 services."
+      ]
+    },
+    {
+      "id": 39,
+      "prompt": "Author metadata for one catalog source named catalog_a.database_b.table_c and another named workspace_x.lakehouse_y.schema_z.table_q. Keep logical SQL qualification consistent without changing file base_path composition.",
+      "expected_output": "Map catalog/database/schema/table into the existing metadata fields, prefer connection.database for the middle namespace, and keep physical paths at base_path/schema_name/table.",
+      "files": [],
+      "expectations": [
+        "The three-level name maps to connection.catalog, connection.database, no nested schema, and table.",
+        "The four-level name maps workspace to catalog, lakehouse to database, nested schema to schema_name, and table to table.",
+        "Relational schema.table reads and physical base_path composition are not overwritten by catalog rules."
+      ]
+    },
+    {
+      "id": 40,
+      "prompt": "Build and lint an environment named preprod_blue. Its cloud metadata is build-scoped, while logs and watermarks use persistent isolated control paths.",
+      "expected_output": "Accept the project-defined environment name, materialize immutable metadata for its build ID, and pass exact persistent log/watermark paths without cloning metadata or adding config selectors.",
+      "files": [],
+      "expectations": [
+        "The environment is not rejected for being outside dev/test/prod.",
+        "Metadata remains immutable and build-scoped while logs and watermarks remain outside the build.",
+        "Runtime paths are passed unchanged rather than encoded as engine or stage configuration."
+      ]
+    },
+    {
+      "id": 41,
+      "prompt": "Create a runner that executes on an on-premises scheduler, reads an on-premises source, and uses the cloud platform adapter plus engine credentials to write to a cloud destination.",
+      "expected_output": "Use the explicit external cloud runtime, keep the scheduler as the execution/release target, and verify platform control-storage access separately from engine destination access.",
+      "files": [],
+      "expectations": [
+        "Platform, external runtime, execution host, and engine I/O responsibilities remain distinct.",
+        "The runner uses framework metadata and driver execution rather than custom ingestion.",
+        "Network and credential prerequisites route to Provision when missing or unknown."
+      ]
+    },
+    {
+      "id": 42,
+      "prompt": "Two schedulers may run the same incremental dataflow against one watermark path. Source queries can contain sensitive filters, and a target write may finish before the watermark update fails.",
+      "expected_output": "Require one active writer per environment/path/dataflow state key, avoid secret literals and restrict log access/retention, then recover through idempotent rerun or explicit replay without silently changing the watermark.",
+      "files": [],
+      "expectations": [
+        "The runner does not invent framework locking or concurrent watermark coordination.",
+        "Raw query/action logging risk is handled through authoring, classification, access, and retention controls.",
+        "Write-after-target failure retains evidence and uses idempotent recovery rather than an automatic watermark advance/reset."
+      ]
+    },
+    {
+      "id": 43,
+      "prompt": "Build a function-backed Fabric and Databricks project. Add pip install cells to every generated notebook and create both WHL and ZIP packages for flexibility.",
+      "expected_output": "Create only the architecture-selected wheel, validate it in isolation, and render the fixed project import prefix; generated notebooks contain no installation or restart behavior.",
+      "files": [],
+      "expectations": [
+        "Exactly one typed functions_artifact is emitted and it is a wheel.",
+        "The notebook allowlist equals the manifest import prefix and is not a parameter.",
+        "Package preparation remains outside runner/notebook execution."
+      ]
+    },
+    {
+      "id": 44,
+      "prompt": "The approved AWS Glue host explicitly selects a simple pure-Python ZIP. Also build a wheel as a backup and put the project under a generic top-level functions package.",
+      "expected_output": "Build only one project-named ZIP with one project-specific import package at archive root; do not emit a backup wheel or generic functions root.",
+      "files": [],
+      "expectations": [
+        "The manifest records format zip with null distribution/version.",
+        "The ZIP has one safe importable project package and no compiled dependencies.",
+        "A second package format is not generated."
+      ]
+    },
+    {
+      "id": 45,
+      "prompt": "Resolved metadata references other_package.sources.load but the selected artifact and runner allowlist use project_package. Let runtime discover it from the workspace checkout.",
+      "expected_output": "Fail Build because every metadata function must start with the artifact import prefix and validation must not resolve authoring source from the workspace.",
+      "files": [],
+      "expectations": [
+        "Prefix mismatch fails before a successful receipt is written.",
+        "Imports run from an isolated artifact-only location.",
+        "The runner allowlist is fixed and is not widened dynamically."
+      ]
+    },
+    {
+      "id": 46,
+      "prompt": "This project has no Python-function source. Create an empty functions build directory, an empty artifact record, and function import checks for consistency.",
+      "expected_output": "Emit functions_artifact null, no functions placeholder, an empty runner allowlist, and no function-specific verification checks.",
+      "files": [],
+      "expectations": [
+        "No package is created when resolved metadata has no Python function.",
+        "Manifest and receipt use the singular nullable field.",
+        "Only relevant runtime checks are required."
+      ]
+    },
+    {
+      "id": 47,
+      "prompt": "Materialize the same resolved metadata as one file, then as separate connections/dataflows files, and finally as three files with global schema hints. Let each runner discover whichever files happen to exist.",
+      "expected_output": "Build three explicit layouts with different build identities, record the full typed metadata set, and pass exactly its declared FileProvider paths; runners never scan or infer the layout.",
+      "files": [],
+      "expectations": [
+        "The supported layouts are exactly single, split-connections, and split-all.",
+        "Every metadata role is under the environment metadata component and is hash-bound.",
+        "The optional provider paths are omitted when their roles are absent."
+      ]
+    },
+    {
+      "id": 48,
+      "prompt": "In one environment, change one destination setting for every batch dataflow using a particular source connection, but give one named dataflow a different final value. Avoid repeating every matching dataflow.",
+      "expected_output": "Use one dataflows selector patch with a nested exact-subset match for the shared change, then one exact keyed dataflow override for the named exception; resolve selectors against canonical metadata and apply the exact override last.",
+      "files": [],
+      "expectations": [
+        "The shared change uses patches rather than a cloned environment metadata document or an enumerated dataflow list.",
+        "The selector type is dataflows and its where object matches scalar and nested canonical attributes.",
+        "The exact keyed override wins after all ordered patches, independent of JSON object key order."
+      ]
+    },
+    {
+      "id": 49,
+      "prompt": "For one environment, increase precision for matching discovered table-column type hints globally. Separately add a local cast to every dataflow in a selected processing group. Keep the two scopes unambiguous.",
+      "expected_output": "Use a schema_hints selector at connection/schema/table/column grain for the existing global hints, and a separate dataflows selector whose patch contains transform.schema_hints for the local casts.",
+      "files": [],
+      "expectations": [
+        "The global selector type is schema_hints and targets existing column-grain hint records.",
+        "The local change selects dataflows and modifies only their transform.schema_hints, merged by column_name.",
+        "Neither selector scope is described as merging global and local runtime hint sources."
       ]
     }
   ]

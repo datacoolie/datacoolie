@@ -23,13 +23,14 @@ Create only directories needed by the active request. Workspace bootstrap is par
 │   ├── run_{platform}_{engine}[_{provider}].py|ipynb
 │   ├── replay_{platform}_{engine}[_{provider}].py|ipynb       # when needed
 │   └── maintenance_{platform}_{engine}[_{provider}].py|ipynb  # when needed
-├── functions/                             # optional
+├── functions/                             # optional authoring source for one WHL or ZIP
 ├── automation/                            # optional, only for CI/reproducible build
 └── provision/                             # optional, only for infrastructure scope
 ```
 
 `architecture/`, `discover/`, `functions/`, `automation/`, and `provision/` are conditional. Do not
-create empty placeholder trees.
+create empty placeholder trees. Function authoring uses the single-format layout selected in
+`references/python-functions-contract.md`; generated artifacts live only under build `functions/`.
 
 ## Derived and runtime state
 
@@ -41,17 +42,17 @@ create empty placeholder trees.
 │   │       ├── manifest.json
 │   │       ├── SHA256SUMS
 │   │       ├── {env}/
-│   │       │   ├── metadata.json
+│   │       │   ├── metadata/             # selected one-, two-, or three-file projection
 │   │       │   └── runners/
-│   │       └── dist/                      # only when custom functions exist
+│   │       └── functions/                 # only when custom functions exist
 │   ├── evidence/
 │   │   └── {build_id}/{env}/{receipt_id}.json
 │   └── current/
 │       ├── build.json                  # exact source build ID
 │       ├── {env}/
-│       │   ├── metadata.json
+│       │   ├── metadata/
 │       │   └── runners/
-│       └── dist/                       # only when the build contains it
+│       └── functions/                  # only when the build contains it
 ├── .runtime/
 │   └── {env}/
 │       ├── logs/
@@ -121,8 +122,50 @@ Default to `dataflows/{stage}.json`. Use a branch file to group related stages, 
 for large multi-domain projects, or stage/dataflow sharding to reduce conflicts in a large stage.
 Paths never infer or override runtime stage.
 
-Environment files contain only overrides for `connections`, `dataflows`, and `schema_hints`, merged
-by stable identity. Do not maintain a full metadata clone per environment.
+Environment files may contain ordered `patches` plus exact keyed overrides for `connections`,
+`dataflows`, and global `schema_hints`. Do not maintain a full metadata clone per environment.
+
+Use patches for one change shared by a selected group and exact keyed sections for one named
+entity, additions, or final exceptions:
+
+```json
+{
+  "patches": [
+    {
+      "match": {
+        "type": "dataflows",
+        "where": {"processing_mode": "batch", "source": {"connection_name": "source_a"}}
+      },
+      "patch": {"destination": {"connection_name": "target_a"}}
+    }
+  ],
+  "dataflows": [
+    {"name": "exception_flow", "destination": {"connection_name": "target_b"}}
+  ]
+}
+```
+
+Selector types are exactly `connections`, `dataflows`, and `schema_hints`. `where` is a non-empty
+recursive exact-subset match with scalar or null leaves; arrays, regex, glob, expressions, and
+deletion are unsupported. Empty nested objects are invalid. Every patch must match at least one
+canonical entity. Selectors always inspect the unchanged canonical snapshot, so a prior patch and
+an exact keyed addition cannot create targets for a later patch.
+
+Resolution is deterministic:
+
+```text
+canonical < patches in array order < exact keyed overrides < resolved-metadata validation
+```
+
+Later patches win at the same leaf; exact keyed overrides always win last. JSON object key order
+does not affect resolution. Patches cannot rename or create selected top-level entities. Exact
+keyed sections retain their ability to add an entity.
+
+`type: schema_hints` means global schema hints and selects flattened records at
+connection/schema/table/column grain. To change local `transform.schema_hints`, select
+`type: dataflows` and put the hints in that dataflow patch. Local hints merge by `column_name` so
+unmentioned local hints remain; other arrays replace as a whole. See
+`references/schema-quick-reference.md` for the schema-hint boundary.
 
 Use the versioned schema bundled with the active build tooling for offline validation. Schema
 updates arrive with refreshed build tooling; do not download a moving schema during a build.
@@ -161,19 +204,23 @@ Run the materializer resolved from the active `datacoolie-build` skill:
 ```text
 python <datacoolie-build>/scripts/materialize.py \
   --workspace {workspace_name} \
-  --environment dev
+  --metadata-layout single
 ```
 
-Omit `--environment` to build every configured environment. Use repeated `--runner-name` only when
-the request intentionally selects a subset; otherwise materialize all runners compatible with each
-environment platform.
+Every materialization validates and emits all configured environments. Environment selection is a
+runtime and release-slice concern, not a Build parameter. Use repeated `--runner-name` only when the
+selected names provide at least one compatible runner for every configured environment; otherwise
+materialize all compatible runners. Metadata layout is one explicit build input: `single` (default) writes
+`metadata/metadata.json`; `split-connections` writes `metadata/dataflows.json` plus
+`metadata/connections.json`; `split-all` also writes `metadata/schema_hints.json`. Generated
+runners receive exactly the declared `FileProvider` paths.
 
 The command returns a UTC creation-time-prefixed build ID such as
 `260808-091011-a13f83c9d7e2`. The manifest keeps the full content digest. Each materialization creates
 a time-addressed immutable folder; only byte-identical output colliding in the same second may be
 reused. After artifact verification, materialization replaces `.builds/current` with the runnable
-projection of that entire build. A subset build therefore replaces current as a whole and does not
-retain stale environments from the previous build.
+projection of that entire all-environment build. It never drops a configured environment based on
+invocation parameters.
 
 For the normal latest-build path, execute and validate `.builds/current` directly. Its
 `.builds/current/build.json` identifies the canonical artifact used for drift checks and evidence
@@ -181,6 +228,11 @@ binding. To test an earlier
 version, select `.builds/artifacts/{build_id}` directly. Both paths write
 `.builds/evidence/{build_id}/{env}/{receipt_id}.json`; release consumes that exact ID, canonical
 checksums, target slice, and successful receipt rather than the moving projection.
+
+A release request may say `current`; Release validates `current/build.json`, pins that build ID,
+and transfers from `.builds/artifacts/{build_id}`. It never uploads moving current bytes. The
+deployment target's stable current identity is Release state and does not add a workspace
+`deployments/` directory.
 
 ## Optional project-owned automation
 

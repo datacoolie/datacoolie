@@ -61,6 +61,20 @@ Pass path values unchanged to DataCoolie constructors and metadata. The
 platform validates and interprets them; the engine independently owns Spark
 Hadoop configuration, Polars storage options, catalogs, and table-format I/O.
 
+## DataCoolie control storage
+
+Use one persistent, environment-isolated control namespace for deployed
+metadata, logs, and watermarks. Prefer a dedicated local directory, AWS S3
+bucket, Fabric Lakehouse, or Databricks governed Volume that is separate from
+business data. A policy-approved shared resource still needs distinct
+environment paths and access controls.
+
+Within the namespace, Release stages metadata in its temporary release candidate and activates the
+fixed target `metadata` component through the stable runner current identity. The target may use a
+filesystem path or a native object identity; do not require a `build_id` folder. Keep logs and
+watermarks in separate mutable locations. The durable workspace and build remain the authoring
+source of truth. The cloud metadata copy is only the release projection consumed by the runner.
+
 ## Credentials
 
 - Local secrets come from environment variables.
@@ -108,6 +122,17 @@ Do not install packages or restart the runtime inside a runner. Native hosts
 attach the base package before execution; external environments install the
 matching platform profile together with only the needed engine/source/format
 profiles.
+
+When metadata uses a Python function, the approved execution host—not the
+DataCoolie platform adapter—determines WHL/ZIP compatibility. Load
+`references/python-functions-contract.md`; Build produces exactly one artifact
+and renders its fixed import prefix. Provision verifies reusable readiness and
+Release attaches that exact artifact before execution.
+
+When an external cloud adapter runs on premises, the platform remains the cloud
+adapter while the scheduler, container, VM, or host remains the release target.
+Verify outbound connectivity, workload identity, engine destination access, and
+control-storage access independently.
 
 ## Unresolved Questions
 

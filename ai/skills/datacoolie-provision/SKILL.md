@@ -35,7 +35,7 @@ Load only the reference needed by the selected mechanism:
 | Need | Resource | Owns |
 |---|---|---|
 | Existing or selected Terraform workflow | `references/terraform-contract.md` | State, saved-plan, import, apply, and output rules |
-| Direct platform CLI or API | `references/platform-tooling.md` | Current documentation lookup and safe command evidence |
+| Direct platform operation | `references/platform-tooling.md` | Control-plane CLI selection, installation boundary, current documentation, fallback, and safe command evidence |
 | Receipt verification | `scripts/validate_provision.py`, `schemas/provision-receipt.schema.json` | Receipt shape, exact hashes, authorization binding, and success gate |
 
 References never select resources, naming, versions, or authentication for the project. Approved
@@ -45,18 +45,34 @@ documentation remain authoritative.
 ## Decision Workflow
 
 1. Resolve the exact environment/platform and requirements artifact.
-2. Observe target state and classify every requirement as `present`, `missing`, `drifted`,
+2. Preserve an established IaC source of truth. Otherwise follow `platform-tooling.md` and select
+   the direct tool by the operation's control plane. For Fabric targets, Azure/ARM resources use
+   Azure CLI while Fabric-native resources use Fabric CLI. Resolve only the selected tooling and
+   install it only within the safe installation boundary or request installation.
+3. Observe target state and classify every requirement as `present`, `missing`, `drifted`,
    `inaccessible`, or `unknown`. Provision only confirmed gaps or explicitly requested changes.
-3. Reuse the project's infrastructure source of truth. Do not create parallel state or resources,
-   change a backend/workspace, or import an existing resource implicitly.
-4. Persist an idempotent, environment-scoped plan covering actions, data-bearing impact, cost,
+   Treat an existing, accessible, policy-compliant resource as ready without forcing a no-op apply.
+4. When control storage is required, preserve the approved environment boundary. Prefer a
+   dedicated persistent resource separate from business data: a directory locally, an S3 bucket
+   on AWS, a Lakehouse on Fabric, or a governed Volume on Databricks. Use a shared resource
+   only when the requirements explicitly allow an isolated path and access boundary.
+   Verify readiness for fixed target components named `metadata` and, when required, `functions`;
+   do not impose names on runner resources, logs, watermarks, candidate/current references, or
+   deployment markers.
+5. When the selected build contract uses a function artifact, verify reusable readiness only:
+   immutable artifact storage, environment/library capability for the selected WHL or ZIP,
+   permissions, network access, and fresh-session behavior. Do not upload or attach a build.
+6. Persist an idempotent, environment-scoped plan covering actions, data-bearing impact, cost,
    permissions, state, rollback, tool versions, and unresolved risks.
-5. Validate or preview without mutation. If the tool has no trustworthy non-mutating preview,
+7. Validate or preview without mutation. If the tool has no trustworthy non-mutating preview,
    return the plan without executing it.
-6. Obtain approval for the exact plan hash, then apply that plan only. Stop on changed actions,
+8. Obtain approval for the exact plan hash, then apply that plan only. Stop on changed actions,
    partial apply, drift, state locks, or inaccessible state and reconcile observable state.
-7. Verify resource state and least-privilege access. Record successful or failed evidence; never
-   convert an incomplete or failed apply into success.
+9. Verify resource state and least-privilege access from the intended execution host, including
+   complete metadata-set read/replace, optional function-artifact storage/attachment, and log and
+   watermark operations when in scope. For native execution, also prove the declared job, function,
+   notebook, or external-host capability without uploading build-specific bytes. Record successful or
+   failed evidence; never convert an incomplete or failed apply into success.
 
 ## Evidence And Handoff
 

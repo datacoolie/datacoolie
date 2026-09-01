@@ -21,6 +21,8 @@ from datacoolie.platforms.databricks_platform import DatabricksPlatform
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--metadata-path", required=True)
+    parser.add_argument("--connections-path")
+    parser.add_argument("--schema-hints-path")
     parser.add_argument("--watermark-base-path", required=True)
     parser.add_argument("--base-log-path", required=True)
     parser.add_argument("--stage")
@@ -37,6 +39,8 @@ def main() -> int:
     engine = PolarsEngine(platform=platform)
     metadata = FileProvider(
         config_path=args.metadata_path,
+        connections_path=args.connections_path,
+        schema_hints_path=args.schema_hints_path,
         platform=platform,
         watermark_base_path=args.watermark_base_path,
     )
@@ -44,6 +48,7 @@ def main() -> int:
         dry_run=args.dry_run,
         max_workers=args.max_workers,
         stop_on_error=True,
+        allowed_function_prefixes=["{{ functions_import_prefix }}"],
     )
 
     failed = 0

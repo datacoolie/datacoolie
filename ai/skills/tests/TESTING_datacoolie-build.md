@@ -15,6 +15,11 @@ Verify:
 
 - Canonical modular JSON supports the five approved dataflow fragment layouts, requires explicit
   content `stage`, rejects duplicate names, and resolves environment overlays correctly.
+- Environment overlays support ordered exact-subset selector patches over canonical connections,
+  dataflows, and column-grain global schema hints. Selectors use the unchanged canonical snapshot,
+  fail on zero matches, and exact keyed overrides win last.
+- Global `schema_hints` selectors and dataflow-local `transform.schema_hints` patches remain
+  isolated; local hints merge by `column_name` while other patched arrays replace.
 - A supported path remains metadata-driven and calls `DataCoolieDriver.run(...)`.
 - Polars qualified Delta/Iceberg SQL remains a normal metadata `source.query`; source-native table
   registration runs on the same engine before driver construction, indexes lazily by default, and
@@ -33,6 +38,12 @@ Verify:
   framework without content validation or normalization.
 - Executable notebooks never install packages or restart their runtime; provision/release attaches
   verified dependencies before execution.
+- A build emits no Python-function artifact or exactly one architecture-selected WHL/ZIP artifact;
+  it never emits both. ZIPs have one project-specific package root and wheels are pure Python.
+- Function validation imports only the generated artifact, enforces the metadata prefix and
+  callable signature, and cannot pass through workspace authoring source.
+- Function-capable runners use the fixed manifest import prefix in `allowed_function_prefixes`;
+  no-function runners render an empty allowlist.
 - Replay templates pass one stage unchanged, preserve numeric boundary types lost by text-only
   transports, decode the serialized chunk value, call `load_dataflows`/`run_replay`, and require
   separate confirmation before saving watermarks. Framework execution owns replay interval and
@@ -55,10 +66,12 @@ Verify:
   skill resources.
 - Capability inspection reports installed version, requirements, entry points, and all six registry
   groups without connection values or secrets.
-- Subset builds validate and hash only selected environment bindings/overlays while retaining shared
-  metadata, functions, runner, design, framework-version, and tooling identity.
-- A typed receipt matches the exact generated environment, runner, metadata, optional functions,
-  hashes, runtime paths, and timestamps; failed or mismatched receipts cannot satisfy release.
+- Every build validates and hashes all configured environment bindings and overlays, and both the
+  immutable artifact and current projection contain every environment.
+- A typed v4 receipt matches the exact generated environment, runner, metadata, singular optional
+  function artifact, hashes, runtime paths, and timestamps. It requires artifact validation and
+  artifact-only function import when applicable; Build-host runtime execution is optional evidence.
+  Failed or mismatched receipts cannot satisfy release staging.
 - Release consumes an exact build ID and explicit receipt path, never `current` or latest evidence.
 - Integration tests execute `.builds/artifacts/{build_id}` while logs/watermarks remain under
   `.runtime/`; receipts remain under `.builds/evidence/`.

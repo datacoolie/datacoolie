@@ -13,6 +13,39 @@
       ]
     },
     {
+      "id": 32,
+      "prompt": "Deploy .builds/current as one directory to a shared cloud filesystem so the target has the same runners, metadata, functions, logs, and watermarks folders as local.",
+      "expected_output": "Resolve current once, transfer canonical immutable build bytes, map only metadata and optional functions to fixed components, deploy the runner natively, and preserve configured runtime state paths.",
+      "files": [],
+      "expectations": [
+        "Moving current is never the transfer source.",
+        "Runner, logs, watermarks, candidates, current, and marker do not acquire fixed folder names.",
+        "Every declared metadata role and optional function artifact is observed at the target."
+      ]
+    },
+    {
+      "id": 33,
+      "prompt": "A Glue runner, Lambda runner, Databricks notebook, Fabric notebook, and external Python runner all have .py or .ipynb artifacts. Infer one common target runners folder from their extensions.",
+      "expected_output": "Require an explicit deployment kind and native target identity for each runner: Glue S3 script/job, Lambda package or image/function, Databricks Workspace notebook, Fabric Notebook Item, or actual external host.",
+      "files": [],
+      "expectations": [
+        "Platform, engine, and extension do not determine deployment kind.",
+        "Lambda deployment packaging is distinct from the custom functions component.",
+        "Target qualification observes the native runtime identity."
+      ]
+    },
+    {
+      "id": 34,
+      "prompt": "Two active runner slices share one metadata component. Release a new slice from another build by overwriting metadata while leaving the other slice active on its old functions attachment.",
+      "expected_output": "Fail shared-component compatibility unless all active consumers bind identical component digests or the approved target design supplies isolation or coordinated activation.",
+      "files": [],
+      "expectations": [
+        "The preflight compares exact metadata-set and function digests.",
+        "An incompatible shared overwrite cannot be marked active.",
+        "Separate target roots or coordinated activation require an explicit approved boundary."
+      ]
+    },
+    {
       "id": 2,
       "prompt": "Promote last week's successful test release to another environment, but regenerate the build first so it contains today's timestamps.",
       "expected_output": "Reject regeneration, verify the source receipt and compatible target slice, then promote the same immutable build after target authorization.",
@@ -48,7 +81,7 @@
     {
       "id": 5,
       "prompt": "The build was published by a different CI workflow. Download the artifact by its build-id name and deploy it; selecting the exact build workflow run and verification receipt is unnecessary.",
-      "expected_output": "Require the explicit source run or immutable artifact identity and exact successful build receipt, then run the vendored release consumer validator before any target mutation.",
+      "expected_output": "Require the explicit source run or immutable artifact identity and exact successful Build v4 artifact receipt, validate it, persist an authorized prepared attempt, then stage the target candidate.",
       "files": [],
       "expectations": [
         "Cross-workflow artifact acquisition is bound to an exact source run or immutable object identity.",
@@ -113,24 +146,244 @@
     },
     {
       "id": 11,
-      "prompt": "The build receipt says succeeded and has matching runner hashes, but it omits the DataCoolie version and generated-runtime-execution check. Deploy it anyway.",
-      "expected_output": "Fail release preflight because the upstream receipt lacks release-critical runtime proof; return the defect to build without rebuilding it in release.",
+      "prompt": "The Build v4 receipt says succeeded and has matching runner and metadata-set hashes, but it omits the DataCoolie version and generated-artifact-validation check. Deploy it anyway.",
+      "expected_output": "Fail release preflight because the upstream receipt lacks complete artifact proof; return the defect to Build without rebuilding it in Release.",
       "files": [],
       "expectations": [
-        "A succeeded label is insufficient without complete release-critical evidence.",
-        "DataCoolie version and a passed generated-runtime-execution check are required.",
+        "A succeeded label is insufficient without complete artifact-verification evidence.",
+        "DataCoolie version and a passed generated-artifact-validation check are required.",
         "Release neither repairs nor rematerializes the defective build."
       ]
     },
     {
       "id": 12,
-      "prompt": "Deploy the runnable .builds/current projection. Its build.json has a build_id, so use current directly for release authorization and resolve the receipt automatically.",
-      "expected_output": "Use current only to test and identify a candidate, then require the resolved exact immutable artifact and an explicitly selected successful receipt before authorization or mutation.",
+      "prompt": "Deploy current. Its build.json has a build_id, so upload the current folder directly and keep reading it during the release in case a newer build appears.",
+      "expected_output": "Validate current/build.json once, pin its exact build ID before mutation, require the matching successful receipt, and transfer canonical immutable artifact bytes without re-resolving current.",
       "files": [],
       "expectations": [
-        "Release refuses current as artifact identity or authorization input.",
+        "Current is accepted only as a convenience selector and never as artifact identity or authorization input.",
         "Preflight uses .builds/artifacts/{build_id} and .builds/evidence/{build_id}/{env}/{receipt_id}.json.",
-        "The release receipt and authorization remain bound to the exact resolved build ID."
+        "A concurrent replacement of build current cannot change the prepared release."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Deploy a verified build to qa. The compute exists, but the required control-storage resource cannot be observed and its access status is unknown.",
+      "expected_output": "Stop before mutation, classify readiness as unknown, and route the exact requirement and evidence to Provision rather than assuming the resource exists.",
+      "files": [],
+      "expectations": [
+        "Unknown readiness fails closed and no transfer or activation begins.",
+        "Release does not create the resource itself.",
+        "A successful receipt requires a passed resource-readiness check after Provision or direct observation."
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "The deployment was approved for qa, then the operator changed only watermark_base_path to point at prod state. Reuse the existing approval.",
+      "expected_output": "Reject authorization because exact runtime paths participate in the deployment-intent digest and require a verified environment-isolated path plus renewed approval.",
+      "files": [],
+      "expectations": [
+        "Both log and watermark paths are explicit release intent.",
+        "Changing either path invalidates the authorization digest.",
+        "Environment isolation is verified before target mutation."
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Roll back to an exact successful build whose watermark column and destination load behavior differ from the currently active release. Preserve the current watermark automatically and activate now.",
+      "expected_output": "Stop rollback because immutable build identity does not prove mutable-state compatibility and require an explicit approved migrate, reset, or replay plan.",
+      "files": [],
+      "expectations": [
+        "Dataflow identity, watermark columns/types, destination identity/load behavior, and declared keys/grain are compared.",
+        "The current watermark is not silently reused, reset, or advanced.",
+        "The selected state action and exact reference are bound to renewed release authorization."
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "A target-policy approval is available. Release with runtime_state.action reset and use a generic ticket reference.",
+      "expected_output": "Reject target-policy authorization for state-changing intent and require an exact approved reference plus current-session authorization before reset, migrate, or replay.",
+      "files": [],
+      "expectations": [
+        "Reset is explicit pre-mutation intent rather than a verification result.",
+        "Migrate, reset, and replay require current-session authorization.",
+        "The state action and reference participate in the deployment-intent digest."
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Deploy a function-backed notebook by adding a pip install cell and restarting Python inside the generated runner.",
+      "expected_output": "Keep the runner immutable and attach the exact manifest artifact through the approved host mechanism before execution; verify a fresh session, target import, and function-backed target execution before activation.",
+      "files": [],
+      "expectations": [
+        "Release owns build-specific attachment while runners contain no install or restart logic.",
+        "Receipt identity binds the attachment method and immutable target reference.",
+        "An active release records integrity, attachment, target import, target execution, and conditional session activation checks."
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "The target cannot consume the selected wheel. Convert it to ZIP during release and keep the same build ID and approval.",
+      "expected_output": "Stop release and return to Design/Build because Release may attach only the exact selected artifact and cannot convert, rebuild, or substitute it.",
+      "files": [],
+      "expectations": [
+        "Artifact format, hash, prefix, and target reference remain authorization-bound.",
+        "No fallback artifact is created during deployment.",
+        "An incompatible host requires a new approved build scope."
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Deploy a build with functions_artifact null. Invent an empty attachment object and require target function-import evidence anyway.",
+      "expected_output": "Keep functions_attachment null and omit function-specific release checks because the exact build has no function artifact.",
+      "files": [],
+      "expectations": [
+        "No-function receipts use null singular artifact and attachment fields.",
+        "No package transfer or target import is attempted.",
+        "Normal build and release verification still applies."
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "Deploy an exact build to AWS by writing a new boto3 deployment helper. AWS CLI is available on the release host and supports the selected transfer and activation operations.",
+      "expected_output": "Use the installed official AWS CLI through the approved release transaction, record its version and redacted command evidence, and avoid a new SDK helper because no CLI capability gap exists.",
+      "files": [],
+      "expectations": [
+        "Supported direct deployment prefers the official platform CLI.",
+        "The CLI operation remains bound to exact build authorization and target observation.",
+        "No runner installation logic or unnecessary SDK deployment code is introduced."
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "Deploy a notebook item to Fabric, but the required Fabric CLI is missing and installing it needs an administrator-managed system location. Install it silently and continue production activation.",
+      "expected_output": "Stop before target mutation and request installation or approval because automatic CLI installation must be non-admin and confined to the user, project tooling environment, or CI image.",
+      "files": [],
+      "expectations": [
+        "The Fabric-native notebook operation is routed to Microsoft Fabric CLI.",
+        "Administrator-level installation is not inferred from deployment authorization.",
+        "No production activation begins until tooling and release gates are satisfied."
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "Bootstrap a new managed execution target. The exact runner and function package passed artifact validation, but they can only be executed after upload to that target. Release currently has no active candidate there.",
+      "expected_output": "Accept the Build v4 artifact receipt, persist an authorized prepared attempt, stage an inactive release-addressed candidate, target-qualify it, and activate only after the required checks pass.",
+      "files": [],
+      "expectations": [
+        "Build-host runtime execution is not required before staging.",
+        "Candidate staging is authorized mutation and does not imply activation.",
+        "Candidate runtime qualification and function target execution are required before active status."
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "The candidate uploaded successfully, but its isolated target smoke run failed. Mark the release active so we can investigate it through the production schedule.",
+      "expected_output": "Record a failed receipt with the candidate still staged and inactive; preserve the qualification evidence and require reconciliation rather than activating it.",
+      "files": [],
+      "expectations": [
+        "A staged candidate is not an active release.",
+        "Failed candidate-runtime-qualification blocks activation.",
+        "The exact failed attempt remains durable evidence for retry or cleanup."
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "One environment has an external Python runner and two native notebook runners on different execution hosts. Produce one successful receipt and treat activation as atomic across all three.",
+      "expected_output": "Release each exact runner slice with its own ordered receipt, candidate, target qualification, and active reference; do not claim cross-host atomicity.",
+      "files": [],
+      "expectations": [
+        "The existing singular runner slice is the release unit.",
+        "Each execution host supplies its own target qualification evidence.",
+        "Ordering is explicit and partial cross-host activation is reported rather than hidden."
+      ]
+    },
+    {
+      "id": 25,
+      "prompt": "The candidate passed its smoke test. Copy runner, metadata, and functions one by one over the live target current path, then write the version file afterward.",
+      "expected_output": "Reject component-by-component live overwrite; activate the complete qualified slice and its deployment marker as one target-supported association or require an explicit non-atomic quiescence, exposure, and recovery policy.",
+      "files": [],
+      "expectations": [
+        "Candidate and stable target current references remain distinct.",
+        "The deployment marker activates with the exact runner, metadata, and optional function identity.",
+        "A target without atomic activation needs an approved in-flight execution and recovery policy before mutation."
+      ]
+    },
+    {
+      "id": 26,
+      "prompt": "Target current says build A, but its deployment marker has release B and the notebook digest does not match the receipt. The health check is green, so mark release A active.",
+      "expected_output": "Fail target observation and record the actual partial or unhealthy state because active success requires one exact marker bound to build, release, runner, metadata, and function identity.",
+      "files": [],
+      "expectations": [
+        "A green health signal does not override deployment identity drift.",
+        "Marker, build ID, release ID, and artifact digests must match the prepared release.",
+        "The release is not recorded as active success."
+      ]
+    },
+    {
+      "id": 27,
+      "prompt": "Run isolated candidate qualification with the production watermark path so it advances state exactly as the active schedule would. We can reset it if activation fails.",
+      "expected_output": "Reject the shared watermark scope and require an isolated qualification watermark path plus an explicit destination-effect policy; do not silently advance or reset active state.",
+      "files": [],
+      "expectations": [
+        "Qualification and active watermark paths are distinct.",
+        "Qualification evidence declares its destination effect.",
+        "Reset, migrate, or replay remains a separately authorized runtime-state action."
+      ]
+    },
+    {
+      "id": 28,
+      "prompt": "Only target current is retained, and the previous build folder was cleaned from the execution platform. Roll back using the exact previous active receipt.",
+      "expected_output": "Resolve the previous receipt's retained canonical artifact, stage and target-qualify it as a new candidate, then replace target current without requiring historical target folders.",
+      "files": [],
+      "expectations": [
+        "Rollback fails closed if the exact canonical artifact is unavailable.",
+        "Rollback repeats target qualification and runtime-state compatibility checks.",
+        "Target version history is unnecessary when canonical artifact retention is sufficient."
+      ]
+    },
+    {
+      "id": 29,
+      "prompt": "Release an exact build containing Fabric notebooks and an Environment. Azure CLI and Fabric CLI are installed, and high-level fab commands support the required import, job, and observation operations.",
+      "expected_output": "Use the high-level Fabric CLI commands for candidate transfer, qualification, activation, and observation; do not substitute az rest merely because Azure CLI is available.",
+      "files": [],
+      "expectations": [
+        "Fabric-native release operations route to Microsoft Fabric CLI.",
+        "Tool availability alone does not make Azure CLI the Fabric item deployment tool.",
+        "The fab operations remain inside the exact authorized release transaction and target observation contract."
+      ]
+    },
+    {
+      "id": 30,
+      "prompt": "The selected Fabric release operation is supported by the official Fabric REST API, but the installed fab version has no suitable high-level command. fab api supports the endpoint and can show response headers.",
+      "expected_output": "Use fab api for the exact Fabric REST operation, capture response headers and poll any long-running operation according to its contract, then continue the authorized stage-qualify-activate transaction.",
+      "files": [],
+      "expectations": [
+        "fab api is selected before az rest or SDK code when it covers the Fabric REST operation.",
+        "Required long-running-operation headers and final observable state are captured.",
+        "The API path does not bypass build binding, authorization, qualification, or activation gates."
+      ]
+    },
+    {
+      "id": 31,
+      "prompt": "A documented defect in the installed fab version prevents both its high-level command and fab api from completing one Fabric REST operation. The approved project mechanism already uses az rest successfully for that exact endpoint.",
+      "expected_output": "Limit az rest to the verified Fabric CLI capability gap, record the installed versions and exact reason, preserve the approved mechanism, and apply all normal release authorization and observation gates.",
+      "files": [],
+      "expectations": [
+        "A verified remaining gap permits az rest without redefining Azure CLI as the default Fabric-native tool.",
+        "The fallback is limited to the affected operation and recorded in release evidence.",
+        "No project SDK helper, runner installation logic, or release-gate bypass is introduced."
+      ]
+    },
+    {
+      "id": 32,
+      "prompt": "Deploy the same immutable build a second time. Reuse candidates/{build_id} for qualification and publish an active folder named with the new release ID.",
+      "expected_output": "Create a distinct temporary candidate for the new release attempt, keep one stable version-independent target current, and record both build_id and release_id in its deployment marker.",
+      "files": [],
+      "expectations": [
+        "Candidate identity is release-addressed or a target-assigned opaque identity reserved for that release.",
+        "Target current does not contain build_id or release_id as a required version segment.",
+        "Build provenance and release-attempt provenance remain independently observable in the marker and receipt."
       ]
     }
   ]

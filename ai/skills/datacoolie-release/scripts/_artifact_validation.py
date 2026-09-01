@@ -14,6 +14,18 @@ from urllib.parse import urlparse
 BUILD_ID_PATTERN = re.compile(
     r"^(?P<date>\d{6})-(?P<time>\d{6})-(?P<digest>[0-9a-f]{12})$"
 )
+METADATA_LAYOUT_ROLES = {
+    "single": {"config_path": "metadata.json"},
+    "split-connections": {
+        "config_path": "dataflows.json",
+        "connections_path": "connections.json",
+    },
+    "split-all": {
+        "config_path": "dataflows.json",
+        "connections_path": "connections.json",
+        "schema_hints_path": "schema_hints.json",
+    },
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -39,6 +51,24 @@ def _require_artifact_shape(value: Any, label: str) -> None:
         raise ValueError(f"{label} SHA-256 is invalid")
 
 
+def _metadata_set_digest(files: dict[str, dict[str, str]]) -> str:
+    return canonical_digest({role: item["sha256"] for role, item in files.items()})
+
+
+def _require_metadata_set_shape(value: Any, label: str) -> None:
+    if not isinstance(value, dict) or set(value) != {"layout", "files", "sha256"}:
+        raise ValueError(f"{label} must be a typed metadata set")
+    layout = value.get("layout")
+    expected_roles = METADATA_LAYOUT_ROLES.get(layout)
+    files = value.get("files")
+    if expected_roles is None or not isinstance(files, dict) or set(files) != set(expected_roles):
+        raise ValueError(f"{label} layout and file roles do not match")
+    for role, artifact in files.items():
+        _require_artifact_shape(artifact, f"{label} {role}")
+    if value.get("sha256") != _metadata_set_digest(files):
+        raise ValueError(f"{label} digest does not match its file roles")
+
+
 def load_object(path: Path, label: str) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -55,6 +85,34 @@ def reject_moving_selector(value: str, label: str) -> None:
         character in value for character in "*?[]"
     ):
         raise ValueError(f"{label} must identify one exact artifact; latest and globs are forbidden")
+
+
+def resolve_build_selector(workspace: Path, selector: str) -> tuple[str, Path]:
+    """Resolve `current` once or validate one explicit immutable build ID."""
+    workspace = workspace.resolve()
+    reject_moving_selector(selector, "Build selector")
+    normalized_selector = selector.replace("\\", "/").rstrip("/")
+    if normalized_selector in {"current", ".builds/current"}:
+        current_dir = workspace / ".builds" / "current"
+        descriptor_path = current_dir / "build.json"
+        if current_dir.is_symlink() or descriptor_path.is_symlink():
+            raise ValueError("Build current selector must not contain symlinks")
+        if not descriptor_path.is_file():
+            raise ValueError("Build current selector requires .builds/current/build.json")
+        descriptor = load_object(descriptor_path, "Current build descriptor")
+        if set(descriptor) != {"schema_version", "artifact_type", "build_id"}:
+            raise ValueError("Current build descriptor has an invalid shape")
+        if descriptor["schema_version"] != 1 or descriptor["artifact_type"] != "current_build":
+            raise ValueError("Current build descriptor contract is unsupported")
+        build_id = descriptor["build_id"]
+    else:
+        build_id = selector
+    if not isinstance(build_id, str) or BUILD_ID_PATTERN.fullmatch(build_id) is None:
+        raise ValueError("Build selector does not resolve to a valid build ID")
+    build_dir = workspace / ".builds" / "artifacts" / build_id
+    if build_dir.is_symlink() or not build_dir.is_dir():
+        raise ValueError(f"Resolved immutable build does not exist: {build_dir}")
+    return build_id, build_dir.resolve()
 
 
 def resolve_artifact(
@@ -112,8 +170,10 @@ def _verify_build_directory(build_dir: Path, manifest: dict[str, Any]) -> None:
     build_id = manifest.get("build_id")
     if build_id != build_dir.name:
         raise ValueError("Build directory/name mismatch")
-    if manifest.get("schema_version") != 1:
+    if manifest.get("schema_version") != 3:
         raise ValueError("Build manifest schema_version is unsupported")
+    if "functions_artifact" not in manifest or "functions" in manifest:
+        raise ValueError("Build manifest functions artifact contract is unsupported")
     if not isinstance(manifest.get("datacoolie_version"), str) or not manifest["datacoolie_version"].strip():
         raise ValueError("Build manifest DataCoolie version is missing")
     input_digest = manifest.get("input_digest")
@@ -168,6 +228,38 @@ def _verify_build_directory(build_dir: Path, manifest: dict[str, Any]) -> None:
     if actual_paths != expected_paths:
         raise ValueError("Build contains untracked or missing files")
 
+    declared = _artifact_map(manifest)
+    environments = manifest.get("environments")
+    if not isinstance(environments, dict) or not environments:
+        raise ValueError("Build manifest environments contract is invalid")
+    for environment_name, environment in environments.items():
+        if not isinstance(environment_name, str) or not isinstance(environment, dict):
+            raise ValueError("Build manifest environment contract is invalid")
+        metadata = environment.get("metadata")
+        _require_metadata_set_shape(metadata, f"Build environment {environment_name} metadata")
+        for role, filename in METADATA_LAYOUT_ROLES[metadata["layout"]].items():
+            artifact = metadata["files"][role]
+            expected_path = f"{environment_name}/metadata/{filename}"
+            if artifact["path"] != expected_path or declared.get(expected_path) != artifact["sha256"]:
+                raise ValueError("Build metadata file is outside its fixed metadata component")
+
+    function_artifact = manifest["functions_artifact"]
+    if function_artifact is not None:
+        required = {
+            "format",
+            "path",
+            "sha256",
+            "import_prefix",
+            "distribution",
+            "version",
+        }
+        if not isinstance(function_artifact, dict) or set(function_artifact) != required:
+            raise ValueError("Build manifest functions artifact is invalid")
+        if PurePosixPath(function_artifact["path"]).parent.as_posix() != "functions":
+            raise ValueError("Build functions artifact is outside the fixed functions component")
+        if declared.get(function_artifact["path"]) != function_artifact["sha256"]:
+            raise ValueError("Build manifest functions artifact is not bound to generated bytes")
+
 
 def _require_persistent_path(value: Any, label: str) -> None:
     if not isinstance(value, str) or not value.strip():
@@ -194,7 +286,7 @@ def _validate_build_receipt(
         "datacoolie_version",
         "runner",
         "metadata",
-        "functions",
+        "functions_artifact",
         "operation",
         "stage",
         "execution_reference",
@@ -209,11 +301,10 @@ def _validate_build_receipt(
     if missing:
         raise ValueError(f"Build receipt is missing required fields: {', '.join(missing)}")
     _require_artifact_shape(receipt["runner"], "Build receipt runner")
-    _require_artifact_shape(receipt["metadata"], "Build receipt metadata")
-    if not isinstance(receipt["functions"], list):
-        raise ValueError("Build receipt functions must be an array")
-    for item in receipt["functions"]:
-        _require_artifact_shape(item, "Build receipt function")
+    _require_metadata_set_shape(receipt["metadata"], "Build receipt metadata")
+    function_artifact = receipt["functions_artifact"]
+    if function_artifact is not None:
+        _require_artifact_shape(function_artifact, "Build receipt functions artifact")
     if receipt["operation"] not in {"run", "replay", "maintenance"}:
         raise ValueError("Build receipt operation is invalid")
     if receipt["stage"] is not None and (
@@ -225,7 +316,7 @@ def _validate_build_receipt(
     if receipt_path.stem != receipt["receipt_id"]:
         raise ValueError("Build receipt filename must match receipt_id")
     for field, expected in {
-        "schema_version": 1,
+        "schema_version": 4,
         "artifact_type": "build_verification",
         "status": "succeeded",
         "build_id": release["build_id"],
@@ -248,13 +339,32 @@ def _validate_build_receipt(
         for check in checks
     ):
         raise ValueError("Successful build receipt contains an invalid or failed check")
+    if any(
+        check.get("status") == "skipped"
+        and (not isinstance(check.get("evidence"), str) or not check["evidence"].strip())
+        for check in checks
+    ):
+        raise ValueError("Skipped build receipt checks require a non-empty evidence reason")
     if not any(
         isinstance(check, dict)
-        and check.get("name") == "generated-runtime-execution"
+        and check.get("name") == "generated-artifact-validation"
         and check.get("status") == "passed"
         for check in checks
     ):
-        raise ValueError("Build receipt requires a passed generated-runtime-execution check")
+        raise ValueError("Build receipt requires a passed generated-artifact-validation check")
+    if function_artifact is not None:
+        required_checks = {"functions-artifact-import"}
+        passed_checks = {
+            check.get("name")
+            for check in checks
+            if isinstance(check, dict) and check.get("status") == "passed"
+        }
+        missing = sorted(required_checks - passed_checks)
+        if missing:
+            raise ValueError(
+                "Function build receipt requires passed artifact checks: "
+                + ", ".join(missing)
+            )
     if receipt["unresolved_issues"] != []:
         raise ValueError("Successful build receipt must not contain unresolved issues")
     try:
@@ -289,14 +399,9 @@ def validate_build_binding(
         raise ValueError("Release platform does not match the build environment")
 
     declared = _artifact_map(manifest)
-    selections = [
-        ("Runner", receipt["runner"]),
-        ("Metadata", receipt["metadata"]),
-        *(("Function", item) for item in receipt["functions"]),
-    ]
     selected: dict[str, str] = {}
-    relative_paths: list[str] = []
-    for label, artifact in selections:
+
+    def bind_artifact(label: str, artifact: dict[str, str]) -> str:
         path = resolve_artifact(workspace, artifact, f"{label} artifact")
         try:
             relative = path.relative_to(build_dir).as_posix()
@@ -308,15 +413,39 @@ def validate_build_binding(
         if declared.get(relative) != artifact["sha256"]:
             raise ValueError(f"{label} artifact does not match the build manifest: {relative}")
         selected[artifact["path"]] = artifact["sha256"]
-        relative_paths.append(relative)
+        return relative
 
-    runner_path, metadata_path, *function_paths = relative_paths
+    runner_path = bind_artifact("Runner", receipt["runner"])
     if runner_path not in environment.get("runners", []):
         raise ValueError("Release runner is not declared for the build environment")
-    if metadata_path != environment.get("metadata"):
-        raise ValueError("Release metadata is not declared for the build environment")
-    if set(function_paths) != set(manifest.get("functions") or []):
-        raise ValueError("Release functions do not match the build manifest")
+
+    release_metadata = receipt["metadata"]
+    _require_metadata_set_shape(release_metadata, "Release metadata")
+    manifest_metadata = environment.get("metadata")
+    _require_metadata_set_shape(manifest_metadata, "Build environment metadata")
+    if release_metadata["layout"] != manifest_metadata["layout"] or release_metadata["sha256"] != manifest_metadata["sha256"]:
+        raise ValueError("Release metadata set identity does not match the build environment")
+    relative_metadata_files: dict[str, dict[str, str]] = {}
+    for role, artifact in release_metadata["files"].items():
+        relative = bind_artifact(f"Metadata {role}", artifact)
+        relative_metadata_files[role] = {"path": relative, "sha256": artifact["sha256"]}
+    if relative_metadata_files != manifest_metadata["files"]:
+        raise ValueError("Release metadata file roles do not match the build environment")
+
+    manifest_function = manifest.get("functions_artifact")
+    release_function = receipt["functions_artifact"]
+    if manifest_function is None:
+        if release_function is not None:
+            raise ValueError("Release functions artifact does not match the build manifest")
+    else:
+        if release_function is None:
+            raise ValueError("Release functions artifact does not match the build manifest")
+        function_path = bind_artifact("Function", release_function)
+        if function_path != manifest_function.get("path"):
+            raise ValueError("Release functions artifact does not match the build manifest")
+        for field in ("format", "sha256", "import_prefix", "distribution", "version"):
+            if release_function.get(field) != manifest_function.get(field):
+                raise ValueError("Release functions artifact identity does not match the build")
 
     build_receipt_path = resolve_artifact(
         workspace, receipt["build_receipt"], "Build verification receipt"
@@ -334,14 +463,10 @@ def validate_build_binding(
     _validate_build_receipt(build_receipt, manifest, receipt, build_receipt_path)
     if build_receipt.get("runner") != {"path": runner_path, "sha256": receipt["runner"]["sha256"]}:
         raise ValueError("Build receipt runner does not match the release slice")
-    if build_receipt.get("metadata") != {"path": metadata_path, "sha256": receipt["metadata"]["sha256"]}:
+    if build_receipt.get("metadata") != manifest_metadata:
         raise ValueError("Build receipt metadata does not match the release slice")
-    build_functions = {
-        item.get("path"): item.get("sha256") for item in build_receipt.get("functions", [])
-        if isinstance(item, dict)
-    }
-    if build_functions != {path: declared[path] for path in function_paths}:
-        raise ValueError("Build receipt functions do not match the release slice")
+    if build_receipt.get("functions_artifact") != manifest_function:
+        raise ValueError("Build receipt functions artifact does not match the release slice")
 
     selected[receipt["manifest"]["path"]] = receipt["manifest"]["sha256"]
     return selected

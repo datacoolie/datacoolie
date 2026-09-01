@@ -20,8 +20,10 @@ TOKENS = (
     "## Evidence And Handoff",
     "Release never rebuilds or repairs the artifact",
     ".builds/artifacts/{build_id}",
-    "explicitly selected successful build receipt",
-    "never deploy from `current`, `latest`, or",
+    "explicitly selected successful artifact-verification receipt",
+    "`current` is a convenience selector",
+    "stable target current",
+    "deployment marker",
     "--require-success",
 )
 
@@ -35,6 +37,8 @@ def main() -> int:
         "references/deployment-contract.md",
         "references/automation-contract.md",
         "references/platform-tooling.md",
+        "references/python-functions-deployment.md",
+        "references/runner-deployment-mapping.md",
         "schemas/release-receipt.schema.json",
         "scripts/_artifact_validation.py",
         "scripts/validate_release.py",
@@ -43,7 +47,13 @@ def main() -> int:
     )
     checks.extend((relative, (SKILL_DIR / relative).is_file()) for relative in resources)
     checks.append(("no-platform-workflow-examples", not list((SKILL_DIR / "references").glob("*.yml.example"))))
-    for name in ("deployment-contract.md", "automation-contract.md", "platform-tooling.md"):
+    for name in (
+        "deployment-contract.md",
+        "automation-contract.md",
+        "platform-tooling.md",
+        "python-functions-deployment.md",
+        "runner-deployment-mapping.md",
+    ):
         reference = (SKILL_DIR / "references" / name).read_text(encoding="utf-8")
         checks.append((f"{name}-scope", "## Scope" in reference))
 
@@ -58,6 +68,7 @@ def main() -> int:
     )
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(receipt)
     checks.append(("typed-release-receipt", receipt.get("artifact_type") == "release_receipt"))
+    checks.append(("release-receipt-v7", receipt.get("schema_version") == 7))
 
     for name, passed in checks:
         print(f"  {'✓' if passed else '✗'} {name}")

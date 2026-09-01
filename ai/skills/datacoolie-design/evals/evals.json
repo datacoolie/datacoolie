@@ -132,6 +132,28 @@
         "Production selects the native Fabric runtime and development selects the external runtime without assigning either choice to a data stage.",
         "The architecture records requirements only; build owns constructors and provision/release own resources and deployment."
       ]
+    },
+    {
+      "id": 13,
+      "prompt": "Design a cloud DataCoolie environment. Metadata, logs, and watermarks need durable storage, but the business lake must not become an ungoverned control-state root. The runner may execute outside the cloud platform.",
+      "expected_output": "Define a dedicated environment-isolated control-storage requirement, separate immutable metadata from mutable logs/watermarks, and record the external execution host independently from the cloud platform.",
+      "files": [],
+      "expectations": [
+        "The design prefers a dedicated persistent control resource and permits sharing only with isolated paths and access controls.",
+        "Metadata is an immutable build projection while logs and watermarks remain mutable runtime state.",
+        "Execution host, cloud platform, runtime mode, retention, recovery, and state-writer ownership are explicit design decisions."
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "A verified custom function must run in several environments. Generate both a wheel for Fabric and Databricks and a ZIP for another host so one build works everywhere.",
+      "expected_output": "Select exactly one format compatible with the approved build scope, preferring wheel; if no format fits every target, split the architecture/build scope instead of emitting parallel artifacts.",
+      "files": [],
+      "expectations": [
+        "The architecture records one of none, wheel, or zip with a project-specific import prefix.",
+        "Compatible execution hosts, attachment mechanisms, dependency strategy, and rationale are explicit.",
+        "Design never requests both WHL and ZIP from one build."
+      ]
     }
   ]
 }
