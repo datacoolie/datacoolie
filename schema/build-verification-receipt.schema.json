@@ -15,7 +15,7 @@
     "datacoolie_version",
     "runner",
     "metadata",
-    "functions",
+    "functions_artifact",
     "operation",
     "stage",
     "execution_reference",
@@ -27,7 +27,7 @@
     "unresolved_issues"
   ],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 4},
     "artifact_type": {"const": "build_verification"},
     "receipt_id": {
       "type": "string",
@@ -42,10 +42,9 @@
     "platform": {"type": "string", "minLength": 1},
     "datacoolie_version": {"type": "string", "minLength": 1},
     "runner": {"$ref": "#/$defs/artifact"},
-    "metadata": {"$ref": "#/$defs/artifact"},
-    "functions": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/artifact"}
+    "metadata": {"$ref": "#/$defs/metadata_set"},
+    "functions_artifact": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/function_artifact"}]
     },
     "operation": {"enum": ["run", "replay", "maintenance"]},
     "stage": {"type": ["string", "null"], "minLength": 1},
@@ -74,6 +73,103 @@
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
+    "metadata_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "files", "sha256"],
+      "properties": {
+        "layout": {"enum": ["single", "split-connections", "split-all"]},
+        "files": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["config_path"],
+          "properties": {
+            "config_path": {"$ref": "#/$defs/artifact"},
+            "connections_path": {"$ref": "#/$defs/artifact"},
+            "schema_hints_path": {"$ref": "#/$defs/artifact"}
+          }
+        },
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"layout": {"const": "single"}}},
+          "then": {
+            "properties": {
+              "files": {
+                "not": {
+                  "anyOf": [
+                    {"required": ["connections_path"]},
+                    {"required": ["schema_hints_path"]}
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"layout": {"const": "split-connections"}}},
+          "then": {
+            "properties": {
+              "files": {
+                "required": ["config_path", "connections_path"],
+                "not": {"required": ["schema_hints_path"]}
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"layout": {"const": "split-all"}}},
+          "then": {
+            "properties": {
+              "files": {
+                "required": ["config_path", "connections_path", "schema_hints_path"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "function_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "path",
+        "sha256",
+        "import_prefix",
+        "distribution",
+        "version"
+      ],
+      "properties": {
+        "format": {"enum": ["wheel", "zip"]},
+        "path": {"type": "string", "pattern": "^functions/[^/]+$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "import_prefix": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "distribution": {"type": ["string", "null"], "minLength": 1},
+        "version": {"type": ["string", "null"], "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"format": {"const": "wheel"}}},
+          "then": {
+            "properties": {
+              "distribution": {"type": "string", "minLength": 1},
+              "version": {"type": "string", "minLength": 1}
+            }
+          },
+          "else": {
+            "properties": {
+              "distribution": {"type": "null"},
+              "version": {"type": "null"}
+            }
+          }
+        }
+      ]
+    },
     "check": {
       "type": "object",
       "additionalProperties": false,
@@ -82,7 +178,13 @@
         "name": {"type": "string", "minLength": 1},
         "status": {"enum": ["passed", "failed", "skipped"]},
         "evidence": {"type": ["string", "null"]}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "skipped"}}},
+          "then": {"properties": {"evidence": {"type": "string", "minLength": 1}}}
+        }
+      ]
     }
   },
   "allOf": [
@@ -91,9 +193,22 @@
       "then": {
         "properties": {
           "checks": {
-            "items": {
-              "properties": {"status": {"enum": ["passed", "skipped"]}}
-            }
+            "allOf": [
+              {
+                "items": {
+                  "properties": {"status": {"enum": ["passed", "skipped"]}}
+                }
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "name": {"const": "generated-artifact-validation"},
+                    "status": {"const": "passed"}
+                  },
+                  "required": ["name", "status"]
+                }
+              }
+            ]
           },
           "unresolved_issues": {"maxItems": 0}
         }
@@ -108,6 +223,28 @@
               "type": "object",
               "properties": {"status": {"const": "failed"}},
               "required": ["status"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {"const": "succeeded"},
+          "functions_artifact": {"type": "object"}
+        },
+        "required": ["status", "functions_artifact"]
+      },
+      "then": {
+        "properties": {
+          "checks": {
+            "contains": {
+              "properties": {
+                "name": {"const": "functions-artifact-import"},
+                "status": {"const": "passed"}
+              },
+              "required": ["name", "status"]
             }
           }
         }
