@@ -44,8 +44,8 @@ jobs:
           -E source-excel-polars
           -E spark-delta
 
-      - name: Install release validation tools
-        run: poetry run python -m pip install --upgrade twine
+      - name: Install release validation and build tools
+        run: poetry run python -m pip install --upgrade twine "setuptools>=61.0"
 
       - name: Run deterministic AI skill gate
         run: poetry run python ai/skills/tests/run_all.py
