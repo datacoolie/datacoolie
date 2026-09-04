@@ -130,6 +130,9 @@
          <loc>https://datacoolie.github.io/datacoolie/getting-started/</loc>
     </url>
     <url>
+         <loc>https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/</loc>
+    </url>
+    <url>
          <loc>https://datacoolie.github.io/datacoolie/getting-started/first-dataflow/</loc>
     </url>
     <url>
@@ -260,6 +263,12 @@
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/reference/api/watermark/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/tutorials/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/tutorials/wwi-medallion-multicloud/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/archive/2026/</loc>

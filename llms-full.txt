@@ -11,23 +11,33 @@
 - **PyPI**: https://pypi.org/project/datacoolie/
 - **GitHub**: https://github.com/datacoolie/datacoolie
 - **Docs**: https://datacoolie.github.io/datacoolie/
-- **Version**: 0.1.3
+- **Version**: 0.1.9
 - **Python**: >= 3.11
 
 ## One-Sentence Summary
 
-DataCoolie is a metadata-driven ETL framework for Python that lets data teams define pipelines once as JSON/YAML metadata and run them unchanged on Polars, Spark, Microsoft Fabric, Databricks, and AWS Glue.
+DataCoolie is a metadata-driven ETL framework for Python that lets data teams maintain canonical pipeline intent as JSON/YAML metadata and run it on Polars, Spark, Microsoft Fabric, Databricks, and AWS Glue through environment overlays and target-specific runners.
 
 ## Core Value Propositions
 
-1. **Engine-unified**: Same metadata runs on Polars (lightweight) and Spark (distributed) via a shared `BaseEngine[DF]` contract
+1. **Engine-unified**: Compatible pipeline intent runs on Polars (lightweight) and Spark (distributed) via a shared `BaseEngine[DF]` contract
 2. **Cloud-agnostic**: Platform abstraction layer handles file I/O and secrets for local, AWS, Fabric, and Databricks environments
 3. **Metadata-driven**: Connections, dataflows, transforms, schema hints, partitions, and load strategies are declarative (JSON/YAML/Excel)
-4. **Right-sized compute**: Choose Polars or Spark from workload size, managed runtime, table features, and downstream consumers — the same metadata can run on both
+4. **Right-sized compute**: Choose Polars or Spark from workload size, managed runtime, table features, and downstream consumers while reusing the canonical dataflow model
 5. **Batch-first**: append, full_load (overwrite), merge_upsert, merge_overwrite, and SCD Type 2 out of the box
 6. **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support on every engine
 7. **Plugin architecture**: Engines, platforms, sources, destinations, transformers, and secret resolvers are all Python entry-point plugins
-8. **AI-native**: Declarative metadata schema is a perfect interface for LLM-powered pipeline scaffolding and validation
+8. **AI-assisted**: The five official DataCoolie Skills guide source discovery, material design, verified builds, conditional provisioning, and explicit release
+
+## Official DataCoolie Skills
+
+Install the five public lifecycle Skills with `npx skills add datacoolie/datacoolie`.
+New projects follow `discover -> design -> build`; provisioning is conditional,
+and release is a separately authorized outcome. Material design, infrastructure
+mutation, and protected-target release have distinct approval gates.
+
+- [DataCoolie Skills guide](https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/)
+- [WWI multi-cloud video tutorial](https://datacoolie.github.io/datacoolie/tutorials/wwi-medallion-multicloud/)
 
 ## DataCoolie Studio
 
