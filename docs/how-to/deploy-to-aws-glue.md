@@ -38,7 +38,7 @@ Glue lets you provide a pinned package or wheel via
 `--additional-python-modules`:
 
 ```
---additional-python-modules datacoolie==0.1.3
+--additional-python-modules datacoolie=={{ datacoolie_version }}
 ```
 
 Then add only the extra Python packages your specific job needs, for example:
@@ -152,6 +152,10 @@ support requires `PYICEBERG_CATALOG__GLUE__TYPE=glue` plus the appropriate Glue
 permissions. This local runner is not a Glue Python Shell job.
 
 ## Reference assets
+
+Watch the [WWI multi-cloud Medallion walkthrough](../tutorials/wwi-medallion-multicloud.md#environment-matrix)
+for an end-to-end example that separates an external Polars ingestion runner
+from downstream AWS Glue Spark runners.
 
 Use the AWS platform guide in usecase-sim for the current sample scripts,
 metadata file, and setup notes:

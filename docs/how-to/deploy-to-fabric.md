@@ -155,6 +155,10 @@ cell before native Python execution starts:
 
 ## Reference assets
 
+Watch the [WWI multi-cloud Medallion walkthrough](../tutorials/wwi-medallion-multicloud.md#environment-matrix)
+for an end-to-end example using external Polars, Fabric native Python, Spark,
+OneLake, and separate ETL control storage.
+
 Use the Fabric platform guide in usecase-sim for the current sample notebooks,
 metadata file, and setup notes:
 

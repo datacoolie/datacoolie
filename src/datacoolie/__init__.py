@@ -1,6 +1,6 @@
 """DataCoolie — Metadata-driven, engine-unified, cloud-agnostic ETL framework."""
 
-__version__ = "0.1.8"
+from importlib.metadata import PackageNotFoundError, version as distribution_version
 
 __all__ = [
     # Base classes
@@ -36,6 +36,12 @@ from datacoolie.engines.base import BaseEngine
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.sources.base import BaseSourceReader
 from datacoolie.transformers.base import BaseTransformer
+
+
+try:
+    __version__ = distribution_version("datacoolie")
+except PackageNotFoundError as error:
+    raise RuntimeError("DataCoolie distribution metadata is unavailable") from error
 
 _logger = _logging.getLogger(__name__)
 

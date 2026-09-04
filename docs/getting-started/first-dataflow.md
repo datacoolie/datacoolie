@@ -24,7 +24,8 @@ stage ordering, a second destination, and a reusable incremental watermark.
 - Two ordered stages (`ingest2bronze`, `bronze2silver`) running in one driver invocation.
 - A typed, partitioned Delta silver table.
 - A watermark file you can inspect and reason about.
-- Understanding of how to move to Spark or another cloud without changing metadata.
+- Understanding of how to reuse canonical pipeline intent with target-specific
+  runners and environment configuration.
 
 ## 1. Extend the metadata
 
@@ -124,9 +125,10 @@ Append rows dated later than the watermark. Re-run `python run.py`. The bronze
 stage processes only the new rows; the silver stage rewrites its aggregate
 (because its load type is `overwrite`).
 
-## 5. Swap engine or platform — zero metadata change
+## 5. Reuse the model across engines and platforms
 
-Switching to Spark:
+For a compatible local Delta pipeline, keep the dataflow model and switch to a
+Spark-specific runner:
 
 ```python
 from delta import configure_spark_with_delta_pip
@@ -148,14 +150,21 @@ engine = SparkEngine(spark_session=spark, platform=platform)
 metadata = FileProvider(config_path="metadata/orders.json", platform=platform)
 ```
 
-Switching to AWS (S3 + Secrets Manager):
+For AWS, use an AWS-specific runner and environment configuration:
 
 ```python
 from datacoolie.platforms.aws_platform import AWSPlatform
 engine.set_platform(AWSPlatform(region="us-east-1"))
 ```
 
-Then edit `base_path` in your connections to `s3://my-bucket/bronze` and re-run.
+Then supply S3 connection paths, catalog settings, runtime dependencies, and
+credentials for that environment. In a generated DataCoolie Skills project,
+these differences belong in environment overlays and target-specific runners;
+the canonical dataflow intent remains the authoring source of truth.
+
+See [DataCoolie Skills](ai-assisted-workflow.md) for the official workflow and
+the [WWI multi-cloud walkthrough](../tutorials/wwi-medallion-multicloud.md) for a
+complete local-to-cloud example.
 
 ## Key ideas this tutorial exercised
 

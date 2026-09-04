@@ -565,6 +565,8 @@ Studio repository also provides MinIO and Google Cloud Storage integrations.
 ## Continue exploring
 
 - [Install the DataCoolie ETL framework](getting-started/installation.md)
+- [Build projects with the official DataCoolie Skills](getting-started/ai-assisted-workflow.md)
+- [Watch the WWI multi-cloud walkthrough](tutorials/wwi-medallion-multicloud.md)
 - [Understand the DataCoolie metadata model](concepts/metadata-model.md)
 - [Learn how DataCoolie logging is structured](operations/logging-layout.md)
 - [View the Studio source and report issues](https://github.com/datacoolie/datacoolie-studio)

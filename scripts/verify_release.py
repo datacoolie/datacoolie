@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import re
+import os
 import subprocess
 import sys
 import tempfile
@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Sequence
 
 
-VERSION_PATTERN = re.compile(r"^__version__\s*=\s*[\"']([^\"']+)[\"']", re.MULTILINE)
 DIST_SUFFIXES = {".whl", ".tar.gz", ".zip"}
 
 
@@ -32,13 +31,35 @@ def read_package_version(repo_root: Path) -> str:
 
 
 def read_runtime_version(repo_root: Path) -> str:
-    """Read ``__version__`` from the source package without importing it."""
+    """Read ``__version__`` from the source package in an isolated process."""
 
-    init_path = repo_root / "src" / "datacoolie" / "__init__.py"
-    match = VERSION_PATTERN.search(init_path.read_text(encoding="utf-8"))
-    if match is None:
-        raise ValueError(f"Could not find __version__ in {init_path}")
-    return match.group(1)
+    source_dir = repo_root / "src"
+    if not source_dir.is_dir():
+        raise ValueError(f"Could not find source directory {source_dir}")
+
+    environment = os.environ.copy()
+    existing_pythonpath = environment.get("PYTHONPATH")
+    pythonpath = [str(source_dir)]
+    if existing_pythonpath:
+        pythonpath.append(existing_pythonpath)
+    environment["PYTHONPATH"] = os.pathsep.join(pythonpath)
+
+    completed = subprocess.run(
+        [sys.executable, "-c", "import datacoolie; print(datacoolie.__version__)"],
+        cwd=repo_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or "unknown import error"
+        raise ValueError(f"Could not import source package: {detail}")
+
+    runtime_version = completed.stdout.strip()
+    if not runtime_version:
+        raise ValueError("Source package did not expose __version__")
+    return runtime_version
 
 
 def validate_versions(repo_root: Path, expected_tag: str | None = None) -> str:

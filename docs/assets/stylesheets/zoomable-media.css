@@ -178,6 +178,22 @@ body.dc-media-lightbox-open {
   overflow: hidden;
 }
 
+.dc-video-embed {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: var(--md-code-bg-color);
+}
+
+.dc-video-embed iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 @media (max-width: 768px) {
   .dc-media-lightbox {
     padding: 0.75rem;

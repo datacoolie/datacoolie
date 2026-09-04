@@ -56,6 +56,8 @@ extra:
       link: https://github.com/datacoolie/datacoolie
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/datacoolie/
+    - icon: fontawesome/brands/youtube
+      link: https://www.youtube.com/@datacoolie
 
 extra_css:
   - assets/stylesheets/zoomable-media.css
@@ -95,9 +97,11 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 hooks:
+  - docs/scripts/inject_public_version.py
   - docs/scripts/seo_metadata.py
   - docs/scripts/copy_schema_files.py
   - docs/scripts/inject_faq_schema.py
+  - docs/scripts/inject_video_schema.py
   - docs/scripts/enhance_sitemap.py
 
 plugins:
@@ -151,6 +155,10 @@ nav:
       - Quickstart · Spark: getting-started/quickstart-spark.md
       - Your first dataflow: getting-started/first-dataflow.md
       - Use your own data after the quickstart: getting-started/use-your-own-data.md
+      - DataCoolie Skills: getting-started/ai-assisted-workflow.md
+  - Tutorials:
+      - tutorials/index.md
+      - WWI multi-cloud Medallion pipeline: tutorials/wwi-medallion-multicloud.md
   - Concepts:
       - concepts/index.md
       - Architecture: concepts/architecture.md

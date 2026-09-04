@@ -127,7 +127,7 @@ print(datacoolie.platform_registry.list_plugins())
 Expected output (with `[all]`):
 
 ```text
-0.1.3
+{{ datacoolie_version }}
 ['polars', 'spark']
 ['aws', 'databricks', 'fabric', 'local']
 ```
@@ -145,3 +145,4 @@ engine or table-format extra you need.
 
 - Most new users: [Quickstart · Polars](quickstart-polars.md)
 - Spark-first users: [Quickstart · Spark](quickstart-spark.md)
+- AI-assisted projects: [Install and use DataCoolie Skills](ai-assisted-workflow.md)

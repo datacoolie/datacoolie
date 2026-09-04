@@ -31,8 +31,8 @@ Databricks, or AWS platforms.
 
 - **Metadata-driven** — pipeline behavior lives in metadata instead of being re-implemented in each job.
 - **Right-sized compute** — small and medium jobs can stay on lighter runtimes like Polars or local execution instead of paying Spark or cluster overhead too early.
-- **Portable** — the same metadata can move to Spark and cloud platforms when workloads grow.
-- **Engine-unified** — the same metadata runs on Spark *and* Polars; swap at runtime.
+- **Portable** — reuse one canonical metadata model across environments, with overlays and runners for target-specific paths, catalogs, engines, and runtimes.
+- **Engine-unified** — compatible pipeline intent runs on Spark and Polars through engine-specific runners.
 - **Cloud-agnostic** — `local`, `aws`, `fabric`, `databricks` platforms abstract file I/O and secrets.
 - **Lakehouse-native** — first-class Delta Lake and Apache Iceberg via `fmt="delta"` / `fmt="iceberg"`.
 - **Operationally complete** — watermarks, schema hints, partitions, load strategies, logging, and maintenance are built in.
@@ -67,7 +67,7 @@ pip install "datacoolie[polars-delta,polars-hash]"
 pip install datacoolie
 
 # All engines
-pip install datacoolie[all]
+pip install "datacoolie[all]"
 
 # External platform SDKs (native Fabric/Databricks runtimes use base install)
 pip install "datacoolie[fabric-external]"
@@ -158,20 +158,24 @@ with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:
 python run_quickstart.py
 ```
 
-Swap `PolarsEngine` for `SparkEngine(spark_session=spark, ...)` or
-`LocalPlatform()` for `AWSPlatform` / `FabricPlatform` /
-`DatabricksPlatform` — the metadata stays
-the same.
+Reuse the same dataflow intent with `SparkEngine` or a cloud platform by adding
+the target runtime dependencies, runner, and environment-specific paths or
+catalog settings.
 
 ## What to do next
 
 - Use your own files while keeping the same runner pattern: <https://datacoolie.github.io/datacoolie/getting-started/use-your-own-data/>
 - Build a multi-stage bronze→silver tutorial flow: <https://datacoolie.github.io/datacoolie/getting-started/first-dataflow/>
 - Learn the metadata model field by field: <https://datacoolie.github.io/datacoolie/how-to/metadata-guide/>
+- Install the official DataCoolie Skills workflow: <https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/>
+- Watch the WWI multi-cloud Medallion walkthrough: <https://datacoolie.github.io/datacoolie/tutorials/wwi-medallion-multicloud/>
 
 ## AI-assisted project workflow
 
-DataCoolie AI skills use `{project_name}_dcws/` as the project control folder.
+DataCoolie Skills are an official public feature. Install the five lifecycle
+Skills with
+`npx skills add datacoolie/datacoolie`. DataCoolie Skills use
+`{project_name}_dcws/` as the project control folder.
 That workspace contains its own `AGENTS.md`, required source discovery evidence for a new project, one canonical
 architecture when material design exists, durable metadata and runners, immutable generated builds,
 runtime state, and approval or release evidence.
@@ -180,6 +184,9 @@ The canonical workflow contract lives at [ai/AGENTS.md](ai/AGENTS.md). It
 routes work by required outcome: mandatory new-project discovery, material design, build, conditional
 provisioning, and explicit release. Design, infrastructure mutation, and production release use
 separate exact-scope gates.
+
+See the [public DataCoolie Skills guide](https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/)
+for prerequisites, installation, routing, project state, and approval boundaries.
 
 ## Testbed & scenarios
 

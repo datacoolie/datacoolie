@@ -38,7 +38,8 @@ Instead of encoding pipeline behavior in imperative code, DataCoolie externalize
 - **[Transforms](../../concepts/transformers-and-pipeline.md)** describe column-level logic in a portable DSL
 - **Operational controls** (watermarks, partitions, maintenance) are declared, not coded
 
-The same metadata runs on Polars for development and Spark for production — zero code changes.
+The same canonical dataflow intent can run on Polars for development and Spark
+for production, with engine-specific runners and runtime dependencies.
 
 But the key insight is: **declarative metadata is a perfect interface for AI**. A JSON/YAML schema with clear semantics is exactly what LLMs can reliably generate, validate, and refactor.
 

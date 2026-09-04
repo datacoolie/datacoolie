@@ -1,5 +1,5 @@
 ---
-description: DataCoolie — metadata-driven ETL for Python. Define pipelines as JSON, YAML, or Excel and run on Polars, Spark, Fabric, Databricks, or AWS Glue unchanged.
+description: DataCoolie is metadata-driven Python ETL for Polars, Spark, Fabric, Databricks, and AWS Glue, with portable intent and target-specific runners.
 ---
 
 <p align="center">
@@ -32,8 +32,8 @@ That helps in four practical ways:
 - **Efficient for small and medium jobs** — lighter runtimes like Polars or
     local execution can avoid cluster overhead when scale does not require
     Spark.
-- **Portable** — the same metadata can move to Spark on Fabric, Databricks, or
-    AWS when workloads grow.
+- **Portable** — reuse one canonical metadata model on Fabric, Databricks, or
+    AWS with environment overlays and target-specific runners.
 - **Consistent operations** — watermarks, logging, maintenance, and load
     behavior follow the same model across environments.
 
@@ -76,11 +76,14 @@ flowchart LR
 - **I want to explore metadata, lineage, and run health visually**
     Open [DataCoolie Studio](datacoolie-studio.md), the local-first companion UI
     for projects, environments, metadata, assets, lineage, sources, and ETL logs.
+- **I want an AI agent to build a verified DataCoolie project**
+    Install the official [DataCoolie Skills](getting-started/ai-assisted-workflow.md),
+    then watch the [multi-cloud Medallion walkthrough](tutorials/wwi-medallion-multicloud.md).
 - **I want to extend the framework**
     Start with [Extending](extending/index.md) and use
     [Reference](reference/index.md) for the exact contracts and API surfaces.
 
-## 30-second demo
+## Quick start in two scripts
 
 Install, then run two short scripts:
 
@@ -166,17 +169,16 @@ with DataCoolieDriver(engine=engine, metadata_provider=provider) as driver:
 python run_quickstart.py
 ```
 
-Swap `PolarsEngine` for `SparkEngine(spark_session=spark, ...)` or
-`LocalPlatform()` for `AWSPlatform` / `FabricPlatform` /
-`DatabricksPlatform` — the metadata stays
-the same.
+The same dataflow intent can target Spark or a cloud platform. Supply the
+matching runtime dependencies, runner, and environment-specific path or catalog
+configuration.
 
 ## What DataCoolie gives you
 
 | Capability | What it means for you |
 |---|---|
-| **Engine-unified** | Same metadata runs on Polars *and* Spark. `BaseEngine[DF]` is a generic contract; you pick the implementation at runtime. |
-| **Cloud-agnostic** | `local`, `aws`, `fabric`, `databricks` platforms abstract file I/O and secrets. No code changes to move a pipeline. |
+| **Engine-unified** | Compatible pipeline intent runs on Polars and Spark. `BaseEngine[DF]` is the shared contract; target-specific runners select the implementation. |
+| **Cloud-agnostic** | `local`, `aws`, `fabric`, and `databricks` platforms abstract file I/O and secrets while environment overlays carry target paths and catalogs. |
 | **Metadata-driven** | Connections, dataflows, transforms, schema hints, partitions, and load strategies are *declarative*. Code is for extension points, not orchestration. |
 | **Right-sized compute** | Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it. |
 | **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap. |
@@ -230,6 +232,15 @@ the same.
 
     [:octicons-arrow-right-24: Explore Studio](datacoolie-studio.md)
 
+-   :material-robot: **DataCoolie Skills**
+
+    ---
+
+    Use the official AI-assisted workflow to discover, design, build, provision,
+    and release verified DataCoolie projects.
+
+    [:octicons-arrow-right-24: Install the Skills](getting-started/ai-assisted-workflow.md)
+
 </div>
 
 ## Support matrix
@@ -248,13 +259,13 @@ registry of every built-in plugin.
 ## Frequently asked questions
 
 ??? question "What is DataCoolie?"
-    DataCoolie is an open-source, metadata-driven ETL framework for Python. You define pipeline intent once as JSON, YAML, or Excel metadata and run on Polars, Spark, Microsoft Fabric, Databricks, or AWS Glue without rewriting per-engine code. It handles connections, dataflows, transforms, load strategies, watermarks, and schema hints declaratively.
+    DataCoolie is an open-source, metadata-driven ETL framework for Python. You define pipeline intent as JSON, YAML, or Excel metadata and reuse that canonical model on Polars, Spark, Microsoft Fabric, Databricks, or AWS Glue with environment-specific overlays and runners. It handles connections, dataflows, transforms, load strategies, watermarks, and schema hints declaratively.
 
 ??? question "How is DataCoolie different from dbt, Airflow, or Prefect?"
     DataCoolie focuses on the **ETL execution layer**, not orchestration or SQL transforms. Unlike dbt (SQL-first transforms), DataCoolie runs Python-native dataframe operations. Unlike Airflow/Prefect (workflow schedulers), DataCoolie handles the read → transform → write → watermark lifecycle inside each job. You can use DataCoolie *inside* an Airflow DAG or Prefect flow. Read the full comparisons: [DataCoolie vs dbt](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/) · [DataCoolie vs Airflow/Prefect](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/).
 
 ??? question "Does DataCoolie work with Polars and Spark?"
-    Yes. DataCoolie provides a unified `BaseEngine[DF]` contract. The same metadata runs on `PolarsEngine` for lightweight local development and `SparkEngine` for distributed production workloads — no code changes needed. You choose the engine at runtime.
+    Yes. DataCoolie provides a unified `BaseEngine[DF]` contract. Compatible dataflow intent can run on `PolarsEngine` for lightweight local development and `SparkEngine` for distributed workloads; the runner and runtime dependencies change, and environment overlays supply target-specific configuration.
 
 ??? question "Can I use DataCoolie on Microsoft Fabric?"
     Yes. DataCoolie ships a `FabricPlatform` that handles OneLake file I/O and Key Vault secrets natively. The [Deploy to Fabric](how-to/deploy-to-fabric.md) guide walks through notebook setup step by step.

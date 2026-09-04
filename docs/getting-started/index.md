@@ -15,6 +15,7 @@ your own dataflows with real data.
 - How to run a complete ETL pipeline on your laptop in under 5 minutes
 - How to swap sample data for your own files and iterate
 - How the metadata model drives every step — so you write less code
+- How the official DataCoolie Skills guide an AI agent through a verified project lifecycle
 
 No prior ETL framework experience is required. If you are comfortable
 installing Python packages and running scripts, you have everything you need.
@@ -25,6 +26,10 @@ For most new users, the smoothest path is:
 2. **[Quickstart · Polars](quickstart-polars.md)** — laptop-only, no Docker, no JVM. Fastest way to see a pipeline run.
 3. **[Use your own data after the quickstart](use-your-own-data.md)** — keep the same runner and swap the sample input for your own files.
 4. **[Your first dataflow](first-dataflow.md)** — move from one stage to an ordered bronze→silver flow.
+
+Prefer an AI-assisted project workflow? Install the official
+**[DataCoolie Skills](ai-assisted-workflow.md)** after the framework, then use
+Discover, Design, and Build to create the first verified project.
 
 Choose **[Quickstart · Spark](quickstart-spark.md)** instead of Polars only if Spark is already your target runtime or you want early parity with Fabric, Databricks, or another Spark-first environment.
 
@@ -37,6 +42,7 @@ Choose **[Quickstart · Spark](quickstart-spark.md)** instead of Polars only if 
 | The sample worked and now I need my own files | [Use your own data after the quickstart](use-your-own-data.md) | [Metadata guide for new users](../how-to/metadata-guide/index.md) |
 | I want the deeper workflow model before building | [Concepts](../concepts/index.md) | [Metadata guide](../how-to/metadata-guide/index.md) or the quickstarts |
 | I need multi-stage orchestration | [Your first dataflow](first-dataflow.md) | [How-to guides](../how-to/index.md) |
+| I want an AI agent to build the project | [DataCoolie Skills](ai-assisted-workflow.md) | [WWI multi-cloud walkthrough](../tutorials/wwi-medallion-multicloud.md) |
 
 !!! tip "Audience"
     This documentation is for both hands-on builders and readers who mainly want

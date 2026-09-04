@@ -141,6 +141,10 @@ repo-specific Jobs API JSON example checked in today.
 
 ## Reference workspace
 
+Watch the [WWI multi-cloud Medallion walkthrough](../tutorials/wwi-medallion-multicloud.md#environment-matrix)
+for an end-to-end example of the Bronze handoff, Spark runners, Unity Catalog
+schemas, and Volume-backed control paths.
+
 Use the Databricks platform guide in usecase-sim for the current sample
 notebooks, metadata file, and setup notes:
 
