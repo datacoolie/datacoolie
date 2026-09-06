@@ -40,6 +40,15 @@ Databricks, or AWS platforms.
   transformers, and secret resolvers use registries with Python entry-point
   discovery; built-ins are also registered in-process.
 
+## See DataCoolie in action
+
+Watch the short demos to see the metadata-driven workflow from setup through
+pipeline execution:
+
+| English demo | Vietnamese demo |
+| --- | --- |
+| [![Watch the English DataCoolie demo](https://i.ytimg.com/vi/L9ejQf9tYAE/hqdefault.jpg)](https://youtu.be/L9ejQf9tYAE) | [![Xem demo DataCoolie bằng tiếng Việt](https://i.ytimg.com/vi/0lnxfS6WYew/hqdefault.jpg)](https://youtu.be/0lnxfS6WYew) |
+
 ## Start here
 
 If you are evaluating DataCoolie for the first time, use this order:
