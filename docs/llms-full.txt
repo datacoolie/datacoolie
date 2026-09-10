@@ -24,8 +24,8 @@ DataCoolie is a metadata-driven ETL framework for Python that lets data teams ma
 2. **Cloud-agnostic**: Platform abstraction layer handles file I/O and secrets for local, AWS, Fabric, and Databricks environments
 3. **Metadata-driven**: Connections, dataflows, transforms, schema hints, partitions, and load strategies are declarative (JSON/YAML/Excel)
 4. **Right-sized compute**: Choose Polars or Spark from workload size, managed runtime, table features, and downstream consumers while reusing the canonical dataflow model
-5. **Batch-first**: append, full_load (overwrite), merge_upsert, merge_overwrite, and SCD Type 2 out of the box
-6. **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support on every engine
+5. **Batch-first**: append, overwrite/full_load, merge_upsert, merge_overwrite, and SCD Type 2 on supported lakehouse paths out of the box
+6. **Lakehouse-native**: First-class Delta Lake and Apache Iceberg support across the engines where the selected addressing mode and optional dependencies are supported
 7. **Plugin architecture**: Engines, platforms, sources, destinations, transformers, and secret resolvers are all Python entry-point plugins
 8. **AI-assisted**: The five official DataCoolie Skills guide source discovery, material design, verified builds, conditional provisioning, and explicit release
 
@@ -62,7 +62,7 @@ Studio makes source files and operational evidence easier to explore.
 - **BaseEngine[DF]**: Generic dataframe contract. Implementations: PolarsEngine, SparkEngine
 - **BasePlatform**: Abstracts file I/O and secret retrieval. Implementations: LocalPlatform, AWSPlatform, FabricPlatform, DatabricksPlatform
 - **BaseMetadataProvider**: Loads pipeline configuration. Implementations: FileProvider (JSON/YAML/Excel), DatabaseProvider (SQLAlchemy), APIProvider (REST)
-- **TransformerPipeline**: Ordered chain of dataframe mutations (schema conversion, deduplication, column addition, filtering, partitioning, SCD2 columns)
+- **TransformerPipeline**: Ordered chain of dataframe mutations (value normalization, schema conversion, hashing, deduplication, computed columns, filtering, SCD2/system columns, partitioning, masking, projection, and name sanitization)
 - **WatermarkManager**: Tracks incremental processing state per dataflow via raw JSON watermarks
 - **ETLLogger / SystemLogger**: Structured logging with debug JSONL and analyst Parquet outputs
 
@@ -74,9 +74,9 @@ Read-only: Excel, SQL databases, REST APIs, Python functions
 ## Load Strategies
 
 - `append` — insert-only, no updates
-- `full_load` — drop and reload (overwrite)
+- `overwrite` / `full_load` — drop and reload (the two metadata values have the same semantics)
 - `merge_upsert` — insert new rows, update existing rows by merge keys
-- `merge_overwrite` — partition-level overwrite merge
+- `merge_overwrite` — replace rows by merge keys, or replace a configured watermark window
 - `scd2` — slowly changing dimension type 2 with effective date tracking
 
 ## Target Audience

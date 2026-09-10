@@ -1,6 +1,6 @@
 ---
 name: datacoolie-release
-description: Plan, preflight, deploy, promote, roll back, or author consume-only release automation for an exact verified DataCoolie build. Use for explicit deployment-lifecycle work; read-only planning may precede authorization, while target mutation requires exact authorization. This skill consumes immutable build artifacts and never authors metadata or pipeline code, generates runners, rebuilds functions, provisions resources, or changes pipeline behavior.
+description: Deploy, promote, roll back, or plan release automation for an exact verified DataCoolie build. Use for explicit deployment work; mutation requires exact authorization. Consumes artifacts and never authors metadata, rebuilds pipelines, or provisions resources.
 ---
 
 # DataCoolie Release
@@ -64,7 +64,7 @@ project-owned automation, installed tooling, and current official documentation 
    mutation. Pin that exact build ID in the prepared receipt and use only its canonical artifact
    bytes afterward. Never transfer from moving current, re-resolve it during the attempt, or select
    `latest` or a glob.
-2. Run the bundled release consumer validator against the exact build and successful Build v4
+2. Run the bundled release consumer validator against the exact build and successful Build
    artifact-verification receipt. Reject modified, incomplete, symlinked, undeclared, or
    insufficiently verified artifacts. Build-host runtime execution is optional evidence and never
    substitutes for target qualification.
@@ -90,56 +90,25 @@ project-owned automation, installed tooling, and current official documentation 
    target checks. If runner slices share target `metadata` or `functions`, require the same exact
    component digest or an approved isolation/coordinated-activation boundary. For an external cloud
    adapter, target identity is the actual scheduler or execution host, not the cloud platform.
-8. Preserve a project-owned deployment mechanism when one is already approved. Otherwise follow
-   `platform-tooling.md` and select the direct tool by control plane. For Fabric targets, use Azure
-   CLI only for Azure/ARM readiness and Fabric CLI for Fabric-native transfer, qualification, and
-   activation. Resolve only the selected tooling; if it is missing, install it within the safe
-   tooling boundary or request installation, never in a runner or notebook.
+8. Preserve an approved project-owned deployment mechanism. Otherwise read
+   `references/platform-tooling.md` for control-plane selection, safe tooling setup, and fallback.
 
 Any mismatch stops release. Do not edit, regenerate, or rebuild artifacts here.
 
 ## Deployment Transaction
 
-1. Persist the exact authorized attempt as `prepared` before mutation.
-2. Map every declared metadata role to the fixed target `metadata` component, the optional function
-   artifact to `functions`, and the runner to its declared native deployment target. Stage that
-   complete slice and a non-secret deployment marker in an inactive candidate. Reuse an
-   existing candidate only when its observable bytes match exactly; otherwise stop for
-   reconciliation and record `failed`.
-3. Verify candidate contents and marker identity and record `staged`.
-4. Run the exact candidate with a target-policy-approved `isolated-smoke`, `representative-run`, or
-   `full-run` method. When functions are present, attach the exact artifact and prove target import
-   plus function-backed execution. Record `qualified` only after all required checks pass.
-5. Recheck the candidate, stable target current, marker, resource/state gates, and authorization,
-   then replace or associate target current with the complete qualified slice using the narrowest
-   target-supported operation.
-6. Observe target current and its exact build/release marker, then record `active`. A failed
-   observation after activation records `failed` with the actual `active_unhealthy` or partial
-   target state. Candidate cleanup follows target policy and is not an activation-success gate.
-
-Update the same attempt receipt atomically after each phase. An environment with multiple runners
-uses a separate ordered receipt and stable target current reference for each runner slice; report
-mixed or partial state truthfully and do not claim atomicity across execution hosts.
-
-Promotion applies this transaction to another declared target without rebuilding. Rollback stages,
-qualifies, and activates the exact retained canonical build from an explicit previous successful
-release; it does not require historical target folders, edit current metadata to imitate that
-version, or assume the mutable watermark is compatible. If
-atomic activation is unavailable, record the strategy, partial-state risk, and recovery action
-before mutation.
+Read `references/deployment-contract.md` before staging or activation. It owns the ordered
+transaction, phase evidence, candidate reuse, promotion/rollback, non-atomic exposure, and recovery.
+Use `references/python-functions-deployment.md` when a function artifact is present. Persist the
+attempt before mutation; only target-qualified, observed work may become an active release.
+Validators check receipt/artifact consistency; they do not themselves execute deployment or
+establish that a human gave approval. Preserve actual tool observations and the authorization source.
 
 ## Release Automation
 
-Release owns consume-only deployment automation; build owns automation that creates and verifies
-builds. Keep generated release automation project-owned under `automation/release/`. It downloads
-  one artifact from an explicit build run/source or resolves a verified build current selector once,
-  verifies its provenance, exact build receipt, and
-  release intent, then performs the deployment transaction. It never materializes or calls installed
-  skill paths at runtime; vendor the deterministic release consumer validator into automation.
-
-Use target protection gates and short-lived workload identity when supported. Pin third-party
-automation dependencies according to project security policy. Persist receipts outside ephemeral
-job storage so later promotion and rollback can address one exact release.
+For requested automation, read `references/automation-contract.md`. Keep it project-owned under
+`automation/release/`; vendor the deterministic release consumer validator. It consumes verified
+builds, never materializes, and never calls installed skill paths at runtime.
 
 ## Evidence And Handoff
 
@@ -150,11 +119,12 @@ selected path:
 python scripts/validate_release.py --workspace <workspace> --receipt <receipt-path> [--build-selector current|<build-id>]
 ```
 
-Consumers requiring a completed release add `--require-success`; this accepts only `active` v7
-receipts. Never include credentials,
+Consumers requiring a completed release add `--require-success`; this accepts only `active`
+receipts valid against the bundled schema. Never include credentials,
 tokens, secret values, raw provider responses, or sensitive target outputs. End with exact build and
 release IDs, target state, verification, skipped checks, and unresolved questions.
 
-Release receipts use schema version 6. Earlier receipt schemas remain audit evidence only; create a
-verified v6 baseline for each active runner slice before using the current promotion or rollback
-flow.
+`schemas/release-receipt.schema.json` owns the current receipt version; the validator rejects
+unsupported versions. Earlier receipts remain audit evidence only. Establish a newly verified
+baseline for each active runner slice before using current promotion/rollback; never merely relabel
+an old receipt with the current version.

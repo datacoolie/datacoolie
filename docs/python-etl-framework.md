@@ -37,14 +37,15 @@ configuration does not require a new script for every table.
 
 Use DataCoolie when you need one or more of these outcomes:
 
-- Develop with **Polars locally** and run the same metadata with **Spark** when
+- Develop with **Polars locally** and run compatible metadata with **Spark** when
   data or platform requirements grow.
 - Move workloads between local execution, **Microsoft Fabric**, **Databricks**,
   and **AWS Glue** without embedding platform paths and secret APIs in every job.
 - Standardize append, overwrite, merge/upsert, and
   [SCD Type 2](how-to/merge-and-scd2.md) loads across pipelines.
 - Read from files, SQL databases, REST APIs, or Python functions and write to
-  Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, or Avro.
+  Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, or Avro where the
+  selected engine, addressing mode, and optional dependencies support them.
 - Keep schema hints, partitions, watermarks, logging, and maintenance behavior
   visible in reviewable metadata.
 

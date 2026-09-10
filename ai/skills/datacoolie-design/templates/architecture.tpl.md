@@ -98,6 +98,14 @@ pure-Python execution host. Packaging and attachment remain Build and Release re
 - Stage execution rule: pass one stage value to the selected runner; do not encode stage-to-engine mappings
   in project config or architecture.
 - Required runtime paths and provider inputs: {{ metadata_logs_watermarks_and_provider_inputs }}
+- Stage progression and completion/quality gates: {{ separate_stage_invocations_or_combined_rationale }}
+- Dependent dataflow sets and required producer completion: {{ dependencies_or_independent }}
+- Scale-out intent, capacity limits, and barrier across all upstream job shards: {{ single_job_or_sharding_intent }}
+
+Prefer separate stage invocations for operational control. Identify dependencies that must use
+outputs from the current run; independent flows need no artificial ordering. Build maps these
+requirements to the installed framework's grouping and job-assignment behavior. Runtime job count
+and index remain invocation parameters, not project configuration or fixed architecture values.
 
 ## DataCoolie Control Storage
 

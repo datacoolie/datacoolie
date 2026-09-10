@@ -28,15 +28,18 @@ In addition to common parameters, accept `start`, `end`, optional `chunk_interva
   otherwise pass boundary values through without runner-owned range validation.
 - Decode an optional JSON chunk interval into its native value, then let `ReplayConfig` and replay
   execution validate its keys, shape, values, and range. Omit it for one replay window.
-- A stage string, comma string, or list remains one framework selection. Repeated groups run
-  sequentially in occurrence order and stop after a failed group. No stage loads all dataflows once.
+- A stage string, comma string, or list remains one framework selection. With no stage, load all
+  assigned active dataflows once. External orchestration owns repeated stage invocations and
+  completion gates; use separate replay invocations for dependent stages.
 - Default `save_watermark` to false. Enabling it requires separate explicit confirmation because it
   advances persistent state and can interfere with a concurrent incremental run.
 - Use the same JSON chunk representation for Python and notebook/job entrypoints. Databricks widget
   booleans and run-config integers arrive as strings and require transport decoding.
 
 Within one replay call, DataCoolie runs dataflows in parallel and chunks for each dataflow
-sequentially. Do not recreate either scheduler in the entrypoint.
+sequentially. Metadata group/order does not sequence replay dataflows. Read
+[orchestration-contract.md](orchestration-contract.md) for job assignment and current failure limits.
+Do not recreate either scheduler in the entrypoint.
 
 ## Persistent state safety
 

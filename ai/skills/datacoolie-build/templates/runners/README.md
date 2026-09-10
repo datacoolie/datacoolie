@@ -24,6 +24,13 @@ Every file-provider template carries one required primary metadata path and opti
 and schema-hints paths using its host-native parameter transport. Build supplies the exact one-,
 two-, or three-file set; the runner does not infer the layout or merge files.
 
+All examples expose optional `job_num`/`job_index` with single-job defaults 1/0. Python CLIs use
+`--job-num`/`--job-index`; notebook and Glue transports use `JOB_NUM`/`JOB_INDEX`. For scale-out,
+the external scheduler invokes all indexes with the same job count and metadata selection. See
+`references/runner-contract.md` for transport and `references/orchestration-contract.md` for
+dependencies and stage completion gates. Existing generated projects adopt these parameters by
+updating their durable runner and materializing a new build.
+
 Replace `{{ functions_import_prefix }}` with the one project-specific prefix from the selected
 build contract. If the project has no Python-function source, replace the example allowlist with
 `[]`. The artifact is prepared before process/notebook start; runners never install, extract,

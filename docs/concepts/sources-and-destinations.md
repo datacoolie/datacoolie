@@ -54,9 +54,11 @@ date folders or files by modification time).
 
 ### `filter_expression` (post-read filter)
 
-After watermark filtering, every reader calls `_apply_filter_expression(df,
-source)`.  When `source.filter_expression` is non-empty, the engine evaluates
-it as a SQL WHERE clause against the in-memory DataFrame:
+All built-in readers apply `source.filter_expression` after the logical
+watermark condition. Database readers push the expression into their generated
+SQL `WHERE` clause; file, Delta, Iceberg, and function readers apply it through
+the engine after reading. When `source.filter_expression` is non-empty, the
+engine evaluates it as a SQL WHERE clause against the in-memory DataFrame:
 
 ```
 watermark filter  →  source.filter_expression  →  count / new watermark

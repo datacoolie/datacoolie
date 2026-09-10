@@ -19,13 +19,12 @@ Debug JSONL
     Per-dataflow entries + job summary as the last line.
     Datetime values are serialised as ISO-8601 strings.
 
-Analyst Parquet (requires ``pyarrow``)
-    Two Parquet files per session, each with an explicit PyArrow schema:
-
-    * ``dataflow_<stem>.parquet`` — one row per dataflow/maintenance execution.
-    * ``job_summary_<stem>.parquet`` — a single-row job aggregate.
-
-    Datetime columns use ``timestamp[us, tz=UTC]`` for native query support.
+Analyst outputs
+    The job aggregate is one immutable JSONL file,
+    ``job_<stem>.jsonl``. When ``pyarrow`` is installed, dataflow and
+    maintenance rows are also written to ``dataflow_<stem>.parquet`` with an
+    explicit schema. Datetime columns use ``timestamp[us, tz=UTC]`` for native
+    query support.
 
 Partition layout::
 

@@ -26,7 +26,8 @@ A production-grade SCD2 implementation needs to:
 3. **Insert new records** — with `__valid_from = source_timestamp`, `__valid_to = NULL`, `__is_current = true`
 4. **Handle inserts** — brand new keys get a fresh active record on first load
 5. **Guard against late arrivals** — skip the close step if the incoming timestamp is not newer than the current version
-6. **Be idempotent** — re-running the same batch shouldn't create duplicate versions
+6. **Control replays** — only strictly newer, deduplicated source rows avoid
+   duplicate current versions; the engine appends every incoming row
 
 Most teams write 50–200 lines of merge SQL or PySpark for each SCD2 table. When you have 20 dimension tables, that's thousands of lines of nearly-identical, error-prone code.
 
@@ -125,15 +126,19 @@ DataCoolie also supports `merge_upsert` for dimensions where you don't need hist
 | `append` | Insert-only fact tables; no updates |
 | `full_load` | Drop and reload; simple but expensive |
 
-All four strategies use the same metadata structure — just change `load_type`.
+These strategies use the same metadata structure — change `load_type` and the
+destination-specific settings required by the selected strategy.
 
 ## Common Pitfalls DataCoolie Prevents
 
-- **Missing merge keys** — validation raises an error before the run starts
+- **Missing merge keys** — the built-in destination strategy raises when the
+  write is reached; build-time lint can flag the missing keys before execution
 - **Missing `scd2_effective_column`** — lint rule `scd2-effective-column-required` warns at authoring time
 - **Late-arrival duplicates** — the late-arrival guard skips the close step if the incoming `__valid_from` is not newer than the existing version
 - **Schema drift** — `schema_hints` (a list of `{column_name, data_type}` objects) cast source columns to declared types; requires `source.connection.use_schema_hint: true` to take effect
-- **Watermark staleness** — automatic watermark tracking means re-runs don't reprocess already-seen data
+- **Watermark scope** — normal incremental runs use the saved watermark, while
+  explicit replay ranges are reprocessed and leave the production watermark
+  untouched by default
 
 ## Learn More
 

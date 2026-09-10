@@ -71,8 +71,9 @@ Quick database connectivity check:
       All dataflows in the same logical step should share the same `stage` string.
 - [ ] If execution order matters, `group_number` and `execution_order` are set
       explicitly instead of relying on file order.
-- [ ] `processing_mode` is left as `batch` unless you intentionally need a
-      specialized mode.
+- [ ] `processing_mode` is `batch` for the built-in driver. The model accepts
+      `microbatch` and `streaming` values for specialized or future runtimes,
+      but the normal built-in ETL path does not implement those modes.
 - [ ] `is_active` was not accidentally set to `false` on the dataflow.
 
 ---

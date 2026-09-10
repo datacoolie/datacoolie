@@ -45,13 +45,15 @@ class BasePlatform(BaseSecretProvider):
     its own :class:`~datacoolie.core.secret_provider.BaseSecretProvider`,
     using its existing SDK handle (env vars / notebookutils / dbutils / boto3).
 
-    **16 abstract methods** across five categories:
+    **18 abstract requirements** across six categories: 17 methods declared
+    here plus the inherited ``_fetch_secret`` requirement:
 
     * **File I/O** — read / write / append / delete text content
     * **Directory Ops** — create / delete / list files / list folders
     * **Existence Checks** — file_exists / folder_exists
     * **File Management** — upload / download / copy / move / get_file_info
-    * **Secrets** — ``_fetch_secret`` (inherited requirement from BaseSecretProvider)
+    * **Binary I/O** — read_bytes / write_bytes
+    * **Secrets** — ``_fetch_secret`` (inherited from BaseSecretProvider)
     """
 
     # ------------------------------------------------------------------

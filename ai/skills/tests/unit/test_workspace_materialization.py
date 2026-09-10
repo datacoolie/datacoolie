@@ -594,6 +594,8 @@ def test_materialized_runner_preserves_verified_durable_bytes(
         base_log_path=".runtime/dev/logs",
         dry_run=False,
         max_workers=1,
+        job_num=1,
+        job_index=0,
     )
     assert namespace["main"]() == 0
     assert calls == [None]
@@ -654,6 +656,22 @@ def test_build_id_uses_invocation_time_and_content_digest(
     third = build_tool.materialize(workspace=workspace)
     assert third["build_id"].startswith("260808-091013-")
     assert Path(first["build_dir"]).is_dir()
+
+
+def test_same_second_unchanged_materialization_reuses_verified_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _workspace(tmp_path, monkeypatch)
+
+    first = build_tool.materialize(workspace=workspace)
+    second = build_tool.materialize(workspace=workspace)
+
+    assert second["build_id"] == first["build_id"]
+    assert second["build_dir"] == first["build_dir"]
+    assert second["reused"] is True
+    assert build_tool.verify_build(Path(second["build_dir"]))["content_digest"] == (
+        build_tool.verify_build(Path(first["build_dir"]))["content_digest"]
+    )
 
 
 def test_every_environment_overlay_participates_in_build_identity(

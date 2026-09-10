@@ -55,7 +55,7 @@ Built-in writers today support these destination families:
 | Destination family | Supported formats | Addressing style | Supported load types | Maintenance |
 |--------------------|-------------------|------------------|----------------------|-------------|
 | Flat-file output | `parquet`, `csv`, `json`, `jsonl`, `avro` | Path-based | `append`, `overwrite`, `full_load` | No |
-| Lakehouse table | `delta`, `iceberg` | Path-based or catalog/database/table | All load types | Yes |
+| Lakehouse table | `delta`, `iceberg` | Path-based or catalog/database/table | All registered load types, subject to engine/catalog support | Yes |
 
 !!! note "What is not built in"
     - Excel is not a writable destination
@@ -195,12 +195,14 @@ would miss.
 
 **Requirements:**
 
-- The source **must** have `date_backward` configured (so a watermark window
-  exists).
+- The source or its referenced connection **must** have `date_backward`
+  configured (so the effective lower watermark covers the intended look-back
+  window).
 - Only supported with `merge_overwrite` load type.
 
 At runtime the driver calls `DataFlow.apply_watermark_window()` after reading,
-which stores a `{column: (lower, upper)}` mapping on the dataflow.  The
+which stores a `{column: (lower, upper)}` mapping on the dataflow when both
+effective bounds are available.  The
 `MergeOverwriteStrategy` then calls `engine.delete_by_window(...)` to remove
 all target rows in that range before appending the fresh data.
 

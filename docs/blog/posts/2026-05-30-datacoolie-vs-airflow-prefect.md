@@ -60,9 +60,9 @@ alerts. It is the engine that runs inside a scheduled task.
 | **Scheduling** | Built-in cron, sensors, event triggers | None — runs when called |
 | **Task dependencies** | DAG-based ordering across tasks | Single-task execution |
 | **Data processing** | Delegates to external tools | Native DataFrame processing (Polars / Spark) |
-| **Retry model** | Task-level retry with backoff | Idempotent re-execution from watermark |
+| **Retry model** | Task-level retry with backoff | Dataflow-scoped retry using the watermark; idempotency depends on the load strategy and keys |
 | **Load strategies** | Not applicable | append, full_load, merge_upsert, merge_overwrite, scd2 |
-| **Multi-engine** | Not applicable | Same metadata on Polars and Spark |
+| **Multi-engine** | Not applicable | Compatible metadata on Polars and Spark |
 | **Alerting** | Built-in | External (relies on orchestrator or logging) |
 
 ## Using Them Together

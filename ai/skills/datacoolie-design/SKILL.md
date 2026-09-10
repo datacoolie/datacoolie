@@ -1,6 +1,6 @@
 ---
 name: datacoolie-design
-description: Design or materially revise a DataCoolie project's stage graph, transition contracts, model grain, keys, load strategy, platform intent, quality/recovery policy, infrastructure requirements, or release policy. Use for new projects and architecture-affecting changes; skip it for implementation-only metadata, runner, function, test, or release work that preserves the current design.
+description: Design new DataCoolie projects or material changes to data contracts, stage graphs, modeling, platforms, recovery, or release policy. Skip compatible implementation, tests, and deployment that preserve the approved design.
 ---
 
 # DataCoolie Design

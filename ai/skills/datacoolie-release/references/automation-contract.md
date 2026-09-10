@@ -24,8 +24,9 @@ ID, and acquire canonical immutable bytes rather than uploading the projection.
 
 ## Job Boundary
 
-- Build automation creates, artifact-verifies, and publishes one immutable artifact plus its Build
-  v3 receipt. Build-host runtime execution is optional and does not authorize activation.
+- Build automation creates, artifact-verifies, and publishes one immutable artifact plus its
+  artifact-verification receipt matching the Required Inputs above. Build-host runtime execution
+  is optional and does not authorize activation.
 - Release automation downloads that artifact from the explicit source run, verifies transport
   identity, runs its vendored release consumer validator, and never materializes.
 - Keep release validators in project-owned automation. Runtime jobs must not reference installed

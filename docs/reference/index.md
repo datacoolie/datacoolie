@@ -41,10 +41,10 @@ All packages are rendered directly from docstrings via `mkdocstrings`.
 
 - [Core](api/core.md) — `Connection`, `Source`, `Destination`, `Transform`, `DataFlow`, `ReplayConfig`, `DataCoolieRunConfig`, registry helpers.
 - [Engines](api/engines.md) — `BaseEngine[DF]`, `PolarsEngine`, `SparkEngine`.
-- [Platforms](api/platforms.md) — `BasePlatform`, `LocalPlatform`, `AWSPlatform`.
+- [Platforms](api/platforms.md) — `BasePlatform`, `LocalPlatform`, `AWSPlatform`, `FabricPlatform`, and `DatabricksPlatform`.
 - [Sources](api/sources.md) — `BaseSourceReader`, `FileReader`, `APIReader`.
 - [Destinations](api/destinations.md) — `BaseDestinationWriter`, `FileWriter`.
-- [Transformers](api/transformers.md) — built-in transformers (`SchemaConverter`, `Deduplicator`, `ColumnAdder`, `RowFilter`, `SCD2ColumnAdder`, `SystemColumnAdder`, `PartitionHandler`, `ColumnNameSanitizer`) and `TransformerPipeline`.
+- [Transformers](api/transformers.md) — built-in transformers (`ColumnValueTransformer`, `SchemaConverter`, `HashColumnAdder`, `Deduplicator`, `ColumnAdder`, `RowFilter`, `SCD2ColumnAdder`, `SystemColumnAdder`, `PartitionHandler`, `DataMasker`, `ColumnProjector`, `ColumnNameSanitizer`) and `TransformerPipeline`.
 - [Orchestration](api/orchestration.md) — `DataCoolieDriver`, `JobDistributor`, `ParallelExecutor`.
 - [Metadata](api/metadata.md) — provider classes and `BaseMetadataProvider`.
 - [Watermark](api/watermark.md) — `WatermarkManager` and the raw-JSON contract.

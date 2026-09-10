@@ -1,6 +1,6 @@
 ---
 name: datacoolie-provision
-description: Plan, validate, create, update, reconcile, or remove infrastructure required by a DataCoolie environment. Use only for an explicit infrastructure request or an evidenced resource gap from build or release. Inventory and preview are allowed without mutation approval; every apply requires approval bound to the exact environment and persisted plan. Never use this skill to change pipeline behavior, build artifacts, or releases.
+description: Plan or apply DataCoolie infrastructure changes for an explicit request or an evidenced resource gap. Inventory and preview are read-only; apply needs exact plan/environment approval. Does not implement pipelines or deploy builds.
 ---
 
 # DataCoolie Provision

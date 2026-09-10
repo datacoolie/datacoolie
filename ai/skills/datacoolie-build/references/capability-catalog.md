@@ -1,6 +1,6 @@
 # DataCoolie Built-in Capability Catalog
 
-This catalog is a quick implementation index for DataCoolie 0.1.7. The
+This catalog is a quick implementation index for DataCoolie 0.1.9. The
 installed runtime and its discovered plugins are authoritative. Re-check them before choosing a
 native path because optional dependencies, engine differences, authentication modes, and third-party
 plugins can change the usable combinations.
@@ -115,7 +115,7 @@ lakehouse capabilities and verify the selected Delta or Iceberg engine path.
 
 ## 6. Unsupported-by-default Boundaries
 
-The 0.1.7 built-ins do not provide:
+The 0.1.9 built-ins do not provide:
 
 - a streaming source or destination implementation, even though `streaming` is reserved in the
   connection model;

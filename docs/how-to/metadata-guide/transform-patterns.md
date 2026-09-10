@@ -446,7 +446,7 @@ added by `additional_columns`:
 
     | Field | Stage | Scope |
     |-------|-------|-------|
-    | `source.filter_expression` | Read time (before watermark) | Raw source columns only |
+    | `source.filter_expression` | Read time (after the logical watermark condition) | Raw source columns only |
     | `transform.filter_expression` | Order 35 (post-ColumnAdder) | Source columns + computed columns |
 
     Use `source.filter_expression` when you want the filter pushed as close to

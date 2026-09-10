@@ -33,6 +33,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--save-watermark", action="store_true")
     parser.add_argument("--confirm-save-watermark", action="store_true")
     parser.add_argument("--max-workers", type=int, default=4)
+    parser.add_argument("--job-num", type=int, default=1)
+    parser.add_argument("--job-index", type=int, default=0)
     args = parser.parse_args()
     if args.save_watermark and not args.confirm_save_watermark:
         parser.error("--save-watermark requires --confirm-save-watermark")
@@ -52,6 +54,8 @@ def main() -> int:
     )
     config = DataCoolieRunConfig(
         max_workers=args.max_workers,
+        job_num=args.job_num,
+        job_index=args.job_index,
         stop_on_error=True,
         allowed_function_prefixes=["{{ functions_import_prefix }}"],
     )

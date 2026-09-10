@@ -85,7 +85,7 @@ Row shape (dataflow entry):
   "end_time": "2026-04-20T08:00:09+00:00",
   "duration_seconds": 9.0,
   "overhead_duration_seconds": 0.2,
-  "destination_load_type": "merge",
+  "destination_load_type": "merge_upsert",
   "destination_operation_type": null
 }
 ```

@@ -68,8 +68,9 @@ of these hooks — do not re-implement them.
 - **`get_watermark` returns raw JSON text** (or `None`). Never a parsed dict.
   `WatermarkManager` owns deserialisation. See
   [ADR-0004](../adr/0004-raw-json-watermark-contract.md).
-- **Construct model objects**, not dicts. The framework relies on validation
-  at model construction time.
+- **Construct model objects**, not dicts. The framework relies on model
+  validation for typed values and cross-field rules; run the published schema
+  and build lint separately when unknown-field rejection is required.
 - **Honour `active_only`** — skip `is_active=False` rows unless the caller
   asks for them.
 - **Honour `stage` filtering** — accept single string, comma-separated

@@ -19,8 +19,9 @@ class PolarsEngine(BaseEngine[polars.LazyFrame]):     ...
 ```
 
 Sources, destinations, and transformers are parameterised by the same `DF`, so
-the type system prevents you from passing a Polars DataFrame to a Spark
-destination.
+static type checking can catch incompatible plugin implementations. The driver
+and registries remain dynamically wired at runtime, so this is not a universal
+runtime or compile-time guarantee for every third-party combination.
 
 ## Method sections
 
@@ -40,8 +41,10 @@ destination.
 | Navigation (concrete dispatch) | `read`, `write`, `merge`, `merge_overwrite`, `scd2`, `exists`, `get_history`, `compact`, `cleanup` |
 
 The **navigation** group (`read`, `write`, ...) is concrete on `BaseEngine` — it
-dispatches on connection type and format to the right abstract method. You
-rarely override it.
+dispatches on the supplied target address (`table_name` takes precedence over
+`path`) and format to the right abstract method. It does not select an
+implementation from `connection_type`; the driver and writers resolve the
+connection before calling the engine. You rarely override navigation methods.
 
 Engine implementations accept an optional execution ID when adding system
 columns:
@@ -64,7 +67,7 @@ Format-aware methods take a `fmt` string (`"delta"`, `"iceberg"`, `"parquet"`,
 
 ```python
 engine.read_table("`cat`.`db`.`sales`.`orders`", fmt="iceberg")
-engine.merge_to_table(df, table, keys=["id"], fmt="delta", options={"overwriteSchema": "true"})
+engine.merge_to_table(df, table, merge_keys=["id"], fmt="delta", options={"overwriteSchema": "true"})
 engine.table_exists_by_name(table, fmt="iceberg")
 ```
 
@@ -76,6 +79,11 @@ Rules:
 - `table_exists_by_name` uses **keyword-only** `fmt` (`*, fmt="delta"`).
 - Engines raise `EngineError` for unsupported `fmt` values rather than silently
   falling back.
+- Named-table lookup is still engine/catalog-defined. For example, Spark
+  delegates named-table reads to `spark.table(...)`, while Polars named Delta
+  tables are unsupported and named Iceberg tables require an Iceberg catalog.
+  Polars catalog-backed writes and merge operations use named Iceberg tables;
+  its generic path writer does not implement path-based Iceberg writes.
 
 See [ADR-0001](../adr/0001-engine-fmt-parameter.md) for history.
 

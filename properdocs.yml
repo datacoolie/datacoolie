@@ -194,11 +194,12 @@ nav:
       - Deploy to Fabric: how-to/deploy-to-fabric.md
       - Deploy to Databricks: how-to/deploy-to-databricks.md
       - Deploy to AWS Glue: how-to/deploy-to-aws-glue.md
-      - Operations overview: operations/index.md
-      - Logging layout: operations/logging-layout.md
-      - Benchmarks: operations/benchmarks.md
-      - Troubleshooting: operations/troubleshooting.md
-      - Testing strategy: operations/testing-strategy.md
+      - Operations overview: 
+          - how-to/operations/index.md
+          - Logging layout: how-to/operations/logging-layout.md
+          - Benchmarks: how-to/operations/benchmarks.md
+          - Troubleshooting: how-to/operations/troubleshooting.md
+          - Testing strategy: how-to/operations/testing-strategy.md
   - Reference:
       - reference/index.md
       - Metadata schema: reference/metadata-schema.md

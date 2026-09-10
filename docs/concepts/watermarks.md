@@ -112,7 +112,9 @@ delete all target rows in the range before re-inserting fresh data.
 The window is only computed when:
 
 - `destination.replace_by_watermark` is `True`
-- Both lower and upper bounds are available (i.e. `source_runtime.watermark_before` and `source_runtime.watermark_after` are populated)
+- Both effective lower and upper bounds are available (i.e.
+  `source_runtime.watermark_effective` and `source_runtime.watermark_after` are
+  populated). `watermark_effective` includes any configured source look-back.
 
 See [Destination · replace_by_watermark](../how-to/metadata-guide/destination-and-load-patterns.md#replace_by_watermark-range-based-delete).
 

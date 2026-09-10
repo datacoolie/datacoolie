@@ -10,6 +10,8 @@ Optional Glue job parameters:
   --CONNECTIONS_PATH  Separate connections metadata file
   --SCHEMA_HINTS_PATH  Separate global schema-hints metadata file
   --STAGE  Stage value passed unchanged; omission runs all stages
+  --JOB_NUM  Total shard count (default 1)
+  --JOB_INDEX  This invocation's zero-based shard index (default 0)
 
 This example uses DataCoolie watermark state and does not enable AWS Glue bookmarks.
 Attach ``datacoolie[aws]`` before execution; Glue supplies Spark and the job
@@ -35,7 +37,7 @@ def resolve_options(argv: list[str]) -> dict[str, str]:
     required = ["REGION", "METADATA_PATH", "WATERMARK_BASE_PATH", "LOG_BASE_PATH"]
     optional = [
         name
-        for name in ("CONNECTIONS_PATH", "SCHEMA_HINTS_PATH", "STAGE")
+        for name in ("CONNECTIONS_PATH", "SCHEMA_HINTS_PATH", "STAGE", "JOB_NUM", "JOB_INDEX")
         if f"--{name}" in argv
     ]
     return getResolvedOptions(argv, [*required, *optional])
@@ -56,6 +58,8 @@ metadata = FileProvider(
 )
 config = DataCoolieRunConfig(
     max_workers=4,
+    job_num=int(args.get("JOB_NUM", "1")),
+    job_index=int(args.get("JOB_INDEX", "0")),
     stop_on_error=True,
     allowed_function_prefixes=["{{ functions_import_prefix }}"],
 )

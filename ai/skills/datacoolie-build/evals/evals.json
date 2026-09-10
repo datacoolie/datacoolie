@@ -3,24 +3,24 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Create a new DataCoolie project from already documented source contracts. Implement the metadata and local runners, then test it locally. The infrastructure already exists.",
-      "expected_output": "Require verified discovery evidence for every declared source before design/build, then bootstrap only required files, use framework metadata and driver execution, materialize an immutable build, and skip provisioning and release.",
+      "prompt": "Plan a new DataCoolie project from documented source contracts. Explain prerequisites, implementation boundaries, local verification, and out-of-scope lifecycle outcomes. Infrastructure exists; no source evidence or workspace files are supplied in this decision case.",
+      "expected_output": "Require verified discovery evidence for every declared source before design/build, then describe minimal framework-first bootstrap, immutable materialization, and generated-build verification. Do not claim files or tests were produced; skip provisioning and release.",
       "files": [],
       "expectations": [
-        "Discovery verifies every declared source because this is a new project, even though contracts were supplied.",
-        "Provision and release are skipped.",
-        "Local runtime verification executes the generated build rather than durable sources."
+        "Discovery is required for every declared source because this is a new project; supplied contracts do not substitute for observed evidence.",
+        "The response gives the Build route after prerequisites but does not claim that missing files, materialization, or tests were completed.",
+        "Provision and release are out of scope, and eventual local verification must execute generated artifacts rather than durable sources."
       ]
     },
     {
       "id": 2,
-      "prompt": "The architecture is unchanged. Add one environment override and correct a runner parameter, then rerun the integration check.",
+      "prompt": "Explain how Build should handle an unchanged architecture when adding one environment override and correcting a runner parameter, including materialization and verification consequences. No workspace files are supplied in this decision case.",
       "expected_output": "Use build only, preserve design, update canonical durable sources, create a new immutable build ID, and verify generated artifacts.",
       "files": [],
       "expectations": [
-        "The response does not require a new design phase.",
-        "The environment file is an overlay rather than a full metadata clone.",
-        "Changed durable input produces a new immutable build."
+        "No new design decision or approval is requested when architecture bytes and contracts remain unchanged.",
+        "The environment change is an overlay rather than a full metadata clone, and the response does not claim edits or tests were completed.",
+        "Changed durable input produces a content-distinct immutable build whose generated artifacts require verification."
       ]
     },
     {
@@ -69,13 +69,13 @@
     },
     {
       "id": 7,
-      "prompt": "Test the project locally only. There are no custom functions and no deployment request.",
-      "expected_output": "Materialize and verify the generated environment slice, omit dist and automation, keep runtime state persistent, and stop before release.",
+      "prompt": "Describe the minimal Build workflow for local-only verification with no custom functions and no deployment. No workspace is supplied in this decision case.",
+      "expected_output": "Explain materialization and generated-artifact verification, emit no function artifact, omit optional automation, keep runtime state persistent outside builds, and stop before Release without claiming execution occurred.",
       "files": [],
       "expectations": [
-        "The build omits dist when custom functions are absent.",
-        "Automation is not generated without a reproducibility/CI need.",
-        "No deployment approval is requested."
+        "Resolved metadata without Python functions produces functions_artifact null and no functions component; the answer does not rely on a vague dist-directory rule.",
+        "Automation is not generated without an explicit reproducibility or CI need.",
+        "The response does not request deployment approval or claim materialization/local execution completed without a workspace."
       ]
     },
     {
@@ -135,13 +135,13 @@
     },
     {
       "id": 13,
-      "prompt": "Materialize a project twice without changing its inputs, then change one runner and materialize again. Build folders should be easy to scan by time without weakening exact artifact verification.",
-      "expected_output": "Create a distinct timestamped build for every materialization, preserve equal content digests for equal inputs, change the content digest after the runner change, and verify the full digest in each manifest.",
+      "prompt": "Explain four materializations: the first build; unchanged inputs again at the same fixed UTC second; unchanged inputs at a later UTC second; then one changed runner. State build IDs, reuse, content digests, and collision checks.",
+      "expected_output": "The same-second unchanged run reuses the identical build ID; the later unchanged run has a new timestamped ID but the same full content digest; the runner change produces a different content digest. Verification rejects mismatches and short-ID collisions with different content.",
       "files": [],
       "expectations": [
-        "A new build ID uses {UTC YYMMDD-HHMMSS}-{first 12 content-digest characters}.",
-        "Separate materializations get distinct timestamped IDs while equal inputs retain the same full content digest.",
-        "The manifest stores the full content digest and verification rejects timestamp, digest, or collision mismatches."
+        "An unchanged materialization in the same UTC second reuses the existing identical build ID and reports reused=true rather than requiring a distinct ID.",
+        "An unchanged later-second materialization gets a distinct timestamped ID while retaining the same full content digest.",
+        "A runner change changes the content digest, and verification rejects timestamp/digest mismatch or a short build-ID collision with different content."
       ]
     },
     {
@@ -234,13 +234,13 @@
     },
     {
       "id": 22,
-      "prompt": "Only the datacoolie-build skill is installed. This workspace has architecture/current.md and its exact approved hash receipt. Materialize the project and render requested build automation.",
-      "expected_output": "Validate the stable design handoff locally, materialize the approved workspace, and render only build-owned resources without locating or copying datacoolie-design files.",
+      "prompt": "Only datacoolie-build is installed. Explain how Build should consume an existing architecture/current.md and exact approval receipt, materialize the project, and render requested automation. No workspace artifacts are attached to this decision case.",
+      "expected_output": "Explain local validation of the exact handoff and Build-owned materialization/automation without locating another skill. Identify required artifacts and commands without claiming they ran.",
       "files": [],
       "expectations": [
-        "Build accepts a valid exact architecture approval without the design skill directory.",
-        "No sibling skill script or schema path is required at materialization or automation runtime.",
-        "Malformed, stale, misnamed, or symlinked approval evidence still fails closed."
+        "Build can validate a supplied exact architecture approval without requiring the design skill directory.",
+        "The response identifies required artifacts and commands but does not claim materialization or automation completed without attached files.",
+        "Malformed, stale, misnamed, or symlinked approval evidence must fail closed."
       ]
     },
     {
@@ -280,8 +280,8 @@
     },
     {
       "id": 26,
-      "prompt": "The source contains source_created_at and transaction_date. For ingestion, add ingested_at and load_job_id columns with the current write time and job identity so consumers can audit each row.",
-      "expected_output": "Preserve distinct source and business timestamps, but use DataCoolie's framework write-time columns and driver-managed dataflow run ID instead of duplicate audit metadata.",
+      "prompt": "The source contains source_created_at and transaction_date. No downstream schema requires custom ingestion audit names. Should ingestion add ingested_at and load_job_id copies of current write time and run identity?",
+      "expected_output": "Preserve distinct source and business timestamps, but use DataCoolie's framework write-time columns and driver-managed dataflow run ID instead of duplicate audit metadata when no separate consumer contract exists.",
       "files": [],
       "expectations": [
         "The solution relies on framework-owned __created_at, __updated_at, and __updated_by, plus __dataflow_run_id for driver-managed runs, instead of adding semantically duplicate ingestion or job columns.",
@@ -470,8 +470,8 @@
     },
     {
       "id": 43,
-      "prompt": "Build a function-backed Fabric and Databricks project. Add pip install cells to every generated notebook and create both WHL and ZIP packages for flexibility.",
-      "expected_output": "Create only the architecture-selected wheel, validate it in isolation, and render the fixed project import prefix; generated notebooks contain no installation or restart behavior.",
+      "prompt": "The approved architecture selects a wheel for a function-backed Fabric and Databricks project. A request proposes pip install cells in every notebook and both WHL and ZIP packages for flexibility.",
+      "expected_output": "Honor the approved wheel selection: create only one wheel, validate it in isolation, and render the fixed project import prefix; generated notebooks contain no installation or restart behavior.",
       "files": [],
       "expectations": [
         "Exactly one typed functions_artifact is emitted and it is a wheel.",
@@ -544,6 +544,321 @@
         "The local change selects dataflows and modifies only their transform.schema_hints, merged by column_name.",
         "Neither selector scope is described as merging global and local runtime hint sources."
       ]
+    },
+    {
+      "id": 50,
+      "prompt": "The existing design permits independent ETL flows. Keep one-job usage simple, but allow this runner to scale to four external jobs when volume grows. Update the relevant runner parameters and explain the launch arrangement.",
+      "expected_output": "Expose optional job_num/job_index with defaults 1/0 through the runner's native transport. Independent flows omit group/order. For scale-out the caller launches each index 0..3 with job_num=4 and consistent metadata/environment/stage selection.",
+      "files": [],
+      "expectations": [
+        "Single-job invocations omit both shard parameters; supplied integers reach DataCoolieRunConfig.",
+        "The runner does not launch jobs or manually partition metadata, and config.yaml does not gain job parameters.",
+        "Assignment is deterministic and not guaranteed balanced; duplicate or missing indexes are not prevented by the framework."
+      ]
+    },
+    {
+      "id": 51,
+      "prompt": "A must finish before B in one normal run. Both currently have group_number=null, with execution_order=10 and 20. Will this also be safe with four jobs? Give the smallest metadata correction.",
+      "expected_output": "The null group provides no dependency barrier even in one job and can split across jobs. Assign both flows the same non-null group, preserve increasing orders, and use stop_on_error=True for failed prerequisites.",
+      "files": [],
+      "expectations": [
+        "The explanation distinguishes sorted submission from completion ordering for ungrouped flows.",
+        "The correction co-locates A/B using one group and orders them using different buckets; it does not use increasing group numbers.",
+        "A failed producer with stop_on_error=False and a missing or skipped producer are not presented as successful dependency gates."
+      ]
+    },
+    {
+      "id": 52,
+      "prompt": "Run source2bronze and bronze2silver together for separate orders and customers chains, then build a silver join consuming both. Explain the combined metadata option and the preferred operational arrangement with three jobs.",
+      "expected_output": "Prefer separate stages with an external barrier across all upstream shards and required checks. A combined stage selection is only a filter; an in-call join requires its prerequisite dependency set in one group with increasing orders, or an external barrier.",
+      "files": [],
+      "expectations": [
+        "Stage list or comma-string order does not impose execution order.",
+        "Separate chains can use separate groups, but a join across those groups cannot rely on their group numbers for readiness.",
+        "Independent flows omit group/order, and the normal runner still makes one framework call per invocation.",
+        "In stage-by-stage scale-out, finishing only the current job's upstream shard is insufficient to start the downstream stage.",
+        "Stage names are project-defined examples; no medallion-specific allowlist or fixed stage sequence is introduced."
+      ]
+    },
+    {
+      "id": 53,
+      "prompt": "Two groups each have two independent producers at order 10 and a consumer at order 20. With max_workers=2 and stop_on_error=True, are there at most two active dataflows, and does one failure halt the whole job? Does the same metadata order replay?",
+      "expected_output": "Nested group pools can run four producers; max_workers is per pool. Normal ETL stops later buckets only in the failed group and cannot interrupt running peers. Replay ignores group/order sequencing across flows and stops subsequent chunks within a failing flow.",
+      "files": [],
+      "expectations": [
+        "No global concurrency cap or job-wide fail-fast is promised.",
+        "Tied orders run concurrently; higher orders wait for the earlier bucket within their own group.",
+        "Replay dependencies require separate invocations or external gates rather than group/order metadata."
+      ]
+    },
+    {
+      "id": 54,
+      "prompt": "A downstream contract explicitly requires ingestion_timestamp and source_batch_id with semantics distinct from DataCoolie's write timestamp and dataflow run ID. Decide whether to keep them and how to avoid confusion with framework audit fields.",
+      "expected_output": "Preserve explicitly contracted, semantically distinct columns with documented provenance while retaining framework system columns; do not delete them merely because their names resemble audit metadata.",
+      "files": [],
+      "expectations": [
+        "The explicit downstream contract is honored because both fields have distinct documented semantics.",
+        "Framework write-time and run identity remain separate; custom fields are not aliases for system columns.",
+        "If semantics are duplicate or unspecified, clarification is requested instead of inventing values."
+      ]
+    },
+    {
+      "id": 55,
+      "prompt": "In one normal ETL call, group_number=0 contains A with execution_order omitted, B with execution_order=0, and C with execution_order=10. D has group_number=null and execution_order=-10. Explain scheduling and multi-job placement without treating zero as absent.",
+      "expected_output": "A/B share order bucket 0 and may overlap; C waits. Group zero is real and maps to job index 0. D remains independent despite its order and is hash-assigned when sharded.",
+      "files": [],
+      "expectations": [
+        "group_number=0 is non-null and co-locates its flows on job index 0 for any positive job_num.",
+        "Omitted execution_order and zero share bucket 0; tied members may overlap and C waits for the bucket.",
+        "D's negative order creates no completion barrier because its group is null."
+      ]
+    },
+    {
+      "id": 56,
+      "prompt": "Review job configurations (job_num=0, job_index=0), (3,-1), (3,3), and (3,2). State which are valid and whether the runner should normalize any value.",
+      "expected_output": "Only (3,2) is valid. The runner decodes integers and DataCoolieRunConfig rejects all invalid ranges without clamping or wrapping.",
+      "files": [],
+      "expectations": [
+        "The first three pairs are rejected and (3,2) is accepted.",
+        "No clamping, modulo normalization, or silent replacement of invalid values is proposed.",
+        "Validation does not launch jobs or manually partition metadata."
+      ]
+    },
+    {
+      "id": 57,
+      "prompt": "A caller passes driver.run(dataflows=explicit_list, stage=unmatched_stage) on job_index=1 of 3. The list includes an inactive flow and flows assigned to other shards. Explain selection and scheduling.",
+      "expected_output": "Every supplied flow is considered because an explicit list bypasses loading, active/stage filtering, and job assignment. Normal ETL group/order scheduling still applies.",
+      "files": [],
+      "expectations": [
+        "The stage argument does not filter an explicitly supplied list.",
+        "Inactive and other-shard supplied flows are not removed by the bypassed loader.",
+        "Normal ETL group/order scheduling still applies, unlike replay's flat inter-flow execution."
+      ]
+    },
+    {
+      "id": 58,
+      "prompt": "Run the bundled metadata validator against the supplied local_use_cases fixture. Report the exact command, exit code, and whether validation passed. Do not modify the fixture.",
+      "expected_output": "Execute the validator on the declared fixture and report success only from observed exit code zero.",
+      "files": [
+        "../../../usecase-sim/metadata/file/local_use_cases.json",
+        "scripts/validate.py"
+      ],
+      "expectations": [
+        "Evidence includes the exact validator command and observed exit code.",
+        "The supplied fixture is not modified and success is tied to exit code zero.",
+        "Grading cites captured command output or a retained execution artifact."
+      ]
+    },
+    {
+      "id": 59,
+      "prompt": "Run the supplied build-identity unit tests covering invocation time, content digest, and same-second reuse. Report exact pytest nodes or filter, exit code, and result without claiming broader Build verification.",
+      "expected_output": "Execute a targeted pytest selection and retain output proving the selected build-identity cases passed.",
+      "files": [
+        "../../../ai/skills/tests/unit/test_workspace_materialization.py",
+        "scripts/materialize.py"
+      ],
+      "expectations": [
+        "Evidence names the exact narrow pytest selection and observed exit code.",
+        "Selected tests cover later-time distinct IDs, same digest, changed digest, and same-second reuse.",
+        "The result is not presented as a full AI suite, model benchmark, or production build."
+      ]
+    },
+    {
+      "id": 60,
+      "prompt": "Run the supplied local orchestration scheduling and stage-selection contract test files. Report exact command, exit code, and test count; do not claim cloud or production execution.",
+      "expected_output": "Execute only both declared pytest files and retain their output as local contract evidence.",
+      "files": [
+        "../../../tests/unit/orchestration/test_scheduling_contract.py",
+        "../../../tests/unit/orchestration/test_stage_scheduling_contract.py"
+      ],
+      "expectations": [
+        "Evidence contains the exact pytest command, observed exit code, and test count for both files.",
+        "The result covers group/order concurrency plus stage, explicit-list, and replay selection behavior.",
+        "Claims remain limited to isolated local tests, not end-to-end ETL or cloud execution."
+      ]
     }
-  ]
+  ],
+  "eval_schema_version": 2,
+  "case_kinds": {
+    "decision": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57
+    ],
+    "execution": [
+      58,
+      59,
+      60
+    ]
+  },
+  "capability_families": {
+    "lifecycle-routing": [
+      1,
+      8
+    ],
+    "workspace-authoring": [
+      2,
+      15,
+      40
+    ],
+    "runner-interface": [
+      3,
+      4,
+      18,
+      19,
+      20
+    ],
+    "framework-boundary": [
+      5,
+      14,
+      24
+    ],
+    "build-automation": [
+      6,
+      17,
+      22
+    ],
+    "materialization": [
+      7,
+      25
+    ],
+    "build-identity": [
+      13,
+      59
+    ],
+    "replay-runner": [
+      11
+    ],
+    "maintenance-runner": [
+      12,
+      21
+    ],
+    "metadata-layout": [
+      9,
+      10,
+      47
+    ],
+    "artifact-verification": [
+      16
+    ],
+    "schema-hints": [
+      23,
+      49
+    ],
+    "audit-columns": [
+      26,
+      54
+    ],
+    "file-routing": [
+      27,
+      28,
+      30,
+      39
+    ],
+    "incremental-loading": [
+      29
+    ],
+    "polars-qualified-sql": [
+      31,
+      32,
+      33
+    ],
+    "platform-runtime": [
+      34,
+      35,
+      37,
+      38,
+      41
+    ],
+    "platform-file-api": [
+      36
+    ],
+    "runtime-state": [
+      42
+    ],
+    "function-packaging": [
+      43,
+      44,
+      45,
+      46
+    ],
+    "overlay-selectors": [
+      48
+    ],
+    "orchestration-sharding": [
+      50,
+      56
+    ],
+    "orchestration-ordering": [
+      51,
+      55,
+      60
+    ],
+    "orchestration-stages": [
+      52
+    ],
+    "orchestration-concurrency": [
+      53
+    ],
+    "orchestration-selection": [
+      57
+    ],
+    "metadata-validation": [
+      58
+    ]
+  }
 }

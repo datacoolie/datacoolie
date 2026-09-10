@@ -20,7 +20,9 @@
     "SCHEMA_HINTS_PATH = \"\"\n",
     "WATERMARK_BASE_PATH = \"{watermark_base_path}\"\n",
     "BASE_LOG_PATH = \"{base_log_path}\"\n",
-    "STAGE = \"\""
+    "STAGE = \"\"\n",
+    "JOB_NUM = 1\n",
+    "JOB_INDEX = 0"
    ]
   },
   {
@@ -48,6 +50,8 @@
     "watermark_base_path = widget_value(\"WATERMARK_BASE_PATH\", WATERMARK_BASE_PATH)\n",
     "base_log_path = widget_value(\"BASE_LOG_PATH\", BASE_LOG_PATH)\n",
     "stage = widget_value(\"STAGE\", STAGE)\n",
+    "job_num = int(widget_value(\"JOB_NUM\", JOB_NUM))\n",
+    "job_index = int(widget_value(\"JOB_INDEX\", JOB_INDEX))\n",
     "\n",
     "from datacoolie.core.models import DataCoolieRunConfig\n",
     "from datacoolie.engines.spark_engine import SparkEngine\n",
@@ -58,7 +62,7 @@
     "platform = DatabricksPlatform(runtime=\"databricks\")\n",
     "engine = SparkEngine(spark_session=spark, platform=platform)  # type: ignore[name-defined]\n",
     "metadata = FileProvider(config_path=metadata_path, connections_path=connections_path, schema_hints_path=schema_hints_path, platform=platform, watermark_base_path=watermark_base_path)\n",
-    "config = DataCoolieRunConfig(max_workers=4, stop_on_error=True, allowed_function_prefixes=[\"{{ functions_import_prefix }}\"])\n",
+    "config = DataCoolieRunConfig(job_num=job_num, job_index=job_index, max_workers=4, stop_on_error=True, allowed_function_prefixes=[\"{{ functions_import_prefix }}\"])\n",
     "\n",
     "failed = 0\n",
     "with DataCoolieDriver(engine=engine, metadata_provider=metadata, base_log_path=base_log_path, config=config) as driver:\n",

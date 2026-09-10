@@ -41,6 +41,17 @@ def _notebook_functions(path: Path, names: set[str], **extra: object) -> dict[st
     return namespace
 
 
+def _execute_notebook_prelude(path: Path, supplied: dict[str, str]) -> None:
+    tree = ast.parse(_notebook_code(path))
+    prelude = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("datacoolie"):
+            break
+        prelude.append(node)
+    namespace = {"dbutils": SimpleNamespace(widgets=_Widgets(supplied))}
+    exec(compile(ast.Module(body=prelude, type_ignores=[]), str(path), "exec"), namespace)
+
+
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda path: path.name)
 def test_notebooks_parse_have_one_parameter_cell_and_do_not_install(path: Path) -> None:
     notebook = _notebook(path)
@@ -123,6 +134,56 @@ def test_databricks_widget_preserves_one_stage_string() -> None:
     assert functions["widget_value"]("METADATA_PATH", "metadata.json") == "metadata.json"
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "replay_databricks_spark.ipynb.example",
+        "maintenance_databricks_spark.ipynb.example",
+    ],
+)
+def test_databricks_widget_failure_names_the_parameter(name: str) -> None:
+    class BrokenWidgets:
+        def get(self, _name: str) -> str:
+            raise LookupError("unavailable")
+
+        def text(self, _name: str, _default: str) -> None:
+            raise ConnectionError("widget service unavailable")
+
+    functions = _notebook_functions(
+        RUNNERS / name,
+        {"widget_value"},
+        dbutils=SimpleNamespace(widgets=BrokenWidgets()),
+    )
+    with pytest.raises(RuntimeError, match="Databricks widget METADATA_PATH") as error:
+        functions["widget_value"]("METADATA_PATH", "metadata.json")
+    assert isinstance(error.value.__cause__, ConnectionError)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "replay_databricks_spark.ipynb.example",
+        "maintenance_databricks_spark.ipynb.example",
+    ],
+)
+def test_databricks_widget_read_back_failure_keeps_the_cause(name: str) -> None:
+    class ReadBackFailsWidgets:
+        def get(self, _name: str) -> str:
+            raise LookupError("widget remains unavailable")
+
+        def text(self, _name: str, _default: str) -> None:
+            return None
+
+    functions = _notebook_functions(
+        RUNNERS / name,
+        {"widget_value"},
+        dbutils=SimpleNamespace(widgets=ReadBackFailsWidgets()),
+    )
+    with pytest.raises(RuntimeError, match="Databricks widget JOB_NUM") as error:
+        functions["widget_value"]("JOB_NUM", 1)
+    assert isinstance(error.value.__cause__, LookupError)
+
+
 def test_fabric_parameter_cell_exposes_one_optional_stage() -> None:
     path = RUNNERS / "run_fabric_spark.ipynb.example"
     parameter_cell = next(
@@ -178,34 +239,41 @@ def test_replay_widget_decodes_transport_and_delegates_replay_semantics() -> Non
         {
             "parse_bool",
             "decode_boundary",
-            "validate_watermark_request",
         },
     )
     assert functions["parse_bool"]("true") is True
     assert functions["decode_boundary"]("42") == 42
     assert functions["decode_boundary"]("2026-01-01") == "2026-01-01"
     with pytest.raises(ValueError, match="requires CONFIRM_SAVE_WATERMARK"):
-        functions["validate_watermark_request"](True, False)
+        _execute_notebook_prelude(
+            path,
+            {"SAVE_WATERMARK": "true", "CONFIRM_SAVE_WATERMARK": "false"},
+        )
     code = _notebook_code(path)
     assert 'start = decode_boundary(widget_value("START", START))' in code
     assert 'end = decode_boundary(widget_value("END", END))' in code
     assert 'chunk_interval = json.loads(widget_value("CHUNK_INTERVAL_JSON"' in code
     assert "parse_chunk_interval" not in code
+    assert "validate_watermark_request" not in code
 
 
 def test_maintenance_widget_decoders_and_mutation_gate() -> None:
     path = RUNNERS / "maintenance_databricks_spark.ipynb.example"
     functions = _notebook_functions(
         path,
-        {
-            "parse_bool",
-            "validate_maintenance_request",
-        },
+        {"parse_bool"},
     )
     with pytest.raises(ValueError, match="requires CONFIRM_MAINTENANCE"):
-        functions["validate_maintenance_request"](True, True, False)
+        _execute_notebook_prelude(path, {"CONFIRM_MAINTENANCE": "false"})
     with pytest.raises(ValueError, match="compact, cleanup, or both"):
-        functions["validate_maintenance_request"](False, False, True)
+        _execute_notebook_prelude(
+            path,
+            {
+                "DO_COMPACT": "false",
+                "DO_CLEANUP": "false",
+                "CONFIRM_MAINTENANCE": "true",
+            },
+        )
     code = _notebook_code(path)
     assert 'connection = widget_value("CONNECTION", CONNECTION) or None' in code
     assert 'retention_hours = int(widget_value("RETENTION_HOURS"' in code
@@ -214,6 +282,7 @@ def test_maintenance_widget_decoders_and_mutation_gate() -> None:
     assert "build_maintenance_preview" not in code
     assert "load_maintenance_dataflows" not in code
     assert "INSPECT_ONLY" not in code
+    assert "validate_maintenance_request" not in code
 
 
 def test_glue_stage_is_optional() -> None:

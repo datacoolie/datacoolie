@@ -59,7 +59,7 @@ and SCD Type 2 natively.
 | **Load strategies** | Incremental models, snapshots | append, full_load, merge_upsert, merge_overwrite, scd2 |
 | **Orchestration** | External (Airflow, dbt Cloud) | External (Airflow, Fabric, cron) |
 | **Schema management** | Tests + contracts | Schema hints + type casting |
-| **Multi-engine** | Single warehouse per project | Same metadata runs on Polars and Spark |
+| **Multi-engine** | Single warehouse per project | Compatible metadata runs on Polars and Spark |
 
 ## When to Use dbt
 

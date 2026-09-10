@@ -46,7 +46,7 @@ flowchart LR
 | 3 | **Engine** | `BaseEngine[DF]` | *What computes the DataFrame?* | `spark`, `polars` |
 | 4 | **Platform** | `BasePlatform` | *Where do files, tables, and secrets live?* | `local`, `fabric`, `aws`, `databricks` |
 | 5 | **Source reader** | `BaseSourceReader` | *How do we load this format into a DataFrame?* | `delta`, `iceberg`, `csv`, `sql`, `api`, … |
-| 6 | **Transformer** | `BaseTransformer` | *How do we shape the DataFrame before writing?* | `schema_converter`, `deduplicator`, `scd2_column_adder`, … |
+| 6 | **Transformer** | `BaseTransformer` | *How do we shape the DataFrame before writing?* | `column_value_transformer`, `schema_converter`, `deduplicator`, `column_projector`, … |
 | 7 | **Destination writer** | `BaseDestinationWriter` | *How do we persist the DataFrame?* | `delta`, `iceberg`, `parquet`, … |
 | 8 | **Secret provider** | `BaseSecretProvider` | *Where do connection secrets come from?* | platform-native providers via `local`, `fabric`, `aws`, `databricks` |
 
@@ -120,7 +120,7 @@ sequenceDiagram
       Note over SR: watermark filter → source.filter_expression
       SR-->>Drv: DataFrame (native)
       Drv->>TP: transform(df, dataflow)
-      Note over TP: schema → dedup → columns → row_filter → SCD2 → system → partition → sanitize
+      Note over TP: value rules → schema → hashes → dedup → computed columns → row filter → SCD2 → system → partitions → masking → projection → sanitize
       TP-->>Drv: DataFrame (reshaped)
       Drv->>DW: write(df, dataflow)
       DW-->>Drv: DestinationRuntimeInfo
@@ -134,7 +134,8 @@ Inside the driver, three helpers split the work:
 
 - **`JobDistributor`** — given `(job_num, job_index)`, keeps only the slice of
   dataflows this worker owns. Lets you shard a run across N pods.
-- **`ParallelExecutor`** — runs that slice concurrently up to `max_workers`.
+- **`ParallelExecutor`** — runs that slice concurrently; `max_workers` bounds each pool,
+  including nested group pools. See [Orchestration](orchestration.md).
 - **`RetryHandler`** — wraps each dataflow with configurable retries/backoff.
 
 ## Why `BaseEngine[DF]` is generic
@@ -200,8 +201,13 @@ The driver supports three execution modes through separate entry points:
 | `run_replay(dataflows, replay)` | Bounded historical re-processing in chunks | Operator `>=` (inclusive); saves per-chunk only when `save_watermark=True` |
 | `run_maintenance(connection)` | `OPTIMIZE` / `VACUUM` for lakehouse tables | N/A — no data movement |
 
-All three share `JobDistributor` + `ParallelExecutor` + `RetryHandler` for
-concurrency, sharding, and fault tolerance.  `run_replay` adds sequential
+Normal ETL loaded from metadata uses `JobDistributor` for active/stage
+selection and job sharding, then `ParallelExecutor` and `RetryHandler` for
+execution. `run_replay` uses a flat `ParallelExecutor` over the dataflows it is
+given and does not apply sharding itself; callers should pass the result of
+`load_dataflows(...)` when they need selection and sharding. Maintenance loaded
+from metadata is deduplicated and distributed, while an explicitly supplied
+`dataflows` list is deduplicated but not re-sharded. Replay adds sequential
 chunk iteration *within* each dataflow.
 
 See [Orchestration](orchestration.md) for details on each mode.

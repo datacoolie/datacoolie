@@ -28,6 +28,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stage")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--max-workers", type=int, default=4)
+    parser.add_argument("--job-num", type=int, default=1)
+    parser.add_argument("--job-index", type=int, default=0)
     return parser.parse_args()
 
 
@@ -47,6 +49,8 @@ def main() -> int:
     config = DataCoolieRunConfig(
         dry_run=args.dry_run,
         max_workers=args.max_workers,
+        job_num=args.job_num,
+        job_index=args.job_index,
         stop_on_error=True,
         allowed_function_prefixes=["{{ functions_import_prefix }}"],
     )

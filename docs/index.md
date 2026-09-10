@@ -181,8 +181,8 @@ configuration.
 | **Cloud-agnostic** | `local`, `aws`, `fabric`, and `databricks` platforms abstract file I/O and secrets while environment overlays carry target paths and catalogs. |
 | **Metadata-driven** | Connections, dataflows, transforms, schema hints, partitions, and load strategies are *declarative*. Code is for extension points, not orchestration. |
 | **Right-sized compute** | Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it. |
-| **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) out of the box. Micro-batch and streaming are on the roadmap. |
-| **Lakehouse-native** | First-class Delta Lake and Apache Iceberg, selected by `delta` / `iceberg` on every engine method. |
+| **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) on supported destinations. Micro-batch and streaming are on the roadmap. |
+| **Lakehouse-native** | First-class Delta Lake and Apache Iceberg through the shared `fmt=` engine API; concrete addressing and dependency support varies by engine. |
 | **Extensible components** | Engines, platforms, sources, destinations, transformers, and secret resolvers use registries with [entry-point discovery](reference/plugin-entry-points.md); built-ins are also registered in-process. |
 | **Observable by default** | Structured `ETLLogger` (dataflow entries + job summary) and `SystemLogger` ship with the framework. |
 
@@ -248,10 +248,10 @@ configuration.
 | Engine | Platforms | Read formats | Write formats | Load types² |
 |---|---|---|---|---|
 | **Spark** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta, iceberg, parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
-| **Polars** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta¹, iceberg, parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
+| **Polars** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta¹, iceberg², parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
 
 ¹ Polars writes Delta to path only — named Delta tables require Spark.
-² `merge_upsert`, `merge_overwrite`, and `scd2` require a lakehouse destination (delta or iceberg). File formats support `append`, `full_load`, and `overwrite` only.
+² Polars Iceberg writes use catalog-backed named-table operations; a generic path-based Iceberg write is not implemented. `merge_upsert`, `merge_overwrite`, and `scd2` require a lakehouse destination (delta or iceberg). File formats support `append`, `full_load`, and `overwrite` only. Named-table and catalog support still depends on the selected engine and optional dependencies.
 
 See [Plugin entry points](reference/plugin-entry-points.md) for the generated
 registry of every built-in plugin.
@@ -274,10 +274,10 @@ registry of every built-in plugin.
     Yes. DataCoolie is licensed under [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE). Install from PyPI with `pip install datacoolie`.
 
 ??? question "What data formats does DataCoolie support?"
-    DataCoolie reads and writes Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro. It reads Excel. It also supports SQL database sources, REST API sources, and custom Python function sources (must return a DataFrame). Format selection is per-dataflow in metadata.
+    Built-in engines read and write Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro where the selected addressing mode and optional dependencies support them. They read Excel. DataCoolie also supports SQL database sources, REST API sources, and custom Python function sources (which must return an engine-compatible DataFrame). Format selection is per-dataflow in metadata.
 
 ??? question "Does DataCoolie support SCD Type 2 and merge/upsert?"
-    Yes. DataCoolie has built-in load strategies for `append`, `full_load` (overwrite), `merge_upsert`, `merge_overwrite`, and `scd2`. Merge keys, effective columns, and SCD2 behavior are declared in metadata. See [Merge & SCD2](how-to/merge-and-scd2.md).
+    Yes. DataCoolie has built-in load strategies for `append`, `full_load` (overwrite), `merge_upsert`, `merge_overwrite`, and `scd2` on supported lakehouse destinations. Merge keys, effective columns, and SCD2 behavior are declared in metadata. See [Merge & SCD2](how-to/merge-and-scd2.md).
 
 ## License
 

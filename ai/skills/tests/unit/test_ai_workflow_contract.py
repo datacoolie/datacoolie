@@ -228,7 +228,6 @@ def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None
     skill = _read("skills/datacoolie-build/SKILL.md")
     framework = _read("skills/datacoolie-build/references/framework-boundary.md")
     schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
-    skill_text = " ".join(skill.split())
     schema_text = " ".join(schema.split())
     assert "## Source expression order" in framework
     direct = framework.index("Address the source object directly")
@@ -236,7 +235,7 @@ def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None
     function = framework.index("Use a metadata-addressed Python function")
     assert direct < query < function
     assert "Do not replace a supported direct address with an equivalent `SELECT *`" in framework
-    assert "the framework appends each non-empty dataflow `schema_name` and `table`" in skill_text
+    assert "references/schema-quick-reference.md" in skill
     assert "`base_path/{schema_name}/{table}`" in schema
     assert "Do not embed schema or table segments in `base_path`" in schema_text
     assert "authoring source of truth for exact types observed from a source" in schema
@@ -252,13 +251,8 @@ def test_build_owns_source_choice_and_schema_hint_authoring_boundaries() -> None
 def test_build_reuses_framework_audit_columns_and_native_file_date_routing() -> None:
     skill = _read("skills/datacoolie-build/SKILL.md")
     schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
-    skill_text = " ".join(skill.split())
     schema_text = " ".join(schema.split())
-
-    assert (
-        "do not duplicate framework write-time or driver-managed dataflow run identity"
-        in skill_text
-    )
+    assert "references/schema-quick-reference.md" in skill
     assert "Driver-managed runs also receive `__dataflow_run_id` from their execution ID" in schema_text
     assert "standalone transformer usage without that ID does not add it" in schema_text
     assert "Preserve source-created, source-modified, event, transaction" in schema_text
@@ -278,7 +272,6 @@ def test_discover_and_build_define_backward_and_file_watermark_boundaries() -> N
     schema = _read("skills/datacoolie-build/references/schema-quick-reference.md")
     discover_text = " ".join(discover.split())
     observation_text = " ".join(observations.split())
-    build_text = " ".join(build.split())
     schema_text = " ".join(schema.split())
 
     assert "a backward fallback, not as complete change coverage" in discover_text
@@ -287,9 +280,9 @@ def test_discover_and_build_define_backward_and_file_watermark_boundaries() -> N
     assert "Do not present that date as equivalent to a true change watermark" in observations
     assert "framework values, not source schema columns" in observation_text
 
-    assert "Use backward lookback primarily when discovery found no reliable change signal" in build_text
-    assert "prefer `__file_modification_time`" in build_text
-    assert "Destination `date_folder_partitions` is a separate" in build_text
+    assert "references/schema-quick-reference.md" in build
+    assert "when no reliable column or source-native feed captures every change" in schema_text
+    assert 'prefer `source.watermark_columns: ["__file_modification_time"]`' in schema_text
     assert "plain append can duplicate rows" in schema_text
     assert "does nothing on the first run" in schema_text
     assert "do not add that internal value to `source.watermark_columns`" in schema_text
@@ -391,7 +384,10 @@ def test_build_teaches_polars_qualified_sql_registration_boundary() -> None:
     runner_text = " ".join(runner.split())
 
     assert "references/polars-qualified-sql.md" in skill
-    assert "same active `PolarsEngine` before constructing or running the driver" in skill
+    assert "uses the same active engine as the driver" in qualified_text
+    assert qualified.index("register Delta/Iceberg relation descriptors") < qualified.index(
+        "construct DataCoolieDriver with the same engine"
+    )
     assert "## Metadata and runner ownership" in qualified
     assert "register_delta_tables" in qualified
     assert "register_iceberg_tables" in qualified
@@ -561,7 +557,7 @@ def test_control_storage_and_runtime_state_have_one_owner_per_outcome() -> None:
     assert "{environment, watermark_base_path, dataflow_id}" in operations
     assert "resource-readiness" in release
     assert "runtime-state-preflight" in release
-    assert "Earlier receipt schemas remain audit evidence only" in release
+    assert "Earlier receipts remain audit evidence only" in release
 
 
 def test_catalog_namespace_and_hybrid_runtime_contracts_are_explicit() -> None:
@@ -627,3 +623,29 @@ def test_every_lifecycle_skill_has_behavioral_evals() -> None:
             assert case["prompt"]
             assert case["expected_output"]
             assert len(case.get("expectations", [])) >= 2
+
+
+def test_build_eval_catalog_separates_decisions_from_execution_proof() -> None:
+    data = json.loads(
+        (SKILLS_DIR / "datacoolie-build/evals/evals.json").read_text(encoding="utf-8")
+    )
+    cases = data["evals"]
+    ids = [case["id"] for case in cases]
+
+    assert data["eval_schema_version"] == 2
+    assert ids == list(range(1, 61))
+    assert set(data["case_kinds"]) == {"decision", "execution"}
+    assert data["case_kinds"]["execution"] == [58, 59, 60]
+    for partition in (data["case_kinds"], data["capability_families"]):
+        assert sorted(case_id for members in partition.values() for case_id in members) == ids
+
+    execution_ids = set(data["case_kinds"]["execution"])
+    for case in cases:
+        assert bool(case["files"]) == (case["id"] in execution_ids)
+
+    identity_case = next(case for case in cases if case["id"] == 13)
+    identity_contract = " ".join(
+        [identity_case["expected_output"], *identity_case["expectations"]]
+    ).lower()
+    assert "same fixed utc second" in identity_case["prompt"].lower()
+    assert "reused=true" in identity_contract

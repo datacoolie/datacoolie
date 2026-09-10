@@ -22,7 +22,7 @@ evolves. After 1.0, overturned decisions get a new ADR marked
 |---|---|---|
 | [0001](0001-engine-fmt-parameter.md) | Accepted | Engine `fmt=` parameter across format-aware methods |
 | [0002](0002-secret-provider-resolver-split.md) | Accepted | Split secret **provider** from secret **resolver** |
-| [0003](0003-transformer-ordering-slots.md) | Accepted | Number-slot transformer ordering (10/20/30/70/80/90) |
+| [0003](0003-transformer-ordering-slots.md) | Accepted | Number-slot transformer ordering (5/10/18/20/30/35/60/70/80/84/85/90) |
 | [0004](0004-raw-json-watermark-contract.md) | Accepted | Metadata provider returns raw JSON watermark text |
 | [0005](0005-polars-qualified-sql-relations.md) | Accepted | Qualified SQL relations in PolarsEngine |
 | [0006](0006-portable-fabric-platform-azure-backends.md) | Accepted | Portable FabricPlatform Azure backends |

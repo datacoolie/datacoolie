@@ -41,6 +41,13 @@ For every `(event_date, device_id)` in the source, destination rows with the
 same keys are **deleted** and the source rows are inserted. Use when the
 source always holds the *full current state* for its window.
 
+If `destination.configure.replace_by_watermark` is enabled and the driver has
+an effective watermark window, `merge_overwrite` instead deletes every target
+row in that window before appending the fetched rows. The strategy still
+requires `merge_keys`; configure source or connection backward look-back when
+the replacement window must include late corrections. See [Destination & load
+patterns](metadata-guide/destination-and-load-patterns.md#replace_by_watermark-range-based-delete).
+
 ## `scd2` — Type 2 with history
 
 ```json

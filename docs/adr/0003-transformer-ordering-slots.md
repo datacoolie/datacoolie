@@ -31,17 +31,20 @@ Each transformer declares an **integer `order`**. Slots:
 
 | Slots | Owner |
 |---|---|
-| 0–9 | Reserved (future framework pre-cast work) |
-| 10 | `SchemaConverter` |
-| 20 | `Deduplicator` |
-| 30 | `ColumnAdder` |
-| 35 | `RowFilter` |
+| **5** | `ColumnValueTransformer` |
+| **10** | `SchemaConverter` |
+| **18** | `HashColumnAdder` |
+| **20** | `Deduplicator` |
+| **30** | `ColumnAdder` |
+| **35** | `RowFilter` |
 | **40–50** | **User plugins** |
-| 60 | `SCD2ColumnAdder` |
-| 70 | `SystemColumnAdder` |
-| 80 | `PartitionHandler` |
-| 90 | `ColumnNameSanitizer` |
-| 100+ | Reserved (future framework post-sanitize work) |
+| **60** | `SCD2ColumnAdder` |
+| **70** | `SystemColumnAdder` |
+| **80** | `PartitionHandler` |
+| **84** | `DataMasker` |
+| **85** | `ColumnProjector` |
+| **90** | `ColumnNameSanitizer` |
+| Other slots | Reserved for future framework work or additional plugins |
 
 `TransformerPipeline.transform()` uses Python's stable sort by `order`.
 Transformers with the same order retain their insertion order, so plugins

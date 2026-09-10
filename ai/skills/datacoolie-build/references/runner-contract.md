@@ -34,6 +34,7 @@ A file-provider entrypoint accepts:
 - Persistent `watermark_base_path`.
 - Persistent `base_log_path`.
 - One optional stage value when the operation supports stage selection.
+- Optional `job_num` and `job_index`, defaulting to `1` and `0` for a single job.
 - Only additional options owned by its selected operation and installed runtime.
 
 Pass exactly the paths declared by the build metadata set to `FileProvider`; omitted optional roles
@@ -59,8 +60,28 @@ single scalar through its own environment or event transport.
 Pass the stage value unchanged. Do not split comma strings, decode a stage list, accept repeated
 stage arguments, or create a stage plan in the runner. Operation-specific complex values may still
 use the documented `*_JSON` convention. Decode those before constructing DataCoolie components.
+Stage names are dynamic and project-defined; do not add a stage-name allowlist, medallion-specific
+branches, or hardcoded stage sequencing. Examples do not restrict accepted stage values.
 The file fixes platform, engine, provider, and operation; do not expose them again as runtime
 selectors.
+
+### Job parameter transport
+
+| Execution host | Optional parameters | Decoding |
+|---|---|---|
+| Python CLI | `--job-num`, `--job-index` | `argparse` integers; defaults 1/0 |
+| Databricks notebook/job | `JOB_NUM`, `JOB_INDEX` widgets | `int(widget_value(...))`; defaults 1/0 |
+| Fabric notebook/pipeline | `JOB_NUM`, `JOB_INDEX` in the tagged parameter cell | integer values, decode text transport with `int(...)`; defaults 1/0 |
+| AWS Glue | `--JOB_NUM`, `--JOB_INDEX` job arguments | resolve only when supplied; decode with `int(...)`; defaults 1/0 |
+
+Pass these values to `DataCoolieRunConfig(job_num=..., job_index=...)`. Its validation owns range
+checks. Keep job parameters in runtime invocation configuration, outside workspace `config.yaml`
+and dataflow metadata. Preserve single-job usage with neither parameter supplied.
+
+Read [orchestration-contract.md](orchestration-contract.md) for assignment, dependency ordering,
+stage barriers, and concurrency limits. The external scheduler launches all shards; the runner
+does not spawn jobs, partition metadata, or rewrite group/order. Replay loads its assigned flows
+before calling `run_replay`; maintenance delegates selection to `run_maintenance`.
 
 The platform environment or job must install DataCoolie and attach the selected function artifact before
 the runner starts. Executable runners may report the installed version but must not install or
@@ -112,6 +133,8 @@ driver.run(stage=stage)
   preserves run-all behavior.
 - Pass blank and non-blank scalar content unchanged; the framework owns its meaning.
 - Sequential stage invocations belong to the external orchestrator calling the runner again.
+- Prefer separate stage invocations for control and verification. For a combined selection, follow
+  the dependency rules in `orchestration-contract.md`; stage list/string order supplies no barrier.
 
 ## Durable and generated sources
 
@@ -130,6 +153,8 @@ editing the durable source and materializing a new build ID.
 - No runtime `--env`, platform, engine, provider, or operation selector exists.
 - Notebook/job parameters are read through the named execution-host transport and stage is passed
   unchanged to one framework operation.
+- Job parameters default to 1/0 and supplied shard values reach `DataCoolieRunConfig`; verify both
+  modes and invalid indexes through actual transport execution with isolated host substitutes.
 - The runner does not install packages or restart its runtime.
 - `allowed_function_prefixes` is the fixed manifest import prefix, or an empty list when no
   function artifact exists.

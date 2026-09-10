@@ -2,6 +2,8 @@
 
 The script does not call a model. An external eval tool produces one grading JSON per declared
 case; this script binds those successful results to the exact maintained skill and eval bytes.
+Verification without original gradings is integrity-only. Neither mode authenticates execution
+or evaluator identity.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from typing import Any, Iterable
 
 
 IGNORED_PARTS = {"__pycache__"}
+EVAL_DEFINITION_VERSION = 2
 
 
 def _sha256(path: Path) -> str:
@@ -59,33 +62,138 @@ def _eval_definitions(skill_dir: Path) -> tuple[Path, dict[str, Any], list[dict[
     cases = document.get("evals")
     if not isinstance(cases, list) or not cases:
         raise ValueError("Behavioral eval definitions must contain a non-empty evals array")
+    ids: list[int] = []
     for case in cases:
         if not isinstance(case, dict):
             raise ValueError("Each behavioral eval must be an object")
+        case_id = case.get("id")
+        if not isinstance(case_id, int) or isinstance(case_id, bool) or case_id < 1:
+            raise ValueError("Each behavioral eval requires a positive integer id")
+        ids.append(case_id)
         if not case.get("prompt") or not case.get("expected_output"):
             raise ValueError("Each behavioral eval requires prompt and expected_output")
+        files = case.get("files", [])
+        if not isinstance(files, list) or any(
+            not isinstance(item, str) or not item.strip() for item in files
+        ):
+            raise ValueError("Behavioral eval files must be a list of non-empty paths")
         expectations = case.get("expectations")
         if not isinstance(expectations, list) or len(expectations) < 2:
             raise ValueError("Each behavioral eval requires at least two expectations")
+        if any(not isinstance(item, str) or not item.strip() for item in expectations):
+            raise ValueError("Behavioral eval expectations must be non-empty strings")
+    version = document.get("eval_schema_version")
+    if version is not None:
+        if len(ids) != len(set(ids)):
+            raise ValueError("Behavioral eval ids must be unique")
+        if version != EVAL_DEFINITION_VERSION:
+            raise ValueError(f"Unsupported behavioral eval definition version: {version}")
+        allowed = {"skill_name", "eval_schema_version", "case_kinds", "capability_families", "evals"}
+        if set(document) != allowed:
+            raise ValueError("Versioned eval catalog has missing or unknown top-level fields")
+        _validate_versioned_catalog(skill_dir, document, cases, ids)
     return path, document, cases
 
 
+def _validate_id_partition(value: Any, ids: list[int], label: str) -> dict[str, list[int]]:
+    if not isinstance(value, dict) or not value:
+        raise ValueError(f"{label} must be a non-empty object")
+    flattened: list[int] = []
+    for name, members in value.items():
+        if (
+            not isinstance(name, str)
+            or not name
+            or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in name)
+            or not isinstance(members, list)
+            or not members
+            or any(not isinstance(item, int) or isinstance(item, bool) for item in members)
+        ):
+            raise ValueError(f"{label} entries require kebab-case names and non-empty integer lists")
+        if len(members) != len(set(members)):
+            raise ValueError(f"{label} contains duplicate ids within {name}")
+        flattened.extend(members)
+    if sorted(flattened) != sorted(ids):
+        raise ValueError(f"{label} must assign every eval id exactly once")
+    return value
+
+
+def _validate_versioned_catalog(
+    skill_dir: Path,
+    document: dict[str, Any],
+    cases: list[dict[str, Any]],
+    ids: list[int],
+) -> None:
+    raw_kinds = document.get("case_kinds")
+    if not isinstance(raw_kinds, dict) or set(raw_kinds) != {"decision", "execution"}:
+        raise ValueError("case_kinds must contain exactly decision and execution")
+    kinds = _validate_id_partition(raw_kinds, ids, "case_kinds")
+    _validate_id_partition(
+        document.get("capability_families"), ids, "capability_families"
+    )
+    execution_ids = set(kinds["execution"])
+    repository_root = skill_dir.resolve().parents[2]
+    if ids != sorted(ids):
+        raise ValueError("Versioned eval cases must be ordered by ascending id")
+    for case in cases:
+        if set(case) != {"id", "prompt", "expected_output", "files", "expectations"}:
+            raise ValueError("Versioned eval cases have missing or unknown fields")
+        files = case.get("files", [])
+        if case["id"] not in execution_ids:
+            if files:
+                raise ValueError("Decision evals must not declare execution fixture files")
+            continue
+        if not files:
+            raise ValueError("Execution evals require fixture files")
+        if len(files) != len(set(files)):
+            raise ValueError("Execution eval fixture paths must be unique within a case")
+        for relative in files:
+            relative_path = Path(relative)
+            if relative_path.is_absolute() or "\\" in relative:
+                raise ValueError("Execution fixture paths must be relative POSIX paths")
+            path = (skill_dir / relative).resolve()
+            try:
+                path.relative_to(repository_root)
+            except ValueError as exc:
+                raise ValueError("Execution fixture must stay within the repository") from exc
+            if not path.is_file():
+                raise ValueError(f"Execution fixture does not exist: {relative}")
+        evidence_text = " ".join([case["expected_output"], *case["expectations"]]).lower()
+        if "exit code" not in evidence_text or not any(
+            marker in evidence_text for marker in ("command", "pytest")
+        ) or not any(marker in evidence_text for marker in ("evidence", "output", "artifact")):
+            raise ValueError(
+                "Execution evals require observable command, exit-code, and output/evidence expectations"
+            )
+
+
 def _validate_grading(case: dict[str, Any], path: Path) -> dict[str, Any]:
-    grading = _json(path)
+    content = path.read_bytes()
+    grading = json.loads(content.decode("utf-8"))
+    if not isinstance(grading, dict):
+        raise ValueError(f"Expected a JSON object: {path}")
     expected = case["expectations"]
     actual = grading.get("expectations")
-    if not isinstance(actual, list) or [item.get("text") for item in actual] != expected:
+    if (
+        not isinstance(actual, list)
+        or any(not isinstance(item, dict) for item in actual)
+        or [item.get("text") for item in actual] != expected
+    ):
         raise ValueError(f"Grading expectations do not bind eval {case.get('name', case.get('id'))}")
     if any(item.get("passed") is not True or not item.get("evidence") for item in actual):
         raise ValueError("Behavioral grading must pass every expectation with evidence")
     summary = grading.get("summary", {})
     total = len(expected)
-    if summary.get("passed") != total or summary.get("failed") != 0 or summary.get("total") != total:
+    if (
+        not isinstance(summary, dict)
+        or summary.get("passed") != total
+        or summary.get("failed") != 0
+        or summary.get("total") != total
+    ):
         raise ValueError("Behavioral grading summary does not match passed expectations")
     return {
         "eval_id": case.get("id"),
         "eval_name": case.get("name", str(case.get("id"))),
-        "grading_sha256": _sha256(path),
+        "grading_sha256": hashlib.sha256(content).hexdigest(),
         "expectations": [
             {
                 "text": item["text"],
@@ -117,8 +225,16 @@ def build_evidence(skill_dir: Path, grading_paths: Iterable[Path]) -> dict[str, 
     }
 
 
-def validate_evidence(skill_dir: Path, evidence: dict[str, Any]) -> None:
-    """Reject stale, partial, failed, or differently scoped evidence."""
+def validate_evidence(
+    skill_dir: Path,
+    evidence: dict[str, Any],
+    grading_paths: Iterable[Path] | None = None,
+) -> None:
+    """Check receipt integrity and optionally revalidate ordered original gradings.
+
+    Without originals this is integrity-only. Neither mode authenticates execution
+    or evaluator identity; matching artifacts can still contain fabricated claims.
+    """
     allowed = {
         "schema_version", "artifact_type", "skill_name", "skill_sha256", "evals_sha256",
         "evaluated_at", "results",
@@ -181,6 +297,14 @@ def validate_evidence(skill_dir: Path, evidence: dict[str, Any]) -> None:
         ):
             raise ValueError("Behavioral evidence contains a failed or unevidenced expectation")
 
+    if grading_paths is not None:
+        paths = list(grading_paths)
+        if len(paths) != len(cases):
+            raise ValueError(f"Expected {len(cases)} grading files, received {len(paths)}")
+        for case, result, path in zip(cases, results, paths):
+            if _validate_grading(case, path) != result:
+                raise ValueError(f"Behavioral evidence original grading mismatch: {path}")
+
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -197,6 +321,10 @@ def parse_args() -> argparse.Namespace:
     verify = subparsers.add_parser("verify", help="Verify one current evidence artifact.")
     verify.add_argument("skill_dir", type=Path)
     verify.add_argument("evidence", type=Path)
+    verify.add_argument(
+        "--gradings", nargs="+", type=Path,
+        help="Revalidate one original grading per case, in declaration order; otherwise integrity-only.",
+    )
     definitions = subparsers.add_parser(
         "verify-definitions", help="Validate eval-definition structure for skill directories."
     )
@@ -213,8 +341,12 @@ def main() -> int:
             _write_json(args.output, build_evidence(args.skill_dir, args.gradings))
             print(f"Created behavioral evidence: {args.output}")
         elif args.command == "verify":
-            validate_evidence(args.skill_dir, _json(args.evidence))
-            print(f"Verified behavioral evidence: {args.evidence}")
+            validate_evidence(args.skill_dir, _json(args.evidence), grading_paths=args.gradings)
+            mode = "integrity-only; original gradings not checked"
+            if args.gradings is not None:
+                mode = "integrity and supplied original gradings checked"
+            print(f"Verified behavioral evidence: {args.evidence} ({mode})")
+            print("Neither mode authenticates execution or evaluator identity.")
         else:
             for skill_dir in args.skill_dirs:
                 _eval_definitions(skill_dir)

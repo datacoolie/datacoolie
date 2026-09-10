@@ -1,6 +1,6 @@
 ---
 name: datacoolie-discover
-description: Inspect data sources and produce verified source evidence for DataCoolie design or build work. Use for every new DataCoolie project before design, for every declared source type, and when an existing source is new, changed, missing evidence, or contradictory. Discovery is read-only evidence and never creates runtime metadata, workspace code, infrastructure, or releases.
+description: Inspect sources for every new DataCoolie project and for changed, missing, or contradictory source facts. Produce read-only evidence for design or build; never creates runtime metadata, workspace code, infrastructure, or releases.
 ---
 
 # DataCoolie Discover

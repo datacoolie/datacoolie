@@ -20,12 +20,14 @@ or author pipeline behavior.
    reserved only for this release attempt. Map the full typed
    metadata set to the fixed target `metadata` component, the optional artifact to `functions`, and
    the runner through its declared native deployment kind. Transfer only those artifacts plus the
-   non-secret deployment marker to an inactive candidate.
+   non-secret deployment marker to an inactive candidate. Reuse an existing candidate only when
+   its observable bytes match exactly; otherwise record failure and reconcile before retrying.
 3. Verify candidate and marker identity at the target and record `staged`. Prefer target-side SHA-256;
    otherwise record the
    strongest observable comparison supported by the target.
 4. Attach the exact functions artifact when present, bind the selected runner and metadata, and run
-   the candidate with the target-policy-approved bounded qualification method. Function-backed
+   the candidate with the target-policy-approved `isolated-smoke`, `representative-run`, or
+   `full-run` qualification method. Function-backed
    slices prove target import and execution. Record `qualified`; import-only evidence never proves
    runner qualification.
 5. Recheck candidate identity, stable target current, deployment marker, environment-isolated

@@ -17,10 +17,11 @@ API, and a metadata REST API).
 ## 1. What is usecase-sim?
 
 - **Library under test:** the `datacoolie` package in `src/datacoolie/`.
-- **What it exercises:** 38 named scenarios that combine 2 engines, 3 metadata
-  sources, 2 storage platforms, and lakehouse maintenance.
-- **Why it exists:** one-command regression coverage for ETL behaviour across
-  the supported matrix, plus a teaching surface for new contributors.
+- **What it exercises:** 38 named scenarios covering 2 engines, 3 metadata
+  sources, 2 storage platforms, and lakehouse maintenance. The set is
+  representative; it is not a complete engine × source × platform cross-product.
+- **Why it exists:** one-command regression coverage for the selected ETL
+  behaviours, plus a teaching surface for new contributors.
 
 ---
 
@@ -31,7 +32,7 @@ API, and a metadata REST API).
 | Python | ≥ 3.11, < 4.0 | Matches package metadata |
 | Virtualenv | — | Recommended at the active checkout root as `.venv` |
 | `datacoolie` extras | `[all]` recommended | Installed editable from repo root |
-| Docker Desktop | required for the checked-in full matrix | Provides external stores/APIs and the recommended Windows Spark runtime |
+| Docker Desktop | required for the checked-in full scenario suite | Provides external stores/APIs and the recommended Windows Spark runtime |
 | Java 17 | for host Spark | Not needed when Spark runs in the provided container |
 
 Install into a fresh checkout-root venv:

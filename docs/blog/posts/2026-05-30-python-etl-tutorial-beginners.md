@@ -122,8 +122,9 @@ The script above has no answer for these real-world problems:
   [schema hints](../../concepts/metadata-model.md) to declare expected types and catch
   mismatches early.
 - **No idempotency** — if the script crashes halfway, you cannot safely re-run
-  it without duplicating rows. Frameworks ensure
-  idempotent writes so retries produce identical results.
+  it without duplicating rows. Frameworks can provide idempotent re-execution,
+  but the result still depends on the watermark, load strategy, and key
+  configuration.
 - **No engine portability** — the script is pure Python. If you need to process
   100 GB, you must rewrite it for Spark or Polars. A framework abstracts the
   [engine](../../concepts/engines.md) so the same pipeline definition runs on

@@ -34,7 +34,7 @@ Databricks, or AWS platforms.
 - **Portable** — reuse one canonical metadata model across environments, with overlays and runners for target-specific paths, catalogs, engines, and runtimes.
 - **Engine-unified** — compatible pipeline intent runs on Spark and Polars through engine-specific runners.
 - **Cloud-agnostic** — `local`, `aws`, `fabric`, `databricks` platforms abstract file I/O and secrets.
-- **Lakehouse-native** — first-class Delta Lake and Apache Iceberg via `fmt="delta"` / `fmt="iceberg"`.
+- **Lakehouse-native** — first-class Delta Lake and Apache Iceberg via the shared `fmt="delta"` / `fmt="iceberg"` API; concrete addressing and optional dependencies vary by engine.
 - **Operationally complete** — watermarks, schema hints, partitions, load strategies, logging, and maintenance are built in.
 - **Extensible components** — engines, platforms, sources, destinations,
   transformers, and secret resolvers use registries with Python entry-point
@@ -169,7 +169,8 @@ python run_quickstart.py
 
 Reuse the same dataflow intent with `SparkEngine` or a cloud platform by adding
 the target runtime dependencies, runner, and environment-specific paths or
-catalog settings.
+catalog settings. Compatibility is per selected engine, address mode, and
+installed optional dependency.
 
 ## What to do next
 
@@ -200,8 +201,9 @@ for prerequisites, installation, routing, project state, and approval boundaries
 ## Testbed & scenarios
 
 See [usecase-sim/README.md](usecase-sim/README.md) for a ready-made integration
-testbed that exercises every `{polars,spark} × {file,database,api} × {local,aws}`
-combination, plus lakehouse maintenance and a Docker-compose backend stack.
+testbed that exercises the local `{polars,spark} × {file,database,api}` matrix,
+selected AWS-platform file scenarios, lakehouse maintenance, and a Docker-compose
+backend stack. It is a representative scenario set, not a full platform cross-product.
 
 ## License
 

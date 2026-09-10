@@ -1,6 +1,6 @@
 ---
 name: datacoolie-build
-description: Build, modify, materialize, run, and verify DataCoolie projects. Use for workspace bootstrap, metadata authoring, environment overlays, capability checks, runners, notebooks, custom functions, narrow unsupported adapters, local tests, immutable builds, and project-owned build/CI automation. This is the sole implementation skill for pipeline and build artifacts; it does not discover sources, make material design decisions, provision infrastructure, or deploy releases.
+description: Build, modify, run, and verify DataCoolie projects. The sole implementation skill for metadata, runners, functions, immutable builds, and requested build automation. Route source discovery, material design, infrastructure, and deployment to their owners.
 ---
 
 # DataCoolie Build
@@ -16,8 +16,7 @@ unsupported adapters, materialization, local execution, build evidence, and requ
 automation. Return unknown source facts to discover, material decisions to design, missing resources
 to provision with the exact requirements artifact and evidence, and deployment work to release.
 
-Use the installed `datacoolie` package and public APIs. Resolve bundled resources relative to this
-skill; generated projects must not depend on skill paths.
+Use installed `datacoolie` public APIs. Resolve bundled resources relative to this skill; generated projects must not depend on skill paths.
 
 ## Inputs And Gates
 
@@ -36,12 +35,13 @@ skill; generated projects must not depend on skill paths.
 |---|---|
 | Build-tool dependencies | `scripts/requirements.txt`; add `requirements-excel.txt` only for Excel conversion |
 | Workspace/config | `templates/project-structure.md`, `schemas/workspace-config.schema.json`, `scripts/validate_config.py` |
-| Metadata fields and authoring | `references/schema-quick-reference.md`, `schemas/`, `scripts/validate.py` |
+| Metadata fields, paths, hints, audit columns, or incremental/file routing | `references/schema-quick-reference.md` (matching section), `schemas/`, `scripts/validate.py` |
+| Dataflow dependencies, combined stages, concurrency, or job scale-out | `references/orchestration-contract.md` |
 | Generated metadata layout | `templates/project-structure.md`, `scripts/materialize.py` |
 | Metadata import/merge/lint | `scripts/convert.py`, `scripts/merge.py`, `scripts/lint.py` |
 | Built-in capability inventory | `scripts/inspect_capabilities.py`, `references/capability-catalog.md` |
 | Platform runtime, path, credential, or extra | `references/platform-contract.md`, then the matching runner template |
-| Native versus custom boundary | `references/framework-boundary.md` |
+| Native versus custom boundary or source expression choice | `references/framework-boundary.md` |
 | Python-function source or artifact | `references/python-functions-contract.md`, `scripts/validate_functions.py` |
 | Common entrypoint and normal run | `references/runner-contract.md`, `templates/runners/README.md`, matching template |
 | Polars Delta/Iceberg `source.query` | `references/polars-qualified-sql.md`, then `references/runner-contract.md` |
@@ -76,15 +76,14 @@ When platform execution context, path, credentials, or dependencies affect the c
 
 ### 3. Author durable sources
 
-Use the canonical metadata contract and environment overlays; do not clone full metadata per
-environment. Use ordered selector patches for changes shared by matching canonical entities and
-exact keyed overrides for additions or final exceptions; exact overrides win. Global
-`schema_hints` selectors operate at connection/schema/table/column grain, while schema hints under
-a selected dataflow remain local to that dataflow. Load `templates/project-structure.md` and
-`references/schema-quick-reference.md` when authoring overlays. Create only required normal,
-replay, or maintenance entrypoints. The selected file
-fixes platform, engine, provider, and operation; runtime inputs carry only values allowed by the
-runner and operation contracts. Keep credentials in environment or platform secret services.
+Use canonical metadata and environment overlays, not full per-environment clones. Read
+`templates/project-structure.md` and the matching sections of `references/schema-quick-reference.md`
+for layout, selector precedence, local/global hints, source addressing, audit columns, and
+incremental/file routing. Choose direct source addressing, a bounded query, or a verified custom
+edge using `references/framework-boundary.md`; do not rediscover these contracts by trial and error.
+Create only required normal, replay, or maintenance entrypoints. Their files fix platform, engine,
+provider, and operation; runtime inputs follow the routed runner/operation contracts.
+Keep credentials in environment or platform secret services.
 
 Resolve metadata, log, and watermark paths inside the environment's approved persistent control
 namespace and pass them unchanged. Deployed metadata is a build-scoped immutable projection; logs
@@ -94,28 +93,7 @@ separate from the platform adapter.
 Assume source query and action text can appear in framework logs. Do not embed secret literals;
 apply the approved log classification, access, and retention policy to generated runtime paths.
 
-Treat a file or lakehouse connection `base_path` as the root; the framework appends each non-empty
-dataflow `schema_name` and `table`, so do not repeat those segments in the connection. Author exact
-source-observed, broad, or shared type mappings once in `metadata/schema_hints.json`. Use
-`transform.schema_hints` only for a small dataflow-specific cast or override. A non-empty transform
-hint set prevents global hints from being attached, so do not assume the two sources merge. Select
-the simplest native source address using the framework-boundary order.
-Before adding audit or partition helper columns, compare their semantics with framework-generated
-columns and native destination routing. Preserve distinct source/business timestamps, but do not
-duplicate framework write-time or driver-managed dataflow run identity unless an explicit consumer
-contract requires a separate named field. For flat-file load-time folder routing, prefer the
-destination connection's `date_folder_partitions`; use `partition_columns` for data-value routing.
-Use backward lookback primarily when discovery found no reliable change signal and a
-transaction/business-date column must bound late corrections; pair it with an idempotent load that
-can reprocess the window. For file sources, prefer `__file_modification_time` when file timestamps
-are reliable. Add source `date_folder_partitions` only for an observed year/month/day/hour path
-layout; it prunes folders and may be combined with file modification time. Destination
-`date_folder_partitions` is a separate load-time routing concern.
-
-When Polars executes a Delta or Iceberg `source.query`, load
-`references/polars-qualified-sql.md`. Keep the SQL in normal metadata and register the required
-relations on the same active `PolarsEngine` before constructing or running the driver. Registration
-options are runner/bootstrap concerns, not `source.configure` fields.
+For Polars Delta/Iceberg SQL, read `references/polars-qualified-sql.md` before runner bootstrap.
 
 ### 4. Run fast source checks
 
@@ -124,13 +102,10 @@ helpers directly. These checks give fast feedback but do not prove the generated
 
 ### 5. Materialize and verify
 
-Run `scripts/materialize.py`; select `single` (default), `split-connections`, or `split-all` metadata
-layout explicitly when needed. It validates its inputs, renders typed metadata sets under each
-environment's fixed `metadata/` component, packages zero or one function artifact under the fixed
-`functions/` component, writes the manifest and checksums under `.builds/artifacts/{build_id}`, verifies the
-immutable bytes, and replaces `.builds/current` with a verified runnable projection of that whole
-build. The projection copies runtime files, omits artifact-only manifest/checksums, and records its
-exact source ID in `current/build.json`. Never symlink or mutate immutable artifact contents.
+Run `scripts/materialize.py` to validate inputs, create the all-environment immutable build, and
+replace `.builds/current` with its verified runnable projection. `templates/project-structure.md`
+owns metadata layouts, fixed components, and manifest/projection contents; do not reproduce them
+in runner code. Never symlink or mutate immutable artifact contents.
 
 Always validate the immutable build, resolved metadata, exact runner, and optional functions
 artifact. Execute the generated runner on the Build host when that host is compatible and the
@@ -173,8 +148,8 @@ skills. Release owns consume-only deployment automation. Do not generate specula
 Release may receive `current` as a convenience selector, but resolves `current/build.json` once and
 then consumes only the exact build ID, canonical local build directory or immutable remote artifact
 identity, manifest/checksums, target slice, and successful matching artifact-verification receipt.
-Build manifest v3 and Build receipt v4 bind the full metadata set and optional fixed-component
-function artifact. The receipt requires `generated-artifact-validation`; Build-host runtime execution is
-optional and never authorizes target activation. Build current is never a transfer source or
-authorization identity. Build or design approval never authorizes deployment. End with verification
-evidence, skipped checks, and unresolved questions.
+The bundled schemas and validators own manifest/receipt versions and required checks, including
+`generated-artifact-validation`. Build-host runtime execution is optional and never authorizes
+target activation. Build current is never a transfer source or authorization identity. Build or
+design approval never authorizes deployment. End with verification evidence, skipped checks, and
+unresolved questions.

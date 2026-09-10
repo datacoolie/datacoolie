@@ -81,8 +81,9 @@ to correlate the framework-owned `__dataflow_run_id` column with the
 
 | Slots | Who owns them |
 |---|---|
-| 0–9 | Reserved for future framework pre-cast work |
+| **5** | `ColumnValueTransformer` |
 | **10** | `SchemaConverter` |
+| **18** | `HashColumnAdder` |
 | **20** | `Deduplicator` |
 | **30** | `ColumnAdder` |
 | **35** | `RowFilter` |
@@ -90,8 +91,10 @@ to correlate the framework-owned `__dataflow_run_id` column with the
 | **60** | `SCD2ColumnAdder` |
 | **70** | `SystemColumnAdder` |
 | **80** | `PartitionHandler` |
+| **84** | `DataMasker` |
+| **85** | `ColumnProjector` |
 | **90** | `ColumnNameSanitizer` |
-| 100+ | Reserved for future framework post-sanitize work |
+| Other slots | Reserved for future framework work or additional plugins; the pipeline sorts by numeric order |
 
 See [ADR-0003](../adr/0003-transformer-ordering-slots.md).
 

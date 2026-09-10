@@ -38,8 +38,8 @@ Instead of encoding pipeline behavior in imperative code, DataCoolie externalize
 - **[Transforms](../../concepts/transformers-and-pipeline.md)** describe column-level logic in a portable DSL
 - **Operational controls** (watermarks, partitions, maintenance) are declared, not coded
 
-The same canonical dataflow intent can run on Polars for development and Spark
-for production, with engine-specific runners and runtime dependencies.
+Compatible canonical dataflow intent can run on Polars for development and
+Spark for production, with engine-specific runners and runtime dependencies.
 
 But the key insight is: **declarative metadata is a perfect interface for AI**. A JSON/YAML schema with clear semantics is exactly what LLMs can reliably generate, validate, and refactor.
 
@@ -62,7 +62,9 @@ AI: → inspects source facts only when needed
     → tests the exact generated build
 ```
 
-No boilerplate. No copy-paste from a previous project. The AI reads the schema contract and produces valid metadata on the first pass.
+No boilerplate. No copy-paste from a previous project. The AI reads the
+schema contract and can produce valid metadata; the build validators still
+provide the authoritative check before execution.
 
 ### 2. AI Validates and Lints Metadata
 
@@ -87,13 +89,13 @@ This is the core value proposition: **metadata is a stable, schema-validated int
 ## What This Means in Practice
 
 ```bash
-# Same metadata, different engines
+# Compatible metadata, different engines
 datacoolie run --engine polars   # local dev, fast iteration
 datacoolie run --engine spark    # production scale
 ```
 
 ```bash
-# Same metadata, different platforms
+# Compatible metadata, different platforms
 datacoolie run --platform local       # laptop
 datacoolie run --platform fabric      # Microsoft Fabric
 datacoolie run --platform databricks  # Databricks
@@ -111,7 +113,10 @@ datacoolie run --platform databricks  # Databricks
 
 Traditional ETL frameworks give you a DSL or SDK — you write code, AI helps you write code. But code has unlimited degrees of freedom. AI can hallucinate API calls, invent parameters, produce subtly wrong logic.
 
-Metadata with a strict JSON Schema has **bounded degrees of freedom**. The AI either produces valid metadata or it doesn't — and validation catches mistakes instantly. There's no runtime surprise from a hallucinated function call.
+Metadata with a strict JSON Schema has **bounded degrees of freedom**. When
+schema and lint validation run, the AI either produces valid metadata or it
+doesn't, and mistakes are caught before execution. Runtime model construction
+is not a substitute for those unknown-field checks.
 
 | Approach | AI accuracy | Validation | Portability |
 |----------|------------|------------|-------------|

@@ -82,10 +82,10 @@ output always resolves to the top-level structure above.
 |-------|------|----------|-------------|
 | `name` | string | **yes** | Unique dataflow name |
 | `description` | string\|null | no | Human-readable description |
-| `stage` | string\|null | Framework schema: no; canonical workspace: **yes** | Runtime stage. Canonical modular authoring requires a non-empty content value; paths never infer it. |
-| `group_number` | int\|null | no | Parallel execution group |
-| `execution_order` | int\|null | no | Order within group (lower = first) |
-| `processing_mode` | enum | no | `batch` \| `microbatch` \| `streaming` (default: batch) |
+| `stage` | string\|null | Framework schema: no; canonical workspace: **yes** | Project-defined runtime stage; no fixed names or implied order. Canonical modular authoring requires a non-empty content value; paths never infer it. |
+| `group_number` | int\|null | no | Co-located execution group; omit for independent flows. See Orchestration below. |
+| `execution_order` | int\|null | no | Order bucket in a non-null group; lower first, ties parallel, null = 0. |
+| `processing_mode` | enum | no | `batch` \| `microbatch` \| `streaming` (default: batch); the model accepts all three, but the built-in driver currently executes normal ETL through the batch path |
 | `is_active` | boolean | no | Default `true` |
 | `source` | Source | **yes** | Read-side config |
 | `destination` | Destination | **yes** | Write-side config |
@@ -146,7 +146,7 @@ Neither `catalog` nor `database` is automatically appended to `base_path`.
 | `schema_name` | string\|null | no | Schema namespace |
 | `table` | string | **yes** | Target table name |
 | `load_type` | enum | no | `full_load` \| `overwrite` \| `append` \| `merge_upsert` \| `merge_overwrite` \| `scd2` (default: append) |
-| `merge_keys` | string[] | no | Key columns for merge/scd2 — required when load_type is merge or scd2 |
+| `merge_keys` | string[] | no | Key columns for `merge_upsert`, `merge_overwrite`, or `scd2`; required when the built-in strategy executes |
 | `partition_columns` | PartitionColumn[] | no | `[{"column": "col", "expression": "year(col)"}]` — expression optional; can also be specified inside `configure.partition_columns` |
 | `configure` | object | no | `scd2_effective_column` (string), `replace_by_watermark` (boolean, default false), `write_options` (object), `partition_columns` (PartitionColumn[] — alternative to top-level `partition_columns`) |
 
@@ -368,14 +368,14 @@ selected root unchanged; `references/platform-contract.md` owns platform path va
 - **Merge upsert without watermark**: no `watermark_columns` — reads entire source every run; combine with dedup to resolve duplicates in source: `transform.deduplicate_columns: ["order_id"]` + `transform.latest_data_columns: ["modified_at"]`
 - **SCD2**: `load_type: "scd2"` + `merge_keys` + `destination.configure.scd2_effective_column: "modified_at"` — tracks history via effective date column
 - **Merge overwrite (key-based, pure)**: `load_type: "merge_overwrite"` + `merge_keys: ["id"]` — deletes rows matching the merge keys (including partition columns) then re-inserts the new batch; handles source-side deletes within the fetched key set; no watermark window needed
-- **Merge overwrite by watermark window**: `load_type: "merge_overwrite"` + `destination.configure.replace_by_watermark: true` — deletes ALL rows within the watermark window (not by key), then appends; handles source-side deletions within the time window; requires `source.configure.backward` for look-back scope; both `merge_keys` and `source.watermark_columns` must be set
+- **Merge overwrite by watermark window**: `load_type: "merge_overwrite"` + `destination.configure.replace_by_watermark: true` — deletes ALL rows within the watermark window (not by key), then appends; handles source-side deletions within the time window; requires backward look-back configuration on the source or its connection; both `merge_keys` and `source.watermark_columns` must be set
 
 ### Watermark & filtering
 
 - **Backward fallback**: when no reliable column or source-native feed captures every change, use a verified transaction/business-date column in `source.watermark_columns` and configure `source.configure.backward: {"days": 7}` to re-read the expected correction horizon. Use an idempotent destination strategy that can reprocess that window; plain append can duplicate rows. The lookback shifts an existing stored watermark, does nothing on the first run, and cannot recover corrections older than its window. `closing_day` can anchor a monthly window: `{"months": 1, "closing_day": 10}`.
 - **File system default**: for an ordinary file source, prefer `source.watermark_columns: ["__file_modification_time"]` when discovery verified that storage modification times are stable. This built-in virtual column selects new or modified files and is not a physical source-schema column.
 - **Row watermark inside a file**: use a data column only when discovery verified its mutation semantics; do not choose a transaction date merely because it is present.
-- **Source-side filter** (before watermark push-down): `source.configure.endpoint: "..."` applies at fetch time; for files/DB use `source.filter_expression: "amount > 0"` — evaluated before writing
+- **Source-side filter** (logical post-watermark condition): `source.configure.endpoint: "..."` applies at fetch time; for files/DB use `source.filter_expression: "amount > 0"` — evaluated before writing, with database readers pushing the predicate into generated SQL where possible
 - **Transform-side filter** (post-load): `transform.filter_expression: "status != 'cancelled' AND amount > 0"` — SQL predicate applied to the loaded DataFrame
 
 ### Transforms
@@ -470,16 +470,16 @@ contract lives in `references/framework-boundary.md`.
 
 ### Orchestration
 
-- **Job assignment (`group_number` + `job_num > 1`)**: `group_number % job_num == job_index` — dataflows with the same `group_number` are guaranteed to run in the same job; different group_numbers are distributed across jobs by modulo; omit `group_number` (null) for hash-based distribution (no co-location guarantee)
-- **Execution order within a group**: dataflows in the same group run sequentially sorted by `execution_order` (lower first, nulls = 0)
-- **Cross-group independence**: groups with different `group_number` values run independently; no ordering guarantee between groups across jobs
-- **Dependencies**: place prerequisite dataflows in a lower `group_number`; consumer dataflows in a higher one — within the same job the groups run in `group_number` ascending order
+Read [orchestration-contract.md](orchestration-contract.md) when ordering dependencies, combining
+stages, or scaling across jobs. It owns the case matrix, single-job defaults, deterministic
+sharding, group/order semantics, and concurrency/failure limits. Prefer separate stage runs and
+leave group/order absent for independent flows.
 
 ## Validation rules to remember
 
 1. Every `source.connection_name` and `destination.connection_name` must match a Connection `name`
-2. `merge_upsert` / `merge_overwrite` / `scd2` require non-empty `merge_keys`
+2. Built-in `merge_upsert` / `merge_overwrite` / `scd2` strategies require non-empty `merge_keys` when they execute; build lint should catch this before a run
 3. Incremental source should have `watermark_columns`
 4. Don't use `inferSchema: true` in production (lint will flag it)
 5. Dataflow `name` must be unique across the file
-6. `additionalProperties: false` on Connection, DataFlow, Source, Destination, Transform, SchemaHint, PartitionColumn — no unknown fields allowed at those levels
+6. The published JSON Schema uses `additionalProperties: false` on Connection, DataFlow, Source, Destination, Transform, SchemaHint, and PartitionColumn. The current stdlib compatibility models do not enforce that restriction for every core model, so validate generated metadata with the schema/lint before execution

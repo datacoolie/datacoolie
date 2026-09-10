@@ -40,7 +40,8 @@ Source-specific flags:
 Common optional flags include `--platform`, `--column-name-mode`, `--dry-run`,
 `--storage-options KEY=VALUE`, `--log-path`, `--max-workers`,
 `--skip-api-sources`, `--catalog-preset`, `--iceberg-catalog-uri`,
-`--uc-token`, and `--uc-credential`.
+`--uc-token`, `--uc-credential`, `--engine-setup-function`, and repeatable
+`--engine-setup-arg`.
 
 | Optional flag | Values / Notes |
 |---------------|----------------|
@@ -56,6 +57,13 @@ Common optional flags include `--platform`, `--column-name-mode`, `--dry-run`,
 | `--iceberg-catalog-uri` | Catalog URI for Iceberg |
 | `--uc-token` | Unity Catalog access token |
 | `--uc-credential` | Alternative Unity Catalog credential |
+| `--engine-setup-function` | Optional local callable for Polars engine setup; supported by the usecase simulator only |
+| `--engine-setup-arg` | Repeatable argument forwarded to `--engine-setup-function` |
+
+The engine-setup callable is imported from the usecase-sim process and invoked
+after the active engine is constructed. It is a runner/testbed extension, not a
+general DataCoolie package entry point; use a project-owned runner for other
+custom engine setup.
 
 ### Replay mode flags
 

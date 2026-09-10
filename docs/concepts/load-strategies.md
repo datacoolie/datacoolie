@@ -5,9 +5,9 @@ description: Compare append, overwrite, merge, and SCD2 load strategies in DataC
 
 # Load strategies
 
-**TL;DR** `destination.load_type` selects one of five strategies: `append`,
-`overwrite` (aka `full_load`), `merge_upsert`, `merge_overwrite`, `scd2`. Each
-maps onto a specific `BaseEngine` method.
+**TL;DR** `destination.load_type` accepts six values representing five
+underlying strategies: `append`, `overwrite` (aka `full_load`), `merge_upsert`,
+`merge_overwrite`, and `scd2`. Each maps onto a specific `BaseEngine` method.
 
 ## Strategy matrix
 
@@ -65,6 +65,12 @@ The engine's `scd2_to_path` / `scd2_to_table` then runs a two-step MERGE:
 Because the late-arrival guard applies only to the close step, equal or older
 effective timestamps are still appended. Filter/deduplicate upstream so each
 key advances strictly beyond its current `__valid_from`.
+
+SCD2 is implemented by the built-in Delta and Iceberg engine operations. The
+generic `BaseEngine` contract exposes SCD2 methods, but its default
+implementations do not provide a fallback, and flat-file destinations do not
+support SCD2. Addressing still follows the selected engine: for example,
+Polars uses a Delta path or a catalog-backed Iceberg table.
 
 No hash column is stored; versioning is driven entirely by the effective-date
 column you nominate. See [How-to · Merge & SCD2](../how-to/merge-and-scd2.md)

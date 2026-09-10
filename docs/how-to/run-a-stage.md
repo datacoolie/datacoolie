@@ -10,6 +10,9 @@ description: Run a DataCoolie pipeline stage or filtered dataflows with the main
 
 ## Single stage
 
+Stage names are defined by your project. The names below are examples; replace them with the
+values in your metadata and order invocations using your actual dependencies.
+
 ```python
 with DataCoolieDriver(engine=engine, platform=platform, metadata_provider=metadata) as driver:
     result = driver.run(stage="bronze2silver")
@@ -17,7 +20,7 @@ with DataCoolieDriver(engine=engine, platform=platform, metadata_provider=metada
 assert result.failed == 0
 ```
 
-## Multiple stages in order
+## Multiple-stage selection
 
 ```python
 result = driver.run(stage=["ingest2bronze", "bronze2silver", "silver2gold"])
@@ -27,14 +30,20 @@ Passing a list or comma-separated string filters metadata to those stage names.
 Execution still follows each dataflow's `group_number` and `execution_order`,
 not the order of stage names in the list.
 
-If you need strict stage-by-stage progression, call `run()` separately:
+Prefer separate calls for dependent stages so failures and quality checks are isolated:
 
 ```python
 with DataCoolieDriver(engine=engine, platform=platform, metadata_provider=metadata) as driver:
     for stage_name in ["ingest2bronze", "bronze2silver", "silver2gold"]:
         result = driver.run(stage=stage_name)
-        assert result.failed == 0
+        if result.has_failures:
+            raise RuntimeError(f"Stage failed: {stage_name}")
+        # Check required freshness, completeness, and quality evidence here.
 ```
+
+When stages run across several jobs, the external orchestrator must wait for **all** upstream
+shards and their required checks before starting the next stage. Each shard progressing on its
+own is insufficient for cross-shard dependencies. See [Orchestration](../concepts/orchestration.md).
 
 ## Column name mode
 
@@ -93,10 +102,10 @@ Use this for horizontal scaling across cluster tasks. See [Orchestration](../con
 | Field | Default | Purpose |
 |-------|---------|---------|
 | `job_id` | auto-generated UUID | Unique identifier for this run |
-| `job_num` | `1` | Total number of parallel workers |
-| `job_index` | `0` | This worker's index (0-based, must be < `job_num`) |
-| `max_workers` | `8` | Thread pool size for concurrent dataflow execution |
-| `stop_on_error` | `False` | Halt remaining dataflows on first failure |
+| `job_num` | `1` | Total job shards; the external orchestrator launches them |
+| `job_index` | `0` | This invocation's shard (0-based, must be < `job_num`) |
+| `max_workers` | `8` | Per-pool concurrency; nested group pools can exceed this total |
+| `stop_on_error` | `False` | Stop later buckets of a failing normal-ETL group; not global fail-fast |
 | `retry_count` | `0` | Number of retry attempts per failed dataflow |
 | `retry_delay` | `5.0` | Base retry delay; doubles per retry, capped at 60 seconds |
 | `dry_run` | `False` | Plan without reading or writing |
@@ -110,9 +119,9 @@ Use this for horizontal scaling across cluster tasks. See [Orchestration](../con
 | `total` | Dataflows submitted for execution |
 | `succeeded` | Completed with `status == "succeeded"` |
 | `failed` | Raised an exception (after all retries exhausted) |
-| `skipped` | Explicitly skipped, for example after a `stop_on_error` short-circuit |
-| `running` | Currently executing when a live aggregate is inspected |
-| `pending` | Not completed after executor processing (for example, work left after an early stop) |
+| `skipped` | Explicit skipped status, for example no eligible source rows |
+| `running` | Exposed field; current executor does not count live in-flight work |
+| `pending` | Not in collected terminal counters; after early stop, does not prove nothing ran |
 
 ## Other execution modes
 

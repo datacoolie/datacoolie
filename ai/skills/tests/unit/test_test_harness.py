@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -164,3 +165,220 @@ def test_behavioral_evidence_rejects_failed_or_unbound_grading(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="must pass every expectation"):
         verifier.build_evidence(skill, [grading])
+
+
+def _versioned_eval_skill(tmp_path: Path) -> tuple[object, Path, Path]:
+    verifier = _load_script("verify_behavioral_evidence.py")
+    repository = tmp_path / "repository"
+    skill = repository / "ai/skills/datacoolie-example"
+    (skill / "evals").mkdir(parents=True)
+    (skill / "SKILL.md").write_text("example\n", encoding="utf-8")
+    fixture = repository / "fixture.txt"
+    fixture.write_text("observable\n", encoding="utf-8")
+    document = {
+        "skill_name": skill.name,
+        "eval_schema_version": 2,
+        "case_kinds": {"decision": [1], "execution": [2]},
+        "capability_families": {"routing": [1], "execution-proof": [2]},
+        "evals": [
+            {
+                "id": 1, "prompt": "Choose a route.", "expected_output": "Choose safely.",
+                "files": [], "expectations": ["Names the route", "Does not claim execution"],
+            },
+            {
+                "id": 2, "prompt": "Run the fixture check.",
+                "expected_output": "Run a command and retain output evidence and exit code.",
+                "files": ["../../../fixture.txt"],
+                "expectations": ["Reports the command", "Reports observed exit code"],
+            },
+        ],
+    }
+    path = skill / "evals/evals.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return verifier, skill, path
+
+
+def test_versioned_eval_catalog_accepts_complete_kind_and_capability_partitions(
+    tmp_path: Path,
+) -> None:
+    verifier, skill, _ = _versioned_eval_skill(tmp_path)
+    _, document, cases = verifier._eval_definitions(skill)
+
+    assert document["eval_schema_version"] == 2
+    assert len(cases) == 2
+
+
+@pytest.mark.parametrize(
+    "mutate, message",
+    [
+        (lambda value: value["evals"].append(dict(value["evals"][0])), "ids must be unique"),
+        (lambda value: value["case_kinds"].update({"other": []}), "exactly decision and execution"),
+        (lambda value: value["case_kinds"]["execution"].clear(), "non-empty integer lists"),
+        (lambda value: value["capability_families"]["routing"].append(2), "exactly once"),
+        (lambda value: value["evals"][0]["files"].append("../../../fixture.txt"), "Decision evals"),
+        (lambda value: value["evals"][1]["files"].clear(), "Execution evals require"),
+        (lambda value: value["evals"][1]["files"].__setitem__(0, "../../../missing.txt"), "does not exist"),
+        (lambda value: value["evals"][1]["files"].append("../../../fixture.txt"), "paths must be unique"),
+        (lambda value: value["evals"][1]["files"].__setitem__(0, "C:/fixture.txt"), "relative POSIX paths"),
+        (lambda value: value["evals"].reverse(), "ascending id"),
+        (lambda value: value["evals"][0].update({"kind": "decision"}), "unknown fields"),
+        (lambda value: value["evals"][1].update({"expected_output": "No observable proof"}), "observable command"),
+    ],
+)
+def test_versioned_eval_catalog_rejects_invalid_definitions(
+    tmp_path: Path, mutate, message: str
+) -> None:
+    verifier, skill, path = _versioned_eval_skill(tmp_path)
+    document = json.loads(path.read_text(encoding="utf-8"))
+    mutate(document)
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        verifier._eval_definitions(skill)
+
+
+@pytest.fixture
+def original_gradings(tmp_path: Path):
+    verifier = _load_script("verify_behavioral_evidence.py")
+    skill = tmp_path / "datacoolie-example"
+    (skill / "evals").mkdir(parents=True)
+    (skill / "SKILL.md").write_text("example\n", encoding="utf-8")
+    cases, paths = [], []
+    for case_id in (1, 2):
+        # Shared expectations ensure order checking also binds the actual artifact bytes.
+        cases.append({
+            "id": case_id, "name": f"case-{case_id}", "prompt": f"Prompt {case_id}",
+            "expected_output": "Expected", "expectations": ["One", "Two"],
+        })
+        path = tmp_path / f"grading-{case_id}.json"
+        path.write_text(json.dumps({
+            "expectations": [
+                {"text": text, "passed": True, "evidence": f"Observed {text}: {case_id}"}
+                for text in ("One", "Two")
+            ],
+            "summary": {"passed": 2, "failed": 0, "total": 2},
+        }), encoding="utf-8")
+        paths.append(path)
+    (skill / "evals/evals.json").write_text(
+        json.dumps({"skill_name": skill.name, "evals": cases}), encoding="utf-8"
+    )
+    return verifier, skill, paths, verifier.build_evidence(skill, paths)
+
+
+def test_original_gradings_accept_genuine_v1_and_legacy_calls(original_gradings) -> None:
+    verifier, skill, paths, evidence = original_gradings
+    evidence = json.loads(json.dumps(evidence))
+    assert evidence["schema_version"] == 1
+    assert set(evidence) == {
+        "schema_version", "artifact_type", "skill_name", "skill_sha256", "evals_sha256",
+        "evaluated_at", "results",
+    }
+    verifier.validate_evidence(skill, evidence)
+    verifier.validate_evidence(skill, evidence, grading_paths=None)
+    verifier.validate_evidence(skill, evidence, grading_paths=iter(paths))
+
+
+@pytest.mark.parametrize("tamper", ["zero-hash", "forged-proof"])
+def test_original_gradings_reject_forged_receipt(original_gradings, tamper: str) -> None:
+    verifier, skill, paths, evidence = original_gradings
+    if tamper == "zero-hash":
+        evidence["results"][0]["grading_sha256"] = "0" * 64
+    else:
+        evidence["results"][0]["expectations"][0]["evidence"] = "Fabricated proof"
+    # Legacy integrity checks cannot establish where a hash or evidence claim came from.
+    verifier.validate_evidence(skill, evidence)
+    with pytest.raises(ValueError, match="original grading mismatch"):
+        verifier.validate_evidence(skill, evidence, grading_paths=paths)
+
+
+@pytest.mark.parametrize("tamper", ["whitespace", "evidence"])
+def test_original_gradings_reject_altered_artifact(original_gradings, tamper: str) -> None:
+    verifier, skill, paths, evidence = original_gradings
+    content = paths[0].read_text(encoding="utf-8")
+    if tamper == "whitespace":
+        content += "\n"
+    else:
+        grading = json.loads(content)
+        grading["expectations"][0]["evidence"] = "Changed observation"
+        content = json.dumps(grading)
+    paths[0].write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError, match="original grading mismatch"):
+        verifier.validate_evidence(skill, evidence, grading_paths=paths)
+
+
+@pytest.mark.parametrize("tamper, message", [
+    ("failed", "must pass every expectation"),
+    ("summary", "summary does not match"),
+    ("expectations", "expectations do not bind"),
+    ("malformed-item", "expectations do not bind"),
+    ("malformed-summary", "summary does not match"),
+])
+def test_original_gradings_revalidate_even_with_matching_digest(
+    original_gradings, tamper: str, message: str
+) -> None:
+    verifier, skill, paths, evidence = original_gradings
+    grading = json.loads(paths[0].read_text(encoding="utf-8"))
+    if tamper == "failed":
+        grading["expectations"][0]["passed"] = False
+    elif tamper == "summary":
+        grading["summary"]["total"] = 3
+    elif tamper == "expectations":
+        grading["expectations"][0]["text"] = "Unrelated expectation"
+    elif tamper == "malformed-item":
+        grading["expectations"][0] = None
+    else:
+        grading["summary"] = None
+    paths[0].write_text(json.dumps(grading), encoding="utf-8")
+    evidence["results"][0]["grading_sha256"] = hashlib.sha256(paths[0].read_bytes()).hexdigest()
+    verifier.validate_evidence(skill, evidence)
+    with pytest.raises(ValueError, match=message):
+        verifier.validate_evidence(skill, evidence, grading_paths=paths)
+
+
+@pytest.mark.parametrize("selection", [[], [0], [0, 1, 0], [1, 0], [0, 0]])
+def test_original_gradings_reject_count_order_and_duplicate_mismatches(
+    original_gradings, selection: list[int]
+) -> None:
+    verifier, skill, paths, evidence = original_gradings
+    message = "Expected 2 grading files" if len(selection) != 2 else "original grading mismatch"
+    with pytest.raises(ValueError, match=message):
+        verifier.validate_evidence(skill, evidence, grading_paths=[paths[i] for i in selection])
+
+
+@pytest.mark.parametrize("mode", ["legacy", "originals", "missing", "forged", "empty-flag"])
+def test_behavioral_evidence_cli_modes(
+    original_gradings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str], mode: str,
+) -> None:
+    verifier, skill, paths, _ = original_gradings
+    receipt = tmp_path / "evidence.json"
+    monkeypatch.setattr(sys, "argv", [
+        "verify_behavioral_evidence.py", "create", str(skill), str(receipt), *map(str, paths),
+    ])
+    assert verifier.main() == 0
+    capsys.readouterr()
+    if mode == "forged":
+        evidence = json.loads(receipt.read_text(encoding="utf-8"))
+        evidence["results"][0]["grading_sha256"] = "0" * 64
+        receipt.write_text(json.dumps(evidence), encoding="utf-8")
+    argv = ["verify_behavioral_evidence.py", "verify", str(skill), str(receipt)]
+    if mode != "legacy":
+        argv += ["--gradings"]
+        if mode != "empty-flag":
+            supplied = [tmp_path / "absent.json", paths[1]] if mode == "missing" else paths
+            argv += list(map(str, supplied))
+    monkeypatch.setattr(sys, "argv", argv)
+    if mode == "empty-flag":
+        with pytest.raises(SystemExit) as exc:
+            verifier.main()
+        assert exc.value.code == 2
+    elif mode in {"missing", "forged"}:
+        assert verifier.main() == 1
+        output = capsys.readouterr()
+        assert "ERROR:" in output.err
+        assert "Verified" not in output.out
+    else:
+        assert verifier.main() == 0
+        output = capsys.readouterr().out
+        assert ("integrity-only" if mode == "legacy" else "supplied original gradings checked") in output
+        assert "Neither mode authenticates execution or evaluator identity" in output

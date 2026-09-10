@@ -147,7 +147,7 @@ by name:
 | `destination.connection_name` | yes | Must match a `name` in your `connections` array |
 | `destination.schema_name` | no | Output subdirectory or schema |
 | `destination.table` | yes | Output folder or table name |
-| `destination.load_type` | yes | How to write — `append`, `overwrite`, `merge_upsert`, `merge_overwrite`, or `scd2`. See [Destination & load patterns](destination-and-load-patterns.md) |
+| `destination.load_type` | yes | How to write — `append`, `overwrite`, `full_load`, `merge_upsert`, `merge_overwrite`, or `scd2`. See [Destination & load patterns](destination-and-load-patterns.md) |
 
 ### Common optional dataflow fields
 
@@ -157,9 +157,9 @@ These are the fields teams typically add after the first successful run:
 |-------|---------------|
 | `description` | Free-text description of the pipeline's business purpose |
 | `workspace_id` | Important for database/API metadata backends and workspace-scoped logging |
-| `group_number` | Groups dataflows for orchestration; lower groups run first |
-| `execution_order` | Orders dataflows within a group |
-| `processing_mode` | `batch` by default; `microbatch` and `streaming` are model values for future/specialized flows |
+| `group_number` | Co-locates dataflows on one job; different groups run independently |
+| `execution_order` | Orders buckets in a non-null group; equal orders may run in parallel |
+| `processing_mode` | `batch` by default; the model accepts `microbatch` and `streaming`, but the built-in driver currently runs the normal ETL path as batch |
 | `is_active` | Set `false` to keep the metadata but skip execution |
 | `configure` | Arbitrary per-dataflow settings for custom readers/writers/extensions |
 
@@ -311,8 +311,11 @@ They can share connections and run in the same stage or different stages:
 Run one stage at a time:
 
 ```python
-driver.run(stage="ingest")
-driver.run(stage="transform")
+result = driver.run(stage="ingest")
+if result.has_failures:
+    raise RuntimeError("Ingest failed; do not start transform")
+# Check required freshness/quality evidence before progressing.
+result = driver.run(stage="transform")
 ```
 
 Or run multiple at once:
@@ -321,8 +324,11 @@ Or run multiple at once:
 driver.run(stage=["ingest", "transform"])
 ```
 
-If stage order matters, use `group_number` and `execution_order` explicitly
-instead of relying on array position alone.
+Prefer separate stage calls for operational control. A combined selection needs explicit
+ordering for dependent flows: the same non-null `group_number` and increasing `execution_order`.
+Use `stop_on_error=True` to prevent later buckets in that group after a failure. Stage list
+position and different group numbers provide no dependency barrier. Independent flows can omit
+both fields. For example, run the following combined selection with `stage="daily"`:
 
 ```json
 "dataflows": [
@@ -337,8 +343,8 @@ instead of relying on array position alone.
   {
     "name": "orders_to_silver",
     "stage": "daily",
-    "group_number": 2,
-    "execution_order": 10,
+    "group_number": 1,
+    "execution_order": 20,
     "source": { "connection_name": "bronze", "table": "orders" },
     "destination": { "connection_name": "silver", "table": "orders", "load_type": "merge_upsert", "merge_keys": ["order_id"] }
   }

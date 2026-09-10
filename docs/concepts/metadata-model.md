@@ -48,6 +48,12 @@ Model validation **cross-checks** `format` against `connection_type` using
 `CONNECTION_TYPE_FORMATS`. If you omit `connection_type` it is derived from the
 `format`.
 
+The published JSON Schema and build lint are stricter than runtime model
+construction for unknown fields: the current stdlib compatibility models ignore
+unknown keyword arguments on most core models. Validate metadata with the
+versioned schema/lint before execution; model construction alone is not an
+unknown-field check.
+
 ### `DataFlow`
 
 One logical ETL unit. Fields:
@@ -66,7 +72,7 @@ Reference a connection by name plus:
 - `schema_name`, `table` — used to build the path (`{base_path}/{schema_name}/{table}`) or the qualified name (`` `catalog`.`database`.`schema`.`table` ``)
 - source-only: `watermark_columns` — list of column names used for incremental reads
 - source-only: `filter_expression` — SQL predicate applied at read time (after watermark filter) on raw source columns
-- destination-only: `load_type` (`append` / `overwrite` / `merge_upsert` / `merge_overwrite` / `scd2`), `merge_keys`, `partition_columns`
+- destination-only: `load_type` (`append` / `overwrite` / `full_load` / `merge_upsert` / `merge_overwrite` / `scd2`), `merge_keys`, `partition_columns`
 
 ### `Transform`
 

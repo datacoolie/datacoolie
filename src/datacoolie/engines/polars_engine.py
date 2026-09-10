@@ -455,13 +455,16 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
 
         Behaviour by format:
 
-        * **Delta / Iceberg** — uses ``sink_delta`` (streaming);
+        * **Delta** — uses ``sink_delta`` (streaming);
           ``partition_columns`` forwarded via ``delta_write_options``.
         * **Parquet / CSV / JSONL** — uses streaming ``sink_*``.  When
           *partition_columns* are provided the target is a
           :class:`polars.PartitionBy` so data is split by those columns.
         * **JSON / Avro** — no ``sink_`` available; falls back to eager
           ``write_*`` to a single file (partition_columns not supported).
+
+        Iceberg writes use catalog-backed ``write_to_table``; a generic
+        path-based Iceberg write is not implemented by this engine.
 
         Write modes:
 

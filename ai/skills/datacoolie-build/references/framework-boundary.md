@@ -89,7 +89,10 @@ project's selected technologies into defaults for other projects.
 
 ## Proof and handoff
 
-Fast source checks do not prove the selected combination. Materialize the environment slice, run
-the exact generated artifacts, and validate the explicit build-verification receipt. A failed
+Fast source checks do not prove the selected combination. Materialize all configured environments,
+then validate the exact generated artifacts for the requested verification slice. Execute its
+runner when the Build host is compatible and the check is safe; follow Build's qualification rules
+to distinguish artifact evidence from runtime evidence. Validate the explicit build-verification
+receipt. A failed
 compatibility test either returns to setup, narrows the custom boundary with evidence, or returns a
 material change to design; it does not silently switch the whole pipeline to bespoke I/O.
