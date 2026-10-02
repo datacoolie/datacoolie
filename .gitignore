@@ -20,6 +20,8 @@ derby.log
 node_modules/
 site/
 docs/schema/
+# Example projects ship inputs and source; execution results stay local.
+/docs/examples/files/projects/*/data/output/
 
 # Local IDE files
 dc_quickstart/

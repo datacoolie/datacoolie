@@ -43,7 +43,7 @@ jobs:
           -E cli
 
       - name: Install release validation tools
-        run: poetry run python -m pip install --upgrade twine
+        run: poetry run python -m pip install --upgrade -r scripts/requirements-release.txt
 
       - name: Run release gate for tag
         run: poetry run python scripts/verify_release.py --tag "${{ github.ref_name }}"

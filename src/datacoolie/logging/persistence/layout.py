@@ -73,7 +73,7 @@ def format_partition_path(
     validate_partition_pattern(pattern)
     timestamp = run_date or utc_now()
     partition = pattern.format(
-        year=timestamp.strftime("%Y"),
+        year=f"{timestamp.year:04d}",
         month=timestamp.strftime("%m"),
         day=timestamp.strftime("%d"),
         hour=timestamp.strftime("%H"),

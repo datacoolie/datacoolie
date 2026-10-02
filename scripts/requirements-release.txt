@@ -1,0 +1,4 @@
+twine
+setuptools>=61.0
+# Metadata-server unit fixtures use the same Flask version as the simulation image.
+flask==3.1.0

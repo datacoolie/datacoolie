@@ -3,7 +3,7 @@
 The command intentionally does not inspect or require a clean Git worktree:
 maintainers run it while changes are still uncommitted. It does require the
 Poetry environment to contain the project's development and documentation
-dependencies (including Twine).
+dependencies and the tools listed in ``scripts/requirements-release.txt``.
 """
 
 from __future__ import annotations
@@ -118,7 +118,8 @@ def require_twine() -> None:
     if importlib.util.find_spec("twine") is None:
         raise SystemExit(
             "Release verification requires Twine in the active Python environment. "
-            "Install it with: python -m pip install --upgrade twine"
+            "Install release tools with: python -m pip install --upgrade "
+            "-r scripts/requirements-release.txt"
         )
 
 

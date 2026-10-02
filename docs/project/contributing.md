@@ -113,7 +113,7 @@ local release gate from the product root:
 
 ```powershell
 poetry install --with dev --with docs -E polars-delta -E polars-hash -E polars-sql -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars -E cli
-poetry run python -m pip install --upgrade twine
+poetry run python -m pip install --upgrade -r scripts/requirements-release.txt
 poetry run python scripts/verify_release.py
 ```
 

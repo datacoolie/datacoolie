@@ -63,12 +63,11 @@ jobs:
       - name: Install docs dependencies
         env:
           POETRY_VIRTUALENVS_IN_PROJECT: true
-        run: |
-          if [ "${{ steps.cache-venv.outputs.cache-hit }}" = "true" ]; then
-            poetry install --only-root
-          else
-            poetry install --only main,docs
-          fi
+          # Recompute the selected extra's transitive markers for Python 3.11.
+          POETRY_INSTALLER_RE_RESOLVE: true
+        # Schema publication imports project validation tools from the CLI extra.
+        # Install dependencies on cache hits too, so restored envs are reconciled.
+        run: poetry install --only main,docs -E cli
 
       - name: Build docs (strict)
         run: poetry run properdocs build --strict

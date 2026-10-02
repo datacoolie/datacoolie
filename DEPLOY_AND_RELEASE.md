@@ -47,7 +47,7 @@ release verifier is the CI gate for package, docs, and non-Spark tests.
 - Python 3.11
 - Poetry 2.3.4 for parity with GitHub Actions, installed outside the project
   virtual environment (`pipx` is recommended)
-- Twine in the active Poetry environment (`poetry run python -m pip install --upgrade twine`)
+- Release validation tools in the active Poetry environment (`poetry run python -m pip install --upgrade -r scripts/requirements-release.txt`)
 - Git access to the `datacoolie/datacoolie` repository
 - a clean standalone repository checkout
 
@@ -98,7 +98,7 @@ that are missing without pruning unrelated packages:
 
 ```bash
 poetry install --with dev --with docs -E cli -E polars-delta -E polars-hash -E polars-sql -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars
-poetry run python -m pip install --upgrade twine
+poetry run python -m pip install --upgrade -r scripts/requirements-release.txt
 poetry run python scripts/verify_release.py
 ```
 

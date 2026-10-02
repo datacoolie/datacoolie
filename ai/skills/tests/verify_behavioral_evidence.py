@@ -13,7 +13,7 @@ import hashlib
 import json
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Iterable
 
 
@@ -165,8 +165,11 @@ def _validate_versioned_catalog(
         if len(files) != len(set(files)):
             raise ValueError("Execution eval fixture paths must be unique within a case")
         for relative in files:
-            relative_path = Path(relative)
-            if relative_path.is_absolute() or "\\" in relative:
+            if (
+                PurePosixPath(relative).is_absolute()
+                or PureWindowsPath(relative).drive
+                or "\\" in relative
+            ):
                 raise ValueError("Execution fixture paths must be relative POSIX paths")
             path = (skill_dir / relative).resolve()
             try:
