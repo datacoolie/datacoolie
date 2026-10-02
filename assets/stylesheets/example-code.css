@@ -1,0 +1,48 @@
+/*
+ * Long example source stays in the initial HTML. JavaScript adds the
+ * collapsed state and control only when a block is taller than the reading
+ * threshold, so a no-JS/print view remains complete and searchable.
+ */
+.dc-example-code--collapsed {
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.dc-example-code-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.35rem 0 1rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.25rem;
+  padding: 0.3rem 0.65rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-primary-fg-color);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.dc-example-code-toggle:hover,
+.dc-example-code-toggle:focus-visible {
+  border-color: var(--md-primary-fg-color);
+  background: var(--md-primary-fg-color--light, var(--md-default-bg-color));
+  outline: none;
+}
+
+@media print {
+  .dc-example-code--collapsed {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .dc-example-code-toggle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dc-example-code-toggle {
+    transition: none;
+  }
+}

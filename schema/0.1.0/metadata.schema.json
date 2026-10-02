@@ -66,6 +66,7 @@
           "properties": {
             "read_options": { "type": "object", "additionalProperties": true, "description": "Engine-specific read options (e.g. header, inferSchema, delimiter)." },
             "write_options": { "type": "object", "additionalProperties": true, "description": "Engine-specific write options (e.g. compression, mode)." },
+            "merge_options": { "type": "object", "additionalProperties": true, "description": "Engine-specific merge/upsert options. Legacy merge aliases in write_options remain readable during migration." },
             "use_schema_hint": { "type": "boolean", "default": true, "description": "Apply schema hints from transform. Set false to skip type casting." },
             "backward_years": { "type": "integer", "description": "Look-back years for watermark value." },
             "backward_months": { "type": "integer", "description": "Look-back months for watermark value." },
@@ -262,21 +263,21 @@
         },
         "stage": {
           "type": ["string", "null"],
-          "description": "Stage grouping (e.g. source2bronze, bronze2silver). Used by driver.run(stage=...)."
+          "description": "Project-defined runtime selection label used by driver.run(stage=...). Stage names are dynamic and imply no execution order."
         },
         "group_number": {
           "type": ["integer", "null"],
-          "description": "Execution group. Dataflows in the same group run in parallel."
+          "description": "Co-location group for job assignment and ordered normal ETL execution. Different groups run independently. Null means an independent dataflow."
         },
         "execution_order": {
           "type": ["integer", "null"],
-          "description": "Order within group. Lower values execute first."
+          "description": "Normal ETL order bucket within a non-null group: lower buckets finish first, equal values may run in parallel, null is 0. Without a group it provides no dependency ordering."
         },
         "processing_mode": {
           "type": "string",
           "enum": ["batch", "microbatch", "streaming"],
           "default": "batch",
-          "description": "ETL processing mode."
+          "description": "Accepted processing-mode metadata value. The built-in driver currently executes normal ETL through the batch path; microbatch and streaming are reserved for specialized or future runtimes."
         },
         "is_active": {
           "type": "boolean",
@@ -462,6 +463,7 @@
             "scd2_effective_column": { "type": "string", "description": "SQL expression used as __valid_from for SCD2 loads." },
             "replace_by_watermark": { "type": "boolean", "default": false, "description": "Use range-based window replace instead of key-based delete for merge_overwrite." },
             "write_options": { "type": "object", "additionalProperties": true },
+            "merge_options": { "type": "object", "additionalProperties": true, "description": "Engine-specific merge/upsert options." },
             "partition_columns": {
               "type": "array",
               "items": { "$ref": "#/$defs/PartitionColumn" },

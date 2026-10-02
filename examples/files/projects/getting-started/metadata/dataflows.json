@@ -1,0 +1,59 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_to_bronze",
+      "stage": "ingest2bronze",
+      "group_number": 1,
+      "execution_order": 10,
+      "source": {
+        "connection_name": "local_input",
+        "table": "orders",
+        "watermark_columns": ["updated_at"]
+      },
+      "destination": {
+        "connection_name": "local_bronze",
+        "table": "orders",
+        "load_type": "merge_upsert",
+        "merge_keys": ["order_id"]
+      },
+      "transform": {
+        "deduplicate_columns": ["order_id"],
+        "latest_data_columns": ["updated_at"]
+      }
+    },
+    {
+      "name": "customers_full_refresh",
+      "stage": "customers_full_refresh",
+      "source": {
+        "connection_name": "local_input",
+        "table": "customers"
+      },
+      "destination": {
+        "connection_name": "local_customers",
+        "table": "customers",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "orders_to_silver",
+      "stage": "bronze2silver",
+      "group_number": 1,
+      "execution_order": 20,
+      "source": {
+        "connection_name": "local_bronze",
+        "table": "orders"
+      },
+      "destination": {
+        "connection_name": "local_silver",
+        "table": "orders",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_date",
+            "expression": "CAST(updated_at AS DATE)"
+          }
+        ]
+      }
+    }
+  ]
+}

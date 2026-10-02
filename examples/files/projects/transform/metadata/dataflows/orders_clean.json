@@ -1,0 +1,24 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_clean",
+      "stage": "transform",
+      "source": {
+        "connection_name": "orders_input",
+        "table": "orders"
+      },
+      "transform": {
+        "value_rules": [
+          {"operation": "trim", "columns": ["category"]},
+          {"operation": "case", "columns": ["category"], "mode": "lower"}
+        ],
+        "select_columns": ["order_id", "category", "amount"]
+      },
+      "destination": {
+        "connection_name": "orders_output",
+        "table": "orders",
+        "load_type": "overwrite"
+      }
+    }
+  ]
+}

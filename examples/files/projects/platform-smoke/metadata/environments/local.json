@@ -1,0 +1,1 @@
+{"connections": [{"name": "orders_output", "configure": {"base_path": "./data/output"}}]}

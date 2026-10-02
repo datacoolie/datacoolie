@@ -4,45 +4,6 @@
          <loc>https://datacoolie.github.io/datacoolie/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/contributing/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/datacoolie-studio/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/python-etl-framework/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0001-engine-fmt-parameter/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0002-secret-provider-resolver-split/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0003-transformer-ordering-slots/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0004-raw-json-watermark-contract/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0005-polars-qualified-sql-relations/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0006-portable-fabric-platform-azure-backends/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0007-engine-internal-package-boundaries/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0008-portable-databricks-platform-backends/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/adr/0009-use-case-oriented-optional-dependencies/</loc>
-    </url>
-    <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/</loc>
     </url>
     <url>
@@ -52,178 +13,463 @@
          <loc>https://datacoolie.github.io/datacoolie/blog/2026/05/26/polars-vs-spark-for-etl--when-to-use-which/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/blog/2026/05/28/how-to-build-cloud-agnostic-data-pipelines-in-python/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/blog/2026/09/14/fabric-medallion-pipeline/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/blog/2026/05/29/implementing-scd-type-2-in-python-with-delta-lake/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/configuration/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/dataflows/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/blog/2026/05/30/python-etl-tutorial-for-beginners--build-your-first-data-pipeline/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/operations/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/runners/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/architecture/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/wwi-medallion-multicloud/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/engines/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/configuration/logging_modes.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/load-strategies/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/configuration/provider_construction.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/logging/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/configuration/provider_fixtures.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/metadata-model/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/configuration/run_attributes.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/metadata-providers/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/configuration/sql_roots.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/orchestration/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/configuration/standalone_file_provider.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/platforms/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/dataflows/format_connections.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/secrets/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/dataflows/inline_sql.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/sources-and-destinations/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/dataflows/load_strategies.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/transformers-and-pipeline/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/dataflows/sql_file.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/concepts/watermarks/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/dataflows/transform_patterns.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/dataflows/sql/orders.sql/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/writing-a-destination/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/operations/replay_recovery.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/writing-a-metadata-provider/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/plugins/pii_masker.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/writing-a-secret-resolver/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/plugins/pyproject.toml/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/writing-a-source/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/datacoolie.yml/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/writing-a-transformer/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/data/input/orders.csv/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/extending/writing-an-engine/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/metadata/connections.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/metadata/schema_hints.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/metadata/dataflows/orders_query.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/first-dataflow/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/queries/orders.sql/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/installation/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/artifact/runners/dev/run.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/quickstart-polars/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/datacoolie.yml/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/quickstart-spark/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/functions/__init__.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/getting-started/use-your-own-data/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/functions/range_source.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/functions/sources.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/configure-api-metadata/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/metadata/connections.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/configure-database-metadata/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/metadata/schema_hints.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/configure-file-metadata/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/metadata/dataflows/orders_function.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/deploy-to-aws-glue/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/function/runners/dev/run.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/deploy-to-databricks/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/datacoolie.yml/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/deploy-to-fabric/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/data/input/customers/customers.csv/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/expected-failure-scenarios/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/data/input/orders/orders.csv/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/maintenance-vacuum-optimize/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/metadata/connections.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/merge-and-scd2/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/metadata/dataflows.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/partitioning-and-sanitization/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/metadata/schema_hints.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/replay-and-backfill/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/runners/local/checks.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/run-a-stage/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/runners/local/run_polars.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/metadata-guide/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/getting-started/runners/local/run_spark.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/metadata-guide/destination-and-load-patterns/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/incremental/datacoolie.yml/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/metadata-guide/first-metadata-file/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/incremental/data/input/orders/orders.csv/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/metadata-guide/source-patterns/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/incremental/metadata/connections.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/metadata-guide/transform-patterns/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/incremental/metadata/schema_hints.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/how-to/metadata-guide/validation-checklist/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/incremental/metadata/dataflows/orders_incremental.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/operations/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/incremental/runners/dev/run.py/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/operations/benchmarks/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/datacoolie.yml/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/operations/logging-layout/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/data/input/orders/orders.csv/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/operations/testing-strategy/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/connections.json/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/operations/troubleshooting/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/schema_hints.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/dataflows/orders_platform_smoke.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/environments/aws-iceberg.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/environments/aws.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/environments/databricks.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/environments/fabric.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/platform-smoke/metadata/environments/local.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/transform/datacoolie.yml/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/transform/metadata/connections.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/transform/metadata/schema_hints.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/transform/metadata/dataflows/orders_clean.json/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/projects/transform/runners/dev/run.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/aws/run_glue_spark.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/aws/run_polars_s3.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/databricks/maintenance_spark.ipynb/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/databricks/replay_spark.ipynb/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/databricks/run_polars_sdk.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/databricks/run_spark.ipynb/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/fabric/run_polars.ipynb/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/fabric/run_polars_azure_sdk.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/fabric/run_spark.ipynb/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/local/maintenance.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/local/replay.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/local/run.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/local/run_artifact_minimal.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/examples/source/runners/local/run_spark.py/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/transformer-tutorial/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-a-destination/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-a-metadata-provider/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-a-platform/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-a-secret-resolver/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-a-source/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-a-transformer/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/extensions/writing-an-engine/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/cli/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/cli/commands/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/cli/project/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/cli/quickstart/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/getting-started/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/getting-started/installation/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/getting-started/multi-stage-dataflow/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/getting-started/quickstart-polars/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/getting-started/quickstart-spark/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/getting-started/use-your-own-data/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/api-advanced/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/api-source-configuration/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/connections/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/data-types/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/destination-and-load-patterns/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/first-metadata-file/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/identity-extensions-and-overlays/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/incremental-windows/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/late-arriving-files/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/merge-and-scd2/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/metadata-document/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/partitioning-and-sanitization/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/stable-keys-and-protected-output/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-patterns/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/validation-checklist/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/watermark-window-replacement/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/logging/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/maintenance/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/replay-and-backfill/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/run-stage/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/operations/troubleshooting/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/platforms/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/platforms/aws-glue/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/platforms/databricks/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/platforms/fabric/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/providers/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/providers/api/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/providers/database/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/providers/file/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/introduction/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/introduction/ai-skills/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/introduction/choose-framework/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/benchmarks/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/contributing/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/expected-failure-scenarios/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/testing/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0001-engine-fmt-parameter/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0002-secret-provider-resolver-split/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0003-transformer-ordering-slots/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0004-raw-json-watermark-contract/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0005-polars-qualified-sql-relations/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0006-portable-fabric-platform-azure-backends/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0008-portable-databricks-platform-backends/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/project/decisions/0009-use-case-oriented-optional-dependencies/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/reference/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/reference/cli/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/reference/environment-variables/</loc>
@@ -233,6 +479,9 @@
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/reference/plugin-entry-points/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/runtime-configuration/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/reference/api/core/</loc>
@@ -265,21 +514,57 @@
          <loc>https://datacoolie.github.io/datacoolie/reference/api/watermark/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/tutorials/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/</loc>
     </url>
     <url>
-         <loc>https://datacoolie.github.io/datacoolie/tutorials/wwi-medallion-multicloud/</loc>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/architecture/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/engines/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/load-strategies/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/logging/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/metadata-model/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/metadata-providers/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/orchestration/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/platforms/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/secrets/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/sources-and-destinations/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/transformers-and-pipeline/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/concepts/watermarks/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/studio/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/archive/2026/</loc>
-    </url>
-    <url>
-         <loc>https://datacoolie.github.io/datacoolie/blog/category/architecture/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/category/tutorial/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/category/benchmark/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/blog/category/architecture/</loc>
     </url>
 </urlset>

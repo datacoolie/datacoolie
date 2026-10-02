@@ -1,0 +1,36 @@
+{
+  "connections": [
+    {
+      "name": "local_input",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "data/input"
+      }
+    },
+    {
+      "name": "local_bronze",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "data/output/bronze"
+      }
+    },
+    {
+      "name": "local_silver",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "data/output/silver"
+      }
+    },
+    {
+      "name": "local_customers",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "data/output/customers"
+      }
+    }
+  ]
+}

@@ -6,17 +6,17 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Precise field-level contracts for the DataCoolie metadata schema, plugin entry points, CLI, environment variables, and the full Python API reference.">
+        <meta name="description" content="Precise field-level contracts for DataCoolie metadata, runtime configuration, plugins, CLI and Python APIs.">
       
       
       
         <link rel="canonical" href="https://datacoolie.github.io/datacoolie/reference/">
       
       
-        <link rel="prev" href="../operations/testing-strategy/">
+        <link rel="prev" href="../extensions/writing-a-metadata-provider/">
       
       
-        <link rel="next" href="metadata-schema/">
+        <link rel="next" href="concepts/">
       
       
         
@@ -30,7 +30,7 @@
     
     
   
-    <title>Reference — DataCoolie Contracts & API</title>
+    <title>Reference — DataCoolie Contracts &amp; API</title>
   
 
     
@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../assets/stylesheets/zoomable-media.css">
     
+      <link rel="stylesheet" href="../assets/stylesheets/example-code.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -79,9 +81,11 @@
   
     
       
+      
     
     
       
+    
     
     
     
@@ -96,26 +100,26 @@
     <meta name="msvalidate.01" content="374A47D942D44B14AB4A3DA7F035E041" />
 
     <!-- Open Graph -->
+    <meta name="robots" content="max-image-preview:large" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DataCoolie" />
-    <meta property="og:title" content="Reference — DataCoolie Contracts & API" />
-    <meta property="og:description" content="Precise field-level contracts for the DataCoolie metadata schema, plugin entry points, CLI, environment variables, and the full Python API reference." />
+    <meta property="og:title" content="Reference — DataCoolie Contracts &amp; API" />
+    <meta property="og:description" content="Precise field-level contracts for DataCoolie metadata, runtime configuration, plugins, CLI and Python APIs." />
     <meta property="og:url" content="https://datacoolie.github.io/datacoolie/reference/" />
     <meta property="og:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Reference — DataCoolie Contracts & API" />
+    <meta property="og:image:alt" content="Reference — DataCoolie Contracts &amp; API" />
     
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Reference — DataCoolie Contracts & API" />
-    <meta name="twitter:description" content="Precise field-level contracts for the DataCoolie metadata schema, plugin entry points, CLI, environment variables, and the full Python API reference." />
+    <meta name="twitter:title" content="Reference — DataCoolie Contracts &amp; API" />
+    <meta name="twitter:description" content="Precise field-level contracts for DataCoolie metadata, runtime configuration, plugins, CLI and Python APIs." />
     <meta name="twitter:image" content="https://datacoolie.github.io/datacoolie/images/banners/datacoolie-og-1200x630.webp" />
-    <meta name="twitter:image:alt" content="Reference — DataCoolie Contracts & API" />
+    <meta name="twitter:image:alt" content="Reference — DataCoolie Contracts &amp; API" />
 
     <!-- JSON-LD structured data -->
-    
     
     
     
@@ -124,6 +128,7 @@
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
+        
         {
           "@type": "ListItem",
           "position": 1,
@@ -133,13 +138,12 @@
         {
           "@type": "ListItem",
           "position": 2,
-          "name": "Reference \u2014 DataCoolie Contracts \u0026 API",
+          "name": "Reference",
           "item": "https://datacoolie.github.io/datacoolie/reference/"
         }
       ]
     }
     </script>
-    
     
     
     
@@ -155,7 +159,7 @@
       "url": "https://datacoolie.github.io/datacoolie/reference/",
       "name": "Reference \u2014 DataCoolie Contracts \u0026 API",
       "headline": "Reference \u2014 DataCoolie Contracts \u0026 API",
-      "description": "Precise field-level contracts for the DataCoolie metadata schema, plugin entry points, CLI, environment variables, and the full Python API reference.",
+      "description": "Precise field-level contracts for DataCoolie metadata, runtime configuration, plugins, CLI and Python APIs.",
       "isPartOf": { "@id": "https://datacoolie.github.io/datacoolie/#website" },
       
       "publisher": { "@id": "https://datacoolie.github.io/datacoolie/#organization" },
@@ -350,13 +354,54 @@
   
   
     <li class="md-tabs__item">
-      <a href="../datacoolie-studio/" class="md-tabs__link">
+      <a href="../introduction/" class="md-tabs__link">
         
   
   
     
   
-  DataCoolie Studio
+  Introduction
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples and templates
 
       </a>
     </li>
@@ -369,70 +414,13 @@
   
   
     <li class="md-tabs__item">
-      <a href="../getting-started/" class="md-tabs__link">
+      <a href="../extensions/" class="md-tabs__link">
         
   
   
     
   
-  Getting started
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../tutorials/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Tutorials
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../concepts/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  Concepts
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../how-to/" class="md-tabs__link">
-        
-  
-  
-    
-  
-  How-to
+  Extensions
 
       </a>
     </li>
@@ -465,20 +453,17 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../adr/" class="md-tabs__link">
-          
+    <li class="md-tabs__item">
+      <a href="../project/" class="md-tabs__link">
+        
   
   
     
   
   Project
 
-        </a>
-      </li>
-    
+      </a>
+    </li>
   
 
       
@@ -584,15 +569,82 @@
   
   
   
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../introduction/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Introduction
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
-      <a href="../datacoolie-studio/" class="md-nav__link">
+      <a href="../introduction/choose-framework/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    DataCoolie Studio
+    Choose the framework
   
 
     
@@ -601,6 +653,70 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/ai-skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI-assisted workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../studio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Studio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -614,6 +730,8 @@
     
     
       
+        
+          
         
       
         
@@ -645,14 +763,14 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../getting-started/" class="md-nav__link ">
+            <a href="../guide/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Getting started
+    User guide
   
 
     
@@ -674,11 +792,13 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Getting started
+    User guide
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
             
               
                 
@@ -686,15 +806,48 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../python-etl-framework/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/getting-started/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
     
   
-    Python ETL framework
+    Getting started
   
 
     
@@ -702,10 +855,26 @@
   
   
 
-      </a>
-    </li>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
   
 
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
             
               
@@ -715,7 +884,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/installation/" class="md-nav__link">
+      <a href="../guide/getting-started/installation/" class="md-nav__link">
         
   
   
@@ -743,7 +912,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/quickstart-polars/" class="md-nav__link">
+      <a href="../guide/getting-started/quickstart-polars/" class="md-nav__link">
         
   
   
@@ -771,7 +940,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/quickstart-spark/" class="md-nav__link">
+      <a href="../guide/getting-started/quickstart-spark/" class="md-nav__link">
         
   
   
@@ -799,14 +968,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/first-dataflow/" class="md-nav__link">
+      <a href="../guide/getting-started/use-your-own-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Your first dataflow
+    Use your own data
   
 
     
@@ -827,14 +996,275 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/use-your-own-data/" class="md-nav__link">
+      <a href="../guide/getting-started/multi-stage-dataflow/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Use your own data after the quickstart
+    Build a multi-stage dataflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/metadata/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Metadata
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_2" id="__nav_3_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configure metadata
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configure metadata
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/connections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connections
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_2_2" id="__nav_3_3_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataflows
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_3_3_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Dataflows
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/dataflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
   
 
     
@@ -855,14 +1285,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/ai-assisted-workflow/" class="md-nav__link">
+      <a href="../guide/metadata/source-patterns/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    DataCoolie Skills
+    Source
   
 
     
@@ -871,6 +1301,1260 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/transform-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/destination-and-load-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Destination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/data-types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datatypes and schema hints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_3" id="__nav_3_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/watermark-window-replacement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replace a complete watermark window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/api-advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incremental API with pagination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/late-arriving-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Late-arriving and updated files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/stable-keys-and-protected-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable keys and protected output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/merge-and-scd2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SCD2 with incremental inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/first-metadata-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build your first metadata file
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/metadata/validation-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/providers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata providers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Metadata providers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/providers/file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/providers/database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/providers/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/cli/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project and CLI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project and CLI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/cli/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/cli/project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/cli/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/operations/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime and operations
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Runtime and operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/operations/runtime-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6_3" id="__nav_3_6_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execute
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_6_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Execute
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/operations/run-stage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run a stage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/operations/replay-and-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay and backfill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6_4" id="__nav_3_6_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observe and maintain
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_6_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observe and maintain
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/operations/logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/operations/maintenance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/operations/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guide/platforms/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms and deployment
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Platforms and deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/platforms/fabric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Microsoft Fabric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/platforms/databricks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Databricks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/platforms/aws-glue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWS Glue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -894,6 +2578,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -911,14 +2603,14 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../tutorials/" class="md-nav__link ">
+            <a href="../examples/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Tutorials
+    Examples and templates
   
 
     
@@ -940,7 +2632,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Tutorials
+    Examples and templates
   
 
           </label>
@@ -953,7 +2645,119 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorials/wwi-medallion-multicloud/" class="md-nav__link">
+      <a href="../examples/runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runner examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/dataflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataflow examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/wwi-medallion-multicloud/" class="md-nav__link">
         
   
   
@@ -1006,14 +2810,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1031,14 +2827,14 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../concepts/" class="md-nav__link ">
+            <a href="../extensions/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Concepts
+    Extensions
   
 
     
@@ -1060,7 +2856,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Concepts
+    Extensions
   
 
           </label>
@@ -1073,14 +2869,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/architecture/" class="md-nav__link">
+      <a href="../extensions/transformer-tutorial/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Architecture
+    Transformer tutorial
   
 
     
@@ -1101,14 +2897,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/engines/" class="md-nav__link">
+      <a href="../extensions/writing-a-source/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Engines
+    Write a source
   
 
     
@@ -1129,14 +2925,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/platforms/" class="md-nav__link">
+      <a href="../extensions/writing-a-destination/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Platforms
+    Write a destination
   
 
     
@@ -1157,14 +2953,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/metadata-model/" class="md-nav__link">
+      <a href="../extensions/writing-a-transformer/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Metadata model
+    Write a transformer
   
 
     
@@ -1185,14 +2981,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/metadata-providers/" class="md-nav__link">
+      <a href="../extensions/writing-an-engine/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Metadata providers
+    Write an engine
   
 
     
@@ -1213,14 +3009,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/sources-and-destinations/" class="md-nav__link">
+      <a href="../extensions/writing-a-platform/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Sources & destinations
+    Write a platform
   
 
     
@@ -1241,14 +3037,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/transformers-and-pipeline/" class="md-nav__link">
+      <a href="../extensions/writing-a-secret-resolver/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Transformers & pipeline
+    Write a secret resolver
   
 
     
@@ -1269,925 +3065,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/load-strategies/" class="md-nav__link">
+      <a href="../extensions/writing-a-metadata-provider/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Load strategies
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../concepts/watermarks/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Watermarks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../concepts/orchestration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Orchestration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../concepts/logging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Logging
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../concepts/secrets/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Secrets
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../how-to/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    How-to
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    How-to
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../how-to/metadata-guide/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Metadata guide
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_6_1" id="__nav_6_1_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Metadata guide
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/first-metadata-file/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build your first metadata file
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/source-patterns/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Source patterns
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/destination-and-load-patterns/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Destination & load patterns
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/transform-patterns/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Transform patterns
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/metadata-guide/validation-checklist/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Validation checklist
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/configure-file-metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configure file metadata
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/configure-database-metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configure database metadata
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/configure-api-metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configure API metadata
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/run-a-stage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Run a stage
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/merge-and-scd2/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Merge & SCD2
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/replay-and-backfill/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Replay & backfill
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/partitioning-and-sanitization/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Partitioning & sanitization
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/maintenance-vacuum-optimize/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Maintenance (vacuum/optimize)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/expected-failure-scenarios/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Expected-failure scenarios
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/deploy-to-fabric/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploy to Fabric
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/deploy-to-databricks/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploy to Databricks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../how-to/deploy-to-aws-glue/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deploy to AWS Glue
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations overview
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/logging-layout/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Logging layout
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/benchmarks/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Benchmarks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/troubleshooting/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/testing-strategy/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing strategy
+    Write a metadata provider
   
 
     
@@ -2247,7 +3132,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2269,14 +3154,14 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_7" id="__nav_7_label" tabindex="">
+              <label class="md-nav__link md-nav__link--active" for="__nav_6" id="__nav_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2292,6 +3177,438 @@
   
   
   
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="concepts/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6_1" id="__nav_6_1_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/engines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/metadata-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/metadata-providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/sources-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sources and destinations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/transformers-and-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformers and pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/load-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/watermarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Watermarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/orchestration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Orchestration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/secrets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secrets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="metadata-schema/" class="md-nav__link">
         
@@ -2300,7 +3617,35 @@
   <span class="md-ellipsis">
     
   
-    Metadata schema
+    Metadata reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="runtime-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime configuration
   
 
     
@@ -2329,34 +3674,6 @@
     
   
     Plugin entry points
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CLI
   
 
     
@@ -2443,10 +3760,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6" >
         
           
-          <label class="md-nav__link" for="__nav_7_5" id="__nav_7_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6_6" id="__nav_6_6_label" tabindex="">
             
   
   
@@ -2464,8 +3781,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2763,8 +4080,15 @@
 
               
             
-              
-                
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
   
   
   
@@ -2782,36 +4106,31 @@
       
         
       
-        
-      
     
     
     
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../extending/" class="md-nav__link ">
+            <a href="../project/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Extending
+    Project
   
 
     
@@ -2822,18 +4141,18 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7_6" id="__nav_7_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Extending
+    Project
   
 
           </label>
@@ -2846,14 +4165,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-source/" class="md-nav__link">
+      <a href="../project/contributing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Write a source
+    Contributing
   
 
     
@@ -2874,14 +4193,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-destination/" class="md-nav__link">
+      <a href="../project/testing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Write a destination
+    Testing strategy
   
 
     
@@ -2902,14 +4221,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-a-transformer/" class="md-nav__link">
+      <a href="../project/benchmarks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Write a transformer
+    Benchmarks
   
 
     
@@ -2930,14 +4249,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending/writing-an-engine/" class="md-nav__link">
+      <a href="../project/expected-failure-scenarios/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Write an engine
+    Expected-failure scenarios
   
 
     
@@ -2957,87 +4276,8 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../extending/writing-a-secret-resolver/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Write a secret resolver
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../extending/writing-a-metadata-provider/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Write a metadata provider
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     
     
-      
-        
-          
-        
-      
-        
-      
-        
       
         
       
@@ -3068,18 +4308,18 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../adr/" class="md-nav__link ">
+            <a href="../project/decisions/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Project
+    Decisions
   
 
     
@@ -3090,257 +4330,31 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_5">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Project
+    Decisions
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
               
-            
-              
                 
   
   
   
   
     <li class="md-nav__item">
-      <a href="../adr/0001-engine-fmt-parameter/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0001 Engine fmt= parameter
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0002-secret-provider-resolver-split/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0002 Secret provider/resolver split
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0003-transformer-ordering-slots/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0003 Transformer ordering slots
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0004-raw-json-watermark-contract/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0004 Raw-JSON watermark contract
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0005-polars-qualified-sql-relations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0005 Polars qualified SQL relations
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Portable FabricPlatform Azure backends
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0007-engine-internal-package-boundaries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0007 Private engine implementation packages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0008-portable-databricks-platform-backends/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0008 Portable DatabricksPlatform backends
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adr/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
+      <a href="../project/decisions/0009-use-case-oriented-optional-dependencies/" class="md-nav__link">
         
   
   
@@ -3368,14 +4382,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
+      <a href="../project/decisions/0008-portable-databricks-platform-backends/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Contributing
+    0008 Portable DatabricksPlatform backends
   
 
     
@@ -3384,6 +4398,182 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/decisions/0006-portable-fabric-platform-azure-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0006 Portable FabricPlatform Azure backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/decisions/0005-polars-qualified-sql-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Polars qualified SQL relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/decisions/0004-raw-json-watermark-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0004 Raw-JSON watermark contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/decisions/0003-transformer-ordering-slots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Transformer ordering slots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/decisions/0002-secret-provider-resolver-split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Secret provider/resolver split
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/decisions/0001-engine-fmt-parameter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 Engine fmt parameter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3452,6 +4642,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#ownership-and-version-scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership and version scopes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#start-with-the-contract-you-need" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3511,45 +4712,180 @@
 
 <h1 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">&para;</a></h1>
 <p>Precise, mechanical contracts. Use this section when you need exact field names,
-types, defaults, or Python signatures. Prose explanations live under
-<a href="../concepts/">Concepts</a>; task recipes under <a href="../how-to/">How-to</a>.</p>
+types, defaults, or Python signatures. Metadata and session runtime contracts
+are intentionally separate. Prose explanations live under
+<a href="concepts/">Concepts</a>; task recipes under the <a href="../guide/">User guide</a>.</p>
 <p>This is not the best place to start if you are still learning the framework.
-Use <a href="../getting-started/">Getting started</a> for runnable examples and
-<a href="../how-to/">How-to</a> for guided tasks.</p>
+Use the <a href="../guide/">User guide</a> for runnable examples and guided tasks.</p>
 <p>Some reference pages are generated only at docs-build time, so you will not see
 their source <code>.md</code> files checked into <code>docs/reference/</code>.</p>
+<h2 id="ownership-and-version-scopes">Ownership and version scopes<a class="headerlink" href="#ownership-and-version-scopes" title="Permanent link">&para;</a></h2>
+<p>Use the following authority map when two summaries appear to disagree. The
+owner listed in the <strong>full definition</strong> column wins; examples and Skills may
+adapt that definition, but they must not maintain a competing copy.</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Full definition</th>
+<th>Use the other source for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Runtime behavior and Python API</td>
+<td><code>src/datacoolie/</code> and the generated API pages</td>
+<td>Runnable examples and agent routing</td>
+</tr>
+<tr>
+<td>Authored metadata structure</td>
+<td><code>src/datacoolie/project/schemas/</code> and its published <a href="../schema/index.json"><code>schema/index.json</code></a></td>
+<td>Human authoring guidance and <code>dc validate</code> results</td>
+</tr>
+<tr>
+<td>Project and CLI contract</td>
+<td><a href="../guide/cli/project/"><code>datacoolie.yml</code> workflow</a>, <a href="../guide/cli/commands/"><code>CLI reference</code></a>, and the CLI implementation</td>
+<td>Skill-specific command sequencing</td>
+</tr>
+<tr>
+<td>Runtime paths and session configuration</td>
+<td><a href="runtime-configuration/"><code>Runtime configuration</code></a> and its generated companion</td>
+<td>Runner examples and platform-specific setup</td>
+</tr>
+<tr>
+<td>Example source and inventory</td>
+<td><a href="../examples/"><code>Examples</code></a> and <code>docs/examples/files/</code></td>
+<td>Public source, raw bytes, archives, and Skill retrieval</td>
+</tr>
+<tr>
+<td>Agent procedure and approvals</td>
+<td><code>ai/AGENTS.md</code> and the five <code>ai/skills/*/SKILL.md</code> files</td>
+<td>Shared framework behavior and field definitions</td>
+</tr>
+<tr>
+<td>Internal rationale</td>
+<td>The linked workspace wiki records</td>
+<td>Public usage instructions</td>
+</tr>
+</tbody>
+</table>
+<p>The schema service is bundled with the framework and the CLI invokes it;
+runtime metadata Providers hydrate <code>core.models</code> directly and do not fetch a
+JSON Schema at execution time. The public schema tree is generated from the
+bundled resources, so edit <code>src/datacoolie/project/schemas/</code>, not <code>docs/schema/</code>.</p>
+<p>Schema selection is offline and deterministic: choose the greatest bundled
+metadata schema version less than or equal to the installed framework version.
+Stable releases ignore prerelease schemas; a prerelease may select a matching
+prerelease contract but never a future final release. If authored metadata has
+<code>$schema</code>, it may use the public <code>latest</code> alias for non-pinned authoring or the
+exact selected public URL for reproducible artifacts. The CLI never fetches or
+falls forward to that mutable alias: it resolves the installed framework's
+bundled schema offline and reports the exact version used. No compatible schema,
+an unknown marker, a checksum mismatch, or an invalid schema is an error.
+<code>dc validate</code> applies the schema first, then constructs runtime models and checks
+applicable resources; a schema failure does not silently continue to later
+stages.</p>
+<p>Version numbers are scoped contracts, not one shared release counter:</p>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Owner and meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Framework/package</td>
+<td><code>pyproject.toml</code>; the installed runtime and CLI release</td>
+</tr>
+<tr>
+<td>Metadata schema</td>
+<td>Each versioned JSON Schema under <code>project/schemas/</code></td>
+</tr>
+<tr>
+<td>Schema index</td>
+<td><code>index_version</code> in the bundled/published <code>schema/index.json</code></td>
+</tr>
+<tr>
+<td>Project config</td>
+<td><code>schema_version</code> in <code>datacoolie.yml</code></td>
+</tr>
+<tr>
+<td>Manifest</td>
+<td><code>schema_version</code> in build manifests</td>
+</tr>
+<tr>
+<td>CLI response</td>
+<td><code>schema_version</code> in the machine-readable response envelope</td>
+</tr>
+<tr>
+<td>Log records</td>
+<td><code>log_schema_version</code> in system, job, and dataflow records</td>
+</tr>
+</tbody>
+</table>
+<p>Equal numbers across these rows are coincidental. A schema change follows the
+metadata-schema release policy; a CLI, manifest, or log shape change follows
+its own owner and compatibility checks.</p>
+<p>CLI JSON responses, build manifests, and persisted log records report the
+producer package as <code>datacoolie_version</code>, obtained from <code>datacoolie.__version__</code>.
+This is the same installed version shown by <code>dc --version</code>. CLI and log
+consumers ignore unknown fields; compatible optional additions preserve their
+schema version. Removing or renaming fields, changing their types, or changing
+their meaning incompatibly requires a new schema version. Historical CLI/log
+outputs may omit <code>datacoolie_version</code>.</p>
+<p>Generated reference pages are available from the published site even when
+their source Markdown is not committed. AI callers should use the stable page
+URLs in this reference section (for example
+<code>https://datacoolie.github.io/datacoolie/reference/runtime-configuration/</code>)
+or the checked-in source files for pages that do have one. Do not invent a raw
+GitHub URL for a generated page.</p>
 <h2 id="start-with-the-contract-you-need">Start with the contract you need<a class="headerlink" href="#start-with-the-contract-you-need" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Full metadata field definitions: <a href="metadata-schema/">Metadata schema</a></li>
+<li>Full authored metadata field definitions: <a href="metadata-schema/#metadata-document">Metadata reference</a></li>
+<li>Driver session, replay and logging fields: <a href="runtime-configuration/">Runtime configuration</a></li>
 <li>Plugin registration names and entry-point groups: <a href="plugin-entry-points/">Plugin entry points</a></li>
 <li>Runtime configuration knobs: <a href="environment-variables/">Environment variables</a></li>
 <li>Programmatic interfaces: the API pages listed below</li>
 </ul>
 <h2 id="configuration-contracts">Configuration contracts<a class="headerlink" href="#configuration-contracts" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="metadata-schema/">Metadata schema</a> — <strong>generated</strong> from <code>datacoolie.core.models</code>.
-  Covers the full field-level schema for <code>Connection</code>, <code>DataFlow</code>, <code>Transform</code>,
-  schema hints, load strategies, watermark config, and partition config.</li>
+<li><a href="metadata-schema/#metadata-document">Metadata reference</a> — the generated authored-field
+  reference from the project-owned, versioned JSON Schema. Browse the published
+  schema index at <a href="../schema/index.json"><code>/schema/index.json</code></a>, or the current
+  <a href="../schema/latest/metadata.schema.json"><code>latest</code> schema</a> for authoring, and use
+  <code>dc validate</code> for authoritative structural validation. The page explains
+  authored paths and reviewed runtime behavior for <code>Connection</code>, <code>DataFlow</code>,
+  <code>Transform</code>, schema hints, load strategies, watermark config, and partition
+  config; it does not own <code>DataCoolieRunConfig</code> or <code>ReplayConfig</code>.</li>
+<li><a href="runtime-configuration/">Runtime configuration</a> — <strong>generated</strong> from the
+  Driver session models and <code>LogConfig</code>; covers <code>run_attributes</code>, sharding,
+  retries, replay ranges, persistence and console settings.</li>
 <li><a href="plugin-entry-points/">Plugin entry points</a> — <strong>generated</strong> from
   <code>pyproject.toml</code>. Lists packaged entry-point declarations; in-process-only
   built-ins are called out separately.</li>
 <li><a href="environment-variables/">Environment variables</a> — runtime overrides that
   DataCoolie reads from the process environment.</li>
-<li><a href="cli/">CLI</a> — runner scripts available under <code>usecase-sim/runner/</code>.</li>
+<li><a href="../guide/cli/">CLI</a> — portable project preparation, validation, inspection, and builds.</li>
+<li><a href="../guide/cli/project/">Project configuration</a> — <code>datacoolie.yml</code>, project workflow, and artifact layout.</li>
 </ul>
 <h2 id="python-api-reference">Python API reference<a class="headerlink" href="#python-api-reference" title="Permanent link">&para;</a></h2>
-<p>All packages are rendered directly from docstrings via <code>mkdocstrings</code>.</p>
+<p>Selected Python contracts are rendered from source via <code>mkdocstrings</code>.
+Core model fields include runtime-only values; use the metadata reference for
+authored JSON. The API pages also expose the protected hooks required by the
+extension guides. An exported helper or documented hook does not imply a new
+compatibility guarantee; check the installed framework when upgrading plugins.</p>
 <ul>
-<li><a href="api/core/">Core</a> — <code>Connection</code>, <code>Source</code>, <code>Destination</code>, <code>Transform</code>, <code>DataFlow</code>, <code>ReplayConfig</code>, <code>DataCoolieRunConfig</code>, registry helpers.</li>
+<li><a href="api/core/">Core</a> — hydrated metadata models, constants, six registry factories, registry, secrets and shared exceptions. Runtime models are on <a href="runtime-configuration/">Runtime configuration</a>.</li>
 <li><a href="api/engines/">Engines</a> — <code>BaseEngine[DF]</code>, <code>PolarsEngine</code>, <code>SparkEngine</code>.</li>
-<li><a href="api/platforms/">Platforms</a> — <code>BasePlatform</code>, <code>LocalPlatform</code>, <code>AWSPlatform</code>.</li>
+<li><a href="api/platforms/">Platforms</a> — <code>BasePlatform</code>, <code>LocalPlatform</code>, <code>AWSPlatform</code>, <code>FabricPlatform</code>, and <code>DatabricksPlatform</code>.</li>
 <li><a href="api/sources/">Sources</a> — <code>BaseSourceReader</code>, <code>FileReader</code>, <code>APIReader</code>.</li>
 <li><a href="api/destinations/">Destinations</a> — <code>BaseDestinationWriter</code>, <code>FileWriter</code>.</li>
-<li><a href="api/transformers/">Transformers</a> — built-in transformers (<code>SchemaConverter</code>, <code>Deduplicator</code>, <code>ColumnAdder</code>, <code>RowFilter</code>, <code>SCD2ColumnAdder</code>, <code>SystemColumnAdder</code>, <code>PartitionHandler</code>, <code>ColumnNameSanitizer</code>) and <code>TransformerPipeline</code>.</li>
+<li><a href="api/transformers/">Transformers</a> — built-in transformers (<code>ColumnValueTransformer</code>, <code>SchemaConverter</code>, <code>HashColumnAdder</code>, <code>Deduplicator</code>, <code>ColumnAdder</code>, <code>RowFilter</code>, <code>SCD2ColumnAdder</code>, <code>SystemColumnAdder</code>, <code>PartitionHandler</code>, <code>DataMasker</code>, <code>ColumnProjector</code>, <code>ColumnNameSanitizer</code>) and <code>TransformerPipeline</code>.</li>
 <li><a href="api/orchestration/">Orchestration</a> — <code>DataCoolieDriver</code>, <code>JobDistributor</code>, <code>ParallelExecutor</code>.</li>
 <li><a href="api/metadata/">Metadata</a> — provider classes and <code>BaseMetadataProvider</code>.</li>
 <li><a href="api/watermark/">Watermark</a> — <code>WatermarkManager</code> and the raw-JSON contract.</li>
-<li><a href="api/logging/">Logging</a> — <code>ETLLogger</code>, <code>LogPurpose</code>, <code>create_etl_logger</code>.</li>
+<li><a href="api/logging/">Logging</a> — <code>ExecutionLogger</code>, <code>SystemLogger</code>, persistence modes, and factories.</li>
 </ul>
 
 
@@ -3659,6 +4995,8 @@ their source <code>.md</code> files checked into <code>docs/reference/</code>.</
         <script src="../assets/javascripts/mermaid-loader.js"></script>
       
         <script src="../assets/javascripts/zoomable-media.js"></script>
+      
+        <script src="../assets/javascripts/example-code.js"></script>
       
     
   </body>

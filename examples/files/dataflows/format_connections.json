@@ -1,0 +1,14 @@
+{
+  "connections": [
+    {"name": "csv", "connection_type": "file", "format": "csv", "configure": {"base_path": "data/input/csv"}},
+    {"name": "parquet", "connection_type": "file", "format": "parquet", "configure": {"base_path": "data/input/parquet"}},
+    {"name": "json", "connection_type": "file", "format": "json", "configure": {"base_path": "data/input/json"}},
+    {"name": "jsonl", "connection_type": "file", "format": "jsonl", "configure": {"base_path": "data/input/jsonl"}},
+    {"name": "avro", "connection_type": "file", "format": "avro", "configure": {"base_path": "data/input/avro"}},
+    {"name": "excel", "connection_type": "file", "format": "excel", "configure": {"base_path": "data/input/excel"}},
+    {"name": "delta", "connection_type": "lakehouse", "format": "delta", "configure": {"base_path": "data/input/delta"}},
+    {"name": "iceberg", "connection_type": "lakehouse", "format": "iceberg", "configure": {"base_path": "data/input/iceberg"}},
+    {"name": "database", "connection_type": "database", "format": "sql", "configure": {"url": "sqlite:///metadata.db"}},
+    {"name": "rest", "connection_type": "api", "format": "api", "configure": {"base_url": "http://127.0.0.1:8080"}}
+  ]
+}

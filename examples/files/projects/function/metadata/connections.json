@@ -1,0 +1,16 @@
+{
+  "connections": [
+    {
+      "name": "function_source",
+      "connection_type": "function",
+      "format": "function",
+      "configure": {}
+    },
+    {
+      "name": "local_output",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {"base_path": "./data/output"}
+    }
+  ]
+}
