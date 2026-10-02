@@ -316,7 +316,7 @@ class TestGetSecret:
                 p._fetch_secret("key", "https://myvault.vault.azure.net/")
 
     def test_is_base_secret_provider(self) -> None:
-        from datacoolie.core.secret_provider import BaseSecretProvider
+        from datacoolie.core.secrets.provider import BaseSecretProvider
         assert isinstance(FabricPlatform(), BaseSecretProvider)
 
 

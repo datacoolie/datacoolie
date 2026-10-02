@@ -166,6 +166,17 @@ class TestDiscovery:
         with patch("datacoolie.core.registry.entry_points", return_value=[mock_ep]):
             assert registry.is_available("broken") is False
 
+    def test_get_reports_broken_entry_point_cause(self, registry: PluginRegistry) -> None:
+        mock_ep = MagicMock()
+        mock_ep.name = "broken"
+        mock_ep.load.side_effect = ImportError("missing dependency")
+
+        with patch("datacoolie.core.registry.entry_points", return_value=[mock_ep]):
+            with pytest.raises(DataCoolieError, match="failed to load") as exc_info:
+                registry.get("broken")
+
+        assert isinstance(exc_info.value.__cause__, ImportError)
+
     def test_discover_runs_only_once(self, registry: PluginRegistry) -> None:
         with patch("datacoolie.core.registry.entry_points", return_value=[]) as mock_ep_fn:
             registry.list_plugins()
@@ -338,16 +349,17 @@ class TestGlobalRegistries:
         mock_get.assert_called_once_with("local", config={"region": "us"})
 
     def test_register_builtins_swallows_registration_errors(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import datacoolie
+        from datacoolie import _bootstrap
 
-        monkeypatch.setattr(datacoolie.engine_registry, "register", MagicMock(side_effect=RuntimeError("boom")))
-        monkeypatch.setattr(datacoolie.platform_registry, "register", MagicMock(side_effect=RuntimeError("boom")))
-        monkeypatch.setattr(datacoolie.source_registry, "register", MagicMock(side_effect=RuntimeError("boom")))
-        monkeypatch.setattr(datacoolie.destination_registry, "register", MagicMock(side_effect=RuntimeError("boom")))
-        monkeypatch.setattr(datacoolie.transformer_registry, "register", MagicMock(side_effect=RuntimeError("boom")))
+        state = _bootstrap._runtime_state()
+        monkeypatch.setattr(state["engine_registry"], "register", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(state["platform_registry"], "register", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(state["source_registry"], "register", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(state["destination_registry"], "register", MagicMock(side_effect=RuntimeError("boom")))
+        monkeypatch.setattr(state["transformer_registry"], "register", MagicMock(side_effect=RuntimeError("boom")))
 
         # Defensive behavior: optional dependency or registration failures should not fail import.
-        datacoolie._register_builtins()
+        _bootstrap._register_builtins()
 
 
 # ---------------------------------------------------------------------------
@@ -420,6 +432,29 @@ class TestGetOrCreate:
         # All threads must have received the exact same instance
         assert all(r is results[0] for r in results)
 
+    def test_recursive_constructor_fails_instead_of_deadlocking(self) -> None:
+        reg = PluginRegistry("test.recursive", _DummyBase)
+
+        class Recursive(_DummyBase):
+            def __init__(self) -> None:
+                reg.get_or_create("recursive")
+
+            def run(self) -> str:
+                return "recursive"
+
+        reg.register("recursive", Recursive)
+        with pytest.raises(DataCoolieError, match="Recursive singleton"):
+            reg.get_or_create("recursive")
+
+    def test_replacing_plugin_invalidates_cached_instance(self, registry: PluginRegistry) -> None:
+        registry.register("alpha", _ConcreteA)
+        first = registry.get_or_create("alpha")
+        registry.register("alpha", _ConcreteB)
+        second = registry.get_or_create("alpha")
+        assert isinstance(first, _ConcreteA)
+        assert isinstance(second, _ConcreteB)
+        assert second is not first
+
     def test_triggers_discovery(self, registry: PluginRegistry) -> None:
         mock_ep = MagicMock()
         mock_ep.name = "discovered"
@@ -430,6 +465,74 @@ class TestGetOrCreate:
 
         assert isinstance(result, _ConcreteA)
         mock_ep.load.assert_called_once()
+
+    def test_stale_failure_cannot_poison_replacement(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+        errors: list[BaseException] = []
+
+        class BlockingFailure(_DummyBase):
+            def __init__(self) -> None:
+                started.set()
+                release.wait(timeout=2)
+                raise RuntimeError("old generation failed")
+
+            def run(self) -> str:
+                return "old"
+
+        reg = PluginRegistry("test.stale-failure", _DummyBase)
+        reg.register("shared", BlockingFailure)
+
+        def construct() -> None:
+            try:
+                reg.get_or_create("shared")
+            except BaseException as exc:  # the stale attempt is expected to fail
+                errors.append(exc)
+
+        thread = threading.Thread(target=construct)
+        thread.start()
+        assert started.wait(timeout=2)
+        reg.register("shared", _ConcreteA)
+        release.set()
+        thread.join(timeout=2)
+
+        assert not thread.is_alive()
+        assert errors
+        assert isinstance(reg.get_or_create("shared"), _ConcreteA)
+
+    def test_clear_invalidates_inflight_success(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+        errors: list[BaseException] = []
+
+        class BlockingSuccess(_DummyBase):
+            def __init__(self) -> None:
+                started.set()
+                release.wait(timeout=2)
+
+            def run(self) -> str:
+                return "old"
+
+        reg = PluginRegistry("test.clear-inflight", _DummyBase)
+        reg.register("shared", BlockingSuccess)
+
+        def construct() -> None:
+            try:
+                reg.get_or_create("shared")
+            except BaseException as exc:
+                errors.append(exc)
+
+        thread = threading.Thread(target=construct)
+        thread.start()
+        assert started.wait(timeout=2)
+        reg.clear_singletons()
+        release.set()
+        thread.join(timeout=2)
+
+        assert not thread.is_alive()
+        assert errors
+        fresh = reg.get_or_create("shared")
+        assert isinstance(fresh, BlockingSuccess)
 
 
 # ---------------------------------------------------------------------------

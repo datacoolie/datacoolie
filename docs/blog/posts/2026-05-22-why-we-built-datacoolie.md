@@ -21,9 +21,9 @@ We built DataCoolie to solve this by separating **pipeline intent** from **execu
 
 Every time a data engineer moves a pipeline from local development to production, they face:
 
-1. **Engine lock-in** — code written for Polars doesn't run on Spark (and vice versa). See [Engines](../../concepts/engines.md).
-2. **Platform coupling** — file paths, secrets, and auth differ per cloud. See [Platforms](../../concepts/platforms.md).
-3. **Operational drift** — [watermarks](../../concepts/watermarks.md), partitioning, and [load strategies](../../concepts/load-strategies.md) get reimplemented per job.
+1. **Engine lock-in** — code written for Polars doesn't run on Spark (and vice versa). See [Engines](../../reference/concepts/engines.md).
+2. **Platform coupling** — file paths, secrets, and auth differ per cloud. See [Platforms](../../reference/concepts/platforms.md).
+3. **Operational drift** — [watermarks](../../reference/concepts/watermarks.md), partitioning, and [load strategies](../../reference/concepts/load-strategies.md) get reimplemented per job.
 4. **Configuration sprawl** — environment-specific configs multiply across repos.
 5. **Repetitive boilerplate** — the same patterns (read → transform → merge → watermark) rewritten hundreds of times with minor variations.
 
@@ -33,9 +33,9 @@ Problem 5 is the one nobody talks about. It's boring work — and it's exactly t
 
 Instead of encoding pipeline behavior in imperative code, DataCoolie externalizes it as **declarative metadata**:
 
-- **[Connections](../../concepts/metadata-model.md)** describe where data lives (local paths, S3, ADLS, Delta tables)
+- **[Connections](../../reference/concepts/metadata-model.md)** describe where data lives (local paths, S3, ADLS, Delta tables)
 - **Dataflows** describe what moves where, with schema hints and load strategies
-- **[Transforms](../../concepts/transformers-and-pipeline.md)** describe column-level logic in a portable DSL
+- **[Transforms](../../reference/concepts/transformers-and-pipeline.md)** describe column-level logic in a portable DSL
 - **Operational controls** (watermarks, partitions, maintenance) are declared, not coded
 
 Compatible canonical dataflow intent can run on Polars for development and
@@ -68,14 +68,17 @@ provide the authoritative check before execution.
 
 ### 2. AI Validates and Lints Metadata
 
-`datacoolie-build` owns the versioned JSON Schema and deterministic validation, lint, conversion, and environment-resolution helpers. The AI runs them from the installed skill while building; they are not commands added to the DataCoolie framework package:
+The installed DataCoolie CLI owns deterministic project validation, metadata
+conversion, environment preparation, and build output. The AI skill supplies
+authoring guidance but does not vendor another validator:
 
 ```bash
-# Skill-owned validation during development
-python <datacoolie-build-skill>/scripts/validate.py resolved-metadata.json
+# Validate the authored project or one metadata document
+dc validate --metadata-path resolved-metadata.json --format json
 
-# Optional checked-in automation for CI/reproducible builds
-python automation/build.py --workspace . --environment dev
+# From a target project containing datacoolie.yml, after the build skill
+# has generated automation/build.py for that project
+python automation/build.py
 ```
 
 The AI assistant can run these checks inline as you iterate, catching issues before they reach production.
@@ -89,23 +92,22 @@ This is the core value proposition: **metadata is a stable, schema-validated int
 ## What This Means in Practice
 
 ```bash
-# Compatible metadata, different engines
-datacoolie run --engine polars   # local dev, fast iteration
-datacoolie run --engine spark    # production scale
+# Project preparation is CLI-owned; execution remains in a project runner
+dc validate --project-dir orders --format json
+dc build --project-dir orders --format json
 ```
 
 ```bash
-# Compatible metadata, different platforms
-datacoolie run --platform local       # laptop
-datacoolie run --platform fabric      # Microsoft Fabric
-datacoolie run --platform databricks  # Databricks
+# The runner selects the engine/platform explicitly for each host
+python orders/runners/dev/run_local_polars.py
+python orders/runners/prod/run_fabric_spark.py
 ```
 
 ```bash
 # AI-assisted workflow
 # 1. Describe what you need → AI generates metadata
 # 2. Validate → AI catches schema errors and anti-patterns
-# 3. Run → framework handles the execution
+# 3. Execute → a project-owned runner calls the framework Driver
 # 4. Iterate → AI modifies metadata, not code
 ```
 
@@ -126,4 +128,4 @@ is not a substitute for those unknown-field checks.
 
 ---
 
-Get started: [Installation guide](../../getting-started/installation.md) | [Quickstart](../../getting-started/quickstart-polars.md)
+Get started: [Installation guide](../../guide/getting-started/installation.md) | [Quickstart](../../guide/getting-started/quickstart-polars.md)

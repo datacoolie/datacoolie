@@ -1,0 +1,67 @@
+---
+title: ADR-0003 — Transformer Ordering Slots | DataCoolie
+description: Why DataCoolie assigns numeric ordering slots to built-in transformers so custom transformers can compose predictably.
+---
+
+# ADR-0003 — Number-slot transformer ordering
+
+**Status** · Accepted
+
+## Context
+
+Transformers must run in a **specific order** to be correct:
+
+- Schema conversion must precede deduplication (so keys are the right type).
+- User-configured `ColumnAdder` must precede `SCD2ColumnAdder` so that any
+  calculated columns are already present when SCD2 validity columns are
+  derived from the source effective-date column.
+- SCD2 validity columns must be populated before `SystemColumnAdder` so that
+  `__valid_from` mirrors the business effective date and isn't confused with
+  the later framework audit timestamps.
+- Column name sanitization must run last (or partition columns get
+  renamed after the partition spec is fixed).
+
+Alphabetical ordering and dependency graphs were both tried and both broke
+when plugins entered the picture — plugins can't know to alphabetically
+sort between `ColumnAdder` and `SystemColumnAdder`.
+
+## Decision
+
+Each transformer declares an **integer `order`**. Slots:
+
+| Slots | Owner |
+|---|---|
+| **5** | `ColumnValueTransformer` |
+| **10** | `SchemaConverter` |
+| **18** | `HashColumnAdder` |
+| **20** | `Deduplicator` |
+| **30** | `ColumnAdder` |
+| **35** | `RowFilter` |
+| **40–50** | **User plugins** |
+| **60** | `SCD2ColumnAdder` |
+| **70** | `SystemColumnAdder` |
+| **80** | `PartitionHandler` |
+| **84** | `DataMasker` |
+| **85** | `ColumnProjector` |
+| **90** | `ColumnNameSanitizer` |
+| Other slots | Reserved for future framework work or additional plugins |
+
+`TransformerPipeline.transform()` uses Python's stable sort by `order`.
+Transformers with the same order retain their insertion order, so plugins
+should choose distinct slots when their relative order matters.
+
+Slot ownership is a composition convention. The pipeline does not reject an
+out-of-range order or enforce the user-plugin reservation at runtime.
+
+## Consequences
+
+- Plugins have a clearly reserved range (40–50) with room for two
+  plugins to coexist without colliding.
+- Framework updates that insert new built-in transformers must choose an
+  unused slot and not shift existing ones.
+- Renumbering slots is a **breaking change** — ADR supersession required.
+
+## Related
+
+- [Custom transformer ordering and activation](../../extensions/writing-a-transformer.md)
+- [Pipeline implementation](https://github.com/datacoolie/datacoolie/blob/main/src/datacoolie/transformers/base.py)

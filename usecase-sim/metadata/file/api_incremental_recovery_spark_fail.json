@@ -1,0 +1,30 @@
+{
+  "connections": [
+    {"name": "api_recovery_source", "connection_type": "api", "format": "api", "configure": {"base_url": "http://localhost:8082", "timeout": 30}},
+    {"name": "api_recovery_dest", "connection_type": "lakehouse", "format": "delta", "configure": {"base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"}}
+  ],
+  "dataflows": [
+    {
+      "name": "api_incremental_recovery_validation",
+      "stage": "api_incremental_recovery_validation",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "api_recovery_source",
+        "table": "orders",
+        "watermark_columns": ["modified_at"],
+        "configure": {
+          "endpoint": "/api/orders/next-link",
+          "pagination_type": "next_link",
+          "data_path": "records",
+          "next_link_path": "_links.next",
+          "page_size": 5,
+          "max_pages": 1,
+          "params": {"limit": 5},
+          "watermark_param_mapping": {"modified_at": "modified_since"},
+          "watermark_param_format": "iso"
+        }
+      },
+      "destination": {"connection_name": "api_recovery_dest", "table": "api_incremental_recovery_validation", "load_type": "append"}
+    }
+  ]
+}

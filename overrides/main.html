@@ -2,20 +2,22 @@
 
 {#
   Override <title> so the homepage gets a descriptive keyword-rich title
-  instead of the bare site_name. Pages with a front matter `title:` use that
-  value directly (no appended site_name) so it acts as the full title. Pages
-  without front matter title keep the standard "Nav label - Site name" pattern.
+  instead of the bare site_name. An explicit `seo_title:` is the full title;
+  other front matter titles get a concise brand suffix unless already branded.
+  Pages without front matter title keep "Nav label - Site name".
   Guard against page=None when rendering error templates (e.g. 404.html).
 #}
 {% block htmltitle %}
   {% if page and page.is_homepage %}
-    <title>DataCoolie — Metadata-driven ETL framework for Python</title>
+    <title>DataCoolie — Python ETL with Polars and Spark</title>
   {% elif page and page.url.startswith('blog/category/') %}
     <title>{{ page.title }} Python ETL Articles | DataCoolie</title>
   {% elif page and page.url.startswith('blog/archive/') %}
     <title>Data Engineering Articles from {{ page.title }} | DataCoolie</title>
-  {% elif page and page.meta and (page.meta.seo_title or page.meta.title) %}
-    <title>{{ page.meta.seo_title or page.meta.title }}</title>
+  {% elif page and page.meta and page.meta.seo_title %}
+    <title>{{ page.meta.seo_title | e }}</title>
+  {% elif page and page.meta and page.meta.title %}
+    <title>{{ page.meta.title | e }}{% if config.site_name | lower not in page.meta.title | lower %} | {{ config.site_name | e }}{% endif %}</title>
   {% elif page %}
     <title>{{ page.title }} - {{ config.site_name }}</title>
   {% else %}
@@ -33,13 +35,18 @@
 {% block extrahead %}
   {% if page %}
     {% if page.is_homepage %}
-      {% set seo_title = "DataCoolie — Metadata-driven ETL framework for Python" %}
+      {% set seo_title = "DataCoolie — Python ETL with Polars and Spark" %}
     {% elif page.url.startswith('blog/category/') %}
       {% set seo_title = page.title ~ " Python ETL Articles | DataCoolie" %}
     {% elif page.url.startswith('blog/archive/') %}
       {% set seo_title = "Data Engineering Articles from " ~ page.title ~ " | DataCoolie" %}
-    {% elif page.meta and (page.meta.seo_title or page.meta.title) %}
-      {% set seo_title = page.meta.seo_title or page.meta.title %}
+    {% elif page.meta and page.meta.seo_title %}
+      {% set seo_title = page.meta.seo_title %}
+    {% elif page.meta and page.meta.title %}
+      {% set seo_title = page.meta.title %}
+      {% if config.site_name | lower not in seo_title | lower %}
+        {% set seo_title = seo_title ~ " | " ~ config.site_name %}
+      {% endif %}
     {% else %}
       {% set seo_title = page.title ~ " - " ~ config.site_name %}
     {% endif %}
@@ -51,9 +58,14 @@
       {% set seo_description = page.meta.description or config.site_description %}
     {% endif %}
     {% set seo_url = page.canonical_url %}
-    {% set is_blog = page.url.startswith('blog/') and not page.url == 'blog/' %}
+    {% set is_blog = page.meta.get('template') == 'blog-post.html' %}
+    {% set is_blog_listing = page.url.startswith('blog/') and not is_blog %}
     {% if page.meta and page.meta.og_image %}
-      {% set seo_image = config.site_url ~ page.meta.og_image %}
+      {% if page.meta.og_image.startswith('https://') %}
+        {% set seo_image = page.meta.og_image %}
+      {% else %}
+        {% set seo_image = config.site_url ~ page.meta.og_image.lstrip('/') %}
+      {% endif %}
     {% else %}
       {% set seo_image = config.site_url ~ "images/banners/datacoolie-og-1200x630.webp" %}
     {% endif %}
@@ -65,15 +77,16 @@
     <meta name="msvalidate.01" content="374A47D942D44B14AB4A3DA7F035E041" />
 
     <!-- Open Graph -->
+    <meta name="robots" content="max-image-preview:large" />
     <meta property="og:type" content="{% if is_blog %}article{% else %}website{% endif %}" />
     <meta property="og:site_name" content="{{ config.site_name }}" />
-    <meta property="og:title" content="{{ seo_title }}" />
-    <meta property="og:description" content="{{ seo_description }}" />
+    <meta property="og:title" content="{{ seo_title | e }}" />
+    <meta property="og:description" content="{{ seo_description | e }}" />
     <meta property="og:url" content="{{ seo_url }}" />
-    <meta property="og:image" content="{{ seo_image }}" />
+    <meta property="og:image" content="{{ seo_image | e }}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="{{ seo_title }}" />
+    <meta property="og:image:alt" content="{{ seo_title | e }}" />
     {% if is_blog and page.meta and page.meta.date %}
     <meta property="article:published_time" content="{{ page.meta.date | string }}" />
     <meta property="article:modified_time" content="{{ (page.meta.updated or page.meta.date) | string }}" />
@@ -82,10 +95,10 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="{{ seo_title }}" />
-    <meta name="twitter:description" content="{{ seo_description }}" />
-    <meta name="twitter:image" content="{{ seo_image }}" />
-    <meta name="twitter:image:alt" content="{{ seo_title }}" />
+    <meta name="twitter:title" content="{{ seo_title | e }}" />
+    <meta name="twitter:description" content="{{ seo_description | e }}" />
+    <meta name="twitter:image" content="{{ seo_image | e }}" />
+    <meta name="twitter:image:alt" content="{{ seo_title | e }}" />
 
     <!-- JSON-LD structured data -->
     {% if page.is_homepage %}
@@ -139,33 +152,26 @@
     }
     </script>
     {% else %}
-    {# Build breadcrumb from URL path segments #}
-    {% set url_parts = page.url.split('/') | reject('equalto', '') | list %}
-    {% if url_parts | length > 0 %}
+    {# Only link actual pages, not synthetic date or source-code folders. #}
+    {% if seo_breadcrumbs | length > 1 %}
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
+        {% for crumb in seo_breadcrumbs %}
         {
           "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": {{ config.site_url | tojson }}
-        }{% for part in url_parts %},
-        {
-          "@type": "ListItem",
-          "position": {{ loop.index + 1 }},
-          "name": {% if loop.last %}{{ seo_title | tojson }}{% else %}{{ part | replace('-', ' ') | title | tojson }}{% endif %},
-          "item": {{ (config.site_url ~ url_parts[:loop.index] | join('/') ~ '/') | tojson }}
-        }{% endfor %}
+          "position": {{ loop.index }},
+          "name": {{ crumb.name | tojson }},
+          "item": {{ crumb.url | tojson }}
+        }{% if not loop.last %},{% endif %}{% endfor %}
       ]
     }
     </script>
     {% endif %}
     {# Determine page schema type based on URL path #}
-    {% set is_howto = page.url.startswith('how-to/') %}
-    {% set is_tutorial = page.url.startswith('getting-started/') %}
+    {% set is_guide = page.url.startswith('guide/') or page.url.startswith('examples/') %}
     {% set is_reference = page.url.startswith('reference/') %}
     <script type="application/ld+json">
     {
@@ -192,7 +198,9 @@
         "height": 630
       },
       "mainEntityOfPage": { "@id": {{ seo_url | tojson }} },
-      {% elif is_howto or is_tutorial %}
+      {% elif is_blog_listing %}
+      "@type": "CollectionPage",
+      {% elif is_guide %}
       "@type": "TechArticle",
       "proficiencyLevel": "Beginner",
       {% elif is_reference %}

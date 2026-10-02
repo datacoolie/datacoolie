@@ -8,8 +8,6 @@ from datacoolie.core.constants import (
     DatabaseType,
     Format,
     LoadType,
-    LogPurpose,
-    LogType,
     MaintenanceType,
     ProcessingMode,
     ColumnCaseMode,
@@ -28,18 +26,12 @@ from datacoolie.core.exceptions import (
     TransformError,
     WatermarkError,
 )
-from datacoolie.core.models import (
-    SchemaHint,
-    PartitionColumn,
-    AdditionalColumn,
-    Connection,
-    Source,
-    Destination,
-    Transform,
-    DataFlow,
-    DataCoolieRunConfig,
-    ReplayConfig,
-)
+from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.transform import AdditionalColumn, SchemaHint, Transform
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig
 from datacoolie.core.registry import PluginRegistry
 
 __all__ = [
@@ -51,8 +43,6 @@ __all__ = [
     "DatabaseType",
     "Format",
     "LoadType",
-    "LogPurpose",
-    "LogType",
     "MaintenanceType",
     "ProcessingMode",
     "ColumnCaseMode",

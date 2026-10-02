@@ -67,7 +67,7 @@ def test_new_session_applies_defaults_then_overrides(
     assert "spark.sql.parquet.int96RebaseModeInRead" in dict(builder.configs)
 
 
-def test_existing_session_is_reused_and_config_failures_are_ignored(
+def test_existing_session_only_applies_explicit_config_and_ignores_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = _load_module(monkeypatch, _Builder())
@@ -89,6 +89,21 @@ def test_existing_session_is_reused_and_config_failures_are_ignored(
     assert result is existing
     assert ("custom.fail", "x") in applied
     assert ("custom.ok", "y") in applied
+    assert all("int96RebaseMode" not in key for key, _ in applied)
+    assert all("outputTimestampType" not in key for key, _ in applied)
+
+
+def test_new_session_defaults_to_portable_parquet_timestamps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    builder = _Builder()
+    module = _load_module(monkeypatch, builder)
+
+    module.get_or_create_spark_session(app_name="tests")
+
+    assert dict(builder.configs)["spark.sql.parquet.outputTimestampType"] == (
+        "TIMESTAMP_MICROS"
+    )
 
 
 def test_flat_session_builder_module_is_removed() -> None:

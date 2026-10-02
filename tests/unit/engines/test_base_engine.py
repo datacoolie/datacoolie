@@ -10,6 +10,7 @@ import pytest
 
 from datacoolie.core.exceptions import EngineError, TransformError
 from datacoolie.engines.base import BaseEngine
+from datacoolie.engines.contracts.windows import WindowSpec
 
 
 class StubEngine(BaseEngine[dict]):
@@ -59,19 +60,35 @@ class StubEngine(BaseEngine[dict]):
     def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
         raise NotImplementedError
 
-    def merge_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
         raise NotImplementedError
 
-    def merge_overwrite_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_overwrite_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
         raise NotImplementedError
 
-    def write_to_table(self, df, table_name, mode, fmt, partition_columns=None, options=None):
+    def write_to_table(
+        self, df, table_name, mode, fmt, partition_columns=None, options=None
+    ):
         raise NotImplementedError
 
-    def merge_to_table(self, df, table_name, merge_keys, fmt, partition_columns=None, options=None):
+    def merge_to_table(
+        self, df, table_name, merge_keys, fmt, partition_columns=None, options=None
+    ):
         raise NotImplementedError
 
-    def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_overwrite_to_table(
+        self,
+        df,
+        table_name,
+        merge_keys,
+        fmt="delta",
+        partition_columns=None,
+        options=None,
+    ):
         raise NotImplementedError
 
     def delete_by_window_path(self, path, window, fmt="delta"):
@@ -98,7 +115,16 @@ class StubEngine(BaseEngine[dict]):
     def filter_rows(self, df, condition):
         raise NotImplementedError
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">", watermark_end=None, end_operator="<"):
+    def apply_watermark_filter(
+        self,
+        df,
+        watermark_columns,
+        watermark_start,
+        *,
+        start_operator=">",
+        watermark_end=None,
+        end_operator="<",
+    ):
         raise NotImplementedError
 
     def deduplicate(self, df, partition_columns, order_columns=None, keep="first"):
@@ -117,7 +143,7 @@ class StubEngine(BaseEngine[dict]):
     def add_file_info_columns(self, df):
         raise NotImplementedError
 
-    def convert_timestamp_ntz_to_timestamp(self, df):
+    def convert_timestamp_ntz_to_timestamp(self, df, timezone=None):
         return df
 
     def generate_symlink_manifest(self, path):
@@ -152,7 +178,9 @@ class StubEngine(BaseEngine[dict]):
     def table_exists_by_name(self, table_name, *, fmt="delta"):
         raise NotImplementedError
 
-    def get_history_by_path(self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+    def get_history_by_path(
+        self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
         raise NotImplementedError
 
     def compact_by_path(self, path, *, fmt="delta", options=None):
@@ -162,13 +190,17 @@ class StubEngine(BaseEngine[dict]):
         raise NotImplementedError
 
     # --- Table ops by name ---
-    def get_history_by_name(self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+    def get_history_by_name(
+        self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
         raise NotImplementedError
 
     def compact_by_name(self, table_name, *, fmt="delta", options=None):
         raise NotImplementedError
 
-    def cleanup_by_name(self, table_name, retention_hours=168, *, fmt="delta", options=None):
+    def cleanup_by_name(
+        self, table_name, retention_hours=168, *, fmt="delta", options=None
+    ):
         raise NotImplementedError
 
 
@@ -256,13 +288,16 @@ def test_strict_scalar_coercion_contract(
     kwargs: dict[str, object],
     expected: object,
 ) -> None:
-    assert BaseEngine._coerce_scalar_literal(
-        value,
-        kind=kind,
-        field_path="value_rules.value",
-        column="target",
-        **kwargs,
-    ) == expected
+    assert (
+        BaseEngine._coerce_scalar_literal(
+            value,
+            kind=kind,
+            field_path="value_rules.value",
+            column="target",
+            **kwargs,
+        )
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -329,22 +364,52 @@ class TestNavigationMethods:
             self.last_route = "read_excel"
             return {}
 
-        def write_to_table(self, df, table_name, mode, fmt, partition_columns=None, options=None):
+        def write_to_table(
+            self, df, table_name, mode, fmt, partition_columns=None, options=None
+        ):
             self.last_route = "write_to_table"
 
-        def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
+        def write_to_path(
+            self, df, path, mode, fmt, partition_columns=None, options=None
+        ):
             self.last_route = "write_to_path"
 
-        def merge_to_table(self, df, table_name, merge_keys, fmt, partition_columns=None, options=None):
+        def merge_to_table(
+            self, df, table_name, merge_keys, fmt, partition_columns=None, options=None
+        ):
             self.last_route = "merge_to_table"
 
-        def merge_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+        def merge_to_path(
+            self,
+            df,
+            path,
+            merge_keys,
+            fmt="delta",
+            partition_columns=None,
+            options=None,
+        ):
             self.last_route = "merge_to_path"
 
-        def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
+        def merge_overwrite_to_table(
+            self,
+            df,
+            table_name,
+            merge_keys,
+            fmt="delta",
+            partition_columns=None,
+            options=None,
+        ):
             self.last_route = "merge_overwrite_to_table"
 
-        def merge_overwrite_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+        def merge_overwrite_to_path(
+            self,
+            df,
+            path,
+            merge_keys,
+            fmt="delta",
+            partition_columns=None,
+            options=None,
+        ):
             self.last_route = "merge_overwrite_to_path"
 
         def table_exists_by_name(self, table_name, *, fmt="delta"):
@@ -353,11 +418,15 @@ class TestNavigationMethods:
         def table_exists_by_path(self, path, *, fmt="delta"):
             return False
 
-        def get_history_by_path(self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+        def get_history_by_path(
+            self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"
+        ):
             self.last_route = "get_table_history"
             return []
 
-        def get_history_by_name(self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+        def get_history_by_name(
+            self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"
+        ):
             self.last_route = "get_table_history_by_name"
             return []
 
@@ -367,17 +436,27 @@ class TestNavigationMethods:
         def compact_by_name(self, table_name, *, fmt="delta", options=None):
             self.last_route = "compact_table_by_name"
 
-        def cleanup_by_path(self, path, retention_hours=168, *, fmt="delta", options=None):
+        def cleanup_by_path(
+            self, path, retention_hours=168, *, fmt="delta", options=None
+        ):
             self.last_route = "cleanup_table"
 
-        def cleanup_by_name(self, table_name, retention_hours=168, *, fmt="delta", options=None):
+        def cleanup_by_name(
+            self, table_name, retention_hours=168, *, fmt="delta", options=None
+        ):
             self.last_route = "cleanup_table_by_name"
 
     # --- write() ---
 
     def test_write_prefers_table_name(self) -> None:
         e = self._Nav()
-        e.write({}, table_name="cat.db.tbl", path="/some/path", mode="overwrite", fmt="delta")
+        e.write(
+            {},
+            table_name="cat.db.tbl",
+            path="/some/path",
+            mode="overwrite",
+            fmt="delta",
+        )
         assert e.last_route == "write_to_table"
 
     def test_write_falls_back_to_path(self) -> None:
@@ -451,6 +530,7 @@ class TestNavigationMethods:
         e.read("delta", path="/some/path")
         assert e.last_route == "read_delta"
 
+
     def test_read_parquet_format_uses_specific_reader(self) -> None:
         e = self._Nav()
         e.read("parquet", path="/some/path")
@@ -523,6 +603,112 @@ class TestNavigationMethods:
             e.cleanup()
 
 
+class TestReplaceWindow:
+    class _ReplaceEngine(StubEngine):
+        def __init__(self) -> None:
+            self.deleted: list[object] = []
+            self.written: list[object] = []
+
+        def is_empty(self, df):
+            return not bool(df)
+
+        def get_columns(self, df):
+            return ["modified_at"] if not df else super().get_columns(df)
+
+        def delete_by_window_path(self, path, window, fmt="delta"):
+            self.deleted.append((path, window, fmt))
+
+        def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
+            self.written.append((df, path, mode, fmt))
+
+    def test_valid_window_deletes_then_appends_inside_engine(self) -> None:
+        engine = self._ReplaceEngine()
+        engine.replace_window(
+            {"modified_at": "2026-09-01"},
+            path="/tmp/orders",
+            window=WindowSpec(bounds={"modified_at": ("2026-09-01", "2026-09-02")}),
+            fmt="delta",
+        )
+        assert len(engine.deleted) == 1
+        assert len(engine.written) == 1
+        assert engine.written[0][2] == "append"
+
+    def test_empty_window_does_not_append(self) -> None:
+        engine = self._ReplaceEngine()
+        engine.replace_window(
+            {},
+            path="/tmp/orders",
+            window=WindowSpec(bounds={"modified_at": ("2026-09-01", "2026-09-02")}),
+            fmt="delta",
+        )
+        assert len(engine.deleted) == 1
+        assert engine.written == []
+
+    def test_invalid_input_fails_before_delete(self) -> None:
+        engine = self._ReplaceEngine()
+        with pytest.raises(EngineError, match="missing watermark column"):
+            engine.replace_window(
+                {"id": 1},
+                path="/tmp/orders",
+                window=WindowSpec(bounds={"modified_at": ("2026-09-01", "2026-09-02")}),
+                fmt="delta",
+            )
+        assert engine.deleted == []
+
+    def test_replace_window_releases_engine_owned_staging(self) -> None:
+        engine = self._ReplaceEngine()
+        released: list[object] = []
+
+        def prepare(df):
+            return {"modified_at": "stable"}
+
+        def release(stable_df, *, original):
+            released.append((stable_df, original))
+
+        engine._prepare_replace_window_input = prepare  # type: ignore[method-assign]
+        engine._release_replace_window_input = release  # type: ignore[method-assign]
+        engine.replace_window(
+            {"modified_at": "source"},
+            path="/tmp/orders",
+            window=WindowSpec(bounds={"modified_at": (1, 2)}),
+            fmt="delta",
+        )
+
+        assert released == [({"modified_at": "stable"}, {"modified_at": "source"})]
+
+    def test_cleanup_failure_does_not_hide_replace_failure(self) -> None:
+        engine = self._ReplaceEngine()
+
+        def delete(*args, **kwargs):
+            raise RuntimeError("replace failed")
+
+        def release(*args, **kwargs):
+            raise RuntimeError("cleanup failed")
+
+        engine.delete_by_window_path = delete  # type: ignore[method-assign]
+        engine._release_replace_window_input = release  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError, match="replace failed"):
+            engine.replace_window(
+                {"modified_at": "source"},
+                path="/tmp/orders",
+                window=WindowSpec(bounds={"modified_at": (1, 2)}),
+            )
+
+    def test_cleanup_failure_is_reported_when_replace_succeeds(self) -> None:
+        engine = self._ReplaceEngine()
+
+        def release(*args, **kwargs):
+            raise RuntimeError("cleanup failed")
+
+        engine._release_replace_window_input = release  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError, match="cleanup failed"):
+            engine.replace_window(
+                {"modified_at": "source"},
+                path="/tmp/orders",
+                window=WindowSpec(bounds={"modified_at": (1, 2)}),
+            )
+
+
 class TestEnginesInitLazyImport:
     def test_public_exports_are_engine_contracts_only(self) -> None:
         import datacoolie.engines as eng_mod
@@ -533,19 +719,24 @@ class TestEnginesInitLazyImport:
 
     def test_polars_engine_lazy_import(self) -> None:
         import datacoolie.engines as eng_mod
+
         cls = eng_mod.__getattr__("PolarsEngine")
         from datacoolie.engines.polars_engine import PolarsEngine
+
         assert cls is PolarsEngine
 
     @pytest.mark.spark
     def test_spark_engine_lazy_import(self) -> None:
         import datacoolie.engines as eng_mod
+
         cls = eng_mod.__getattr__("SparkEngine")
         from datacoolie.engines.spark_engine import SparkEngine
+
         assert cls is SparkEngine
 
     def test_unknown_attr_raises_attribute_error(self) -> None:
         import datacoolie.engines as eng_mod
+
         with pytest.raises(AttributeError):
             eng_mod.__getattr__("NoSuchEngine")
 
@@ -557,31 +748,31 @@ class TestBaseEngineUncoveredBranches:
         """Lines 147-151: raise EngineError when column not found."""
         engine = StubEngine()
         with pytest.raises(EngineError, match="Column 'missing' not found"):
-            engine._resolve_column_name(['col1', 'col2'], 'missing')
+            engine._resolve_column_name(["col1", "col2"], "missing")
 
     def test_delete_by_window_no_args_raises(self) -> None:
         """Lines 922-925: delete_by_window raises when neither table_name nor path given."""
         engine = StubEngine()
-        with pytest.raises(EngineError, match='requires table_name or path'):
-            engine.delete_by_window(table_name=None, window={'col': (1, 10)})
+        with pytest.raises(EngineError, match="requires table_name or path"):
+            engine.delete_by_window(table_name=None, window=WindowSpec(bounds={"col": (1, 10)}))
 
     def test_scd2_to_path_raises_not_implemented(self) -> None:
         """Line 1073: scd2_to_path raises NotImplementedError by default."""
         engine = StubEngine()
         with pytest.raises(NotImplementedError):
-            engine.scd2_to_path({}, 'path', merge_keys=['id'])
+            engine.scd2_to_path({}, "path", merge_keys=["id"])
 
     def test_scd2_to_table_raises_not_implemented(self) -> None:
         """Line 1085: scd2_to_table raises NotImplementedError by default."""
         engine = StubEngine()
         with pytest.raises(NotImplementedError):
-            engine.scd2_to_table({}, 'tbl', merge_keys=['id'])
+            engine.scd2_to_table({}, "tbl", merge_keys=["id"])
 
     def test_scd2_dispatcher_no_args_raises(self) -> None:
         """Lines 1102-1106: scd2() raises when neither table_name nor path given."""
         engine = StubEngine()
-        with pytest.raises(EngineError, match='requires table_name or path'):
-            engine.scd2({}, merge_keys=['id'])
+        with pytest.raises(EngineError, match="requires table_name or path"):
+            engine.scd2({}, merge_keys=["id"])
 
 
 class TestBaseEngineRemainingLines:
@@ -594,18 +785,19 @@ class TestBaseEngineRemainingLines:
         """Line 150: _resolve_column_name raises EngineError when column missing."""
         engine = self._make_engine()
         with pytest.raises(EngineError, match="not found"):
-            engine._resolve_column_name(['col_a', 'col_b'], 'missing_col')
+            engine._resolve_column_name(["col_a", "col_b"], "missing_col")
 
     def test_delete_by_window_no_table_or_path_raises(self) -> None:
         """Line 923: delete_by_window raises when both table_name and path are None."""
         engine = self._make_engine()
         with pytest.raises(EngineError, match="requires table_name or path"):
-            engine.delete_by_window(table_name=None, path=None, window={'col': (1, 10)})
+            engine.delete_by_window(table_name=None, path=None, window=WindowSpec(bounds={"col": (1, 10)}))
 
     def test_scd2_no_table_or_path_raises(self) -> None:
         """Line 1103: scd2() raises when both table_name and path are None."""
         import polars as pl
+
         engine = self._make_engine()
-        df = pl.DataFrame({'id': [1], 'val': ['a']})
+        df = pl.DataFrame({"id": [1], "val": ["a"]})
         with pytest.raises(EngineError, match="requires table_name or path"):
-            engine.scd2(df, table_name=None, path=None, merge_keys=['id'])
+            engine.scd2(df, table_name=None, path=None, merge_keys=["id"])

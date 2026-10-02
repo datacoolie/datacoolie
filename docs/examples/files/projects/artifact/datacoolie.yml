@@ -1,0 +1,15 @@
+schema_version: 1
+project:
+  name: artifact-project
+components:
+  metadata:
+    path: metadata
+    output:
+      layout: single
+      format: json
+  sql:
+    path: queries
+environments:
+  dev:
+    platform: local
+

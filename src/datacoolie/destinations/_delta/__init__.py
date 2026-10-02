@@ -1,0 +1,1 @@
+"""Delta destination internals."""

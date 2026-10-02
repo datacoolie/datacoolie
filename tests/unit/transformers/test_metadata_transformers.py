@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 import pytest
 
 from datacoolie.core.exceptions import ConfigurationError
-from datacoolie.core.models import HashColumn, MaskingRule, Transform, ValueRule
+from datacoolie.core.models.transform import HashColumn, MaskingRule, Transform, ValueRule
 from datacoolie.transformers.column_projector import ColumnProjector
 from datacoolie.transformers.column_value_transformer import ColumnValueTransformer
 from datacoolie.transformers.data_masker import DataMasker
@@ -151,6 +153,29 @@ def test_value_rules_track_all_missing_rules_as_skipped() -> None:
     assert transformer.applied_label is None
 
 
+def test_value_rules_emit_one_debug_summary(caplog) -> None:
+    caplog.set_level(logging.DEBUG, logger="datacoolie.transformers.column_value_transformer")
+    engine = MockEngine()
+    engine.set_columns(["name"])
+    flow = make_dataflow()
+    flow.transform = Transform(
+        value_rules=[
+            {"operation": "trim", "columns": ["name"]},
+            {"operation": "trim", "columns": ["missing"]},
+        ],
+        configure={"missing_column_policy": "ignore"},
+    )
+
+    ColumnValueTransformer(engine).transform({"name": [" A "]}, flow)
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages.count(
+        "ColumnValueTransformer: configured_rules=2, matched_rules=1, "
+        "unmatched_rules=1, ignored_references=1"
+    ) == 1
+
+
+
 def test_masker_rejects_merge_key() -> None:
     engine = MockEngine()
     flow = make_dataflow(merge_keys=["id"])
@@ -194,6 +219,28 @@ def test_masker_tracks_all_missing_rules_as_skipped() -> None:
     transformer.transform({"email": ["a@example.com"]}, flow)
 
     assert transformer.applied_label is None
+
+
+def test_masker_emits_one_debug_summary(caplog) -> None:
+    caplog.set_level(logging.DEBUG, logger="datacoolie.transformers.data_masker")
+    engine = MockEngine()
+    engine.set_columns(["email"])
+    flow = make_dataflow()
+    flow.transform = Transform(
+        masking_rules=[
+            {"method": "nullify", "columns": ["email"]},
+            {"method": "nullify", "columns": ["missing"]},
+        ],
+        configure={"missing_column_policy": "ignore"},
+    )
+
+    DataMasker(engine).transform({"email": ["a@example.com"]}, flow)
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages.count(
+        "DataMasker: configured_rules=2, matched_rules=1, "
+        "unmatched_rules=1, ignored_references=1"
+    ) == 1
 
 
 def test_projector_selects_then_renames() -> None:
@@ -240,6 +287,25 @@ def test_projector_all_missing_ignored_drop_and_rename_is_skipped() -> None:
     assert engine._rename_batches == []
 
 
+def test_projector_emits_one_debug_summary(caplog) -> None:
+    caplog.set_level(logging.DEBUG, logger="datacoolie.transformers.column_projector")
+    engine = MockEngine()
+    engine.set_columns(["id", "name"])
+    flow = make_dataflow()
+    flow.transform = Transform(
+        drop_columns=["missing_drop"],
+        rename_columns={"missing_rename": "renamed"},
+        configure={"missing_column_policy": "ignore"},
+    )
+
+    ColumnProjector(engine).transform({"id": [1], "name": ["A"]}, flow)
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages.count(
+        "ColumnProjector: select=0/0, drop=0/1, rename=0/1, ignored=2, changed=False"
+    ) == 1
+
+
 def test_one_masking_rule_per_column() -> None:
     with pytest.raises(ConfigurationError, match="only one masking rule"):
         Transform(
@@ -268,6 +334,27 @@ def test_hash_column_adder_uses_explicit_target() -> None:
     assert result["customer_hash"] == "sha256"
     assert engine._hash_columns[0].algorithm == "sha256"
     assert HashColumnAdder(engine).order == 18
+
+
+def test_hash_column_adder_emits_one_debug_summary(caplog) -> None:
+    caplog.set_level(logging.DEBUG, logger="datacoolie.transformers.hash_column_adder")
+    engine = MockEngine()
+    engine.set_columns(["customer_id"])
+    flow = make_dataflow()
+    flow.transform = Transform(
+        hash_columns=[
+            {"target_column": "customer_hash", "columns": ["customer_id"]},
+            {"target_column": "missing_hash", "columns": ["missing"]},
+        ],
+        configure={"missing_column_policy": "ignore"},
+    )
+
+    HashColumnAdder(engine).transform({"customer_id": [123]}, flow)
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages.count(
+        "HashColumnAdder: configured_definitions=2, added_columns=1, skipped_missing=1"
+    ) == 1
 
 
 @pytest.mark.parametrize(

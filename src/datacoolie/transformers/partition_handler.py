@@ -6,9 +6,10 @@ destination ``partition_columns`` configuration.
 
 from __future__ import annotations
 
-from datacoolie.core.models import DataFlow, PartitionColumn
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import PartitionColumn
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.transformers.base import BaseTransformer
 
 logger = get_logger(__name__)

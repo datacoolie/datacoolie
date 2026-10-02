@@ -1,0 +1,19 @@
+{
+  "connections": [
+    {
+      "name": "orders_input",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./data/input",
+        "read_options": {"header": "true"}
+      }
+    },
+    {
+      "name": "orders_output",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {"base_path": "./data/output"}
+    }
+  ]
+}

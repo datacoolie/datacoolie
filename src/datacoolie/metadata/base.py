@@ -4,21 +4,45 @@
 methods call protected ``_fetch_*`` abstract methods, wrapping them with an
 optional in-memory cache layer (``MetadataCache``).
 
-Concrete providers — ``FileProvider``, ``DatabaseProvider``, ``APIClient`` —
+Concrete providers — ``FileProvider``, ``DatabaseProvider``, ``APIProvider`` —
 implement only the ``_fetch_*`` and watermark methods.
 """
 
 from __future__ import annotations
 
+import copy
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from collections.abc import Sequence
+from contextlib import contextmanager
+from functools import wraps
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from datacoolie.core.constants import CONNECTION_TYPE_FORMATS, ConnectionType
-from datacoolie.core.models import Connection, DataFlow, SchemaHint
-from datacoolie.utils.helpers import ensure_list
-from datacoolie.logging.base import get_logger
+from datacoolie.core.exceptions import ConfigurationError, MetadataError
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.metadata.contracts.context import MetadataProviderStartupContext
+from datacoolie.utils.collections import ensure_list
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.logging.configuration.constants import LogEvent
+from datacoolie.metadata.resolution.schema_hints import (
+    SchemaHintKey,
+    normalize_grouped_hints,
+    normalized_key,
+    select_schema_hints,
+)
+from datacoolie.metadata.contracts.identity import (
+    connection_identity_error,
+    dataflow_identity_error,
+)
+from datacoolie.utils.component_paths import (
+    ComponentPath,
+    ComponentPathError,
+    normalize_component_paths,
+)
 
 logger = get_logger(__name__)
 
@@ -42,19 +66,14 @@ class MetadataCache:
         "_dataflows",
         "_schema_hints",
         "_lock",
-        "_loaded",
     )
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._connections: Dict[str, Connection] = {}
-        self._connections_by_name: Dict[str, Connection] = {}
+        self._connections_by_name: Dict[str, List[Connection]] = {}
         self._dataflows: Dict[str, DataFlow] = {}
-        self._schema_hints: Dict[Tuple[str, Optional[str], str], List[SchemaHint]] = {}
-        # Set to True once a provider has bulk-loaded the entire workspace
-        # metadata into the cache; subsequent reads can be served entirely
-        # from memory without further I/O.
-        self._loaded: bool = False
+        self._schema_hints: Dict[SchemaHintKey, List[SchemaHint]] = {}
 
     # -- connections -------------------------------------------------------
 
@@ -66,22 +85,12 @@ class MetadataCache:
     def get_connection_by_name(self, name: str) -> Optional[Connection]:
         """Return a cached connection by *name*, or ``None``."""
         with self._lock:
-            return self._connections_by_name.get(name)
-
-    def set_connection(self, connection: Connection) -> None:
-        """Store a single connection in the cache."""
-        with self._lock:
-            self._connections[connection.connection_id] = connection
-            self._connections_by_name[connection.name] = connection
-
-    def set_connections(self, connections: List[Connection]) -> None:
-        """Bulk-store connections, replacing any previous entries."""
-        with self._lock:
-            self._connections.clear()
-            self._connections_by_name.clear()
-            for conn in connections:
-                self._connections[conn.connection_id] = conn
-                self._connections_by_name[conn.name] = conn
+            matches = self._connections_by_name.get(name, [])
+            if len(matches) > 1:
+                raise MetadataError(
+                    f"Connection name is ambiguous: {name}; use connection_id"
+                )
+            return matches[0] if matches else None
 
     # -- dataflows ---------------------------------------------------------
 
@@ -89,18 +98,6 @@ class MetadataCache:
         """Return a cached dataflow by *dataflow_id*, or ``None``."""
         with self._lock:
             return self._dataflows.get(dataflow_id)
-
-    def set_dataflow(self, dataflow: DataFlow) -> None:
-        """Store a single dataflow in the cache."""
-        with self._lock:
-            self._dataflows[dataflow.dataflow_id] = dataflow
-
-    def set_dataflows(self, dataflows: List[DataFlow]) -> None:
-        """Bulk-store dataflows, replacing any previous entries."""
-        with self._lock:
-            self._dataflows.clear()
-            for df in dataflows:
-                self._dataflows[df.dataflow_id] = df
 
     # -- schema hints ------------------------------------------------------
 
@@ -112,39 +109,33 @@ class MetadataCache:
     ) -> Optional[List[SchemaHint]]:
         """Return cached schema hints for the composite key, or ``None``."""
         with self._lock:
-            return self._schema_hints.get((connection_id, schema_name, table_name))
+            return select_schema_hints(
+                self._schema_hints,
+                connection_id,
+                schema_name,
+                table_name,
+            )
 
-    def set_schema_hints(
+    def publish_snapshot(
         self,
-        connection_id: str,
-        schema_name: Optional[str],
-        table_name: str,
-        hints: List[SchemaHint],
+        connections: List[Connection],
+        dataflows: List[DataFlow],
+        schema_hints: Dict[SchemaHintKey, List[SchemaHint]],
     ) -> None:
-        """Store schema hints under the composite key."""
+        """Publish one complete metadata snapshot atomically."""
+        connections_by_id = {
+            connection.connection_id: connection for connection in connections
+        }
+        connections_by_name: Dict[str, List[Connection]] = {}
+        for connection in connections:
+            connections_by_name.setdefault(connection.name, []).append(connection)
+        dataflows_by_id = {dataflow.dataflow_id: dataflow for dataflow in dataflows}
+        grouped_hints = normalize_grouped_hints(schema_hints)
         with self._lock:
-            self._schema_hints[(connection_id, schema_name, table_name)] = hints
-
-    def set_all_schema_hints(
-        self,
-        grouped: Dict[Tuple[str, Optional[str], str], List[SchemaHint]],
-    ) -> None:
-        """Bulk-store the entire workspace schema-hint map, replacing prior entries."""
-        with self._lock:
-            self._schema_hints.clear()
-            self._schema_hints.update(grouped)
-
-    # -- bulk-load state ---------------------------------------------------
-
-    def is_loaded(self) -> bool:
-        """Return ``True`` once a full workspace bulk-load has populated the cache."""
-        with self._lock:
-            return self._loaded
-
-    def mark_loaded(self) -> None:
-        """Mark the cache as fully populated by a bulk-load."""
-        with self._lock:
-            self._loaded = True
+            self._connections = connections_by_id
+            self._connections_by_name = connections_by_name
+            self._dataflows = dataflows_by_id
+            self._schema_hints = grouped_hints
 
     def get_all_connections(self) -> List[Connection]:
         """Return a snapshot of all cached connections."""
@@ -156,9 +147,7 @@ class MetadataCache:
         with self._lock:
             return list(self._dataflows.values())
         
-    def get_all_schema_hints(
-        self,
-    ) -> Dict[Tuple[str, Optional[str], str], List[SchemaHint]]:
+    def get_all_schema_hints(self) -> Dict[SchemaHintKey, List[SchemaHint]]:
         """Return a shallow copy of the full schema-hint map in one lock acquire.
 
         Callers that need to perform many hint lookups (e.g. attaching
@@ -178,12 +167,61 @@ class MetadataCache:
             self._connections_by_name.clear()
             self._dataflows.clear()
             self._schema_hints.clear()
-            self._loaded = False
 
 
 # ============================================================================
 # BaseMetadataProvider — abstract provider
 # ============================================================================
+
+
+def _metadata_read(method):
+    """Serialize a public metadata read with provider initialization."""
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lifecycle_lock:
+            self.initialize()
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+def _normalize_sql_roots(
+    value: str | Sequence[str] | None,
+    *,
+    artifact_base_path: str | None = None,
+    allow_deferred_artifact: bool = False,
+) -> tuple[ComponentPath, ...] | None:
+    """Normalize SQL roots and translate path errors to provider errors."""
+
+    try:
+        return normalize_component_paths(
+            value,
+            name="sql_base_path",
+            artifact_base_path=artifact_base_path,
+            allow_empty=False,
+            allow_deferred_artifact=allow_deferred_artifact,
+        )
+    except ComponentPathError as exc:
+        raise ConfigurationError(str(exc)) from exc
+
+
+def _serialize_sql_roots(
+    roots: tuple[ComponentPath, ...] | None,
+) -> str | tuple[str, ...] | None:
+    """Return the public scalar-or-tuple representation of SQL roots."""
+
+    if roots is None:
+        return None
+    values = tuple(root.base_path for root in roots)
+    return values[0] if len(values) == 1 else values
+
+
+def _sql_root_signature(roots: tuple[ComponentPath, ...] | None) -> frozenset[tuple[str, str]] | None:
+    """Compare roots by deterministic prefix mapping, independent of order."""
+
+    if roots is None:
+        return None
+    return frozenset((root.prefix, root.base_path) for root in roots)
 
 
 class BaseMetadataProvider(ABC):
@@ -193,6 +231,10 @@ class BaseMetadataProvider(ABC):
     watermark methods.  This base class wraps them with cache-aside logic:
     check cache → miss → fetch → store → return.
 
+    ``sql_base_path`` is provider-owned configuration for SQL references in
+    the metadata.  The provider retains the roots; Driver preparation reads
+    the selected file through its execution platform.
+
     **Context manager** — ``with provider: ...`` calls :meth:`close` on exit.
     """
 
@@ -200,86 +242,287 @@ class BaseMetadataProvider(ABC):
         self,
         *,
         enable_cache: bool = True,
-        auto_prefetch: bool = True,
-        eager_prefetch: bool = False,
+        sql_base_path: str | Sequence[str] | None = None,
     ) -> None:
         self._cache: Optional[MetadataCache] = MetadataCache() if enable_cache else None
-        # When True (and caching is enabled), the first call to
-        # ``get_dataflows`` triggers ``prefetch_all()`` so that all
-        # subsequent reads are served from memory.
-        self._auto_prefetch: bool = auto_prefetch
-        # When True, concrete providers trigger ``prefetch_all()`` at the
-        # end of their own ``__init__`` via :meth:`_maybe_eager_prefetch`
-        # so the cache is populated before the first ``get_*`` call.
-        # Recommended for short-lived batch runners; leave ``False`` for
-        # long-lived multi-tenant services where most providers may
-        # never be used.
-        self._eager_prefetch: bool = eager_prefetch
-        # Guards ``prefetch_all`` so concurrent callers cannot trigger
-        # duplicate bulk-loads (double-checked locking pattern).
-        self._prefetch_lock: threading.Lock = threading.Lock()
+        self._sql_base_paths = _normalize_sql_roots(
+            sql_base_path,
+            allow_deferred_artifact=True,
+        )
+        # Construction only records configuration.  Driver or a standalone
+        # metadata read owns the explicit startup boundary.
+        self._lifecycle_lock: threading.RLock = threading.RLock()
+        self._initialized: bool = False
+        self._closed: bool = False
+        self._in_initialization: bool = False
+        # Runtime operations (for example watermark reads/writes) use the
+        # same lifecycle lock as startup and close.  The depth marker lets
+        # ``close`` reject same-thread re-entry; an RLock alone would allow a
+        # callback to close a resource while the operation still owns it.
+        self._runtime_operation_depth: int = 0
 
-    def _maybe_eager_prefetch(self) -> None:
-        """Trigger an eager bulk-load when ``eager_prefetch`` is enabled.
+    @property
+    def is_initialized(self) -> bool:
+        """Whether this provider completed its startup contract."""
+        with self._lifecycle_lock:
+            return self._initialized and not self._closed
 
-        Concrete providers should call this at the **end** of their
-        ``__init__`` (after all I/O state — engine / httpx client /
-        loaded JSON — is ready), not in :class:`BaseMetadataProvider`
-        itself, because ``_bulk_load`` depends on subclass state.
+    @property
+    def is_ready(self) -> bool:
+        """Alias for :attr:`is_initialized` used by startup diagnostics."""
+        return self.is_initialized
+
+    @property
+    def is_closed(self) -> bool:
+        """Whether :meth:`close` has already been called."""
+        with self._lifecycle_lock:
+            return self._closed
+
+    @property
+    def sql_base_path(self) -> str | tuple[str, ...] | None:
+        """Return the provider-declared SQL root or immutable root tuple."""
+
+        with self._lifecycle_lock:
+            return _serialize_sql_roots(self._sql_base_paths)
+
+    def resolve_sql_base_path(
+        self,
+        context: MetadataProviderStartupContext,
+    ) -> str | tuple[str, ...] | None:
+        """Resolve provider roots against one Driver startup context.
+
+        The method only normalizes configuration.  It never reads SQL or
+        stores Driver fallback values on the provider.
         """
-        if self._eager_prefetch and self._cache is not None:
-            self.prefetch_all()
 
-    # ------------------------------------------------------------------
-    # Bulk pre-load — load entire workspace metadata into the cache
-    # ------------------------------------------------------------------
+        with self._lifecycle_lock:
+            self._ensure_open()
+            roots = self._effective_sql_roots(context)
+            return _serialize_sql_roots(roots)
 
-    def prefetch_all(self) -> None:
-        """Bulk-load connections, dataflows and schema hints into the cache.
+    def configure_context(self, context: MetadataProviderStartupContext) -> None:
+        """Apply optional runtime defaults before provider initialization."""
+        with self._lifecycle_lock:
+            if self._closed:
+                raise RuntimeError(f"{type(self).__name__} is closed")
+            if self._in_initialization:
+                raise RuntimeError("Cannot configure metadata provider during initialization")
+            self._validate_sql_context(context)
+            self._configure_context(context)
 
-        After this call returns, ``get_connections``, ``get_dataflows``,
-        ``get_schema_hints`` and the per-id getters are served entirely
-        from the in-memory cache — no further I/O is performed by the
-        provider for those reads.
+    def _validate_sql_context(self, context: MetadataProviderStartupContext) -> None:
+        """Validate SQL roots before a concrete provider mutates its state."""
 
-        Workspace scoping (database / API providers) and the single-file
-        nature of the file provider make it safe to load the full set of
-        metadata up-front.
+        self._effective_sql_roots(context)
 
-        The bulk-load always loads the full set (active **and** inactive)
-        so that subsequent calls with any ``active_only`` flag can be
-        filtered correctly from cache.
+    def _effective_sql_roots(
+        self,
+        context: MetadataProviderStartupContext,
+    ) -> tuple[ComponentPath, ...] | None:
+        """Return provider roots or Driver fallback after conflict checking."""
 
-        Idempotent and thread-safe: concurrent callers race on a lock
-        and only one bulk-load is performed.  No-op when caching is
-        disabled or when the cache is already loaded.
+        context_roots = _normalize_sql_roots(
+            context.sql_base_path,
+            artifact_base_path=context.artifact_base_path,
+        )
+        if self._sql_base_paths is None:
+            return context_roots
 
-        Subclasses implement :meth:`_bulk_load` to provide the actual
-        I/O.
+        provider_roots = _normalize_sql_roots(
+            self.sql_base_path,
+            artifact_base_path=context.artifact_base_path,
+        )
+        if (
+            context_roots is not None
+            and _sql_root_signature(provider_roots)
+            != _sql_root_signature(context_roots)
+        ):
+            raise ConfigurationError(
+                f"{type(self).__name__} sql_base_path conflicts with Driver sql_base_path"
+            )
+        return provider_roots
+
+    def _configure_context(self, context: MetadataProviderStartupContext) -> None:
+        """Hook for providers that consume startup context.
+
+        ``metadata_base_path`` is a file-provider concern.  Providers backed
+        by an API or database must not silently accept a path which they
+        cannot use, so the shared default rejects it explicitly.  Providers
+        with their own path semantics can override this hook.
         """
-        if self._cache is None or self._cache.is_loaded():
-            return
-        with self._prefetch_lock:
-            # Double-check inside the lock: another thread may have
-            # completed the bulk-load while we were waiting.
-            if self._cache.is_loaded():
+        if context.metadata_base_path is not None:
+            raise ConfigurationError(
+                f"{type(self).__name__} does not support metadata_base_path"
+            )
+
+    def validate_watermark_storage(self) -> None:
+        """Validate provider-owned watermark configuration without I/O."""
+        with self._lifecycle_lock:
+            self._ensure_open()
+
+    def _initialize_metadata(self) -> None:
+        """Prepare provider-local metadata state before the bulk load.
+
+        Concrete providers may override this hook to resolve a deferred
+        metadata location (for example a FileProvider artifact directory).
+        The hook must not publish a ready snapshot; :meth:`initialize`
+        publishes readiness only after the complete scope has loaded.
+        """
+
+    def _cleanup_failed_initialization(self) -> None:
+        """Best-effort hook used after a failed startup attempt."""
+
+    def _ensure_open(self) -> None:
+        """Reject metadata access after :meth:`close` has released resources.
+
+        This guard intentionally does not acquire ``_lifecycle_lock``. Provider
+        bulk loaders may fan out transport I/O to worker threads while the
+        caller owns that lock; workers must not wait on a lock held by the
+        thread waiting for their results.
+        """
+        if self._closed:
+            raise RuntimeError(f"{type(self).__name__} is closed")
+
+    @contextmanager
+    def _runtime_operation(self) -> Iterator[None]:
+        """Guard one public runtime operation against lifecycle changes.
+
+        The context deliberately does not initialize metadata.  Watermark
+        stores and similar runtime services may be used standalone, but their
+        resource acquisition and I/O must be serialized with ``close`` and
+        provider cleanup.  Private backend workers must not call this helper:
+        API bulk workers run while the initialization owner holds the same
+        lifecycle lock.
+        """
+        with self._lifecycle_lock:
+            self._ensure_open()
+            self._runtime_operation_depth += 1
+            try:
+                yield
+            finally:
+                self._runtime_operation_depth -= 1
+
+    def _validate_initialized_scope(
+        self,
+        connections: List[Connection],
+        dataflows: List[DataFlow],
+        hints: Dict[Tuple[str, Optional[str], str], List[SchemaHint]],
+    ) -> None:
+        """Validate identity invariants shared by all provider backends."""
+        seen_ids: set[str] = set()
+        connections_by_id: Dict[str, Connection] = {}
+        connections_by_name: Dict[str, List[Connection]] = {}
+        for connection in connections:
+            if connection.connection_id in seen_ids:
+                raise MetadataError(
+                    f"Duplicate connection_id in metadata: {connection.connection_id}"
+                )
+            seen_ids.add(connection.connection_id)
+            connections_by_id[connection.connection_id] = connection
+            connections_by_name.setdefault(connection.name, []).append(connection)
+
+        seen_dataflow_ids: set[str] = set()
+        for dataflow in dataflows:
+            identity_error = dataflow_identity_error(
+                dataflow.dataflow_id,
+                dataflow.name,
+                label=str(dataflow.dataflow_id or dataflow.name or "?"),
+            )
+            if identity_error:
+                raise MetadataError(identity_error)
+            if dataflow.dataflow_id in seen_dataflow_ids:
+                raise MetadataError(
+                    f"Duplicate dataflow_id in metadata: {dataflow.dataflow_id}"
+                )
+            seen_dataflow_ids.add(dataflow.dataflow_id)
+
+            for role, connection in (
+                ("source", dataflow.source.connection),
+                ("destination", dataflow.destination.connection),
+            ):
+                identity_error = connection_identity_error(
+                    connection,
+                    connections_by_id,
+                    connections_by_name,
+                    context=f"Dataflow {dataflow.dataflow_id} {role}",
+                )
+                if identity_error:
+                    raise MetadataError(identity_error)
+                if connection.connection_id not in connections_by_id:
+                    connections_by_id[connection.connection_id] = connection
+                    connections_by_name.setdefault(connection.name, []).append(connection)
+                    seen_ids.add(connection.connection_id)
+
+        for connection_id, _schema_name, _table_name in hints:
+            if connection_id not in seen_ids:
+                raise MetadataError(
+                    f"Schema hint references unknown connection: {connection_id}"
+                )
+
+        # Duplicate-column and key normalization are centralized in
+        # schema_hints.py so every backend applies the same rules once per
+        # initialized snapshot.
+        normalize_grouped_hints(hints)
+
+    def initialize(self) -> None:
+        """Start the provider and validate its complete configured scope.
+
+        Construction only configures a provider.  This method is the shared
+        startup boundary used by :class:`DataCoolieDriver`: it is idempotent,
+        serializes concurrent callers, and leaves the provider retryable when
+        a load fails.  Cache-enabled providers retain the loaded snapshot;
+        cache-disabled providers still perform the full load for validation
+        but discard the result.
+        """
+        started = time.perf_counter()
+        counts: Optional[tuple[int, int, int]] = None
+        initialized = False
+        with self._lifecycle_lock:
+            if self._closed:
+                raise RuntimeError(f"{type(self).__name__} is closed")
+            if self._in_initialization:
+                raise RuntimeError(
+                    "Recursive metadata initialization; provider startup hooks must "
+                    "use private fetch methods"
+                )
+            if self._initialized:
                 return
-            started = time.monotonic()
-            # Always load the full set — partial loads would silently
-            # corrupt later ``active_only=False`` reads from the cache.
-            connections, dataflows, hints = self._bulk_load()
-            self._cache.set_connections(connections)
-            self._cache.set_dataflows(dataflows)
-            self._cache.set_all_schema_hints(hints)
-            self._cache.mark_loaded()
-            elapsed_ms = int((time.monotonic() - started) * 1000)
-            logger.info(
-                "%s.prefetch_all: connections=%d dataflows=%d schema_hint_keys=%d elapsed_ms=%d",
+            try:
+                self._in_initialization = True
+                self._initialize_metadata()
+                connections, dataflows, hints = self._bulk_load()
+                self._validate_initialized_scope(connections, dataflows, hints)
+                if self._cache is not None:
+                    self._cache.publish_snapshot(connections, dataflows, hints)
+                self._initialized = True
+                initialized = True
+                counts = (len(connections), len(dataflows), len(hints))
+            except Exception:
+                self._initialized = False
+                if self._cache is not None:
+                    self._cache.clear()
+                try:
+                    self._cleanup_failed_initialization()
+                except Exception:
+                    logger.debug(
+                        "%s failed cleanup after initialization error",
+                        type(self).__name__,
+                        exc_info=True,
+                    )
+                raise
+            finally:
+                self._in_initialization = False
+
+        if initialized:
+            connection_count, dataflow_count, hint_count = counts or (0, 0, 0)
+            logger.debug(
+                "%s metadata initialized in %.3fs (connections=%d, dataflows=%d, schema_hints=%d)",
                 type(self).__name__,
-                len(connections),
-                len(dataflows),
-                len(hints),
-                elapsed_ms,
+                time.perf_counter() - started,
+                connection_count,
+                dataflow_count,
+                hint_count,
+                extra={"event_name": LogEvent.METADATA_INITIALIZED.value},
             )
 
     def _bulk_load(
@@ -292,7 +535,7 @@ class BaseMetadataProvider(ABC):
         """Default bulk-load: serial calls to the per-resource fetchers.
 
         Always loads the full (active + inactive) set — callers filter
-        downstream.  Subclasses (``APIClient``, ``DatabaseProvider``,
+        downstream.  Subclasses (``APIProvider``, ``DatabaseProvider``,
         ``FileProvider``) override this with an optimised implementation
         (e.g. concurrent paginated GETs or a single ``IN (...)`` SELECT).
         """
@@ -319,7 +562,11 @@ class BaseMetadataProvider(ABC):
             src = df.source.connection
             if not src.use_schema_hint or df.source.table is None or not src.connection_id:
                 continue
-            key = (src.connection_id, df.source.schema_name, df.source.table)
+            key = normalized_key(
+                src.connection_id,
+                df.source.schema_name,
+                df.source.table,
+            )
             if key in seen:
                 continue
             seen.add(key)
@@ -336,49 +583,27 @@ class BaseMetadataProvider(ABC):
     # Internal helpers — shared by get_dataflows / get_maintenance_dataflows
     # ------------------------------------------------------------------
 
-    def _auto_prefetch_if_needed(self, *, attach_schema_hints: bool) -> None:
-        """Trigger a one-time bulk pre-load on first use when appropriate.
-
-        Only fires when the caller wants schema hints attached — that's
-        the dominant cost path.  Callers that explicitly opt out of
-        hints also opt out of the implicit pre-load (preserves the
-        lightweight-read contract used by tests).
-        """
-        if (
-            attach_schema_hints
-            and self._cache is not None
-            and self._auto_prefetch
-            and not self._cache.is_loaded()
-        ):
-            self.prefetch_all()
-
     def _load_dataflows_for_read(
         self,
         *,
         active_only: bool,
         stages: Optional[List[str]] = None,
     ) -> List[DataFlow]:
-        """Return dataflows from the bulk cache, or fetch + cache them.
-
-        When the cache has been bulk-loaded, filtering is done in memory.
-        Otherwise the per-resource fetch is delegated to the subclass
-        and the results are seeded into the cache so that subsequent
-        :meth:`get_dataflow_by_id` lookups can hit the cache.  Seeding
-        with a filtered subset is safe because ``is_loaded()`` gates
-        bulk reads and ``set_dataflows`` replaces on every full fetch.
-        """
-        if self._cache is not None and self._cache.is_loaded():
-            dataflows = self._cache.get_all_dataflows()
-            if active_only:
-                dataflows = [df for df in dataflows if df.is_active]
-            if stages is not None:
-                stage_set = set(stages)
-                dataflows = [df for df in dataflows if df.stage in stage_set]
-            return dataflows
-        dataflows = self._fetch_dataflows(stages=stages, active_only=active_only)
-        if self._cache is not None:
-            self._cache.set_dataflows(dataflows)
-        return dataflows
+        """Return dataflows from the initialized snapshot or the live fetcher."""
+        if self._cache is None:
+            return copy.deepcopy(
+                self._fetch_dataflows(stages=stages, active_only=active_only)
+            )
+        dataflows = self._cache.get_all_dataflows()
+        if active_only:
+            dataflows = [df for df in dataflows if df.is_active]
+        if stages is not None:
+            stage_set = set(stages)
+            dataflows = [df for df in dataflows if df.stage in stage_set]
+        # Cache objects are provider-owned mutable snapshots.  Detach once at
+        # the public boundary so schema-hint enrichment and caller edits do
+        # not mutate future reads or the cache's identity maps.
+        return copy.deepcopy(dataflows)
 
     def _attach_hints_if_requested(
         self,
@@ -389,13 +614,13 @@ class BaseMetadataProvider(ABC):
         """Attach schema hints to *dataflows* when requested.
 
         When the cache is fully bulk-loaded, a single snapshot of the
-        hint map is taken (one lock acquire) and used for all lookups;
-        otherwise the subclass bulk-prefetch hook is called and each
-        dataflow falls back to the per-dataflow attach path.
+        hint map is taken (one lock acquire) and used for all lookups.
+        Cache-disabled providers use the same public lookup path one
+        dataflow at a time; they do not have a second prefetch lifecycle.
         """
         if not attach_schema_hints:
             return
-        if self._cache is not None and self._cache.is_loaded():
+        if self._cache is not None:
             snapshot = self._cache.get_all_schema_hints()
             for df in dataflows:
                 if df.transform.schema_hints:
@@ -403,13 +628,15 @@ class BaseMetadataProvider(ABC):
                 src = df.source.connection
                 if not src.use_schema_hint or df.source.table is None:
                     continue
-                hints = snapshot.get(
-                    (src.connection_id, df.source.schema_name, df.source.table)
+                hints = select_schema_hints(
+                    snapshot,
+                    src.connection_id,
+                    df.source.schema_name,
+                    df.source.table,
                 )
                 if hints:
-                    df.transform.schema_hints = hints
+                    df.transform.schema_hints = copy.deepcopy(hints)
             return
-        self._prefetch_schema_hints(dataflows)
         for df in dataflows:
             self._attach_schema_hints(df)
 
@@ -418,35 +645,37 @@ class BaseMetadataProvider(ABC):
     # ------------------------------------------------------------------
 
     def clear_cache(self) -> None:
-        """Clear the in-memory cache (no-op when caching is disabled)."""
-        if self._cache is not None:
+        """Clear the cache and invalidate readiness when caching is enabled."""
+        with self._lifecycle_lock:
+            if self._closed:
+                raise RuntimeError(f"{type(self).__name__} is closed")
+            if self._cache is None:
+                return
+            if self._in_initialization:
+                raise RuntimeError("Cannot clear metadata cache during initialization")
             self._cache.clear()
+            self._initialized = False
 
     # ------------------------------------------------------------------
     # Connections — public API with caching
     # ------------------------------------------------------------------
 
+    @_metadata_read
     def get_connections(self, *, active_only: bool = True) -> List[Connection]:
         """Return all connections, optionally filtered to active ones.
 
-        When the cache has been bulk-loaded via :meth:`prefetch_all`,
-        this is served entirely from memory.  Otherwise the fetched
-        list is seeded into the cache so that subsequent
-        :meth:`get_connection_by_id` / ``_by_name`` lookups hit the
-        cache.  Seeding a filtered subset is safe because
-        ``is_loaded()`` gates bulk reads and ``set_connections``
-        replaces on every full fetch.
+        Cache-enabled providers serve this from the published snapshot;
+        cache-disabled providers delegate to the provider fetcher.
         """
-        if self._cache is not None and self._cache.is_loaded():
+        self._ensure_open()
+        if self._cache is not None:
             cached = self._cache.get_all_connections()
             if active_only:
-                return [c for c in cached if c.is_active]
-            return cached
-        connections = self._fetch_connections(active_only=active_only)
-        if self._cache is not None:
-            self._cache.set_connections(connections)
-        return connections
+                cached = [c for c in cached if c.is_active]
+            return copy.deepcopy(cached)
+        return copy.deepcopy(self._fetch_connections(active_only=active_only))
 
+    @_metadata_read
     def get_connection_by_id(self, connection_id: str) -> Optional[Connection]:
         """Return a single connection by *connection_id*.
 
@@ -454,37 +683,27 @@ class BaseMetadataProvider(ABC):
         returns ``None`` without falling through to a remote fetch
         (negative cache — bulk-load owns the full workspace).
         """
-        if self._cache is not None:
-            cached = self._cache.get_connection(connection_id)
-            if cached is not None:
-                return cached
-            if self._cache.is_loaded():
-                return None
-        conn = self._fetch_connection_by_id(connection_id)
-        if conn is not None and self._cache is not None:
-            self._cache.set_connection(conn)
-        return conn
+        self._ensure_open()
+        if self._cache is None:
+            return copy.deepcopy(self._fetch_connection_by_id(connection_id))
+        return copy.deepcopy(self._cache.get_connection(connection_id))
 
+    @_metadata_read
     def get_connection_by_name(self, name: str) -> Optional[Connection]:
         """Return a single connection by *name*.
 
         Negative-cache behaviour mirrors :meth:`get_connection_by_id`.
         """
-        if self._cache is not None:
-            cached = self._cache.get_connection_by_name(name)
-            if cached is not None:
-                return cached
-            if self._cache.is_loaded():
-                return None
-        conn = self._fetch_connection_by_name(name)
-        if conn is not None and self._cache is not None:
-            self._cache.set_connection(conn)
-        return conn
+        self._ensure_open()
+        if self._cache is None:
+            return copy.deepcopy(self._fetch_connection_by_name(name))
+        return copy.deepcopy(self._cache.get_connection_by_name(name))
 
     # ------------------------------------------------------------------
     # Dataflows — public API with caching + schema hint attachment
     # ------------------------------------------------------------------
 
+    @_metadata_read
     def get_dataflows(
         self,
         *,
@@ -499,17 +718,15 @@ class BaseMetadataProvider(ABC):
         When *attach_schema_hints* is ``True`` (default), schema hints
         are fetched and attached to each dataflow's ``transform.schema_hints``.
 
-        On the first call (when caching is enabled and ``auto_prefetch``
-        is on), the entire workspace metadata is bulk-loaded into the
-        cache via :meth:`prefetch_all`; subsequent calls are served
-        entirely from memory.
+        The first public read initializes the complete configured scope.
         """
-        self._auto_prefetch_if_needed(attach_schema_hints=attach_schema_hints)
+        self._ensure_open()
         stages = self._normalise_stages(stage)
         dataflows = self._load_dataflows_for_read(active_only=active_only, stages=stages)
         self._attach_hints_if_requested(dataflows, attach_schema_hints=attach_schema_hints)
         return dataflows
 
+    @_metadata_read
     def get_maintenance_dataflows(
         self,
         *,
@@ -530,7 +747,7 @@ class BaseMetadataProvider(ABC):
             active_only: Skip inactive dataflows.
             attach_schema_hints: Attach schema hints from metadata.
         """
-        self._auto_prefetch_if_needed(attach_schema_hints=attach_schema_hints)
+        self._ensure_open()
         dataflows = self._load_dataflows_for_read(active_only=active_only)
 
         lakehouse_formats = CONNECTION_TYPE_FORMATS[ConnectionType.LAKEHOUSE.value]
@@ -549,6 +766,7 @@ class BaseMetadataProvider(ABC):
         self._attach_hints_if_requested(dataflows, attach_schema_hints=attach_schema_hints)
         return dataflows
 
+    @_metadata_read
     def get_dataflow_by_id(
         self,
         dataflow_id: str,
@@ -561,18 +779,13 @@ class BaseMetadataProvider(ABC):
         returns ``None`` without falling through to a remote fetch
         (negative cache).
         """
+        self._ensure_open()
         if self._cache is not None:
-            cached = self._cache.get_dataflow(dataflow_id)
-            if cached is not None:
-                if attach_schema_hints:
-                    self._attach_schema_hints(cached)
-                return cached
-            if self._cache.is_loaded():
-                return None
-        df = self._fetch_dataflow_by_id(dataflow_id)
+            df = self._cache.get_dataflow(dataflow_id)
+        else:
+            df = self._fetch_dataflow_by_id(dataflow_id)
+        df = copy.deepcopy(df)
         if df is not None:
-            if self._cache is not None:
-                self._cache.set_dataflow(df)
             if attach_schema_hints:
                 self._attach_schema_hints(df)
         return df
@@ -581,6 +794,7 @@ class BaseMetadataProvider(ABC):
     # Schema hints
     # ------------------------------------------------------------------
 
+    @_metadata_read
     def get_schema_hints(
         self,
         connection_id: str,
@@ -588,37 +802,20 @@ class BaseMetadataProvider(ABC):
         schema_name: Optional[str] = None,
     ) -> List[SchemaHint]:
         """Return schema hints for a given connection + table."""
+        self._ensure_open()
         if self._cache is not None:
-            cached = self._cache.get_schema_hints(connection_id, schema_name, table_name)
-            if cached is not None:
-                return cached
-            # When the cache has been fully bulk-loaded, a missing key
-            # means there are genuinely no hints for this (connection,
-            # schema, table) — do NOT fall through to a remote fetch.
-            if self._cache.is_loaded():
-                return []
-        hints = self._fetch_schema_hints(
-            connection_id=connection_id,
-            table_name=table_name,
-            schema_name=schema_name,
-        )
-        if self._cache is not None:
-            self._cache.set_schema_hints(connection_id, schema_name, table_name, hints)
-        return hints
-
-    def _prefetch_schema_hints(self, dataflows: List[DataFlow]) -> None:
-        """Optional bulk-prefetch hook called before per-dataflow attach.
-
-        Default is a no-op; providers with remote I/O (e.g. ``APIClient``)
-        override this to warm the cache in one or few round trips so the
-        subsequent per-dataflow ``_attach_schema_hints`` calls become
-        cache lookups rather than N+1 network requests.
-
-        When the cache is fully bulk-loaded the per-dataflow attach loop
-        is already guaranteed to hit the cache, so this hook is skipped
-        in that case.
-        """
-        return
+            hints = self._cache.get_schema_hints(
+                connection_id,
+                schema_name,
+                table_name,
+            ) or []
+        else:
+            hints = self._fetch_schema_hints(
+                connection_id=connection_id,
+                table_name=table_name,
+                schema_name=schema_name,
+            )
+        return copy.deepcopy(hints)
 
     def _attach_schema_hints(self, dataflow: DataFlow) -> None:
         """Populate ``dataflow.transform.schema_hints`` from the provider.
@@ -733,8 +930,22 @@ class BaseMetadataProvider(ABC):
     # ------------------------------------------------------------------
 
     def close(self) -> None:
-        """Release resources.  Base implementation clears the cache."""
-        self.clear_cache()
+        """Close the provider and release owned resources exactly once."""
+        with self._lifecycle_lock:
+            if self._closed:
+                return
+            if self._in_initialization:
+                raise RuntimeError("Cannot close metadata provider during initialization")
+            if self._runtime_operation_depth:
+                raise RuntimeError("Cannot close metadata provider during a runtime operation")
+            self._closed = True
+            self._initialized = False
+            if self._cache is not None:
+                self._cache.clear()
+            self._close_resources()
+
+    def _close_resources(self) -> None:
+        """Release provider-owned resources under the lifecycle lock."""
 
     def __enter__(self) -> "BaseMetadataProvider":
         return self

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 

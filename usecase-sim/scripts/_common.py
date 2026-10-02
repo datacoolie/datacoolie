@@ -19,19 +19,27 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 USECASE_SIM = SCRIPTS_DIR.parent
 DATACOOLIE = USECASE_SIM.parent
 
-DATA_DIR = USECASE_SIM / "data"
+RUNTIME_DIR = USECASE_SIM / ".runtime"
+DATA_DIR = RUNTIME_DIR / "data"
 INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 PERF_DIR = DATA_DIR / "perf"
 PERF_INPUT_DIR = PERF_DIR / "input"
 PERF_OUTPUT_DIR = PERF_DIR / "output"
 
+LOG_DIR = RUNTIME_DIR / "logs"
+SCENARIO_LOG_DIR = LOG_DIR / "scenarios"
+WATERMARKS_DIR = RUNTIME_DIR / "watermarks"
+DATABASES_DIR = RUNTIME_DIR / "databases"
+METADATA_DATABASE_DIR = DATABASES_DIR / "metadata"
+SOURCE_DATABASE_DIR = DATABASES_DIR / "source"
+
 METADATA_DIR = USECASE_SIM / "metadata"
 METADATA_FILE_DIR = METADATA_DIR / "file"
 METADATA_DB_DIR = METADATA_DIR / "database"
 METADATA_API_DIR = METADATA_DIR / "api"
-FILE_WATERMARKS_DIR = METADATA_FILE_DIR / "watermarks"
-API_WATERMARKS_DIR = METADATA_API_DIR / "watermarks"
+FILE_WATERMARKS_DIR = WATERMARKS_DIR
+API_WATERMARKS_DIR = WATERMARKS_DIR / "api"
 
 DOCKER_DIR = USECASE_SIM / "docker"
 COMPOSE_FILE = DOCKER_DIR / "docker-compose.yml"
@@ -55,7 +63,7 @@ ICEBERG_REST_URI = "http://localhost:8181"
 # Default database connection strings per dialect
 # ---------------------------------------------------------------------------
 DB_URLS: dict[str, str] = {
-    "sqlite":     f"sqlite:///{METADATA_DB_DIR / 'datacoolie_metadata.db'}",
+    "sqlite":     f"sqlite:///{METADATA_DATABASE_DIR / 'datacoolie_metadata.db'}",
     "postgresql": "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie",
     "mysql":      "mysql+pymysql://datacoolie:datacoolie@localhost:3306/datacoolie",
     "mssql":      "mssql+pymssql://sa:Datacoolie%401@localhost:1433/datacoolie",

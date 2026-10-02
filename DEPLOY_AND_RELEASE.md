@@ -56,8 +56,10 @@ Run release commands from the repository root.
 ## Prepare a release
 
 1. Update `version` in `pyproject.toml`.
-2. Update `__version__` in `src/datacoolie/__init__.py`.
-3. Confirm both values are identical and the intended tag will be `v<version>`.
+2. Refresh the installed project metadata with `poetry install --only-root`
+   in the configured development environment. `datacoolie.__version__` reads
+   distribution metadata automatically; do not edit it or add component versions.
+3. Confirm `poetry run dc --version` matches and the intended tag is `v<version>`.
 4. Review package metadata and generated release-note inputs (merged pull
    requests and commit messages).
 5. Run the local release verifier and resolve every failure before committing
@@ -65,6 +67,23 @@ Run release commands from the repository root.
 
 There is no `docs/changelog.md` in the current repository. GitHub release notes
 are generated from the tag by `.github/workflows/release.yml`.
+
+### Version policy
+
+`pyproject.toml` is the single release-version source. Runtime code reads
+`datacoolie.__version__`; CLI responses, persisted logs, inspection and build
+manifests report it as `datacoolie_version`. Documentation renders the version
+from the project manifest at build time. Never copy the current release number
+into runtime constants or rewrite historical log fixtures during a release.
+
+During `0.x`, patch releases preserve compatibility; breaking changes require a
+minor release and clear release notes. From `1.0`, use semantic versioning:
+patch for compatible fixes, minor for compatible features, major for breaking
+changes. CLI and logging schema counters are independent: retain them for
+compatible optional fields and increment them for incompatible field removal,
+renaming, type changes or semantic changes. Consumers ignore unknown fields;
+older outputs may omit `datacoolie_version`. Metadata schemas keep their own
+existing version-selection policy.
 
 ## Validate locally
 
@@ -78,7 +97,7 @@ Use `poetry install` for local validation. It installs the locked dependencies
 that are missing without pruning unrelated packages:
 
 ```bash
-poetry install --with dev --with docs -E polars-delta -E polars-hash -E polars-sql -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars
+poetry install --with dev --with docs -E cli -E polars-delta -E polars-hash -E polars-sql -E polars-iceberg -E source-api -E metadata-db -E aws -E source-excel-polars
 poetry run python -m pip install --upgrade twine
 poetry run python scripts/verify_release.py
 ```
@@ -86,6 +105,9 @@ poetry run python scripts/verify_release.py
 The verifier checks version parity, lock metadata, distributions, Twine
 metadata, a clean-wheel install/import smoke test, the strict docs build, and
 the default non-Spark test suite. Any failed stage is a release blocker.
+The wheel smoke also checks all three CLI invocation forms, successful/error
+JSON envelopes, the default metadata schema target, and real local
+system/job/dataflow logs in snapshot and batch modes against the wheel version.
 
 Spark is intentionally local-only. After the standard gate, add the Spark
 dependencies with `poetry install` and run the explicit local gate:

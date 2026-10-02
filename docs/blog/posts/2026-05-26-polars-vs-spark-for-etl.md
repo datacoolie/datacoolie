@@ -80,7 +80,7 @@ cost and disables it by default in new workspaces. Enable it deliberately for
 Gold tables that benefit from it; do not pay that cost automatically on every
 Bronze or staging write.
 
-See [Deploy DataCoolie to Microsoft Fabric](../../how-to/deploy-to-fabric.md)
+See [Deploy DataCoolie to Microsoft Fabric](../../guide/platforms/fabric.md)
 for notebook and V-Order setup.
 
 ## Databricks: Spark is the operational default
@@ -99,7 +99,7 @@ not need Spark-native catalog behavior. DataCoolie's current Polars Databricks
 sample supports UC Volume file paths; Delta through UC Volume paths still uses
 the Spark sample as the supported path.
 
-See [Deploy DataCoolie to Databricks](../../how-to/deploy-to-databricks.md).
+See [Deploy DataCoolie to Databricks](../../guide/platforms/databricks.md).
 
 ## AWS: choose the runtime before the engine
 
@@ -125,7 +125,7 @@ For EMR Serverless, submit DataCoolie as a PySpark job to a
 For small jobs that do not need Glue or EMR, run Polars in a controlled Python
 3.11+ environment and use `AWSPlatform` for S3 and Secrets Manager access.
 
-See [Deploy DataCoolie to AWS Glue](../../how-to/deploy-to-aws-glue.md).
+See [Deploy DataCoolie to AWS Glue](../../guide/platforms/aws-glue.md).
 
 ## What the DataCoolie benchmark does—and does not—prove
 
@@ -144,7 +144,7 @@ Representative results from that run show why format and operation matter:
 
 These numbers do **not** include cluster scale-out, managed-runtime convenience,
 V-Order, Unity Catalog, Glue/EMR startup, network storage, or production
-concurrency. Use the [full benchmark report](../../operations/benchmarks.md) to
+concurrency. Use the [benchmark reproduction guide](../../project/benchmarks.md) to
 reproduce the test, then benchmark the same source format, load strategy, data
 shape, and target platform as your production job.
 
@@ -175,8 +175,8 @@ engine = SparkEngine(spark_session=spark, platform=platform)
 
 The metadata can preserve source, transform, load strategy, schema, watermark,
 and logging intent while the runner selects the engine appropriate to each
-environment. Start with the [Polars quickstart](../../getting-started/quickstart-polars.md),
-compare the [Spark quickstart](../../getting-started/quickstart-spark.md), and
+environment. Start with the [Polars quickstart](../../guide/getting-started/quickstart-polars.md),
+compare the [Spark quickstart](../../guide/getting-started/quickstart-spark.md), and
 use the platform guide for production deployment.
 
 ## Bottom line

@@ -10,7 +10,7 @@ from typing import Dict, Optional
 
 from pyspark.sql import SparkSession
 
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 
@@ -20,6 +20,9 @@ logger = get_logger(__name__)
 
 DEFAULT_SPARK_CONFIGS: Dict[str, str] = {
     # Parquet handling
+    # INT96 has no portable timezone annotation.  Microsecond timestamps
+    # preserve Spark instant metadata for Arrow/Polars readers.
+    "spark.sql.parquet.outputTimestampType": "TIMESTAMP_MICROS",
     "spark.sql.parquet.int96RebaseModeInRead": "CORRECTED",
     "spark.sql.parquet.datetimeRebaseModeInRead": "CORRECTED",
     "spark.sql.parquet.int96RebaseModeInWrite": "CORRECTED",
@@ -39,8 +42,9 @@ def get_or_create_spark_session(
     """Get or create a :class:`SparkSession` with optimised defaults.
 
     In **notebook environments** (Fabric, Databricks) pass the existing
-    session so only the default configs are applied on top.  For
-    **standalone** usage a fresh session is created.
+    session.  Only explicit ``config`` overrides are applied to that session;
+    DataCoolie defaults are intentionally not pushed into caller-owned state.
+    For **standalone** usage a fresh session is created and receives defaults.
 
     Callers are responsible for providing Delta/Iceberg catalog,
     extensions, and JARs via the ``config`` dict.
@@ -58,7 +62,11 @@ def get_or_create_spark_session(
         final_config.update(config)
 
     if existing_session:
-        _apply_configs(existing_session, final_config)
+        # A notebook/host application may share this session with unrelated
+        # workloads.  Applying framework defaults here would change their
+        # timezone/ANSI/timestamp behavior.  Opt in explicitly through
+        # ``config`` when an override is required.
+        _apply_configs(existing_session, config or {})
         return existing_session
 
     # Build a new session

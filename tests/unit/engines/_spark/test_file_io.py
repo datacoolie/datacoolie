@@ -1,6 +1,9 @@
+import pytest
 from unittest.mock import MagicMock
 
 from datacoolie.engines._spark import file_io
+from datacoolie.core.exceptions import EngineError
+from pyspark.sql.types import StructField, StructType, TimestampType
 
 
 def test_read_parquet_translates_hive_partition_option_without_mutating_input() -> None:
@@ -32,3 +35,36 @@ def test_write_jsonl_uses_json_and_caller_options_override_defaults() -> None:
     writer.partitionBy.assert_called_once_with("day")
     writer.option.assert_called_once_with("mergeSchema", "false")
     writer.save.assert_called_once_with("/out")
+
+
+def test_write_full_load_uses_overwrite_schema_default() -> None:
+    df = MagicMock()
+    writer = df.write.format.return_value.mode.return_value
+    writer.option.return_value = writer
+
+    file_io.write_to_path(df, "/out", "full_load", "jsonl", None, None)
+
+    writer.option.assert_called_once_with("overwriteSchema", "true")
+
+
+def test_write_rejects_conflicting_schema_controls_before_writer() -> None:
+    df = MagicMock()
+    with pytest.raises(EngineError, match="mergeSchema.*overwriteSchema"):
+        file_io.write_to_path(
+            df,
+            "/out",
+            "append",
+            "jsonl",
+            None,
+            {"mergeSchema": "true", "overwriteSchema": "false"},
+        )
+    df.write.format.assert_not_called()
+
+
+def test_write_rejects_int96_for_instant_timestamps() -> None:
+    df = MagicMock()
+    df.schema = StructType([StructField("created_at", TimestampType(), True)])
+    df.sparkSession.conf.get.return_value = "INT96"
+
+    with pytest.raises(EngineError, match="TIMESTAMP_MICROS"):
+        file_io.write_to_path(df, "/out", "overwrite", "parquet", None, None)

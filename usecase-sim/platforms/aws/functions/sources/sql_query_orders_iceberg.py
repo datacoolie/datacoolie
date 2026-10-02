@@ -20,7 +20,7 @@ def sql_query_orders_iceberg(engine, source, watermark_start: Optional[Dict[str,
 
     Args:
         engine: Active :class:`~datacoolie.engines.SparkEngine` instance.
-        source: :class:`~datacoolie.core.models.Source` model for this dataflow.
+        source: :class:`~datacoolie.core.models.source.Source` model for this dataflow.
         watermark_start: Previous watermark dict (``None`` on first run).
         watermark_end: Replay ceiling watermark (``None`` for normal reads).
 

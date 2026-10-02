@@ -1,130 +1,105 @@
 # DataCoolie AI Workflow
 
-## Purpose
+This file owns agent routing, safety, approvals and handoffs. Public
+documentation owns the shared framework and project contract. Do not copy
+those contracts into Skills or into this file.
 
-Turn data requirements into verified, releasable DataCoolie projects through the shortest route
-that matches the current state. Skills own outcomes, not mandatory phases.
+## Start with the public contract
 
-## Core Contract
+Use the smallest relevant page before acting:
 
-- Prefer DataCoolie metadata, registered components, and `DataCoolieDriver.run(...)` whenever the
-  installed framework supports the required path. Custom code is limited to a verified unsupported
-  boundary.
-- Treat `discover/` as design-time evidence. Runtime metadata, code, builds, and releases must not
-  depend on it.
-- Keep durable project sources as the authoring source of truth. `.builds/artifacts/{build_id}` is
-  the immutable all-configured-environment source; `.builds/current` is its verified runnable projection for normal
-  local integration and validation.
-- Release resolves build `current` once to an exact canonical artifact. Each runner exposes one stable
-  target current; candidates are temporary and release-addressed, never build-addressed.
-- Keep mutable logs and watermarks outside `.builds/` in an environment-isolated control-storage
-  namespace. Deployed metadata is an immutable build projection, not another authoring source.
-- Skills resolve their own bundled resources relative to `SKILL.md`. Cross-skill handoffs use
-  workspace artifacts and typed receipts, never another skill's script path.
-- A consumer validates the exact handoff invariants it needs and fails closed; optional generated
-  automation is never a prerequisite for interactive validation.
-- The installed `datacoolie` package is the runtime framework. Project lifecycle automation belongs
-  to skills or generated project files, not a framework lifecycle CLI.
-- Preserve established IaC/deployment automation. For direct operations, prefer the official AWS
-  or Databricks CLI; route Fabric by control plane: Azure/ARM uses Azure CLI and Fabric-native work
-  uses Fabric CLI. Owning skills define fallback and safe installation.
-- A build contains no custom-function artifact or exactly one approved WHL/ZIP artifact. Design
-  selects its format; Build packages and verifies it; Provision prepares reusable target
-  capability; Release attaches the exact immutable artifact; runners only allowlist its fixed
-  project import prefix and invoke DataCoolie. Only `metadata` and optional `functions` have fixed
-  component names; runners are platform-native and all runtime/activation references target-defined.
+- [Project and CLI workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+  owns `datacoolie.yml`, layout, build output and the external upload handoff.
+- [CLI commands](https://datacoolie.github.io/datacoolie/guide/cli/commands/)
+  owns commands, options, responses and exit behavior.
+- [Runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
+  owns paths, fallbacks, lifecycle and provider boundaries.
+- [Metadata schema index](https://datacoolie.github.io/datacoolie/schema/index.json)
+  owns versioned metadata contracts. Use the stable
+  [latest schema alias](https://datacoolie.github.io/datacoolie/schema/latest/metadata.schema.json)
+  for current authoring/discovery, and the installed CLI for offline checks.
+  Pin a versioned URL for reproducible artifacts.
+- [Examples catalog](https://datacoolie.github.io/datacoolie/examples/)
+  owns executable sample source and project downloads.
 
-## Project State
+When a Skill summary conflicts with a public contract, the public page owns
+framework behavior. Keep the Skill summary only when it adds agent sequencing,
+decision gates, evidence requirements or project-specific adaptation.
 
-Durable sources:
+## Example retrieval protocol
 
-```text
-{workspace}/
-  AGENTS.md
-  config.yaml
-  architecture/current.md             # when material design exists
-  discover/                           # required source evidence for a new project
-  metadata/
-  runners/
-  functions/                          # optional
-  automation/                         # optional, project-owned
-  provision/                          # optional
-```
+Use the catalog to discover a sample, then use its direct action:
 
-Derived and runtime state:
+- `source` opens the rendered source page;
+- `raw` opens the exact file bytes;
+- `project-files` opens the project section in the catalog;
+- `download` retrieves the complete project archive.
 
-```text
-.builds/artifacts/{build_id}/         # immutable generated build
-.builds/evidence/{build_id}/{env}/    # build verification receipts
-.builds/current/build.json            # exact source build ID for the runnable projection
-.builds/current/{env}/                # generated metadata/ set and runner artifacts
-.builds/current/functions/            # latest generated functions artifact when present
-.runtime/{env}/logs/                  # local default; mutable, persistent
-.runtime/{env}/watermarks/            # local default; mutable, critical state
-.approvals/                           # required manual approvals only
-.releases/                            # deploy/promote/rollback receipts
-provision/evidence/{env}/             # provision plans and receipts when needed
-```
-Normal run, test, and validation execute build `current`; historical verification selects an exact artifact.
-Release may select `current`, then pins `current/build.json` and reads canonical artifacts.
-Build current is disposable, never release identity. Never edit or symlink generated state.
+Pin the published revision when reproducibility matters. Verify the retrieved
+source, raw bytes and archive belong to the same revision. If the requested
+revision is not published or a file is unavailable, report that fact and stop;
+do not silently substitute another revision. Runner source is owned by the
+public examples and by each project; Skills do not provide a runtime runner
+tree.
 
-## Skill Ownership
+## Agent-owned workflow
 
-| Skill | Sole outcome | Trigger |
-|---|---|---|
-| `datacoolie-discover` | Verified source facts | Every new project; otherwise a new, changed, missing, or contradictory source fact |
-| `datacoolie-design` | System intent and material decisions | New project or material contract/architecture change |
-| `datacoolie-build` | Runnable, immutable, verified build | Bootstrap, metadata, runners, functions, implementation, local run, test, materialization, or build CI |
-| `datacoolie-provision` | Required environment resources | A requested target lacks infrastructure |
-| `datacoolie-release` | Deployment lifecycle for one verified build | Deploy, promote, rollback, or consume-only release CI/CD |
+Use the five lifecycle Skills for their distinct responsibilities:
 
-No skill redefines another skill's artifact semantics. Return a failed artifact or receipt to its
-owner.
-
-## State-Based Routing
-
-1. Inspect only state relevant to the requested outcome.
-2. Discover every declared source before designing a new project. For an existing project,
-   discover only a new or changed source or facts that are missing or contradictory.
-3. Design only when architecture is absent for a new project or the request changes stages,
-   contracts, modeling, load behavior, platform/resource boundaries, or release policy.
-4. Build owns all compatible implementation and local verification. It bootstraps missing project
-   structure as part of the requested work.
-5. Provision only when required resources are missing, drifted, inaccessible, or unknown; resume
-   the blocked build or release after verification.
-6. Release only on an explicit deployment-lifecycle request. It consumes an exact verified build
-   and never rebuilds it.
-
-Shortest common routes:
-
-| Request | Route |
+| Skill | Agent responsibility |
 |---|---|
-| New project | `discover -> design -> build` |
-| Existing project with a new, changed, or unresolved source | `discover -> design/build` |
-| Compatible implementation or local test | `build` |
-| Missing infrastructure | `build/release -> provision -> resume` |
-| Deploy an existing verified build | `release` |
+| `datacoolie-discover` | verified source facts and bounded evidence |
+| `datacoolie-design` | architecture, data contracts and material decisions |
+| `datacoolie-build` | source edits, CLI validation/build, runners and local checks |
+| `datacoolie-provision` | required target resources and readiness evidence |
+| `datacoolie-release` | local validation and upload of one exact environment artifact |
 
-## Gates
+Do not route ordinary project authoring through a different Skill merely to
+repeat a contract. Discovery facts feed design; material design approval feeds
+Build; missing target resources feed Provision; an exact locally validated
+artifact feeds Release. Release is upload-only and does not activate, install,
+execute, monitor or recover a workload.
 
-- Read-only discovery, compatible implementation, lint, tests, and local verification need no
-  manual gate unless they introduce a material decision.
-- Material design requires approval bound to the final architecture hash. Whenever
-  `architecture/current.md` exists, build requires its exact matching receipt and rejects a
-  missing, malformed, misnamed, or stale receipt.
-- Provision planning and dry-run are allowed in scope; external resource mutation requires explicit
-  approval for the target and plan.
-- Implementation or design approval never authorizes deployment. Protected-target release follows
-  its environment policy, and production mutation requires explicit current-session authorization.
-- Release verifies required resources, environment-isolated runtime paths, watermark-state
-  compatibility, and authorization before staging. It qualifies the runner slice before replacing
-  stable target current and observing its marker. Authorization binds the exact build, target,
-  candidate/current references, runtime paths, state intent, and scope.
+## Project and runtime boundary
 
-## Handoff
+Read and change project files through the public project/CLI documentation.
+The CLI prepares and validates a project; it does not run a Driver or user
+code. Runners remain project-owned scripts or notebooks and choose the engine,
+metadata provider, table registration and explicit component paths.
 
-Handoffs identify the owning artifact, exact path or ID, verification evidence, skipped checks, and
-unresolved questions. Never advance by wrapping a failed check in a success receipt.
+At runtime, preserve these ownership boundaries:
 
-Load detailed capability, metadata, runner, operation, materialization, provisioning, or release contracts only from the skill that owns the requested outcome.
+- metadata providers own metadata access and provider-specific paths;
+- framework preparation resolves inline SQL and `.sql`/`artifact:/...` references;
+- `DataCoolieRunConfig.run_attributes` carries external scheduler/job context;
+- Driver owns session lifecycle and execution;
+- logging owns `log_base_path`, snapshot/batch persistence and schema-v3 records;
+- the watermark manager reads/saves values through its selected provider boundary.
+
+Callers own explicit `artifact_base_path`, `metadata_base_path`,
+`sql_base_path`, `state_base_path`, `watermark_base_path` and `log_base_path`
+choices. Do not add `base_log_path`; it is retired. Shared storage may use
+`.runtime/<environment>/logs/` and `.runtime/<environment>/watermarks/`, while
+an already isolated single-environment root may use `.runtime/logs/` and
+`.runtime/watermarks/`. The framework does not infer an environment from a
+folder name.
+
+External scheduler context is one strict JSON object passed as
+`run_attributes`; do not invent a second session identity or a parallel
+workflow-state envelope.
+
+## Safety, evidence and handoff
+
+- Keep credentials and discovery evidence out of metadata, SQL, runners,
+  manifests and logs.
+- Preserve custom runner bytes; validation/build may copy them but never run or
+  rewrite them.
+- Use `--format json` for automation and check both process exit code and the
+  response `ok` field.
+- Report exact input/output paths or IDs, checks performed and skipped,
+  blockers/next owner and unresolved questions.
+- Reuse CLI reports, manifests and existing approval/provision/upload receipts;
+  do not create a second handoff envelope or workflow state store.
+- The lifecycle covered by these Skills ends at local validation and upload.
+  Monitoring, activation, workload execution, replay, recovery and other
+  post-deploy operations remain outside their scope.

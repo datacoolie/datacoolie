@@ -8,8 +8,13 @@ description: Python API reference for DataCoolie transformers, including value n
 ::: datacoolie.transformers.base
     options:
       members:
+        - ColumnMapping
         - BaseTransformer
         - TransformerPipeline
+
+`ColumnMapping` carries the declared input-to-output column relationship across transformer
+steps. A `None` output records a removed column, and `known=False` marks a custom transform whose
+rename behavior cannot be inferred safely.
 
 ::: datacoolie.transformers.schema_converter
 ::: datacoolie.transformers.column_value_transformer

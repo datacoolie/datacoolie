@@ -1,0 +1,12 @@
+{
+  "connections": [
+    {
+      "name": "orders_input",
+      "configure": {"base_path": "abfss://your-workspace@onelake.dfs.fabric.microsoft.com/your-lakehouse.Lakehouse/Files/datacoolie-example/data/input"}
+    },
+    {
+      "name": "orders_output",
+      "configure": {"base_path": "abfss://your-workspace@onelake.dfs.fabric.microsoft.com/your-lakehouse.Lakehouse/Files/datacoolie-example/data/output"}
+    }
+  ]
+}

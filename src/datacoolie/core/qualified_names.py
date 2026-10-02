@@ -6,6 +6,26 @@ from dataclasses import dataclass
 from typing import Sequence
 
 
+def build_qualified_name(
+    catalog: str | None,
+    database: str | None,
+    schema_name: str | None,
+    table: str | None,
+) -> str | None:
+    """Build a backtick-quoted, dot-separated qualified name."""
+    parts: list[str] = []
+    if catalog:
+        parts.append(f"`{catalog}`")
+    if database:
+        parts.append(f"`{database}`")
+    if schema_name:
+        parts.append(f"`{schema_name}`")
+    if table is None:
+        return ".".join(parts) if parts else None
+    parts.append(f"`{table}`")
+    return ".".join(parts)
+
+
 class QualifiedTableNameError(ValueError):
     """Raised when a logical table identifier is invalid."""
 

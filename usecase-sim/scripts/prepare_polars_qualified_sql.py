@@ -13,7 +13,7 @@ import polars as pl
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 USECASE_SIM_DIR = SCRIPT_DIR.parent
-FIXTURE_ROOT = USECASE_SIM_DIR / "data" / "output" / "qualified_sql" / "fixtures"
+FIXTURE_ROOT = USECASE_SIM_DIR / ".runtime" / "data" / "output" / "qualified_sql" / "fixtures"
 
 sys.path.insert(0, str(SCRIPT_DIR))
 

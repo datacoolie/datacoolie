@@ -11,7 +11,7 @@ from datacoolie.destinations.base import BaseDestinationWriter, BaseLoadStrategy
 from datacoolie.destinations.delta_writer import DeltaWriter
 from datacoolie.destinations.file_writer import FileWriter
 from datacoolie.destinations.iceberg_writer import IcebergWriter
-from datacoolie.destinations.load_strategies import (
+from datacoolie.destinations.strategies.load import (
     LOAD_STRATEGIES,
     AppendStrategy,
     MergeOverwriteStrategy,
@@ -19,6 +19,10 @@ from datacoolie.destinations.load_strategies import (
     OverwriteStrategy,
     SCD2Strategy,
     get_load_strategy,
+)
+from datacoolie.destinations.resolution.target import (
+    ResolvedDestination,
+    resolve_destination_target,
 )
 
 __all__ = [
@@ -34,4 +38,6 @@ __all__ = [
     "OverwriteStrategy",
     "SCD2Strategy",
     "get_load_strategy",
+    "ResolvedDestination",
+    "resolve_destination_target",
 ]

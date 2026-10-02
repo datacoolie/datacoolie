@@ -1,0 +1,1 @@
+"""Destination resolution internals."""

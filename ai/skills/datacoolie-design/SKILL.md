@@ -5,6 +5,11 @@ description: Design new DataCoolie projects or material changes to data contract
 
 # DataCoolie Design
 
+Use the public [runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
+and [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+for framework path/configuration behavior. This Skill owns material intent,
+trade-offs and approval—not a second metadata or build contract.
+
 ## Outcome And Boundary
 
 Produce one coherent `architecture/current.md` that gives build enough intent to implement without
@@ -54,20 +59,23 @@ decision and is not runtime or package CLI functionality.
 4. Describe capability intent across source, authentication, engine, transforms, destination,
    load, platform, and dependencies. Prefer a credible native DataCoolie path; identify only a
    suspected unsupported boundary for build-time proof.
-5. When a verified unsupported boundary requires a Python function, select exactly one artifact
-   format for the whole build: `wheel` by default, or `zip` only for a compatible pure-Python host.
-   Record a project-specific import prefix, dependency strategy, compatible execution targets,
-   rationale, and required build proof. Otherwise record `none`. Never request both formats.
+ 5. When a verified unsupported boundary requires Python functions, record packaging intent for
+    each configured functions root. A single build may contain different root results: `wheel`,
+    `zip`, `copy`, or `none`. `auto` is a Build/CLI decision (`pyproject.toml` backend → wheel,
+    root-level `__init__.py` → wrapped ZIP, otherwise source copy); Design records the compatible
+    host, import prefix, dependency strategy, rationale, and required proof per root. Do not
+    collapse independent roots into one global format or request duplicate overlapping roots.
 6. Record required resources and release policy without provisioning or deploying. The policy
    defines each runner's deployment kind and native target identity, stable target current identity,
    candidate activation mechanism, in-flight execution
    behavior, non-atomic exposure/recovery when applicable, dependent-runner order, and canonical
    artifact retention needed for rollback. Define one
    environment-isolated DataCoolie control-storage boundary for immutable deployed metadata,
-   mutable logs, and critical watermark state. Only target components `metadata` and optional
-   `functions` have fixed names; all runner and runtime-state references remain target-defined.
-   Prefer a dedicated persistent resource separate
-   from business data; when policy requires sharing, require isolated paths and access controls.
+    mutable logs, and critical watermark state. Resolve the configured metadata and functions
+    component roots from the project contract; their default names are conventions, not target
+    requirements. Runner and runtime-state references remain target-defined. Prefer a dedicated
+    persistent resource separate from business data; when policy requires sharing, require
+    isolated paths and access controls.
 7. List compatible engines/platforms without binding stages to engines. Record execution host and
    native/external platform runtime mode separately from platform intent when an adapter can run on
    multiple hosts. Runtime orchestration selects an exact runner and supplies the stage value.

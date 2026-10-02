@@ -517,7 +517,7 @@ class TestGetSecret:
         assert platform.get_secret("NO_CACHE_VAR") == "second"
 
     def test_is_base_secret_provider(self, tmp_path: Path) -> None:
-        from datacoolie.core.secret_provider import BaseSecretProvider
+        from datacoolie.core.secrets.provider import BaseSecretProvider
 
         platform = LocalPlatform(base_path=str(tmp_path))
         assert isinstance(platform, BaseSecretProvider)

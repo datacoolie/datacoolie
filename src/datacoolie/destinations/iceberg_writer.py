@@ -11,11 +11,13 @@ from typing import Any, Dict, List, Optional
 
 from datacoolie.core.constants import Format, MaintenanceType
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.destinations.base import BaseDestinationWriter
-from datacoolie.destinations.load_strategies import get_load_strategy
+from datacoolie.destinations.strategies.load import get_load_strategy
+from datacoolie.destinations.resolution.target import resolve_destination_target
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.engines.contracts.windows import WindowSpec
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 
@@ -38,12 +40,16 @@ class IcebergWriter(BaseDestinationWriter[DF]):
         Iceberg is catalog-first: prefer ``full_table_name`` when set,
         fall back to path otherwise.
         """
-        dest = dataflow.destination
-        if dest.full_table_name:
-            return dest.full_table_name, dest.path
-        return None, dest.path
+        target = resolve_destination_target(dataflow.destination)
+        return target.table_name, target.path
 
-    def _write_internal(self, df: DF, dataflow: DataFlow) -> None:
+    def _write_internal(
+        self,
+        df: DF,
+        dataflow: DataFlow,
+        *,
+        watermark_window: Optional[WindowSpec] = None,
+    ) -> None:
         """Write a DataFrame to an Iceberg table via load strategy.
 
         Uses ``full_table_name`` as the primary table identifier.
@@ -68,7 +74,14 @@ class IcebergWriter(BaseDestinationWriter[DF]):
             table_name or path,
             load_type,
         )
-        strategy.execute(df, table_name, dataflow, self._engine, path=path)
+        strategy.execute(
+            df,
+            table_name,
+            dataflow,
+            self._engine,
+            path=path,
+            watermark_window=watermark_window,
+        )
 
     # ------------------------------------------------------------------
     # Maintenance

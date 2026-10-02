@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.sources.iceberg_reader import IcebergReader
 
 from tests.unit.sources.support import MockEngine, engine

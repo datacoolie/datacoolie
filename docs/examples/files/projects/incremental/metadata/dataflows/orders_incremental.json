@@ -1,0 +1,24 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_incremental",
+      "stage": "ingest2bronze",
+      "source": {
+        "connection_name": "orders_input",
+        "table": "orders",
+        "watermark_columns": ["updated_sequence"]
+      },
+      "destination": {
+        "connection_name": "orders_output",
+        "table": "orders",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {"column_name": "order_id", "data_type": "long"},
+          {"column_name": "updated_sequence", "data_type": "long"}
+        ]
+      }
+    }
+  ]
+}

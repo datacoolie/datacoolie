@@ -13,12 +13,13 @@ from typing import Any, Dict, List, Optional
 
 from datacoolie.core.constants import LoadType
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.destinations.base import BaseDestinationWriter
-from datacoolie.destinations.load_strategies import get_load_strategy
+from datacoolie.destinations.strategies.load import get_load_strategy
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
-from datacoolie.utils.helpers import utc_now
+from datacoolie.engines.contracts.windows import WindowSpec
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.utils.time import utc_now
 
 logger = get_logger(__name__)
 
@@ -46,7 +47,13 @@ class FileWriter(BaseDestinationWriter[DF]):
     # Write
     # ------------------------------------------------------------------
 
-    def _write_internal(self, df: DF, dataflow: DataFlow) -> None:
+    def _write_internal(
+        self,
+        df: DF,
+        dataflow: DataFlow,
+        *,
+        watermark_window: Optional[WindowSpec] = None,
+    ) -> None:
         dest = dataflow.destination
         dest_fmt = dest.connection.format
 
@@ -81,7 +88,14 @@ class FileWriter(BaseDestinationWriter[DF]):
             dest_fmt,
             load_type,
         )
-        strategy.execute(df, table_name=None, dataflow=dataflow, engine=self._engine, path=resolved_path)
+        strategy.execute(
+            df,
+            table_name=None,
+            dataflow=dataflow,
+            engine=self._engine,
+            path=resolved_path,
+            watermark_window=watermark_window,
+        )
 
     # ------------------------------------------------------------------
     # Date-folder path resolution

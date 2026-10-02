@@ -8,6 +8,8 @@ from pathlib import Path
 
 VERSION_TOKEN = "{{ datacoolie_version }}"
 REPO_ROOT = Path(__file__).resolve().parents[2]
+VERSIONED_TEXT_ASSETS = ("llms.txt",)
+_BUILD_VERSION: str | None = None
 
 
 def current_version() -> str:
@@ -22,7 +24,16 @@ def current_version() -> str:
 
 
 def _render_version(content: str) -> str:
-    return content.replace(VERSION_TOKEN, current_version())
+    if VERSION_TOKEN not in content:
+        return content
+    version = _BUILD_VERSION or current_version()
+    return content.replace(VERSION_TOKEN, version)
+
+
+def on_pre_build(config) -> None:  # noqa: ANN001
+    """Refresh the package version for each clean or serve rebuild."""
+    global _BUILD_VERSION
+    _BUILD_VERSION = current_version()
 
 
 def on_page_markdown(markdown: str, page, config, files) -> str:  # noqa: ANN001
@@ -31,13 +42,14 @@ def on_page_markdown(markdown: str, page, config, files) -> str:  # noqa: ANN001
 
 
 def on_post_build(config) -> None:  # noqa: ANN001
-    """Replace the token in text assets copied directly to the site."""
+    """Replace the token in declared text assets copied directly to the site."""
     site_dir = Path(config["site_dir"])
     if not site_dir.exists():
         return
 
-    for path in site_dir.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in {".html", ".txt"}:
+    for relative_path in VERSIONED_TEXT_ASSETS:
+        path = site_dir / relative_path
+        if not path.is_file():
             continue
         content = path.read_text(encoding="utf-8")
         rendered = _render_version(content)

@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
 import stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Iterator
 
 from datacoolie.core.exceptions import PlatformError
 from datacoolie.platforms.base import BasePlatform, FileInfo
-from datacoolie.utils.path_utils import normalize_path
+from datacoolie.utils.path_utils import ensure_relative_path, join_path, normalize_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +49,6 @@ class LocalPlatform(BasePlatform):
         self,
         base_path: str | None = None,
         cache_ttl: int = 300,
-        **kwargs: Any,
     ) -> None:
         super().__init__(cache_ttl=cache_ttl)
         self._base_path = Path(base_path).resolve() if base_path else None
@@ -76,6 +76,69 @@ class LocalPlatform(BasePlatform):
                 raise PlatformError(f"Path escapes base_path: {path}")
             return resolved
         return p
+
+    def read_file_under_base(self, base_path: str, relative_path: str) -> str:
+        """Read a resource while enforcing the selected base's real path.
+
+        ``LocalPlatform`` may itself be sandboxed, but the Driver can select a
+        narrower artifact/SQL root within that sandbox.  Check both roots so a
+        symlink or junction cannot redirect a query file outside the selected
+        component directory.
+        """
+        try:
+            relative = ensure_relative_path(relative_path)
+            candidate = join_path(base_path, relative)
+        except ValueError as exc:
+            raise PlatformError(f"Invalid resource path {relative_path!r}") from exc
+
+        base_target = self._resolve(base_path)
+        candidate_target = self._resolve(candidate)
+        base_real = Path(os.path.realpath(base_target))
+        candidate_real = Path(os.path.realpath(candidate_target))
+        try:
+            candidate_real.relative_to(base_real)
+        except ValueError as exc:
+            raise PlatformError(
+                f"Resolved resource escapes configured base path: {relative_path!r}"
+            ) from exc
+        return self.read_file(candidate)
+
+    def read_bytes_under_base(self, base_path: str, relative_path: str) -> bytes:
+        """Read binary content while enforcing the selected root canonically."""
+        try:
+            relative = ensure_relative_path(relative_path)
+            candidate = join_path(base_path, relative)
+        except ValueError as exc:
+            raise PlatformError(f"Invalid resource path {relative_path!r}") from exc
+
+        base_target = self._resolve(base_path)
+        candidate_target = self._resolve(candidate)
+        base_real = Path(os.path.realpath(base_target))
+        candidate_real = Path(os.path.realpath(candidate_target))
+        try:
+            candidate_real.relative_to(base_real)
+        except ValueError as exc:
+            raise PlatformError(
+                f"Resolved resource escapes configured base path: {relative_path!r}"
+            ) from exc
+        return self.read_bytes(candidate)
+
+    def relative_path_under_base(self, base_path: str, path: str) -> str:
+        """Relativize a listing entry after canonical sandbox validation."""
+        base_target = self._resolve(base_path)
+        candidate_target = Path(path) if Path(path).is_absolute() else self._resolve(path)
+        base_real = Path(os.path.realpath(base_target))
+        candidate_real = Path(os.path.realpath(candidate_target))
+        try:
+            relative = candidate_real.relative_to(base_real)
+        except ValueError as exc:
+            raise PlatformError(
+                f"Listed path is outside configured base path: {path!r}"
+            ) from exc
+        try:
+            return ensure_relative_path(relative.as_posix())
+        except ValueError as exc:
+            raise PlatformError(f"Invalid listed resource path: {path!r}") from exc
 
     # ------------------------------------------------------------------
     # File I/O
@@ -241,7 +304,26 @@ class LocalPlatform(BasePlatform):
             )
         try:
             dest_p.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_p, dest_p)
+            if overwrite:
+                # Publish snapshots through a sibling temporary file so a
+                # failed copy never leaves a partially replaced log.
+                with tempfile.NamedTemporaryFile(
+                    prefix=f".{dest_p.name}.",
+                    suffix=".tmp",
+                    dir=str(dest_p.parent),
+                    delete=False,
+                ) as temporary:
+                    temporary_path = Path(temporary.name)
+                try:
+                    shutil.copy2(src_p, temporary_path)
+                    os.replace(temporary_path, dest_p)
+                finally:
+                    try:
+                        temporary_path.unlink()
+                    except FileNotFoundError:
+                        pass
+            else:
+                shutil.copy2(src_p, dest_p)
         except OSError as exc:
             raise PlatformError(f"Cannot upload file: {src_p} → {dest_p}") from exc
 

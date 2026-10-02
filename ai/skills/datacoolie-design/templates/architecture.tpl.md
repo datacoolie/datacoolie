@@ -76,18 +76,19 @@ boundary; build must prove it before introducing narrow custom code.
 
 ## Python Function Packaging Intent
 
-- Required: {{ yes_or_no }}
-- Format: {{ wheel_zip_or_none }}
-- Distribution: {{ project_distribution_or_not_applicable }}
-- Import prefix: {{ project_specific_prefix_or_not_applicable }}
-- Dependency strategy: {{ pinned_wheel_requirements_or_approved_runtime_only }}
-- Compatible execution targets and attachment mechanisms: {{ targets_or_not_applicable }}
-- Rationale and unsupported boundary: {{ rationale_or_not_applicable }}
-- Build proof: package inspection, isolated import, signature validation, and representative
-  function-backed runtime execution when required.
+Record one row for every configured functions root. Independent roots may resolve to different
+packaging results in the same build; the project contract and Build/CLI determine the actual packaging.
 
-Select one format for the build, never both. Prefer `wheel`; select `zip` only for a compatible
-pure-Python execution host. Packaging and attachment remain Build and Release responsibilities.
+| Functions root | Required | Requested mode | Resolved format | Distribution/import prefix | Dependencies | Compatible execution host and setup | Rationale / proof |
+|---|---|---|---|---|---|---|---|
+| {{ function_packaging_rows }} |
+
+The resolved format is `wheel`, `zip`, `copy`, or `none`. For `auto`, Build applies the
+deterministic rule: a valid root Python build backend produces a wheel; a root-level
+`__init__.py` produces a wrapped ZIP; otherwise the source tree is copied. A nested package
+`__init__.py` does not change the parent root. Build owns packaging and local proof; the
+execution host or project runner owns installation/import setup. Release only uploads bytes and
+does not attach or activate function artifacts.
 
 ## Runtime Selection Intent
 
@@ -110,8 +111,8 @@ and index remain invocation parameters, not project configuration or fixed archi
 ## DataCoolie Control Storage
 
 - Control resource and environment namespace: {{ control_resource_and_environment_namespace }}
-- Fixed metadata component and selected one-, two-, or three-file projection: {{ deployed_metadata_projection }}
-- Optional fixed functions component and attachment boundary: {{ deployed_functions_projection_or_none }}
+- Configured metadata component and selected `single`, `split`, or `preserve` projection: {{ deployed_metadata_projection }}
+- Configured functions components and execution-host import/attachment boundary: {{ deployed_functions_projection_or_none }}
 - Mutable log location, classification, access, and retention: {{ log_location_and_policy }}
 - Mutable watermark location, backup, recovery, and outage behavior: {{ watermark_location_and_recovery }}
 - Watermark writer ownership: one active writer per environment, watermark path, and dataflow unless

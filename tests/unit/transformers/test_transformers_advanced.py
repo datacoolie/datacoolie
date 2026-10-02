@@ -14,7 +14,8 @@ import pytest
 
 from datacoolie.core.constants import LoadType
 from datacoolie.core.exceptions import TransformError
-from datacoolie.core.models import DataFlow, PartitionColumn
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import PartitionColumn
 from datacoolie.transformers.base import BaseTransformer, TransformerPipeline
 from datacoolie.transformers.deduplicator import Deduplicator
 from datacoolie.transformers.partition_handler import PartitionHandler
@@ -60,7 +61,7 @@ class TestTransformerPipelineAdvanced:
         info = pipeline.get_runtime_info()
         assert info.status == "failed"
         assert info.transformers_applied == ["PassThroughTransformer"]
-        assert "unexpected failure" in (info.error_message or "")
+        assert "unexpected failure" in (info.message or "")
         assert exc.value.details.get("applied") == ["PassThroughTransformer"]
 
     def test_remove_transformer_removes_multiple_instances(self) -> None:

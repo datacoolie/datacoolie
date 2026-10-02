@@ -37,19 +37,14 @@ SKILL_UNIT_TESTS = {
     "design": ("unit/test_design_approval.py",),
     "build": (
         "unit/test_build_tooling_contract.py",
-        "unit/test_metadata_convert.py",
-        "unit/test_metadata_lint.py",
-        "unit/test_metadata_merge.py",
-        "unit/test_metadata_validate.py",
-        "unit/test_operational_runner_contract.py",
         "unit/test_project_automation.py",
-        "unit/test_runner_operational_safety.py",
-        "unit/test_runner_platform_adapters.py",
-        "unit/test_workspace_config_and_runner_contract.py",
-        "unit/test_workspace_materialization.py",
+        "unit/test_public_examples_routing.py",
     ),
     "provision": ("unit/test_provision_receipt.py",),
-    "release": ("unit/test_release_receipt.py",),
+    "release": (
+        "unit/test_release_receipt.py",
+        "unit/test_release_upload.py",
+    ),
 }
 
 INTEGRATION_ENVIRONMENT = {

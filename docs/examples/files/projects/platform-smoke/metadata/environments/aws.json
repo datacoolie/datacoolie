@@ -1,0 +1,12 @@
+{
+  "connections": [
+    {
+      "name": "orders_input",
+      "configure": {"base_path": "s3://your-bucket/datacoolie-example/data/input"}
+    },
+    {
+      "name": "orders_output",
+      "configure": {"base_path": "s3://your-bucket/datacoolie-example/data/output"}
+    }
+  ]
+}

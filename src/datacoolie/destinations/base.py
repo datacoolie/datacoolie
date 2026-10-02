@@ -15,10 +15,13 @@ from typing import Any, Dict, Generic, List, Optional
 
 from datacoolie.core.constants import DEFAULT_RETENTION_HOURS, DataFlowStatus, ExecutionType
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import DataFlow, DestinationRuntimeInfo
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.runtime import DestinationRuntimeInfo
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
-from datacoolie.utils.helpers import utc_now
+from datacoolie.destinations.resolution.target import ResolvedDestination, resolve_destination_target
+from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.utils.time import utc_now
 
 logger = get_logger(__name__)
 
@@ -44,10 +47,12 @@ class BaseLoadStrategy(ABC):
     def execute(
         self,
         df: DF,
-        table_name: str,
+        table_name: Optional[str],
         dataflow: DataFlow,
         engine: BaseEngine[DF],
         path: Optional[str] = None,
+        *,
+        watermark_window: Optional[WindowSpec] = None,
     ) -> None:
         """Execute the load strategy.
 
@@ -80,7 +85,13 @@ class BaseDestinationWriter(ABC, Generic[DF]):
     # Write (Template Method)
     # ------------------------------------------------------------------
 
-    def write(self, df: DF, dataflow: DataFlow) -> DestinationRuntimeInfo:
+    def write(
+        self,
+        df: DF,
+        dataflow: DataFlow,
+        *,
+        watermark_window: Optional[WindowSpec] = None,
+    ) -> DestinationRuntimeInfo:
         """Write data to the destination (Template Method).
 
         1. Validate destination path.
@@ -103,11 +114,31 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             operation_type=dataflow.load_type,
         )
 
-        dest_path = dataflow.destination.path
-        table_name = dataflow.destination.full_table_name
+        dest_path: Optional[str] = None
+        table_name = ""
         
         try:
-            self._write_internal(df, dataflow)
+            if watermark_window is not None:
+                # Reject legacy mappings at the writer boundary instead of
+                # allowing bootstrap/fallback logic to treat them as a
+                # usable replacement window.
+                normalize_window(watermark_window)
+            # Resolve the destination inside the phase boundary.  A malformed
+            # destination is a failed destination phase, not a leaked RUNNING
+            # runtime caused by property access before ``try``.
+            target = self._resolve_target(dataflow)
+            dest_path = target.path
+            table_name = target.table_name or ""
+            if watermark_window is None:
+                # Keep ordinary writer subclasses free of execution state;
+                # only replacement writes need the explicit per-call value.
+                self._write_internal(df, dataflow)
+            else:
+                self._write_internal(
+                    df,
+                    dataflow,
+                    watermark_window=watermark_window,
+                )
 
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
@@ -139,13 +170,14 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         except DestinationError as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
-            logger.error("Destination write failed: %s", exc, exc_info=exc.__cause__ or exc)
+            self._runtime_info.message = str(exc) or type(exc).__name__
+            logger.debug("Destination write failed: %s", exc)
             raise
         except Exception as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
-            self._runtime_info.error_message = str(exc)
-            logger.error("Destination write failed: %s", exc, exc_info=exc.__cause__ or exc)
+            self._runtime_info.message = str(exc) or type(exc).__name__
+            logger.debug("Destination write failed: %s", exc)
             raise DestinationError(
                 f"Failed to write destination: {exc}",
                 details={"table_name": table_name, "path": dest_path, "load_type": dataflow.load_type},
@@ -188,14 +220,29 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             operation_type=ExecutionType.MAINTENANCE.value,
         )
 
-        dest_path = dataflow.destination.path
-        dest_table_name = dataflow.destination.full_table_name
-        dest_fmt = dataflow.destination.connection.format
-        
+        dest_path: Optional[str] = None
+        dest_table_name = ""
+        dest_fmt = ""
+
+        # Keep destination preflight in the maintenance phase boundary.  This
+        # method returns a runtime object for maintenance, so convert even a
+        # property/configuration failure into a terminal failed runtime.
+        try:
+            target = self._resolve_target(dataflow)
+            dest_path = target.path
+            dest_table_name = target.table_name or ""
+            dest_fmt = target.format
+        except Exception as exc:
+            self._runtime_info.end_time = utc_now()
+            self._runtime_info.status = DataFlowStatus.FAILED.value
+            self._runtime_info.message = str(exc) or type(exc).__name__
+            logger.debug("Maintenance preflight failed: %s", exc)
+            return self._runtime_info
+
         if not dest_path and not dest_table_name:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
-            self._runtime_info.error_message = "Destination path or table name is required"
+            self._runtime_info.message = "Destination path or table name is required"
             return self._runtime_info
 
         hours = retention_hours if retention_hours is not None else DEFAULT_RETENTION_HOURS
@@ -216,8 +263,11 @@ class BaseDestinationWriter(ABC, Generic[DF]):
                 retention_hours=hours,
             )
         except Exception as exc:
-            errors.append(str(exc))
-            logger.error("Maintenance failed for %s: %s", dest_table_name or dest_path, exc, exc_info=exc.__cause__ or exc)
+            errors.append(str(exc) or type(exc).__name__)
+            # The orchestration boundary owns the terminal traceback.  Keep
+            # this handled partial-maintenance detail at DEBUG so a single
+            # failure is not emitted once per provider/wrapper layer.
+            logger.debug("Maintenance failed for %s: %s", dest_table_name or dest_path, exc)
         any_succeeded = any(
             entry.get("status") == DataFlowStatus.SUCCEEDED.value for entry in sub_results
         )
@@ -256,7 +306,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         if errors:
             self._runtime_info.status = DataFlowStatus.FAILED.value
-            self._runtime_info.error_message = "; ".join(errors)
+            self._runtime_info.message = "; ".join(errors)
         elif any_succeeded:
             self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
         else:
@@ -289,11 +339,11 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         Returns:
             Sub-result dict with ``operation``, ``status``, ``duration_seconds``
-            and ``error_message`` keys.
+            and ``message`` keys.
         """
         start = utc_now()
         status = DataFlowStatus.SKIPPED.value
-        error_message: Optional[str] = None
+        message: Optional[str] = None
 
         try:
             if table_exists:
@@ -304,27 +354,38 @@ class BaseDestinationWriter(ABC, Generic[DF]):
                 logger.info("%s skipped — table does not exist at %s", op_name.capitalize(), location)
         except Exception as exc:
             status = DataFlowStatus.FAILED.value
-            error_message = str(exc)
-            errors.append(f"{op_name.capitalize()}: {error_message}")
-            logger.error("%s failed for %s: %s", op_name.capitalize(), location, exc, exc_info=exc.__cause__ or exc)
+            message = str(exc) or type(exc).__name__
+            errors.append(f"{op_name.capitalize()}: {message}")
+            # This helper records the partial result and lets the outer
+            # execution boundary emit the one terminal traceback.
+            logger.debug("%s failed for %s: %s", op_name.capitalize(), location, exc)
 
         end = utc_now()
         duration = (end - start).total_seconds()
         if status == DataFlowStatus.SUCCEEDED.value:
             logger.debug("%s succeeded at %s (%.2fs)", op_name.capitalize(), location, duration)
-        return {
+        result = {
             "operation": op_name,
             "status": status,
             "duration_seconds": duration,
-            "error_message": error_message,
+            "message": message,
         }
+        if status == DataFlowStatus.SKIPPED.value:
+            result["message"] = "Destination table does not exist"
+        return result
 
     # ------------------------------------------------------------------
     # Abstract / overridable methods
     # ------------------------------------------------------------------
 
     @abstractmethod
-    def _write_internal(self, df: DF, dataflow: DataFlow) -> None:
+    def _write_internal(
+        self,
+        df: DF,
+        dataflow: DataFlow,
+        *,
+        watermark_window: Optional[WindowSpec] = None,
+    ) -> None:
         """Execute the write operation (subclass implementation)."""
 
     @abstractmethod
@@ -369,15 +430,20 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         which prefers ``table_name``.  Subclasses may override to change
         lookup priority (e.g. Delta on AWS always uses path).
         """
-        dest = dataflow.destination
+        target = self._resolve_target(dataflow)
         return self._engine.get_history(
-            table_name=dest.full_table_name,
-            path=dest.path,
+            table_name=target.table_name,
+            path=target.path,
             limit=limit,
             start_time=start_time,
             end_time=end_time,
-            fmt=dest.connection.format,
+            fmt=target.format,
         )
+
+    def _resolve_target(self, dataflow: DataFlow) -> ResolvedDestination:
+        """Return the writer/engine target contract for *dataflow*."""
+
+        return resolve_destination_target(dataflow.destination, require_target=False)
 
     def _parse_write_metrics(
         self, history: List[Dict[str, Any]]

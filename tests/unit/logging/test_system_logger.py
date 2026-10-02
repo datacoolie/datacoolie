@@ -1,20 +1,20 @@
-"""Tests for datacoolie.logging.system_logger — SystemLogger + factory."""
+"""Contract tests for system-log capture and JSON Lines persistence."""
 
 from __future__ import annotations
 
 import json
-import logging
 import threading
-import time
 from unittest.mock import MagicMock
 
 import pytest
 
-from datacoolie.logging.base import LogConfig, LogManager, StorageMode
-from datacoolie.logging.etl_logger import ETLLogger
+from datacoolie.core.models.run_config import DataCoolieRunConfig
+from datacoolie.logging.configuration.config import LogConfig
+from datacoolie.logging.runtime.manager import LogManager, get_logger
+from datacoolie.logging.runtime.context import dataflow_context
+from datacoolie.logging.configuration.constants import LogEvent
 from datacoolie.logging.system_logger import SystemLogger, create_system_logger
 from datacoolie.platforms.local_platform import LocalPlatform
-from tests.unit.logging.support import make_dataflow, make_runtime
 
 
 class TestSystemLogger:
@@ -24,377 +24,268 @@ class TestSystemLogger:
     def teardown_method(self):
         LogManager.reset()
 
-    def test_init_configures_log_manager(self):
-        cfg = LogConfig(log_level="DEBUG", storage_mode=StorageMode.MEMORY.value)
-        lgr = SystemLogger(cfg)
-        mgr = LogManager.get_instance()
-        assert mgr._configured is True
-        assert mgr.capture_handler is not None
-        lgr.close()
+    def test_construction_is_inert_until_activation(self):
+        SystemLogger(LogConfig())
+        manager = LogManager.get_instance()
+        assert manager.capture_handler is None
+        assert manager._configured is False
 
-    def test_close_no_output_path(self):
-        """close does nothing when output_path is not set."""
-        lgr = SystemLogger(LogConfig())
-        lgr.close()
-        assert lgr.terminal_outcomes == ()
+    def test_activation_starts_a_fresh_capture_session(self):
+        get_logger("datacoolie.system.before").info("before")
+        logger = SystemLogger(LogConfig())
+        logger.activate()
+        get_logger("datacoolie.system.after").info("after")
 
-    def test_close_no_platform(self):
-        """close does nothing when platform is not set."""
-        cfg = LogConfig(output_path="/logs")
-        lgr = SystemLogger(cfg, platform=None)
-        lgr.close()
-        assert lgr.terminal_outcomes == ()
+        handler = LogManager.get_instance().capture_handler
+        assert handler is not None
+        assert [record.message for record in handler.get_records()] == ["after"]
+        logger.close()
 
-    def test_close_appends_and_reports_exact_path_to_console(self, capsys):
-        """close calls append_file with a .jsonl remote path."""
-        platform = MagicMock()
-        cfg = LogConfig(
-            output_path="/logs",
-            storage_mode=StorageMode.MEMORY.value,
-            flush_interval_seconds=0,  # disable timer
-        )
-        lgr = SystemLogger(cfg, platform=platform)
-        from datacoolie.core.models import DataCoolieRunConfig
-        lgr.set_run_config(DataCoolieRunConfig(job_id="job-1"))
+    def test_capture_ownership_is_exclusive(self):
+        first = SystemLogger(LogConfig())
+        second = SystemLogger(LogConfig())
+        first.activate()
 
-        from datacoolie.logging.base import get_logger
-        child = get_logger("datacoolie.test.flush")
-        child.info("some captured message")
+        with pytest.raises(RuntimeError, match="capture session is already active"):
+            second.activate()
 
-        lgr.close()
+        assert first.is_active
+        second.close()
+        first.close()
 
-        platform.append_file.assert_called_once()
-        remote_path = platform.append_file.call_args[0][0]
-        uploaded_content = platform.append_file.call_args[0][1]
-        assert "system_log" in remote_path
-        assert "run_date=" in remote_path
-        assert remote_path.endswith(".jsonl")
-        # filename: system_log_YYYYMMDD_HHMMSS_{job_id}.jsonl
-        import re
-        assert re.search(r"system_log_\d{8}_\d{6}_\S+\.jsonl$", remote_path)
-        console_output = capsys.readouterr().err
-        assert "[INFO]" in console_output
-        assert f"System log pushed: {remote_path}" in console_output
-        assert "System log pushed:" not in uploaded_content
-
-    def test_failed_terminal_push_does_not_report_success(self, capsys):
-        platform = MagicMock()
-        platform.append_file.side_effect = RuntimeError("write failed")
-        lgr = SystemLogger(
-            LogConfig(output_path="/logs", flush_interval_seconds=0),
-            platform,
-        )
-        logging.getLogger("datacoolie.test.final_failure").info("message")
-
-        lgr.close()
-
-        assert lgr.terminal_outcomes[0].status == "failed"
-        assert "System log pushed:" not in capsys.readouterr().err
-
-    def test_system_final_payload_contains_etl_push_info(self):
-        platform = MagicMock()
-        system_logger = SystemLogger(
-            LogConfig(output_path="/logs/system", flush_interval_seconds=0),
-            platform,
-        )
-        etl_logger = ETLLogger(
-            LogConfig(output_path="/logs/etl", flush_interval_seconds=0),
-            platform,
-        )
-        etl_logger.log(make_dataflow("a"), make_runtime("a"))
-
-        etl_logger.close()
-        successful_etl_paths = [
-            call.args[0]
-            for call in platform.append_file.call_args_list
-            if call.args[0].startswith("/logs/etl/")
-        ] + [
-            call.args[1]
-            for call in platform.upload_file.call_args_list
-            if call.args[1].startswith("/logs/etl/")
-        ]
-        system_logger.close()
-
-        system_payload = next(
-            call.args[1]
-            for call in platform.append_file.call_args_list
-            if "system_log_" in call.args[0]
-        )
-        assert successful_etl_paths
-        system_rows = [
-            json.loads(line)
-            for line in system_payload.splitlines()
-            if line.strip()
-        ]
-        etl_push_rows = [
-            row
-            for row in system_rows
-            if row["msg"].startswith("ETL log pushed: ")
-        ]
-        assert etl_push_rows
-        assert all(row["level"] == "INFO" for row in etl_push_rows)
-        for path in successful_etl_paths:
-            assert f"ETL log pushed: {path}" in system_payload
-
-    def test_flush_content_plain_text(self, tmp_path):
-        """Appended file contains JSONL records (one JSON object per line)."""
+    def test_snapshot_uses_upload_file_and_json_extension(self, tmp_path):
         platform = LocalPlatform(base_path=str(tmp_path))
-        cfg = LogConfig(
-            output_path="logs",
-            storage_mode=StorageMode.MEMORY.value,
-            flush_interval_seconds=0,  # disable timer
-        )
-        lgr = SystemLogger(cfg, platform=platform)
-        from datacoolie.core.models import DataCoolieRunConfig
-        lgr.set_run_config(DataCoolieRunConfig(job_id="job-1"))
-
-        from datacoolie.logging.base import get_logger
-        child = get_logger("datacoolie.test.flush.content")
-        child.info("hello content test")
-
-        lgr.close()
-
-        log_files = list(tmp_path.rglob("*.jsonl"))
-        # Filter to system_log files only (exclude ETL logs if any)
-        log_files = [f for f in log_files if "system_log" in f.name]
-        assert len(log_files) == 1
-        lines = [
-            line
-            for line in log_files[0].read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        assert len(lines) >= 1
-        record = json.loads(lines[0])
-        assert "hello content test" in record["msg"]
-        assert "ts" in record and "level" in record and "logger" in record
-        assert record["logger"] == "datacoolie.test.flush.content"
-
-    def test_close_preserves_record_captured_before_system_logger(self):
-        from datacoolie.logging.base import get_logger
-
-        get_logger("datacoolie.metadata.base").info("prefetch before driver")
-        platform = MagicMock()
-        lgr = SystemLogger(
-            LogConfig(output_path="/logs", flush_interval_seconds=0),
+        logger = SystemLogger(
+            LogConfig(output_path="logs", flush_interval_seconds=0),
             platform,
         )
-        get_logger("datacoolie.orchestration.driver").info(
-            "loading after driver"
-        )
+        logger.set_run_config(DataCoolieRunConfig(job_id="factory/job-1"))
+        logger.activate()
+        get_logger("datacoolie.system.snapshot").info("hello")
+        logger.close()
 
-        lgr.close()
-
-        content = platform.append_file.call_args.args[1]
-        rows = [json.loads(line) for line in content.splitlines()]
-        assert [(row["logger"], row["msg"]) for row in rows] == [
-            ("datacoolie.metadata.base", "prefetch before driver"),
-            ("datacoolie.orchestration.driver", "loading after driver"),
+        files = sorted(tmp_path.rglob("system_*.json"))
+        assert len(files) == 1
+        assert not list(tmp_path.rglob("*.jsonl"))
+        assert not list(tmp_path.rglob("*.parquet"))
+        payload = files[0].read_text(encoding="utf-8")
+        ordered_pairs = json.loads(payload, object_pairs_hook=list)
+        assert [key for key, _ in ordered_pairs[:2]] == [
+            "log_schema_version",
+            "_type",
         ]
+        row = dict(ordered_pairs)
+        assert row["log_schema_version"] == 4
+        assert row["_type"] == "system_log"
+        assert row["log_session_id"]
+        assert row["job_id"] == "factory/job-1"
+        assert row["msg"] == "hello"
 
-    def test_captures_standard_framework_child_logger(self):
-        """Framework modules using logging.getLogger(__name__) share the root."""
-        lgr = SystemLogger(
-            LogConfig(storage_mode=StorageMode.MEMORY.value),
-        )
+    def test_capture_is_consumed_by_writer_without_a_second_queue(self, tmp_path):
+        platform = LocalPlatform(base_path=str(tmp_path))
+        logger = SystemLogger(LogConfig(output_path="logs"), platform)
+        logger.activate()
+        get_logger("datacoolie.system.direct").info("direct")
 
-        logging.getLogger("datacoolie.core.registry").info("standard child")
-
-        handler = lgr._log_manager.capture_handler
+        handler = LogManager.get_instance().capture_handler
         assert handler is not None
-        records = handler.get_records()
-        assert any(
-            record.logger_name == "datacoolie.core.registry"
-            and record.message == "standard child"
-            for record in records
-        )
-        lgr.close()
-
-    @pytest.mark.parametrize(
-        "storage_mode",
-        [StorageMode.MEMORY.value, StorageMode.FILE.value],
-    )
-    def test_periodic_error_retains_batch_for_retry(self, storage_mode):
-        """A definite periodic failure retains records for a later interval."""
-        platform = MagicMock()
-        platform.append_file.side_effect = [RuntimeError("write fail"), None]
-
-        cfg = LogConfig(
-            output_path="/logs",
-            storage_mode=storage_mode,
-            flush_interval_seconds=0,
-        )
-        lgr = SystemLogger(cfg, platform=platform)
-        from datacoolie.core.models import DataCoolieRunConfig
-        lgr.set_run_config(DataCoolieRunConfig(job_id="j"))
-
-        from datacoolie.logging.base import get_logger
-        child = get_logger("datacoolie.test.flush.err")
-        child.info("msg")
-
-        lgr._on_periodic_flush()
-        assert isinstance(lgr.last_flush_error, RuntimeError)
-        pending = lgr._log_manager.capture_handler.get_records()
-        assert [record.message for record in pending] == ["msg"]
-
-        lgr._on_periodic_flush()
-        assert lgr.last_flush_error is None
-        assert platform.append_file.call_count == 2
-        retry_payload = platform.append_file.call_args_list[1].args[1]
-        assert retry_payload.count('"msg": "msg"') == 1
-        lgr.close()
-
-    def test_periodic_flush_does_not_capture_its_own_success(self):
-        platform = MagicMock()
-        lgr = SystemLogger(
-            LogConfig(output_path="/logs", flush_interval_seconds=0),
-            platform,
-        )
-        from datacoolie.logging.base import get_logger
-
-        get_logger("datacoolie.test.periodic.feedback").info("one event")
-        lgr._on_periodic_flush()
-
-        assert platform.append_file.call_count == 1
-        assert lgr._log_manager.get_captured_logs() == ""
-        lgr.close()
-
-    def test_cleanup_clears_captured(self):
-        cfg = LogConfig(storage_mode=StorageMode.MEMORY.value, flush_interval_seconds=0)
-        lgr = SystemLogger(cfg)
-        mgr = LogManager.get_instance()
-
-        from datacoolie.logging.base import get_logger
-        child = get_logger("datacoolie.test.cleanup")
-        child.info("msg")
-        assert "msg" in mgr.get_captured_logs()
-        lgr._cleanup()
-        assert mgr.get_captured_logs() == ""
-
-    def test_close_detaches_owned_capture_handler(self):
-        lgr = SystemLogger(
-            LogConfig(storage_mode=StorageMode.MEMORY.value),
-        )
-        mgr = LogManager.get_instance()
-        handler = mgr.capture_handler
-        assert handler is not None
-        assert handler in logging.getLogger("datacoolie").handlers
-
-        lgr.close()
-        from datacoolie.logging.base import get_logger
-
-        get_logger("datacoolie.test.after_close").info("must not be captured")
-
-        assert handler not in logging.getLogger("datacoolie").handlers
         assert handler.get_records() == []
-        assert mgr.capture_handler is None
+        logger.close()
 
-    def test_context_manager(self):
-        platform = MagicMock()
-        cfg = LogConfig(output_path="/logs", flush_interval_seconds=0)
-        with SystemLogger(cfg, platform=platform) as lgr:
-            from datacoolie.logging.base import get_logger
-            child = get_logger("datacoolie.test.ctx")
-            child.info("context msg")
-        assert lgr.is_closed
-
-    def test_file_level_captures_debug_when_console_is_info(self):
-        """With file_level=DEBUG and log_level=INFO, the capture handler
-        receives DEBUG records even though the console does not."""
-        mgr = LogManager.get_instance()
-        cfg = LogConfig(
-            log_level="INFO",
-            file_level="DEBUG",
-            flush_interval_seconds=0,
-        )
-        lgr = SystemLogger(cfg)
-
-        from datacoolie.logging.base import get_logger
-        child = get_logger("datacoolie.test.file_level")
-        child.debug("debug only msg")
-        child.info("info msg")
-
-        # Console handler at INFO — debug not shown.
-        assert mgr._console_handler is not None
-        assert mgr._console_handler.level == logging.INFO
-        # Capture handler at DEBUG — debug record captured.
-        assert mgr._capture_handler is not None
-        assert mgr._capture_handler.level == logging.DEBUG
-        captured = mgr.get_captured_logs()
-        assert "debug only msg" in captured
-        lgr.close()
-
-    def test_periodic_flush_via_timer(self, tmp_path):
-        """Timer fires and appends content without waiting for close."""
-        platform = LocalPlatform(base_path=str(tmp_path))
-        cfg = LogConfig(
-            output_path="logs",
-            storage_mode=StorageMode.MEMORY.value,
-            flush_interval_seconds=1,
-        )
-        lgr = SystemLogger(cfg, platform=platform)
-        from datacoolie.core.models import DataCoolieRunConfig
-        lgr.set_run_config(DataCoolieRunConfig(job_id="timer-job"))
-        lgr.activate()
-
-        from datacoolie.logging.base import get_logger
-        child = get_logger("datacoolie.test.timer")
-        child.info("timer triggered msg")
-
-        # Wait for timer to fire.
-        time.sleep(1.5)
-
-        log_files = list(tmp_path.rglob("*.jsonl"))
-        log_files = [f for f in log_files if "system_log" in f.name]
-        # File should exist from the periodic flush.
-        assert len(log_files) >= 1
-        lines = [
-            line
-            for line in log_files[0].read_text(encoding="utf-8").splitlines()
+        rows = [
+            json.loads(line)
+            for path in tmp_path.rglob("system_*.json")
+            for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-        assert any(
-            "timer triggered msg" in json.loads(line)["msg"]
-            for line in lines
+        assert [row["msg"] for row in rows] == ["direct"]
+
+    def test_capture_persists_event_and_execution_correlation(self):
+        logger = SystemLogger(LogConfig(), MagicMock())
+        logger.activate()
+        with dataflow_context("df-1", "run-1"):
+            get_logger("datacoolie.system.context").info(
+                "started",
+                extra={"event_name": LogEvent.DATAFLOW_STARTED.value},
+            )
+
+        handler = LogManager.get_instance().capture_handler
+        assert handler is not None
+        record = handler.get_records()[0]
+        assert record.dataflow_id == "df-1"
+        assert record.dataflow_run_id == "run-1"
+        assert record.event_name == LogEvent.DATAFLOW_STARTED.value
+        logger.close()
+
+    @pytest.mark.parametrize("storage_mode", ["memory", "file"])
+    def test_capture_handoff_restores_only_unhandled_suffix(self, storage_mode):
+        """A pre-callback batch keeps B/C when handoff fails before admitting B."""
+        logger = SystemLogger(
+            LogConfig(output_path="logs", storage_mode=storage_mode),
+            MagicMock(),
         )
+        logger.activate()
+        handler = LogManager.get_instance().capture_handler
+        assert handler is not None
 
-        lgr.close()
+        # Exercise the fallback queue used while the callback is detached.
+        handler.set_record_callback(None)
+        fallback = get_logger("datacoolie.system.handoff")
+        fallback.info("A")
+        fallback.info("B")
+        fallback.info("C")
 
-    def test_blocked_periodic_flush_cannot_hang_close(self):
-        platform = MagicMock()
-        append_started = threading.Event()
-        release_append = threading.Event()
+        calls = 0
 
-        def append_file(_path, _content):
-            append_started.set()
-            release_append.wait(timeout=2)
+        def append(record):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("handoff failure")
+            return True
 
-        platform.append_file.side_effect = append_file
-        lgr = SystemLogger(
+        logger._append_capture_record = append
+        assert logger._drain_capture() == 1
+        assert [record.message for record in handler.get_records()] == ["B", "C"]
+        logger.close()
+
+    def test_capture_handoff_does_not_requeue_intentional_drop(self):
+        logger = SystemLogger(LogConfig(output_path="logs"), MagicMock())
+        logger.activate()
+        handler = LogManager.get_instance().capture_handler
+        assert handler is not None
+        handler.set_record_callback(None)
+        fallback = get_logger("datacoolie.system.drop")
+        fallback.info("A")
+        fallback.info("B")
+
+        logger._append_capture_record = MagicMock(side_effect=[True, False])
+        assert logger._drain_capture() == 2
+        assert handler.get_records() == []
+        logger.close()
+
+    def test_batch_writes_part_files(self, tmp_path):
+        platform = LocalPlatform(base_path=str(tmp_path))
+        logger = SystemLogger(
             LogConfig(
-                output_path="/logs",
-                flush_interval_seconds=0.01,
-                close_timeout_seconds=0.05,
+                output_path="logs",
+                persistence_mode="batch",
+                flush_batch_bytes=1,
+                flush_interval_seconds=0,
             ),
             platform,
         )
-        lgr.activate()
-        logging.getLogger("datacoolie.test.blocked").info("blocked")
-        assert append_started.wait(timeout=2)
+        logger.activate()
+        get_logger("datacoolie.system.batch").info("batch")
+        logger.close()
 
-        started = time.monotonic()
-        lgr.close()
-        elapsed = time.monotonic() - started
-        release_append.set()
+        parts = sorted(tmp_path.rglob("system_*_part_*.json"))
+        assert len(parts) == 1
+        assert json.loads(parts[0].read_text(encoding="utf-8"))["msg"] == "batch"
 
-        assert elapsed < 0.3
-        assert lgr.terminal_outcomes[0].name == "system_jsonl"
-        assert lgr.terminal_outcomes[0].status == "timed_out"
-        assert LogManager.get_instance().capture_handler is None
+    def test_batch_size_wakeup_does_not_wait_for_long_timer(self):
+        uploaded = threading.Event()
+        platform = MagicMock()
+        platform.upload_file.side_effect = lambda *args, **kwargs: uploaded.set()
+        logger = SystemLogger(
+            LogConfig(
+                output_path="logs",
+                persistence_mode="batch",
+                flush_batch_bytes=1,
+                flush_interval_seconds=60,
+            ),
+            platform,
+        )
+        logger.activate()
+        get_logger("datacoolie.system.wakeup").info("wake")
 
+        assert uploaded.wait(timeout=1)
+        logger.close()
 
-# ============================================================================
-# create_system_logger factory
-# ============================================================================
+    def test_batch_time_tick_flushes_a_batch_below_size_threshold(self, tmp_path):
+        platform = MagicMock()
+        logger = SystemLogger(
+            LogConfig(
+                output_path="logs",
+                persistence_mode="batch",
+                flush_batch_bytes=1024 * 1024,
+                flush_interval_seconds=60,
+            ),
+            platform,
+        )
+        logger.activate()
+        get_logger("datacoolie.system.time-trigger").info("small batch")
+
+        logger._on_periodic_flush(time_due=True)
+
+        assert platform.upload_file.call_count == 1
+        logger.close()
+
+    def test_failed_periodic_upload_is_retryable_with_same_snapshot(self):
+        platform = MagicMock()
+        platform.upload_file.side_effect = [RuntimeError("unavailable"), None]
+        logger = SystemLogger(
+            LogConfig(output_path="logs", flush_interval_seconds=0),
+            platform,
+        )
+        logger.activate()
+        get_logger("datacoolie.system.retry").info("retry-me")
+
+        logger._on_periodic_flush()
+        assert isinstance(logger.last_flush_error, RuntimeError)
+        logger._on_periodic_flush()
+        assert logger.last_flush_error is None
+        assert platform.upload_file.call_count == 2
+        assert (
+            platform.upload_file.call_args_list[0].args[1]
+            == platform.upload_file.call_args_list[1].args[1]
+        )
+        logger.close()
+
+    def test_failed_terminal_upload_is_reported_without_business_exception(self):
+        platform = MagicMock()
+        platform.upload_file.side_effect = RuntimeError("storage down")
+        logger = SystemLogger(LogConfig(output_path="logs", flush_interval_seconds=0), platform)
+        logger.activate()
+        get_logger("datacoolie.system.failure").info("message")
+        logger.close()
+
+        assert logger.terminal_outcomes
+        assert logger.terminal_outcomes[0].status == "failed"
+        assert logger.last_flush_error is not None
+
+    def test_no_output_or_platform_is_a_valid_noop(self):
+        logger = SystemLogger(LogConfig())
+        logger.activate()
+        get_logger("datacoolie.system.noop").info("noop")
+        logger.close()
+        assert logger.terminal_outcomes == ()
+
+    def test_file_level_captures_debug(self):
+        logger = SystemLogger(LogConfig(log_level="INFO", file_level="DEBUG"))
+        logger.activate()
+        get_logger("datacoolie.system.level").debug("debug")
+        get_logger("datacoolie.system.level").info("info")
+
+        handler = LogManager.get_instance().capture_handler
+        assert handler is not None
+        assert {record.message for record in handler.get_records()} == {"debug", "info"}
+        logger.close()
+
+    def test_partition_can_be_disabled(self):
+        platform = MagicMock()
+        logger = SystemLogger(
+            LogConfig(output_path="logs", partition_by_date=False, flush_interval_seconds=0),
+            platform,
+        )
+        logger.activate()
+        get_logger("datacoolie.system.partition").info("hello")
+        logger.close()
+
+        destination = platform.upload_file.call_args.args[1]
+        assert destination.startswith("logs/system_")
+        assert destination.endswith(".json")
+        assert "run_date=" not in destination
 
 
 class TestCreateSystemLogger:
@@ -404,55 +295,21 @@ class TestCreateSystemLogger:
     def teardown_method(self):
         LogManager.reset()
 
-    def test_defaults(self):
-        lgr = create_system_logger()
-        assert isinstance(lgr, SystemLogger)
-        assert lgr.config.log_level == "INFO"
-        assert lgr.config.file_level == "DEBUG"
-        lgr.close()
-
-    def test_custom_params(self):
-        platform = MagicMock()
-        lgr = create_system_logger(
-            output_path="/logs/system",
-            log_level="WARNING",
-            file_level="INFO",
-            platform=platform,
-            storage_mode=StorageMode.FILE.value,
-        )
-        assert lgr.config.output_path == "/logs/system"
-        assert lgr.config.log_level == "WARNING"
-        assert lgr.config.file_level == "INFO"
-        lgr.close()
-
-
-# ============================================================================
-# Additional edge cases
-# ============================================================================
-
-
-class TestSystemLoggerEdgeCases:
-    def setup_method(self):
-        LogManager.reset()
-
-    def teardown_method(self):
-        LogManager.reset()
-
-    def test_flush_without_partition_by_date(self):
-        platform = MagicMock()
-        cfg = LogConfig(
-            output_path="/logs",
-            partition_by_date=False,
-            flush_interval_seconds=0,
-        )
-        logger = SystemLogger(cfg, platform=platform)
-
-        child = logging.getLogger("datacoolie.test.system.no_partition")
-        child.info("hello")
-
+    def test_factory_defaults_and_config_override(self):
+        logger = create_system_logger()
+        assert logger.config.persistence_mode == "snapshot"
         logger.close()
-        assert platform.append_file.called
-        remote = platform.append_file.call_args.args[0]
-        assert "run_date=" not in remote
-        assert remote.endswith(".jsonl")
 
+        configured = LogConfig(output_path="configured", persistence_mode="batch")
+        logger = create_system_logger(config=configured)
+        assert logger.config.output_path == "configured"
+        assert logger.config.persistence_mode == "batch"
+        logger.close()
+
+    def test_factory_validates_override_without_mutating_input(self):
+        configured = LogConfig()
+
+        with pytest.raises(ValueError, match="output_path"):
+            create_system_logger(output_path=" ", config=configured)
+
+        assert configured.output_path is None

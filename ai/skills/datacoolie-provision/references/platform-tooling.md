@@ -90,4 +90,5 @@ exact environment-scoped metadata, log, and watermark paths. Capture only redact
 For a selected function package, verify reusable host capability for its exact format, immutable
 artifact storage, least-privilege access, supported library/environment mechanism, and whether a
 fresh session is required. This is readiness evidence only. Per-build upload, attachment,
-activation, import testing, and rollback belong to Release.
+activation, import testing, and rollback belong to the execution host or the
+project/platform workflow. Release only uploads the retained bytes.

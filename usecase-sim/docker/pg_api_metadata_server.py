@@ -1,7 +1,7 @@
-"""PostgreSQL-backed metadata API server for DataCoolie APIClient.
+"""PostgreSQL-backed metadata API server for DataCoolie APIProvider.
 
 Serves the ``dc_framework_*`` tables from PostgreSQL via REST endpoints
-compatible with ``datacoolie.metadata.api_client.APIClient``.  Replaces the
+compatible with ``datacoolie.metadata.api_provider.APIProvider``.  Replaces the
 JSON-file-backed :mod:`api_metadata_server` for Docker deployments.
 
 Usage:
@@ -42,7 +42,7 @@ logger = logging.getLogger("pg_api_metadata_server")
 
 
 # ---------------------------------------------------------------------------
-# Row mappers — convert DB rows to the JSON shape APIClient expects
+# Row mappers — convert DB rows to the JSON shape APIProvider expects
 # ---------------------------------------------------------------------------
 
 def _parse_json(raw: Any) -> Any:
@@ -82,7 +82,7 @@ def _row_to_dataflow(
     """Map a ``dc_framework_dataflows`` row to the nested API response dict.
 
     The server returns the ``source.connection`` / ``destination.connection``
-    objects inline so that ``APIClient._dict_to_dataflow`` can consume them
+    objects inline so that ``APIProvider._dict_to_dataflow`` can consume them
     in a single request without a follow-up lookup.
     """
     src_wm = _parse_json(row.source_watermark_columns) or []
@@ -109,6 +109,7 @@ def _row_to_dataflow(
             "table": row.source_table,
             "query": row.source_query,
             "python_function": row.source_python_function,
+            "filter_expression": row.source_filter_expression,
             "watermark_columns": src_wm,
             "configure": src_conf,
         },
@@ -138,7 +139,7 @@ def _row_to_schema_hint(row: Any) -> Dict[str, Any]:
         "scale": row.scale,
         "default_value": row.default_value,
         # SchemaHint.ordinal_position is a non-nullable int with default 0;
-        # Coerce DB nulls so the APIClient model mapper accepts the row.
+                # Coerce DB nulls so the APIProvider model mapper accepts the row.
         "ordinal_position": row.ordinal_position if row.ordinal_position is not None else 0,
         "is_active": bool(row.is_active) if row.is_active is not None else True,
     }
@@ -181,7 +182,7 @@ _DF_SELECT = """
            group_number, execution_order, processing_mode,
            source_connection_id, source_schema, source_table,
            source_query, source_python_function,
-           source_watermark_columns, source_configure,
+           source_filter_expression, source_watermark_columns, source_configure,
            transform,
            destination_connection_id, destination_schema, destination_table,
            destination_load_type, destination_merge_keys, destination_configure,

@@ -8,6 +8,7 @@ and leaves canonical URL discovery as the sitemap's single responsibility.
 
 from __future__ import annotations
 
+import gzip
 from pathlib import Path
 import re
 
@@ -28,3 +29,8 @@ def on_post_build(config) -> None:  # noqa: ANN001
     content = sitemap_path.read_text(encoding="utf-8")
     normalized = OPTIONAL_TAG_PATTERN.sub("", content)
     sitemap_path.write_text(normalized, encoding="utf-8")
+    # The builder generated the compressed copy before this hook ran. Keep
+    # crawlers of either endpoint on exactly the same sitemap bytes.
+    compressed_path = site_dir / "sitemap.xml.gz"
+    if compressed_path.exists():
+        compressed_path.write_bytes(gzip.compress(sitemap_path.read_bytes(), mtime=0))

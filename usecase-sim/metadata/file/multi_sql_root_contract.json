@@ -1,0 +1,37 @@
+{
+  "connections": [
+    {
+      "name": "explicit_multi_sql_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "explicit_multi_sql_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/explicit_multi_sql"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "query_explicit_multiple_roots",
+      "stage": "query_explicit_multiple_roots",
+      "source": {
+        "connection_name": "explicit_multi_sql_source",
+        "query": "sql2/customers.sql"
+      },
+      "destination": {
+        "connection_name": "explicit_multi_sql_destination",
+        "table": "customers_explicit_multiple_roots",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ],
+  "schema_hints": []
+}

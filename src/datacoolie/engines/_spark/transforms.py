@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Sequence
 
 from pyspark.sql import Column, DataFrame, Window
@@ -10,8 +9,8 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as T
 
 from datacoolie.core.constants import DEFAULT_AUTHOR, SystemColumn
-from datacoolie.core.exceptions import TransformError
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule
+from datacoolie.core.exceptions import ConfigurationError, TransformError
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.engines.base import BaseEngine
 
 
@@ -267,19 +266,19 @@ def apply_watermark_filter(
         upper = (watermark_end or {}).get(column)
         if lower is None and upper is None:
             continue
-        expression = sf.col(column)
+        # Watermark metadata names a top-level field.  Quote the identifier so
+        # dots/backticks remain literal names instead of being interpreted as
+        # nested-field SQL syntax; Spark still applies its configured
+        # case-sensitivity during analysis.
+        expression = sf.col(f"`{column.replace('`', '``')}`")
         condition = None
         if lower is not None:
-            if isinstance(lower, (datetime, date)):
-                lower = lower.isoformat()
             condition = (
                 expression >= sf.lit(lower)
                 if start_operator == ">="
                 else expression > sf.lit(lower)
             )
         if upper is not None:
-            if isinstance(upper, (datetime, date)):
-                upper = upper.isoformat()
             upper_condition = (
                 expression <= sf.lit(upper)
                 if end_operator == "<="
@@ -341,8 +340,17 @@ def add_system_columns(
     return result
 
 
-def convert_timestamp_ntz_to_timestamp(df: DataFrame) -> DataFrame:
-    for column, dtype in df.dtypes:
-        if dtype == "timestamp_ntz":
-            df = df.withColumn(column, sf.col(column).cast("timestamp"))
+def convert_timestamp_ntz_to_timestamp(
+    df: DataFrame, timezone: str | None = None
+) -> DataFrame:
+    columns = [column for column, dtype in df.dtypes if dtype == "timestamp_ntz"]
+    if columns and not timezone:
+        raise ConfigurationError(
+            "timestamp_timezone is required when converting timestamp_ntz to timestamp"
+        )
+    for column in columns:
+        df = df.withColumn(
+            column,
+            sf.to_utc_timestamp(sf.col(column).cast("timestamp"), timezone),
+        )
     return df

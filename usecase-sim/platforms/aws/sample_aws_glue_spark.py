@@ -90,7 +90,7 @@ logger.info("Metadata: %s", METADATA_PATH)
 platform = AWSPlatform(region=REGION)
 engine = SparkEngine(spark, platform=platform)
 
-metadata = FileProvider(METADATA_PATH, platform=platform)
+metadata = FileProvider(config_path=METADATA_PATH)
 
 config = DataCoolieRunConfig(max_workers=8)
 
@@ -99,10 +99,14 @@ config = DataCoolieRunConfig(max_workers=8)
 # ---------------------------------------------------------------------------
 with DataCoolieDriver(
     engine=engine,
+    platform=platform,
     metadata_provider=metadata,
     config=config,
-    base_log_path=LOG_BASE_PATH,
+    log_base_path=LOG_BASE_PATH,
 ) as driver:
     result = driver.run(stage=STAGE if STAGE else None)
 
 logger.info("DataCoolie run complete. result=%s", result)
+
+if result.failed or result.pending:
+    raise RuntimeError(f"DataCoolie incomplete: {result.failed} failed, {result.pending} pending dataflows")

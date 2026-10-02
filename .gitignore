@@ -25,6 +25,9 @@ docs/schema/
 dc_quickstart/
 dist/
 build/
+# `project/build` is a shipped Python package, not a generated build output.
+!src/datacoolie/project/build/
+!src/datacoolie/project/build/*.py
 .coverage
 .vscode/
 .ruff_cache/

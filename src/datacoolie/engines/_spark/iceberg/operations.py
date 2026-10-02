@@ -8,6 +8,8 @@ from typing import Any, List, Optional
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
 
+from datacoolie.core.exceptions import EngineError
+from datacoolie.engines._spark import file_io
 from datacoolie.engines._spark.temporal import align_ms_boundaries
 
 
@@ -50,13 +52,18 @@ def get_history(
 
 
 def table_exists_by_path(spark: SparkSession, platform: Any, path: str) -> bool:
-    try:
-        if platform:
-            return platform.folder_exists(f"{path.rstrip('/')}/metadata")
-        spark.read.format("iceberg").load(f"{path}#metadata_log_entries")
+    if platform is not None and platform.folder_exists(
+        f"{path.rstrip('/')}/metadata"
+    ):
         return True
-    except Exception:  # noqa: BLE001
+    if file_io.path_is_absent_or_empty(spark, platform, path):
         return False
+    if platform is not None:
+        raise EngineError(
+            f"Spark Iceberg target exists but has no metadata directory: {path}"
+        )
+    spark.read.format("iceberg").load(f"{path}#metadata_log_entries")
+    return True
 
 
 def extract_catalog(table_name: str) -> str:

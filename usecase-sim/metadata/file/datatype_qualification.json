@@ -1,0 +1,544 @@
+{
+  "connections": [
+    {
+      "name": "datatype_qualification_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "spark_sql"
+      }
+    },
+    {
+      "name": "datatype_qualification_csv_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/csv"
+      }
+    },
+    {
+      "name": "datatype_qualification_unhinted_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet"
+      }
+    },
+    {
+      "name": "datatype_qualification_json_source",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/json",
+        "read_options": {"multiLine": "true"}
+      }
+    },
+    {
+      "name": "datatype_qualification_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/jsonl"
+      }
+    },
+    {
+      "name": "datatype_qualification_postgresql_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "postgresql"
+      }
+    },
+    {
+      "name": "datatype_qualification_mysql_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "mysql"
+      }
+    },
+    {
+      "name": "datatype_qualification_mssql_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "mssql"
+      }
+    },
+    {
+      "name": "datatype_qualification_oracle_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "oracle"
+      }
+    },
+    {
+      "name": "datatype_qualification_sqlite_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "sqlite"
+      }
+    },
+    {
+      "name": "datatype_qualification_spark_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "spark_sql"
+      }
+    },
+    {
+      "name": "datatype_qualification_postgresql_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "postgresql",
+        "url": "postgresql://datacoolie:datacoolie@localhost:5432/datacoolie",
+        "username": "datacoolie",
+        "password": "datacoolie"
+      }
+    },
+    {
+      "name": "datatype_qualification_mysql_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mysql",
+        "url": "mysql://datacoolie:datacoolie@localhost:3306/datacoolie",
+        "username": "datacoolie",
+        "password": "datacoolie"
+      }
+    },
+    {
+      "name": "datatype_qualification_sqlite_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "sqlite",
+        "url": "sqlite:///__run_owned_database__"
+      }
+    },
+    {
+      "name": "datatype_qualification_mssql_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mssql",
+        "url": "mssql://sa:Datacoolie%401@localhost:1433/datacoolie",
+        "username": "sa",
+        "password": "Datacoolie@1"
+      }
+    },
+    {
+      "name": "datatype_qualification_oracle_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "oracle",
+        "url": "oracle://datacoolie:datacoolie@localhost:1521/FREEPDB1",
+        "username": "datacoolie",
+        "password": "datacoolie"
+      }
+    },
+    {
+      "name": "datatype_qualification_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/output/parquet/{engine}"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "datatype_decimal_and_date",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {"column_name": "id", "data_type": "BIGINT"},
+          {"column_name": "amount", "data_type": "DECIMAL(18,2)"},
+          {"column_name": "event_date", "data_type": "DATE"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_decimal",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_csv",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_csv",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_parquet",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_unhinted_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_parquet",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_json",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_json_source",
+        "table": "sample"
+      },
+      "transform": {
+        "select_columns": ["id", "amount", "event_date"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_json",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_jsonl",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_jsonl_source",
+        "table": "sample"
+      },
+      "transform": {
+        "select_columns": ["id", "amount", "event_date"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_jsonl",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_postgresql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_postgresql_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "pg_row_id", "pg_bool", "pg_int2", "pg_int4", "pg_int8",
+          "pg_real", "pg_double", "pg_numeric", "pg_text", "pg_bytea",
+          "pg_date", "pg_timestamp", "pg_timestamptz"
+        ],
+        "schema_hints": [
+          {"column_name": "pg_row_id", "data_type": "int4"},
+          {"column_name": "pg_bool", "data_type": "bool"},
+          {"column_name": "pg_int2", "data_type": "int2"},
+          {"column_name": "pg_int4", "data_type": "int4"},
+          {"column_name": "pg_int8", "data_type": "int8"},
+          {"column_name": "pg_real", "data_type": "real"},
+          {"column_name": "pg_double", "data_type": "double precision"},
+          {"column_name": "pg_numeric", "data_type": "numeric(18,2)"},
+          {"column_name": "pg_text", "data_type": "text"},
+          {"column_name": "pg_bytea", "data_type": "bytea"},
+          {"column_name": "pg_date", "data_type": "date"},
+          {"column_name": "pg_timestamp", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss"},
+          {"column_name": "pg_timestamptz", "data_type": "timestamptz", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_postgresql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_mysql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mysql_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "my_row_id", "my_tinyint_unsigned", "my_smallint_unsigned", "my_mediumint",
+          "my_bigint_unsigned", "my_float", "my_double", "my_decimal", "my_text",
+          "my_binary", "my_date", "my_datetime", "my_timestamp", "my_year"
+        ],
+        "schema_hints": [
+          {"column_name": "my_row_id", "data_type": "int"},
+          {"column_name": "my_tinyint_unsigned", "data_type": "tinyint unsigned"},
+          {"column_name": "my_smallint_unsigned", "data_type": "smallint unsigned"},
+          {"column_name": "my_mediumint", "data_type": "mediumint"},
+          {"column_name": "my_bigint_unsigned", "data_type": "bigint unsigned"},
+          {"column_name": "my_float", "data_type": "float"},
+          {"column_name": "my_double", "data_type": "double"},
+          {"column_name": "my_decimal", "data_type": "decimal(18,2)"},
+          {"column_name": "my_text", "data_type": "text"},
+          {"column_name": "my_binary", "data_type": "binary"},
+          {"column_name": "my_date", "data_type": "date"},
+          {"column_name": "my_datetime", "data_type": "datetime", "format": "yyyy-MM-dd HH:mm:ss"},
+          {"column_name": "my_timestamp", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"},
+          {"column_name": "my_year", "data_type": "year"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_mysql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_mssql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mssql_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "ms_row_id", "ms_bit", "ms_tinyint", "ms_smallint", "ms_int", "ms_bigint",
+          "ms_decimal", "ms_money", "ms_smallmoney", "ms_real", "ms_float", "ms_string",
+          "ms_binary", "ms_date", "ms_datetime", "ms_datetimeoffset"
+        ],
+        "schema_hints": [
+          {"column_name": "ms_row_id", "data_type": "int"},
+          {"column_name": "ms_bit", "data_type": "bit"},
+          {"column_name": "ms_tinyint", "data_type": "tinyint"},
+          {"column_name": "ms_smallint", "data_type": "smallint"},
+          {"column_name": "ms_int", "data_type": "int"},
+          {"column_name": "ms_bigint", "data_type": "bigint"},
+          {"column_name": "ms_decimal", "data_type": "decimal(18,2)"},
+          {"column_name": "ms_money", "data_type": "money"},
+          {"column_name": "ms_smallmoney", "data_type": "smallmoney"},
+          {"column_name": "ms_real", "data_type": "real"},
+          {"column_name": "ms_float", "data_type": "float"},
+          {"column_name": "ms_string", "data_type": "nvarchar"},
+          {"column_name": "ms_binary", "data_type": "rowversion"},
+          {"column_name": "ms_date", "data_type": "date"},
+          {"column_name": "ms_datetime", "data_type": "datetime2", "format": "yyyy-MM-dd HH:mm:ss"},
+          {"column_name": "ms_datetimeoffset", "data_type": "datetimeoffset", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS XXX"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_mssql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_oracle",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_oracle_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "ora_row_id", "ora_number", "ora_binary_float", "ora_binary_double", "ora_float",
+          "ora_string", "ora_binary", "ora_date", "ora_timestamp", "ora_timestamptz"
+        ],
+        "schema_hints": [
+          {"column_name": "ora_row_id", "data_type": "NUMBER(10,0)"},
+          {"column_name": "ora_number", "data_type": "NUMBER(18,2)"},
+          {"column_name": "ora_binary_float", "data_type": "BINARY_FLOAT"},
+          {"column_name": "ora_binary_double", "data_type": "BINARY_DOUBLE"},
+          {"column_name": "ora_float", "data_type": "FLOAT(24)"},
+          {"column_name": "ora_string", "data_type": "VARCHAR2"},
+          {"column_name": "ora_binary", "data_type": "RAW"},
+          {"column_name": "ora_date", "data_type": "DATE", "format": "yyyy-MM-dd HH:mm:ss"},
+          {"column_name": "ora_timestamp", "data_type": "TIMESTAMP", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"},
+          {"column_name": "ora_timestamptz", "data_type": "TIMESTAMP WITH TIME ZONE", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_oracle",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_sqlite",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_sqlite_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "sqlite_row_id", "sqlite_integer", "sqlite_real", "sqlite_numeric", "sqlite_text",
+          "sqlite_blob", "sqlite_date", "sqlite_datetime", "sqlite_timestamp"
+        ],
+        "schema_hints": [
+          {"column_name": "sqlite_row_id", "data_type": "integer"},
+          {"column_name": "sqlite_integer", "data_type": "integer"},
+          {"column_name": "sqlite_real", "data_type": "real"},
+          {"column_name": "sqlite_numeric", "data_type": "numeric(18,2)"},
+          {"column_name": "sqlite_text", "data_type": "text"},
+          {"column_name": "sqlite_blob", "data_type": "blob"},
+          {"column_name": "sqlite_date", "data_type": "date", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"},
+          {"column_name": "sqlite_datetime", "data_type": "datetime", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"},
+          {"column_name": "sqlite_timestamp", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_sqlite",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_spark_sql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_spark_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "spark_row_id", "spark_boolean", "spark_tinyint", "spark_smallint", "spark_int",
+          "spark_bigint", "spark_float", "spark_double", "spark_decimal", "spark_string",
+          "spark_binary", "spark_date", "spark_timestamp", "spark_timestamp_ntz"
+        ],
+        "schema_hints": [
+          {"column_name": "spark_row_id", "data_type": "int"},
+          {"column_name": "spark_boolean", "data_type": "boolean"},
+          {"column_name": "spark_tinyint", "data_type": "tinyint"},
+          {"column_name": "spark_smallint", "data_type": "smallint"},
+          {"column_name": "spark_int", "data_type": "int"},
+          {"column_name": "spark_bigint", "data_type": "bigint"},
+          {"column_name": "spark_float", "data_type": "float"},
+          {"column_name": "spark_double", "data_type": "double"},
+          {"column_name": "spark_decimal", "data_type": "decimal(18,2)"},
+          {"column_name": "spark_string", "data_type": "string"},
+          {"column_name": "spark_binary", "data_type": "binary"},
+          {"column_name": "spark_date", "data_type": "date"},
+          {"column_name": "spark_timestamp", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"},
+          {"column_name": "spark_timestamp_ntz", "data_type": "timestamp_ntz", "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"}
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_spark_sql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_postgresql",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_postgresql_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": ["id", "amount", "event_date", "active", "label"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_postgresql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_mysql",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mysql_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": ["id", "amount", "event_date", "label"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_mysql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_sqlite",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_sqlite_db_source",
+        "table": "__run_owned_table__",
+        "query": "SELECT label FROM __run_owned_table__"
+      },
+      "transform": {
+        "select_columns": ["label"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_sqlite",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_mssql",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mssql_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": ["label"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_mssql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_oracle",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_oracle_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": ["label"]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_oracle",
+        "load_type": "overwrite"
+      }
+    }
+  ]
+}

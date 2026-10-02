@@ -9,16 +9,12 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from datacoolie.core.constants import DEFAULT_AUTHOR, Format, LoadType
-from datacoolie.core.models import (
-    AdditionalColumn,
-    Connection,
-    DataFlow,
-    Destination,
-    PartitionColumn,
-    SchemaHint,
-    Source,
-    Transform,
-)
+from datacoolie.core.models.transform import AdditionalColumn, Transform
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.core.models.source import Source
 from datacoolie.engines.base import BaseEngine
 
 
@@ -36,6 +32,7 @@ class MockEngine(BaseEngine[dict]):
             "order_id",
         ]
         self._casts: List[tuple] = []
+        self._cast_contexts: List[dict[str, Any]] = []
         self._added_columns: List[tuple] = []
         self._removed_system: bool = False
         self._renamed: List[tuple] = []
@@ -57,37 +54,75 @@ class MockEngine(BaseEngine[dict]):
         return {k: [r.get(k) for r in records] for k in merged}
 
     # --- Read ---
-    def read_parquet(self, path, options=None): return {}
-    def read_delta(self, path, options=None): return {}
-    def read_iceberg(self, path, options=None): return {}
-    def read_csv(self, path, options=None): return {}
-    def read_json(self, path, options=None): return {}
-    def read_jsonl(self, path, options=None): return {}
-    def read_avro(self, path, options=None): return {}
-    def read_excel(self, path, options=None): return {}
-    def read_path(self, path, fmt, options=None): return {}
-    def read_database(self, *, table=None, query=None, options=None): return {}
-    def execute_sql(self, sql, parameters=None): return {}
+    def read_parquet(self, path, options=None):
+        return {}
 
-    def read_table(self, table_name, fmt="delta", options=None): return {}
+    def read_delta(self, path, options=None):
+        return {}
+
+    def read_iceberg(self, path, options=None):
+        return {}
+
+    def read_csv(self, path, options=None):
+        return {}
+
+    def read_json(self, path, options=None):
+        return {}
+
+    def read_jsonl(self, path, options=None):
+        return {}
+
+    def read_avro(self, path, options=None):
+        return {}
+
+    def read_excel(self, path, options=None):
+        return {}
+
+    def read_path(self, path, fmt, options=None):
+        return {}
+
+    def read_database(self, *, table=None, query=None, options=None):
+        return {}
+
+    def execute_sql(self, sql, parameters=None):
+        return {}
+
+    def read_table(self, table_name, fmt="delta", options=None):
+        return {}
 
     # --- Write ---
     def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
         pass
 
-    def merge_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
         pass
 
-    def merge_overwrite_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_overwrite_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
         pass
 
-    def write_to_table(self, df, table_name, mode, fmt, partition_columns=None, options=None):
+    def write_to_table(
+        self, df, table_name, mode, fmt, partition_columns=None, options=None
+    ):
         pass
 
-    def merge_to_table(self, df, table_name, merge_keys, fmt, partition_columns=None, options=None):
+    def merge_to_table(
+        self, df, table_name, merge_keys, fmt, partition_columns=None, options=None
+    ):
         pass
 
-    def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_overwrite_to_table(
+        self,
+        df,
+        table_name,
+        merge_keys,
+        fmt="delta",
+        partition_columns=None,
+        options=None,
+    ):
         pass
 
     def delete_by_window_path(self, path, window, fmt="delta"):
@@ -139,7 +174,9 @@ class MockEngine(BaseEngine[dict]):
     def filter_rows(self, df, condition):
         return df
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">"):
+    def apply_watermark_filter(
+        self, df, watermark_columns, watermark_start, *, start_operator=">"
+    ):
         return df
 
     def deduplicate(self, df, partition_columns, order_columns=None, order="desc"):
@@ -150,8 +187,25 @@ class MockEngine(BaseEngine[dict]):
         self._dedup_by_rank = True
         return df
 
-    def cast_column(self, df, column_name, target_type, fmt=None):
+    def cast_column(
+        self,
+        df,
+        column_name,
+        target_type,
+        fmt=None,
+        *,
+        type_system=None,
+        precision=None,
+        scale=None,
+    ):
         self._casts.append((column_name, target_type, fmt))
+        self._cast_contexts.append(
+            {
+                "type_system": type_system,
+                "precision": precision,
+                "scale": scale,
+            }
+        )
         return df
 
     # --- System ---
@@ -171,32 +225,65 @@ class MockEngine(BaseEngine[dict]):
         self._removed_system = True
         return super().remove_system_columns(df)
 
-    def convert_timestamp_ntz_to_timestamp(self, df):
+    def convert_timestamp_ntz_to_timestamp(self, df, timezone=None):
         return df
 
     def generate_symlink_manifest(self, path):
         pass
 
     # --- Metrics ---
-    def count_rows(self, df): return 0
-    def is_empty(self, df): return True
-    def get_columns(self, df): return self._columns
-    def get_schema(self, df): return {c: "string" for c in self._columns}
-    def get_hive_schema(self, df): return {c: "string" for c in self._columns}
-    def get_max_values(self, df, columns): return {}
-    def get_count_and_max_values(self, df, columns): return (0, {})
+    def count_rows(self, df):
+        return 0
+
+    def is_empty(self, df):
+        return True
+
+    def get_columns(self, df):
+        return self._columns
+
+    def get_schema(self, df):
+        return {c: "string" for c in self._columns}
+
+    def get_hive_schema(self, df):
+        return {c: "string" for c in self._columns}
+
+    def get_max_values(self, df, columns):
+        return {}
+
+    def get_count_and_max_values(self, df, columns):
+        return (0, {})
 
     # --- Table ops ---
-    def table_exists_by_path(self, path, *, fmt="delta"): return False
-    def table_exists_by_name(self, table_name, *, fmt="delta"): return False
-    def get_history_by_path(self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"): return []
-    def compact_by_path(self, path, *, fmt="delta", options=None): pass
-    def cleanup_by_path(self, path, retention_hours=168, *, fmt="delta", options=None): pass
+    def table_exists_by_path(self, path, *, fmt="delta"):
+        return False
+
+    def table_exists_by_name(self, table_name, *, fmt="delta"):
+        return False
+
+    def get_history_by_path(
+        self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
+        return []
+
+    def compact_by_path(self, path, *, fmt="delta", options=None):
+        pass
+
+    def cleanup_by_path(self, path, retention_hours=168, *, fmt="delta", options=None):
+        pass
 
     # --- Table ops by name ---
-    def get_history_by_name(self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"): return []
-    def compact_by_name(self, table_name, *, fmt="delta", options=None): pass
-    def cleanup_by_name(self, table_name, retention_hours=168, *, fmt="delta", options=None): pass
+    def get_history_by_name(
+        self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
+        return []
+
+    def compact_by_name(self, table_name, *, fmt="delta", options=None):
+        pass
+
+    def cleanup_by_name(
+        self, table_name, retention_hours=168, *, fmt="delta", options=None
+    ):
+        pass
 
 
 def make_dataflow(
@@ -212,12 +299,16 @@ def make_dataflow(
     filter_expression: Optional[str] = None,
     transform_configure: Optional[Dict[str, Any]] = None,
     deduplicate_by_rank: Optional[bool] = None,
+    schema_hint_type_system: Optional[str] = None,
 ) -> DataFlow:
+    source_configure = {"base_path": "/data/bronze", "use_schema_hint": use_schema_hint}
+    if schema_hint_type_system is not None:
+        source_configure["schema_hint_type_system"] = schema_hint_type_system
     src_conn = Connection(
         name="src",
         connection_type="lakehouse",
         format=Format.DELTA.value,
-        configure={"base_path": "/data/bronze", "use_schema_hint": use_schema_hint},
+        configure=source_configure,
     )
     dst_conn = Connection(
         name="dst",

@@ -1,0 +1,15 @@
+schema_version: 1
+project:
+  name: function-project
+components:
+  metadata:
+    path: metadata
+    output:
+      layout: single
+      format: json
+  functions:
+    path: functions
+    packaging: auto
+environments:
+  dev:
+    platform: local

@@ -7,8 +7,9 @@ Single entrypoint that replaces:
 
 Targets (comma-separated via --targets):
     local     : write CSV/JSON/JSONL/Parquet/Parquet_dated/Parquet_hive/Avro/Excel/SQLite
-                plus the focused transformer Parquet fixture under data/input/**
-    minio     : upload data/input/** → s3://datacoolie-test/input/**
+                plus the focused transformer Parquet fixture under .runtime/data/input/**
+    minio     : upload .runtime/data/input/** → s3://datacoolie-test/input/**
+                and publish the AWS metadata fixture under metadata/
     pg        : create + seed source_orders in PostgreSQL
     mysql     : same for MySQL
     mssql     : same for SQL Server
@@ -33,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _common import (  # noqa: E402
+    AWS_USE_CASES_JSON,
     INPUT_DIR,
     MINIO_BUCKET,
     SAMPLE_COLUMNS,
@@ -43,6 +45,7 @@ from _common import (  # noqa: E402
     TRANSFORMER_ROWS,
     SOURCE_ORDERS_ROWS,
     ensure_bucket,
+    minio_client,
     port_open,
     setup_logging,
     upload_tree,
@@ -266,6 +269,16 @@ def generate_minio() -> None:
     if not ensure_bucket(bucket=MINIO_BUCKET):
         return
     upload_tree(INPUT_DIR, "input", bucket=MINIO_BUCKET)
+    if AWS_USE_CASES_JSON.is_file():
+        client = minio_client()
+        if client is not None:
+            key = f"metadata/{AWS_USE_CASES_JSON.name}"
+            client.upload_file(str(AWS_USE_CASES_JSON), MINIO_BUCKET, key)
+            logger.info(
+                "Uploaded AWS metadata: s3://%s/%s",
+                MINIO_BUCKET,
+                key,
+            )
 
 
 # ===========================================================================

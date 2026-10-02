@@ -1,0 +1,18 @@
+{
+  "dataflows": [
+    {
+      "name": "project_artifact_query",
+      "stage": "project_query",
+      "source": {
+        "connection_name": "project_delta_source",
+        "query": "artifact:/queries/orders.sql"
+      },
+      "destination": {
+        "connection_name": "project_parquet_destination",
+        "table": "orders_artifact",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

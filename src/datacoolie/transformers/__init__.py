@@ -8,6 +8,7 @@ concrete transformers: :class:`SchemaConverter`, :class:`Deduplicator`,
 
 from datacoolie.transformers.base import (
     BaseTransformer,
+    ColumnMapping,
     TransformerPipeline,
 )
 from datacoolie.transformers.column_adder import ColumnAdder, SCD2ColumnAdder, SystemColumnAdder
@@ -23,6 +24,7 @@ from datacoolie.transformers.row_filter import RowFilter
 
 __all__ = [
     "BaseTransformer",
+    "ColumnMapping",
     "ColumnAdder",
     "ColumnProjector",
     "ColumnValueTransformer",

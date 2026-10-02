@@ -1,155 +1,210 @@
 ---
 name: datacoolie-build
-description: Build, modify, run, and verify DataCoolie projects. The sole implementation skill for metadata, runners, functions, immutable builds, and requested build automation. Route source discovery, material design, infrastructure, and deployment to their owners.
+description: Build, modify, run, and verify DataCoolie projects through the public CLI and framework APIs. Owns metadata, runners, functions, local verification and requested project automation; route discovery, material design, infrastructure and upload to their owning skills.
 ---
 
 # DataCoolie Build
 
-## Outcome And Boundary
+## Outcome and boundary
 
-Turn current project intent into durable DataCoolie sources and an immutable
-`.builds/artifacts/{build_id}` verified by executing the generated artifacts. Bootstrap only the
-workspace structure required by the request; initialization is not a separate phase.
+Turn project intent into a valid, runnable DataCoolie project and an immutable
+all-environment build. The canonical contract is `datacoolie.yml`; the installed
+`dc`/`datacoolie` CLI owns deterministic operations while this skill supplies
+authoring decisions, runner guidance and local execution checks.
 
-Own configuration, metadata, overlays, capability proof, runners/notebooks, functions, narrow
-unsupported adapters, materialization, local execution, build evidence, and requested project-owned
-automation. Return unknown source facts to discover, material decisions to design, missing resources
-to provision with the exact requirements artifact and evidence, and deployment work to release.
+Build does not create a `run` CLI command, deploy or provision target resources,
+discover source facts, make material architecture decisions, or execute a
+workload without a project-owned runner/script.
 
-Use installed `datacoolie` public APIs. Resolve bundled resources relative to this skill; generated projects must not depend on skill paths.
+## Route only the needed resource
 
-## Inputs And Gates
-
-- Read the user request and only affected workspace sources.
-- Use `architecture/current.md` when a new project or material contract requires it.
-- When `architecture/current.md` exists, recompute its final-byte hash and reject a missing,
-  malformed, or stale matching design receipt; reject misnamed receipts too. Architecture never
-  self-declares an approval bypass.
-- Require discovery evidence for every declared source in a new project. Use discovery artifacts
-  only as authoring evidence; runtime code must not import them.
-- Return to design before implementation if the requested change would alter a material contract.
-
-## Resource Routing
-
-| Need | Read or run |
+| Need | First action |
 |---|---|
-| Build-tool dependencies | `scripts/requirements.txt`; add `requirements-excel.txt` only for Excel conversion |
-| Workspace/config | `templates/project-structure.md`, `schemas/workspace-config.schema.json`, `scripts/validate_config.py` |
-| Metadata fields, paths, hints, audit columns, or incremental/file routing | `references/schema-quick-reference.md` (matching section), `schemas/`, `scripts/validate.py` |
-| Dataflow dependencies, combined stages, concurrency, or job scale-out | `references/orchestration-contract.md` |
-| Generated metadata layout | `templates/project-structure.md`, `scripts/materialize.py` |
-| Metadata import/merge/lint | `scripts/convert.py`, `scripts/merge.py`, `scripts/lint.py` |
-| Built-in capability inventory | `scripts/inspect_capabilities.py`, `references/capability-catalog.md` |
-| Platform runtime, path, credential, or extra | `references/platform-contract.md`, then the matching runner template |
-| Native versus custom boundary or source expression choice | `references/framework-boundary.md` |
-| Python-function source or artifact | `references/python-functions-contract.md`, `scripts/validate_functions.py` |
-| Common entrypoint and normal run | `references/runner-contract.md`, `templates/runners/README.md`, matching template |
-| Polars Delta/Iceberg `source.query` | `references/polars-qualified-sql.md`, then `references/runner-contract.md` |
-| Replay or maintenance extensions | load `references/runner-contract.md`, then `references/operations-contract.md` and matching templates |
-| Immutable build, runnable current projection, and verification receipt | `scripts/materialize.py`, `scripts/validate_build.py`, `schemas/current-build.schema.json`, `schemas/build-verification-receipt.schema.json` |
-| Requested project automation | `scripts/render_automation.py` |
+| Project bootstrap | `dc init [PATH]` |
+| Project/config/metadata/resource checks | `dc validate --project-dir <PATH>` |
+| Standalone metadata or artifact check | `dc validate --metadata-path ...` or `--artifact-path ...` |
+| Config, metadata, capability or artifact inventory | `dc inspect ... --format json` |
+| Metadata representation conversion | `dc metadata convert ...` |
+| Build all environments | `dc build --project-dir <PATH>` |
+| Latest project guidance | `dc agents update --project-dir <PATH>` |
+| Framework fields and Driver behavior | Public [runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/) and [metadata document](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#metadata-document); use `references/runner-contract.md` for agent checks |
+| Replay or maintenance | `references/operations-contract.md` and the matching runner |
+| Public runner/source examples | `references/public-examples.md` and the published examples URL |
+| Polars qualified SQL/table registration | `references/polars-qualified-sql.md` |
+| Unsupported boundary | `references/framework-boundary.md` |
+| Design approval handoff | `datacoolie-design/scripts/design_approval.py` |
 
-Load only resources needed for the current outcome. Exact metadata layouts, runner names and
-parameters, stage semantics, operation behavior, build identity, and manifest rules live in
-the routed build resources rather than this prompt.
+Use `--format json` for agents/automation, inspect exit code/`ok`, and never copy skill scripts into a project as runtime dependencies.
 
-## Decision Workflow
+The project-owned metadata contract is at
+`https://datacoolie.github.io/datacoolie/schema/index.json`; the stable current
+authoring alias is `https://datacoolie.github.io/datacoolie/schema/latest/metadata.schema.json`.
+For a specific framework, use the index to choose the greatest compatible
+versioned schema and `dc validate` offline. `latest` is resolved locally, not
+fetched; pin a versioned URL for reproducible artifacts. This Skill carries no
+competing schema/validator.
 
-### 1. Bind the environment
+When this Skill summary differs from a public page, follow the public page for
+framework behavior; this Skill is for sequencing, gates, evidence and
+project-specific adaptation, not authoritative fields or defaults.
 
-Keep `config.yaml` limited to project identity and environment-to-platform mapping. Validate it
-against installed platform registrations. Engines, stages, runtime paths, secrets, and gate state
-do not belong there. Environment names are project-defined non-empty values, not a fixed
-`dev/test/prod` vocabulary.
-Materialization always produces one complete snapshot of every configured environment. Environment
-selection belongs to run, test-receipt, and release slices, never to Build scope or build identity.
+## Docs-first metadata routing
 
-### 2. Prove capability fit
+Read the public [Metadata Guide](https://datacoolie.github.io/datacoolie/guide/metadata/)
+before drafting/revising metadata; it is the user-facing source of truth. Follow
+the workflow through these direct routes:
 
-Evaluate the installed combination of source, authentication, engine, transforms, destination,
-load, platform, and dependencies. Inspect the installed registries before deciding; a missing
-optional dependency is setup work, not evidence that a registered capability is unsupported. Use
-metadata and `DataCoolieDriver.run(...)` for a supported path. Add custom code only around a
-verified unsupported boundary, record the evidence, and leave the supported remainder native.
-When platform execution context, path, credentials, or dependencies affect the combination, load
-`references/platform-contract.md`; platform is the adapter and does not imply the execution host.
+1. [Build your first metadata file](https://datacoolie.github.io/datacoolie/guide/metadata/first-metadata-file/)
+2. [Connections](https://datacoolie.github.io/datacoolie/guide/metadata/connections/)
+3. [Dataflows](https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/)
+4. [Source patterns](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/)
+5. [Transform patterns](https://datacoolie.github.io/datacoolie/guide/metadata/transform-patterns/)
+6. [Destination and load patterns](https://datacoolie.github.io/datacoolie/guide/metadata/destination-and-load-patterns/)
+7. [Datatypes and schema hints](https://datacoolie.github.io/datacoolie/guide/metadata/data-types/)
+8. [Validation checklist](https://datacoolie.github.io/datacoolie/guide/metadata/validation-checklist/)
 
-### 3. Author durable sources
+Use the [Metadata guide](https://datacoolie.github.io/datacoolie/guide/metadata/#metadata-document),
+[API source configuration](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/#api-source-configuration)
+and [incremental windows](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/#incremental-windows-and-look-back)
+for complete configuration. For combinations, use [window replacement](https://datacoolie.github.io/datacoolie/guide/metadata/watermark-window-replacement/),
+[paginated API](https://datacoolie.github.io/datacoolie/guide/metadata/api-advanced/),
+[late files](https://datacoolie.github.io/datacoolie/guide/metadata/late-arriving-files/),
+[protected keys](https://datacoolie.github.io/datacoolie/guide/metadata/stable-keys-and-protected-output/)
+and [incremental SCD2](https://datacoolie.github.io/datacoolie/guide/metadata/merge-and-scd2/).
+Use the exact [metadata schema reference](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#metadata-document)
+for fields/anchors. This Skill adds routing, gates and edge cases; it does not
+replace or restate the public guide.
 
-Use canonical metadata and environment overlays, not full per-environment clones. Read
-`templates/project-structure.md` and the matching sections of `references/schema-quick-reference.md`
-for layout, selector precedence, local/global hints, source addressing, audit columns, and
-incremental/file routing. Choose direct source addressing, a bounded query, or a verified custom
-edge using `references/framework-boundary.md`; do not rediscover these contracts by trial and error.
-Create only required normal, replay, or maintenance entrypoints. Their files fix platform, engine,
-provider, and operation; runtime inputs follow the routed runner/operation contracts.
-Keep credentials in environment or platform secret services.
+## Inputs and gates
 
-Resolve metadata, log, and watermark paths inside the environment's approved persistent control
-namespace and pass them unchanged. Deployed metadata is a build-scoped immutable projection; logs
-and watermarks remain mutable and outside build artifacts. For a cloud platform used by an
-on-premises runner, select the external runtime explicitly and keep the actual execution host
-separate from the platform adapter.
-Assume source query and action text can appear in framework logs. Do not embed secret literals;
-apply the approved log classification, access, and retention policy to generated runtime paths.
+- Read `datacoolie.yml`, affected metadata, configured SQL/functions roots and
+  the matching `runners/<environment>` directory.
+- Require source discovery for a new source and design approval for material
+  architecture/data contract/platform/release changes; artifacts inform
+  authoring but never become runtime dependencies.
+- For a material design, verify the final architecture before relying on it:
+  `python <datacoolie-design>/scripts/design_approval.py verify --workspace <project>
+  --architecture <project>/architecture/current.md`. The helper must find the
+  hash-matching receipt under `.approvals/design/`; a missing, stale or unavailable
+  receipt blocks Build. Reuse the helper; do not copy its hash/receipt validator into Build. Compatible
+  implementation work with no material design dependency remains allowed.
+- Validate the project before build. Resolve every query file reference using
+  the configured SQL roots or artifact root; do not silently treat a missing
+  `.sql` path as inline SQL.
+- Keep secrets in platform/environment providers. Never place credentials in
+  metadata, SQL, manifests, runners or logs.
 
-For Polars Delta/Iceberg SQL, read `references/polars-qualified-sql.md` before runner bootstrap.
+## Project contract
 
-### 4. Run fast source checks
+`datacoolie.yml` is the only configuration file. Metadata defaults to
+`metadata`; SQL/functions are optional multiple entries with a singular `path`.
+Function entries independently select `auto`, `wheel`, `zip`, or `copy`. Runners
+live below `runners/<env>` and keep authored bytes. For adaptations, use the
+public examples source and pin its revision; runner source remains owned by the
+public examples/project, not by this Skill.
 
-Validate config and resolved metadata, lint affected paths, parse/compile entrypoints, and unit-test
-helpers directly. These checks give fast feedback but do not prove the generated build.
+`dc build` always builds every declared environment, copies metadata/SQL,
+packages functions roots, copies matching runners and validates the artifact; it
+does not execute a runner or upload anything.
 
-### 5. Materialize and verify
+Functions `auto` selection is deterministic:
 
-Run `scripts/materialize.py` to validate inputs, create the all-environment immutable build, and
-replace `.builds/current` with its verified runnable projection. `templates/project-structure.md`
-owns metadata layouts, fixed components, and manifest/projection contents; do not reproduce them
-in runner code. Never symlink or mutate immutable artifact contents.
+1. a valid Python build backend in the root produces a wheel;
+2. a root-level `__init__.py` produces a wrapped ZIP;
+3. any other source tree is copied as source.
 
-Always validate the immutable build, resolved metadata, exact runner, and optional functions
-artifact. Execute the generated runner on the Build host when that host is compatible and the
-approved check is safe; record the result as useful Build-host evidence, not target qualification.
-Do not block an artifact-qualified receipt solely because the runner requires staging on its target
-execution host. Release always qualifies the exact staged runner slice before activation.
+An `__init__.py` nested only below the configured root does not turn the whole
+root into a ZIP. Use explicit packaging when a project needs a different
+layout. Preserve the actual import prefix and configure
+`allowed_function_prefixes` in the project-owned runner.
 
-Keep any Build-host logs and watermarks under persistent `.runtime/{env}/` or another approved
-isolated test namespace. Apply the runner contract for normal runs and the operations contract for
-replay or maintenance, including their mutation confirmations.
+## Metadata and query preparation
 
-Execute and validate `.builds/current` directly for the normal latest-build path. Select
-`.builds/artifacts/{build_id}` only for a historical version. Write a typed successful or failed
-receipt under `.builds/evidence/{build_id}/{env}/{receipt_id}.json`, using the exact ID from
-`current/build.json` when current was tested. Release never consumes the moving projection.
+Metadata documents use section wrappers, regardless of filename. The CLI may
+build a single file, split files or preserve authored documents according to
+`components.metadata.output`. Use `dc metadata convert` for a manual format
+change; it does not merge overlays or resolve queries.
 
-### 6. Add automation only when requested
+`source.query` remains the original declarative string in authored metadata.
+It can be inline SQL, a relative `.sql` reference, or an explicit
+`artifact:/...` reference. Query classification and file loading happen during
+framework preparation before a reader is created. The metadata snapshot and
+execution dataflow therefore keep separate roles; runtime logs may retain the
+original declaration while `source_action["query"]` records the final SQL sent
+to the source.
 
-Use `scripts/render_automation.py` only for requested reproducible project-owned build/CI entrypoints.
-Generated automation works with the installed framework and project sources without installed
-skills. Release owns consume-only deployment automation. Do not generate speculative automation.
+For qualified Polars SQL, runner code may register tables before calling the
+Driver. The CLI does not infer table registration or rewrite SQL.
 
-## Output And Handoff
+## Runner contract
+
+Runners are project-owned scripts or notebooks. They construct the engine,
+provider and `DataCoolieRunConfig`, then call `driver.run(...)`, replay or
+maintenance APIs. They must pass paths explicitly and unchanged:
+
+- artifact mode: `artifact_base_path` plus explicit/default metadata root;
+- standalone metadata: `metadata_path` or `metadata_base_path`;
+- SQL roots: one or more `sql_base_path` values on the metadata provider, with
+  Driver `sql_base_path` available as the session fallback;
+- mutable state: `state_base_path`, optional `watermark_base_path` and
+  `log_base_path` according to the provider/fallback contract.
+
+`FileProvider` may be created without a platform, but platform is required when
+it performs I/O. Provider-specific path binding stays in the provider; the
+Driver communicates through the base provider contracts and validates conflicts
+when assembling the session.
+
+Expose external scheduler/job context as one strict JSON object when needed,
+for example `--run-attributes-json`, and pass it to
+`DataCoolieRunConfig(run_attributes=...)`. Do not add a second log/session ID.
+Use `log_base_path`; `base_log_path` is retired.
+
+Driver construction starts the session and its JobRuntime lifecycle. Preparation
+and query/secret resolution are part of that execution context, while authored
+metadata remains unchanged. A startup or preparation exception must propagate
+with the Driver's normal teardown and logging behavior.
+
+## Build and local verification
+
+Run:
 
 ```text
-{workspace}/config.yaml
-{workspace}/metadata/
-{workspace}/runners/
-{workspace}/functions/                          # optional
-{workspace}/automation/                         # optional
-{workspace}/.builds/artifacts/{build_id}/manifest.json
-{workspace}/.builds/artifacts/{build_id}/SHA256SUMS
-{workspace}/.builds/artifacts/{build_id}/{env}/...
-{workspace}/.builds/evidence/{build_id}/{env}/*.json
-{workspace}/.builds/current/build.json
-{workspace}/.builds/current/{env}/...
-{workspace}/.builds/current/functions/            # when functions were packaged
+dc validate --project-dir <project> --format json
+dc build --project-dir <project> --format json
+dc validate --artifact-path <project>/.builds/current --format json
 ```
 
-Release may receive `current` as a convenience selector, but resolves `current/build.json` once and
-then consumes only the exact build ID, canonical local build directory or immutable remote artifact
-identity, manifest/checksums, target slice, and successful matching artifact-verification receipt.
-The bundled schemas and validators own manifest/receipt versions and required checks, including
-`generated-artifact-validation`. Build-host runtime execution is optional and never authorizes
-target activation. Build current is never a transfer source or authorization identity. Build or
-design approval never authorizes deployment. End with verification evidence, skipped checks, and
-unresolved questions.
+The build output is:
+
+```text
+.builds/artifacts/<build_id>/manifest.json
+.builds/artifacts/<build_id>/<env>/manifest.json
+.builds/current/manifest.json
+.builds/current/<env>/manifest.json
+```
+
+The current root manifest has the same bytes and `build_id` as its retained
+source. `dc validate` compares current with
+`.builds/artifacts/<build_id>` when current is selected; a missing history,
+manifest difference, missing file, extra file, changed SHA-256 or symlink is a
+failure. The root manifest owns the file inventory and content digest. There is
+no `build.json`, `SHA256SUMS` or deployment path in build output.
+
+Use `.builds/artifacts/<build_id>/<env>` for an exact historical test. Keep
+logs/watermarks under `.runtime/<env>/` or an explicitly isolated test root,
+outside immutable builds.
+
+`dc build --dry-run --format json` is a preview only. It reports effective
+metadata output, SQL/functions/runners mappings and packaging decisions without
+creating `.builds`, staging files, package outputs or runtime state.
+
+## Automation and handoff
+
+Generate project automation only when requested. Generated build automation
+must invoke the installed CLI (`dc validate`, `dc build`) and may add project
+specific orchestration around it. It must not import scripts from an installed
+skill directory or vendor a second config/manifest validator.
+
+Return exact project/artifact paths, build ID, environment coverage, validation
+result, executed/skipped local checks and unresolved questions. Route missing
+resources to provision and upload/deployment to release.

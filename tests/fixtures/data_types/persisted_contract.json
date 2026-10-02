@@ -1,0 +1,397 @@
+{
+  "datatype_decimal": {
+    "business_fields": [
+      {"name": "id", "kind": "int64", "nullable": true},
+      {
+        "name": "amount",
+        "kind": "decimal",
+        "precision": 18,
+        "scale": 2,
+        "nullable": true
+      },
+      {"name": "event_date", "kind": "date", "unit": "day", "nullable": true}
+    ],
+    "generated_fields": [
+      {"name": "__file_name", "kind": "string", "nullable": true},
+      {"name": "__file_path", "kind": "string", "nullable": true},
+      {
+        "name": "__file_modification_time",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {
+        "name": "__created_at",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {
+        "name": "__updated_at",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {"name": "__updated_by", "kind": "string", "nullable": true},
+      {"name": "__dataflow_run_id", "kind": "string", "nullable": true}
+    ],
+    "row_count": 2,
+    "rows": [
+      {"id": 1, "amount": {"decimal": "12.30"}, "event_date": {"date": "2024-01-15"}},
+      {"id": 2, "amount": null, "event_date": null}
+    ]
+  },
+  "datatype_unhinted_csv": {
+    "business_fields": [
+      {"name": "identifier", "kind": "string", "nullable": true},
+      {"name": "label", "kind": "string", "nullable": true}
+    ],
+    "generated_fields": [
+      {"name": "__file_name", "kind": "string", "nullable": true},
+      {"name": "__file_path", "kind": "string", "nullable": true},
+      {
+        "name": "__file_modification_time",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {
+        "name": "__created_at",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {
+        "name": "__updated_at",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {"name": "__updated_by", "kind": "string", "nullable": true},
+      {"name": "__dataflow_run_id", "kind": "string", "nullable": true}
+    ],
+    "row_count": 2,
+    "rows": [
+      {"identifier": "0000123", "label": "alpha"},
+      {"identifier": "0000456", "label": "beta"}
+    ]
+  },
+  "datatype_unhinted_parquet": {
+    "business_fields": [
+      {"name": "id", "kind": "int64", "nullable": true},
+      {
+        "name": "amount",
+        "kind": "decimal",
+        "precision": 18,
+        "scale": 2,
+        "nullable": true
+      },
+      {"name": "event_date", "kind": "date", "unit": "day", "nullable": true}
+    ],
+    "generated_fields": [
+      {"name": "__file_name", "kind": "string", "nullable": true},
+      {"name": "__file_path", "kind": "string", "nullable": true},
+      {
+        "name": "__file_modification_time",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {
+        "name": "__created_at",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {
+        "name": "__updated_at",
+        "kind": "timestamp",
+        "unit": "us",
+        "timezone": "UTC",
+        "nullable": true
+      },
+      {"name": "__updated_by", "kind": "string", "nullable": true},
+      {"name": "__dataflow_run_id", "kind": "string", "nullable": true}
+    ],
+    "row_count": 2,
+    "rows": [
+      {"id": 1, "amount": {"decimal": "12.30"}, "event_date": {"date": "2024-01-15"}},
+      {"id": 2, "amount": null, "event_date": null}
+    ]
+  },
+  "datatype_unhinted_json": {
+    "business_fields": [
+      {"name": "id", "kind": "int64", "nullable": true},
+      {"name": "amount", "kind": "double", "nullable": true},
+      {"name": "event_date", "kind": "string", "nullable": true}
+    ],
+    "generated_fields": [
+      {"name": "__file_name", "kind": "string", "nullable": true},
+      {"name": "__file_path", "kind": "string", "nullable": true},
+      {"name": "__file_modification_time", "kind": "timestamp", "unit": "us", "timezone": "UTC", "nullable": true},
+      {"name": "__created_at", "kind": "timestamp", "unit": "us", "timezone": "UTC", "nullable": true},
+      {"name": "__updated_at", "kind": "timestamp", "unit": "us", "timezone": "UTC", "nullable": true},
+      {"name": "__updated_by", "kind": "string", "nullable": true},
+      {"name": "__dataflow_run_id", "kind": "string", "nullable": true}
+    ],
+    "row_count": 2,
+    "rows": [
+      {"id": 1, "amount": 12.3, "event_date": "2024-01-15"},
+      {"id": 2, "amount": null, "event_date": null}
+    ]
+  },
+  "datatype_unhinted_jsonl": {
+    "business_fields": [
+      {"name": "id", "kind": "int64", "nullable": true},
+      {"name": "amount", "kind": "double", "nullable": true},
+      {"name": "event_date", "kind": "string", "nullable": true}
+    ],
+    "generated_fields": [
+      {"name": "__file_name", "kind": "string", "nullable": true},
+      {"name": "__file_path", "kind": "string", "nullable": true},
+      {"name": "__file_modification_time", "kind": "timestamp", "unit": "us", "timezone": "UTC", "nullable": true},
+      {"name": "__created_at", "kind": "timestamp", "unit": "us", "timezone": "UTC", "nullable": true},
+      {"name": "__updated_at", "kind": "timestamp", "unit": "us", "timezone": "UTC", "nullable": true},
+      {"name": "__updated_by", "kind": "string", "nullable": true},
+      {"name": "__dataflow_run_id", "kind": "string", "nullable": true}
+    ],
+    "row_count": 2,
+    "rows": [
+      {"id": 1, "amount": 12.3, "event_date": "2024-01-15"},
+      {"id": 2, "amount": null, "event_date": null}
+    ]
+  },
+  "datatype_matrix_postgresql": {
+    "business_field_types": {
+      "pg_row_id": "int32", "pg_bool": "bool", "pg_int2": "int16",
+      "pg_int4": "int32", "pg_int8": "int64", "pg_real": "float",
+      "pg_double": "double", "pg_numeric": "decimal(18,2)",
+      "pg_text": "string", "pg_bytea": "binary", "pg_date": "date",
+      "pg_timestamp": "timestamp_ntz", "pg_timestamptz": "timestamp"
+    },
+    "formats": {
+      "iceberg": {
+        "business_field_types": {
+          "pg_row_id": "int32", "pg_bool": "bool", "pg_int2": "int32",
+          "pg_int4": "int32", "pg_int8": "int64", "pg_real": "float",
+          "pg_double": "double", "pg_numeric": "decimal(18,2)",
+          "pg_text": "string", "pg_bytea": "binary", "pg_date": "date",
+          "pg_timestamp": "timestamp_ntz", "pg_timestamptz": "timestamp"
+        }
+      }
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "pg_row_id": 1, "pg_bool": true, "pg_int2": 32767,
+        "pg_int4": 2147483647, "pg_int8": 9223372036854775807,
+        "pg_real": 1.25, "pg_double": 2.5, "pg_numeric": {"decimal": "12.30"},
+        "pg_text": "postgres", "pg_bytea": {"bytes_base64": "cGc="},
+        "pg_date": {"date": "2024-01-15"},
+        "pg_timestamp": {"datetime": "2024-01-15T10:30:45.123456"},
+        "pg_timestamptz": {"datetime": "2024-01-15T03:30:45.123456+00:00"}
+      },
+      {
+        "pg_row_id": 2, "pg_bool": null, "pg_int2": null, "pg_int4": null,
+        "pg_int8": null, "pg_real": null, "pg_double": null, "pg_numeric": null,
+        "pg_text": null, "pg_bytea": null, "pg_date": null,
+        "pg_timestamp": null, "pg_timestamptz": null
+      }
+    ]
+  },
+  "datatype_matrix_mysql": {
+    "business_field_types": {
+      "my_row_id": "int32", "my_tinyint_unsigned": "int16",
+      "my_smallint_unsigned": "int32", "my_mediumint": "int32",
+      "my_bigint_unsigned": "decimal(20,0)", "my_float": "float",
+      "my_double": "double", "my_decimal": "decimal(18,2)",
+      "my_text": "string", "my_binary": "binary", "my_date": "date",
+      "my_datetime": "timestamp_ntz", "my_timestamp": "timestamp",
+      "my_year": "int16"
+    },
+    "formats": {
+      "iceberg": {
+        "business_field_types": {
+          "my_row_id": "int32", "my_tinyint_unsigned": "int32",
+          "my_smallint_unsigned": "int32", "my_mediumint": "int32",
+          "my_bigint_unsigned": "decimal(20,0)", "my_float": "float",
+          "my_double": "double", "my_decimal": "decimal(18,2)",
+          "my_text": "string", "my_binary": "binary", "my_date": "date",
+          "my_datetime": "timestamp_ntz", "my_timestamp": "timestamp",
+          "my_year": "int32"
+        }
+      }
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "my_row_id": 1, "my_tinyint_unsigned": 255,
+        "my_smallint_unsigned": 65535, "my_mediumint": 8388607,
+        "my_bigint_unsigned": {"decimal": "18446744073709551615"},
+        "my_float": 1.25, "my_double": 2.5,
+        "my_decimal": {"decimal": "12.30"}, "my_text": "mysql",
+        "my_binary": {"bytes_base64": "bXk="},
+        "my_date": {"date": "2024-01-15"},
+        "my_datetime": {"datetime": "2024-01-15T10:30:45.123456"},
+        "my_timestamp": {"datetime": "2024-01-15T03:30:45.123456+00:00"},
+        "my_year": 2024
+      },
+      {
+        "my_row_id": 2, "my_tinyint_unsigned": null,
+        "my_smallint_unsigned": null, "my_mediumint": null,
+        "my_bigint_unsigned": null, "my_float": null, "my_double": null,
+        "my_decimal": null, "my_text": null, "my_binary": null,
+        "my_date": null, "my_datetime": null, "my_timestamp": null,
+        "my_year": null
+      }
+    ]
+  },
+  "datatype_matrix_mssql": {
+    "business_field_types": {
+      "ms_row_id": "int32", "ms_bit": "bool", "ms_tinyint": "int16",
+      "ms_smallint": "int16", "ms_int": "int32", "ms_bigint": "int64",
+      "ms_decimal": "decimal(18,2)", "ms_money": "decimal(19,4)",
+      "ms_smallmoney": "decimal(10,4)", "ms_real": "float",
+      "ms_float": "double", "ms_string": "string", "ms_binary": "binary",
+      "ms_date": "date", "ms_datetime": "timestamp_ntz",
+      "ms_datetimeoffset": "timestamp"
+    },
+    "formats": {
+      "iceberg": {
+        "business_field_types": {
+          "ms_row_id": "int32", "ms_bit": "bool", "ms_tinyint": "int32",
+          "ms_smallint": "int32", "ms_int": "int32", "ms_bigint": "int64",
+          "ms_decimal": "decimal(18,2)", "ms_money": "decimal(19,4)",
+          "ms_smallmoney": "decimal(10,4)", "ms_real": "float",
+          "ms_float": "double", "ms_string": "string", "ms_binary": "binary",
+          "ms_date": "date", "ms_datetime": "timestamp_ntz",
+          "ms_datetimeoffset": "timestamp"
+        }
+      }
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "ms_row_id": 1, "ms_bit": true, "ms_tinyint": 255,
+        "ms_smallint": 32767, "ms_int": 2147483647,
+        "ms_bigint": 9223372036854775807, "ms_decimal": {"decimal": "12.30"},
+        "ms_money": {"decimal": "1234.5678"},
+        "ms_smallmoney": {"decimal": "12.3400"}, "ms_real": 1.25,
+        "ms_float": 2.5, "ms_string": "mssql",
+        "ms_binary": {"bytes_base64": "bXM="},
+        "ms_date": {"date": "2024-01-15"},
+        "ms_datetime": {"datetime": "2024-01-15T10:30:45.123456"},
+        "ms_datetimeoffset": {"datetime": "2024-01-15T03:30:45.123456+00:00"}
+      },
+      {
+        "ms_row_id": 2, "ms_bit": null, "ms_tinyint": null,
+        "ms_smallint": null, "ms_int": null, "ms_bigint": null,
+        "ms_decimal": null, "ms_money": null, "ms_smallmoney": null,
+        "ms_real": null, "ms_float": null, "ms_string": null,
+        "ms_binary": null, "ms_date": null, "ms_datetime": null,
+        "ms_datetimeoffset": null
+      }
+    ]
+  },
+  "datatype_matrix_oracle": {
+    "business_field_types": {
+      "ora_row_id": "decimal(10,0)", "ora_number": "decimal(18,2)",
+      "ora_binary_float": "float", "ora_binary_double": "double",
+      "ora_float": "float", "ora_string": "string", "ora_binary": "binary",
+      "ora_date": "timestamp_ntz", "ora_timestamp": "timestamp_ntz",
+      "ora_timestamptz": "timestamp"
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "ora_row_id": {"decimal": "1"},
+        "ora_number": {"decimal": "12.30"}, "ora_binary_float": 1.25,
+        "ora_binary_double": 2.5, "ora_float": 3.5, "ora_string": "oracle",
+      "ora_binary": {"bytes_base64": "b3Jh"},
+      "ora_date": {"datetime": "2024-01-15T10:30:45.123456"},
+        "ora_timestamp": {"datetime": "2024-01-15T10:30:45.123456"},
+        "ora_timestamptz": {"datetime": "2024-01-15T03:30:45.123456+00:00"}
+      },
+      {
+        "ora_row_id": {"decimal": "2"}, "ora_number": null, "ora_binary_float": null,
+        "ora_binary_double": null, "ora_float": null, "ora_string": null,
+        "ora_binary": null, "ora_date": null, "ora_timestamp": null,
+        "ora_timestamptz": null
+      }
+    ]
+  },
+  "datatype_matrix_sqlite": {
+    "business_field_types": {
+      "sqlite_row_id": "int64", "sqlite_integer": "int64", "sqlite_real": "double",
+      "sqlite_numeric": "decimal(18,2)", "sqlite_text": "string",
+      "sqlite_blob": "binary", "sqlite_date": "date",
+      "sqlite_datetime": "timestamp_ntz", "sqlite_timestamp": "timestamp_ntz"
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "sqlite_row_id": 1, "sqlite_integer": 9223372036854775807,
+        "sqlite_real": 2.5, "sqlite_numeric": {"decimal": "12.30"},
+        "sqlite_text": "sqlite", "sqlite_blob": {"bytes_base64": "c3FsaXRl"},
+        "sqlite_date": {"date": "2024-01-15"},
+        "sqlite_datetime": {"datetime": "2024-01-15T10:30:45.123456"},
+        "sqlite_timestamp": {"datetime": "2024-01-15T10:30:45.123456"}
+      },
+      {
+        "sqlite_row_id": 2, "sqlite_integer": null, "sqlite_real": null,
+        "sqlite_numeric": null, "sqlite_text": null, "sqlite_blob": null,
+        "sqlite_date": null, "sqlite_datetime": null, "sqlite_timestamp": null
+      }
+    ]
+  },
+  "datatype_matrix_spark_sql": {
+    "business_field_types": {
+      "spark_row_id": "int32", "spark_boolean": "bool", "spark_tinyint": "int8",
+      "spark_smallint": "int16", "spark_int": "int32", "spark_bigint": "int64",
+      "spark_float": "float", "spark_double": "double",
+      "spark_decimal": "decimal(18,2)", "spark_string": "string",
+      "spark_binary": "binary", "spark_date": "date",
+      "spark_timestamp": "timestamp", "spark_timestamp_ntz": "timestamp_ntz"
+    },
+    "formats": {
+      "iceberg": {
+        "business_field_types": {
+          "spark_row_id": "int32", "spark_boolean": "bool", "spark_tinyint": "int32",
+          "spark_smallint": "int32", "spark_int": "int32", "spark_bigint": "int64",
+          "spark_float": "float", "spark_double": "double",
+          "spark_decimal": "decimal(18,2)", "spark_string": "string",
+          "spark_binary": "binary", "spark_date": "date",
+          "spark_timestamp": "timestamp", "spark_timestamp_ntz": "timestamp_ntz"
+        }
+      }
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "spark_row_id": 1, "spark_boolean": true, "spark_tinyint": 127,
+        "spark_smallint": 32767, "spark_int": 2147483647,
+        "spark_bigint": 9223372036854775807, "spark_float": 1.25,
+        "spark_double": 2.5, "spark_decimal": {"decimal": "12.30"},
+        "spark_string": "spark", "spark_binary": {"bytes_base64": "c3Bhcms="},
+        "spark_date": {"date": "2024-01-15"},
+        "spark_timestamp": {"datetime": "2024-01-15T03:30:45.123456+00:00"},
+        "spark_timestamp_ntz": {"datetime": "2024-01-15T10:30:45.123456"}
+      },
+      {
+        "spark_row_id": 2, "spark_boolean": null, "spark_tinyint": null,
+        "spark_smallint": null, "spark_int": null, "spark_bigint": null,
+        "spark_float": null, "spark_double": null, "spark_decimal": null,
+        "spark_string": null, "spark_binary": null, "spark_date": null,
+        "spark_timestamp": null, "spark_timestamp_ntz": null
+      }
+    ]
+  }
+}

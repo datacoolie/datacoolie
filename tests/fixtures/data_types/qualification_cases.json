@@ -1,0 +1,146 @@
+[
+  {
+    "case_id": "postgres_int8_max",
+    "boundary": "source_extraction",
+    "type_system": "postgresql",
+    "source_type": "int8",
+    "source_values": ["9223372036854775807", null],
+    "expected": {
+      "logical_type": "bigint",
+      "values": ["9223372036854775807", null],
+      "formats": {
+        "parquet": "bigint",
+        "delta": "bigint",
+        "iceberg": "bigint"
+      }
+    }
+  },
+  {
+    "case_id": "mysql_unsigned_tinyint_max",
+    "boundary": "source_extraction",
+    "type_system": "mysql",
+    "source_type": "tinyint unsigned",
+    "source_values": ["0", "255", null],
+    "expected": {
+      "logical_type": "smallint",
+      "values": ["0", "255", null],
+      "formats": {
+        "parquet": "smallint",
+        "delta": "smallint",
+        "iceberg": "int"
+      }
+    }
+  },
+  {
+    "case_id": "mysql_unsigned_bigint_decimal",
+    "boundary": "source_extraction",
+    "type_system": "mysql",
+    "source_type": "bigint unsigned",
+    "source_values": ["18446744073709551615", null],
+    "expected": {
+      "logical_type": "decimal(20,0)",
+      "values": ["18446744073709551615", null],
+      "formats": {
+        "parquet": "decimal(20,0)",
+        "delta": "decimal(20,0)",
+        "iceberg": "decimal(20,0)"
+      }
+    }
+  },
+  {
+    "case_id": "mssql_tinyint_unsigned_range",
+    "boundary": "source_extraction",
+    "type_system": "mssql",
+    "source_type": "tinyint",
+    "source_values": ["0", "255", null],
+    "expected": {
+      "logical_type": "smallint",
+      "values": ["0", "255", null],
+      "formats": {
+        "parquet": "smallint",
+        "delta": "smallint",
+        "iceberg": "int"
+      }
+    }
+  },
+  {
+    "case_id": "oracle_number_exact_decimal",
+    "boundary": "source_extraction",
+    "type_system": "oracle",
+    "source_type": "NUMBER(18,2)",
+    "source_values": ["9999999999999999.99", "-0.01", null],
+    "expected": {
+      "logical_type": "decimal(18,2)",
+      "values": ["9999999999999999.99", "-0.01", null],
+      "formats": {
+        "parquet": "decimal(18,2)",
+        "delta": "decimal(18,2)",
+        "iceberg": "decimal(18,2)"
+      }
+    }
+  },
+  {
+    "case_id": "oracle_date_wall_clock",
+    "boundary": "source_extraction",
+    "type_system": "oracle",
+    "source_type": "DATE",
+    "source_values": ["2024-01-15T10:30:45", null],
+    "expected": {
+      "logical_type": "timestamp_ntz",
+      "values": ["2024-01-15T10:30:45", null],
+      "formats": {
+        "parquet": "timestamp_ntz",
+        "delta": "timestamp_ntz",
+        "iceberg": "timestamp_ntz"
+      }
+    }
+  },
+  {
+    "case_id": "postgres_instant_preserves_epoch",
+    "boundary": "source_extraction",
+    "type_system": "postgresql",
+    "source_type": "timestamp with time zone",
+    "source_values": ["2024-01-15T03:30:45.123456Z", null],
+    "expected": {
+      "logical_type": "timestamp",
+      "values": ["2024-01-15T03:30:45.123456Z", null],
+      "formats": {
+        "parquet": "timestamp",
+        "delta": "timestamp",
+        "iceberg": "timestamp"
+      }
+    }
+  },
+  {
+    "case_id": "csv_oracle_hint_override",
+    "boundary": "weak_input_hint",
+    "type_system": "oracle",
+    "source_type": "NUMBER(18,2)",
+    "source_values": ["12.30", "0.10", null],
+    "expected": {
+      "logical_type": "decimal(18,2)",
+      "values": ["12.30", "0.10", null],
+      "formats": {
+        "parquet": "decimal(18,2)",
+        "delta": "decimal(18,2)",
+        "iceberg": "decimal(18,2)"
+      }
+    }
+  },
+  {
+    "case_id": "spark_float_widths",
+    "boundary": "native_cast",
+    "type_system": "spark_sql",
+    "source_type": "double",
+    "source_values": ["1.5", null],
+    "expected": {
+      "logical_type": "double",
+      "values": ["1.5", null],
+      "formats": {
+        "parquet": "double",
+        "delta": "double",
+        "iceberg": "double"
+      }
+    }
+  }
+]

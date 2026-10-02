@@ -10,13 +10,14 @@ Usage:
         --connection local_delta_dest
 
     python usecase-sim/runner/maintenance.py --engine spark \
-        --metadata-path usecase-sim/metadata/file/aws_use_cases.json \
+        --metadata-path s3://datacoolie-test/metadata/aws_use_cases.json \
         --connection aws_iceberg_dest --platform aws
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -25,10 +26,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datacoolie.core import DataCoolieRunConfig
+from datacoolie.logging import LogConfig
 from datacoolie.metadata import FileProvider
 from datacoolie.orchestration import DataCoolieDriver
-from datacoolie.platforms import LocalPlatform
-from datacoolie.watermark import WatermarkManager
 from _runner_utils import (
     MINIO_STORAGE_OPTIONS,
     build_iceberg_rest_catalog,
@@ -50,7 +50,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--engine", required=True, choices=["polars", "spark"])
     parser.add_argument("--platform", default="local", choices=["local", "aws"],
                         help="Storage platform: 'local' filesystem or 'aws' (S3/MinIO)")
-    parser.add_argument("--metadata-path", required=True, help="Path to metadata file")
+    parser.add_argument("--metadata-path", default=None, help="Path to metadata file")
+    parser.add_argument("--metadata-base-path", default=None,
+                        help="Directory containing metadata documents")
+    parser.add_argument("--artifact-base-path", default=None,
+                        help="Deployed artifact root; metadata defaults to <root>/metadata")
+    parser.add_argument("--sql-base-path", action="append", default=None,
+                        metavar="PATH",
+                        help="Optional SQL root used to resolve relative SQL files; repeat for multiple roots")
     parser.add_argument("--connection", default=None, help="Optional connection name filter")
 
     parser.add_argument("--do-compact", action="store_true", default=True)
@@ -66,6 +73,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--uc-token", default="")
     parser.add_argument("--uc-credential", default="")
     parser.add_argument("--log-path", default=None)
+    parser.add_argument("--job-id", default=None,
+                        help="Stable Driver session/job identifier for reproducible scenarios")
+    parser.add_argument("--state-base-path", default=None,
+                        help="Framework runtime state root")
+    parser.add_argument("--run-attributes", default=None,
+                        help="JSON object with caller-owned correlation attributes")
+    parser.add_argument("--log-persistence-mode", choices=["snapshot", "batch"], default=None)
+    parser.add_argument("--log-flush-interval-seconds", type=float, default=None)
+    parser.add_argument("--log-flush-batch-bytes", type=int, default=None)
+    parser.add_argument("--log-console-color", choices=["auto", "always", "never"], default=None)
     parser.add_argument("--skip-api-sources", action="store_true",
                         help="Skip any dataflow whose source connection_type is 'api'")
 
@@ -73,7 +90,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--app-name", default="DataCoolie-Maintenance")
     parser.add_argument("--spark-config", action="append", default=[], metavar="KEY=VALUE")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not any((args.metadata_path, args.metadata_base_path, args.artifact_base_path)):
+        parser.error(
+            "maintenance requires --metadata-path, --metadata-base-path, "
+            "or --artifact-base-path"
+        )
+    if args.metadata_path and args.metadata_base_path:
+        parser.error("--metadata-path and --metadata-base-path are mutually exclusive")
+    return args
 
 
 def _parse_kv_list(pairs: list[str]) -> dict[str, str]:
@@ -84,11 +109,46 @@ def _parse_kv_list(pairs: list[str]) -> dict[str, str]:
     return out
 
 
+def _parse_run_attributes(value: str | None) -> dict | None:
+    if value is None:
+        return None
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"--run-attributes must be valid JSON: {exc.msg}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("--run-attributes must decode to a JSON object")
+    return parsed
+
+
+def _build_log_config(args: argparse.Namespace) -> LogConfig | None:
+    values = {
+        "persistence_mode": args.log_persistence_mode,
+        "flush_interval_seconds": args.log_flush_interval_seconds,
+        "flush_batch_bytes": args.log_flush_batch_bytes,
+        "console_color": args.log_console_color,
+    }
+    values = {key: value for key, value in values.items() if value is not None}
+    return LogConfig(**values) if values else None
+
+
 def main() -> None:
     args = parse_args()
 
     is_aws = args.platform == "aws"
     is_spark = args.engine == "spark"
+
+    # Validate caller-owned run/log configuration before starting an engine
+    # session so malformed input cannot leak a Spark/JVM resource.
+    config_kwargs = {
+        "dry_run": args.dry_run,
+        "retention_hours": args.retention_hours,
+        "run_attributes": _parse_run_attributes(args.run_attributes),
+    }
+    if args.job_id is not None:
+        config_kwargs["job_id"] = args.job_id
+    config = DataCoolieRunConfig(**config_kwargs)
+    log_config = _build_log_config(args)
 
     storage_opts = _parse_kv_list(args.storage_options)
     extra_config = _parse_kv_list(args.spark_config)
@@ -144,20 +204,25 @@ def main() -> None:
             iceberg_catalog=iceberg_catalog,
         )
 
-    metadata = FileProvider(config_path=args.metadata_path, platform=LocalPlatform(), eager_prefetch=True)
-    watermark = WatermarkManager(metadata_provider=metadata)
-    config = DataCoolieRunConfig(
-        dry_run=args.dry_run,
-        retention_hours=args.retention_hours,
+    metadata = (
+        FileProvider(
+            config_path=args.metadata_path,
+            sql_base_path=args.sql_base_path or None,
+        )
+        if args.metadata_path
+        else None
     )
-
     driver = DataCoolieDriver(
         engine=engine,
         platform=platform,
         metadata_provider=metadata,
-        watermark_manager=watermark,
         config=config,
-        base_log_path=args.log_path,
+        artifact_base_path=args.artifact_base_path,
+        metadata_base_path=args.metadata_base_path,
+        sql_base_path=args.sql_base_path,
+        state_base_path=args.state_base_path,
+        log_base_path=args.log_path,
+        log_config=log_config,
     )
 
     install_graceful_shutdown(driver, logger)

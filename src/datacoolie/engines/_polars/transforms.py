@@ -7,20 +7,18 @@ receive resolved names and never retain engine state.
 from __future__ import annotations
 
 import importlib
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 import polars as pl
 
 from datacoolie.core.constants import DEFAULT_AUTHOR, XXHASH64_SEED, SystemColumn
-from datacoolie.core.exceptions import EngineError, TransformError
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule
+from datacoolie.core.exceptions import ConfigurationError, EngineError, TransformError
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.engines.base import BaseEngine
 
 
-def add_column(
-    df: pl.LazyFrame, column_name: str, expression: str
-) -> pl.LazyFrame:
+def add_column(df: pl.LazyFrame, column_name: str, expression: str) -> pl.LazyFrame:
     return df.with_columns(pl.sql_expr(expression).alias(column_name))
 
 
@@ -32,15 +30,11 @@ def select_columns(df: pl.LazyFrame, columns: Sequence[str]) -> pl.LazyFrame:
     return df.select(columns)
 
 
-def rename_column(
-    df: pl.LazyFrame, old_name: str, new_name: str
-) -> pl.LazyFrame:
+def rename_column(df: pl.LazyFrame, old_name: str, new_name: str) -> pl.LazyFrame:
     return df.rename({old_name: new_name})
 
 
-def rename_columns(
-    df: pl.LazyFrame, mapping: Dict[str, str]
-) -> pl.LazyFrame:
+def rename_columns(df: pl.LazyFrame, mapping: Dict[str, str]) -> pl.LazyFrame:
     return df.rename(mapping) if mapping else df
 
 
@@ -111,13 +105,17 @@ def apply_value_rule(
     for column in columns:
         dtype = schema[column]
         source = pl.col(column)
-        if rule.operation in {
-            "trim",
-            "case",
-            "regex_replace",
-            "empty_to_null",
-            "map",
-        } and dtype != pl.String:
+        if (
+            rule.operation
+            in {
+                "trim",
+                "case",
+                "regex_replace",
+                "empty_to_null",
+                "map",
+            }
+            and dtype != pl.String
+        ):
             raise TransformError(
                 f"Value rule {rule.operation!r} requires a string column",
                 details={"column": column, "data_type": str(dtype)},
@@ -185,7 +183,9 @@ def apply_masking_rule(
                     "partial masking requires a string column",
                     details={"column": column},
                 )
-            prefix = source.str.slice(0, rule.keep_start) if rule.keep_start else pl.lit("")
+            prefix = (
+                source.str.slice(0, rule.keep_start) if rule.keep_start else pl.lit("")
+            )
             suffix = (
                 source.str.slice(-rule.keep_end, rule.keep_end)
                 if rule.keep_end
@@ -207,7 +207,9 @@ def apply_masking_rule(
                     "numeric_bucket requires a numeric column",
                     details={"column": column},
                 )
-            result = ((source / rule.bucket_size).floor() * rule.bucket_size).cast(dtype)
+            result = ((source / rule.bucket_size).floor() * rule.bucket_size).cast(
+                dtype
+            )
         else:
             if dtype == pl.Date and rule.unit == "hour":
                 raise TransformError(
@@ -219,9 +221,7 @@ def apply_masking_rule(
                     "date_truncate requires a date or datetime column",
                     details={"column": column},
                 )
-            every = {"year": "1y", "month": "1mo", "day": "1d", "hour": "1h"}[
-                rule.unit
-            ]
+            every = {"year": "1y", "month": "1mo", "day": "1d", "hour": "1h"}[rule.unit]
             result = source.dt.truncate(every).cast(dtype)
         expressions.append(result.alias(column))
     return df.with_columns(expressions) if expressions else df
@@ -296,12 +296,20 @@ def apply_watermark_filter(
         condition: Optional[pl.Expr] = None
         expression = pl.col(column)
         if lower is not None:
-            lower = lower.isoformat() if isinstance(lower, (datetime, date)) else lower
-            condition = expression >= pl.lit(lower) if start_operator == ">=" else expression > pl.lit(lower)
+            condition = (
+                expression >= pl.lit(lower)
+                if start_operator == ">="
+                else expression > pl.lit(lower)
+            )
         if upper is not None:
-            upper = upper.isoformat() if isinstance(upper, (datetime, date)) else upper
-            upper_condition = expression <= pl.lit(upper) if end_operator == "<=" else expression < pl.lit(upper)
-            condition = upper_condition if condition is None else condition & upper_condition
+            upper_condition = (
+                expression <= pl.lit(upper)
+                if end_operator == "<="
+                else expression < pl.lit(upper)
+            )
+            condition = (
+                upper_condition if condition is None else condition & upper_condition
+            )
         combined = condition if combined is None else combined | condition
     return df if combined is None else df.filter(combined)
 
@@ -327,9 +335,9 @@ def deduplicate_by_rank(
     descending = order != "asc"
     if len(order_columns) == 1:
         column = order_columns[0]
-        best = (
-            pl.col(column).max() if descending else pl.col(column).min()
-        ).over(partition_columns)
+        best = (pl.col(column).max() if descending else pl.col(column).min()).over(
+            partition_columns
+        )
         return df.filter(pl.col(column) == best)
     flags = [descending] * len(order_columns)
     best_exprs = [
@@ -343,8 +351,10 @@ def deduplicate_by_rank(
     condition = pl.all_horizontal(
         pl.col(column) == pl.col(f"__best_{column}") for column in order_columns
     )
-    return df.with_columns(best_exprs).filter(condition).drop(
-        [f"__best_{column}" for column in order_columns]
+    return (
+        df.with_columns(best_exprs)
+        .filter(condition)
+        .drop([f"__best_{column}" for column in order_columns])
     )
 
 
@@ -364,13 +374,26 @@ def add_system_columns(
     return df.with_columns(expressions)
 
 
-def convert_timestamp_ntz_to_timestamp(df: pl.LazyFrame) -> pl.LazyFrame:
+def convert_timestamp_ntz_to_timestamp(
+    df: pl.LazyFrame, timezone: str | None = None
+) -> pl.LazyFrame:
+    schema = df.collect_schema()
+    columns = [
+        name
+        for name, dtype in schema.items()
+        if isinstance(dtype, pl.Datetime) and dtype.time_zone is None
+    ]
+    if columns and not timezone:
+        raise ConfigurationError(
+            "timestamp_timezone is required when converting timestamp_ntz to timestamp"
+        )
     conversions = [
         pl.col(name)
         .cast(pl.Datetime(dtype.time_unit or "us"))
-        .dt.replace_time_zone("UTC")
+        .dt.replace_time_zone(timezone)
+        .dt.convert_time_zone("UTC")
         .alias(name)
-        for name, dtype in df.collect_schema().items()
-        if isinstance(dtype, pl.Datetime) and dtype.time_zone is None
+        for name, dtype in schema.items()
+        if name in columns
     ]
     return df.with_columns(conversions) if conversions else df

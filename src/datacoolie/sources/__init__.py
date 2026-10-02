@@ -5,7 +5,7 @@ file (Parquet/CSV/JSON/Avro/etc.), database (SQL), Iceberg, Python function,
 and API formats.
 """
 
-from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.base import BaseSourceReader, SourceReadRange
 from datacoolie.sources.database_reader import DatabaseReader
 from datacoolie.sources.delta_reader import DeltaReader
 from datacoolie.sources.file_reader import FileReader
@@ -16,6 +16,7 @@ from datacoolie.sources.api_reader import APIReader
 __all__ = [
     "APIReader",
     "BaseSourceReader",
+    "SourceReadRange",
     "DatabaseReader",
     "DeltaReader",
     "FileReader",

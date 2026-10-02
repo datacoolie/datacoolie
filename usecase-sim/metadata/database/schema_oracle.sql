@@ -59,6 +59,7 @@ BEGIN
                 source_table              VARCHAR2(200),
                 source_query              CLOB,
                 source_python_function    VARCHAR2(500),
+                source_filter_expression  CLOB,
                 source_watermark_columns  CLOB,
                 source_configure          CLOB,
 

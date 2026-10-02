@@ -1,0 +1,16 @@
+{
+  "connections": [
+    {
+      "name": "orders_input",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {"base_path": "./data/input"}
+    },
+    {
+      "name": "orders_output",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {"base_path": "./data/output"}
+    }
+  ]
+}

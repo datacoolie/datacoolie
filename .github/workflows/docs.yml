@@ -6,10 +6,11 @@ on:
     paths:
       - "docs/**"
       - "src/**"
-      - "ai/skills/datacoolie-build/schemas/**"
+      - "src/datacoolie/project/schemas/**"
       - "ai/AGENTS.md"
       - "ai/skills/datacoolie-*/SKILL.md"
       - "overrides/**"
+      - "scripts/verify_docs_seo.py"
       - "properdocs.yml"
       - "pyproject.toml"
       - "poetry.lock"
@@ -18,10 +19,11 @@ on:
     paths:
       - "docs/**"
       - "src/**"
-      - "ai/skills/datacoolie-build/schemas/**"
+      - "src/datacoolie/project/schemas/**"
       - "ai/AGENTS.md"
       - "ai/skills/datacoolie-*/SKILL.md"
       - "overrides/**"
+      - "scripts/verify_docs_seo.py"
       - "properdocs.yml"
       - "pyproject.toml"
       - "poetry.lock"
@@ -70,6 +72,9 @@ jobs:
 
       - name: Build docs (strict)
         run: poetry run properdocs build --strict
+
+      - name: Verify search metadata and sitemap
+        run: poetry run python scripts/verify_docs_seo.py --site-dir site
 
       - name: Configure git
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

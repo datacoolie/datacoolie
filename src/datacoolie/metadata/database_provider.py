@@ -12,9 +12,9 @@ All queries are **workspace-scoped** and honour **soft-delete**
 
 from __future__ import annotations
 
-import json
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import (
     Boolean,
@@ -28,7 +28,7 @@ from sqlalchemy import (
     and_,
     create_engine,
     func,
-    or_,
+    literal,
     select,
 )
 from sqlalchemy.engine import Engine
@@ -36,18 +36,24 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from datacoolie.core.exceptions import MetadataError, WatermarkError
-from datacoolie.core.models import (
-    Connection,
-    DataFlow,
-    Destination,
-    SchemaHint,
-    Source,
-    Transform,
-)
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.core.models.source import Source
+from datacoolie.core.models.transform import Transform
 from datacoolie.metadata.base import BaseMetadataProvider
-from datacoolie.orchestration.retry_handler import RetryHandler
+from datacoolie.metadata.resolution.schema_hints import (
+    normalize_grouped_hints,
+    normalize_schema_name,
+    normalized_key,
+    select_schema_hints,
+)
 from datacoolie.utils.converters import parse_json
-from datacoolie.utils.helpers import ensure_list, generate_unique_id, utc_now
+from datacoolie.utils.collections import ensure_list
+from datacoolie.utils.identity import generate_unique_id
+from datacoolie.utils.time import utc_now
+from datacoolie.utils.retry import RetryHandler
 
 
 # ============================================================================
@@ -62,6 +68,7 @@ _meta = MetaData()
 # raise serialization failures (40001). Retries are short and bounded.
 _WATERMARK_MAX_RETRIES = 3
 _WATERMARK_RETRY_DELAY = 0.1  # seconds; multiplied by (attempt + 1)
+
 
 _connections_table = Table(
     "dc_framework_connections",
@@ -102,6 +109,7 @@ _dataflows_table = Table(
     Column("source_table", String(200), nullable=True),
     Column("source_query", Text, nullable=True),
     Column("source_python_function", String(500), nullable=True),
+    Column("source_filter_expression", Text, nullable=True),
     Column("source_watermark_columns", Text, nullable=True),
     Column("source_configure", Text, nullable=True),
     # transform
@@ -174,7 +182,7 @@ class DatabaseProvider(BaseMetadataProvider):
         connection_string: SQLAlchemy database URL.
         workspace_id: Workspace scope for all queries.
         engine: Optional pre-built ``Engine`` (overrides *connection_string*
-            and all pool parameters).
+            and all pool parameters). An injected engine remains caller-owned.
         enable_cache: Enable the in-memory metadata cache.
         pool_size: Number of persistent connections kept in the pool.
         max_overflow: Extra connections allowed beyond *pool_size* under
@@ -190,6 +198,12 @@ class DatabaseProvider(BaseMetadataProvider):
             automatic retry while they resume from cold start.  Set to ``0``
             to disable.
         warm_up_delay: Seconds to wait between warm-up retry attempts.
+        sql_base_path: One SQL root or a sequence of roots associated with
+            metadata query references. Driver preparation reads the files.
+
+    The provider records connection settings in ``__init__``. An owned
+    SQLAlchemy engine is created at :meth:`initialize` (or first direct I/O),
+    so construction performs no metadata or business-database I/O.
     """
 
     def __init__(
@@ -206,12 +220,14 @@ class DatabaseProvider(BaseMetadataProvider):
         pool_recycle: int = 1800,
         warm_up_retries: int = 1,
         warm_up_delay: float = 15.0,
-        eager_prefetch: bool = False,
+        sql_base_path: str | Sequence[str] | None = None,
     ) -> None:
-        super().__init__(enable_cache=enable_cache, eager_prefetch=eager_prefetch)
-        if engine is not None:
-            self._engine = engine
-        elif connection_string:
+        super().__init__(enable_cache=enable_cache, sql_base_path=sql_base_path)
+        self._owns_engine = engine is None
+        self._connection_string = connection_string
+        self._engine: Optional[Engine] = engine
+        self._engine_options: Optional[Dict[str, Any]] = None
+        if engine is None and connection_string:
             pool_kwargs: Dict[str, Any] = {"pool_pre_ping": pool_pre_ping}
             # SQLite uses SingletonThreadPool which does not accept
             # pool_size / max_overflow.  Only pass them for real
@@ -221,24 +237,41 @@ class DatabaseProvider(BaseMetadataProvider):
                 pool_kwargs["max_overflow"] = max_overflow
                 pool_kwargs["pool_timeout"] = pool_timeout
                 pool_kwargs["pool_recycle"] = pool_recycle
-            self._engine = create_engine(connection_string, **pool_kwargs)
-        else:
+            self._engine_options = pool_kwargs
+        elif engine is None:
             raise MetadataError("Either 'connection_string' or 'engine' is required")
         self._workspace_id = workspace_id
         self._retry_handler = RetryHandler(
             retry_count=warm_up_retries,
             retry_delay=warm_up_delay,
         )
-        self._maybe_eager_prefetch()
+
+    def _ensure_engine(self) -> Engine:
+        """Create an owned SQLAlchemy engine on first use."""
+        if self._engine is None:
+            if not self._connection_string:
+                raise MetadataError("DatabaseProvider has no configured connection")
+            self._engine = create_engine(
+                self._connection_string,
+                **(self._engine_options or {}),
+            )
+        return self._engine
+
+    def _initialize_metadata(self) -> None:
+        """Acquire the configured database transport before bulk loading."""
+        self._ensure_engine()
+
+    def _cleanup_failed_initialization(self) -> None:
+        """Release an owned engine so a later initialize can retry cleanly."""
+        if self._owns_engine and self._engine is not None:
+            try:
+                self._engine.dispose()
+            finally:
+                self._engine = None
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    @property
-    def _supports_row_locks(self) -> bool:
-        """``True`` when the backend supports ``SELECT … FOR UPDATE``."""
-        return self._engine.dialect.name != "sqlite"
 
     def _session(self) -> Session:
         """Open a new database session, retrying on connection failure.
@@ -247,15 +280,12 @@ class DatabaseProvider(BaseMetadataProvider):
         short delay) to handle serverless databases that need a moment to
         resume from an auto-paused state.
         """
-        return self._retry_handler.execute(Session, self._engine)[0]
+        return self._retry_handler.execute(Session, self._ensure_engine())[0]
 
     @staticmethod
     def _soft_delete_filter(table: Table) -> Any:
         """Return a ``deleted_at IS NULL`` filter clause."""
-        col = table.c.get("deleted_at")
-        if col is not None:
-            return col.is_(None)
-        return True  # table has no soft delete column
+        return table.c.deleted_at.is_(None)
 
     def _workspace_filter(self, table: Table) -> Any:
         """Return a ``workspace_id = ?`` filter clause."""
@@ -274,8 +304,8 @@ class DatabaseProvider(BaseMetadataProvider):
             name=row.name,
             connection_type=row.connection_type,
             format=row.format,
-            catalog=getattr(row, "catalog", None),
-            database=getattr(row, "database", None),
+            catalog=row.catalog,
+            database=row.database,
             configure=parse_json(row.configure),
             secrets_ref=row.secrets_ref,
             is_active=bool(row.is_active) if row.is_active is not None else True,
@@ -290,6 +320,7 @@ class DatabaseProvider(BaseMetadataProvider):
             table=row.source_table,
             query=row.source_query,
             python_function=row.source_python_function,
+            filter_expression=row.source_filter_expression,
             watermark_columns=ensure_list(row.source_watermark_columns),
             configure=parse_json(row.source_configure),
         )
@@ -333,12 +364,12 @@ class DatabaseProvider(BaseMetadataProvider):
         return SchemaHint(
             column_name=row.column_name,
             data_type=row.data_type,
-            format=getattr(row, "format", None),
+            format=row.format,
             precision=row.precision,
             scale=row.scale,
             default_value=row.default_value,
             ordinal_position=row.ordinal_position or 0,
-            is_active=bool(row.is_active) if getattr(row, "is_active", None) is not None else True,
+            is_active=bool(row.is_active) if row.is_active is not None else True,
         )
 
     # ------------------------------------------------------------------
@@ -450,7 +481,15 @@ class DatabaseProvider(BaseMetadataProvider):
                 src_conn = conn_by_id.get(row.source_connection_id)
                 dest_conn = conn_by_id.get(row.destination_connection_id)
                 if src_conn is None or dest_conn is None:
-                    continue  # skip orphaned dataflows
+                    missing = (
+                        row.source_connection_id
+                        if src_conn is None
+                        else row.destination_connection_id
+                    )
+                    raise MetadataError(
+                        f"Dataflow {row.dataflow_id} references unknown connection "
+                        f"within workspace {self._workspace_id}: {missing}"
+                    )
                 dataflows.append(self._row_to_dataflow(row, src_conn, dest_conn))
             return dataflows
 
@@ -484,17 +523,44 @@ class DatabaseProvider(BaseMetadataProvider):
         schema_name: Optional[str] = None,
     ) -> List[SchemaHint]:
         t = _schema_hints_table
+        requested_schema = normalize_schema_name(schema_name)
         clauses = [
             t.c.connection_id == connection_id,
             func.lower(t.c.table_name) == table_name.lower(),
             self._soft_delete_filter(t),
         ]
-        if schema_name is not None:
-            clauses.append(func.lower(t.c.schema_name) == schema_name.lower())
-        stmt = select(t).where(and_(*clauses)).order_by(t.c.ordinal_position)
+        if requested_schema is not None:
+            clauses.append(func.lower(t.c.schema_name) == requested_schema.lower())
+        connection_table = _connections_table
+        clauses.extend(
+            [
+                self._workspace_filter(connection_table),
+                self._soft_delete_filter(connection_table),
+            ]
+        )
+        stmt = (
+            select(t)
+            .select_from(t.join(connection_table, t.c.connection_id == connection_table.c.connection_id))
+            .where(and_(*clauses))
+            .order_by(t.c.ordinal_position)
+        )
         with self._session() as session:
             rows = session.execute(stmt).all()
-            return [self._row_to_schema_hint(r) for r in rows]
+            grouped: Dict[Tuple[str, Optional[str], str], List[SchemaHint]] = {}
+            for row in rows:
+                key = normalized_key(
+                    row.connection_id,
+                    row.schema_name,
+                    row.table_name,
+                )
+                grouped.setdefault(key, []).append(self._row_to_schema_hint(row))
+        selected = select_schema_hints(
+            normalize_grouped_hints(grouped),
+            connection_id,
+            requested_schema,
+            table_name,
+        )
+        return selected or []
 
     # ------------------------------------------------------------------
     # Bulk pre-load — single-pass workspace fetch
@@ -534,32 +600,44 @@ class DatabaseProvider(BaseMetadataProvider):
                 src_conn = conn_by_id.get(row.source_connection_id)
                 dest_conn = conn_by_id.get(row.destination_connection_id)
                 if src_conn is None or dest_conn is None:
-                    continue  # skip orphaned dataflows
+                    missing = (
+                        row.source_connection_id
+                        if src_conn is None
+                        else row.destination_connection_id
+                    )
+                    raise MetadataError(
+                        f"Dataflow {row.dataflow_id} references unknown connection "
+                        f"within workspace {self._workspace_id}: {missing}"
+                    )
                 dataflows.append(self._row_to_dataflow(row, src_conn, dest_conn))
 
             grouped: Dict[Tuple[str, Optional[str], str], List[SchemaHint]] = {}
             if conn_by_id:
+                hint_clauses = [
+                    ht.c.connection_id.in_(list(conn_by_id.keys())),
+                    self._soft_delete_filter(ht),
+                    self._workspace_filter(ct),
+                    self._soft_delete_filter(ct),
+                ]
                 hint_stmt = (
                     select(ht)
-                    .where(
-                        and_(
-                            ht.c.connection_id.in_(list(conn_by_id.keys())),
-                            self._soft_delete_filter(ht),
-                        )
-                    )
+                    .select_from(ht.join(ct, ht.c.connection_id == ct.c.connection_id))
+                    .where(and_(*hint_clauses))
                     .order_by(ht.c.ordinal_position)
                 )
                 hint_rows = session.execute(hint_stmt).all()
                 for r in hint_rows:
                     cid = r.connection_id
-                    table = getattr(r, "table_name", None)
+                    table = r.table_name
                     if not cid or not table:
-                        continue
-                    schema = getattr(r, "schema_name", None) or None  # normalise '' -> None
+                        raise MetadataError(
+                            "Schema hint metadata is missing connection_id or table_name"
+                        )
+                    schema = r.schema_name or None  # normalise '' -> None
                     grouped.setdefault((cid, schema, table), []).append(
                         self._row_to_schema_hint(r)
                     )
-        return connections, dataflows, grouped
+        return connections, dataflows, normalize_grouped_hints(grouped)
 
     # ------------------------------------------------------------------
     # Abstract method implementations — watermarks
@@ -567,16 +645,28 @@ class DatabaseProvider(BaseMetadataProvider):
 
     def get_watermark(self, dataflow_id: str) -> Optional[str]:
         """Return the raw serialised watermark string for *dataflow_id*, or ``None``."""
-        t = _watermarks_table
-        stmt = select(t).where(t.c.dataflow_id == dataflow_id)
-        try:
-            with self._session() as session:
-                row = session.execute(stmt).first()
-                return row.current_value if row and row.current_value else None
-        except Exception as exc:
-            raise WatermarkError(
-                f"Failed to read watermark for dataflow {dataflow_id}"
-            ) from exc
+        with self._runtime_operation():
+            t = _watermarks_table
+            dt = _dataflows_table
+            stmt = (
+                select(t)
+                .select_from(t.join(dt, t.c.dataflow_id == dt.c.dataflow_id))
+                .where(
+                    and_(
+                        t.c.dataflow_id == dataflow_id,
+                        self._workspace_filter(dt),
+                        self._soft_delete_filter(dt),
+                    )
+                )
+            )
+            try:
+                with self._session() as session:
+                    row = session.execute(stmt).first()
+                    return row.current_value if row and row.current_value else None
+            except Exception as exc:
+                raise WatermarkError(
+                    f"Failed to read watermark for dataflow {dataflow_id}"
+                ) from exc
 
     def update_watermark(
         self,
@@ -601,68 +691,116 @@ class DatabaseProvider(BaseMetadataProvider):
         Transient MySQL deadlocks / lock-wait timeouts (``OperationalError``)
         are retried up to ``_WATERMARK_MAX_RETRIES`` times.
         """
-        t = _watermarks_table
-        last_exc: Optional[Exception] = None
-        for attempt in range(_WATERMARK_MAX_RETRIES + 1):
-            now = utc_now()
-            try:
-                with self._session() as session:
-                    update_stmt = (
-                        t.update()
-                        .where(t.c.dataflow_id == dataflow_id)
-                        .values(
-                            previous_value=t.c.current_value,
-                            current_value=watermark_value,
-                            job_id=job_id,
-                            dataflow_run_id=dataflow_run_id,
-                            updated_at=now,
-                        )
+        with self._runtime_operation():
+            t = _watermarks_table
+            dt = _dataflows_table
+            owner_exists = select(dt.c.dataflow_id).where(
+                and_(
+                    dt.c.dataflow_id == dataflow_id,
+                    self._workspace_filter(dt),
+                    self._soft_delete_filter(dt),
+                )
+            ).exists()
+            owner_scope_stmt = (
+                select(dt.c.dataflow_id)
+                .where(
+                    and_(
+                        dt.c.dataflow_id == dataflow_id,
+                        self._workspace_filter(dt),
+                        self._soft_delete_filter(dt),
                     )
-                    result = session.execute(update_stmt)
-                    if result.rowcount == 0:
-                        try:
-                            session.execute(
-                                t.insert().values(
-                                    watermark_id=generate_unique_id(),
-                                    dataflow_id=dataflow_id,
-                                    current_value=watermark_value,
-                                    previous_value=None,
-                                    job_id=job_id,
-                                    dataflow_run_id=dataflow_run_id,
-                                    updated_at=now,
-                                )
+                )
+                .limit(1)
+            )
+            last_exc: Optional[Exception] = None
+            for attempt in range(_WATERMARK_MAX_RETRIES + 1):
+                now = utc_now()
+                try:
+                    with self._session() as session:
+                        update_stmt = (
+                            t.update()
+                            .where(and_(t.c.dataflow_id == dataflow_id, owner_exists))
+                            .values(
+                                previous_value=t.c.current_value,
+                                current_value=watermark_value,
+                                job_id=job_id,
+                                dataflow_run_id=dataflow_run_id,
+                                updated_at=now,
                             )
-                        except IntegrityError:
-                            # Concurrent insert won the race — rotate via
-                            # UPDATE now that the row exists.
-                            session.rollback()
-                            session.execute(update_stmt)
-                    session.commit()
-                return
-            except OperationalError as exc:
-                # Deadlock (MySQL 1213) / lock wait timeout (1205) /
-                # serialization failure (PG 40001). Retry with backoff.
-                last_exc = exc
-                if attempt >= _WATERMARK_MAX_RETRIES:
-                    break
-                time.sleep(_WATERMARK_RETRY_DELAY * (attempt + 1))
-            except Exception as exc:
-                raise WatermarkError(
-                    f"Failed to update watermark for dataflow {dataflow_id}"
-                ) from exc
-        raise WatermarkError(
-            f"Failed to update watermark for dataflow {dataflow_id}"
-        ) from last_exc
+                        )
+                        result = session.execute(update_stmt)
+                        if result.rowcount == 0:
+                            # Do not infer ownership from an UPDATE rowcount:
+                            # it is zero both for a missing watermark and for
+                            # a foreign/deleted dataflow.  The guarded INSERT
+                            # below protects the mutation, while this query
+                            # gives callers a deterministic scope error even
+                            # on dialects with an indeterminate INSERT rowcount.
+                            if session.execute(owner_scope_stmt).first() is None:
+                                raise WatermarkError(
+                                    f"Dataflow {dataflow_id} does not belong to "
+                                    f"workspace {self._workspace_id}"
+                                )
+                            insert_columns = [
+                                "watermark_id",
+                                "dataflow_id",
+                                "current_value",
+                                "previous_value",
+                                "job_id",
+                                "dataflow_run_id",
+                                "updated_at",
+                            ]
+                            insert_values = select(
+                                literal(generate_unique_id()),
+                                literal(dataflow_id),
+                                literal(watermark_value),
+                                literal(None),
+                                literal(job_id),
+                                literal(dataflow_run_id),
+                                literal(now),
+                            ).where(owner_exists)
+                            try:
+                                insert_result = session.execute(
+                                    t.insert().from_select(insert_columns, insert_values)
+                                )
+                                if insert_result.rowcount == 0:
+                                    raise WatermarkError(
+                                        f"Dataflow {dataflow_id} does not belong to "
+                                        f"workspace {self._workspace_id}"
+                                    )
+                            except IntegrityError:
+                                # Concurrent insert won the race — rotate via
+                                # UPDATE now that the row exists.
+                                session.rollback()
+                                session.execute(update_stmt)
+                        session.commit()
+                    return
+                except OperationalError as exc:
+                    # Deadlock (MySQL 1213) / lock wait timeout (1205) /
+                    # serialization failure (PG 40001). Retry with backoff.
+                    last_exc = exc
+                    if attempt >= _WATERMARK_MAX_RETRIES:
+                        break
+                    time.sleep(_WATERMARK_RETRY_DELAY * (attempt + 1))
+                except Exception as exc:
+                    raise WatermarkError(
+                        f"Failed to update watermark for dataflow {dataflow_id}"
+                    ) from exc
+            raise WatermarkError(
+                f"Failed to update watermark for dataflow {dataflow_id}"
+            ) from last_exc
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def close(self) -> None:
-        """Dispose the engine and clear cache."""
-        super().close()
-        if hasattr(self, "_engine") and self._engine is not None:
-            self._engine.dispose()
+    def _close_resources(self) -> None:
+        """Dispose only an engine created by this provider."""
+        if self._owns_engine and self._engine is not None:
+            try:
+                self._engine.dispose()
+            finally:
+                self._engine = None
 
     # ------------------------------------------------------------------
     # Schema management — utility for testing / setup
@@ -670,8 +808,10 @@ class DatabaseProvider(BaseMetadataProvider):
 
     def create_tables(self) -> None:
         """Create all ``dc_framework_*`` tables (useful for testing)."""
-        _meta.create_all(self._engine)
+        with self._runtime_operation():
+            _meta.create_all(self._ensure_engine())
 
     def drop_tables(self) -> None:
         """Drop all ``dc_framework_*`` tables (useful for testing)."""
-        _meta.drop_all(self._engine)
+        with self._runtime_operation():
+            _meta.drop_all(self._ensure_engine())

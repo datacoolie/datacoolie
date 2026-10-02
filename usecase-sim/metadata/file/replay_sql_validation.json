@@ -1,0 +1,42 @@
+{
+  "connections": [
+    {
+      "name": "sqlite_replay_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_SQLITE_DB",
+      "configure": {
+        "database_type": "sqlite",
+        "database": "DATACOOLIE_SQLITE_DB"
+      },
+      "secrets_ref": {
+        "": ["database"]
+      }
+    },
+    {
+      "name": "replay_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "sql_replay_validation",
+      "stage": "replay_sql_validation",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "sqlite_replay_source",
+        "table": "orders",
+        "watermark_columns": ["order_date"]
+      },
+      "destination": {
+        "connection_name": "replay_delta_dest",
+        "table": "sql_replay_validation",
+        "load_type": "append"
+      }
+    }
+  ]
+}

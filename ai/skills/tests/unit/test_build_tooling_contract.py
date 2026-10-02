@@ -1,121 +1,141 @@
-"""Contracts for bundled build dependencies, schemas, and capability evidence."""
-
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
-import types
 from pathlib import Path
 
-import pytest
-
-import _schema_resolver as schema_resolver
-import inspect_capabilities as capability_tool
+from packaging.version import Version
 
 
 BUILD_SKILL = Path(__file__).resolve().parents[2] / "datacoolie-build"
+PRODUCT_ROOT = BUILD_SKILL.parents[2]
+
+METADATA_DOC_ROUTES = {
+    "https://datacoolie.github.io/datacoolie/guide/metadata/": "docs/guide/metadata/index.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/first-metadata-file/": "docs/guide/metadata/first-metadata-file.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/connections/": "docs/guide/metadata/connections.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/": "docs/guide/metadata/dataflows.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/": "docs/guide/metadata/source-patterns.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/transform-patterns/": "docs/guide/metadata/transform-patterns.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/destination-and-load-patterns/": "docs/guide/metadata/destination-and-load-patterns.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/data-types/": "docs/guide/metadata/data-types.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/api-advanced/": "docs/guide/metadata/api-advanced.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/watermark-window-replacement/": "docs/guide/metadata/watermark-window-replacement.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/late-arriving-files/": "docs/guide/metadata/late-arriving-files.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/stable-keys-and-protected-output/": "docs/guide/metadata/stable-keys-and-protected-output.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/merge-and-scd2/": "docs/guide/metadata/merge-and-scd2.md",
+    "https://datacoolie.github.io/datacoolie/guide/metadata/validation-checklist/": "docs/guide/metadata/validation-checklist.md",
+}
+METADATA_SCHEMA_ANCHORS = (
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#connection",
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#dataflow",
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#source",
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#transform",
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#destination",
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#schema-hint",
+    "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#shared-schema-hint",
+)
 
 
-class _Registry:
-    def __init__(self, *names: str) -> None:
-        self._names = list(names)
-
-    def list_plugins(self) -> list[str]:
-        return list(reversed(self._names))
-
-
-def test_build_dependency_manifests_cover_required_and_optional_imports() -> None:
-    base = (BUILD_SKILL / "scripts/requirements.txt").read_text(encoding="utf-8").lower()
-    excel = (BUILD_SKILL / "scripts/requirements-excel.txt").read_text(encoding="utf-8").lower()
-
-    assert "pyyaml" in base
-    assert "jsonschema" in base
-    assert "openpyxl" not in base
-    assert "-r requirements.txt" in excel
-    assert "openpyxl" in excel
-
-
-def test_schema_resolution_is_bundled_only_and_understands_published_reference() -> None:
-    schemas_dir = schema_resolver.find_schemas_dir()
-    metadata = {
-        "$schema": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json"
-    }
-    assert schema_resolver.resolve_schema_version(metadata, schemas_dir) == "0.1.0"
-    assert schema_resolver.load_schema("0.1.0", schemas_dir)["$schema"].endswith("2020-12/schema")
-    assert schema_resolver.resolve_schema_version({}, schemas_dir) == "0.1.0"
-
-    source = (BUILD_SKILL / "scripts/_schema_resolver.py").read_text(encoding="utf-8")
-    for prohibited in (
-        "urllib",
-        "Path.home",
-        "DATACOOLIE_SCHEMAS_DIR",
-        "fetch_latest",
-        "github.com",
-    ):
-        assert prohibited not in source
-
-
-def test_schema_resolution_rejects_unbundled_or_malformed_version() -> None:
-    schemas_dir = schema_resolver.find_schemas_dir()
-    with pytest.raises(ValueError, match="supported version"):
-        schema_resolver.resolve_schema_version({"$schema": "https://example/schema.json"}, schemas_dir)
-    with pytest.raises(FileNotFoundError, match="not found"):
-        schema_resolver.load_schema("9.9.9", schemas_dir)
-
-
-def test_capability_inventory_is_sorted_complete_and_secret_free(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    fake = types.ModuleType("datacoolie")
-    fake.__file__ = str(tmp_path / "datacoolie/__init__.py")
-    fake.__version__ = "1.2.3"
-    fake.engine_registry = _Registry("spark", "polars")  # type: ignore[attr-defined]
-    fake.platform_registry = _Registry("local", "cloud")  # type: ignore[attr-defined]
-    fake.source_registry = _Registry("sql", "csv")  # type: ignore[attr-defined]
-    fake.destination_registry = _Registry("delta", "parquet")  # type: ignore[attr-defined]
-    fake.transformer_registry = _Registry("row_filter", "schema_converter")  # type: ignore[attr-defined]
-    fake.resolver_registry = _Registry("vault", "env")  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "datacoolie", fake)
-    def fake_version(name: str) -> str:
-        if name == "datacoolie":
-            return "1.2.3"
-        if name == "base-package":
-            return "2.4.0"
-        raise capability_tool.PackageNotFoundError(name)
-
-    monkeypatch.setattr(capability_tool, "version", fake_version)
-    monkeypatch.setattr(
-        capability_tool,
-        "requires",
-        lambda name: ["optional-package>=1", "base-package>=2"],
+def _cli(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "datacoolie", "--format", "json", *args],
+        cwd=PRODUCT_ROOT,
+        env={**os.environ, "PYTHONPATH": str(PRODUCT_ROOT / "src")},
+        check=False,
+        capture_output=True,
+        text=True,
     )
-    monkeypatch.setattr(capability_tool, "entry_points", lambda group: [])
 
-    first = capability_tool.collect_capabilities()
-    second = capability_tool.collect_capabilities()
 
-    assert first == second
-    assert list(first["registries"]) == [
-        "engines",
-        "platforms",
-        "sources",
-        "destinations",
-        "transformers",
-        "resolvers",
-    ]
-    assert first["registries"]["engines"] == ["polars", "spark"]
-    assert first["requirements"] == ["base-package>=2", "optional-package>=1"]
-    assert first["distribution"]["version_match"] is True
-    assert first["dependency_status"] == {
-        "base-package": {
-            "declarations": ["base-package>=2"],
-            "installed_version": "2.4.0",
-        },
-        "optional-package": {
-            "declarations": ["optional-package>=1"],
-            "installed_version": None,
-        },
-    }
-    serialized = json.dumps(first).lower()
-    for prohibited in ("password", "secret", "token", "connection_config"):
-        assert prohibited not in serialized
+def test_build_skill_owns_guidance_and_cli_owns_validation() -> None:
+    content = (BUILD_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    assert "datacoolie.yml" in content
+    assert "dc validate" in content
+    assert "source.query" in content
+    assert "config.yaml" not in content
+    assert "through its validated `build.json`" not in content
+    assert "scripts/materialize.py" not in content
+
+
+def test_metadata_authoring_routes_to_public_docs() -> None:
+    skill = (BUILD_SKILL / "SKILL.md").read_text(encoding="utf-8")
+    quick_reference = (BUILD_SKILL / "references/schema-quick-reference.md").read_text(
+        encoding="utf-8"
+    )
+    combined = f"{skill}\n{quick_reference}"
+
+    assert "Read the public [Metadata Guide]" in skill
+    assert "it is not a second schema" in quick_reference.lower()
+    assert "https://datacoolie.github.io/datacoolie/reference/metadata-schema/#metadata-document" in combined
+    assert "https://datacoolie.github.io/datacoolie/schema/latest/metadata.schema.json" in combined
+    assert "not fetched from the public site" in quick_reference
+
+    for url, relative_path in METADATA_DOC_ROUTES.items():
+        assert url in combined, url
+        assert (PRODUCT_ROOT / relative_path).is_file(), relative_path
+
+    for url in METADATA_SCHEMA_ANCHORS:
+        assert url in quick_reference, url
+
+
+def test_specialized_build_references_keep_public_routes() -> None:
+    framework_boundary = (BUILD_SKILL / "references/framework-boundary.md").read_text(
+        encoding="utf-8"
+    )
+    polars_sql = (BUILD_SKILL / "references/polars-qualified-sql.md").read_text(
+        encoding="utf-8"
+    )
+    orchestration = (BUILD_SKILL / "references/orchestration-contract.md").read_text(
+        encoding="utf-8"
+    )
+    operations = (BUILD_SKILL / "references/operations-contract.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "https://datacoolie.github.io/datacoolie/guide/metadata/" in framework_boundary
+    assert "https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/" in polars_sql
+    assert "https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/" in orchestration
+    assert "https://datacoolie.github.io/datacoolie/guide/operations/replay-and-backfill/" in operations
+    assert "https://datacoolie.github.io/datacoolie/guide/operations/maintenance/" in operations
+
+
+def test_old_duplicate_project_helpers_are_removed() -> None:
+    for relative in (
+        "scripts/materialize.py",
+        "scripts/merge.py",
+        "scripts/validate.py",
+        "scripts/validate_config.py",
+        "scripts/validate_build.py",
+        "scripts/validate_functions.py",
+        "scripts/convert.py",
+        "scripts/_loaders.py",
+        "scripts/_schema_resolver.py",
+        "scripts/requirements.txt",
+        "scripts/lint.py",
+        "scripts/inspect_capabilities.py",
+    ):
+        assert not (BUILD_SKILL / relative).exists(), relative
+
+
+def test_capabilities_are_exposed_by_installed_cli() -> None:
+    result = _cli("inspect", "capabilities")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert "registrations" in payload["data"]
+
+
+def test_metadata_schema_is_project_owned_not_a_skill_copy() -> None:
+    schema_root = PRODUCT_ROOT / "src" / "datacoolie" / "project" / "schemas"
+    schema = max(
+        schema_root.glob("*/metadata.schema.json"),
+        key=lambda path: Version(path.parent.name),
+    )
+    assert schema.is_file()
+    value = json.loads(schema.read_text(encoding="utf-8"))
+    assert value["$id"].endswith(f"/schema/{schema.parent.name}/metadata.schema.json")
+    assert not list((BUILD_SKILL / "schemas").rglob("metadata.schema.json"))
+    assert not (BUILD_SKILL / "scripts/_schema_resolver.py").exists()

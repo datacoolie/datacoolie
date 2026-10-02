@@ -22,8 +22,6 @@ from datacoolie.core.constants import (
     ExecutionType,
     Format,
     LoadType,
-    LogPurpose,
-    LogType,
     MaintenanceType,
     ProcessingMode,
 )
@@ -200,25 +198,6 @@ class TestColumnCaseMode:
     def test_construct_from_string(self) -> None:
         assert ColumnCaseMode("lower") is ColumnCaseMode.LOWER
         assert ColumnCaseMode("snake") is ColumnCaseMode.SNAKE
-
-
-# ============================================================================
-# Logging Constants
-# ============================================================================
-
-
-class TestLogType:
-    """Verify LogType enum values."""
-    def test_values(self) -> None:
-        assert LogType.JOB_RUN_LOG.value == "job_run_log"
-        assert LogType.DATAFLOW_RUN_LOG.value == "dataflow_run_log"
-
-
-class TestLogPurpose:
-    """Verify LogPurpose enum values."""
-    def test_values(self) -> None:
-        assert LogPurpose.DEBUG.value == "debug_json"
-        assert LogPurpose.ANALYST.value == "analyst"
 
 
 # ============================================================================

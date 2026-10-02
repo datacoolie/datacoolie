@@ -1,0 +1,14 @@
+{
+  "connections": [
+    {
+      "name": "orders_input",
+      "configure": {"base_path": "/Volumes/main/default/datacoolie_example/data/input"}
+    },
+    {
+      "name": "orders_output",
+      "catalog": "main",
+      "database": "default",
+      "configure": {"base_path": ""}
+    }
+  ]
+}

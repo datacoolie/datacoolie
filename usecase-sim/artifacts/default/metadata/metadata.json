@@ -1,0 +1,37 @@
+{
+  "connections": [
+    {
+      "name": "artifact_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "artifact_parquet_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/artifact"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "artifact_query",
+      "stage": "artifact_query",
+      "source": {
+        "connection_name": "artifact_delta_source",
+        "query": "artifact:/queries/orders.sql"
+      },
+      "destination": {
+        "connection_name": "artifact_parquet_destination",
+        "table": "orders_artifact",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ],
+  "schema_hints": []
+}

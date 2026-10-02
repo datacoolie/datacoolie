@@ -1,4 +1,4 @@
-"""ProperDocs hook: supply useful metadata for virtual blog listing pages."""
+"""ProperDocs hook: metadata and real-page breadcrumbs for search engines."""
 
 from __future__ import annotations
 
@@ -17,4 +17,22 @@ def on_page_context(context, page, config, nav):  # noqa: ANN001
             "Python ETL, Spark, Polars, lakehouse patterns, and framework comparisons."
         )
 
+    # URL segments are not necessarily pages: blog dates, source-code folders
+    # and navigation sections often have no index. Use known navigation pages
+    # for ancestors and the current canonical URL for the final breadcrumb.
+    ancestors = sorted(
+        (
+            item for item in nav.pages
+            if item.url and item.url != page.url
+            and item.url.endswith("/") and page.url.startswith(item.url)
+        ),
+        key=lambda item: len(item.url),
+    )
+    breadcrumbs = [{"name": "Home", "url": config["site_url"]}]
+    seen = {config["site_url"]}
+    for item in [*ancestors, page]:
+        if item.canonical_url and item.canonical_url not in seen:
+            breadcrumbs.append({"name": item.title, "url": item.canonical_url})
+            seen.add(item.canonical_url)
+    context["seo_breadcrumbs"] = breadcrumbs
     return context

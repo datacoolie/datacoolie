@@ -17,7 +17,7 @@ API, and a metadata REST API).
 ## 1. What is usecase-sim?
 
 - **Library under test:** the `datacoolie` package in `src/datacoolie/`.
-- **What it exercises:** 38 named scenarios covering 2 engines, 3 metadata
+- **What it exercises:** 51 named scenarios covering 2 engines, 3 metadata
   sources, 2 storage platforms, and lakehouse maintenance. The set is
   representative; it is not a complete engine × source × platform cross-product.
 - **Why it exists:** one-command regression coverage for the selected ETL
@@ -59,8 +59,8 @@ usecase-sim/
 │   └── api/       # Standalone dev metadata server (reads JSON)
 ├── docker/        # docker-compose.yml, mock_api_server.py, pg_api_metadata_server.py
 ├── functions/     # Custom Python source functions (sources.py)
-├── data/          # Generated inputs/outputs (gitignored)
-├── logs/          # Framework logs (system_logs/, etl_logs/) + scenarios/ console logs (gitignored)
+├── artifacts/     # Checked-in deployed-artifact fixtures used by artifact scenarios
+├── .runtime/      # Generated data, logs, watermarks, and databases (gitignored)
 └── platforms/
     ├── aws/          # Glue/local AWS samples; dispatcher integration remains separate
     ├── databricks/  # Prepared metadata + notebook samples
@@ -96,7 +96,7 @@ python usecase-sim/runner/run_scenario.py --all
 **Expected result** (≈ a few minutes, depending on cold/warm JVM):
 
 ```
-Total: 38 | PASS: 38 | FAIL: 0
+Total: 51 | PASS: 51 | FAIL: 0
 ```
 
 Or, for a first sanity check after step 3:
@@ -107,8 +107,12 @@ python usecase-sim/runner/run_scenario.py --scenario local_polars_file
 # Total: 1 | PASS: 1 | FAIL: 0
 ```
 
-Outputs land in `usecase-sim/data/output/` (Delta tables, Parquet, JSON, …)
-and watermarks in `usecase-sim/metadata/file/watermarks/`.
+Outputs land in `usecase-sim/.runtime/data/output/` (Delta tables, Parquet, JSON, …)
+and watermarks in `usecase-sim/.runtime/watermarks/`.
+
+Checked-in metadata/provider source remains under `usecase-sim/metadata/`.
+Artifact-backed scenarios consume immutable fixtures from `usecase-sim/artifacts/`;
+generated data, logs, and watermarks remain isolated under `.runtime/`.
 
 Tear everything down:
 
@@ -166,11 +170,84 @@ python usecase-sim/runner/run_scenario.py --priority P0
 python usecase-sim/runner/run_scenario.py --all
 ```
 
+The MinIO target also publishes `metadata/file/aws_use_cases.json` to
+`s3://datacoolie-test/metadata/aws_use_cases.json`, which is the metadata URI
+used by the AWS-platform scenarios.
+
+Artifact-backed scenarios are run with the same dispatcher as every other
+framework scenario. The dispatcher receives explicit metadata, artifact, SQL,
+and runtime roots. CLI lifecycle tests live under `tests/unit/cli` and
+`tests/integration/cli`.
+
+### Datatype cross-engine qualification
+
+The normal scenario suite is representative and does not claim a complete
+source × engine × format matrix. For the bounded persisted-format cell, start
+the Spark, MinIO and Iceberg REST services, then run the opt-in integration
+test from the product root:
+
+```powershell
+python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+..\.venv\Scripts\python.exe -m pytest --datatype-qualification `
+  -m datatype_qualification tests/integration/data_types/test_spark_container_cross_engine.py
+
+# Run the full six-source scalar matrix through both engines and all formats.
+..\.venv\Scripts\python.exe -m pytest --datatype-qualification `
+  -m datatype_qualification tests/integration/data_types/test_usecase_sim_cross_engine.py
+```
+
+The test-owned container worker reports its resolved coordinates and structured
+observations (Spark 3.5.9, Delta 3.3.3, Iceberg 1.10.1, `deltalake` 1.6.3,
+PyIceberg 0.12.0). Host assertions compare both Spark↔Polars directions and
+the cleanup receipt. The full matrix observer reads Parquet through PyArrow,
+Delta through `deltalake.DeltaTable`, and Iceberg through the REST catalog;
+reading raw Parquet files under a Delta directory is not considered Delta
+qualification. This is evidence for that coordinate, not a blanket Spark 4.x
+or boundary-value compatibility claim.
+
+Spark 4.1 is a separate opt-in coordinate. Build and start the isolated
+service beside the default Spark 3.5 service, then run its dedicated gate:
+
+```powershell
+docker compose -f usecase-sim/docker/docker-compose.yml build spark4
+python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark4
+..\.venv\Scripts\python.exe -m pytest `
+  tests/integration/data_types/test_spark4_container_cross_engine.py `
+  --datatype-qualification --spark4-qualification `
+  -m "spark4_qualification and datatype_qualification" -n 0 -q
+```
+
+The `spark4` image pins PySpark 4.1.0, Delta Lake 4.2.0 and resolves
+`iceberg-spark-runtime-4.1_2.13:1.11.0`. Its mutable state lives below
+`.runtime/spark4/`, so it can run next to `datacoolie-spark`. A scenario may
+select it with `"spark_container": "datacoolie-spark4"`; the default remains
+`datacoolie-spark`. A passing gate is evidence only for this pinned coordinate.
+
+#### Qualification metadata locations
+
+These paths have different ownership and lifecycles:
+
+| Path | Role | Used by |
+|---|---|---|
+| `metadata/file/datatype_qualification.json` | Checked-in canonical logical metadata contract | Fixture preparation and contract-coverage checks |
+| `.runtime/data/datatype_qualification/metadata/{engine}_{format}.json` | Generated execution metadata for manually invoked named scenarios | `run_scenario.py --scenario local_*_datatype_qualification*` |
+| `.runtime/data/datatype_qualification/runs/<run-id>/metadata/{engine}_{format}.json` | Run-isolated execution metadata with unique output/table bindings | `tests/integration/data_types/test_usecase_sim_cross_engine.py` |
+
+The generated files are materialized from the canonical contract. They only
+change physical execution bindings such as output root, format, catalog/table
+name and run suffix; the source, transform and datatype declarations remain
+the same. The `.runtime/` copies are disposable and must not become a second
+source of truth.
+
+`usecase-sim/` is verified through its executable runner and scenario exit
+status. It intentionally has no pytest suite; test-owned integration checks
+under the core repository boundary invoke it as a black box.
+
 ### Dispatcher behaviour
 
 | Concern | Handling |
 |---|---|
-| Spark JVM cooldown | 6 s pause + stale `spark-warehouse/` + `metastore_db/` wipe between Spark scenarios |
+| Spark JVM cooldown | 6 s pause + stale `.runtime/spark/warehouse/` + `.runtime/spark/metastore_db/` wipe between host Spark scenarios; container profiles use isolated state roots |
 | Timeouts | 450 s (spark), 300 s (polars), 600 s (maintenance); override per scenario via `"timeout_seconds"` |
 | Cancellation | On timeout, signal the child, allow 120 s for `driver.close()` and log flush, then hard-kill if needed |
 | Exit code | `0` iff every scenario passed |
@@ -204,8 +281,12 @@ Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 | `local_polars_file_yaml` | polars | file (YAML) | |
 | `local_polars_file_excel` | polars | file (XLSX) | |
 | `local_spark_file` | spark | file (JSON) | api-source dataflows skipped |
-| `local_polars_replay` | polars | file (JSON) | replay mode — run twice to test window replace |
-| `local_spark_replay` | spark | file (JSON) | replay mode — api-source dataflows skipped |
+| `local_polars_replay` | polars | file (JSON) | three sequential half-open chunks; validates output and saved source watermark |
+| `local_spark_replay` | spark | file (JSON) | same replay contract via Spark; api-source dataflows skipped |
+| `local_polars_api_replay` | polars | ranged API + mock-api | independent `modified_at` selection; persists authored `order_date` only |
+| `local_spark_api_replay` | spark | ranged API + mock-api | same independent API replay contract through the Spark profile |
+| `local_polars_sql_replay` | polars | SQLite | SQL-pushed independent `modified_at` range; persists authored `order_date` only |
+| `local_spark_sql_replay` | spark | SQLite | same SQL replay contract through the Spark profile |
 | `local_polars_transform_features` | polars | focused file metadata | validates transformer output values and schema |
 | `local_spark_transform_features` | spark | focused file metadata | same assertions as Polars |
 | `local_polars_transform_dedup_strict` | polars | focused file metadata | expected failure for missing dedup order column |
@@ -213,13 +294,35 @@ Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 | `local_{polars,spark}_transform_invalid_fill` | both | focused file metadata | expected failure for an incompatible typed fill literal |
 | `local_{polars,spark}_transform_invalid_redact` | both | focused file metadata | expected failure for an incompatible typed redact literal |
 | `local_{polars,spark}_transform_sanitizer_collision` | both | focused file metadata | expected failure for colliding sanitized names |
+| `local_polars_datatype_qualification` | polars | typed/weak file metadata matrix | executes the decimal/CSV checks plus one scalar matrix for each Spark SQL, PostgreSQL, MySQL, SQL Server, Oracle, and SQLite convention; parity assertions live in the opt-in integration test |
+| `local_spark_datatype_qualification` | spark | typed/weak file metadata matrix | executes the same eight dataflows in the simulator Spark container when available (otherwise the documented local fallback); parity assertions live in the opt-in integration test |
 | `local_polars_qualified_sql_delta` | polars | focused file metadata | 4/3/2/1 names, filters, lazy reuse |
 | `local_polars_qualified_sql_delta_ambiguity` | polars | focused file metadata | expected ambiguity failure |
+| `local_polars_artifact_default_metadata` | polars | static artifact | Driver-inferred FileProvider, default metadata root, artifact SQL |
+| `local_polars_artifact_custom_metadata` | polars | static artifact | explicit nested metadata root with arbitrary shard names |
+| `local_polars_query_artifact_relative` | polars | static artifact | shorthand SQL resolved directly below the artifact root |
+| `local_polars_query_artifact_relative_nested` | polars | static artifact | nested artifact-relative SQL path remains unchanged without a manifest |
+| `local_polars_query_explicit_multiple_roots` | polars | exact file + SQL roots | repeated SQL root flags route a prefixed reference through explicit roots |
+| `local_polars_query_root_routing` | polars | exact file + SQL root | shorthand SQL resolved from an explicit `sql_base_path` (including its root prefix) |
+| `local_polars_state_base_path` | polars | exact file + SQL root | derived logs and file-watermark state below a state root |
+| `local_polars_runtime_log_contract` | polars | static artifact | v4 runtime `message` plus metadata/runtime query fields and `run_attributes` |
+| `local_polars_logging_batch` | polars | static artifact | immutable batch parts plus replace-one job snapshot |
+| `local_polars_dry_run_query_file` | polars | exact file + SQL root | preparation-only query-file validation without business I/O |
+| `local_polars_startup_failure` | polars | malformed exact file | provider startup failure diagnostics before dataflow execution |
 
 The transformer feature scenarios require the local fixture generated by
 `python usecase-sim/scripts/generate_data.py --targets local`. Positive
 scenarios run an output validator after the ETL child exits; negative scenarios
 assert both the expected exit code and stable error text.
+
+The datatype qualification scenarios prepare their own deterministic fixture
+with `prepare_datatype_qualification.py`.  The Parquet input contains one
+typed scalar matrix per supported source convention, while the CSV input keeps
+the weak-input/leading-zero regression.  Polars and Spark write below separate
+`.runtime/data/datatype_qualification/output/<format>/<engine>` roots,
+and return the framework process result. They are focused simulator execution
+cases; persisted schema/value assertions and cross-engine comparison belong to
+the opt-in pytest gate documented in `docs/project/testing.md`.
 
 The positive validator reconciles 25 unique outputs (75 total rows), including
 literal regex replacement, equal-order declaration stability, value rules
@@ -250,6 +353,9 @@ such as value-rule ordering.
 | `local_polars_iceberg_maintenance` | polars | maintenance | minio + iceberg-rest |
 | `local_spark_delta_maintenance` | spark | maintenance | — |
 | `local_spark_iceberg_maintenance` | spark | maintenance | minio + iceberg-rest |
+| `local_{polars,spark}_api_recovery_fail` | both | mock-api next_link | expected pagination cap failure; no target/state commit |
+| `local_{polars,spark}_api_recovery` | both | mock-api next_link | recovery after failed pagination; saves 30-row observed watermark |
+| `local_{polars,spark}_api_continuation` | both | mock-api next_link | second run selects one late row from persisted state |
 | `local_polars_qualified_sql_iceberg` | polars | focused file metadata | minio + iceberg-rest |
 | `local_polars_qualified_sql_iceberg_ambiguity` | polars | focused file metadata | minio + iceberg-rest |
 
@@ -263,6 +369,10 @@ such as value-rule ordering.
 | `aws_polars_iceberg_maintenance` | polars | maintenance | minio + iceberg-rest |
 | `aws_spark_delta_maintenance` | spark | maintenance | minio |
 | `aws_spark_iceberg_maintenance` | spark | maintenance | minio + iceberg-rest |
+| `aws_polars_replay` | polars | file replay | minio |
+| `aws_spark_replay` | spark | file replay | minio + datacoolie-spark |
+| `aws_polars_iceberg_replay` | polars | Iceberg replay/replacement | minio + iceberg-rest |
+| `aws_spark_iceberg_replay` | spark | Iceberg replay/replacement | minio + iceberg-rest + datacoolie-spark |
 
 > P0 is a priority label, not an isolation guarantee. Scenarios with
 > `stage: ""` can touch the broad metadata set. `local_polars_file` and
@@ -287,6 +397,9 @@ Unified ETL runner. Dispatches any `(engine × metadata-source)` combination.
 | `--metadata-source` | ✓ | — | `file` \| `database` \| `api` |
 | `--platform` | | `local` | `local` \| `aws` (chooses `LocalPlatform` or `AWSPlatform`) |
 | `--metadata-path` | file | — | `.json` \| `.yaml` \| `.xlsx` |
+| `--metadata-base-path` | file | `None` | Directory of section-wrapped metadata documents; Driver creates the FileProvider |
+| `--artifact-base-path` | file | `None` | Deployed artifact root; metadata defaults to `<root>/metadata` |
+| `--sql-base-path` | | `None` | Repeatable root(s) for shorthand SQL file references; multiple roots use their folder prefixes |
 | `--metadata-db-connection-string` | db | — | SQLAlchemy URL |
 | `--metadata-api-url` | api | — | Base URL of metadata API |
 | `--metadata-api-key` | | `""` | Optional API key |
@@ -298,7 +411,14 @@ Unified ETL runner. Dispatches any `(engine × metadata-source)` combination.
 | `--iceberg-catalog-uri` | | `None` | Override Iceberg REST URI |
 | `--catalog-preset` | | `local` | `local` \| `unity_catalog` |
 | `--uc-token` / `--uc-credential` | | `""` | Unity Catalog auth |
-| `--log-path` | | `None` | Directory for framework logs; driver writes `system_logs/` and `etl_logs/` under it |
+| `--log-path` | | `None` | Directory for framework logs; driver writes `system_logs/` and `execution_logs/` under it |
+| `--state-base-path` | | `None` | Runtime state root; derives log and file-watermark paths when component roots are absent |
+| `--job-id` | | generated | Stable Driver session/job identifier (useful for deterministic scenario logs) |
+| `--run-attributes JSON` | | `None` | Caller-owned JSON object persisted with JobRuntime for external correlation |
+| `--log-persistence-mode` | | `None` | `snapshot` or `batch` structured log persistence |
+| `--log-flush-interval-seconds` | | `None` | Periodic batch flush interval override |
+| `--log-flush-batch-bytes` | | `None` | Batch size threshold override |
+| `--log-console-color` | | `None` | Console color policy: `auto` \| `always` \| `never` |
 | `--max-workers` | | `None` | Parallel dataflow workers |
 | `--skip-api-sources` | | off | Skip dataflows with `connection_type=api` |
 | `--engine-setup-function` | | `None` | Usecase-local callable invoked with the active engine before metadata execution |
@@ -308,8 +428,14 @@ Unified ETL runner. Dispatches any `(engine × metadata-source)` combination.
 | `--replay-start` | | `None` | Inclusive replay range start (ISO date/datetime or int); activates replay mode |
 | `--replay-end` | | `None` | Exclusive replay range end |
 | `--replay-chunk-interval KEY=VALUE` | | `[]` | Repeatable; e.g. `days=1`. Empty = single-shot replay |
-| `--replay-save-watermark` | | off | Save watermark after each chunk (init/crash-resume mode) |
+| `--replay-save-watermark` | | off | Persist source watermark observation after each successful chunk; requested replay chunks always rerun |
 | `--replay-chunk-column` | | `None` | Override auto-resolved chunk column |
+
+When replay bounds come from this CLI, an unambiguous signed integer such as
+`0` or `-10` is converted to an integer before `ReplayConfig` validation. Other
+strings remain ISO date/datetime candidates. This keeps integer `step` replay
+usable through the command line without changing the framework's direct API
+normalization rules.
 
 ### `runner/maintenance.py`
 
@@ -319,7 +445,10 @@ Compact + cleanup for Delta and Iceberg tables.
 |---|---|---|---|
 | `--engine` | ✓ | — | `polars` \| `spark` |
 | `--platform` | | `local` | `local` \| `aws` |
-| `--metadata-path` | ✓ | — | Path to metadata file |
+| `--metadata-path` | one of roots | — | Exact metadata file |
+| `--metadata-base-path` | one of roots | `None` | Directory of section-wrapped metadata documents |
+| `--artifact-base-path` | one of roots | `None` | Deployed artifact root; metadata defaults to `<root>/metadata` |
+| `--sql-base-path` | | `None` | Repeatable root(s) for shorthand SQL references; multiple roots use their folder prefixes |
 | `--connection` | | `None` | Filter to a single connection name |
 | `--do-compact` / `--no-compact` | | on | Enable/disable compaction |
 | `--do-cleanup` / `--no-cleanup` | | on | Enable/disable cleanup |
@@ -330,6 +459,10 @@ Compact + cleanup for Delta and Iceberg tables.
 | `--iceberg-catalog-uri` | | `None` | Override Iceberg REST URI |
 | `--uc-token` / `--uc-credential` | | `""` | Unity Catalog auth |
 | `--log-path` | | `None` | Directory for framework logs (same layout as `run.py`) |
+| `--state-base-path` | | `None` | Runtime state root for derived logs/watermarks |
+| `--job-id` | | generated | Stable Driver session/job identifier |
+| `--run-attributes JSON` | | `None` | Caller-owned correlation object |
+| `--log-persistence-mode` | | `None` | `snapshot` or `batch` |
 | `--skip-api-sources` | | off | Skip api-source dataflows |
 | `--app-name` | spark | `DataCoolie-Maintenance` | Spark app name |
 | `--spark-config KEY=VALUE` | spark | `[]` | Extra Spark configs |
@@ -343,11 +476,11 @@ Compact + cleanup for Delta and Iceberg tables.
 | `--priority P0\|P1\|P2` | — | Run every scenario at a priority tier |
 | `--scenarios-path PATH` | `scenarios/scenarios.json` | Override scenarios file |
 
-The dispatcher writes three kinds of logs under `usecase-sim/logs/`:
+The dispatcher writes three kinds of logs under `usecase-sim/.runtime/logs/`:
 
-- `logs/system_logs/` and `logs/etl_logs/` — driver output (forwarded via `--log-path`).
-- `logs/scenarios/run_scenario.log` — dispatcher's own log (which scenarios ran, commands, pass/fail summary).
-- `logs/scenarios/<name>.console.log` — full stdout+stderr tee of each scenario's child process (also streamed live to the terminal).
+- `system_logs/` and `execution_logs/` — driver output (forwarded via `--log-path`).
+- `scenarios/run_scenario.log` — dispatcher's own log (which scenarios ran, commands, pass/fail summary).
+- `scenarios/<name>.console.log` — full stdout+stderr tee of each scenario's child process (also streamed live to the terminal).
 
 On graceful cancellation the child handles `SIGINT`, `SIGTERM`, or Windows
 `SIGBREAK`, closes the driver to flush framework logs, and exits. The
@@ -449,7 +582,7 @@ python usecase-sim/scripts/generate_data.py --targets pg,mysql
 
 ### `reset_data.py` — full reset
 
-Wipes `data/output/`, drops MinIO output + iceberg-warehouse prefixes, drops
+Wipes `.runtime/data/output/`, drops MinIO output + iceberg-warehouse prefixes, drops
 the Iceberg `default` namespace, and calls `reset_watermarks.py`.
 
 | Flag | Default | Purpose |
@@ -484,7 +617,8 @@ Notes:
 
 ## 9. Docker stack (P1 / P2)
 
-`usecase-sim/docker/docker-compose.yml` defines an 11-service stack. All
+`usecase-sim/docker/docker-compose.yml` defines a 12-service stack (the
+Spark 4.1 service is opt-in). All
 credentials are hardcoded — intended for local dev only.
 
 | Service | Port(s) | Credentials | Purpose |
@@ -499,7 +633,8 @@ credentials are hardcoded — intended for local dev only.
 | `mock-api` | 8082 | env-configured | Simulates REST API sources |
 | `metadata-api` | 8000 | via `DATABASE_URL` | Flask API over postgres metadata |
 | `sqlpad` | 3000 | `admin@datacoolie.local / admin` | Web SQL editor |
-| `spark` | — | — | Containerised PySpark (Linux); avoids Windows Spark issues |
+| `spark` | — | — | Pinned Spark 3.5 container; avoids Windows Spark issues |
+| `spark4` | — | — | Opt-in Spark 4.1.0 + Delta 4.2.0 qualification container |
 
 ### UI endpoints
 
@@ -565,7 +700,11 @@ docker exec datacoolie-spark python usecase-sim/runner/run.py `
 docker exec -it datacoolie-spark bash
 ```
 
-All relative paths (`./usecase-sim/data/...`) resolve correctly because the
+For Spark 4.1, start the `spark4` service and replace the container name with
+`datacoolie-spark4`. The scenario dispatcher accepts the same selection via
+the `spark_container` scenario field.
+
+All relative paths (`./usecase-sim/.runtime/data/...`) resolve correctly because the
 container's `WORKDIR` is `/datacoolie` (the mounted package directory).
 Output tables written inside the container appear on the host immediately.
 
@@ -575,7 +714,7 @@ writers share the same generated Delta fixtures; AWS/S3 checksum behavior is
 unchanged. The three broad Spark scenarios reset only stateless generated Delta
 targets before each run so transaction history does not grow without bound.
 Watermark-dependent targets remain intact. The runner rejects pre-clean targets
-outside `usecase-sim/data/output`.
+outside `usecase-sim/.runtime/data`.
 
 | What works | Notes |
 |---|---|
@@ -611,6 +750,11 @@ Schema files per dialect: `metadata/database/schema.sql` (SQLite),
 `schema_oracle.sql`. All create the same four `dc_framework_*` tables.
 Seeded by `setup_metadata.py --targets db:<dialect>`.
 
+For an existing database, run the reviewed additive
+[`metadata/database/migrations/`](metadata/database/migrations/) script before
+deploying a runtime that reads `source_filter_expression`; `create_tables()`
+and the seeder do not upgrade an existing table.
+
 Oracle setup is safe to repeat. To reset only the simulator's local metadata
 workspace and then prove the non-truncating path is idempotent:
 
@@ -638,7 +782,7 @@ python usecase-sim/metadata/database/verify_metadata.py `
 - **Standalone dev:** `metadata/api/api_metadata_server.py` — reads a JSON file
   directly; useful when you don't want Docker.
 
-Both serve the same REST contract consumed by `APIClient`.
+Both serve the same REST contract consumed by `APIProvider`.
 
 ---
 
@@ -731,8 +875,8 @@ python usecase-sim/runner/run_perf_benchmark.py --report-only
 Notes:
 
 - Run all benchmark commands from the repository root.
-- `--reset` calls `usecase-sim/scripts/reset_perf_data.py` and clears perf outputs only. It does not delete generated inputs or `benchmark_results/`.
-- Each engine run writes one JSON file to `./benchmark_results/` and also regenerates `perf_report.md` from whatever result files already exist.
+- `--reset` calls `usecase-sim/scripts/reset_perf_data.py` and clears perf outputs only. It does not delete generated inputs or `.runtime/data/perf/benchmark_results/`.
+- Each engine run writes one JSON file to `.runtime/data/perf/benchmark_results/` and also regenerates `perf_report.md` from whatever result files already exist.
 - `--report-only` is the clean way to rebuild the final comparison after both engine runs finish.
 - If you want to regenerate inputs as well, use `python usecase-sim/scripts/reset_perf_data.py --all` before `generate_perf_data.py`.
 - If Docker-backed services are unavailable, use `--no-iceberg` and keep `--max-size 1m` because JSONL inputs stop at `1m`.
@@ -743,11 +887,11 @@ Notes:
 
 | Symptom | Fix |
 |---|---|
-| `ERROR DerbyLockFile` on second Spark run | `run_scenario.py` auto-wipes `spark-warehouse/` + `metastore_db/`; if running `run.py` directly, delete them between runs |
+| `ERROR DerbyLockFile` on second Spark run | `run_scenario.py` auto-wipes `.runtime/spark/warehouse/` + `.runtime/spark/metastore_db/`; if running `run.py` directly, delete them between runs |
 | Local Spark raises `ChecksumException` for a shared Delta file | Run through `runner/run.py` or `run_scenario.py`; local runners apply the scoped Hadoop checksum policy after creating Spark. Direct framework callers keep checksum verification enabled. |
 | Broad Spark scenarios slow down after many reruns | Use `run_scenario.py`; each affected scenario resets its stateless generated Delta targets while preserving watermark-dependent state. |
 | `BucketAlreadyOwnedByYou` on MinIO | Benign; `_common.ensure_bucket` is idempotent |
-| `connectorx` / `oracledb` import error | Install the connector profile: `pip install "datacoolie[source-db-polars]"` or `datacoolie[source-db-oracle-polars]` |
+| Database reader import error | Install `pip install "datacoolie[source-db-native-polars]"` for the default MySQL/MSSQL path, or `datacoolie[source-db-oracle-polars]` for Oracle. Use `database_read_engine: "connectorx"` only as an explicit fallback. |
 | Oracle setup reports a missing `DC_FRAMEWORK_*` table or metadata ID | Rerun `setup_metadata.py --targets db:oracle`; use `--truncate` only when you intentionally want to reset `local-workspace`. The setup log now includes the full failing traceback. |
 | MSSQL auth fails with `Datacoolie@1` | Use URL-encoded form `Datacoolie%401` in SQLAlchemy URLs |
 | MSSQL `Login failed for user 'sa'` with state 38 | The `datacoolie` user database is missing — the MSSQL image has no auto-create env var. `setup_platform.py` creates it after the container is up; to do it manually: `docker exec datacoolie-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Datacoolie@1' -No -Q "IF DB_ID('datacoolie') IS NULL CREATE DATABASE datacoolie;"` |

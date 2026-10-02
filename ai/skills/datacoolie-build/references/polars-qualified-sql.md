@@ -7,7 +7,9 @@
 - Owns the source-native discovery, logical SQL naming, same-process registration, dependency, and
   verification contract for indexed Polars SQL relations.
 - Does not change metadata fields, decide whether a query is needed, define generic runner
-  parameters, or apply to database SQL. Route those concerns to `schema-quick-reference.md`,
+  parameters, or apply to database SQL. Route those concerns to the public
+  [source patterns guide](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/),
+  [dataflows guide](https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/),
   `framework-boundary.md`, and `runner-contract.md`.
 
 ## Decision boundary

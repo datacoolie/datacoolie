@@ -15,7 +15,7 @@ from uuid import uuid4
 import pytest
 
 from datacoolie.platforms.aws_platform import AWSPlatform
-from tests.integration.cloud_config import AwsIntegrationConfig
+from tests.support.cloud_config import AwsIntegrationConfig
 
 pytestmark = [
     pytest.mark.integration,

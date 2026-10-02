@@ -29,10 +29,15 @@ class WatermarkManager(BaseWatermarkManager):
         super().__init__()
         self._provider = metadata_provider
 
+    def validate_ready(self) -> None:
+        self._provider.validate_watermark_storage()
+
     def get_watermark(self, dataflow_id: str) -> Optional[Dict[str, Any]]:
         """Return the current watermark dict, or ``None``."""
         try:
             raw = self._provider.get_watermark(dataflow_id)
+        except WatermarkError:
+            raise
         except Exception as exc:
             raise WatermarkError(
                 f"Failed to load watermark for dataflow {dataflow_id}"
@@ -41,7 +46,12 @@ class WatermarkManager(BaseWatermarkManager):
         if raw is None:
             return None
 
-        result = self.deserialize(raw)
+        try:
+            result = self.deserialize(raw)
+        except WatermarkError as exc:
+            raise WatermarkError(
+                f"Invalid stored watermark for dataflow {dataflow_id}"
+            ) from exc
         return result if result else None
 
     def save_watermark(
@@ -52,7 +62,14 @@ class WatermarkManager(BaseWatermarkManager):
         job_id: Optional[str] = None,
         dataflow_run_id: Optional[str] = None,
     ) -> None:
-        """Serialize the watermark dict and persist via the provider."""
+        """Serialize the source-merged watermark and persist via the provider.
+
+        Ordering and replacement semantics belong to the source reader that
+        produced the observation.  The orchestration pipeline performs that
+        merge before calling this method; the manager deliberately remains a
+        codec and storage boundary so a second generic merge cannot override
+        a reader's contract or race with a second state read.
+        """
         try:
             serialised = self.serialize(watermark)
             self._provider.update_watermark(

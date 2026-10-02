@@ -41,7 +41,6 @@ class AWSPlatform(BasePlatform):
         profile: str | None = None,
         endpoint_url: str | None = None,
         cache_ttl: int = 300,
-        **kwargs: Any,
     ) -> None:
         super().__init__(cache_ttl=cache_ttl)
         self._bucket = bucket

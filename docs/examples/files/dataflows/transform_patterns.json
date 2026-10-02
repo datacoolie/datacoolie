@@ -1,0 +1,21 @@
+{
+  "dataflows": [
+    {
+      "name": "transform_schema_and_values",
+      "stage": "transform",
+      "source": {"connection_name": "input", "table": "orders"},
+      "destination": {"connection_name": "output", "table": "orders_clean", "load_type": "overwrite"},
+      "transform": {
+        "schema_hints": [{"column_name": "order_id", "data_type": "long"}],
+        "value_rules": [{"operation": "trim", "columns": ["category"]}, {"operation": "case", "columns": ["category"], "mode": "lower"}],
+        "additional_columns": [{"column": "source_system", "expression": "'example'"}],
+        "hash_columns": [{"target_column": "order_hash", "columns": ["order_id"], "algorithm": "sha256"}],
+        "deduplicate_columns": ["order_id"],
+        "latest_data_columns": ["updated_at"],
+        "masking_rules": [{"method": "partial", "columns": ["phone"], "keep_end": 4}],
+        "rename_columns": {"category": "order_category"},
+        "select_columns": ["order_id", "category", "order_hash", "source_system"]
+      }
+    }
+  ]
+}

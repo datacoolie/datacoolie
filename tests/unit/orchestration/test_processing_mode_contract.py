@@ -4,7 +4,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from datacoolie.core.models import DataCoolieRunConfig, DataFlowRuntimeInfo
+from datacoolie.core.models.run_config import DataCoolieRunConfig
+from datacoolie.core.models.runtime import DataFlowRuntimeInfo
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
 

@@ -8,7 +8,6 @@ import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 
 import design_approval
-import materialize as build_tool
 
 
 SKILL_DIR = Path(__file__).parent.parent.parent / "datacoolie-design"
@@ -123,56 +122,7 @@ def test_cli_record_requires_explicit_confirmation(tmp_path):
         ])
 
 
-def test_build_consumer_verifies_design_receipt(tmp_path):
-    workspace, architecture = _workspace(tmp_path)
-    design_approval.record_approval(
-        workspace=workspace,
-        architecture=architecture,
-        approved_by="owner",
-        approval_reference="current session",
-        approved_scope="material design",
-    )
-    binding = build_tool._validate_design_approval(workspace)
-    assert binding is not None
-    assert binding["architecture_sha256"] == design_approval.sha256_file(architecture)
-    assert binding["approval_receipt"].endswith(".json")
-
-    architecture.write_text(
-        "---\nartifact_type: architecture\n---\n# Changed architecture\n",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValueError, match="receipt does not exist"):
-        build_tool._validate_design_approval(workspace)
-
-
-def test_architecture_cannot_self_declare_approval_bypass(tmp_path):
-    workspace, architecture = _workspace(tmp_path)
-    architecture.write_text(
-        "---\napproval_required: false\n---\n# Compatible refinement\n",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValueError, match="receipt does not exist"):
-        build_tool._validate_design_approval(workspace)
-
-
-def test_build_reads_windows_line_endings_in_architecture(tmp_path):
-    workspace, architecture = _workspace(tmp_path)
-    architecture.write_bytes(
-        b"---\r\nartifact_type: architecture\r\n---\r\n# Architecture\r\n"
-    )
-    design_approval.record_approval(
-        workspace=workspace,
-        architecture=architecture,
-        approved_by="owner",
-        approval_reference="current session",
-        approved_scope="material design",
-    )
-    binding = build_tool._validate_design_approval(workspace)
-    assert binding is not None
-    assert binding["architecture_sha256"] == design_approval.sha256_file(architecture)
-
-
-def test_build_consumer_rejects_symlinked_approval_receipt(tmp_path, monkeypatch):
+def test_approval_receipt_rejects_symlinked_receipt(tmp_path, monkeypatch):
     workspace, architecture = _workspace(tmp_path)
     receipt = design_approval.record_approval(
         workspace=workspace,
@@ -188,7 +138,7 @@ def test_build_consumer_rejects_symlinked_approval_receipt(tmp_path, monkeypatch
         lambda path: path == receipt or original(path),
     )
     with pytest.raises(ValueError, match="must not be a symlink"):
-        build_tool._validate_design_approval(workspace)
+        design_approval.verify_approval(workspace=workspace, architecture=architecture, receipt=receipt)
 
 
 @pytest.mark.parametrize("receipt_name", ["latest.json", "copied.json", "architecture.json"])

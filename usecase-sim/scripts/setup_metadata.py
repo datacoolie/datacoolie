@@ -127,7 +127,7 @@ def _json_str(obj):
 
 
 def _name_to_uuid(name: str) -> str:
-    # Vendored from datacoolie.utils.helpers.name_to_uuid to avoid importing
+    # Vendored from datacoolie.utils.identity.name_to_uuid to avoid importing
     # the full datacoolie package.
     import uuid  # noqa: PLC0415
     return str(uuid.uuid5(uuid.UUID("da7ac001-e000-4000-8000-000000000000"), name))
@@ -155,7 +155,7 @@ INSERT INTO dc_framework_dataflows
      stage, group_number, execution_order, processing_mode,
      source_connection_id, source_schema, source_table,
      source_query, source_python_function,
-     source_watermark_columns, source_configure,
+     source_filter_expression, source_watermark_columns, source_configure,
      transform,
      destination_connection_id, destination_schema, destination_table,
      destination_load_type, destination_merge_keys, destination_configure,
@@ -166,7 +166,7 @@ VALUES
      :stage, :gnum, :eorder, :pmode,
      :src_cid, :src_schema, :src_table,
      :src_query, :src_pyfunc,
-     :src_wm, :src_conf,
+     :src_filter, :src_wm, :src_conf,
      :transform,
      :dst_cid, :dst_schema, :dst_table,
      :dst_load, :dst_merge, :dst_conf,
@@ -302,7 +302,17 @@ def _validate_seeded_metadata(engine, meta: dict, workspace_id: str) -> None:
 
 
 def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: bool) -> None:
-    from sqlalchemy import create_engine  # noqa: PLC0415
+    from sqlalchemy import create_engine, make_url  # noqa: PLC0415
+
+    # SQLite does not create missing parent directories for a file database.
+    # The simulator deliberately keeps mutable databases below .runtime, so a
+    # clean checkout (or a deleted .runtime) must bootstrap that directory
+    # before SQLAlchemy opens the connection.  Do not touch remote databases or
+    # in-memory SQLite URLs.
+    url = make_url(connection_string)
+    if url.get_backend_name() == "sqlite" and url.database not in (None, ":memory:"):
+        database_path = Path(url.database).expanduser().resolve()
+        database_path.parent.mkdir(parents=True, exist_ok=True)
 
     engine = create_engine(connection_string)
     dialect = engine.dialect.name
@@ -372,6 +382,7 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
                 "src_table":  src.get("table")  or d.get("source_table"),
                 "src_query":  src.get("query")  or d.get("source_query"),
                 "src_pyfunc": src.get("python_function") or d.get("source_python_function"),
+                "src_filter": src["filter_expression"] if "filter_expression" in src else d.get("source_filter_expression"),
                 "src_wm":   _json_str(src.get("watermark_columns") or d.get("source_watermark_columns")),
                 "src_conf": _json_str(src.get("configure") or d.get("source_configure")),
                 "transform": _json_str(d.get("transform")),
@@ -473,7 +484,7 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
         "is_active", "configure",
         "source_connection_name", "source_schema_name", "source_table",
         "source_query", "source_python_function", "source_watermark_columns",
-        "source_configure",
+        "source_filter_expression", "source_configure",
         "destination_connection_name", "destination_schema_name", "destination_table",
         "destination_load_type", "destination_merge_keys",
         "destination_partition_columns", "destination_configure", "transform",
@@ -494,6 +505,7 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
             src.get("table", ""), src.get("query", ""),
             src.get("python_function", ""),
             _list_to_csv(src.get("watermark_columns", [])),
+            src.get("filter_expression", ""),
             _json_cell(src.get("configure")),
             dst.get("connection_name", ""), dst.get("schema_name", ""),
             dst.get("table", ""), dst.get("load_type", "append"),

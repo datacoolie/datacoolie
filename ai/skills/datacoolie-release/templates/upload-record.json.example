@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "release_id": "release-example",
+  "build_id": "260915-120000-abcdef123456",
+  "environment": "dev",
+  "deployment_path": "target/dev",
+  "source": ".builds/artifacts/260915-120000-abcdef123456/dev",
+  "status": "success",
+  "uploads": {
+    "artifact": {"status": "success", "files": 12},
+    "current": {"status": "success", "files": 12}
+  }
+}

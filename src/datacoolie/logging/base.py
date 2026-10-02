@@ -1,719 +1,29 @@
-"""Base logging infrastructure for the DataCoolie framework.
-
-Provides:
-
-* :class:`LogManager` — singleton that configures Python logging with
-  a capture handler for later persistence to datalake.
-* :class:`CaptureHandler` — a :class:`logging.Handler` that buffers
-  :class:`LogRecord` objects in memory or a temp file.
-* :class:`BaseLogger` — ABC for persistent loggers (system, ETL).
-* :class:`LogConfig` — configuration dataclass.
-* :func:`get_logger` — module-level convenience to create child loggers.
-
-Usage::
-
-    from datacoolie.logging.base import get_logger
-
-    logger = get_logger(__name__)
-    logger.info("Processing started")
-"""
+"""Shared lifecycle for persistent framework loggers."""
 
 from __future__ import annotations
 
-import json
+import copy
 import logging
-import math
-import os
-import re
-import tempfile
 import threading
+from uuid import uuid4
 import time
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
-from datacoolie.core.constants import DEFAULT_PARTITION_PATTERN
-from datacoolie.core.models import DataCoolieRunConfig
+from datacoolie.core.exceptions import ConfigurationError
+from datacoolie.core.models.run_config import DataCoolieRunConfig
+from datacoolie.logging.configuration.config import LogConfig as _LogConfig
+from datacoolie.logging.configuration.constants import (
+    INTERNAL_LOGGER_NAME,
+    FlushResult as _FlushResult,
+    PersistenceMode as _PersistenceMode,
+)
 from datacoolie.platforms.base import BasePlatform
-from datacoolie.utils.helpers import utc_now
-from datacoolie.utils.path_utils import normalize_path
+from datacoolie.utils.time import utc_now
 
-
-_diagnostic_logger = logging.getLogger("datacoolie.logging.internal")
-_diagnostic_logger.propagate = False
-
-
-class DataflowContextFilter(logging.Filter):
-    """Inject the current ``dataflow_id`` from :mod:`contextvars` into every log record.
-
-    Attach to handlers (not loggers) so it applies to all propagated messages.
-    """
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        from datacoolie.logging.context import get_dataflow_id
-
-        record.dataflow_id = get_dataflow_id()  # type: ignore[attr-defined]
-        return True
-
-
-# ============================================================================
-# Enums
-# ============================================================================
-
-
-class LogLevel(str, Enum):
-    """Standard logging levels."""
-
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-
-class StorageMode(str, Enum):
-    """Temporary storage mode for log buffering."""
-
-    MEMORY = "memory"
-    FILE = "file"
-
-
-_PARTITION_TOKENS = ("year", "month", "day", "hour")
-
-
-def _validate_partition_pattern(pattern: str) -> None:
-    if not isinstance(pattern, str) or not pattern:
-        raise ValueError("partition_pattern must be a non-empty string")
-    placeholders = tuple(re.findall(r"{([^{}]+)}", pattern))
-    valid_sequences = {
-        _PARTITION_TOKENS[:length]
-        for length in range(1, len(_PARTITION_TOKENS) + 1)
-    }
-    if placeholders not in valid_sequences:
-        raise ValueError(
-            "partition_pattern placeholders must be one ordered prefix of "
-            "{year}, {month}, {day}, {hour}"
-        )
-    literal = pattern
-    for token in _PARTITION_TOKENS:
-        literal = literal.replace(f"{{{token}}}", "")
-    if "{" in literal or "}" in literal:
-        raise ValueError("partition_pattern contains unsupported braces")
-    if "%" in literal or any(character.isdigit() for character in literal):
-        raise ValueError(
-            "partition_pattern literals cannot contain digits or percent signs"
-        )
-    for segment in re.split(r"[/\\]", pattern):
-        if not segment or not any(f"{{{token}}}" in segment for token in placeholders):
-            raise ValueError(
-                "every partition_pattern directory level must contain a time placeholder"
-            )
-
-
-def format_partition_path(
-    base_path: str,
-    run_date: Optional[datetime] = None,
-    pattern: str = DEFAULT_PARTITION_PATTERN,
-) -> str:
-    """Append a partition folder to *base_path* using *pattern*.
-
-    Supported placeholders: ``{year}``, ``{month}``, ``{day}``, ``{hour}``.
-    """
-    _validate_partition_pattern(pattern)
-    dt = run_date or utc_now()
-    folder = pattern.format(
-        year=f"{dt.year:04d}",
-        month=f"{dt.month:02d}",
-        day=f"{dt.day:02d}",
-        hour=f"{dt.hour:02d}",
-    )
-    return f"{base_path.rstrip('/')}/{folder}"
-
-
-# ============================================================================
-# LogConfig
-# ============================================================================
-
-
-@dataclass
-class LogConfig:
-    """Configuration dataclass for loggers."""
-
-    log_level: str = LogLevel.INFO.value
-    file_level: str = LogLevel.DEBUG.value
-    storage_mode: str = StorageMode.MEMORY.value
-    output_path: Optional[str] = None
-    partition_by_date: bool = True
-    partition_pattern: str = DEFAULT_PARTITION_PATTERN
-    flush_interval_seconds: int = 60
-    close_timeout_seconds: float = 10.0
-
-    def __post_init__(self) -> None:
-        self.log_level = self.log_level.upper()
-        self.file_level = self.file_level.upper()
-        _validate_partition_pattern(self.partition_pattern)
-        # Canonicalise storage paths to forward-slash separators so that
-        # OS-native inputs (e.g. Windows backslashes) do not produce mixed
-        # separators when child paths are appended downstream.
-        if self.output_path:
-            self.output_path = normalize_path(self.output_path)
-        if (
-            not math.isfinite(self.close_timeout_seconds)
-            or self.close_timeout_seconds <= 0
-        ):
-            raise ValueError(
-                "close_timeout_seconds must be a positive finite number"
-            )
-
-
-# ============================================================================
-# LogRecord (framework-level, not Python's logging.LogRecord)
-# ============================================================================
-
-
-@dataclass
-class LogRecord:
-    """Captured log entry."""
-
-    timestamp: datetime
-    level: str
-    logger_name: str
-    message: str
-    module: Optional[str] = None
-    func_name: Optional[str] = None
-    line_no: Optional[int] = None
-    exc_info: Optional[str] = None
-    dataflow_id: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize to a JSON-compatible dictionary."""
-        d: Dict[str, Any] = {
-            "ts": self.timestamp.isoformat(),
-            "level": self.level,
-            "logger": self.logger_name,
-            "msg": self.message,
-        }
-        if self.dataflow_id:
-            d["dataflow_id"] = self.dataflow_id
-        if self.module:
-            d["module"] = self.module
-        if self.func_name:
-            d["func"] = self.func_name
-        if self.line_no is not None:
-            d["line"] = self.line_no
-        if self.exc_info:
-            d["exc_info"] = self.exc_info
-        return d
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "LogRecord":
-        """Reconstruct a LogRecord from a dict produced by :meth:`to_dict`."""
-        return cls(
-            timestamp=datetime.fromisoformat(d["ts"]),
-            level=d["level"],
-            logger_name=d["logger"],
-            message=d["msg"],
-            module=d.get("module"),
-            func_name=d.get("func"),
-            line_no=d.get("line"),
-            exc_info=d.get("exc_info"),
-            dataflow_id=d.get("dataflow_id"),
-        )
-
-    def format(self, include_location: bool = False) -> str:
-        ts = self.timestamp.isoformat()
-        df_part = f"[{self.dataflow_id}]" if self.dataflow_id else ""
-        if include_location and self.func_name:
-            loc = f"{self.func_name}"
-            if self.line_no:
-                loc += f":{self.line_no}"
-        else:
-            loc = ""
-        base = f"{ts} - {self.level} - {self.logger_name}:{loc} - {df_part} - {self.message}"
-        if self.exc_info:
-            base += f"\n{self.exc_info}"
-        return base
-
-
-# ============================================================================
-# CaptureHandler
-# ============================================================================
-
-
-class CaptureHandler(logging.Handler):
-    """Captures Python log records for later persistence.
-
-    Uses the handler's built-in ``self.lock`` (RLock) for thread safety —
-    no separate lock needed since ``logging.Handler.handle()`` already
-    acquires it before calling :meth:`emit`.
-    """
-
-    def __init__(
-        self,
-        level: int = logging.DEBUG,
-        storage_mode: str = StorageMode.MEMORY.value,
-    ) -> None:
-        super().__init__(level)
-        if storage_mode not in {StorageMode.MEMORY.value, StorageMode.FILE.value}:
-            raise ValueError("storage_mode must be 'memory' or 'file'")
-        self._storage_mode = storage_mode
-        self._records: List[LogRecord] = []
-        self._temp_file: Optional[str] = None
-        if storage_mode == StorageMode.FILE.value:
-            self._setup_temp_file()
-
-    def _setup_temp_file(self) -> None:
-        self._temp_file = self._new_temp_file_path()
-
-    @staticmethod
-    def _new_temp_file_path() -> str:
-        temp_dir = tempfile.gettempdir()
-        ts = utc_now().strftime("%Y%m%d_%H%M%S")
-        return os.path.join(
-            temp_dir,
-            f"datacoolie_capture_{ts}_{os.getpid()}_{uuid.uuid4().hex}.tmp",
-        )
-
-    def reconfigure(
-        self,
-        *,
-        level: int,
-        storage_mode: str,
-        formatter: logging.Formatter,
-    ) -> None:
-        """Atomically update capture settings without detaching the handler."""
-        if storage_mode not in {StorageMode.MEMORY.value, StorageMode.FILE.value}:
-            raise ValueError("storage_mode must be 'memory' or 'file'")
-
-        with self.lock:
-            if storage_mode != self._storage_mode:
-                records = (
-                    self._load_from_file(raise_on_error=True)
-                    if self._storage_mode == StorageMode.FILE.value
-                    else list(self._records)
-                )
-
-                if storage_mode == StorageMode.FILE.value:
-                    new_temp_file = self._new_temp_file_path()
-                    try:
-                        with open(new_temp_file, "w", encoding="utf-8") as handle:
-                            for record in records:
-                                handle.write(json.dumps(record.to_dict(), default=str) + "\n")
-                    except Exception:
-                        try:
-                            if os.path.exists(new_temp_file):
-                                os.remove(new_temp_file)
-                        except Exception:
-                            pass
-                        raise
-                    old_temp_file = self._temp_file
-                    self._records = []
-                    self._temp_file = new_temp_file
-                    self._storage_mode = storage_mode
-                    if old_temp_file and os.path.exists(old_temp_file):
-                        os.remove(old_temp_file)
-                else:
-                    old_temp_file = self._temp_file
-                    if old_temp_file and os.path.exists(old_temp_file):
-                        os.remove(old_temp_file)
-                    self._records = records
-                    self._temp_file = None
-                    self._storage_mode = storage_mode
-
-            self.setLevel(level)
-            self.setFormatter(formatter)
-
-    def emit(self, record: logging.LogRecord) -> None:
-        # NOTE: self.lock is already held by Handler.handle() when this runs.
-        try:
-            exc_text: Optional[str] = None
-            if record.exc_info:
-                exc_text = self.format(record)
-
-            lr = LogRecord(
-                timestamp=datetime.fromtimestamp(record.created, tz=timezone.utc),
-                level=record.levelname,
-                logger_name=record.name,
-                message=record.getMessage(),
-                module=record.module,
-                func_name=record.funcName,
-                line_no=record.lineno,
-                exc_info=exc_text if record.exc_info else None,
-                dataflow_id=getattr(record, "dataflow_id", None) or None,
-            )
-
-            if self._storage_mode == StorageMode.MEMORY.value:
-                self._records.append(lr)
-            else:
-                self._write_to_file(lr)
-        except Exception:
-            self.handleError(record)
-
-    def _write_to_file(self, record: LogRecord) -> None:
-        if self._temp_file:
-            try:
-                with open(self._temp_file, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(record.to_dict(), default=str) + "\n")
-            except Exception:
-                self._records.append(record)
-
-    def get_records(self) -> List[LogRecord]:
-        with self.lock:
-            if self._storage_mode == StorageMode.FILE.value:
-                return self._load_from_file()
-            return list(self._records)
-
-    def _load_from_file(
-        self,
-        *,
-        raise_on_error: bool = False,
-    ) -> List[LogRecord]:
-        records = list(self._records)
-        if self._temp_file and os.path.exists(self._temp_file):
-            try:
-                with open(self._temp_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            try:
-                                records.append(LogRecord.from_dict(json.loads(line)))
-                            except (json.JSONDecodeError, KeyError):
-                                records.append(
-                                    LogRecord(
-                                        timestamp=utc_now(),
-                                        level="INFO",
-                                        logger_name="file",
-                                        message=line,
-                                    )
-                                )
-            except Exception:
-                if raise_on_error:
-                    raise
-        return records
-
-    def get_formatted_logs(self, include_location: bool = False) -> str:
-        with self.lock:
-            if self._storage_mode == StorageMode.FILE.value:
-                records = self._load_from_file()
-                return "\n".join(r.format(include_location) for r in records)
-            return "\n".join(r.format(include_location) for r in self._records)
-
-    def begin_jsonl_batch(self) -> List[LogRecord]:
-        """Atomically detach a batch for transactional remote delivery.
-
-        The caller must invoke :meth:`rollback_batch` when delivery fails.
-        File-backed records are detached only after the active spool can be
-        removed; an inability to rotate the spool is surfaced to the caller so
-        records are never acknowledged prematurely.
-        """
-        with self.lock:
-            if self._storage_mode == StorageMode.FILE.value:
-                records = self._load_from_file(raise_on_error=True)
-                if self._temp_file and os.path.exists(self._temp_file):
-                    os.remove(self._temp_file)
-                    self._setup_temp_file()
-                self._records.clear()
-                return records
-
-            records = self._records
-            self._records = []
-            return records
-
-    def rollback_batch(self, records: List[LogRecord]) -> None:
-        """Restore a failed delivery batch ahead of newer records."""
-        if not records:
-            return
-        with self.lock:
-            self._records = list(records) + self._records
-
-    @staticmethod
-    def batch_to_jsonl(records: List[LogRecord]) -> str:
-        """Serialize a detached batch using the persisted JSONL contract."""
-        return "\n".join(
-            json.dumps(record.to_dict(), default=str) for record in records
-        )
-
-    def clear(self) -> None:
-        with self.lock:
-            self._records.clear()
-            if self._temp_file and os.path.exists(self._temp_file):
-                try:
-                    os.remove(self._temp_file)
-                    self._setup_temp_file()
-                except Exception:
-                    pass
-
-    def cleanup(self) -> None:
-        with self.lock:
-            self._records.clear()
-            if self._temp_file and os.path.exists(self._temp_file):
-                try:
-                    os.remove(self._temp_file)
-                except Exception:
-                    pass
-            self._temp_file = None
-
-
-# ============================================================================
-# LogManager (Singleton)
-# ============================================================================
-
-
-class LogManager:
-    """Singleton that configures Python logging with capture support."""
-
-    _instance: Optional["LogManager"] = None
-    _lock = threading.Lock()
-
-    def __init__(self) -> None:
-        self._state_lock = threading.RLock()
-        self._level = LogLevel.INFO.value
-        self._file_level = LogLevel.DEBUG.value
-        self._capture_handler: Optional[CaptureHandler] = None
-        self._console_handler: Optional[logging.Handler] = None
-        self._context_filter: Optional[DataflowContextFilter] = None
-        self._loggers: Dict[str, logging.Logger] = {}
-        self._root_logger_name = "datacoolie"
-        self._configured = False
-
-    @classmethod
-    def get_instance(cls) -> "LogManager":
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls()
-        return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        """Reset the singleton (primarily for testing)."""
-        with cls._lock:
-            if cls._instance is not None:
-                cls._instance.cleanup()
-            cls._instance = None
-
-    def configure(
-        self,
-        level: str = LogLevel.INFO.value,
-        file_level: Optional[str] = None,
-        capture_logs: bool = True,
-        storage_mode: str = StorageMode.MEMORY.value,
-        console_output: bool = True,
-        format_string: Optional[str] = None,
-        force: bool = False,
-    ) -> None:
-        """Configure logging while serializing manager lifecycle changes."""
-        with self._state_lock:
-            self._configure_locked(
-                level=level,
-                file_level=file_level,
-                capture_logs=capture_logs,
-                storage_mode=storage_mode,
-                console_output=console_output,
-                format_string=format_string,
-                force=force,
-            )
-
-    def _configure_locked(
-        self,
-        level: str = LogLevel.INFO.value,
-        file_level: Optional[str] = None,
-        capture_logs: bool = True,
-        storage_mode: str = StorageMode.MEMORY.value,
-        console_output: bool = True,
-        format_string: Optional[str] = None,
-        force: bool = False,
-    ) -> None:
-        """Configure the global logging system.
-
-        If already configured, this is a no-op unless *force* is ``True``.
-        Pass ``force=True`` (as ``SystemLogger`` does) to apply new settings.
-        An enabled capture handler is reconfigured in place so accepted records
-        are never exposed to a detach/transfer window.
-
-        Args:
-            level: Console log level (controls what is printed to stderr).
-            file_level: Capture log level for file persistence.  Defaults to
-                ``level`` when not provided.  Set to ``"DEBUG"`` to capture all
-                framework messages regardless of the console level.
-            capture_logs: Enable :class:`CaptureHandler`.
-            storage_mode: ``"memory"`` or ``"file"``.
-            console_output: Emit to stderr.
-            format_string: Custom ``logging.Formatter`` pattern.
-            force: Re-configure even if already configured.
-        """
-        if self._configured and not force:
-            return
-        requested_level = level.upper()
-        requested_file_level = (file_level or level).upper()
-
-        console_int = getattr(logging, requested_level, logging.INFO)
-        file_int = getattr(logging, requested_file_level, logging.DEBUG)
-
-        root = logging.getLogger(self._root_logger_name)
-
-        fmt = format_string or "%(asctime)s [%(levelname)s] %(name)s - [%(dataflow_id)s] - %(message)s"
-        formatter = logging.Formatter(fmt)
-
-        if capture_logs and self._capture_handler is not None:
-            try:
-                self._capture_handler.reconfigure(
-                    level=file_int,
-                    storage_mode=storage_mode,
-                    formatter=formatter,
-                )
-            except Exception as exc:
-                file_int = self._capture_handler.level
-                requested_file_level = logging.getLevelName(file_int)
-                _diagnostic_logger.warning(
-                    "Could not reconfigure captured-log storage; preserving existing state: %s",
-                    type(exc).__name__,
-                )
-        elif capture_logs:
-            self._capture_handler = CaptureHandler(
-                level=file_int,
-                storage_mode=storage_mode,
-            )
-            self._capture_handler.setFormatter(formatter)
-            root.addHandler(self._capture_handler)
-        elif self._capture_handler is not None:
-            root.removeHandler(self._capture_handler)
-            self._capture_handler.cleanup()
-            self._capture_handler.close()
-            self._capture_handler = None
-
-        if self._console_handler is not None:
-            root.removeHandler(self._console_handler)
-            _diagnostic_logger.removeHandler(self._console_handler)
-            self._console_handler.close()
-            self._console_handler = None
-
-        if console_output:
-            self._console_handler = logging.StreamHandler()
-            self._console_handler.setLevel(console_int)
-            self._console_handler.setFormatter(formatter)
-            root.addHandler(self._console_handler)
-            _diagnostic_logger.addHandler(self._console_handler)
-
-        # Inject dataflow_id context into every propagated message.
-        if self._context_filter is None:
-            self._context_filter = DataflowContextFilter()
-        for handler in root.handlers:
-            if self._context_filter not in handler.filters:
-                handler.addFilter(self._context_filter)
-
-        self._level = requested_level
-        self._file_level = str(requested_file_level)
-        root_int = min(console_int, file_int) if capture_logs else console_int
-        root.setLevel(root_int)
-        root.propagate = False
-
-        for lgr in self._loggers.values():
-            lgr.setLevel(root_int)
-
-        self._configured = True
-
-    def get_logger(self, name: str) -> logging.Logger:
-        """Create (or reuse) a child logger under the framework root."""
-        with self._state_lock:
-            if not self._configured:
-                self._configure_locked()
-
-            if name not in self._loggers:
-                lgr = logging.getLogger(name)
-                # Use the minimum of console/file levels so the child does not
-                # filter out records that the capture handler needs.
-                console_int = getattr(logging, self._level, logging.INFO)
-                file_int = getattr(logging, self._file_level, logging.DEBUG)
-                lgr.setLevel(min(console_int, file_int))
-                self._loggers[name] = lgr
-
-            return self._loggers[name]
-
-    @property
-    def capture_handler(self) -> Optional[CaptureHandler]:
-        with self._state_lock:
-            return self._capture_handler
-
-    def get_captured_logs(self, include_location: bool = False) -> str:
-        with self._state_lock:
-            if self._capture_handler:
-                return self._capture_handler.get_formatted_logs(include_location)
-            return ""
-
-    def begin_captured_jsonl_batch(self) -> List[LogRecord]:
-        """Detach the current capture batch for transactional delivery."""
-        with self._state_lock:
-            if self._capture_handler:
-                return self._capture_handler.begin_jsonl_batch()
-            return []
-
-    def rollback_captured_batch(self, records: List[LogRecord]) -> None:
-        """Restore a failed transactional capture batch."""
-        with self._state_lock:
-            if self._capture_handler:
-                self._capture_handler.rollback_batch(records)
-
-    @staticmethod
-    def captured_batch_to_jsonl(records: List[LogRecord]) -> str:
-        """Serialize a detached capture batch as persisted JSONL."""
-        return CaptureHandler.batch_to_jsonl(records)
-
-    def clear_captured_logs(self) -> None:
-        with self._state_lock:
-            if self._capture_handler:
-                self._capture_handler.clear()
-
-    def cleanup(self) -> None:
-        with self._state_lock:
-            self._cleanup_locked()
-
-    def _cleanup_locked(self) -> None:
-        root = logging.getLogger(self._root_logger_name)
-        if self._context_filter is not None:
-            for handler in root.handlers:
-                handler.removeFilter(self._context_filter)
-        owned_handlers = (
-            self._capture_handler,
-            self._console_handler,
-        )
-        for handler in owned_handlers:
-            if handler is None:
-                continue
-            root.removeHandler(handler)
-            _diagnostic_logger.removeHandler(handler)
-            if isinstance(handler, CaptureHandler):
-                handler.cleanup()
-            handler.close()
-        self._capture_handler = None
-        self._console_handler = None
-        self._context_filter = None
-
-
-# Module-level convenience -------------------------------------------------
-
-def get_logger(name: str) -> logging.Logger:
-    """Get a framework logger (convenience wrapper).
-
-    Framework loggers are children of the ``datacoolie`` logger and inherit
-    its handlers (console + capture).
-
-    Args:
-        name: Typically ``__name__``.
-
-    Returns:
-        Configured :class:`logging.Logger`.
-    """
-    return LogManager.get_instance().get_logger(name)
-
-
-
-# ============================================================================
-# BaseLogger ABC
-# ============================================================================
+_diagnostic_logger = logging.getLogger(INTERNAL_LOGGER_NAME)
 
 
 @dataclass(frozen=True)
@@ -721,7 +31,7 @@ class _FlushOperation:
     """One terminal sink attempt built from immutable inputs."""
 
     name: str
-    execute: Callable[[], None]
+    execute: Callable[[], object]
 
 
 @dataclass(frozen=True)
@@ -730,11 +40,24 @@ class _FlushOutcome:
 
     name: str
     status: str
-    error: Optional[Exception] = None
+    error: Optional[BaseException] = None
+
+
+@dataclass
+class _TrackedOperation:
+    """One bounded startup operation that may outlive its caller's wait."""
+
+    name: str
+    event: threading.Event
+    result: object = None
+    error: Optional[BaseException] = None
+    timeout_reported: bool = False
+    timeout_error: Optional[BaseException] = None
+    observed: bool = False
 
 
 class BaseLogger(ABC):
-    """Abstract base for persistent loggers (system, ETL).
+    """Abstract base for persistent loggers (system, execution).
 
     Provides configuration, explicit activation, periodic scheduling,
     bounded terminal sink attempts, failure isolation, and cleanup ordering.
@@ -743,19 +66,33 @@ class BaseLogger(ABC):
 
     _periodic_sink_name = "periodic"
 
-    def __init__(self, config: LogConfig, platform: Optional[BasePlatform] = None) -> None:
-        self._config = config
+    def __init__(self, config: _LogConfig, platform: Optional[BasePlatform] = None) -> None:
+        self._config = copy.deepcopy(config)
+        # Dataclass fields remain mutable after construction; validate the
+        # detached snapshot at the logger boundary so activation never starts
+        # with an invalid persistence contract.
+        self._config.__post_init__()
         self._platform = platform
         self._is_active = False
         self._is_closed = False
         self._is_closing = False
         self._run_config: Optional[DataCoolieRunConfig] = None
+        # One immutable identity ties the system, job, and dataflow streams
+        # emitted by a single logger lifetime together.  The Driver overwrites
+        # this with its shared session identity for the two session loggers;
+        # standalone loggers still get an isolated identity by default.
+        self._log_session_id = uuid4().hex
+        self._started_at: Optional[datetime] = None
         self._flush_lock = threading.RLock()
         self._close_lock = threading.Lock()
-        self._last_flush_error: Optional[Exception] = None
+        self._last_flush_error: Optional[BaseException] = None
+        self._flush_errors: dict[str, BaseException] = {}
         self._terminal_outcomes: tuple[_FlushOutcome, ...] = ()
         self._stop_event = threading.Event()
+        self._flush_wakeup = threading.Event()
         self._flush_thread: Optional[threading.Thread] = None
+        self._periodic_time_due = False
+        self._startup_operation: Optional[_TrackedOperation] = None
 
     # ------------------------------------------------------------------
     # Periodic flush timer
@@ -764,34 +101,99 @@ class BaseLogger(ABC):
     def _should_start_timer(self) -> bool:
         """Whether periodic flushing is enabled."""
         return (
-            self._config.flush_interval_seconds > 0
+            (
+                self._config.flush_interval_seconds > 0
+                or self._config.persistence_mode == _PersistenceMode.BATCH.value
+            )
             and self._config.output_path is not None
             and self._platform is not None
         )
 
-    def activate(self) -> None:
-        """Activate periodic persistence after Driver configuration is complete."""
+    def _request_periodic_flush(self) -> None:
+        """Wake a batch writer without performing remote I/O on a producer."""
+        self._flush_wakeup.set()
+
+    def activate(self, *, started_at: Optional[datetime] = None) -> None:
+        """Activate persistence for one caller-owned job lifetime.
+
+        Driver passes its constructor timestamp so provider startup and
+        preparation are included in the same JobRuntime interval. Standalone
+        callers may omit it and use the activation timestamp.
+        """
         with self._close_lock:
             if self._is_active or self._is_closing or self._is_closed:
                 return
-            self._is_active = True
-            if not self._should_start_timer():
-                return
-            self._stop_event.clear()
-            self._flush_thread = threading.Thread(
-                target=self._flush_loop,
-                name=f"{type(self).__name__}-flush",
-                daemon=True,
-            )
-            self._flush_thread.start()
+            try:
+                if started_at is not None:
+                    if not isinstance(started_at, datetime):
+                        raise ConfigurationError("started_at must be a datetime")
+                    if started_at.tzinfo is None or started_at.utcoffset() is None:
+                        raise ConfigurationError(
+                            "started_at must be timezone-aware"
+                        )
+                    started_at = started_at.astimezone(timezone.utc)
+                if self._run_config is None:
+                    self._run_config = DataCoolieRunConfig()
+                    self._apply_run_config()
+                if self._started_at is not None and started_at is not None:
+                    if started_at != self._started_at:
+                        raise ConfigurationError(
+                            "started_at cannot change for a logger lifetime"
+                        )
+                self._started_at = self._started_at or started_at or utc_now()
+                self._activate()
+                self._is_active = True
+                if not self._should_start_timer():
+                    return
+                self._stop_event.clear()
+                self._flush_thread = threading.Thread(
+                    target=self._flush_loop,
+                    name=f"{type(self).__name__}-flush",
+                    daemon=True,
+                )
+                self._flush_thread.start()
+            except Exception:
+                # A child may have started a timer before a later activation
+                # step failed.  Stop that worker first, then let the child
+                # release any other state it acquired.  Cleanup failures are
+                # secondary: preserve the original activation exception.
+                try:
+                    self._stop_periodic_flush()
+                except Exception as cleanup_exc:
+                    _diagnostic_logger.warning(
+                        "%s activation timer cleanup failed: %s",
+                        type(self).__name__,
+                        cleanup_exc,
+                        exc_info=True,
+                    )
+                try:
+                    self._activation_cleanup()
+                except Exception as cleanup_exc:
+                    _diagnostic_logger.warning(
+                        "%s activation cleanup failed: %s",
+                        type(self).__name__,
+                        cleanup_exc,
+                        exc_info=True,
+                    )
+                finally:
+                    self._is_active = False
+                raise
 
-    def _stop_periodic_flush(self) -> bool:
+    def _stop_periodic_flush(self, *, timeout: Optional[float] = None) -> bool:
         """Stop scheduling and report whether the worker actually exited."""
         self._stop_event.set()
+        self._flush_wakeup.set()
         thread = self._flush_thread
         if thread is None:
             return True
-        thread.join(timeout=min(2.0, self._config.close_timeout_seconds))
+        if not thread.is_alive():
+            self._flush_thread = None
+            return True
+        join_timeout = min(
+            2.0,
+            self._config.close_timeout_seconds,
+        ) if timeout is None else max(0.0, timeout)
+        thread.join(timeout=join_timeout)
         if not thread.is_alive():
             self._flush_thread = None
             return True
@@ -800,14 +202,38 @@ class BaseLogger(ABC):
     def _flush_loop(self) -> None:
         """Single daemon thread — sleeps until interval elapses or stop is signalled."""
         interval = self._config.flush_interval_seconds
-        while not self._stop_event.wait(interval):
-            self._on_periodic_flush()
+        deadline = time.monotonic() + interval if interval > 0 else None
+        while not self._stop_event.is_set():
+            # A wake-up is a size notification.  The monotonic deadline is a
+            # separate time trigger, so a small batch cannot wait forever for
+            # its byte target and frequent wake-ups cannot postpone the timer.
+            timeout = (
+                max(0.0, deadline - time.monotonic())
+                if deadline is not None
+                else None
+            )
+            triggered = self._flush_wakeup.wait(timeout)
+            self._flush_wakeup.clear()
+            if self._stop_event.is_set():
+                return
+            time_due = deadline is not None and time.monotonic() >= deadline
+            if time_due and deadline is not None:
+                now = time.monotonic()
+                while deadline <= now:
+                    deadline += interval
+            if triggered or time_due:
+                self._on_periodic_flush(time_due=time_due)
 
-    def _on_periodic_flush(self) -> None:
+    def _on_periodic_flush(self, *, time_due: bool = False) -> None:
         """Run the child periodic hook through the common failure boundary."""
         if self._is_closing or self._is_closed:
             return
-        self._execute_flush(self._flush_periodic, reason="periodic")
+        previous_time_due = self._periodic_time_due
+        self._periodic_time_due = time_due
+        try:
+            self._execute_flush(self._flush_periodic, reason="periodic")
+        finally:
+            self._periodic_time_due = previous_time_due
 
     def _flush_periodic(self) -> None:
         """Persist a periodic checkpoint.
@@ -816,9 +242,150 @@ class BaseLogger(ABC):
         """
         return
 
+    def _on_periodic_timeout(self) -> None:
+        """Hook for child writers to record an ambiguous timed-out flush."""
+        return
+
+    def _on_terminal_timeout(self, sink_name: str) -> None:
+        """Hook for child writers to record an ambiguous terminal flush."""
+        return
+
+    def _on_startup_timeout(self, sink_name: str) -> None:
+        """Hook for a child to mark its startup writer as ambiguous."""
+        return
+
+    def _periodic_timeout_sinks(self) -> tuple[str, ...]:
+        """Return the concrete streams blocked by a periodic worker."""
+        return (self._periodic_sink_name,)
+
+    def _run_bounded_startup(
+        self,
+        operation: Callable[[], object],
+        *,
+        sink_name: str,
+    ) -> object:
+        """Run startup I/O with a bounded caller wait and tracked ownership.
+
+        A timeout does not cancel the worker.  The handle stays attached to
+        the logger so later lifecycle operations cannot overtake its write.
+        """
+
+        handle = _TrackedOperation(sink_name, threading.Event())
+        self._startup_operation = handle
+
+        def run() -> None:
+            try:
+                handle.result = operation()
+            except Exception as exc:
+                handle.error = exc
+            finally:
+                handle.event.set()
+
+        threading.Thread(
+            target=run,
+            name=f"{type(self).__name__}-{sink_name}-startup",
+            daemon=True,
+        ).start()
+        if not handle.event.wait(timeout=self._config.close_timeout_seconds):
+            handle.timeout_reported = True
+            self._on_startup_timeout(sink_name)
+            timeout_error = TimeoutError(
+                f"{sink_name} startup checkpoint did not finish within "
+                f"{self._config.close_timeout_seconds:g} seconds"
+            )
+            handle.timeout_error = timeout_error
+            self._set_flush_error(sink_name, timeout_error)
+            _diagnostic_logger.warning(
+                "%s startup persistence timed out for %s after %.3g seconds",
+                type(self).__name__,
+                sink_name,
+                self._config.close_timeout_seconds,
+            )
+            return _FlushResult.IN_FLIGHT
+        if handle.error is not None:
+            handle.observed = True
+            self._set_flush_error(sink_name, handle.error)
+            _diagnostic_logger.warning(
+                "%s startup persistence failed for %s: %s",
+                type(self).__name__,
+                sink_name,
+                handle.error,
+                exc_info=(
+                    type(handle.error),
+                    handle.error,
+                    handle.error.__traceback__,
+                ),
+            )
+            return _FlushResult.NO_WORK
+        handle.observed = True
+        return handle.result
+
+    def _wait_startup_operation(
+        self,
+        *,
+        deadline: float,
+    ) -> tuple[_FlushOutcome, ...]:
+        """Wait for startup I/O within the shared close deadline."""
+
+        handle = self._startup_operation
+        if handle is None:
+            return ()
+        if handle.event.is_set():
+            if handle.observed:
+                return ()
+            handle.observed = True
+            if handle.error is not None:
+                self._set_flush_error(handle.name, handle.error)
+                _diagnostic_logger.warning(
+                    "%s startup persistence failed late for %s: %s",
+                    type(self).__name__,
+                    handle.name,
+                    handle.error,
+                    exc_info=(
+                        type(handle.error),
+                        handle.error,
+                        handle.error.__traceback__,
+                    ),
+                )
+                return (_FlushOutcome(handle.name, "failed", handle.error),)
+            if handle.timeout_error is not None:
+                self._clear_flush_error(handle.name)
+                return (_FlushOutcome(handle.name, "succeeded_late"),)
+            return ()
+        handle.event.wait(timeout=max(0.0, deadline - time.monotonic()))
+        if handle.event.is_set():
+            return self._wait_startup_operation(deadline=deadline)
+        if not handle.timeout_reported:
+            handle.timeout_reported = True
+            self._on_startup_timeout(handle.name)
+        error = TimeoutError(
+            f"{handle.name} startup checkpoint remained in flight during close"
+        )
+        handle.timeout_error = handle.timeout_error or error
+        self._set_flush_error(handle.name, handle.timeout_error)
+        return (_FlushOutcome(handle.name, "timed_out", error),)
+
+    def _set_flush_error(self, sink_name: str, error: BaseException) -> None:
+        """Record the latest unresolved error for one persistence sink."""
+        self._flush_errors[sink_name] = error
+        self._last_flush_error = error
+
+    def _clear_flush_error(self, sink_name: str) -> None:
+        self._flush_errors.pop(sink_name, None)
+        self._last_flush_error = next(reversed(self._flush_errors.values()), None)
+
+    def _refresh_flush_error(self) -> None:
+        self._last_flush_error = next(reversed(self._flush_errors.values()), None)
+
+    @staticmethod
+    def _result_status(result: object) -> Optional[str]:
+        if isinstance(result, _FlushResult):
+            return result.value
+        return None
+
     def _execute_flush(
         self,
-        operation: Callable[[], None],
+        operation: Callable[[], object],
         *,
         reason: str,
     ) -> bool:
@@ -827,10 +394,10 @@ class BaseLogger(ABC):
             if self._is_closed:
                 return False
             try:
-                operation()
+                result = operation()
             except Exception as exc:
                 if not self._is_closed:
-                    self._last_flush_error = exc
+                    self._set_flush_error(reason, exc)
                 _diagnostic_logger.warning(
                     "%s %s flush failed: %s",
                     type(self).__name__,
@@ -839,8 +406,17 @@ class BaseLogger(ABC):
                     exc_info=True,
                 )
                 return False
+            result_status = self._result_status(result)
+            if result_status in {
+                _FlushResult.NO_WORK.value,
+                _FlushResult.IN_FLIGHT.value,
+            }:
+                # Neither state proves a remote write completed.  In
+                # particular, an in-flight result must not clear a previous
+                # persistence error or be treated as a successful heartbeat.
+                return False
             if not self._is_closed:
-                self._last_flush_error = None
+                self._clear_flush_error(reason)
             return True
 
     # ------------------------------------------------------------------
@@ -848,12 +424,17 @@ class BaseLogger(ABC):
     # ------------------------------------------------------------------
 
     @property
-    def config(self) -> LogConfig:
-        return self._config
+    def config(self) -> _LogConfig:
+        return copy.deepcopy(self._config)
 
     @property
     def run_config(self) -> Optional[DataCoolieRunConfig]:
-        return self._run_config
+        return self._run_config.model_copy(deep=True) if self._run_config is not None else None
+
+    @property
+    def started_at(self) -> Optional[datetime]:
+        """Timestamp supplied by the Driver or captured at activation."""
+        return self._started_at
 
     @property
     def is_closed(self) -> bool:
@@ -864,7 +445,7 @@ class BaseLogger(ABC):
         return self._is_active
 
     @property
-    def last_flush_error(self) -> Optional[Exception]:
+    def last_flush_error(self) -> Optional[BaseException]:
         """Most recent flush failure, cleared after a successful flush."""
         return self._last_flush_error
 
@@ -873,8 +454,51 @@ class BaseLogger(ABC):
         """Internal per-sink results retained for post-close diagnostics."""
         return self._terminal_outcomes
 
+    def validate_session_eligibility(self) -> None:
+        """Validate that this logger can be transferred to one Driver session."""
+        with self._close_lock:
+            if self._is_closed or self._is_closing:
+                raise ConfigurationError(
+                    f"{type(self).__name__} is closed or closing"
+                )
+            if self._is_active:
+                raise ConfigurationError(
+                    f"{type(self).__name__} is already active and cannot be reused"
+                )
+
     def set_run_config(self, run_config: DataCoolieRunConfig) -> None:
-        self._run_config = run_config
+        with self._close_lock:
+            if self._is_active or self._is_closing or self._is_closed:
+                raise ConfigurationError(
+                    f"{type(self).__name__} run configuration cannot change after activation"
+                )
+            if not isinstance(run_config, DataCoolieRunConfig):
+                raise ConfigurationError("run_config must be a DataCoolieRunConfig instance")
+            self._run_config = DataCoolieRunConfig(
+                **copy.deepcopy(run_config.model_dump())
+            )
+            self._apply_run_config()
+
+    @property
+    def log_session_id(self) -> str:
+        """Return the immutable identity shared by this logger lifetime."""
+
+        return self._log_session_id
+
+    def set_log_session_id(self, log_session_id: str) -> None:
+        """Bind a Driver-owned session identity before activation."""
+
+        with self._close_lock:
+            if self._is_active or self._is_closing or self._is_closed:
+                raise ConfigurationError(
+                    f"{type(self).__name__} log session identity cannot change after activation"
+                )
+            if not isinstance(log_session_id, str) or not log_session_id.strip():
+                raise ConfigurationError("log_session_id must be a non-empty string")
+            self._log_session_id = log_session_id.strip()
+
+    def _apply_run_config(self) -> None:
+        """Hook for concrete loggers to project the shared run config."""
 
     @abstractmethod
     def _build_final_operations(
@@ -884,24 +508,76 @@ class BaseLogger(ABC):
     ) -> Sequence[_FlushOperation]:
         """Build terminal sink attempts from child-owned immutable payloads."""
 
+    def _activate(self) -> None:
+        """Hook for child activation setup."""
+
+    def _activation_cleanup(self) -> None:
+        """Release state acquired by a failed activation attempt."""
+
     def _execute_terminal_operations(
         self,
         operations: Sequence[_FlushOperation],
+        *,
+        deadline: Optional[float] = None,
     ) -> tuple[_FlushOutcome, ...]:
         """Attempt all terminal sinks and wait no longer than one common deadline."""
         if not operations:
             return ()
 
+        deadline = (
+            time.monotonic() + self._config.close_timeout_seconds
+            if deadline is None
+            else deadline
+        )
         results: list[Optional[_FlushOutcome]] = [None] * len(operations)
         completed = [threading.Event() for _ in operations]
 
+        # A close deadline is a hard upper bound for terminal I/O.  Do not
+        # start new sink work once the caller has already exhausted it (for
+        # example, after waiting for a periodic or startup operation).
+        if time.monotonic() >= deadline:
+            outcomes = []
+            for operation in operations:
+                self._on_terminal_timeout(operation.name)
+                outcome = _FlushOutcome(
+                    operation.name,
+                    "timed_out",
+                    TimeoutError(
+                        f"{operation.name} did not finish within "
+                        f"{self._config.close_timeout_seconds:g} seconds"
+                    ),
+                )
+                outcomes.append(outcome)
+                self._set_flush_error(operation.name, outcome.error)  # type: ignore[arg-type]
+                _diagnostic_logger.warning(
+                    "%s terminal sink %s %s: %s",
+                    type(self).__name__,
+                    outcome.name,
+                    outcome.status,
+                    outcome.error,
+                )
+            self._refresh_flush_error()
+            return tuple(outcomes)
+
         def run(index: int, operation: _FlushOperation) -> None:
             try:
-                operation.execute()
-            except Exception as exc:
+                result = operation.execute()
+            except BaseException as exc:
                 results[index] = _FlushOutcome(operation.name, "failed", exc)
             else:
-                results[index] = _FlushOutcome(operation.name, "succeeded")
+                result_status = self._result_status(result)
+                if result_status == _FlushResult.IN_FLIGHT.value:
+                    results[index] = _FlushOutcome(
+                        operation.name,
+                        "in_flight",
+                        RuntimeError(f"{operation.name} write is already in flight"),
+                    )
+                elif result_status == _FlushResult.NO_WORK.value:
+                    results[index] = _FlushOutcome(operation.name, "no_work")
+                else:
+                    # Existing lifecycle callbacks return None; that remains
+                    # a successful operation for the abstract base contract.
+                    results[index] = _FlushOutcome(operation.name, "succeeded")
             finally:
                 completed[index].set()
 
@@ -913,7 +589,6 @@ class BaseLogger(ABC):
                 daemon=True,
             ).start()
 
-        deadline = time.monotonic() + self._config.close_timeout_seconds
         for event in completed:
             event.wait(timeout=max(0.0, deadline - time.monotonic()))
 
@@ -921,6 +596,7 @@ class BaseLogger(ABC):
         for index, operation in enumerate(operations):
             outcome = results[index]
             if outcome is None:
+                self._on_terminal_timeout(operation.name)
                 outcome = _FlushOutcome(
                     operation.name,
                     "timed_out",
@@ -931,6 +607,7 @@ class BaseLogger(ABC):
                 )
             outcomes.append(outcome)
             if outcome.error is not None:
+                self._set_flush_error(operation.name, outcome.error)
                 _diagnostic_logger.warning(
                     "%s terminal sink %s %s: %s",
                     type(self).__name__,
@@ -938,9 +615,10 @@ class BaseLogger(ABC):
                     outcome.status,
                     outcome.error,
                 )
+            elif outcome.status == "succeeded":
+                self._clear_flush_error(operation.name)
 
-        errors = [outcome.error for outcome in outcomes if outcome.error]
-        self._last_flush_error = errors[-1] if errors else None
+        self._refresh_flush_error()
         return tuple(outcomes)
 
     def close(self) -> None:
@@ -949,44 +627,96 @@ class BaseLogger(ABC):
             if self._is_closed:
                 return
             self._is_closing = True
-            periodic_stopped = self._stop_periodic_flush()
+            deadline = time.monotonic() + self._config.close_timeout_seconds
+            periodic_stopped = self._stop_periodic_flush(
+                timeout=max(0.0, deadline - time.monotonic())
+            )
             try:
                 periodic_outcomes: tuple[_FlushOutcome, ...] = ()
                 if not periodic_stopped:
-                    error = TimeoutError(
-                        f"{self._periodic_sink_name} remained in flight during close"
-                    )
-                    periodic_outcomes = (
+                    self._on_periodic_timeout()
+                    timeout_sinks = self._periodic_timeout_sinks()
+                    periodic_outcomes = tuple(
                         _FlushOutcome(
-                            self._periodic_sink_name,
+                            sink_name,
                             "timed_out",
-                            error,
+                            TimeoutError(
+                                f"{sink_name} remained in flight during close"
+                            ),
+                        )
+                        for sink_name in timeout_sinks
+                    )
+                    for outcome in periodic_outcomes:
+                        self._set_flush_error(
+                            outcome.name,
+                            outcome.error,  # type: ignore[arg-type]
+                        )
+                        _diagnostic_logger.warning(
+                            "%s periodic sink %s timed_out: %s",
+                            type(self).__name__,
+                            outcome.name,
+                            outcome.error,
+                        )
+                startup_outcomes = self._wait_startup_operation(deadline=deadline)
+                try:
+                    operations = self._build_final_operations(
+                        periodic_in_flight=not periodic_stopped,
+                    )
+                    self._terminal_outcomes = (
+                        periodic_outcomes
+                        + startup_outcomes
+                        + self._execute_terminal_operations(
+                            operations,
+                            deadline=deadline,
+                        )
+                    )
+                    self._refresh_flush_error()
+                    terminal_interrupt = next(
+                        (
+                            outcome.error
+                            for outcome in self._terminal_outcomes
+                            if isinstance(outcome.error, BaseException)
+                            and not isinstance(outcome.error, Exception)
                         ),
+                        None,
+                    )
+                    if terminal_interrupt is not None:
+                        raise terminal_interrupt
+                except Exception as terminal_exc:
+                    # Final-operation construction/drain is observational
+                    # persistence work.  Make it visible without letting it
+                    # replace an active Driver/context-manager exception.
+                    self._set_flush_error("terminal", terminal_exc)
+                    self._terminal_outcomes = (
+                        periodic_outcomes
+                        + startup_outcomes
+                        + (_FlushOutcome("terminal", "failed", terminal_exc),)
                     )
                     _diagnostic_logger.warning(
-                        "%s periodic sink %s timed_out: %s",
+                        "%s terminal preparation failed: %s",
                         type(self).__name__,
-                        self._periodic_sink_name,
-                        error,
+                        terminal_exc,
+                        exc_info=True,
                     )
-                operations = self._build_final_operations(
-                    periodic_in_flight=not periodic_stopped,
-                )
-                self._terminal_outcomes = (
-                    periodic_outcomes
-                    + self._execute_terminal_operations(operations)
-                )
-                errors = [
-                    outcome.error
-                    for outcome in self._terminal_outcomes
-                    if outcome.error is not None
-                ]
-                self._last_flush_error = errors[-1] if errors else None
             finally:
-                self._cleanup()
-                self._is_active = False
-                self._is_closed = True
-                self._is_closing = False
+                try:
+                    self._cleanup()
+                except Exception as cleanup_exc:
+                    # Terminal sink failures are already represented in
+                    # ``terminal_outcomes``.  Cleanup must still make the
+                    # logger terminal and must not hide those observations.
+                    if self._last_flush_error is None:
+                        self._set_flush_error("cleanup", cleanup_exc)
+                    _diagnostic_logger.warning(
+                        "%s cleanup failed: %s",
+                        type(self).__name__,
+                        cleanup_exc,
+                        exc_info=True,
+                    )
+                finally:
+                    self._is_active = False
+                    self._is_closed = True
+                    self._is_closing = False
 
     def _cleanup(self) -> None:
         """Stop the periodic flush thread and release resources.
@@ -997,7 +727,19 @@ class BaseLogger(ABC):
         self._flush_thread = None
 
     def __enter__(self) -> "BaseLogger":
+        self.activate()
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        self.close()
+        try:
+            self.close()
+        except BaseException:
+            # Never replace an exception raised by the caller's work with a
+            # persistence/cleanup failure.  With no active exception the
+            # cleanup failure remains visible to the caller.
+            if exc_type is None:
+                raise
+            _diagnostic_logger.exception(
+                "%s cleanup failed while preserving the active exception",
+                type(self).__name__,
+            )

@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 
 import polars as pl
+import pytest
 
+from datacoolie.core.exceptions import EngineError
 from datacoolie.engines._polars import metrics
 
 
@@ -23,3 +25,16 @@ def test_combined_metric_preserves_utc_timezone() -> None:
 
     assert count == 2
     assert values == {"id": 2, "instant": instant}
+
+
+def test_combined_metric_rejects_sub_microsecond_watermark_precision() -> None:
+    frame = pl.DataFrame(
+        {
+            "instant": pl.Series(
+                [1735689600123456789], dtype=pl.Datetime("ns")
+            )
+        }
+    ).lazy()
+
+    with pytest.raises(EngineError, match="sub-microsecond"):
+        metrics.get_max_values(frame, ["instant"])

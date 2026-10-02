@@ -1764,7 +1764,7 @@
         "schema_hints": [
           {
             "column_name": "modified_at",
-            "data_type": "DATETIME"
+            "data_type": "timestamp_ntz"
           }
         ]
       }

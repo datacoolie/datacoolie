@@ -10,6 +10,13 @@
   platform implementation tuning. Route those concerns to the engine/public
   API, schema reference, release skill, or shipped DataCoolie documentation.
 
+For the shared project/build and upload contract, read the public [project
+workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/). For the
+framework's platform concepts and provider boundary, read the public [platform
+reference](https://datacoolie.github.io/datacoolie/reference/concepts/platforms/).
+The matrix below only adds platform selection, path adaptation and credential
+safety needed by an agent.
+
 ## Platform is not the execution host
 
 The platform is DataCoolie's file and secret adapter. The execution host is
@@ -17,7 +24,7 @@ where the runner process starts and determines parameter transport. A Python
 process on a laptop, in CI, or in an Azure Function can use `FabricPlatform`;
 a local or CI process can use `DatabricksPlatform`.
 
-Keep `config.yaml` environment-to-platform mapping unchanged. Fix execution
+Keep `datacoolie.yml` environment-to-platform mapping unchanged. Fix execution
 host, platform runtime mode, engine, provider variant, and operation in the
 selected runner and deployment configuration. Use a runner provider suffix
 when authentication, session, or backend bootstrap differs.
@@ -69,11 +76,11 @@ bucket, Fabric Lakehouse, or Databricks governed Volume that is separate from
 business data. A policy-approved shared resource still needs distinct
 environment paths and access controls.
 
-Within the namespace, Release stages metadata in its temporary release candidate and activates the
-fixed target `metadata` component through the stable runner current identity. The target may use a
-filesystem path or a native object identity; do not require a `build_id` folder. Keep logs and
-watermarks in separate mutable locations. The durable workspace and build remain the authoring
-source of truth. The cloud metadata copy is only the release projection consumed by the runner.
+An external release workflow publishes the exact environment projection using
+the ordering and safety rules in the public project workflow. The framework
+itself neither reads a manifest nor activates a target. Keep logs and
+watermarks in separate mutable locations. The durable workspace and build
+remain the authoring source of truth.
 
 ## Credentials
 
@@ -123,11 +130,11 @@ attach the base package before execution; external environments install the
 matching platform profile together with only the needed engine/source/format
 profiles.
 
-When metadata uses a Python function, the approved execution host—not the
-DataCoolie platform adapter—determines WHL/ZIP compatibility. Load
-`references/python-functions-contract.md`; Build produces exactly one artifact
-and renders its fixed import prefix. Provision verifies reusable readiness and
-Release attaches that exact artifact before execution.
+When metadata uses Python functions, the approved execution host—not the
+DataCoolie platform adapter—determines wheel/ZIP compatibility. Load
+`references/python-functions-contract.md`; Build may package each configured
+root independently and renders fixed import prefixes. Attachment/install is an
+execution-host concern, outside the framework CLI.
 
 When an external cloud adapter runs on premises, the platform remains the cloud
 adapter while the scheduler, container, VM, or host remains the release target.

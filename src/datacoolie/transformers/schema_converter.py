@@ -2,31 +2,34 @@
 
 Casts DataFrame columns according to schema hints defined in the
 :class:`Transform` configuration.  Also handles ``timestamp_ntz`` →
-``timestamp`` conversion.  Type resolution (SQL alias → engine-native
-type) is delegated to each engine's :meth:`~BaseEngine.cast_column`.
+``timestamp`` conversion.  Datatype interpretation is delegated to the
+selected engine's :meth:`~BaseEngine.cast_column` implementation.
 """
 
 from __future__ import annotations
 
 from typing import Dict
 
-from datacoolie.core.models import DataFlow, SchemaHint
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.engines.data_types import infer_type_system
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.transformers.base import BaseTransformer
 
 logger = get_logger(__name__)
-
 
 
 class SchemaConverter(BaseTransformer[DF]):
     """Cast columns per schema hints (order = 10).
 
     Processing:
-        1. Convert ``timestamp_ntz`` columns to ``timestamp`` (engine hook).
-        2. If ``source.connection.use_schema_hint`` is truthy and hints
-           exist, cast each matching column using the raw type string from
-           the hint — type resolution is handled by the engine.
+        1. If ``source.connection.use_schema_hint`` is truthy and hints
+           exist, pass each authored source type and its dialect context to
+           the engine, which resolves it to a native target.
+        2. Convert ``timestamp_ntz`` columns to ``timestamp`` (engine hook)
+           after hint casts so an explicitly hinted NTZ column follows the
+           same conversion policy.
     """
 
     def __init__(self, engine: BaseEngine[DF]) -> None:
@@ -44,14 +47,24 @@ class SchemaConverter(BaseTransformer[DF]):
         if dataflow.source.connection.use_schema_hint:
             hints_dict = dataflow.transform.schema_hints_dict
             if hints_dict:
-                df, cast_count = self._apply_conversions(df, hints_dict)
+                type_system = infer_type_system(
+                    database_type=dataflow.source.connection.database_type,
+                    explicit_type_system=dataflow.source.connection.schema_hint_type_system,
+                )
+                df, cast_count = self._apply_conversions(
+                    df,
+                    hints_dict,
+                    type_system=type_system,
+                )
                 if cast_count:
                     self._mark_applied(f"{cast_count} casts")
 
         # Step 2: timestamp_ntz → timestamp (after hints so hint-cast columns
         # that resolve to timestamp_ntz are also converted)
         if dataflow.transform.convert_timestamp_ntz:
-            converted = self._engine.convert_timestamp_ntz_to_timestamp(df)
+            converted = self._engine.convert_timestamp_ntz_to_timestamp(
+                df, dataflow.transform.timestamp_timezone
+            )
             if converted is not df:
                 self._mark_applied()
             df = converted
@@ -66,6 +79,8 @@ class SchemaConverter(BaseTransformer[DF]):
         self,
         df: DF,
         hints_dict: Dict[str, SchemaHint],
+        *,
+        type_system: str,
     ) -> tuple[DF, int]:
         """Cast columns using schema hints.
 
@@ -91,15 +106,21 @@ class SchemaConverter(BaseTransformer[DF]):
                 missing_hint_columns.append(hint_col)
                 continue
 
-            target_type = self._build_type_string(hint)
-
             logger.debug(
-                "SchemaConverter: casting %s → %s (format=%s)",
+                "SchemaConverter: casting %s using source type %s (%s)",
                 actual_col,
-                target_type,
-                hint.format,
+                hint.data_type,
+                type_system,
             )
-            df = self._engine.cast_column(df, actual_col, target_type, hint.format)
+            df = self._engine.cast_column(
+                df,
+                actual_col,
+                hint.data_type,
+                hint.format,
+                type_system=type_system,
+                precision=hint.precision,
+                scale=hint.scale,
+            )
             cast_count += 1
 
         if missing_hint_columns:
@@ -111,16 +132,3 @@ class SchemaConverter(BaseTransformer[DF]):
             )
 
         return df, cast_count
-
-    @staticmethod
-    def _build_type_string(hint: SchemaHint) -> str:
-        """Build the target type string to pass to the engine.
-
-        If the hint carries precision, appends ``(precision,scale)``;
-        otherwise returns :attr:`~SchemaHint.data_type` unchanged.
-        The engine is responsible for resolving any SQL alias.
-        """
-        if hint.precision is not None:
-            s = hint.scale if hint.scale is not None else 0
-            return f"{hint.data_type}({hint.precision},{s})"
-        return hint.data_type

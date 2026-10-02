@@ -1,0 +1,21 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_platform_smoke",
+      "stage": "platform_smoke",
+      "source": {"connection_name": "orders_input", "table": "orders"},
+      "destination": {
+        "connection_name": "orders_output",
+        "table": "orders_platform_smoke",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {"column_name": "order_id", "data_type": "long"},
+          {"column_name": "customer_id", "data_type": "long"},
+          {"column_name": "amount", "data_type": "long"}
+        ]
+      }
+    }
+  ]
+}

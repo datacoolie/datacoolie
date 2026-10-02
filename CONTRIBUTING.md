@@ -49,7 +49,9 @@ By contributing, you represent and agree that:
 
 1. Fork the repository and create a feature branch.
 2. Make your changes with clear, self-contained commits.
-3. Add or update tests (`pytest` under `datacoolie/tests/`).
+3. Add or update source-package tests under `datacoolie/tests/`; keep release
+   contract tests under `scripts/tests/` and AI skill schema tests under
+   `ai/skills/tests/`.
 4. Run the test suite locally and ensure it passes.
 5. Sign off every commit (`git commit -s`).
 6. Open a pull request describing the change and referencing any related issue.
@@ -62,6 +64,16 @@ The default test command excludes Spark and matches the GitHub Actions job:
 poetry sync --with dev -E polars-delta -E polars-hash -E polars-sql
 poetry run pytest tests/
 ```
+
+Run the ownership-specific contract suites when changing their areas:
+
+```bash
+poetry run pytest -c pyproject.toml scripts/tests/ -n 0
+poetry run python ai/skills/tests/run_all.py build
+```
+
+`usecase-sim/` is a separate executable scenario testbed. It is validated
+through its runner and scenario validators, not through a pytest suite.
 
 Spark tests are intentionally local-only because starting the JVM and Delta
 runtime is expensive on GitHub-hosted runners. Install the development and

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datacoolie.core.models import SchemaHint
+from datacoolie.core.models.transform import SchemaHint
 from datacoolie.transformers.schema_converter import SchemaConverter
 from tests.unit.transformers.support import MockEngine, make_dataflow
 
@@ -28,7 +28,9 @@ class TestSchemaConverter:
         df = _make_dataflow(
             use_schema_hint=False,
             schema_hints=[
-                SchemaHint(column_name="amount", data_type="DECIMAL", precision=18, scale=2),
+                SchemaHint(
+                    column_name="amount", data_type="DECIMAL", precision=18, scale=2
+                ),
             ],
         )
         sc = SchemaConverter(engine)
@@ -39,8 +41,12 @@ class TestSchemaConverter:
         df = _make_dataflow(
             use_schema_hint=True,
             schema_hints=[
-                SchemaHint(column_name="order_date", data_type="DATE", format="yyyy-MM-dd"),
-                SchemaHint(column_name="amount", data_type="DECIMAL", precision=18, scale=2),
+                SchemaHint(
+                    column_name="order_date", data_type="DATE", format="yyyy-MM-dd"
+                ),
+                SchemaHint(
+                    column_name="amount", data_type="DECIMAL", precision=18, scale=2
+                ),
             ],
         )
         sc = SchemaConverter(engine)
@@ -49,7 +55,7 @@ class TestSchemaConverter:
         # Check types were mapped
         cast_types = {c[0]: c[1] for c in engine._casts}
         assert cast_types["order_date"] == "DATE"
-        assert cast_types["amount"] == "DECIMAL(18,2)"
+        assert cast_types["amount"] == "DECIMAL"
 
     def test_skips_inactive_hints(self, engine: MockEngine) -> None:
         df = _make_dataflow(
@@ -109,13 +115,56 @@ class TestSchemaConverter:
         assert len(engine._casts) == 1
         assert engine._casts[0][0] == "Amount"
 
+    def test_explicit_source_type_system_overrides_connection_default(
+        self, engine: MockEngine
+    ) -> None:
+        engine.set_columns(["amount"])
+        df = _make_dataflow(
+            use_schema_hint=True,
+            schema_hints=[SchemaHint(column_name="amount", data_type="int8")],
+            schema_hint_type_system="postgresql",
+        )
+        SchemaConverter(engine).transform({"amount": "1"}, df)
+        assert engine._casts[0][1] == "int8"
+        assert engine._cast_contexts[0]["type_system"] == "postgresql"
+
+    def test_transform_forwards_raw_integer_target(
+        self, engine: MockEngine
+    ) -> None:
+        engine.set_columns(["amount"])
+        df = _make_dataflow(
+            use_schema_hint=True,
+            schema_hints=[SchemaHint(column_name="amount", data_type="tinyint")],
+        )
+        df.destination.connection.format = "iceberg"
+
+        SchemaConverter(engine).transform({"amount": "1"}, df)
+
+        assert engine._casts[0][1] == "tinyint"
+
+    def test_transform_forwards_raw_target_for_any_format(
+        self, engine: MockEngine
+    ) -> None:
+        engine.set_columns(["amount"])
+        df = _make_dataflow(
+            use_schema_hint=True,
+            schema_hints=[SchemaHint(column_name="amount", data_type="tinyint")],
+        )
+        df.destination.connection.format = "csv"
+
+        SchemaConverter(engine).transform({"amount": "1"}, df)
+
+        assert engine._casts[0][1] == "tinyint"
+
     def test_no_hints_noop(self, engine: MockEngine) -> None:
         df = _make_dataflow(use_schema_hint=True, schema_hints=[])
         sc = SchemaConverter(engine)
         sc.transform({"x": 1}, df)
         assert len(engine._casts) == 0
 
-    def test_no_timestamp_ntz_conversion_when_disabled(self, engine: MockEngine) -> None:
+    def test_no_timestamp_ntz_conversion_when_disabled(
+        self, engine: MockEngine
+    ) -> None:
         # Use a direct mock assignment to verify branch behavior.
         engine.convert_timestamp_ntz_to_timestamp = MagicMock(side_effect=lambda x: x)
         df = _make_dataflow(
@@ -127,7 +176,28 @@ class TestSchemaConverter:
         sc.transform({"x": 1}, df)
         engine.convert_timestamp_ntz_to_timestamp.assert_not_called()
 
-    def test_unknown_schema_hint_type_is_passed_through(self, engine: MockEngine) -> None:
+    def test_timestamp_ntz_conversion_passes_explicit_timezone(
+        self, engine: MockEngine
+    ) -> None:
+        engine.convert_timestamp_ntz_to_timestamp = MagicMock(
+            side_effect=lambda df, timezone: df
+        )
+        df = _make_dataflow(
+            use_schema_hint=True,
+            schema_hints=[],
+            transform_configure={
+                "convert_timestamp_ntz": True,
+                "timestamp_timezone": "Asia/Ho_Chi_Minh",
+            },
+        )
+        SchemaConverter(engine).transform({"x": 1}, df)
+        engine.convert_timestamp_ntz_to_timestamp.assert_called_once_with(
+            {"x": 1}, "Asia/Ho_Chi_Minh"
+        )
+
+    def test_unknown_schema_hint_type_fails_explicitly(
+        self, engine: MockEngine
+    ) -> None:
         engine.set_columns(["amount"])
         df = _make_dataflow(
             use_schema_hint=True,
@@ -137,28 +207,22 @@ class TestSchemaConverter:
         )
         sc = SchemaConverter(engine)
         sc.transform({"amount": 100}, df)
-        # Unknown types are passed through to the engine unchanged
-        assert len(engine._casts) == 1
         assert engine._casts[0][1] == "UNKNOWN_TYPE"
 
+    def test_real_polars_canonical_narrow_cast_rejects_out_of_range_value(
+        self,
+    ) -> None:
+        polars = pytest.importorskip("polars")
+        from datacoolie.engines.polars_engine import PolarsEngine
 
-class TestBuildTypeString:
-    def test_plain_type_returned_as_is(self) -> None:
-        hint = SchemaHint(column_name="x", data_type="DATE")
-        assert SchemaConverter._build_type_string(hint) == "DATE"
+        dataflow = _make_dataflow(
+            use_schema_hint=True,
+            schema_hints=[SchemaHint(column_name="amount", data_type="tinyint")],
+        )
+        converted = SchemaConverter(PolarsEngine()).transform(
+            polars.DataFrame({"amount": [200]}).lazy(), dataflow
+        )
 
-    def test_precision_and_scale_appended(self) -> None:
-        hint = SchemaHint(column_name="x", data_type="DECIMAL", precision=18, scale=2)
-        assert SchemaConverter._build_type_string(hint) == "DECIMAL(18,2)"
-
-    def test_precision_without_scale_defaults_zero(self) -> None:
-        hint = SchemaHint(column_name="x", data_type="DECIMAL", precision=10)
-        assert SchemaConverter._build_type_string(hint) == "DECIMAL(10,0)"
-
-    def test_varchar_plain(self) -> None:
-        hint = SchemaHint(column_name="x", data_type="VARCHAR")
-        assert SchemaConverter._build_type_string(hint) == "VARCHAR"
-
-    def test_numeric_with_precision(self) -> None:
-        hint = SchemaHint(column_name="x", data_type="NUMERIC", precision=12, scale=4)
-        assert SchemaConverter._build_type_string(hint) == "NUMERIC(12,4)"
+        assert converted.collect_schema()["amount"] == polars.Int8
+        with pytest.raises(polars.exceptions.InvalidOperationError, match="i8"):
+            converted.collect()

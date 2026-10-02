@@ -1,13 +1,19 @@
-"""Tests for datacoolie.logging.context — ContextVar helpers."""
+"""Tests for datacoolie.logging.runtime.context — ContextVar helpers."""
 
 from __future__ import annotations
 
 import threading
 
-from datacoolie.logging.context import (
+from datacoolie.logging.runtime.context import (
+    clear_dataflow_context,
     clear_dataflow_id,
+    clear_dataflow_run_id,
+    dataflow_context,
     get_dataflow_id,
+    get_dataflow_run_id,
+    set_dataflow_context,
     set_dataflow_id,
+    set_dataflow_run_id,
 )
 
 
@@ -37,6 +43,39 @@ class TestSetGetClear:
         token = set_dataflow_id("df-456")
         clear_dataflow_id(token)
         assert get_dataflow_id() == ""
+
+    def test_execution_context_restores_both_identifiers(self):
+        outer = set_dataflow_context("df-outer", "run-outer")
+        inner = set_dataflow_context("df-inner", "run-inner")
+        assert get_dataflow_id() == "df-inner"
+        assert get_dataflow_run_id() == "run-inner"
+        clear_dataflow_context(inner)
+        assert get_dataflow_id() == "df-outer"
+        assert get_dataflow_run_id() == "run-outer"
+        clear_dataflow_context(outer)
+        assert get_dataflow_id() == ""
+        assert get_dataflow_run_id() == ""
+
+    def test_context_manager_restores_parent_on_error(self):
+        outer = set_dataflow_context("df-parent", "run-parent")
+        try:
+            with dataflow_context("df-child", "run-child"):
+                assert get_dataflow_id() == "df-child"
+                assert get_dataflow_run_id() == "run-child"
+                raise RuntimeError("expected")
+        except RuntimeError:
+            pass
+        assert get_dataflow_id() == "df-parent"
+        assert get_dataflow_run_id() == "run-parent"
+        clear_dataflow_context(outer)
+
+    def test_run_id_can_be_bound_independently(self):
+        token = set_dataflow_run_id("run-only")
+        try:
+            assert get_dataflow_run_id() == "run-only"
+            assert get_dataflow_id() == ""
+        finally:
+            clear_dataflow_run_id(token)
 
 
 class TestThreadIsolation:

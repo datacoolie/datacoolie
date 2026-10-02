@@ -5,6 +5,10 @@ description: Plan or apply DataCoolie infrastructure changes for an explicit req
 
 # DataCoolie Provision
 
+Project layout, build output, runtime paths, and release boundaries come from
+the public [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/).
+This Skill owns only target-resource planning, approval and readiness evidence.
+
 ## Outcome And Boundary
 
 Resolve one environment-scoped infrastructure gap and return verifiable evidence to the blocked
@@ -56,12 +60,13 @@ documentation remain authoritative.
    dedicated persistent resource separate from business data: a directory locally, an S3 bucket
    on AWS, a Lakehouse on Fabric, or a governed Volume on Databricks. Use a shared resource
    only when the requirements explicitly allow an isolated path and access boundary.
-   Verify readiness for fixed target components named `metadata` and, when required, `functions`;
-   do not impose names on runner resources, logs, watermarks, candidate/current references, or
-   deployment markers.
-5. When the selected build contract uses a function artifact, verify reusable readiness only:
-   immutable artifact storage, environment/library capability for the selected WHL or ZIP,
-   permissions, network access, and fresh-session behavior. Do not upload or attach a build.
+    Verify readiness for the configured metadata component and any configured functions roots;
+    their default names are project conventions, not fixed target names. Do not impose names on
+    runner resources, logs, watermarks, candidate/current references, or deployment markers.
+ 5. When the selected build contract uses function artifacts, verify reusable readiness only:
+    immutable artifact storage, environment/library capability for each selected wheel, ZIP or
+    source-copy result, permissions, network access, and fresh-session behavior. Do not upload,
+    install, attach or activate a build-specific artifact.
 6. Persist an idempotent, environment-scoped plan covering actions, data-bearing impact, cost,
    permissions, state, rollback, tool versions, and unresolved risks.
 7. Validate or preview without mutation. If the tool has no trustworthy non-mutating preview,
@@ -69,8 +74,8 @@ documentation remain authoritative.
 8. Obtain approval for the exact plan hash, then apply that plan only. Stop on changed actions,
    partial apply, drift, state locks, or inaccessible state and reconcile observable state.
 9. Verify resource state and least-privilege access from the intended execution host, including
-   complete metadata-set read/replace, optional function-artifact storage/attachment, and log and
-   watermark operations when in scope. For native execution, also prove the declared job, function,
+    complete configured metadata-set read/replace, optional reusable function-capability storage,
+    and log and watermark operations when in scope. For native execution, also prove the declared job, function,
    notebook, or external-host capability without uploading build-specific bytes. Record successful or
    failed evidence; never convert an incomplete or failed apply into success.
 

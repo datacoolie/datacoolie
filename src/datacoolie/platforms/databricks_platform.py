@@ -43,7 +43,6 @@ class DatabricksPlatform(BasePlatform):
         *,
         runtime: DatabricksRuntime = "auto",
         workspace_client: Any | None = None,
-        **kwargs: Any,
     ) -> None:
         super().__init__(cache_ttl=cache_ttl)
         self._runtime = validate_runtime(runtime)

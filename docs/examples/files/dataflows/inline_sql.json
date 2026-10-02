@@ -1,0 +1,18 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_inline_sql",
+      "stage": "bronze2silver",
+      "source": {
+        "connection_name": "orders_delta",
+        "query": "SELECT order_id, amount FROM orders WHERE amount > 0"
+      },
+      "destination": {
+        "connection_name": "orders_output",
+        "table": "orders_positive",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

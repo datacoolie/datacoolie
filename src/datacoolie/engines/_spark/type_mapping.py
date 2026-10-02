@@ -1,154 +1,176 @@
-"""Spark type alias resolution, casting, and Hive type conversion."""
+"""Spark datatype interpretation, native casting, and Hive conversion."""
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as T
 
-from datacoolie.logging.base import get_logger
+from datacoolie.core.constants import Format
+from datacoolie.core.exceptions import ConfigurationError
+from datacoolie.engines.data_types import (
+    LogicalKind,
+    ResolvedDataType,
+    TimestampKind,
+    resolve_schema_hint,
+)
+from datacoolie.engines.data_types.formats import normalize_output_format, output_type_for_format
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 
-SPARK_TYPE_MAP: Dict[str, str] = {
-    "string": "string",
-    "boolean": "boolean",
-    "byte": "byte",
-    "tinyint": "tinyint",
-    "short": "short",
-    "smallint": "smallint",
-    "int": "int",
-    "integer": "integer",
-    "long": "long",
-    "bigint": "bigint",
-    "float": "float",
-    "double": "double",
-    "decimal": "decimal",
-    "date": "date",
-    "timestamp": "timestamp",
-    "timestamp_ntz": "timestamp_ntz",
-    "interval": "interval",
-    "void": "void",
-    "binary": "binary",
-    "str": "string",
-    "varchar": "string",
-    "varchar2": "string",
-    "nvarchar": "string",
-    "nvarchar2": "string",
-    "char": "string",
-    "nchar": "string",
-    "character": "string",
-    "character varying": "string",
-    "text": "string",
-    "ntext": "string",
-    "tinytext": "string",
-    "mediumtext": "string",
-    "longtext": "string",
-    "clob": "string",
-    "nclob": "string",
-    "enum": "string",
-    "set": "string",
-    "uuid": "string",
-    "uniqueidentifier": "string",
-    "json": "string",
-    "jsonb": "string",
-    "xml": "string",
-    "citext": "string",
-    "time": "string",
-    "timetz": "string",
-    "time with time zone": "string",
-    "time without time zone": "string",
-    "bool": "boolean",
-    "bit": "boolean",
-    "logical": "boolean",
-    "byteint": "byte",
-    "uint8": "tinyint",
-    "int2": "smallint",
-    "int16": "smallint",
-    "smallserial": "smallint",
-    "uint16": "smallint",
-    "int4": "int",
-    "int32": "int",
-    "mediumint": "int",
-    "serial": "int",
-    "uint32": "int",
-    "int8": "bigint",
-    "int64": "bigint",
-    "hugeint": "bigint",
-    "bigserial": "bigint",
-    "uint64": "bigint",
-    "unsigned": "bigint",
-    "real": "float",
-    "float4": "float",
-    "float32": "float",
-    "float8": "double",
-    "float64": "double",
-    "double precision": "double",
-    "numeric": "decimal",
-    "dec": "decimal",
-    "number": "decimal",
-    "money": "decimal",
-    "smallmoney": "decimal",
-    "timestamptz": "timestamp",
-    "timestamp_tz": "timestamp",
-    "timestamp with time zone": "timestamp",
-    "datetimeoffset": "timestamp",
-    "datetime": "timestamp_ntz",
-    "datetime2": "timestamp_ntz",
-    "smalldatetime": "timestamp_ntz",
-    "timestamp without time zone": "timestamp_ntz",
-    "varbinary": "binary",
-    "bytea": "binary",
-    "blob": "binary",
-    "tinyblob": "binary",
-    "mediumblob": "binary",
-    "longblob": "binary",
-    "image": "binary",
-    "bytes": "binary",
-    "raw": "binary",
-    "long raw": "binary",
-}
+
+_SPARK_INTEGER_TYPES = (
+    (T.ByteType, "tinyint"),
+    (T.ShortType, "smallint"),
+    (T.IntegerType, "int"),
+    (T.LongType, "bigint"),
+)
 
 
-def resolve_type(target_type: str) -> Optional[str]:
-    """Resolve SQL aliases and preserve parameter suffixes."""
-    if "(" in target_type:
-        base, params = target_type.split("(", 1)
-        resolved_base = SPARK_TYPE_MAP.get(base.lower())
-        if resolved_base is None:
-            logger.debug(
-                "SparkEngine.cast_column: unknown type %r — bypassing cast, column kept as-is",
-                target_type,
-            )
-            return None
-        return f"{resolved_base}({params}"
-    resolved = SPARK_TYPE_MAP.get(target_type.lower())
-    if resolved is None:
+def resolve_type(
+    target_type: str | ResolvedDataType,
+    *,
+    type_system: str | None = None,
+    precision: int | None = None,
+    scale: int | None = None,
+) -> ResolvedDataType:
+    """Resolve one authored source declaration for the Spark adapter.
+
+    The returned object is a dependency-free logical description.  Native
+    Spark types are constructed by :func:`_spark_dtype`; no intermediate
+    target string is serialized and parsed again.
+    """
+    if isinstance(target_type, ResolvedDataType):
+        return target_type
+    try:
+        return resolve_schema_hint(
+            target_type,
+            type_system=type_system,
+            precision=precision,
+            scale=scale,
+        )
+    except ConfigurationError:
         logger.debug(
-            "SparkEngine.cast_column: unknown type %r — bypassing cast, column kept as-is",
+            "SparkEngine.cast_column: unsupported source type %r",
             target_type,
         )
-    return resolved
+        raise
+
+
+def _spark_dtype(resolved: ResolvedDataType) -> T.DataType:
+    """Build the native Spark datatype for a resolved logical declaration."""
+    if resolved.kind is LogicalKind.BOOLEAN:
+        return T.BooleanType()
+    if resolved.kind is LogicalKind.SIGNED_INTEGER:
+        return {
+            8: T.ByteType(),
+            16: T.ShortType(),
+            32: T.IntegerType(),
+            64: T.LongType(),
+        }[resolved.bit_width]
+    if resolved.kind is LogicalKind.UNSIGNED_INTEGER:
+        return {
+            8: T.ShortType(),
+            16: T.IntegerType(),
+            32: T.LongType(),
+            64: T.DecimalType(resolved.precision or 20, resolved.scale or 0),
+        }[resolved.bit_width]
+    if resolved.kind is LogicalKind.FLOAT:
+        return T.FloatType() if resolved.bit_width == 32 else T.DoubleType()
+    if resolved.kind is LogicalKind.DECIMAL:
+        return T.DecimalType(resolved.precision or 1, resolved.scale or 0)
+    if resolved.kind is LogicalKind.STRING:
+        return T.StringType()
+    if resolved.kind is LogicalKind.BINARY:
+        return T.BinaryType()
+    if resolved.kind is LogicalKind.DATE:
+        return T.DateType()
+    if resolved.kind is LogicalKind.TIMESTAMP:
+        return (
+            T.TimestampNTZType()
+            if resolved.timestamp_kind is TimestampKind.NAIVE
+            else T.TimestampType()
+        )
+    raise ConfigurationError(
+        "No Spark adapter exists for resolved datatype",
+        details={"kind": resolved.kind.value, "source_type": resolved.source_type},
+    )
 
 
 def cast_column(
     df: DataFrame,
     column_name: str,
-    target_type: str,
+    target_type: str | ResolvedDataType,
     fmt: Optional[str] = None,
+    *,
+    type_system: str | None = None,
+    precision: int | None = None,
+    scale: int | None = None,
 ) -> DataFrame:
-    """Cast a column with the same alias and format behavior as SparkEngine."""
-    resolved = resolve_type(target_type)
-    if resolved is None:
+    """Cast a column using the source declaration and Spark-native APIs."""
+    resolved = resolve_type(
+        target_type,
+        type_system=type_system,
+        precision=precision,
+        scale=scale,
+    )
+    column = sf.col(column_name)
+    # MySQL's JDBC driver exposes YEAR as a java.sql.Date (Spark therefore
+    # reads it as DateType), while the authored MySQL semantic is a numeric
+    # calendar year.  A plain Spark ``date.cast(short)`` yields NULL, which
+    # would silently lose the value during the schema-hint cast.  Normalize
+    # only this vendor/type pair at the engine boundary; native numeric
+    # readers continue through the ordinary cast path.
+    if (
+        type_system == "mysql"
+        and resolved.source_type.strip().lower() == "year"
+        and isinstance(df.schema[column_name].dataType, (T.DateType, T.TimestampType, T.TimestampNTZType))
+    ):
+        return df.withColumn(
+            column_name,
+            sf.year(column).cast(_spark_dtype(resolved)),
+        )
+    if resolved.kind is LogicalKind.DATE and fmt:
+        return df.withColumn(column_name, sf.to_date(column, fmt))
+    if resolved.kind is LogicalKind.TIMESTAMP and fmt:
+        if resolved.timestamp_kind is TimestampKind.NAIVE:
+            return df.withColumn(
+                column_name,
+                sf.to_timestamp_ntz(column, sf.lit(fmt)),
+            )
+        return df.withColumn(column_name, sf.to_timestamp(column, fmt))
+    return df.withColumn(column_name, column.cast(_spark_dtype(resolved)))
+
+
+def normalize_output_frame(df: DataFrame, output_format: str | Format) -> DataFrame:
+    """Apply persisted-format integer rules at the native write boundary."""
+    try:
+        normalized = normalize_output_format(output_format)
+    except ConfigurationError:
         return df
-    lower = resolved.lower()
-    if lower == "date" and fmt:
-        return df.withColumn(column_name, sf.to_date(sf.col(column_name), fmt))
-    if lower == "timestamp" and fmt:
-        return df.withColumn(column_name, sf.to_timestamp(sf.col(column_name), fmt))
-    return df.withColumn(column_name, sf.col(column_name).cast(resolved))
+
+    result = df
+    for field in df.schema.fields:
+        source_alias = next(
+            (
+                alias
+                for dtype, alias in _SPARK_INTEGER_TYPES
+                if isinstance(field.dataType, dtype)
+            ),
+            None,
+        )
+        if source_alias is None:
+            continue
+        target = output_type_for_format(source_alias, normalized)
+        if target != source_alias:
+            result = result.withColumn(
+                field.name,
+                sf.col(field.name).cast(target),
+            )
+    return result
 
 
 def spark_type_to_hive(dt: T.DataType) -> str:
@@ -180,12 +202,11 @@ def spark_type_to_hive(dt: T.DataType) -> str:
     if isinstance(dt, T.ArrayType):
         return f"ARRAY<{spark_type_to_hive(dt.elementType)}>"
     if isinstance(dt, T.MapType):
-        return (
-            f"MAP<{spark_type_to_hive(dt.keyType)},{spark_type_to_hive(dt.valueType)}>"
-        )
+        return f"MAP<{spark_type_to_hive(dt.keyType)},{spark_type_to_hive(dt.valueType)}>"
     if isinstance(dt, T.StructType):
         fields = [
-            f"{field.name}:{spark_type_to_hive(field.dataType)}" for field in dt.fields
+            f"{field.name}:{spark_type_to_hive(field.dataType)}"
+            for field in dt.fields
         ]
         return f"STRUCT<{','.join(fields)}>"
     return "STRING"

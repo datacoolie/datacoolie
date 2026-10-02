@@ -45,6 +45,7 @@ CREATE TABLE dc_framework_dataflows (
     source_table              NVARCHAR(200),
     source_query              NVARCHAR(MAX),
     source_python_function    NVARCHAR(500),
+    source_filter_expression  NVARCHAR(MAX),
     source_watermark_columns  NVARCHAR(MAX),
     source_configure          NVARCHAR(MAX),
 

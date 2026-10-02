@@ -1,0 +1,18 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_sql_file",
+      "stage": "bronze2silver",
+      "source": {
+        "connection_name": "orders_delta",
+        "query": "sql/orders.sql"
+      },
+      "destination": {
+        "connection_name": "orders_output",
+        "table": "orders_from_file",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

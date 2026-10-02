@@ -11,9 +11,12 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/datacoolie/datacoolie" alt="License"></a>
 </p>
 
-# DataCoolie — Metadata-driven ETL Framework
+# DataCoolie — Multi-engine, Multi-platform Data Pipeline Framework
 
-Metadata-driven ETL framework that unifies execution engines (Spark, Polars, and more in the future), remains cloud-agnostic (Fabric, AWS, Databricks, and more in the future), and currently focuses on batch workloads with a roadmap to micro-batch and streaming.
+DataCoolie is a metadata-driven Python data pipeline framework. It supports
+SQL and custom Python sources, unifies compatible execution across Polars and
+Spark, and runs on Local, Microsoft Fabric, Databricks and AWS environments.
+It is batch-first and scales stages through independently launched Driver jobs.
 
 ## What problem does it solve?
 
@@ -26,6 +29,11 @@ DataCoolie solves this by separating pipeline intent from execution details.
 You define connections, dataflows, transforms, and operational controls as
 metadata, then run the same intent on Polars or Spark and on local, Fabric,
 Databricks, or AWS platforms.
+
+A source can combine multiple operations into one engine-compatible DataFrame
+through SQL or a Python function. Built-in transformers operate on that current
+DataFrame; the project runner remains responsible for engine setup, custom
+table registration, credentials and host-specific configuration.
 
 ## Why it helps
 
@@ -75,6 +83,9 @@ pip install "datacoolie[polars-delta,polars-hash]"
 # Core only (mainly useful for extension work)
 pip install datacoolie
 
+# Project tooling (init, validate, inspect, build, metadata conversion)
+pip install "datacoolie[cli]"
+
 # All engines
 pip install "datacoolie[all]"
 
@@ -84,9 +95,17 @@ pip install "datacoolie[databricks-external]"
 pip install "datacoolie[aws]"  # AWS, MinIO, or LocalStack
 ```
 
+The project CLI is intentionally preparation-only; run dataflows from a
+project-owned Python script or notebook so custom engine setup remains under
+user control. The `dc` and `datacoolie` executables are equivalent aliases.
+See the [DataCoolie user guide](docs/guide/index.md) and
+[CLI reference](docs/guide/cli/index.md).
+
 Extras are composable by use case rather than by a platform × engine matrix.
 For example, `polars-delta,source-db-oracle-polars,aws` covers a Polars Delta
-pipeline that reads Oracle and writes to S3.
+pipeline that reads Oracle and writes to S3. Use
+`source-db-native-polars` when a MySQL or MSSQL source must retain unsigned
+integer and high-precision decimal values before schema-hint casting.
 
 ## Quick Start
 
@@ -174,28 +193,31 @@ installed optional dependency.
 
 ## What to do next
 
-- Use your own files while keeping the same runner pattern: <https://datacoolie.github.io/datacoolie/getting-started/use-your-own-data/>
-- Build a multi-stage bronze→silver tutorial flow: <https://datacoolie.github.io/datacoolie/getting-started/first-dataflow/>
-- Learn the metadata model field by field: <https://datacoolie.github.io/datacoolie/how-to/metadata-guide/>
-- Install the official DataCoolie Skills workflow: <https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/>
-- Watch the WWI multi-cloud Medallion walkthrough: <https://datacoolie.github.io/datacoolie/tutorials/wwi-medallion-multicloud/>
+- Understand the framework and ecosystem boundary: <https://datacoolie.github.io/datacoolie/introduction/>
+- Use your own files while keeping the same runner pattern: <https://datacoolie.github.io/datacoolie/guide/getting-started/use-your-own-data/>
+- Configure Driver paths, replay and run attributes: <https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/>
+- Build a multi-stage bronze→silver tutorial flow: <https://datacoolie.github.io/datacoolie/guide/getting-started/multi-stage-dataflow/>
+- Learn the metadata model field by field: <https://datacoolie.github.io/datacoolie/guide/metadata/>
+- Install the official DataCoolie Skills workflow: <https://datacoolie.github.io/datacoolie/introduction/ai-skills/>
+- Watch the WWI multi-cloud Medallion walkthrough: <https://datacoolie.github.io/datacoolie/examples/wwi-medallion-multicloud/>
 
 ## AI-assisted project workflow
 
 DataCoolie Skills are an official public feature. Install the five lifecycle
 Skills with
-`npx skills add datacoolie/datacoolie`. DataCoolie Skills use
-`{project_name}_dcws/` as the project control folder.
-That workspace contains its own `AGENTS.md`, required source discovery evidence for a new project, one canonical
-architecture when material design exists, durable metadata and runners, immutable generated builds,
-runtime state, and approval or release evidence.
+`npx skills add datacoolie/datacoolie`. The framework-facing project source of
+truth remains `datacoolie.yml`, its configured metadata/components, and
+project-owned runners. Generated builds and `.runtime` state stay separate
+from source; agent approvals and evidence are workflow concerns documented by
+the Skills guide and do not change the Driver runtime contract.
 
-The canonical workflow contract lives at [ai/AGENTS.md](ai/AGENTS.md). It
-routes work by required outcome: mandatory new-project discovery, material design, build, conditional
-provisioning, and explicit release. Design, infrastructure mutation, and production release use
-separate exact-scope gates.
+The shared project and framework contract lives in the [public project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+and [runtime configuration guide](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/).
+[`ai/AGENTS.md`](ai/AGENTS.md) is the agent routing and safety layer: it routes
+work by required outcome, while discovery, material design, provisioning, and
+explicit release retain their separate exact-scope gates.
 
-See the [public DataCoolie Skills guide](https://datacoolie.github.io/datacoolie/getting-started/ai-assisted-workflow/)
+See the [public DataCoolie Skills guide](https://datacoolie.github.io/datacoolie/introduction/ai-skills/)
 for prerequisites, installation, routing, project state, and approval boundaries.
 
 ## Testbed & scenarios

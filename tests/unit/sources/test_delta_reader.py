@@ -6,7 +6,8 @@ import pytest
 
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.sources.delta_reader import DeltaReader
 
 from tests.unit.sources.support import MockEngine, delta_source, engine, query_source

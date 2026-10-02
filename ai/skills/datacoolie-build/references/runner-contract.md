@@ -1,167 +1,157 @@
-# DataCoolie Runner Contract
+# DataCoolie runner contract
 
-## Scope
+Read this reference when authoring or reviewing a Python or notebook entrypoint.
+The runner is project-owned execution code. It constructs framework components
+and calls one framework operation; it does not become a second project/build
+system.
 
-- Read whenever authoring or verifying a Python or notebook entrypoint.
-- Owns common entrypoint identity, runtime parameters, construction, generated-source behavior, and
-  normal `run` stage passthrough semantics.
-- Does not decide framework support or define metadata fields. Replay and maintenance additionally
-  load `references/operations-contract.md`, which owns only their operation-specific extensions.
+Use the public [runtime configuration guide](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
+and [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+for the full path/build contract. The checks below are the agent-facing
+adaptation and handoff rules that remain specific to runners.
 
-## Common identity
+## Identity and location
 
-Durable and generated entrypoints encode fixed implementation identity:
+Runners are stored below `runners/<environment>/` and copied to the same
+environment directory in a build. For newly authored host-specific runners,
+keep implementation identity in the filename:
 
 ```text
-{run|replay|maintenance}_{platform}_{engine}[_{provider}].py|ipynb
+run_<platform>_<engine>[_{provider}].py|ipynb
+replay_<platform>_<engine>[_{provider}].py|ipynb
+maintenance_<platform>_<engine>[_{provider}].py|ipynb
 ```
 
-Add the provider suffix only when bootstrap, authentication, session, or lifecycle code differs.
-Environment is resolved during build and is not a runner parameter. One compatible environment may
-materialize multiple engine runners; orchestration selects the exact file or notebook.
+When reusing a maintained [public example](public-examples.md), preserve its
+canonical filename, including generic project-owned names. Verify the fixed
+platform, engine, provider and operation from its source and usage guide; a
+generic filename does not permit runtime implementation selectors.
 
-Use a separate operation-specific entrypoint instead of a runtime mode selector. The remainder of
-this reference defines common behavior and normal `run`; the operations reference adds replay and
-maintenance semantics.
-
-## Common runtime parameters
-
-A file-provider entrypoint accepts:
-
-- Required primary `metadata_path`/`config_path`.
-- Optional `connections_path`.
-- Optional `schema_hints_path`.
-- Persistent `watermark_base_path`.
-- Persistent `base_log_path`.
-- One optional stage value when the operation supports stage selection.
-- Optional `job_num` and `job_index`, defaulting to `1` and `0` for a single job.
-- Only additional options owned by its selected operation and installed runtime.
-
-Pass exactly the paths declared by the build metadata set to `FileProvider`; omitted optional roles
-remain `None`. Do not scan a directory, infer a layout, merge JSON in the runner, or use placeholder
-paths. Pass metadata, log, and watermark paths unchanged to the selected framework constructors. The
-framework and platform own path interpretation and validation. Workspace layout guidance and build
-receipt validation remain separate concerns. Another metadata provider may use a provider-specific
-entrypoint and omit irrelevant file-provider parameters.
-
-Expose equivalent values through the execution host's parameter transport. The host and the
-DataCoolie platform adapter may differ; for example, a Python process can use `FabricPlatform` in
-external mode. Load `references/platform-contract.md` for runtime/backend selection.
-A normal CLI Python runner keeps one optional `--stage` string; another Python host may adapt that
-single scalar through its own environment or event transport.
-
-| Execution host | Stage transport |
-|---|---|
-| Python process (local, CI, function, container) | one optional scalar through its CLI, environment, or host adapter |
-| Databricks notebook/job | one named `STAGE` widget string |
-| Fabric notebook/pipeline | one `STAGE` parameter-cell string |
-| AWS Glue | one optional named `STAGE` job argument |
-
-Pass the stage value unchanged. Do not split comma strings, decode a stage list, accept repeated
-stage arguments, or create a stage plan in the runner. Operation-specific complex values may still
-use the documented `*_JSON` convention. Decode those before constructing DataCoolie components.
-Stage names are dynamic and project-defined; do not add a stage-name allowlist, medallion-specific
-branches, or hardcoded stage sequencing. Examples do not restrict accepted stage values.
-The file fixes platform, engine, provider, and operation; do not expose them again as runtime
-selectors.
-
-### Job parameter transport
-
-| Execution host | Optional parameters | Decoding |
-|---|---|---|
-| Python CLI | `--job-num`, `--job-index` | `argparse` integers; defaults 1/0 |
-| Databricks notebook/job | `JOB_NUM`, `JOB_INDEX` widgets | `int(widget_value(...))`; defaults 1/0 |
-| Fabric notebook/pipeline | `JOB_NUM`, `JOB_INDEX` in the tagged parameter cell | integer values, decode text transport with `int(...)`; defaults 1/0 |
-| AWS Glue | `--JOB_NUM`, `--JOB_INDEX` job arguments | resolve only when supplied; decode with `int(...)`; defaults 1/0 |
-
-Pass these values to `DataCoolieRunConfig(job_num=..., job_index=...)`. Its validation owns range
-checks. Keep job parameters in runtime invocation configuration, outside workspace `config.yaml`
-and dataflow metadata. Preserve single-job usage with neither parameter supplied.
-
-Read [orchestration-contract.md](orchestration-contract.md) for assignment, dependency ordering,
-stage barriers, and concurrency limits. The external scheduler launches all shards; the runner
-does not spawn jobs, partition metadata, or rewrite group/order. Replay loads its assigned flows
-before calling `run_replay`; maintenance delegates selection to `run_maintenance`.
-
-The platform environment or job must install DataCoolie and attach the selected function artifact before
-the runner starts. Executable runners may report the installed version but must not install or
-restart their own runtime. Provision owns platform readiness; release owns artifact attachment and
-deployment configuration.
-
-Function-capable generated entrypoints set one build-authored allowlist:
-
-```python
-DataCoolieRunConfig(allowed_function_prefixes=["project_specific_package"])
-```
-
-Use `[]` when resolved metadata has no Python-function source. Never accept the prefix as a runtime
-parameter, and never install, download, extract, mutate `sys.path`, or restart from the runner.
+The environment is selected by the directory, not by a runtime flag. Platform,
+engine, provider, and operation are fixed by the entrypoint. Use separate files
+for normal run, replay, and maintenance rather than a large mode switch.
 
 ## Construction boundary
 
-Every concrete entrypoint performs only:
+Each runner may do only the following:
 
-1. Execution-host parameter transport and operation-specific decoding only.
-2. Metadata-provider construction with explicit persistent watermark state when relevant.
-3. Fixed platform, engine, provider, and session bootstrap.
-4. Required engine-local setup through public APIs.
-5. Explicit base-log configuration.
-6. DataCoolie driver construction.
-7. Calls to the selected framework operation.
+1. Decode its execution-host parameters (including one optional `stage` scalar
+   and optional integer `job_num`/`job_index`, default `1`/`0`).
+2. Construct the selected platform, engine, and metadata provider.
+3. Perform required engine-local setup through public APIs (for example,
+   register qualified Delta/Iceberg tables for Polars SQL).
+4. Construct `DataCoolieRunConfig` and pass caller-owned runtime paths.
+5. Construct `DataCoolieDriver` and call exactly one selected operation.
 
-When Polars metadata queries reference indexed Delta or Iceberg relations, step 4 registers them on
-the active engine before driver construction. Load `references/polars-qualified-sql.md`; do not run
-registration in a subprocess, a Python-function source, or metadata `source.configure`. Omit this
-setup from Polars runners that do not use indexed SQL relations.
+The runner does not discover or merge metadata, resolve query files, install
+packages, create scheduler jobs, mutate target resources, or execute another
+runner. Preparation—including SQL-file and secret resolution—belongs to the
+framework execution context before a reader is created. Authored metadata is
+not rewritten by a runner.
 
-Load environment variables or platform secrets before DataCoolie resolves secret references. Local
-`.env` loading is an optional local-launcher concern, not a universal cloud dependency. Capability
-selection and custom-edge decisions belong to `references/framework-boundary.md`. A fixed native
-or external runner uses the explicit platform runtime mode from `references/platform-contract.md`;
-reserve automatic detection for ad hoc or user-authored construction.
+## Paths and context
 
-## Normal run stage passthrough
+Use the path that matches the chosen runtime mode:
 
-Pass the one received value unchanged to one call:
+| Mode | Required/optional input |
+|---|---|
+| Project artifact | `artifact_base_path`; metadata defaults to `<artifact>/metadata` unless `metadata_base_path` is explicit |
+| Standalone metadata | `metadata_path` (one file) or `metadata_base_path` (metadata directory) |
+| SQL files | one or more `sql_base_path` values on the metadata provider or Driver; provider roots are preferred and Driver roots are the session fallback |
+| Runtime state | `state_base_path`; provider may derive missing component roots |
+| File-provider watermark | optional `watermark_base_path`; it takes precedence over derivation |
+| Log output | `log_base_path`; do not use `base_log_path` |
+
+Pass paths explicitly and unchanged. `FileProvider` may be constructed without
+a platform, but the platform is required once it performs I/O. Provider-specific
+attributes remain behind `BaseMetadataProvider`; the Driver validates only
+cross-component conflicts and startup readiness.
+
+Use the public [metadata provider guide](https://datacoolie.github.io/datacoolie/guide/providers/)
+and [runtime path ownership guide](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
+for provider/Driver precedence and SQL-root examples.
+
+External scheduler/job identifiers are caller-owned `run_attributes`, one strict
+JSON object passed to `DataCoolieRunConfig`. Do not introduce another session ID
+or place scheduler fields in project metadata. Secrets are resolved by the
+configured provider and never written to metadata, artifacts, or logs.
+
+Example Python construction:
+
+```python
+platform = LocalPlatform()
+engine = PolarsEngine(platform=platform)
+metadata = FileProvider(
+    metadata_base_path=args.metadata_base_path,
+    platform=platform,
+    watermark_base_path=args.watermark_base_path,
+    sql_base_path=args.sql_base_path or None,
+)
+config = DataCoolieRunConfig(
+    job_num=args.job_num,
+    job_index=args.job_index,
+    run_attributes=args.run_attributes,
+    dry_run=args.dry_run,
+)
+with DataCoolieDriver(
+    engine=engine,
+    metadata_provider=metadata,
+    artifact_base_path=args.artifact_base_path,
+    sql_base_path=args.sql_base_path,
+    state_base_path=args.state_base_path,
+    log_base_path=args.log_base_path,
+    config=config,
+) as driver:
+    result = driver.run(stage=args.stage)
+```
+
+When an artifact root is provided with no metadata provider, the Driver creates
+the file provider for `<artifact>/metadata`. If a provider is supplied, an
+explicit `metadata_base_path` must agree with the provider's configured root;
+conflicting explicit SQL roots also fail during construction. A provider may
+retain SQL roots without a platform; Driver preparation uses its execution
+platform to read the selected file. A project runner should pass exact
+component roots rather than reading `manifest.json`; the framework intentionally
+ignores build manifests.
+
+## Stage, replay, and maintenance
+
+Pass one received stage value unchanged to one call:
 
 ```python
 driver.run(stage=stage)
 ```
 
-- `--stage stage1,stage2` remains one string and one driver call; the framework owns its meaning.
-- With no stage, invoke once with the transport default (`None` or an empty scalar); the framework
-  preserves run-all behavior.
-- Pass blank and non-blank scalar content unchanged; the framework owns its meaning.
-- Sequential stage invocations belong to the external orchestrator calling the runner again.
-- Prefer separate stage invocations for control and verification. For a combined selection, follow
-  the dependency rules in `orchestration-contract.md`; stage list/string order supplies no barrier.
+Do not split comma-delimited values, create stage plans, hardcode medallion
+names, or call the driver repeatedly inside the runner. An external orchestrator
+may invoke the same runner again for another stage. Replay and maintenance use
+their dedicated operation APIs and their own safety parameters; read
+`operations-contract.md` for those details.
 
-## Durable and generated sources
+## Functions
 
-```text
-runners/run_{platform}_{engine}[_{provider}].ext
-.builds/artifacts/{build_id}/{env}/runners/run_{platform}_{engine}[_{provider}].ext
-```
+Build may package each configured functions root as a wheel, root-init ZIP, or
+copied source. The runner does not package or install it. Pass a fixed
+`allowed_function_prefixes` list rendered from the authored project/build, or
+`[]` when no function source is used. Never accept the import prefix as a runtime
+selector. Do not add a new `sys.path` bootstrap. When reusing the maintained
+[Function project recipe](https://datacoolie.github.io/datacoolie/examples/dataflows/#function-project-recipe),
+preserve only its existing project-owned bootstrap: the root is derived from
+the entrypoint layout, and the import path is the authored source root or its
+deterministic CLI-built functions ZIP. Keep the fixed import prefixes; this
+exception does not permit runtime-selected module roots, arbitrary search
+paths, package installation or runner-owned packaging.
 
-Build copies or renders durable sources; it never symlinks them. Correct generated behavior by
-editing the durable source and materializing a new build ID.
+## Verification checklist
 
-## Common verification
-
-- Filename platform matches its configured environment binding.
-- Engine, provider, and operation are fixed by entrypoint identity.
-- No runtime `--env`, platform, engine, provider, or operation selector exists.
-- Notebook/job parameters are read through the named execution-host transport and stage is passed
-  unchanged to one framework operation.
-- Job parameters default to 1/0 and supplied shard values reach `DataCoolieRunConfig`; verify both
-  modes and invalid indexes through actual transport execution with isolated host substitutes.
-- The runner does not install packages or restart its runtime.
-- `allowed_function_prefixes` is the fixed manifest import prefix, or an empty list when no
-  function artifact exists.
-- Metadata/provider parameters are explicit and relevant.
-- FileProvider receives the primary path plus only the optional metadata roles declared by Build.
-- Metadata, log, watermark, and stage values reach framework APIs without runner-side validation.
-- Supported paths construct DataCoolie components and call the selected driver API.
-- The exact generated entrypoint and metadata are executed; hashes match the build manifest.
-- Validate one explicitly supplied receipt with `scripts/validate_build.py`; receipt field semantics
-  belong to its schema and validator, not this reference.
+- Runner path is `runners/<env>`; implementation identity is fixed by the
+  descriptive filename or verified canonical example source and guide.
+- It has no `--env`, platform, engine, provider, or operation selector.
+- `log_base_path` is used; `base_log_path` is absent.
+- Metadata, SQL, artifact, state, watermark, and run-attribute values are passed
+  to framework APIs without runner-side reinterpretation.
+- Stage reaches one framework call unchanged; job shard values reach
+  `DataCoolieRunConfig`.
+- No package installation, remote upload, activation, or workload discovery is
+  performed by the runner.
+- The exact built runner bytes remain the authored bytes.

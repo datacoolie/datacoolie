@@ -1,0 +1,1 @@
+{"log_schema_version":3,"_type":"system_log","log_session_id":"fixture-session","job_id":"fixture-job","job_num":1,"job_index":0,"ts":"2026-09-11T00:00:01+00:00","level":"INFO","logger":"datacoolie.example","msg":"pipeline started"}

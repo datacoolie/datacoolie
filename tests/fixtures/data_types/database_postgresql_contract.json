@@ -1,0 +1,26 @@
+{
+  "business_field_types": {
+    "id": "int64",
+    "amount": "decimal(18,2)",
+    "event_date": "date",
+    "active": "bool",
+    "label": "string"
+  },
+  "row_count": 2,
+  "rows": [
+    {
+      "id": 1,
+      "amount": {"decimal": "12.30"},
+      "event_date": {"date": "2024-01-15"},
+      "active": true,
+      "label": "alpha"
+    },
+    {
+      "id": 2,
+      "amount": null,
+      "event_date": null,
+      "active": null,
+      "label": null
+    }
+  ]
+}

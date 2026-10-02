@@ -1,7 +1,7 @@
 """Reset watermarks across every storage location.
 
 Removes:
-    - Local watermark folders (metadata/file/watermarks, metadata/api/watermarks)
+    - Local watermark folders (usecase-sim/.runtime/watermarks, usecase-sim/.runtime/watermarks/api)
     - MinIO watermarks/ prefix in the datacoolie-test bucket
     - dc_framework_watermarks rows in every reachable metadata DB
 

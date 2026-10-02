@@ -129,6 +129,8 @@ def verify_approval(*, workspace: Path, architecture: Path, receipt: Path | None
     workspace, architecture = _canonical_architecture(workspace, architecture)
     digest = sha256_file(architecture)
     expected_name = approval_receipt_name(digest)
+    if receipt is not None and receipt.is_symlink():
+        raise ValueError("Approval receipt must not be a symlink")
     target = (
         receipt.resolve()
         if receipt
@@ -137,6 +139,8 @@ def verify_approval(*, workspace: Path, architecture: Path, receipt: Path | None
     expected_parent = (workspace / ".approvals" / "design").resolve()
     if target.parent != expected_parent or target.name != expected_name:
         raise ValueError("Approval receipt path must match the current architecture hash")
+    if target.is_symlink():
+        raise ValueError("Approval receipt must not be a symlink")
     if not target.is_file():
         raise ValueError("Matching design approval receipt does not exist")
     payload = json.loads(target.read_text(encoding="utf-8"))

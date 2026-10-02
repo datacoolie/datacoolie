@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datacoolie.core.exceptions import PlatformError
-from datacoolie.core.secret_provider import BaseSecretProvider
+from datacoolie.core.secrets.provider import BaseSecretProvider
 from datacoolie.platforms._databricks.dbutils_backend import DbutilsBackend
 from datacoolie.platforms._databricks.sdk_backend import DatabricksSdkBackend
 from datacoolie.platforms.databricks_platform import DatabricksPlatform

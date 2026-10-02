@@ -1,485 +1,127 @@
-# Schema Quick Reference (for AI metadata generation)
-
-When generating metadata JSON/YAML, follow this structure exactly.
-
-The `$schema` examples use the published schema URL. Local validation uses the versioned
-`schemas/` directory bundled with this skill.
-
-## Scope
-
-- Read only when authoring, converting, merging, linting, or validating metadata fields.
-- Owns metadata shape, field constraints, and authoring patterns.
-- Does not claim runtime capability support or define entrypoint, build, replay, maintenance, or
-  release behavior. Route those concerns through `SKILL.md`.
-
-## Contents
-
-1. Top-level structure
-2. Connection object
-3. DataFlow object
-4. Source object
-5. Destination object
-6. Transform object
-7. Schema hint objects
-8. Minimal valid example
-9. Common patterns
-10. Validation rules
-
-## Top-level structure
-
-```json
-{
-  "$schema": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
-  "connections": [ ... ],
-  "dataflows": [ ... ],
-  "schema_hints": [ ... ]
-}
-```
-
-At least one of `connections` or `dataflows` is required. `schema_hints` is optional.
-
-Canonical workspace authoring keeps connections in `connections.json`, optional hints in
-`schema_hints.json`, and dataflows in any combination of these organizational partitions:
-
-```text
-dataflows.json
-dataflows/{branch}.json
-dataflows/{stage}.json                 # default
-dataflows/{branch}/{stage}.json
-dataflows/{stage}/{dataflow}.json
-```
-
-Each fragment may be one dataflow object, an array, or an object containing `dataflows`. Every
-dataflow requires a globally unique non-empty `name` and a non-empty `stage`. The content value is
-authoritative: paths organize files but never infer or override runtime stage. The merged runtime
-output always resolves to the top-level structure above.
-
-## Connection object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | **yes** | Unique identifier |
-| `connection_type` | enum | no | `file` \| `lakehouse` \| `database` \| `api` \| `function` \| `streaming` |
-| `format` | enum | no | `delta` \| `iceberg` \| `parquet` \| `csv` \| `json` \| `jsonl` \| `avro` \| `excel` \| `sql` \| `api` \| `function` |
-| `catalog` | string\|null | no | Unity/Iceberg catalog |
-| `database` | string\|null | no | Database/schema namespace |
-| `configure` | object | no | Type-specific settings — common + type-conditional fields (see below) |
-| `secrets_ref` | object\|null | no | `{ "vault_arn_or_url": ["field1", "field2"] }` — empty string key = env vars |
-| `is_active` | boolean | no | Default `true` |
-
-**Connection configure — common fields (all types):**
-`read_options` (object), `write_options` (object), `use_schema_hint` (boolean, default true — set false to skip type casting), `backward_days`, `backward_months`, `backward_hours`, `backward_years`, `backward_closing_day` (integers), `backward` (nested object: `{days, months, hours, years, closing_day}`)
-
-**Connection configure — by connection_type:**
-- **file**: `base_path` (string), `use_hive_partitioning` (boolean, default false), `date_folder_partitions` (string, e.g. `{year}/{month}/{day}`), backward fields above
-- **lakehouse**: `base_path` (string), `catalog`, `database` (override top-level), `athena_output_location`, `generate_manifest` (boolean, default false), `register_symlink_table` (boolean), `symlink_database_prefix` (string, default `symlink_`)
-- **database**: `database_type` (postgresql\|mysql\|mssql\|oracle\|sqlite), `auth_type` (password\|service_principal\|managed_identity\|access_token — default `password`), `host`, `port` (int), `database`, `username` (or SPN client_id), `password` (or SPN client_secret), `tenant_id` (Azure AD tenant — SPN only), `token` (pre-fetched token — access_token only), `driver`, `url`, `encrypt`
-- **api**: `base_url`, `timeout` (number), `auth_type` (bearer\|api_key\|basic\|oauth2_client_credentials\|aws_sigv4), `auth_token`, `api_key_header`, `api_key_value`, `username`, `password` (basic auth), `default_headers` (object), `watermark_to_param_timezone` (IANA or ±HH:MM); OAuth2: `token_url`, `client_id`, `client_secret`, `token_auth_method`, `scope`, `token_request_body_format` (form\|json), `token_request_extras`; AWS SigV4: `aws_region`, `aws_service`, `aws_access_key_id`, `aws_secret_access_key`, `aws_session_token`
-
-## DataFlow object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | **yes** | Unique dataflow name |
-| `description` | string\|null | no | Human-readable description |
-| `stage` | string\|null | Framework schema: no; canonical workspace: **yes** | Project-defined runtime stage; no fixed names or implied order. Canonical modular authoring requires a non-empty content value; paths never infer it. |
-| `group_number` | int\|null | no | Co-located execution group; omit for independent flows. See Orchestration below. |
-| `execution_order` | int\|null | no | Order bucket in a non-null group; lower first, ties parallel, null = 0. |
-| `processing_mode` | enum | no | `batch` \| `microbatch` \| `streaming` (default: batch); the model accepts all three, but the built-in driver currently executes normal ETL through the batch path |
-| `is_active` | boolean | no | Default `true` |
-| `source` | Source | **yes** | Read-side config |
-| `destination` | Destination | **yes** | Write-side config |
-| `transform` | Transform | no | Transformation rules |
-| `configure` | object | no | Dataflow-level free-form config |
-
-## Source object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `connection_name` | string | **yes** | Must match a Connection `name` |
-| `schema_name` | string\|null | no | Schema namespace |
-| `table` | string\|null | no | Table/object to read |
-| `query` | string\|null | no | SQL query (alternative to table) |
-| `python_function` | string\|null | no | Dotted path for function sources |
-| `watermark_columns` | string[] | no | Columns for incremental reads |
-| `filter_expression` | string\|null | no | SQL WHERE applied after watermark filter |
-| `configure` | object | no | Look-back overrides, API pagination, watermark push-down |
-
-**Source configure — look-back (common fields):** `read_options` (object), `backward_days`, `backward_months`, `backward_hours`, `backward_years`, `backward_closing_day` (integers — override connection-level), `backward` (nested object: `{days, months, hours, years, closing_day}`)
-
-**Source configure — API:** `endpoint`, `method` (default GET), `params` (object), `body` (object), `data_path` (dot-path to records array, e.g. `data.items`); pagination: `pagination_type` (offset\|cursor\|next_link), `page_size` (default 100), `max_pages` (default 1000), `next_link_path` (default `next`), `cursor_path` (default `next_cursor`), `cursor_param`, `offset_param`, `limit_param`, `total_path`, `offset_max_workers` (default 4); rate limiting: `rate_limit_delay` (seconds), `max_retries` (default 10)
-
-**Source configure — watermark push-down (API):** `watermark_param_mapping` (object: `{"updated_at": "updated_since"}`), `watermark_to_param` (string), `watermark_param_location` (params\|body, default params), `watermark_param_format` (iso\|date\|timestamp\|timestamp_ms\|datetime\|datetime_ms, default iso), `watermark_to_param_timezone`
-
-**Source configure — watermark range splitting (API):** `watermark_range_interval_unit` (hour\|day\|month\|year), `watermark_range_interval_amount` (int, default 1), `watermark_range_start` (ISO-8601, required if unit set), `watermark_range_max_workers` (default 4), `watermark_range_to_exclusive_offset` (1ms\|1s\|1day\|null)
-
-### `base_path` composition
-
-For file and lakehouse connections, author `connection.configure.base_path` as the storage root.
-For a table-addressed source or destination the framework builds the physical path as
-`base_path/{schema_name}/{table}`, skipping an empty `schema_name`. Do not embed schema or table
-segments in `base_path` when the dataflow already declares them, or the final path will duplicate
-those segments. A query or function source without a table identity does not get this composed
-table path.
-
-### Logical catalog qualification
-
-For catalog-backed table sources, map logical names without changing physical path composition:
-
-- `<catalog>.<database-or-schema>.<table>` uses `connection.catalog`,
-  `connection.database`, an empty nested `schema_name`, and `table`.
-- `<workspace>.<lakehouse>.<schema>.<table>` uses `connection.catalog` for the
-  workspace, `connection.database` for the lakehouse, nested `schema_name` for
-  the schema, and `table`.
-
-Prefer `connection.database` for the middle catalog namespace so table addressing and qualified
-queries use the same identity. Apply this to catalog/lakehouse sources only. A relational database
-table read retains its supported `schema_name.table` addressing. `source.query` is raw query text;
-use the same qualified convention only when the selected engine and catalog session support it.
-Neither `catalog` nor `database` is automatically appended to `base_path`.
-
-## Destination object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `connection_name` | string | **yes** | Must match a Connection `name` |
-| `schema_name` | string\|null | no | Schema namespace |
-| `table` | string | **yes** | Target table name |
-| `load_type` | enum | no | `full_load` \| `overwrite` \| `append` \| `merge_upsert` \| `merge_overwrite` \| `scd2` (default: append) |
-| `merge_keys` | string[] | no | Key columns for `merge_upsert`, `merge_overwrite`, or `scd2`; required when the built-in strategy executes |
-| `partition_columns` | PartitionColumn[] | no | `[{"column": "col", "expression": "year(col)"}]` — expression optional; can also be specified inside `configure.partition_columns` |
-| `configure` | object | no | `scd2_effective_column` (string), `replace_by_watermark` (boolean, default false), `write_options` (object), `partition_columns` (PartitionColumn[] — alternative to top-level `partition_columns`) |
-
-## Transform object
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `deduplicate_columns` | string[] | no | Dedup key columns |
-| `latest_data_columns` | string[] | no | Tiebreaker columns to pick latest row when deduplicating |
-| `filter_expression` | string\|null | no | SQL WHERE applied after additional_columns |
-| `additional_columns` | AdditionalColumn[] | no | Business-derived columns: `[{"column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)"}]` |
-| `schema_hints` | SchemaHint[] | no | Intentional dataflow-specific casts or overrides; source-observed types belong in top-level shared hints |
-| `select_columns` | string[] | no | Business columns to retain; mutually exclusive with `drop_columns` |
-| `drop_columns` | string[] | no | Business columns to remove; mutually exclusive with `select_columns` |
-| `rename_columns` | object | no | Atomic `{old_name: new_name}` mapping applied after select/drop |
-| `value_rules` | ValueRule[] | no | Typed normalization rules applied before schema casting |
-| `hash_columns` | HashColumn[] | no | Stable SHA-256 String or signed XXHash64 BIGINT values using `dc_hash_v1` serialization |
-| `masking_rules` | MaskingRule[] | no | Structured scalar PII masking applied before projection |
-| `configure` | object | no | `convert_timestamp_ntz` (default true), `deduplicate_by_rank` (default false), `missing_column_policy` (`error` or `ignore`, default `error`) |
-
-### Transform interaction order
-
-The runtime orders transformers by numeric priority, independent of the field
-order in metadata. The authoring-relevant sequence is:
-
-1. `value_rules` normalize source values (priority 5).
-2. `schema_hints` cast normalized values (10).
-3. `hash_columns` create explicit business hashes (18), before deduplication
-   (20), so a hash is only a dedup key when the user also names it in
-   `deduplicate_columns`.
-4. Additional columns and filtering run next (30 and 35), followed by SCD2 and
-   system columns (60 and 70) and destination partition expressions (80).
-5. `masking_rules` protect values late (84), then `select_columns` or
-   `drop_columns` and atomic `rename_columns` apply together (85).
-6. Framework column-name sanitization runs last (90).
-
-Within `value_rules`, ascending `order` runs first; omitted `order` defaults to
-`100`, and ties preserve metadata declaration order.
-
-### Framework-owned columns and file-date routing
-
-- Every dataflow receives `__created_at`, `__updated_at`, and `__updated_by`. Driver-managed runs
-  also receive `__dataflow_run_id` from their execution ID; standalone transformer usage without
-  that ID does not add it. SCD2 also owns `__valid_from`, `__valid_to`, and `__is_current`. Do not
-  configure these names yourself.
-- Compare semantics, not similar names. If a proposed `ingested_at`, `loaded_at`, audit timestamp,
-  or job column means only the framework write time or driver-managed dataflow run identity, omit
-  it and use the framework output. Preserve source-created, source-modified, event, transaction,
-  and other business times when their meaning is distinct. If an explicit downstream schema
-  contract requires a legacy or differently named duplicate, keep it only with that justification.
-- System columns are added at priority 70. Earlier `additional_columns` and transform filters cannot
-  reference them; do not recreate a duplicate merely to work around transformer order.
-- For a flat-file destination whose folders represent current UTC load time, prefer
-  `connection.configure.date_folder_partitions` on that destination connection. It routes output
-  without adding an ingestion-date column solely for the folder path.
-- Use `destination.partition_columns` when folders must follow a DataFrame value such as event or
-  transaction date. `partition_columns` takes precedence over `date_folder_partitions`, so author
-  one strategy intentionally rather than configuring both.
-
-### ValueRule object
-
-Every rule requires `operation` and a non-empty, unique `columns` list.
-Optional `order` is a non-negative integer with default `100`; ties preserve
-metadata declaration order.
-
-| `operation` | Additional fields | Behavior |
-|-------------|-------------------|----------|
-| `trim` | — | Strip leading and trailing ASCII U+0020 spaces only |
-| `case` | `mode`: `lower` or `upper` | Convert string case |
-| `regex_replace` | portable-v1 `pattern` (max 4,096 chars), optional literal `replacement` (default `""`) | Replace every match with literal text |
-| `empty_to_null` | — | Convert empty strings to null |
-| `fill_null` | non-null scalar `value` | Replace null with a JSON scalar literal |
-| `map` | non-empty string `mapping`, optional `on_unmapped`: `keep` or `null` | Exact string mapping |
-
-### HashColumn object
-
-Requires `target_column` and an ordered, non-empty `columns` list. Supported
-algorithms are `sha256` (the default, a lowercase 64-character String) and
-`xxhash64` (a signed BIGINT using fixed seed `42`). Both use
-`serialization: dc_hash_v1`; declared input order is significant. Spark and
-Polars return the same value for the same typed inputs. Hash targets are not
-inferred as merge or dedup keys. Polars requires the optional
-`datacoolie[polars-hash]` extra.
-
-XXHash64 is non-cryptographic and may be negative. Do not apply `abs()` or
-discard the sign bit. Use SHA-256 or an identity/mapping-table surrogate when
-authoritative uniqueness matters at large scale, and do not change an existing
-SHA-256 target to XXHash64 without a coordinated String-to-BIGINT migration.
-
-### MaskingRule object
-
-Every rule requires `method` and a non-empty, unique `columns` list. A column
-may appear in only one masking rule.
-
-| `method` | Additional fields | Behavior |
-|----------|-------------------|----------|
-| `redact` | non-null scalar `value` | Replace the entire value |
-| `nullify` | — | Replace with a typed null |
-| `partial` | `keep_start`, `keep_end`, one-character `mask_char` | Keep configured edges and collapse the hidden middle to one mask character; a short non-empty value becomes one mask character |
-| `numeric_bucket` | positive `bucket_size` | Replace with the bucket lower bound |
-| `date_truncate` | `unit`: `year`, `month`, `day`, or `hour` | Truncate date/datetime precision |
-
-Projection and masking reject protected merge, partition, SCD2, and framework
-columns at runtime. `missing_column_policy: ignore` skips absent typed
-value/hash/masking and projection references only. Missing schema hints warn
-and skip; configured dedup keys and order columns always remain strict.
-
-Portable regex v1 supports literals, escaped literals, explicit character
-classes/ranges, `.`, anchors, grouping/non-capturing grouping, alternation, and
-ordinary quantifiers. It rejects lookaround, backreferences, named groups,
-inline flags, `\d`/`\w`/`\s`/`\b`, possessive quantifiers, and quantified nested
-groups. Replacement strings never expand capture groups; `$` and backslash are
-literal characters.
-
-## SchemaHint object
-
-Required: `column_name`, `data_type`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `column_name` | string | Target column name |
-| `data_type` | string | Target type: `int`, `string`, `decimal`, `timestamp`, `date`, `boolean`, `float`, `double`, `long`, `short`, `byte`, etc. |
-| `format` | string\|null | Date/timestamp pattern e.g. `yyyy-MM-dd`, `yyyy-MM-dd HH:mm:ss` |
-| `precision` | int\|null | Decimal total digits |
-| `scale` | int\|null | Decimal digits after decimal point |
-| `default_value` | string\|null | Fallback value for nulls |
-| `ordinal_position` | int\|null | Column ordering (default 0) |
-| `is_active` | boolean | Default `true` |
-
-## SharedSchemaHint object (top-level `schema_hints` items)
-
-Top-level `schema_hints` are the authoring source of truth for exact types observed from a source and
-apply across dataflows by connection+table match. Prefer them for discovered source types, many
-columns, repeated mappings, or bulk treatment across dataflows. The provider attaches them to the
-runtime transform.
-
-Use `transform.schema_hints` only when a few columns or a few dataflows intentionally require a
-different cast. A non-empty transform hint list prevents global hints from being attached; the two
-sources are not merged at runtime. When a local exception still requires global casts, author the
-complete effective hint set for that dataflow or keep the shared treatment global rather than
-assuming inheritance. Query and function sources without a table identity cannot use the global
-table-keyed lookup.
-
-Required: `connection_name`, `table_name`, `hints`
-
-Environment overlays merge shared schema hints by `connection_name` + `schema_name` +
-`table_name`. Missing, empty, and null `schema_name` are treated as the same key.
-Nested `hints` merge by `column_name`; unmentioned columns stay unchanged, matching
-columns are deep-merged, and new columns are appended.
-
-Selector patches preserve the same scope boundary:
-
-- `match.type: schema_hints` exposes global hints as a flattened
-  `connection + schema + table + column` selector view. Its patch changes only the matched existing
-  global column hint; group and column identity fields are immutable.
-- `match.type: dataflows` selects whole dataflows. A patch under `transform.schema_hints` changes
-  local hints for each selected dataflow, merging those local hints by `column_name` and preserving
-  unmentioned local columns.
-
-Global selectors never find local hints, and dataflow-local hint patches never modify the global
-hint set. All selectors match the unchanged canonical metadata; exact keyed environment overrides
-apply after ordered patches.
-
-```json
-{
-  "connection_name": "raw_db",
-  "schema_name": null,
-  "table_name": "orders",
-  "hints": [
-    { "column_name": "amount", "data_type": "decimal", "precision": 18, "scale": 2 }
-  ]
-}
-```
-
-## Minimal valid example
-
-```json
-{
-  "$schema": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
-  "connections": [
-    { "name": "raw_csv", "connection_type": "file", "format": "csv" },
-    { "name": "bronze_lake", "connection_type": "lakehouse", "format": "delta", "configure": { "base_path": "./lake/bronze" } }
-  ],
-  "dataflows": [
-    {
-      "name": "ingest_orders",
-      "stage": "source2bronze",
-      "source": { "connection_name": "raw_csv", "table": "orders" },
-      "destination": { "connection_name": "bronze_lake", "table": "orders", "load_type": "append" },
-      "transform": {}
-    }
-  ],
-  "schema_hints": [
-    {
-      "connection_name": "raw_csv",
-      "table_name": "orders",
-      "hints": [
-        { "column_name": "order_id", "data_type": "int" },
-        { "column_name": "amount", "data_type": "decimal", "precision": 18, "scale": 2 },
-        { "column_name": "created_at", "data_type": "timestamp", "format": "yyyy-MM-dd HH:mm:ss" }
-      ]
-    }
-  ]
-}
-```
-
-Platform-qualified examples include `s3://bucket/lake/bronze`,
-`abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/Files/bronze`, and
-`/Volumes/catalog/schema/volume/bronze`. Do not use Databricks DBFS root or mount paths. Pass the
-selected root unchanged; `references/platform-contract.md` owns platform path validity.
-
-## Common patterns
-
-### Load strategies
-
-- **Full load / overwrite**: `destination.load_type: "full_load"` or `"overwrite"` — no `watermark_columns` needed; replaces all data
-- **Append**: `source.watermark_columns: ["modified_at"]` + `destination.load_type: "append"` — only new rows added since last watermark
-- **Incremental upsert**: `source.watermark_columns: ["modified_at"]` + `destination.load_type: "merge_upsert"` + `destination.merge_keys: ["order_id"]`
-- **Merge upsert without watermark**: no `watermark_columns` — reads entire source every run; combine with dedup to resolve duplicates in source: `transform.deduplicate_columns: ["order_id"]` + `transform.latest_data_columns: ["modified_at"]`
-- **SCD2**: `load_type: "scd2"` + `merge_keys` + `destination.configure.scd2_effective_column: "modified_at"` — tracks history via effective date column
-- **Merge overwrite (key-based, pure)**: `load_type: "merge_overwrite"` + `merge_keys: ["id"]` — deletes rows matching the merge keys (including partition columns) then re-inserts the new batch; handles source-side deletes within the fetched key set; no watermark window needed
-- **Merge overwrite by watermark window**: `load_type: "merge_overwrite"` + `destination.configure.replace_by_watermark: true` — deletes ALL rows within the watermark window (not by key), then appends; handles source-side deletions within the time window; requires backward look-back configuration on the source or its connection; both `merge_keys` and `source.watermark_columns` must be set
-
-### Watermark & filtering
-
-- **Backward fallback**: when no reliable column or source-native feed captures every change, use a verified transaction/business-date column in `source.watermark_columns` and configure `source.configure.backward: {"days": 7}` to re-read the expected correction horizon. Use an idempotent destination strategy that can reprocess that window; plain append can duplicate rows. The lookback shifts an existing stored watermark, does nothing on the first run, and cannot recover corrections older than its window. `closing_day` can anchor a monthly window: `{"months": 1, "closing_day": 10}`.
-- **File system default**: for an ordinary file source, prefer `source.watermark_columns: ["__file_modification_time"]` when discovery verified that storage modification times are stable. This built-in virtual column selects new or modified files and is not a physical source-schema column.
-- **Row watermark inside a file**: use a data column only when discovery verified its mutation semantics; do not choose a transaction date merely because it is present.
-- **Source-side filter** (logical post-watermark condition): `source.configure.endpoint: "..."` applies at fetch time; for files/DB use `source.filter_expression: "amount > 0"` — evaluated before writing, with database readers pushing the predicate into generated SQL where possible
-- **Transform-side filter** (post-load): `transform.filter_expression: "status != 'cancelled' AND amount > 0"` — SQL predicate applied to the loaded DataFrame
-
-### Transforms
-
-- **Partition col resolution (all load types)**: uses `deduplicate_columns` if explicitly set; auto-falls back to `merge_keys` otherwise; dedup skipped if both empty
-- **Order col resolution (all load types)**: uses `latest_data_columns` if set; falls back to `source.watermark_columns`; dedup skipped if both empty
-- **RANK mode**: triggers when (`load_type == "merge_overwrite"` + `merge_keys` non-empty + `deduplicate_columns` NOT explicitly set) — OR — `transform.configure.deduplicate_by_rank: true` (any load type); keeps ALL tied rows
-- **ROW_NUMBER mode**: all other cases (including explicit `deduplicate_columns` with `merge_overwrite`); keeps ONE latest row per key
-- **Composite dedup key**: `transform.deduplicate_columns: ["order_id", "region"]`
-- **Add computed columns**: `transform.additional_columns: [{"column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)"}]` — SQL expression evaluated against loaded DataFrame
-- **Observed source types**: author them once in top-level `schema_hints` / `metadata/schema_hints.json`; supported types include `DATE`, `TIMESTAMP`, `DATETIME` (NTZ), `DECIMAL`, `INTEGER`, `BIGINT`, `FLOAT`, `DOUBLE`, `BOOLEAN`, and `STRING`
-- **Dataflow-specific cast**: use `transform.schema_hints` only when the cast intentionally differs for that dataflow
-- **Disable a hint temporarily**: add `"is_active": false` to the hint object
-- **Disable NTZ conversion**: `transform.configure.convert_timestamp_ntz: false` — keeps TIMESTAMP as zoned
-- **Partitioned destination**: `destination.partition_columns: [{"column": "order_year", "expression": "EXTRACT(YEAR FROM order_date)"}]` — also accepted inside `destination.configure.partition_columns`
-- **Write options**: `connection.configure.write_options: {"compression": "snappy"}` — passed to the Spark writer
-
-### File / lakehouse connections
-
-- **Source date-folder pruning**: set `connection.configure.date_folder_partitions` only when the observed source path has real ordered date levels such as `"{year}/{month}/{day}/{hour}"`. The framework maintains its internal date-folder watermark and discovers the bounded folder range; do not add that internal value to `source.watermark_columns`.
-- **Source mtime plus date folders**: combine source `date_folder_partitions` with `source.watermark_columns: ["__file_modification_time"]` when both layout and modification-time evidence are reliable. Folder pruning runs first, so a lookback must cover old folders that can still be corrected.
-- **Destination date-folder routing**: on a file destination, `connection.configure.date_folder_partitions` writes into load-time date folders without requiring a helper data column. It is independent of source pruning.
-- **Hive partitioning source**: `connection.configure.use_hive_partitioning: true` — reads column=value directory layout
-- **Disable global schema hint for one connection**: `connection.configure.use_schema_hint: false`
-
-### Source expression choices
-
-Choose direct table/object/path or API endpoint for whole-object extraction. Use a SQL query only
-when the extract requires source-side relational shaping, and a Python function only when direct
-addressing plus one bounded query cannot express the verified behavior. The decision and evidence
-contract lives in `references/framework-boundary.md`.
-
-### SQL query source (when relational shaping is required)
-
-- **DB or lakehouse custom query**: replace `source.table` with `source.query: "SELECT order_id, amount FROM orders WHERE amount > 100"` — no `table` key needed
-- **Polars Delta/Iceberg qualified query**: keep the portable 1-4-part relation name in
-  `source.query`; register its relation descriptors on the same `PolarsEngine` before the driver
-  runs. Registration settings such as `logical_prefix`, `recursive`, `include`, and `exclude` are
-  runner/bootstrap code, never `source.configure`. Load `references/polars-qualified-sql.md` for the
-  complete contract.
-
-### Python function source (verified final fallback)
-
-- **Custom loader**: set `connection.connection_type: "function"` +
-  `source.python_function: "project_package.sources.load_orders_custom"` — use the exact
-  project-specific prefix selected by the single-artifact contract; the function returns a
-  DataFrame and `source.table` is passed as an argument when provided. Load
-  `references/python-functions-contract.md` for packaging and isolated validation.
-
-### Database authentication
-
-| `auth_type` | Required fields | Use case |
-|-------------|-----------------|----------|
-| `password` (default) | `username`, `password` | All databases — standard SQL auth |
-| `service_principal` | `username` (= client_id), `password` (= client_secret), `tenant_id` | Azure SQL, Fabric SQL via Entra ID |
-| `managed_identity` | none (or `username` = client_id for user-assigned MI) | Azure-hosted runtimes (AKS, Fabric, App Service) |
-| `access_token` | `token` (+ optional `username` for non-MSSQL) | Pre-fetched bearer token (Azure, AWS RDS IAM, GCP Cloud SQL IAM) |
-
-- **Service principal**: `auth_type: "service_principal"` + `username: "AZURE_CLIENT_ID"` + `password: "AZURE_CLIENT_SECRET"` + `tenant_id: "AZURE_TENANT_ID"` — `secrets_ref` all three via env
-- **Managed identity (system-assigned)**: `auth_type: "managed_identity"` only — no credentials needed
-- **Managed identity (user-assigned)**: add `username: "msi-client-id"` to identify the specific MI
-- **Access token (Azure SQL)**: `auth_type: "access_token"` + `token: "AZURE_SQL_TOKEN"` via `secrets_ref` — token injected into JDBC `accessToken` property (MSSQL) or as password (PG/MySQL)
-- **Access token (AWS RDS IAM / GCP Cloud SQL IAM)**: same pattern — set `username` to the IAM DB user + `token` to the short-lived token generated externally
-- **Fabric SQL endpoint**: host `*.datawarehouse.fabric.microsoft.com` — `auth_type: "password"` is rejected at validation time; must use `service_principal`, `managed_identity`, or `access_token`
-- **Backward compat**: omitting `auth_type` is identical to `auth_type: "password"` — all existing configs work unchanged
-
-### API connections
-
-- **Auth types** (connection-level): `auth_type: "bearer"` + `auth_token`; `"api_key"` + `api_key_header` + `api_key_value`; `"basic"` + `username`/`password`; `"oauth2_client_credentials"` + `token_url` + `client_id` + `client_secret` (optional `token_auth_method: "client_secret_basic"` + `scope`)
-- **Pagination: none** — `source.configure.endpoint: "/api/orders/simple"` — single-page response; wrap with `data_path` if records are nested
-- **Pagination: offset** — `pagination_type: "offset"` + `page_size: 5` + `data_path: "data"`; add `total_path: "total"` + `offset_max_workers: 4` for concurrent fetching
-- **Pagination: cursor** — `pagination_type: "cursor"` + `cursor_path: "next_cursor"` + `data_path: "items"`
-- **Pagination: next_link** — `pagination_type: "next_link"` + `next_link_path: "_links.next"` + `data_path: "records"` — follows `@odata.nextLink` style
-- **Nested data path**: `data_path: "response.payload.orders"` — dot-notation traversal into response JSON
-- **POST request with body**: `source.configure.method: "POST"` + `source.configure.body: {"status": "completed"}`
-- **Static query-string params**: `source.configure.params: {"api_version": "v2"}` — merged with watermark params on every request
-- **Rate limiting**: `source.configure.rate_limit_delay: 0.5` — seconds between page fetches
-- **Cap page count**: `source.configure.max_pages: 2`
-- **API incremental (watermark push-down)**: `source.watermark_columns: ["modified_at"]` + `source.configure.watermark_param_mapping: {"modified_at": "modified_since"}` + `watermark_param_format: "iso"` — formats: `iso`, `date`, `timestamp`, `timestamp_ms`, `datetime`, `datetime_ms`
-- **API to-param (range end)**: `source.configure.watermark_to_param: "modified_until"` — sends both from and to bounds; add `watermark_range_to_exclusive_offset: "1s"` to subtract 1 second from end bound (avoids double-counting on inclusive APIs)
-- **Watermark in POST body**: `watermark_param_location: "body"` — injects from/to into the JSON body instead of query string
-- **API timezone**: `connection.configure.watermark_to_param_timezone: "+07:00"` — override per-source with `source.configure.watermark_to_param_timezone: "UTC"`
-- **API range-split fetch** (backfill): `watermark_range_interval_unit: "day"|"month"|"year"` + `watermark_range_interval_amount: 7` + `watermark_range_start: "2024-01-01T00:00:00"` + `watermark_range_max_workers: 4`
-
-### Secrets (never hardcode)
-
-- `secrets_ref: {"env:": ["username", "password"]}` — `env:` prefix = EnvResolver; env var name = field name as-is (e.g. resolves `username` → `$username`)
-- `secrets_ref: {"env:APP_": ["username", "password"]}` — env var name = `APP_username`, `APP_password` (prefix prepended)
-- `secrets_ref: {"": ["username", "password"]}` — empty string key = platform-native provider (AWS Secrets Manager, Azure Key Vault, Databricks secret scope, etc.)
-- `secrets_ref: {"arn:aws:secretsmanager:us-east-1:123:secret:mydb": ["password"]}` — AWS Secrets Manager
-- Multiple sources allowed: `{"env:APP_": ["host", "port"], "arn:...": ["password"]}` — each field must appear under exactly one source
-
-### Orchestration
-
-Read [orchestration-contract.md](orchestration-contract.md) when ordering dependencies, combining
-stages, or scaling across jobs. It owns the case matrix, single-job defaults, deterministic
-sharding, group/order semantics, and concurrency/failure limits. Prefer separate stage runs and
-leave group/order absent for independent flows.
-
-## Validation rules to remember
-
-1. Every `source.connection_name` and `destination.connection_name` must match a Connection `name`
-2. Built-in `merge_upsert` / `merge_overwrite` / `scd2` strategies require non-empty `merge_keys` when they execute; build lint should catch this before a run
-3. Incremental source should have `watermark_columns`
-4. Don't use `inferSchema: true` in production (lint will flag it)
-5. Dataflow `name` must be unique across the file
-6. The published JSON Schema uses `additionalProperties: false` on Connection, DataFlow, Source, Destination, Transform, SchemaHint, and PartitionColumn. The current stdlib compatibility models do not enforce that restriction for every core model, so validate generated metadata with the schema/lint before execution
+# Metadata authoring checklist
+
+This file helps an agent draft metadata. It is not a second schema or a
+validator. The full contract is owned by the framework resources and published
+at the [metadata schema reference](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#metadata-document)
+and [`schema/index.json`](https://datacoolie.github.io/datacoolie/schema/index.json).
+For current authoring and IDE discovery, use the stable
+[`latest` schema alias](https://datacoolie.github.io/datacoolie/schema/latest/metadata.schema.json).
+For a target framework, select the greatest compatible version less than or
+equal to the installed framework version, then run `dc validate --format json`.
+Validation is offline and applies JSON Schema before runtime-model and resource
+checks; a `latest` marker is resolved to the local framework-compatible schema,
+not fetched from the public site. Pin a versioned URL for reproducible artifacts.
+
+## Docs-first routing
+
+Start with the public [Metadata Guide](https://datacoolie.github.io/datacoolie/guide/metadata/)
+and follow its [first-file workflow](https://datacoolie.github.io/datacoolie/guide/metadata/first-metadata-file/).
+For a topic, go directly to [connections](https://datacoolie.github.io/datacoolie/guide/metadata/connections/),
+[dataflows](https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/),
+[source patterns](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/),
+[transform patterns](https://datacoolie.github.io/datacoolie/guide/metadata/transform-patterns/),
+[destination and load patterns](https://datacoolie.github.io/datacoolie/guide/metadata/destination-and-load-patterns/),
+[datatypes and schema hints](https://datacoolie.github.io/datacoolie/guide/metadata/data-types/),
+or the [validation checklist](https://datacoolie.github.io/datacoolie/guide/metadata/validation-checklist/).
+For complete configuration, use the [Metadata guide](https://datacoolie.github.io/datacoolie/guide/metadata/#metadata-document),
+[API source configuration](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/#api-source-configuration)
+and [incremental windows](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/#incremental-windows-and-look-back).
+For combined cases use [window replacement](https://datacoolie.github.io/datacoolie/guide/metadata/watermark-window-replacement/),
+[paginated API](https://datacoolie.github.io/datacoolie/guide/metadata/api-advanced/),
+[late files](https://datacoolie.github.io/datacoolie/guide/metadata/late-arriving-files/),
+[protected keys](https://datacoolie.github.io/datacoolie/guide/metadata/stable-keys-and-protected-output/)
+or [incremental SCD2](https://datacoolie.github.io/datacoolie/guide/metadata/merge-and-scd2/).
+Use this file only for agent gates, verification evidence and project-specific
+edge cases; the public guide and [exact schema reference](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#metadata-document)
+remain authoritative.
+
+For exact field contracts, jump directly to the schema anchors for
+[Connection](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#connection),
+[Dataflow](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#dataflow),
+[Source](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#source),
+[Transform](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#transform),
+[Destination](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#destination),
+[Schema Hint](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#schema-hint),
+and [Shared Schema Hint](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#shared-schema-hint).
+
+When the question is about one field, use its direct target rather than the
+family heading: [connection secrets_ref](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#connection-secrets-ref),
+[API auth_type](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#connection-configure-api-auth-type),
+[source query](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#source-query),
+[API pagination_type](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#source-configure-pagination-type),
+[source watermark_columns](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#source-watermark-columns),
+[transform schema_hints](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#transform-schema-hints),
+[destination load_type](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#destination-load-type),
+or [replace_by_watermark](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#destination-configure-replace-by-watermark).
+
+## Authoring sequence
+
+1. Read the project `datacoolie.yml` and the matching environment runner.
+2. Select a compatible schema URL. Use the public `latest` alias for current
+   authoring, or pin the selected versioned URL for reproducible artifacts;
+   `dc validate` resolves either form locally against the framework version.
+3. Draft section wrappers (`connections`, `dataflows`, and `schema_hints`).
+   Filenames and shard boundaries are project choices; wrappers identify the
+   section.
+4. Give every connection and dataflow a stable unique `name`. Reference named
+   connections with `connection_name`, or use an intentional inline connection.
+5. For each dataflow, declare one source and destination, then add transforms
+   only for business behavior that belongs in the dataflow contract.
+6. Run `dc validate`; fix structural errors first, then model/semantic errors,
+   then missing SQL resources. Do not treat a warning as proof that a failed
+   later check is safe to ignore.
+
+## Source and destination decisions
+
+- Choose the source selector supported by the selected reader: use `table` for
+  direct object/path reads, `query` for source-side SQL, and `python_function`
+  for a metadata-addressed function. `source.query` remains the authored
+  declaration: it may be inline SQL, a relative `.sql` path, or explicit
+  `artifact:/...`; the runtime resolves precedence per reader.
+- Query files are resolved during framework preparation, never by rewriting
+  metadata. Configure one or more SQL roots in the project/runner and keep the
+  path relative to the root or artifact. `sql/` is not a framework-fixed folder.
+- Use `watermark_columns` only for an incremental source and verify that the
+  selected provider can persist the required state. Keep API pagination and
+  push-down settings under `source.configure`.
+- A destination always has a table identity. Choose `load_type` deliberately:
+  merge and SCD2 strategies require the applicable non-empty `merge_keys`.
+  Partition expressions belong to destination configuration and should not be
+  duplicated as business columns solely to create folders.
+- Keep credentials and external scheduler identifiers out of metadata. Secrets
+  are resolved by the runtime provider; external IDs belong in
+  `DataCoolieRunConfig.run_attributes`.
+
+## Transform checklist
+
+- Use `value_rules` for typed normalization, `schema_hints` for intentional
+  casts, and `additional_columns` for derived business values.
+- `select_columns` and `drop_columns` are alternatives. Rename mappings are
+  atomic. Do not recreate framework-owned audit, SCD2, or dataflow-run columns.
+- Deduplication keys and latest-row columns must reflect the destination grain.
+  A hash column is not inferred as a merge key; declare it explicitly when it
+  is part of the business identity.
+- Treat options such as `inferSchema` as engine-specific choices. The generic
+  CLI does not promise a lint rule for them; verify the selected engine and
+  runner instead.
+
+## Environment overlays and representations
+
+The project validator merges the authored metadata shards and the selected
+`metadata/environments/<env>.json` overlay before model/resource checks. Keep
+environment-specific paths, catalogs and credentials in the overlay or runner,
+not duplicated in every dataflow. `dc metadata convert` changes one document's
+encoding only; it does not merge overlays or resolve query files.
+
+The CLI may build metadata as one file, split section files, or preserved source
+boundaries according to `components.metadata.output`. These are preparation
+choices. Runtime Providers hydrate typed `core.models` directly and do not load
+the JSON Schema during Driver execution.
+
+## Agent handoff
+
+When handing metadata to the next step, report the selected schema URL/version,
+the exact files changed, the `dc validate --format json` result, and any SQL
+roots or external provider assumptions. If a schema is unavailable or the
+public sample is unpublished, stop and report the blocker; never fall forward
+to a newer schema or silently treat a missing `.sql` file as inline SQL.

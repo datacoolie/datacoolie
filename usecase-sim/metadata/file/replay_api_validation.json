@@ -1,0 +1,61 @@
+{
+  "connections": [
+    {
+      "name": "replay_api_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30
+      }
+    },
+    {
+      "name": "replay_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "api_replay_validation",
+      "stage": "replay_api_validation",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "replay_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "order_date"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "replay_delta_dest",
+        "table": "api_replay_validation",
+        "load_type": "append"
+      }
+    }
+  ]
+}

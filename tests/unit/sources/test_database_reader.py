@@ -7,11 +7,13 @@ watermark filtering, connection configuration, and SQL injection prevention.
 from __future__ import annotations
 
 from datetime import datetime, date
+from decimal import Decimal
 
 import pytest
 
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.sources.database_reader import DatabaseReader
 
 from tests.unit.sources.support import MockEngine, db_source, engine, query_source
@@ -111,6 +113,21 @@ class TestDatabaseReader:
         assert opts["fetchsize"] == 200
         assert opts["custom"] == "x"
 
+    def test_build_options_keeps_schema_hint_dialect_out_of_reader_options(self) -> None:
+        conn = Connection(
+            name="db_hints",
+            connection_type="database",
+            format="sql",
+            configure={
+                "database_type": "mysql",
+                "schema_hint_type_system": "mysql",
+                "use_schema_hint": True,
+            },
+        )
+        opts = DatabaseReader._build_options(Source(connection=conn, table="orders"))
+        assert "schema_hint_type_system" not in opts
+        assert "use_schema_hint" not in opts
+
 
 class TestEscapeValue:
     def test_string_value(self) -> None:
@@ -129,6 +146,13 @@ class TestEscapeValue:
 
     def test_float_value(self) -> None:
         assert DatabaseReader._escape_value(3.14) == "3.14"
+
+    def test_decimal_value_preserves_exact_sql_literal(self) -> None:
+        assert DatabaseReader._escape_value(Decimal("001.2300")) == "1.2300"
+
+    def test_binary_value_requires_qualified_backend(self) -> None:
+        with pytest.raises(SourceError, match="qualified backend"):
+            DatabaseReader._escape_value(b"v1")
 
 
 class TestBuildWhereClause:
@@ -152,6 +176,30 @@ class TestBuildWhereClause:
     def test_empty_watermark(self) -> None:
         clause = DatabaseReader._build_window_where_clause({}, {})
         assert clause == ""
+
+    def test_filter_expression_is_grouped_with_watermark_or(self, engine: MockEngine) -> None:
+        # The reader wraps the watermark expression before appending a source
+        # filter; this prevents AND from binding only to the final OR branch.
+        connection = Connection(
+            name="grouped",
+            connection_type="database",
+            format="sql",
+            database="db",
+            configure={"host": "localhost", "username": "u", "password": "p"},
+        )
+        source = Source(
+            connection=connection,
+            table="events",
+            watermark_columns=["id", "updated_at"],
+            filter_expression="status = 'active'",
+        )
+        reader = DatabaseReader(engine)
+        reader._read_data(
+            source,
+            watermark_start={"id": 1, "updated_at": "2024-01-01"},
+        )
+        assert "WHERE (" in engine._last_query
+        assert ") AND (status = 'active')" in engine._last_query
 
 
 class TestTableModeWatermark:
@@ -390,7 +438,8 @@ class TestDatabaseReaderFilterExpression:
     def test_read_with_filter_expression(self) -> None:
         from unittest.mock import MagicMock
         from datacoolie.sources.database_reader import DatabaseReader
-        from datacoolie.core.models import Connection, Source
+        from datacoolie.core.models.connection import Connection
+        from datacoolie.core.models.source import Source
 
         engine = MagicMock()
         engine.read_database.return_value = MagicMock()

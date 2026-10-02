@@ -11,7 +11,7 @@ import pyarrow.parquet as pq
 
 
 USECASE_SIM = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT_ROOT = USECASE_SIM / "data" / "output" / "parquet"
+DEFAULT_OUTPUT_ROOT = USECASE_SIM / ".runtime" / "data" / "output" / "parquet"
 SOURCE_BUSINESS_COLUMNS = {
     "record_id",
     "email",

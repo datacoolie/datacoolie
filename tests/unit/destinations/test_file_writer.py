@@ -18,7 +18,7 @@ from datacoolie.core.constants import (
     LoadType,
 )
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import PartitionColumn
+from datacoolie.core.models.destination import PartitionColumn
 
 from datacoolie.destinations.file_writer import FileWriter
 

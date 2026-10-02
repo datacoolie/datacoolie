@@ -1,9 +1,14 @@
 # Dataflow Orchestration
 
 Read when selecting stages, authoring dependencies, sizing concurrency, or exposing job parameters.
-This reference owns execution guidance; `runner-contract.md` owns parameter transports.
-Verified against the framework source on 2026-09-09. Recheck the installed version before assuming
-different scheduling, cancellation, or resource limits.
+For metadata authoring, start with the public [dataflows guide](https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/)
+and its [destination/load patterns](https://datacoolie.github.io/datacoolie/guide/metadata/destination-and-load-patterns/);
+this reference owns runtime scheduling and agent evidence, not the metadata field contract.
+The public [orchestration reference](https://datacoolie.github.io/datacoolie/reference/concepts/orchestration/)
+owns the complete scheduling contract; this reference keeps the agent decisions and evidence checks
+needed before a runner is authored. `runner-contract.md` owns parameter transports.
+Verify the installed version when a project depends on version-specific scheduling or resource
+limits; do not rely on a stale prose snapshot.
 
 Stage values are project-defined runtime selections. Use the user's metadata and dependency
 contracts to identify upstream and downstream work; do not hardcode stage names, layer names,
@@ -92,8 +97,8 @@ Dependencies within that stage still need ordering if they must use outputs prod
 current run. Apply this to any project-defined stage graph, including branches and joins.
 
 The API accepts `stage=[upstream_stage, downstream_stage]` or a comma string containing the selected
-names. Both select a union of flows; the list's order provides no stage barrier. The generated CLI
-passes a single comma string unchanged. An omitted stage also selects across stages and needs the
+names. Both select a union of flows; the list's order provides no stage barrier. A project-owned
+runner passes a single comma string unchanged. An omitted stage also selects across stages and needs the
 same dependency analysis.
 
 For example, a project might name stages `source2bronze`, `bronze2silver`, and `silver2gold`;
@@ -107,27 +112,31 @@ a completed upstream stage barrier.
 For stage-by-stage scale-out, the external orchestrator launches every upstream shard, waits for
 all of them, checks failures and required quality evidence, then launches the downstream stage's
 shards. An upstream job finishing its own shard is insufficient evidence for the whole stage.
-The next stage may use a different N after that barrier. Normal generated runners perform one
+The next stage may use a different N after that barrier. Normal project-owned runners perform one
 driver call; external orchestration owns repeated invocations.
 
 Selection does not expand to include prerequisites. A consumer selected alone will run even if a
 lower-order producer is inactive, filtered out, or absent. Existing upstream data is acceptable
 only when the project's freshness/completeness contract allows it.
 
+For exact activation behavior of a selected dataflow and its source/destination
+connections, read the canonical public guide first:
+https://datacoolie.github.io/datacoolie/guide/metadata/dataflows/#activation-and-selection .
+Explicit `dataflows=` lists still undergo this execution check.
+
 ## Concurrency and failure limits
 
-`max_workers` controls each Python thread pool, not job count or Spark executor count. The normal
-ETL executor has an outer pool for groups/independent tasks and an inner pool for each multi-item
-order bucket. Thus multiple groups can exceed `max_workers` active dataflows in one job: with
-`max_workers=2`, two groups with two tied flows each can execute four flows concurrently. Engine
-threads, API pagination, and external jobs add their own concurrency. The framework run-config
-default is 8; templates may choose a smaller explicit default.
+`max_workers` is the global dataflow concurrency cap for one Python executor invocation. It does
+not cap job count, Spark executor threads, API pagination or external jobs. Grouped and independent
+work share one coordinator pool; grouped scheduling does not create nested pools. The framework
+run-config default is 8; a project runner may choose a smaller explicit value.
 
 Ordering normally waits for completion, not success. With the framework default
-`stop_on_error=False`, a later bucket can run after a producer fails. For dependent chains, use
-`stop_on_error=True` (the bundled runners do): a failed dataflow prevents later buckets in that
-group. Other groups and ungrouped flows keep running; this is not global fail-fast. A skipped
-producer is not treated as failed and does not block the next bucket.
+`stop_on_error=False`, later ready work can run after a producer fails. With `stop_on_error=True`,
+the scheduler stops admitting new dataflows after the first terminal failure, regardless of whether
+the failure is a returned failed runtime or a worker exception. Already-admitted work drains and
+withheld work remains pending. A skipped producer is not treated as failed and does not block the
+next bucket when admission continues.
 
 Already-running work cannot be undone by cancelling futures. The executor attempts to cancel
 queued peers in a failing bucket, and its pool waits for running peers. Aggregated counters after
@@ -150,9 +159,10 @@ treating successful return from `run()` as successful execution of every prerequ
 - `run_maintenance(connection=...)` deduplicates physical destinations before job assignment, then
   runs flat parallel maintenance. With explicit `dataflows=...`, it deduplicates but does not shard
   the list again. Group/order do not schedule maintenance dependencies.
-- Flat execution (replay/maintenance) currently does not stop other flows on a normal returned
-  `failed` status, even with `stop_on_error=True`. A failed replay chunk stops that flow's remaining
-  chunks. Use the operation's result and external gates for downstream progression.
+- Replay is one scheduler item per dataflow; a failed replay chunk stops that dataflow's remaining
+  chunks. Maintenance is flat after physical-destination deduplication. Apply the current executor
+  admission and result semantics from the public reference; use the operation result and external
+  gates for downstream progression.
 
 ## Evidence to verify when the runtime changes
 

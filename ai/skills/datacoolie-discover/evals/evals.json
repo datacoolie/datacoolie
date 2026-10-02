@@ -1,5 +1,15 @@
 {
   "skill_name": "datacoolie-discover",
+  "eval_schema_version": 2,
+  "case_kinds": {
+    "decision": [1, 2, 3, 5, 6, 7, 8],
+    "execution": [4]
+  },
+  "capability_families": {
+    "source-probing": [1, 4, 7],
+    "incremental-evidence": [2, 3, 5, 8],
+    "refresh-and-handoff": [6]
+  },
   "evals": [
     {
       "id": 1,
@@ -37,12 +47,13 @@
     {
       "id": 4,
       "prompt": "Catalog metadata cannot show whether a custom version token has nulls, ties, or resets. Author the smallest safe database check. The source uses an unfamiliar dialect and may contain sensitive business values.",
-      "expected_output": "Adapt one aggregate-oriented query to the active dialect, execute it through the bounded read-only SQL probe, and retain only the minimum scratch evidence.",
-      "files": [],
+      "expected_output": "Adapt one aggregate-oriented query to the active dialect, execute the bounded read-only SQL probe, confirm its command and exit code, and retain only the minimum scratch evidence.",
+      "files": ["references/evidence-queries.md", "scripts/probe_db.py"],
       "expectations": [
         "Reference query purposes are adapted into one reviewed SELECT or WITH file rather than executed as a bundle.",
         "The query uses explicit object, row, and timeout bounds with environment-backed credentials.",
-        "Aggregate evidence is preferred and unnecessary business values are not promoted into durable artifacts."
+        "Aggregate evidence is preferred and unnecessary business values are not promoted into durable artifacts.",
+        "The probe command reports its exit code and retains observable aggregate evidence."
       ]
     },
     {

@@ -1,0 +1,22 @@
+{
+  "schema_hints": [
+    {
+      "connection_name": "local_input",
+      "table_name": "orders",
+      "hints": [
+        {"column_name": "order_id", "data_type": "long"},
+        {"column_name": "customer_id", "data_type": "long"},
+        {"column_name": "amount", "data_type": "decimal", "precision": 18, "scale": 2},
+        {"column_name": "updated_at", "data_type": "timestamp"}
+      ]
+    },
+    {
+      "connection_name": "local_input",
+      "table_name": "customers",
+      "hints": [
+        {"column_name": "customer_id", "data_type": "long"},
+        {"column_name": "name", "data_type": "string"}
+      ]
+    }
+  ]
+}

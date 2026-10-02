@@ -22,10 +22,10 @@ from __future__ import annotations
 
 from datacoolie.core.constants import ColumnCaseMode, TRAILING_COLUMNS
 from datacoolie.core.exceptions import ConfigurationError
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
-from datacoolie.transformers.base import BaseTransformer
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.transformers.base import BaseTransformer, ColumnMapping
 from datacoolie.utils.converters import to_lower_case, to_snake_case
 
 logger = get_logger(__name__)
@@ -113,5 +113,9 @@ class ColumnNameSanitizer(BaseTransformer[DF]):
             self._mark_applied(self._mode.value)
         else:
             self._mark_skipped()
+
+        self._report_column_mapping(
+            ColumnMapping.from_columns(columns, current, renames)
+        )
 
         return df

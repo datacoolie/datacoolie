@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from datacoolie.core.constants import TRAILING_COLUMNS
 from datacoolie.core.exceptions import ConfigurationError, EngineError
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.transformers.base import BaseTransformer
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.transformers.base import BaseTransformer, ColumnMapping
+
+
+logger = get_logger(__name__)
 
 
 class ColumnProjector(BaseTransformer[DF]):
@@ -30,6 +34,13 @@ class ColumnProjector(BaseTransformer[DF]):
             return df
 
         changed = False
+        select_requested = len(transform.select_columns)
+        drop_requested = len(transform.drop_columns)
+        rename_requested = len(transform.rename_columns)
+        select_resolved = 0
+        drop_resolved = 0
+        rename_resolved = 0
+        ignored_references = 0
 
         actual = self._engine.get_columns(df)
         required = {
@@ -47,6 +58,8 @@ class ColumnProjector(BaseTransformer[DF]):
             selected = self._resolve(
                 transform.select_columns, actual, transform.missing_column_policy
             )
+            select_resolved = len(selected)
+            ignored_references += select_requested - select_resolved
             selected_lower = {column.lower() for column in selected}
             missing_required = required.difference(selected_lower)
             if missing_required:
@@ -64,6 +77,8 @@ class ColumnProjector(BaseTransformer[DF]):
             dropped = self._resolve(
                 transform.drop_columns, actual, transform.missing_column_policy
             )
+            drop_resolved = len(dropped)
+            ignored_references += drop_requested - drop_resolved
             overlap = (required | reserved).intersection(
                 column.lower() for column in dropped
             )
@@ -84,6 +99,7 @@ class ColumnProjector(BaseTransformer[DF]):
                 actual_source = self._engine._resolve_column_name(current, source)
             except EngineError:
                 if transform.missing_column_policy == "ignore":
+                    ignored_references += 1
                     continue
                 raise
             if (
@@ -105,6 +121,7 @@ class ColumnProjector(BaseTransformer[DF]):
                     details={"source": source, "target": target},
                 )
             resolved_renames.append((actual_source, target))
+        rename_resolved = len(resolved_renames)
         if resolved_renames:
             df = self._engine.rename_columns(df, dict(resolved_renames))
             changed = True
@@ -113,6 +130,21 @@ class ColumnProjector(BaseTransformer[DF]):
             self._mark_applied()
         else:
             self._mark_skipped()
+        self._report_column_mapping(
+            ColumnMapping.from_columns(actual, self._engine.get_columns(df), dict(resolved_renames))
+        )
+        logger.debug(
+            "ColumnProjector: select=%d/%d, drop=%d/%d, rename=%d/%d, "
+            "ignored=%d, changed=%s",
+            select_resolved,
+            select_requested,
+            drop_resolved,
+            drop_requested,
+            rename_resolved,
+            rename_requested,
+            ignored_references,
+            changed,
+        )
         return df
 
     def _resolve(

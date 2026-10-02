@@ -5,17 +5,18 @@ in this folder:
 
 - `aws_glue_use_cases.json` (file + Delta + Iceberg, shared by both engines)
 - `sample_aws_glue_spark.py` (Glue Spark / PySpark)
-- `sample_aws_glue_polars.py` (Glue Python Shell / Polars)
+- `sample_aws_local_polars.py` (controlled Python 3.11+ / Polars, not Glue Python Shell)
 - `README.md`
 
 ## What is still deferred
 
 ### Runner integration
 
-- `run.py` / `run_scenario.py` currently instantiate `FileProvider` with
-  `LocalPlatform`. An `AWSPlatform` runner mode that reads the metadata file
-  directly from S3 is not yet wired. The scripts in this folder bypass the
-  runner by constructing `FileProvider(s3_path, platform=AWSPlatform(...))` directly.
+- The unified runner now passes the selected platform to `DataCoolieDriver` and
+  leaves provider construction to the Driver for artifact/directory modes.
+  Exact-file AWS examples still construct an explicit `FileProvider` for their
+  own script-first flow; they should use the current provider lifecycle (bind a
+  platform before initialization) rather than the removed constructor shortcut.
 
 ### Polars + Iceberg (pyiceberg Glue catalog)
 
@@ -32,8 +33,8 @@ in this folder:
 ### Polars Delta — IAM credential propagation edge cases
 
 - `storage_options` is derived from `boto3.Session` frozen credentials in
-  `sample_aws_glue_polars.py`. This covers Glue IAM role credentials (STS tokens).
-- If running outside Glue (e.g. local dev with assumed role), ensure
+  `sample_aws_local_polars.py`. This carries the active AWS credential chain, including assumed-role STS tokens.
+- For local/container execution (e.g. with an assumed role), ensure
   `AWS_PROFILE` or `AWS_*` environment variables are set before the session
   is created, or extend `storage_options` accordingly.
 
@@ -52,9 +53,9 @@ in this folder:
 
 ### Excel format
 
-- Excel is not included in `aws_glue_use_cases.json`. AWS Glue Python Shell
-  supports `openpyxl` via `--additional-python-modules`, but bandwidth cost
-  and Glue Python Shell memory limits make large Excel files impractical.
+- Excel is not included in `aws_glue_use_cases.json`. A controlled Python 3.11+ runtime can install `openpyxl`; qualify memory and
+  transfer costs before processing large Excel files. Glue Python Shell Python
+  3.9 is incompatible with the current DataCoolie package.
   Add an Excel connection manually if needed.
 
 ### Database (SQL) connections

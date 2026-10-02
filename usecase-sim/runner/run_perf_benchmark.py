@@ -27,7 +27,8 @@ Options:
     --metadata-path   path to perf_test.json (default: ./usecase-sim/metadata/file/perf_test.json)
     --stages          comma-separated stage names (default: all 8 stages in dependency order)
     --max-size        largest size to run: 10k|50k|100k|500k|1m|5m|10m|50m (default: 1m)
-    --output-dir      where to store JSON result files and the report (default: ./benchmark_results)
+    --output-dir      where to store JSON result files and the report
+                      (default: ./usecase-sim/.runtime/data/perf/benchmark_results)
     --reset           call reset_perf_data.py before benchmarking
     --report-only     skip benchmarking; only regenerate the markdown report
     --no-iceberg      skip iceberg stages (useful when docker/REST catalog is unavailable)
@@ -53,7 +54,9 @@ _RUNNER_DIR = Path(__file__).resolve().parent
 _USECASE_SIM_DIR = _RUNNER_DIR.parent
 _DATACOOLIE_DIR = _USECASE_SIM_DIR.parent
 _DEFAULT_METADATA = str(_USECASE_SIM_DIR / "metadata" / "file" / "perf_test.json")
-_DEFAULT_OUTPUT_DIR = str(_DATACOOLIE_DIR / "benchmark_results")
+_DEFAULT_OUTPUT_DIR = str(
+    _USECASE_SIM_DIR / ".runtime" / "data" / "perf" / "benchmark_results"
+)
 _RESET_SCRIPT = str(_USECASE_SIM_DIR / "scripts" / "reset_perf_data.py")
 
 sys.path.insert(0, str(_RUNNER_DIR))
@@ -138,7 +141,6 @@ def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
     from datacoolie.metadata import FileProvider  # noqa: PLC0415
     from datacoolie.orchestration import DataCoolieDriver  # noqa: PLC0415
     from datacoolie.platforms import LocalPlatform  # noqa: PLC0415
-    from datacoolie.watermark import WatermarkManager  # noqa: PLC0415
 
     storage_opts = dict(MINIO_STORAGE_OPTIONS)
     platform = LocalPlatform()
@@ -160,14 +162,12 @@ def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
         storage_options=storage_opts,
         iceberg_catalog=iceberg_catalog,
     )
-    metadata = FileProvider(config_path=metadata_path, platform=platform)
-    watermark = WatermarkManager(metadata_provider=metadata)
+    metadata = FileProvider(config_path=metadata_path)
     config = DataCoolieRunConfig(max_workers=1)  # single-threaded for fair comparison
     return DataCoolieDriver(
         engine=engine,
         platform=platform,
         metadata_provider=metadata,
-        watermark_manager=watermark,
         config=config,
     )
 
@@ -181,7 +181,6 @@ def _build_spark_driver(metadata_path: str):
     from datacoolie.metadata import FileProvider  # noqa: PLC0415
     from datacoolie.orchestration import DataCoolieDriver  # noqa: PLC0415
     from datacoolie.platforms import LocalPlatform  # noqa: PLC0415
-    from datacoolie.watermark import WatermarkManager  # noqa: PLC0415
 
     spark = build_spark_session(
         app_name="DataCoolie-PerfBenchmark",
@@ -195,14 +194,12 @@ def _build_spark_driver(metadata_path: str):
     )
     platform = LocalPlatform()
     engine = SparkEngine(spark_session=spark, platform=platform)
-    metadata = FileProvider(config_path=metadata_path, platform=platform)
-    watermark = WatermarkManager(metadata_provider=metadata)
+    metadata = FileProvider(config_path=metadata_path)
     config = DataCoolieRunConfig(max_workers=1)
     return DataCoolieDriver(
         engine=engine,
         platform=platform,
         metadata_provider=metadata,
-        watermark_manager=watermark,
         config=config,
     ), spark
 
@@ -508,7 +505,7 @@ def generate_report(output_dir: Path) -> str:
                 if r is None:
                     return "—", "—"
                 if r["status"] != "ok":
-                    return f"ERR", "—"
+                    return "ERR", "—"
                 e = r["elapsed_s"]
                 return f"{e:.2f}", _throughput(rows_count, e)
 
@@ -683,7 +680,7 @@ def main() -> None:
     output_dir = Path(args.output_dir)
 
     if args.report_only:
-        report = generate_report(output_dir)
+        generate_report(output_dir)
         print("\n" + "=" * 60)
         print(f"Report: {output_dir / 'perf_report.md'}")
         sys.exit(0)

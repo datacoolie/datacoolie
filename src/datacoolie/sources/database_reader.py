@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from decimal import Decimal
+from typing import Any, Dict, Optional
 
 from datacoolie.core.constants import DatabaseAuthType, DatabaseType
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Source
-from datacoolie.core.secret_provider import unwrap_secret
+from datacoolie.core.models.source import Source
+from datacoolie.core.secrets.provider import unwrap_secret
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
 
 logger = get_logger(__name__)
@@ -36,6 +37,14 @@ class DatabaseReader(BaseSourceReader[DF]):
 
     def __init__(self, engine: BaseEngine[DF]) -> None:
         super().__init__(engine)
+
+    def _supports_read_range(self) -> bool:
+        return True
+
+    def _watermark_ordering_kinds(self, candidate: Dict[str, Any]) -> Dict[str, str]:
+        """Authorize typed row maxima produced by the database adapter."""
+
+        return self._typed_row_watermark_ordering_kinds(candidate)
 
     # ------------------------------------------------------------------
     # Core reading
@@ -89,27 +98,54 @@ class DatabaseReader(BaseSourceReader[DF]):
         """
         options = self._build_options(source, configure)
 
+        read_range = self._get_read_range()
         wm_cols = source.watermark_columns or []
         active_wm: Dict[str, Any] = {}
-        if watermark_start and wm_cols:
-            active_wm = {c: watermark_start[c] for c in wm_cols if watermark_start.get(c) is not None}
-
         active_upper: Dict[str, Any] = {}
-        if watermark_end and wm_cols:
-            active_upper = {c: watermark_end[c] for c in wm_cols if watermark_end.get(c) is not None}
+        if read_range is not None:
+            # A bounded read is source-owned and may use a column outside the
+            # persisted incremental watermark list.  Push the exact range to
+            # SQL so large tables are filtered before transfer.
+            active_wm = {read_range.column: read_range.start}
+            active_upper = {read_range.column: read_range.end}
+        else:
+            if watermark_start and wm_cols:
+                active_wm = {
+                    c: watermark_start[c]
+                    for c in wm_cols
+                    if watermark_start.get(c) is not None
+                }
+            if watermark_end and wm_cols:
+                active_upper = {
+                    c: watermark_end[c]
+                    for c in wm_cols
+                    if watermark_end.get(c) is not None
+                }
 
         db_type = source.connection.database_type or ""
 
         where_clause = self._build_window_where_clause(
             active_wm, active_upper, db_type=db_type,
-            lower_op=self._watermark_start_operator,
-            upper_op=self._watermark_end_operator,
+            lower_op=(
+                read_range.lower_operator
+                if read_range is not None
+                else self._watermark_start_operator
+            ),
+            upper_op=(
+                read_range.upper_operator
+                if read_range is not None
+                else self._watermark_end_operator
+            ),
         )
 
         # Append user-supplied filter_expression to the WHERE clause.
         if source.filter_expression:
             filter_clause = f"({source.filter_expression})"
-            where_clause = f"{where_clause} AND {filter_clause}" if where_clause else filter_clause
+            where_clause = (
+                f"({where_clause}) AND {filter_clause}"
+                if where_clause
+                else filter_clause
+            )
 
         if source.query:
             logger.debug("DatabaseReader: executing query on source database")
@@ -168,6 +204,23 @@ class DatabaseReader(BaseSourceReader[DF]):
             if db_type == DatabaseType.ORACLE:
                 return f"TO_DATE('{value.isoformat()}', 'YYYY-MM-DD')"
             return f"'{value.isoformat()}'"
+        if isinstance(value, Decimal):
+            if not value.is_finite():
+                raise SourceError(
+                    "Non-finite Decimal watermarks cannot be pushed to SQL",
+                    details={"value_type": "Decimal"},
+                )
+            # Keep Decimal precision and scale intact; never route through
+            # float, which can change the restart boundary.
+            return format(value, "f")
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            # Binary version ordering is backend/driver specific.  Until a
+            # qualified native backend is selected, fail before issuing SQL
+            # rather than silently comparing a textual representation.
+            raise SourceError(
+                "Binary watermark SQL pushdown requires a qualified backend",
+                details={"value_type": "bytes"},
+            )
         if isinstance(value, (int, float)):
             return str(value)
         # Default: treat as string — escape internal quotes and wrap
@@ -235,7 +288,8 @@ class DatabaseReader(BaseSourceReader[DF]):
         Framework-level keys (``database_type``, ``host``, ``port``,
         ``database``, ``user``, ``password``, ``driver``, ``url``) are
         passed through so each engine can build its own URL or
-        connection string.  If ``url`` contains ``{user}``,
+        connection string. ``database_read_engine`` is also passed through as
+        an explicit Polars transport choice. If ``url`` contains ``{user}``,
         ``{password}``, etc. placeholders they are resolved here.
         """
         conn = source.connection
@@ -287,6 +341,7 @@ class DatabaseReader(BaseSourceReader[DF]):
         _handled_keys = {
             "database_type", "host", "port", "database", "username", "password",
             "driver", "url", "auth_type", "tenant_id", "token",
+            "read_options", "use_schema_hint", "schema_hint_type_system",
         }
         for k, v in conn.configure.items():
             if k not in _handled_keys and k not in opts:

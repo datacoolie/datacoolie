@@ -5,7 +5,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/input/transform_features"
+        "base_path": "./usecase-sim/.runtime/data/input/transform_features"
       }
     },
     {
@@ -13,7 +13,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/output/parquet",
+        "base_path": "./usecase-sim/.runtime/data/output/parquet",
         "write_options": {"compression": "snappy"}
       }
     }

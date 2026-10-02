@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from datacoolie.platforms.fabric_platform import FabricPlatform
-from tests.integration.cloud_config import FabricIntegrationConfig
+from tests.support.cloud_config import FabricIntegrationConfig
 
 pytestmark = [
     pytest.mark.integration,

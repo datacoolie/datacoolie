@@ -12,10 +12,16 @@ from datacoolie.core.constants import (
     LoadType,
 )
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import Connection, Destination, PartitionColumn
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.destination import Destination, PartitionColumn
 from datacoolie.platforms.aws_platform import AWSPlatform
 
-from datacoolie.destinations.delta_writer import DeltaWriter, _struct_field_names, _has_new_columns
+from datacoolie.destinations._delta.aws_catalog import (
+    AwsDeltaState,
+    _has_new_columns,
+    _struct_field_names,
+)
+from datacoolie.destinations.delta_writer import DeltaWriter
 
 from tests.unit.destinations.support import MockEngine, _make_dataflow, engine
 
@@ -307,7 +313,9 @@ def _make_glue_dataflow(
             "symlink_database_prefix": "symlink_",
         },
     )
-    from datacoolie.core.models import DataFlow, Source, Transform
+    from datacoolie.core.models.dataflow import DataFlow
+    from datacoolie.core.models.source import Source
+    from datacoolie.core.models.transform import Transform
 
     return DataFlow(
         dataflow_id="test-glue-df",
@@ -332,12 +340,12 @@ def _make_aws_state(
     pre_schema: dict[str, str] | None = None,
 ):
     """Build a captured AWS state payload for direct planner tests."""
-    return {
-        "platform": platform,
-        "native_exists": native_exists,
-        "symlink_exists": symlink_exists,
-        "pre_schema": pre_schema or {},
-    }
+    return AwsDeltaState(
+        platform=platform,
+        native_exists=native_exists,
+        symlink_exists=symlink_exists,
+        pre_schema=pre_schema or {},
+    )
 
 
 class TestPostWriteCatalog:
@@ -349,6 +357,15 @@ class TestPostWriteCatalog:
         writer = DeltaWriter(engine)
         writer._post_write_catalog(df)
         engine.generate_symlink_manifest.assert_not_called()
+
+    def test_explicit_inactive_aws_state_is_not_recaptured(self) -> None:
+        engine, platform = _make_aws_engine()
+        df = _make_glue_dataflow()
+        writer = DeltaWriter(engine)
+        with patch.object(writer._aws_catalog, "capture_state") as capture:
+            writer._post_write_catalog(df, aws_state=None)
+        capture.assert_not_called()
+        platform.register_delta_table.assert_not_called()
 
     def test_no_op_when_no_athena_output_location(self) -> None:
         engine, platform = _make_aws_engine()

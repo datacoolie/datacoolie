@@ -1,19 +1,12 @@
-# Generated data and runner outputs
-data/
+# Generated data, runner outputs, and mutable provider state
+.runtime/
 
 # Generated metadata siblings (rebuild with scripts/setup_metadata.py --targets file)
 metadata/file/*.yaml
 metadata/file/*.xlsx
 
-# Database files created by seed script
-metadata/database/*.db
-**/watermarks/
-
 # Ivy cache for Spark JAR dependencies (usecase-sim/runner/spark-jars/)
 **/spark-jars/
-
-# Runner logs
-logs/
 
 # Python
 __pycache__/

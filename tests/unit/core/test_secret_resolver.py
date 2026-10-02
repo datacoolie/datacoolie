@@ -7,13 +7,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from datacoolie.core.exceptions import DataCoolieError
-from datacoolie.core.secret_resolver import (
+from datacoolie.core.secrets.resolver import (
     BaseSecretResolver,
     EnvResolver,
     NativeProviderResolver,
     parse_source,
 )
-from datacoolie.core.secret_provider import (
+from datacoolie.core.secrets.provider import (
     BaseSecretProvider,
     resolve_secrets,
     unwrap_secret,

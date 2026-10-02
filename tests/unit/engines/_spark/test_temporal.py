@@ -1,11 +1,25 @@
 from datetime import datetime
 
 from datacoolie.engines._spark import temporal
+from datacoolie.engines.contracts.windows import WindowSpec
 
 
 def test_window_predicate_uses_spark_identifier_quoting() -> None:
-    assert temporal.build_window_predicate({"ts": (1, 2)}) == (
+    assert temporal.build_window_predicate(WindowSpec(bounds={"ts": (1, 2)})) == (
         "`ts` > '1' AND `ts` <= '2'"
+    )
+
+
+def test_window_predicate_combines_multiple_watermark_columns_with_or() -> None:
+    assert temporal.build_window_predicate(
+        WindowSpec(
+            bounds={"updated_at": (1, 2), "created_at": (3, 4)},
+            lower_operator=">=",
+            upper_operator="<",
+        )
+    ) == (
+        "`updated_at` >= '1' AND `updated_at` < '2' OR "
+        "`created_at` >= '3' AND `created_at` < '4'"
     )
 
 

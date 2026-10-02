@@ -1,5 +1,12 @@
 # Databricks Assets for usecase-sim
 
+## Before using these larger scenarios
+
+For a small first run, use the public [platform smoke guide](../../../docs/examples/runners.md#platform-smoke) and its complete download. These simulator assets are a separate, broader scenario set. Prepare the generated input described in [the simulator README](../../README.md), then upload it to each source connection's configured path.
+
+Replace the complete set of values before executing: runner metadata/log/watermark roots **and** every metadata connection's input/output `base_path`, catalog/database namespace, region and optional secret references. A runner root variable does not rewrite business metadata. Choose sandbox destinations: overwrite/maintenance stages can alter existing data. Install a matching DataCoolie release or checkout wheel and the selected engine/format dependencies. The public platform guide owns current host bootstrap/session configuration.
+
+
 Prepared Databricks assets for file + delta scenarios.
 
 This folder mirrors the Fabric notebook workflow, but targets Databricks
@@ -57,12 +64,12 @@ Subfolders expected by metadata:
 3. `datacoolie` installed (the notebooks include `%pip install`).
 4. UC Volume write/read permissions for your notebook principal.
 5. Input files uploaded from local repo folder:
-   - `usecase-sim/data/input/*`
+   - `usecase-sim/.runtime/data/input/*`
 6. `databricks_use_cases.json` uploaded to the metadata path above.
 
 ## Quick start (Spark notebook, recommended)
 
-1. Upload input folders from `usecase-sim/data/input/` into the UC Volume paths.
+1. Upload input folders from `usecase-sim/.runtime/data/input/` into the UC Volume paths.
 2. Upload `databricks_use_cases.json` to `/Volumes/workspace/default/datacoolie_sim/metadata/`.
 3. Open `sample_databricks_spark.ipynb`.
 4. Update `VOLUME_ROOT` if your volume path is different.

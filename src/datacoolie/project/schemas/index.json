@@ -1,0 +1,18 @@
+{
+  "index_version": 1,
+  "schema_kind": "metadata",
+  "schemas": [
+    {
+      "version": "0.2.0",
+      "path": "0.2.0/metadata.schema.json",
+      "url": "https://datacoolie.github.io/datacoolie/schema/0.2.0/metadata.schema.json",
+      "sha256": "884f3429bf19f563a5c5d8c205bd7f9db15c85b10408d70a12d0b6255b530ec4"
+    },
+    {
+      "version": "0.1.0",
+      "path": "0.1.0/metadata.schema.json",
+      "url": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
+      "sha256": "8fc1c46becc4e1447db65933d9c1ddb877fa89728a912ef8ae30ad3ec875ff5e"
+    }
+  ]
+}

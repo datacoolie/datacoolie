@@ -1,5 +1,15 @@
 {
   "skill_name": "datacoolie-design",
+  "eval_schema_version": 2,
+  "case_kinds": {
+    "decision": [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14],
+    "execution": [7]
+  },
+  "capability_families": {
+    "architecture-contract": [1, 3, 4, 5, 12, 13, 14],
+    "routing-and-boundary": [2, 6],
+    "approval-gate": [7, 8, 9, 10, 11]
+  },
   "evals": [
     {
       "id": 1,
@@ -70,10 +80,10 @@
     {
       "id": 7,
       "prompt": "An architecture was approved yesterday, but one sentence in architecture/current.md changed today. Verify whether implementation may reuse the existing approval.",
-      "expected_output": "Recompute the architecture hash, reject the stale receipt, and require explicit approval for the changed material design before build resumes.",
-      "files": [],
+      "expected_output": "Run the approval verification command against the final architecture bytes, confirm its exit code, reject the stale receipt, and require explicit approval for the changed material design before build resumes.",
+      "files": ["scripts/design_approval.py", "schemas/design-approval.schema.json"],
       "expectations": [
-        "Approval verification uses the final file bytes.",
+        "Approval verification uses the final file bytes and retains the failed command output as evidence.",
         "A changed hash invalidates the existing receipt.",
         "Approval state is not written into architecture/current.md."
       ]
@@ -147,12 +157,12 @@
     {
       "id": 14,
       "prompt": "A verified custom function must run in several environments. Generate both a wheel for Fabric and Databricks and a ZIP for another host so one build works everywhere.",
-      "expected_output": "Select exactly one format compatible with the approved build scope, preferring wheel; if no format fits every target, split the architecture/build scope instead of emitting parallel artifacts.",
+      "expected_output": "Record packaging per configured functions root. Each root may resolve independently to wheel, zip, copy or none; use the CLI auto rule and split the design only when a root's host or dependency requirements are incompatible.",
       "files": [],
       "expectations": [
-        "The architecture records one of none, wheel, or zip with a project-specific import prefix.",
+        "The architecture records the requested and resolved format per root with a project-specific import prefix where code is packaged.",
         "Compatible execution hosts, attachment mechanisms, dependency strategy, and rationale are explicit.",
-        "Design never requests both WHL and ZIP from one build."
+        "Design permits different configured roots to produce WHL, ZIP and copied source in one build without overlapping roots."
       ]
     }
   ]

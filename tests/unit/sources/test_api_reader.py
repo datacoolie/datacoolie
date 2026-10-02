@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.sources.api_reader import APIReader
+from datacoolie.sources._api.auth import apply_auth, fetch_oauth2_token
+from datacoolie.sources._api.records import extract_records, resolve_path
+from datacoolie.sources._api.transport import make_request, safe_url
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +135,75 @@ class TestAPIReaderBasicRead:
 
         assert df is not None
         assert len(df) == 3
+
+    def test_filter_expression_runs_after_dataframe_creation(self):
+        class FilterEngine(FakeEngine):
+            def __init__(self):
+                self.created = None
+                self.filtered = None
+
+            def create_dataframe(self, records):
+                self.created = list(records)
+                return list(records)
+
+            def filter_rows(self, df, expression):
+                self.filtered = (df, expression)
+                return [row for row in df if row["status"] == "open"]
+
+        engine = FilterEngine()
+        reader = APIReader(engine)
+        source = _make_source(src_cfg={"endpoint": "/orders"})
+        source.filter_expression = "status = 'open'"
+        records = [
+            {"id": 1, "status": "open"},
+            {"id": 2, "status": "closed"},
+        ]
+
+        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
+            mock_client = MagicMock()
+            mock_httpx.Client.return_value.__enter__ = MagicMock(return_value=mock_client)
+            mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
+            mock_httpx.HTTPError = Exception
+            mock_client.request.return_value = _mock_response(records)
+
+            result = reader.read(source)
+
+        assert engine.created == records
+        assert engine.filtered is not None
+        assert engine.filtered[0] == records
+        assert engine.filtered[1] == "status = 'open'"
+        assert result == [{"id": 1, "status": "open"}]
+        request_kwargs = mock_client.request.call_args.kwargs
+        assert request_kwargs.get("params") in (None, {})
+        assert request_kwargs.get("json") in (None, {})
+
+    def test_filter_expression_runs_on_real_polars_dataframe(self):
+        pytest.importorskip("polars")
+        from datacoolie.engines.polars_engine import PolarsEngine
+
+        reader = APIReader(PolarsEngine())
+        source = _make_source(src_cfg={"endpoint": "/orders"})
+        source.filter_expression = "status = 'open'"
+
+        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
+            mock_client = MagicMock()
+            mock_httpx.Client.return_value.__enter__ = MagicMock(return_value=mock_client)
+            mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
+            mock_httpx.HTTPError = Exception
+            mock_client.request.return_value = _mock_response(
+                [
+                    {"id": 1, "status": "open"},
+                    {"id": 2, "status": "closed"},
+                ]
+            )
+
+            result = reader.read(source)
+
+        assert result is not None
+        assert result.collect().to_dicts() == [{"id": 1, "status": "open"}]
+        request_kwargs = mock_client.request.call_args.kwargs
+        assert request_kwargs.get("params") in (None, {})
+        assert request_kwargs.get("json") in (None, {})
 
     def test_empty_response_returns_none(self):
         """Empty array response returns None."""
@@ -373,8 +446,8 @@ class TestAPIReaderPagination:
         assert len(df) == 2
         assert call_count == 2
 
-    def test_offset_pagination_max_pages_exits_loop(self):
-        """Offset pagination should stop when max_pages is reached."""
+    def test_offset_pagination_max_pages_fails_when_end_is_unknown(self):
+        """A full page at the cap does not prove that offset results ended."""
         engine = FakeEngine()
         reader = APIReader(engine)
         source = _make_source(
@@ -393,16 +466,20 @@ class TestAPIReaderPagination:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([{"id": 1}])
 
-            df = reader.read(source)
+            with pytest.raises(SourceError, match="end of the result was not confirmed"):
+                reader.read(source)
 
-        assert df is not None
-        assert len(df) == 1
 
-    def test_unknown_pagination_type_advances_until_max_pages(self):
-        """Unknown pagination type should still advance pages until max_pages."""
+    def test_unknown_pagination_type_fails_before_request(self):
+        """Unknown pagination modes cannot silently advance a checkpoint."""
         engine = FakeEngine()
         reader = APIReader(engine)
         source = _make_source(
+            conn_cfg={
+                "base_url": "https://api.example.com",
+                "auth_type": "bearer",
+                "auth_token": "synthetic-secret",
+            },
             src_cfg={
                 "endpoint": "/items",
                 "pagination_type": "custom_mode",
@@ -410,17 +487,13 @@ class TestAPIReaderPagination:
             },
         )
 
-        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
-            mock_client = MagicMock()
-            mock_httpx.Client.return_value.__enter__ = MagicMock(return_value=mock_client)
-            mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
-            mock_httpx.HTTPError = Exception
-            mock_client.request.return_value = _mock_response([{"id": 1}])
+        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx, \
+             patch("datacoolie.sources.api_reader.apply_auth") as apply_auth:
+            with pytest.raises(SourceError, match="Unsupported API pagination_type"):
+                reader.read(source)
 
-            df = reader.read(source)
-
-        assert df is not None
-        assert len(df) == 1
+        mock_httpx.Client.assert_not_called()
+        apply_auth.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -489,25 +562,139 @@ class TestAPIReaderErrorHandling:
 
     def test_http_error_before_retry_raises_source_error(self):
         """HTTP client errors are wrapped as SourceError on first request."""
-        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
+        with patch("datacoolie.sources._api.transport.httpx") as mock_httpx:
             mock_httpx.HTTPError = RuntimeError
             client = MagicMock()
             client.request.side_effect = RuntimeError("network down")
 
             with pytest.raises(SourceError, match="HTTP request failed"):
-                APIReader._make_request(client, "GET", "https://api.example.com/data")
+                make_request(client, "GET", "https://api.example.com/data")
 
     def test_http_error_after_retry_raises_source_error(self):
         """HTTP client errors on retry are wrapped with retry-specific message."""
         rate_limited = _mock_response({}, status_code=429, headers={"Retry-After": "0"})
 
-        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
+        with patch("datacoolie.sources._api.transport.httpx") as mock_httpx:
             mock_httpx.HTTPError = RuntimeError
             client = MagicMock()
             client.request.side_effect = [rate_limited, RuntimeError("still down")]
 
             with pytest.raises(SourceError, match="after retry"):
-                APIReader._make_request(client, "GET", "https://api.example.com/data")
+                make_request(client, "GET", "https://api.example.com/data")
+
+    def test_http_diagnostics_redact_credentials_from_url_and_exception_context(self):
+        sentinel = "sentinel-token"
+        unsafe_url = (
+            "https://user:password@example.com/data"
+            f"?access_token={sentinel}&page=1"
+        )
+
+        assert "user" not in safe_url(unsafe_url)
+        assert "password" not in safe_url(unsafe_url)
+        assert sentinel not in safe_url(unsafe_url)
+        assert "page=1" in safe_url(unsafe_url)
+
+        with patch("datacoolie.sources._api.transport.httpx") as mock_httpx:
+            mock_httpx.HTTPError = RuntimeError
+            client = MagicMock()
+            client.request.side_effect = RuntimeError(
+                f"request failed for {unsafe_url} ({sentinel})"
+            )
+
+            with pytest.raises(SourceError) as raised:
+                make_request(client, "GET", unsafe_url)
+
+        error = raised.value
+        assert sentinel not in str(error)
+        assert sentinel not in repr(error.details)
+        assert error.__cause__ is None
+        assert error.__context__ is None
+
+    def test_source_action_url_is_safe_for_credentials_in_base_url(self):
+        sentinel = "sentinel-token"
+        source = _make_source(
+            conn_cfg={
+                "base_url": (
+                    "https://user:password@example.com"
+                    f"?api_key={sentinel}"
+                ),
+            },
+            src_cfg={"endpoint": "/data"},
+        )
+        reader = APIReader(FakeEngine())
+
+        with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
+            mock_client = MagicMock()
+            mock_httpx.Client.return_value.__enter__ = MagicMock(return_value=mock_client)
+            mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
+            mock_httpx.HTTPError = Exception
+            mock_client.request.return_value = _mock_response([])
+            reader.read(source)
+
+        action_url = reader.get_runtime_info().source_action["url"]
+        assert sentinel not in action_url
+        assert "user" not in action_url
+        assert "password" not in action_url
+
+    def test_http_status_errors_do_not_include_response_body(self):
+        sentinel = "response-secret"
+        response = _mock_response({"error": sentinel}, status_code=500)
+        with patch("datacoolie.sources._api.transport.httpx") as mock_httpx:
+            mock_httpx.HTTPError = RuntimeError
+            client = MagicMock()
+            client.request.return_value = response
+
+            with pytest.raises(SourceError) as raised:
+                make_request(
+                    client,
+                    "GET",
+                    "https://api.example.com/data?token=hidden",
+                )
+
+        assert sentinel not in str(raised.value)
+        assert sentinel not in repr(raised.value.details)
+
+    def test_oauth_diagnostics_use_safe_endpoint_and_method(self):
+        sentinel = "oauth-secret"
+        token_url = (
+            "https://user:password@example.com/token"
+            f"?client_secret={sentinel}"
+        )
+        with patch("datacoolie.sources._api.auth.httpx") as mock_httpx:
+            mock_httpx.HTTPError = RuntimeError
+            mock_httpx.post.side_effect = RuntimeError(
+                f"token request failed for {token_url}"
+            )
+            with pytest.raises(SourceError) as raised:
+                fetch_oauth2_token(
+                    {
+                        "token_url": token_url,
+                        "client_id": "client",
+                        "client_secret": "secret",
+                    }
+                )
+
+        assert raised.value.details["method"] == "POST"
+        assert sentinel not in str(raised.value)
+        assert "user" not in str(raised.value)
+        assert "password" not in str(raised.value)
+
+    def test_oauth_invalid_json_does_not_expose_response_payload(self):
+        sentinel = "oauth-response-secret"
+        response = _mock_response({}, status_code=200)
+        response.json.side_effect = ValueError(sentinel)
+        with patch("datacoolie.sources._api.auth.httpx") as mock_httpx:
+            mock_httpx.post.return_value = response
+            with pytest.raises(SourceError, match="invalid JSON") as raised:
+                fetch_oauth2_token(
+                    {
+                        "token_url": "https://example.com/token",
+                        "client_id": "client",
+                        "client_secret": "secret",
+                    }
+                )
+
+        assert sentinel not in str(raised.value)
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +775,8 @@ class TestAPIReaderWatermark:
             df = reader.read(source, watermark_start={"event_id": 999})
 
         assert df is None
+        assert reader.get_runtime_info().rows_read == 0
+        assert reader.get_new_watermark() == {}
 
 
 # ---------------------------------------------------------------------------
@@ -599,56 +788,56 @@ class TestAPIReaderHelpers:
     def test_resolve_path_nested(self):
         """_resolve_path drills into nested dicts."""
         data = {"a": {"b": {"c": 42}}}
-        assert APIReader._resolve_path(data, "a.b.c") == 42
+        assert resolve_path(data, "a.b.c") == 42
 
     def test_resolve_path_missing(self):
         """_resolve_path returns None for missing keys."""
-        assert APIReader._resolve_path({"a": 1}, "b.c") is None
+        assert resolve_path({"a": 1}, "b.c") is None
 
     def test_resolve_path_list_index(self):
         """_resolve_path supports numeric list indices."""
         data = {"items": [{"id": 10}, {"id": 20}]}
-        assert APIReader._resolve_path(data, "items.1.id") == 20
+        assert resolve_path(data, "items.1.id") == 20
 
     def test_extract_records_top_level_list(self):
         """Top-level list returns records directly."""
         records = [{"id": 1}, {"id": 2}]
-        assert APIReader._extract_records(records) == records
+        assert extract_records(records) == records
 
     def test_extract_records_single_dict(self):
         """Single dict is wrapped in a list."""
         record = {"id": 1}
-        assert APIReader._extract_records(record) == [record]
+        assert extract_records(record) == [record]
 
     def test_extract_records_with_data_path(self):
         """Nested extraction via data_path."""
         data = {"response": {"items": [{"id": 1}]}}
-        assert APIReader._extract_records(data, "response.items") == [{"id": 1}]
+        assert extract_records(data, "response.items") == [{"id": 1}]
 
     def test_extract_records_missing_path(self):
         """Missing data_path returns empty list."""
-        assert APIReader._extract_records({"a": 1}, "missing.path") == []
+        assert extract_records({"a": 1}, "missing.path") == []
 
     def test_resolve_path_list_index_out_of_bounds(self):
         """Out-of-bounds list index returns None."""
         data = {"items": [{"id": 10}]}
-        assert APIReader._resolve_path(data, "items.9.id") is None
+        assert resolve_path(data, "items.9.id") is None
 
     def test_resolve_path_list_with_non_numeric_key_returns_none(self):
         """Lists require numeric indices in path resolution."""
         data = {"items": [{"id": 10}]}
-        assert APIReader._resolve_path(data, "items.foo") is None
+        assert resolve_path(data, "items.foo") is None
 
     def test_apply_auth_bearer_without_token_no_header(self):
         """Bearer auth without token should not add Authorization header."""
         headers: Dict[str, str] = {}
-        APIReader._apply_auth(headers, {"auth_type": "bearer"})
+        apply_auth(headers, {"auth_type": "bearer"})
         assert "Authorization" not in headers
 
     def test_apply_auth_api_key_without_value_no_header(self):
         """API key auth without value should not add key header."""
         headers: Dict[str, str] = {}
-        APIReader._apply_auth(headers, {"auth_type": "api_key", "api_key_header": "X-Key"})
+        apply_auth(headers, {"auth_type": "api_key", "api_key_header": "X-Key"})
         assert "X-Key" not in headers
 
     def test_records_to_dataframe_wraps_engine_error(self):
@@ -694,7 +883,7 @@ class TestAPIReaderHelpers:
         page2 = []
 
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx, \
-             patch("datacoolie.sources.api_reader.time.sleep") as mock_sleep:
+             patch("datacoolie.sources._api.transport.time.sleep") as mock_sleep:
             mock_client = MagicMock()
             mock_httpx.Client.return_value.__enter__ = MagicMock(return_value=mock_client)
             mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)

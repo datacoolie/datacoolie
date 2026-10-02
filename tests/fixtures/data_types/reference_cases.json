@@ -1,0 +1,65 @@
+[
+  {
+    "name": "postgres_int8",
+    "type_system": "postgresql",
+    "data_type": "int8",
+    "expected": "bigint",
+    "expected_descriptor": {"kind": "signed_integer", "bit_width": 64, "unsigned": false}
+  },
+  {
+    "name": "mysql_unsigned_tinyint",
+    "type_system": "mysql",
+    "data_type": "tinyint unsigned",
+    "expected": "smallint",
+    "expected_descriptor": {"kind": "unsigned_integer", "bit_width": 8, "unsigned": true}
+  },
+  {
+    "name": "mysql_unsigned_bigint",
+    "type_system": "mysql",
+    "data_type": "bigint unsigned",
+    "expected": "decimal(20,0)",
+    "expected_descriptor": {"kind": "unsigned_integer", "bit_width": 64, "unsigned": true}
+  },
+  {
+    "name": "mssql_rowversion_is_binary",
+    "type_system": "mssql",
+    "data_type": "rowversion",
+    "expected": "binary",
+    "expected_descriptor": {"kind": "binary"}
+  },
+  {
+    "name": "oracle_date_preserves_wall_clock",
+    "type_system": "oracle",
+    "data_type": "DATE",
+    "expected": "timestamp_ntz",
+    "expected_descriptor": {"kind": "timestamp", "timestamp_kind": "timestamp_ntz"}
+  },
+  {
+    "name": "explicit_decimal",
+    "type_system": "spark_sql",
+    "data_type": "DECIMAL(18,2)",
+    "expected": "decimal(18,2)",
+    "expected_descriptor": {"kind": "decimal", "precision": 18, "scale": 2}
+  },
+  {
+    "name": "spark_double",
+    "type_system": "spark_sql",
+    "data_type": "double",
+    "expected": "double",
+    "expected_descriptor": {"kind": "float", "bit_width": 64}
+  },
+  {
+    "name": "oracle_number_default_scale",
+    "type_system": "oracle",
+    "data_type": "NUMBER(18)",
+    "expected": "decimal(18,0)",
+    "expected_descriptor": {"kind": "decimal", "precision": 18, "scale": 0}
+  },
+  {
+    "name": "oracle_negative_scale",
+    "type_system": "oracle",
+    "data_type": "NUMBER(18,-2)",
+    "expected": "decimal(20,0)",
+    "expected_descriptor": {"kind": "decimal", "precision": 20, "scale": 0}
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "schema_version": 4,
+  "streams": {
+    "job_snapshot.json": {"kind": "job", "rows": 1, "mode": "snapshot"},
+    "dataflow_snapshot.json": {"kind": "dataflow", "rows": 2, "mode": "snapshot"},
+    "dataflow_part_00000001.json": {"kind": "dataflow", "rows": 1, "mode": "batch"},
+    "system_snapshot.json": {"kind": "system", "rows": 1, "mode": "snapshot"},
+    "system_part_00000001.json": {"kind": "system", "rows": 1, "mode": "batch"}
+  }
+}

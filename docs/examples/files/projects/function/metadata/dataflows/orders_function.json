@@ -1,0 +1,18 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_function_source",
+      "stage": "ingest2bronze",
+      "source": {
+        "connection_name": "function_source",
+        "python_function": "functions.sources.load_orders"
+      },
+      "destination": {
+        "connection_name": "local_output",
+        "table": "orders",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

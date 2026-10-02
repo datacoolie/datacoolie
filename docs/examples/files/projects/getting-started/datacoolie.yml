@@ -1,0 +1,12 @@
+schema_version: 1
+project:
+  name: getting-started
+components:
+  metadata:
+    path: metadata
+    output:
+      layout: single
+      format: json
+environments:
+  local:
+    platform: local

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,14 +12,16 @@ from datacoolie.core.constants import (
     DATE_FOLDER_PARTITION_KEY,
     DataFlowStatus,
 )
-from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
-from datacoolie.sources.base import BaseSourceReader
+from datacoolie.core.exceptions import SourceError, WatermarkError
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
+from datacoolie.sources.base import BaseSourceReader, SourceReadRange
 
 from tests.unit.sources.support import (
     ConcreteSourceReader,
     FailingSourceReader,
     MockEngine,
+    StatefulSourceReader,
     delta_source,
     engine,
 )
@@ -30,6 +33,54 @@ from tests.unit.sources.support import (
 
 
 class TestBaseSourceReader:
+    @pytest.mark.parametrize("family,values", [
+        ("large-int", (2**100 - 1, 2**100, 2**100 + 1)),
+        ("decimal", (Decimal("12345678901234567890.0000000001"),
+                     Decimal("12345678901234567890.0000000002"),
+                     Decimal("12345678901234567890.0000000003"))),
+        ("date", (date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3))),
+        ("datetime", (datetime(2025, 1, 1), datetime(2025, 1, 2), datetime(2025, 1, 3))),
+        ("aware", (datetime(2025, 1, 1, tzinfo=timezone.utc),
+                   datetime(2025, 1, 2, tzinfo=timezone.utc),
+                   datetime(2025, 1, 3, tzinfo=timezone.utc))),
+    ], ids=lambda value: value if isinstance(value, str) else None)
+    @pytest.mark.parametrize("position", [0, 1, 2], ids=["below", "equal", "above"])
+    def test_authorized_max_is_lossless_and_does_not_mutate_inputs(
+        self, engine: MockEngine, family, values, position
+    ) -> None:
+        source = Source(connection=Connection(name="c", format="delta"),
+                        table="events", watermark_columns=["value"])
+
+        class TypedReader(ConcreteSourceReader):
+            def _watermark_ordering_kinds(self, candidate):
+                return self._typed_row_watermark_ordering_kinds(candidate)
+
+        reader = TypedReader(engine)
+        reader.read(source)
+        existing = {"value": values[1], "aux": "unchanged"}
+        candidate = {"value": values[position]}
+        assert reader.merge_watermark(existing, candidate) == {
+            "value": values[max(1, position)], "aux": "unchanged"
+        }
+        assert existing == {"value": values[1], "aux": "unchanged"}
+        assert candidate == {"value": values[position]}
+
+    @pytest.mark.parametrize("stored,candidate", [("999", "1"),
+        ("2025-12-01", "2025-01-01"), ("old", None)])
+    def test_opaque_tokens_are_not_guessed_as_ordered(
+        self, engine: MockEngine, delta_source: Source, stored, candidate
+    ) -> None:
+        reader = ConcreteSourceReader(engine)
+        reader.read(delta_source)
+        existing = {"cursor": stored, "aux": "kept"}
+        observation = {"cursor": candidate}
+        assert reader.merge_watermark(existing, observation) == {
+            "cursor": stored if candidate is None else candidate, "aux": "kept"
+        }
+        assert reader.merge_watermark(existing, {}) == existing
+        assert existing == {"cursor": stored, "aux": "kept"}
+        assert observation == {"cursor": candidate}
+
     def test_cannot_instantiate_abc(self) -> None:
         with pytest.raises(TypeError):
             BaseSourceReader(MockEngine())  # type: ignore[abstract]
@@ -43,6 +94,73 @@ class TestBaseSourceReader:
         assert info.start_time is not None
         assert info.end_time is not None
 
+    def test_read_forwards_canonical_range_to_internal_reader(
+        self, engine: MockEngine, delta_source: Source
+    ) -> None:
+        captured: dict[str, SourceReadRange | None] = {}
+
+        class RangeReader(ConcreteSourceReader):
+            def _supports_read_range(self) -> bool:
+                return True
+
+            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+                captured["range"] = self._get_read_range()
+                return super()._read_internal(
+                    source, watermark_start, watermark_end=watermark_end
+                )
+
+        reader = RangeReader(engine)
+        result = reader.read(
+            delta_source,
+            read_range=SourceReadRange(
+                "modified_at", "2025-01-01", "2025-02-01"
+            ),
+        )
+
+        assert result is not None
+        assert captured["range"] == SourceReadRange(
+            "modified_at", date(2025, 1, 1), date(2025, 2, 1)
+        )
+
+    def test_reused_reader_clears_range_and_preserves_configuration(
+        self, engine: MockEngine, delta_source: Source
+    ) -> None:
+        calls = []
+
+        class RangeReader(ConcreteSourceReader):
+            def _supports_read_range(self):
+                return True
+
+            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+                calls.append((self._get_read_range(), watermark_start, watermark_end))
+                return super()._read_internal(source, watermark_start, watermark_end=watermark_end)
+
+        source_before = delta_source.model_dump()
+        reader = RangeReader(engine)
+        selected_range = SourceReadRange("id", 1, 5)
+        reader.read(delta_source, read_range=selected_range)
+        reader.read(delta_source, watermark_start={"modified_at": 9})
+        reader.read(delta_source)
+        assert calls == [(selected_range, None, None),
+                         (None, {"modified_at": 9}, None), (None, None, None)]
+        assert delta_source.model_dump() == source_before
+
+    @pytest.mark.parametrize("bounds", [
+        {"watermark_start": {"id": 1}}, {"watermark_end": {"id": 5}},
+    ], ids=["lower", "upper"])
+    def test_range_conflict_is_rejected_before_internal_read(
+        self, engine: MockEngine, delta_source: Source, bounds
+    ) -> None:
+        class RangeReader(ConcreteSourceReader):
+            def _supports_read_range(self):
+                return True
+
+            def _read_internal(self, *args, **kwargs):
+                raise AssertionError("conflicting bounds must not read data")
+
+        with pytest.raises(SourceError, match="read_range"):
+            RangeReader(engine).read(delta_source, read_range=SourceReadRange("id", 1, 5), **bounds)
+
     def test_read_returns_none(self, engine: MockEngine, delta_source: Source) -> None:
         reader = ConcreteSourceReader(engine, return_none=True)
         result = reader.read(delta_source)
@@ -50,13 +168,66 @@ class TestBaseSourceReader:
         info = reader.get_runtime_info()
         assert info.status == DataFlowStatus.SUCCEEDED.value
 
+    def test_preserve_empty_keeps_typed_zero_row_frame(
+        self, engine: MockEngine, delta_source: Source
+    ) -> None:
+        class EmptyReader(ConcreteSourceReader):
+            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+                return self._finalize_read(
+                    {}, ["id"], type(self).__name__, "typed-empty test"
+                )
+
+        engine.set_data({}, row_count=0)
+        reader = EmptyReader(engine)
+        assert reader.read(delta_source) is None
+        assert reader.read(delta_source, preserve_empty=True) == {}
+        assert reader.get_runtime_info().rows_read == 0
+
     def test_read_failure_wraps_exception(self, engine: MockEngine, delta_source: Source) -> None:
         reader = FailingSourceReader(engine)
         with pytest.raises(SourceError, match="Failed to read source"):
             reader.read(delta_source)
         info = reader.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
-        assert "Boom!" in (info.error_message or "")
+        assert "Boom!" in (info.message or "")
+
+    def test_typed_read_failure_records_message(
+        self, engine: MockEngine, delta_source: Source
+    ) -> None:
+        class TypedFailingReader(FailingSourceReader):
+            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+                raise SourceError("typed boom")
+
+        reader = TypedFailingReader(engine)
+        with pytest.raises(SourceError, match="typed boom"):
+            reader.read(delta_source)
+        info = reader.get_runtime_info()
+        assert info.status == DataFlowStatus.FAILED.value
+        assert info.message == "typed boom"
+
+    def test_empty_typed_read_failure_uses_exception_type(
+        self, engine: MockEngine, delta_source: Source
+    ) -> None:
+        class EmptyFailingReader(FailingSourceReader):
+            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+                raise SourceError("")
+
+        reader = EmptyFailingReader(engine)
+        with pytest.raises(SourceError):
+            reader.read(delta_source)
+        assert reader.get_runtime_info().message == "SourceError"
+
+    def test_reused_reader_does_not_retain_previous_watermark(
+        self, engine: MockEngine, delta_source: Source
+    ) -> None:
+        engine.set_max_values({"id": 42})
+        reader = StatefulSourceReader(engine)
+        assert reader.read(delta_source) is not None
+        assert reader.get_new_watermark() == {"id": 42}
+
+        assert reader.read(delta_source) is None
+        assert reader.get_new_watermark() == {}
+        assert reader.get_runtime_info().watermark_after is None
 
     def test_read_records_watermark_before(self, engine: MockEngine, delta_source: Source) -> None:
         reader = ConcreteSourceReader(engine)
@@ -69,6 +240,75 @@ class TestBaseSourceReader:
         reader = ConcreteSourceReader(engine)
         assert reader.get_new_watermark() == {}
 
+    def test_source_merge_orders_typed_values_but_replaces_opaque_cursor(self, engine: MockEngine) -> None:
+        source = Source(
+            connection=Connection(name="c", format="delta", configure={"base_path": "/data"}),
+            table="events",
+            watermark_columns=["id", "cursor"],
+        )
+        class TypedReader(ConcreteSourceReader):
+            def _watermark_ordering_kinds(self, candidate):
+                return self._typed_row_watermark_ordering_kinds(candidate)
+
+        reader = TypedReader(engine)
+        reader.read(source)
+
+        merged = reader.merge_watermark(
+            {"id": 3, "cursor": "old-token", "aux": "kept"},
+            {"id": 2, "cursor": "new-token"},
+        )
+
+        assert merged == {"id": 3, "cursor": "new-token", "aux": "kept"}
+
+    @pytest.mark.parametrize(
+        ("stored", "candidate"),
+        [
+            (5, 3),
+            (datetime(2025, 4, 1), datetime(2025, 1, 1)),
+        ],
+    )
+    def test_source_merge_replaces_unclassified_native_values(
+        self, engine: MockEngine, stored, candidate
+    ) -> None:
+        """Opaque custom-reader values replace state regardless of native type."""
+
+        source = Source(
+            connection=Connection(name="c", format="delta", configure={"base_path": "/data"}),
+            table="events",
+            watermark_columns=["cursor"],
+        )
+        reader = ConcreteSourceReader(engine)
+        reader.read(source)
+
+        assert reader.merge_watermark({"cursor": stored}, {"cursor": candidate}) == {
+            "cursor": candidate
+        }
+
+    @pytest.mark.parametrize("stored,candidate", [
+        (datetime(2025, 4, 1), date(2025, 1, 1)),
+        (date(2025, 4, 1), datetime(2025, 1, 1)),
+        (datetime(2025, 4, 1), datetime(2025, 1, 1, tzinfo=timezone.utc)),
+        (datetime(2025, 4, 1, tzinfo=timezone.utc), datetime(2025, 1, 1)),
+    ], ids=["datetime-date", "date-datetime", "naive-aware", "aware-naive"])
+    def test_source_merge_rejects_incompatible_typed_temporal_values(self, engine: MockEngine, stored, candidate) -> None:
+        source = Source(
+            connection=Connection(name="c", format="delta", configure={"base_path": "/data"}),
+            table="events",
+            watermark_columns=["updated_at"],
+        )
+        class TypedReader(ConcreteSourceReader):
+            def _watermark_ordering_kinds(self, candidate):
+                return self._typed_row_watermark_ordering_kinds(candidate)
+
+        reader = TypedReader(engine)
+        reader.read(source)
+
+        with pytest.raises(WatermarkError, match="Incompatible ordered temporal"):
+            reader.merge_watermark(
+                {"updated_at": stored},
+                {"updated_at": candidate},
+            )
+
 
 # ============================================================================
 # Watermark Filter tests
@@ -80,6 +320,7 @@ class TestWatermarkFilter:
         reader = ConcreteSourceReader(engine)
         df = {"col": [1]}
         result = reader._apply_watermark_filter(df, ["col"], {"col": "2024-01-01"})
+        assert result is df
         assert engine._filtered is True
 
     def test_apply_watermark_filter_numeric(self, engine: MockEngine) -> None:

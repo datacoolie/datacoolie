@@ -6,7 +6,7 @@ import time
 from typing import Any, Callable
 
 from datacoolie.core.exceptions import PlatformError
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.platforms._aws.errors import error_code, failure_detail
 
 logger = get_logger(__name__)

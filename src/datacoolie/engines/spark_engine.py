@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, time as datetime_time
 from typing import Any, Dict, List, Optional, Tuple
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame, SparkSession, functions as sf
 
 from datacoolie.core.constants import Format
 from datacoolie.core.exceptions import EngineError
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.engines._spark import database as spark_database
 from datacoolie.engines._spark import delta as spark_delta
 from datacoolie.engines._spark import file_io as spark_file_io
@@ -20,10 +20,20 @@ from datacoolie.engines._spark import type_mapping as spark_type_mapping
 from datacoolie.engines._spark.session_builder import get_or_create_spark_session
 from datacoolie.engines._spark.iceberg import operations as spark_iceberg_operations
 from datacoolie.engines.base import BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.engines.contracts.windows import WindowSpec
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.platforms.base import BasePlatform
 
 logger = get_logger(__name__)
+
+
+def _parse_spark_date_bound(value: str) -> date:
+    """Parse legacy date or ISO datetime strings for a Spark DateType column."""
+
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return datetime.fromisoformat(value).date()
 
 
 class SparkEngine(BaseEngine[DataFrame]):
@@ -32,8 +42,9 @@ class SparkEngine(BaseEngine[DataFrame]):
     Args:
         spark_session: Existing session for managed or notebook runtimes. A
             configured session is created when omitted.
-        config: Spark configuration overrides used only when creating or
-            updating the active session.
+        config: Explicit Spark configuration overrides. They are applied to a
+            supplied session; framework defaults are applied only when
+            DataCoolie creates the session.
         platform: Optional platform attached to this engine.
 
     Implementation details are delegated to the private ``_spark`` capability
@@ -162,6 +173,7 @@ class SparkEngine(BaseEngine[DataFrame]):
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_file_io.write_to_path(df, path, mode, fmt, partition_columns, options)
 
     def write_to_table(
@@ -174,6 +186,7 @@ class SparkEngine(BaseEngine[DataFrame]):
         options: Optional[Dict[str, str]] = None,
         _skip_iceberg_evolution: bool = False,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_table_operations.write_to_table(
             self._spark,
             df,
@@ -194,7 +207,8 @@ class SparkEngine(BaseEngine[DataFrame]):
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
     ) -> None:
-        spark_delta.merge_to_path(self._spark, df, path, merge_keys, fmt)
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
+        spark_delta.merge_to_path(self._spark, df, path, merge_keys, fmt, options)
 
     def merge_overwrite_to_path(
         self,
@@ -204,9 +218,18 @@ class SparkEngine(BaseEngine[DataFrame]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_delta.merge_overwrite_to_path(
-            self._spark, df, path, merge_keys, fmt, partition_columns, options
+            self._spark,
+            df,
+            path,
+            merge_keys,
+            fmt,
+            partition_columns,
+            options,
+            write_options,
         )
 
     def merge_to_table(
@@ -218,8 +241,15 @@ class SparkEngine(BaseEngine[DataFrame]):
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_table_operations.merge_to_table(
-            self._spark, df, table_name, merge_keys, fmt, partition_columns
+            self._spark,
+            df,
+            table_name,
+            merge_keys,
+            fmt,
+            partition_columns,
+            options,
         )
 
     def merge_overwrite_to_table(
@@ -230,22 +260,42 @@ class SparkEngine(BaseEngine[DataFrame]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_table_operations.merge_overwrite_to_table(
-            self._spark, df, table_name, merge_keys, fmt, partition_columns, options
+            self._spark,
+            df,
+            table_name,
+            merge_keys,
+            fmt,
+            partition_columns,
+            options,
+            write_options=write_options,
         )
 
     def delete_by_window_path(
-        self, path: str, window: Dict[str, tuple], fmt: str = "delta"
+        self, path: str, window: WindowSpec, fmt: str = "delta"
     ) -> None:
         spark_delta.delete_by_window_path(path, window, fmt, self._spark)
 
     def delete_by_window_table(
-        self, table_name: str, window: Dict[str, tuple], fmt: str = "delta"
+        self, table_name: str, window: WindowSpec, fmt: str = "delta"
     ) -> None:
         spark_table_operations.delete_by_window_table(
             self._spark, table_name, window, fmt
         )
+
+    def _prepare_replace_window_input(self, df: DataFrame) -> DataFrame:
+        """Materialize a Spark-local checkpoint before destructive deletion."""
+
+        return df.localCheckpoint(eager=True)
+
+    def _release_replace_window_input(
+        self, stable_df: DataFrame, *, original: DataFrame
+    ) -> None:
+        if stable_df is not original:
+            stable_df.unpersist(blocking=False)
 
     def scd2_to_path(
         self,
@@ -255,9 +305,18 @@ class SparkEngine(BaseEngine[DataFrame]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_delta.scd2_to_path(
-            self._spark, df, path, merge_keys, fmt, partition_columns, options
+            self._spark,
+            df,
+            path,
+            merge_keys,
+            fmt,
+            partition_columns,
+            options,
+            write_options,
         )
 
     def scd2_to_table(
@@ -268,9 +327,18 @@ class SparkEngine(BaseEngine[DataFrame]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = spark_type_mapping.normalize_output_frame(df, fmt)
         spark_table_operations.scd2_to_table(
-            self._spark, df, table_name, merge_keys, fmt, partition_columns, options
+            self._spark,
+            df,
+            table_name,
+            merge_keys,
+            fmt,
+            partition_columns,
+            options,
+            write_options=write_options,
         )
 
     def add_column(self, df: DataFrame, column_name: str, expression: str) -> DataFrame:
@@ -332,12 +400,74 @@ class SparkEngine(BaseEngine[DataFrame]):
         watermark_end: Optional[Dict[str, Any]] = None,
         end_operator: str = "<",
     ) -> DataFrame:
+        lower = dict(watermark_start)
+        upper = dict(watermark_end or {})
+        for column in watermark_columns:
+            lower_value = lower.get(column)
+            upper_value = upper.get(column)
+            # An inactive watermark column must not be resolved.  This is
+            # common for partial upper/lower replay windows and also avoids a
+            # false failure when metadata lists an optional column.
+            if lower_value is None and upper_value is None:
+                continue
+            if isinstance(lower_value, (bytes, bytearray, memoryview)) or isinstance(
+                upper_value, (bytes, bytearray, memoryview)
+            ):
+                raise EngineError(
+                    "Binary watermark comparison requires a qualified backend"
+                )
+            escaped = column.replace("`", "``")
+            try:
+                # Backticks force a literal top-level field name, preserving
+                # names containing dots/backticks while Spark's analyzer still
+                # applies its configured case-sensitivity and ambiguity rules.
+                data_type = (
+                    df.select(sf.col(f"`{escaped}`").alias("__watermark_field"))
+                    .schema["__watermark_field"]
+                    .dataType
+                )
+            except Exception as exc:  # noqa: BLE001
+                raise EngineError(
+                    f"Watermark column {column!r} could not be resolved by Spark",
+                    details={"column": column, "available_columns": df.columns},
+                ) from exc
+            if isinstance(lower_value, str):
+                if data_type.typeName() == "date":
+                    lower[column] = _parse_spark_date_bound(lower_value)
+                elif data_type.typeName() in {"timestamp", "timestamp_ntz"}:
+                    lower[column] = datetime.fromisoformat(lower_value)
+            elif isinstance(lower_value, datetime) and data_type.typeName() == "date":
+                lower[column] = lower_value.date()
+            elif (
+                isinstance(lower_value, date)
+                and not isinstance(lower_value, datetime)
+                and data_type.typeName() in {"timestamp", "timestamp_ntz"}
+            ):
+                lower[column] = datetime.combine(lower_value, datetime_time.min)
+            elif isinstance(lower_value, (date, datetime)) and data_type.typeName() == "string":
+                lower[column] = lower_value.isoformat()
+            if isinstance(upper_value, str):
+                if data_type.typeName() == "date":
+                    upper[column] = _parse_spark_date_bound(upper_value)
+                elif data_type.typeName() in {"timestamp", "timestamp_ntz"}:
+                    upper[column] = datetime.fromisoformat(upper_value)
+            elif isinstance(upper_value, datetime) and data_type.typeName() == "date":
+                upper[column] = upper_value.date()
+            elif (
+                isinstance(upper_value, date)
+                and not isinstance(upper_value, datetime)
+                and data_type.typeName() in {"timestamp", "timestamp_ntz"}
+            ):
+                upper[column] = datetime.combine(upper_value, datetime_time.min)
+            elif isinstance(upper_value, (date, datetime)) and data_type.typeName() == "string":
+                upper[column] = upper_value.isoformat()
+
         return spark_transforms.apply_watermark_filter(
             df,
             watermark_columns,
-            watermark_start,
+            lower,
             start_operator=start_operator,
-            watermark_end=watermark_end,
+            watermark_end=upper,
             end_operator=end_operator,
         )
 
@@ -369,8 +499,20 @@ class SparkEngine(BaseEngine[DataFrame]):
         column_name: str,
         target_type: str,
         fmt: Optional[str] = None,
+        *,
+        type_system: Optional[str] = None,
+        precision: Optional[int] = None,
+        scale: Optional[int] = None,
     ) -> DataFrame:
-        return spark_type_mapping.cast_column(df, column_name, target_type, fmt)
+        return spark_type_mapping.cast_column(
+            df,
+            column_name,
+            target_type,
+            fmt,
+            type_system=type_system,
+            precision=precision,
+            scale=scale,
+        )
 
     def add_system_columns(
         self,
@@ -383,8 +525,10 @@ class SparkEngine(BaseEngine[DataFrame]):
     def add_file_info_columns(self, df: DataFrame, file_infos=None) -> DataFrame:
         return spark_file_io.add_file_info_columns(self._spark, df, file_infos)
 
-    def convert_timestamp_ntz_to_timestamp(self, df: DataFrame) -> DataFrame:
-        return spark_transforms.convert_timestamp_ntz_to_timestamp(df)
+    def convert_timestamp_ntz_to_timestamp(
+        self, df: DataFrame, timezone: Optional[str] = None
+    ) -> DataFrame:
+        return spark_transforms.convert_timestamp_ntz_to_timestamp(df, timezone)
 
     def count_rows(self, df: DataFrame) -> int:
         return spark_metrics.count_rows(df)
@@ -410,24 +554,18 @@ class SparkEngine(BaseEngine[DataFrame]):
         return spark_metrics.get_count_and_max_values(df, columns)
 
     def table_exists_by_path(self, path: str, *, fmt: str = "delta") -> bool:
-        try:
-            if fmt.lower() == Format.ICEBERG.value:
-                return spark_iceberg_operations.table_exists_by_path(
-                    self._spark, self._platform, path
-                )
-            if fmt.lower() == Format.DELTA.value:
-                return spark_delta.table_exists_by_path(
-                    self._spark, self._platform, path
-                )
-            return self._platform.folder_exists(path)
-        except Exception:  # noqa: BLE001
-            return False
+        if fmt.lower() == Format.ICEBERG.value:
+            return spark_iceberg_operations.table_exists_by_path(
+                self._spark, self._platform, path
+            )
+        if fmt.lower() == Format.DELTA.value:
+            return spark_delta.table_exists_by_path(
+                self._spark, self._platform, path
+            )
+        return self._platform.folder_exists(path)
 
     def table_exists_by_name(self, table_name: str, *, fmt: str = "delta") -> bool:
-        try:
-            return self._spark.catalog.tableExists(table_name)
-        except Exception:  # noqa: BLE001
-            return False
+        return self._spark.catalog.tableExists(table_name)
 
     def get_history_by_path(
         self,
@@ -486,9 +624,7 @@ class SparkEngine(BaseEngine[DataFrame]):
         options: Optional[Dict[str, Any]] = None,
     ) -> None:
         if fmt.lower() == Format.ICEBERG.value:
-            spark_iceberg_operations.compact_by_name(
-                self._spark, table_name, options
-            )
+            spark_iceberg_operations.compact_by_name(self._spark, table_name, options)
         elif fmt.lower() == Format.DELTA.value:
             spark_delta.compact_by_name(self._spark, table_name)
         else:

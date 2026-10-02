@@ -11,8 +11,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datacoolie.core.constants import WATERMARK_FILE_NAME
-from datacoolie.core.exceptions import MetadataError, WatermarkError
+from datacoolie.core.exceptions import ConfigurationError, MetadataError, WatermarkError
+from datacoolie.metadata.documents.parsers import parse_yaml_document
+from datacoolie.metadata.documents.excel import (
+    cast,
+    excel_sheet_rows,
+    json_cell,
+    parse_excel,
+    parse_excel_connections,
+    parse_excel_dataflows,
+    parse_excel_schema_hints,
+    safe_bool,
+)
+from datacoolie.metadata.documents.mapping import resolve_connection
 from datacoolie.metadata.file_provider import FileProvider
+from datacoolie.metadata.contracts.context import MetadataProviderStartupContext
 from datacoolie.platforms.local_platform import LocalPlatform
 
 
@@ -28,7 +41,10 @@ MINIMAL_CONFIG: Dict[str, Any] = {
             "name": "bronze_adls",
             "connection_type": "lakehouse",
             "format": "delta",
-            "configure": {"base_path": "abfss://bronze@storage/"},
+            "configure": {
+                "base_path": "abfss://bronze@storage/",
+                "schema_hint_type_system": "postgres",
+            },
         },
         {
             "connection_id": "c-2",
@@ -112,13 +128,34 @@ class TestFileProviderInit:
 
     def test_missing_config_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(MetadataError, match="Cannot read"):
-            FileProvider(config_path=str(tmp_path / "nope.json"), platform=LocalPlatform())
+            FileProvider(config_path=str(tmp_path / "nope.json"), platform=LocalPlatform()).initialize()
 
     def test_invalid_json_raises(self, tmp_path: Path) -> None:
         bad = tmp_path / "bad.json"
         bad.write_text("not json!!!", encoding="utf-8")
         with pytest.raises(MetadataError, match="Cannot parse"):
-            FileProvider(config_path=str(bad), platform=LocalPlatform())
+            FileProvider(config_path=str(bad), platform=LocalPlatform()).initialize()
+
+    def test_dataflow_retains_source_hint_type_system(self, tmp_path: Path) -> None:
+        data = json.loads(json.dumps(MINIMAL_CONFIG))
+        path = _write_json_config(tmp_path, data)
+
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        dataflow = provider.get_dataflows(attach_schema_hints=True)[0]
+
+        assert dataflow.source.connection.schema_hint_type_system == "postgres"
+        assert dataflow.transform.schema_hints[0].data_type == "DECIMAL"
+
+    @pytest.mark.parametrize("configure", [{}, {"next_link_bound_mode": "opaque"},
+                                           {"next_link_bound_mode": "repeat_query_bounds"}])
+    def test_source_pagination_config_preserved(self, tmp_path: Path, configure: dict) -> None:
+        data = json.loads(json.dumps(MINIMAL_CONFIG))
+        data["dataflows"][0]["source"]["configure"] = configure
+        provider = FileProvider(config_path=_write_json_config(tmp_path, data), platform=LocalPlatform())
+
+        dataflow = provider.get_dataflows(attach_schema_hints=False)[0]
+
+        assert dataflow.source.configure == configure
 
     def test_invalid_yaml_raises(self, tmp_path: Path) -> None:
         pytest.importorskip("yaml")
@@ -126,13 +163,70 @@ class TestFileProviderInit:
         # A YAML list at root level is invalid for our purposes
         bad.write_text("- item1\n- item2", encoding="utf-8")
         with pytest.raises(MetadataError, match="must contain a mapping|Cannot parse"):
-            FileProvider(config_path=str(bad), platform=LocalPlatform())
+            FileProvider(config_path=str(bad), platform=LocalPlatform()).initialize()
 
-    def test_empty_yaml_gives_empty_data(self, tmp_path: Path) -> None:
+    def test_empty_yaml_is_rejected(self, tmp_path: Path) -> None:
         pytest.importorskip("yaml")
         empty = tmp_path / "empty.yaml"
         empty.write_text("", encoding="utf-8")
         provider = FileProvider(config_path=str(empty), platform=LocalPlatform())
+        with pytest.raises(MetadataError, match="mapping at root level|must contain"):
+            provider.get_connections()
+
+    def test_unwrapped_document_is_rejected(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, {"name": "not-a-section"})
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        with pytest.raises(MetadataError, match="must contain a connections"):
+            provider.initialize()
+
+    def test_schema_markers_are_ignored_by_runtime_provider(self, tmp_path: Path) -> None:
+        metadata = tmp_path / "metadata"
+        metadata.mkdir()
+        (metadata / "connections.json").write_text(
+            json.dumps({
+                "$schema": "https://datacoolie.github.io/datacoolie/schema/0.2.0/metadata.schema.json",
+                "connections": [],
+            }),
+            encoding="utf-8",
+        )
+        (metadata / "dataflows.json").write_text(
+            json.dumps({
+                "$schema": "https://datacoolie.github.io/datacoolie/schema/0.1.0/metadata.schema.json",
+                "dataflows": [],
+            }),
+            encoding="utf-8",
+        )
+
+        provider = FileProvider(metadata_base_path=str(metadata), platform=LocalPlatform())
+        provider.initialize()
+        assert provider.get_connections(active_only=False) == []
+        assert provider.get_dataflows(active_only=False) == []
+
+    def test_empty_explicit_overlay_is_rejected(self, tmp_path: Path) -> None:
+        primary = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        overlay = _write_json_config(tmp_path, {}, name="connections-overlay.json")
+        provider = FileProvider(
+            config_path=primary,
+            connections_path=overlay,
+            platform=LocalPlatform(),
+        )
+        with pytest.raises(MetadataError, match="Explicit connections_path"):
+            provider.initialize()
+
+    def test_explicit_empty_section_is_valid(self, tmp_path: Path) -> None:
+        primary_data = {**MINIMAL_CONFIG, "dataflows": [], "schema_hints": []}
+        primary = _write_json_config(tmp_path, primary_data)
+        overlay = _write_json_config(
+            tmp_path,
+            {"connections": []},
+            name="connections-overlay.json",
+        )
+        provider = FileProvider(
+            config_path=primary,
+            connections_path=overlay,
+            platform=LocalPlatform(),
+        )
+        provider.initialize()
         assert provider.get_connections() == []
 
     def test_custom_watermark_base_path(self, tmp_path: Path) -> None:
@@ -143,6 +237,79 @@ class TestFileProviderInit:
             watermark_base_path="/custom/wm",
         )
         assert provider._watermark_base_path == "/custom/wm"
+
+    @pytest.mark.parametrize("option_name", ["connections_path", "schema_hints_path"])
+    def test_blank_overlay_path_is_rejected(self, option_name: str) -> None:
+        with pytest.raises(ConfigurationError, match=option_name):
+            FileProvider(**{option_name: "   "})
+
+    def test_runtime_binding_prefers_state_root(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+
+        provider.configure_context(
+            MetadataProviderStartupContext(
+                state_base_path="runtime/state",
+                log_base_path="runtime/logs",
+            )
+        )
+        bound = provider.watermark_base_path
+
+        assert bound == "runtime/state/watermarks"
+        assert provider.watermark_base_path == bound
+
+    def test_runtime_binding_uses_parent_of_log_root(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+
+        provider.configure_context(
+            MetadataProviderStartupContext(log_base_path="runtime/custom-logs")
+        )
+        assert provider.watermark_base_path == "runtime/watermarks"
+
+    def test_runtime_binding_rejects_implicit_rebind(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        provider.configure_context(
+            MetadataProviderStartupContext(state_base_path="runtime/a")
+        )
+
+        with pytest.raises(ConfigurationError, match="already bound"):
+            provider.configure_context(
+                MetadataProviderStartupContext(state_base_path="runtime/b")
+            )
+
+    def test_runtime_binding_rejects_blank_context_root(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+
+        with pytest.raises(ConfigurationError, match="state_base_path"):
+            provider.configure_context(
+                MetadataProviderStartupContext(state_base_path=" ")
+            )
+
+    def test_explicit_watermark_root_wins_over_runtime_context(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(
+            config_path=path,
+            platform=LocalPlatform(),
+            watermark_base_path="runtime/explicit-watermarks",
+        )
+
+        provider.configure_context(
+            MetadataProviderStartupContext(state_base_path="runtime/state")
+        )
+        assert provider.watermark_base_path == "runtime/explicit-watermarks"
+
+    def test_unbound_provider_is_valid_for_metadata_but_not_watermarks(
+        self, tmp_path: Path
+    ) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+
+        assert provider.get_connections()
+        with pytest.raises(WatermarkError, match="watermark_base_path"):
+            provider.get_watermark("df-1")
 
     def test_separate_overlay_files_override_sections(self, tmp_path: Path) -> None:
         base = {
@@ -175,21 +342,21 @@ class TestFileProviderInit:
 
 class TestFileProviderParserHelpers:
     def test_cast_and_bool_helpers(self) -> None:
-        assert FileProvider._cast("  x  ") == "x"
-        assert FileProvider._cast("   ") is None
-        assert FileProvider._safe_bool("true") is True
-        assert FileProvider._safe_bool("definitely-not-bool") is False
+        assert cast("  x  ") == "x"
+        assert cast("   ") is None
+        assert safe_bool("true") is True
+        assert safe_bool("definitely-not-bool") is False
 
     def test_json_cell_helpers(self) -> None:
-        assert FileProvider._json_cell(None) is None
-        assert FileProvider._json_cell('{"a": 1}') == {"a": 1}
+        assert json_cell(None) is None
+        assert json_cell('{"a": 1}') == {"a": 1}
         with pytest.raises(MetadataError, match="Invalid JSON cell value"):
-            FileProvider._json_cell("not-json{")
+            json_cell("not-json{")
 
     def test_excel_sheet_rows_missing_sheet(self) -> None:
         wb = MagicMock()
         wb.sheetnames = ["connections"]
-        assert FileProvider._excel_sheet_rows(wb, "dataflows") == []
+        assert excel_sheet_rows(wb, "dataflows") == []
 
     def test_parse_excel_import_error(self) -> None:
         with patch("builtins.__import__") as imp:
@@ -202,26 +369,44 @@ class TestFileProviderParserHelpers:
 
             imp.side_effect = _side_effect
             with pytest.raises(MetadataError, match="openpyxl"):
-                FileProvider._parse_excel("/tmp/no.xlsx")
+                parse_excel("/tmp/no.xlsx")
 
     def test_parse_excel_load_workbook_error(self) -> None:
         with patch("openpyxl.load_workbook", side_effect=RuntimeError("bad file")):
             with pytest.raises(MetadataError, match="Cannot read Excel metadata file"):
-                FileProvider._parse_excel("/tmp/no.xlsx")
+                parse_excel("/tmp/no.xlsx")
+
+    def test_parse_excel_rejects_workbook_without_metadata_sheets(self) -> None:
+        wb = MagicMock()
+        wb.sheetnames = ["notes"]
+        with patch("openpyxl.load_workbook", return_value=wb):
+            with pytest.raises(MetadataError, match="none of the supported sheets"):
+                parse_excel("/tmp/notes.xlsx")
+        wb.close.assert_called_once()
 
     def test_load_file_excel_wraps_unexpected_exception(self, tmp_path: Path) -> None:
         path = _write_json_config(tmp_path, MINIMAL_CONFIG)
         provider = FileProvider(config_path=path, platform=LocalPlatform())
-        with patch.object(FileProvider, "_parse_excel", side_effect=RuntimeError("bad")):
+        provider._read_metadata_bytes = MagicMock(return_value=b"ignored")
+        with patch("datacoolie.metadata.file_provider.parse_excel", side_effect=RuntimeError("bad")):
             with pytest.raises(MetadataError, match="Cannot parse metadata config"):
                 provider._load_file("dummy.xlsx")
 
     def test_load_file_excel_reraises_metadata_error(self, tmp_path: Path) -> None:
         path = _write_json_config(tmp_path, MINIMAL_CONFIG)
         provider = FileProvider(config_path=path, platform=LocalPlatform())
-        with patch.object(FileProvider, "_parse_excel", side_effect=MetadataError("bad excel")):
+        provider._read_metadata_bytes = MagicMock(return_value=b"ignored")
+        with patch("datacoolie.metadata.file_provider.parse_excel", side_effect=MetadataError("bad excel")):
             with pytest.raises(MetadataError, match="bad excel"):
                 provider._load_file("dummy.xlsx")
+
+    def test_load_file_rejects_legacy_xls(self, tmp_path: Path) -> None:
+        provider = FileProvider(
+            config_path=str(tmp_path / "metadata.xls"),
+            platform=LocalPlatform(),
+        )
+        with pytest.raises(MetadataError, match=r"\.xls is not supported"):
+            provider.initialize()
 
     def test_parse_yaml_missing_dependency(self) -> None:
         import builtins
@@ -235,7 +420,7 @@ class TestFileProviderParserHelpers:
 
         with patch("builtins.__import__", side_effect=_block_yaml):
             with pytest.raises(MetadataError, match="PyYAML"):
-                FileProvider._parse_yaml("a: 1")
+                parse_yaml_document("a: 1", "metadata.yaml")
 
     def test_excel_sheet_rows_parses_values(self) -> None:
         wb = MagicMock()
@@ -252,22 +437,23 @@ class TestFileProviderParserHelpers:
             [("c1", "parquet"), (None, None), ("c2", "delta")],
         ]
 
-        rows = FileProvider._excel_sheet_rows(wb, "connections")
+        rows = excel_sheet_rows(wb, "connections")
         assert rows == [
-            {"name": "c1", "format": "parquet"},
-            {"name": "c2", "format": "delta"},
+            (2, {"name": "c1", "format": "parquet"}),
+            (4, {"name": "c2", "format": "delta"}),
         ]
 
     def test_parse_excel_success_with_mocked_workbook(self) -> None:
         wb = MagicMock()
+        wb.sheetnames = ["connections"]
         with patch("openpyxl.load_workbook", return_value=wb):
-            with patch.object(FileProvider, "_parse_excel_connections", return_value=[{"name": "c"}]):
-                with patch.object(FileProvider, "_parse_excel_dataflows", return_value=[{"name": "d"}]):
-                    with patch.object(FileProvider, "_parse_excel_schema_hints", return_value=[{"h": 1}]):
-                        out = FileProvider._parse_excel("/tmp/file.xlsx")
+            with patch("datacoolie.metadata.documents.excel.parse_excel_connections", return_value=[{"name": "c"}]):
+                with patch("datacoolie.metadata.documents.excel.parse_excel_dataflows", return_value=[{"name": "d"}]):
+                    with patch("datacoolie.metadata.documents.excel.parse_excel_schema_hints", return_value=[{"h": 1}]):
+                        out = parse_excel("/tmp/file.xlsx")
         assert out["connections"][0]["name"] == "c"
-        assert out["dataflows"][0]["name"] == "d"
-        assert out["schema_hints"][0]["h"] == 1
+        assert "dataflows" not in out
+        assert "schema_hints" not in out
         wb.close.assert_called_once()
 
     def test_parse_excel_connections_mixed_fields(self) -> None:
@@ -275,18 +461,28 @@ class TestFileProviderParserHelpers:
             {
                 "name": "conn_a",
                 "connection_id": "c-1",
+                "connection_type": "file",
                 "configure": '{"host": "h"}',
                 "configure_port": "1433",
                 "secrets_ref": '{"scope": ["pwd"]}',
                 "is_active": "true",
             }
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_connections(MagicMock())
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            out = parse_excel_connections(MagicMock())
         assert out[0]["configure"]["host"] == "h"
         assert out[0]["configure"]["port"] == "1433"
         assert out[0]["secrets_ref"] == {"scope": ["pwd"]}
         assert out[0]["is_active"] is True
+
+    def test_parse_excel_connections_rejects_nonblank_incomplete_row(self) -> None:
+        rows = [{"name": "missing-type"}]
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            with pytest.raises(MetadataError, match="connections row 2"):
+                parse_excel_connections(
+                    MagicMock(),
+                    source_path="metadata.xlsx",
+                )
 
     def test_parse_excel_dataflows_transform_merge_and_lists(self) -> None:
         rows = [
@@ -294,6 +490,7 @@ class TestFileProviderParserHelpers:
                 "name": "df",
                 "source_connection_name": "src",
                 "source_table": "orders",
+                "source_filter_expression": "status = 'open'",
                 "destination_connection_name": "dst",
                 "destination_table": "dim_orders",
                 "destination_merge_keys": "id,order_id",
@@ -307,9 +504,10 @@ class TestFileProviderParserHelpers:
                 "is_active": "false",
             }
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_dataflows(MagicMock())
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            out = parse_excel_dataflows(MagicMock())
         assert out[0]["is_active"] is False
+        assert out[0]["source"]["filter_expression"] == "status = 'open'"
         assert out[0]["destination"]["merge_keys"] == ["id", "order_id"]
         assert out[0]["transform"]["schema_hints"][0]["column_name"] == "a"
         assert out[0]["transform"]["select_columns"] == ["id", "email"]
@@ -342,22 +540,54 @@ class TestFileProviderParserHelpers:
                 "scale": "2",
             },
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_schema_hints(MagicMock())
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2 + i, row) for i, row in enumerate(rows)]):
+            out = parse_excel_schema_hints(MagicMock())
         assert len(out) == 1
         assert len(out[0]["hints"]) == 2
         assert out[0]["hints"][1]["column_name"] == "amount"
 
+    def test_parse_excel_schema_hints_accepts_connection_id_reference(self) -> None:
+        rows = [
+            {
+                "connection_id": "c-1",
+                "table_name": "orders",
+                "column_name": "id",
+                "data_type": "INT",
+            },
+            {
+                "connection_id": "c-1",
+                "connection_name": "warehouse",
+                "table_name": "orders",
+                "column_name": "amount",
+                "data_type": "DECIMAL",
+            },
+        ]
+        with patch(
+            "datacoolie.metadata.documents.excel.excel_sheet_rows",
+            return_value=[(2 + i, row) for i, row in enumerate(rows)],
+        ):
+            out = parse_excel_schema_hints(MagicMock())
+        assert out == [
+            {
+                "connection_id": "c-1",
+                "connection_name": "warehouse",
+                "table_name": "orders",
+                "hints": [
+                    {"column_name": "id", "data_type": "INT"},
+                    {"column_name": "amount", "data_type": "DECIMAL"},
+                ],
+            }
+        ]
+
     def test_resolve_connection_inline_dict(self, tmp_path: Path) -> None:
-        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
-        provider = FileProvider(config_path=path, platform=LocalPlatform())
-        conn = provider._resolve_connection(
+        conn = resolve_connection(
             {
                 "connection_id": "inline-1",
                 "name": "inline_conn",
                 "connection_type": "file",
                 "format": "parquet",
-            }
+            },
+            {},
         )
         assert conn.name == "inline_conn"
 
@@ -388,6 +618,34 @@ class TestFileProviderParserHelpers:
         assert len(out) == 1
         assert out[0].dataflow_id == "df-active"
 
+    def test_clear_cache_rebuilds_models_from_retained_snapshot(self, tmp_path: Path) -> None:
+        data = {
+            "connections": MINIMAL_CONFIG["connections"],
+            "dataflows": [
+                {
+                    "dataflow_id": "df-original",
+                    "name": "original",
+                    "source": {"connection_name": "bronze_adls", "table": "orders"},
+                    "destination": {
+                        "connection_name": "silver_lakehouse",
+                        "table": "orders",
+                    },
+                }
+            ],
+            "schema_hints": [],
+        }
+        path = _write_json_config(tmp_path, data)
+        provider = FileProvider(config_path=path, platform=LocalPlatform())
+
+        loaded = provider.get_dataflows(attach_schema_hints=False)
+        loaded[0].name = "mutated-by-caller"
+        loaded[0].source.connection.configure["mutated"] = True
+        provider.clear_cache()
+
+        rebuilt = provider.get_dataflows(attach_schema_hints=False)
+        assert rebuilt[0].name == "original"
+        assert "mutated" not in rebuilt[0].source.connection.configure
+
     def test_parse_excel_connections_branch_matrix(self) -> None:
         rows = [
             {
@@ -396,14 +654,14 @@ class TestFileProviderParserHelpers:
                 "secrets_ref": "",                # _json_cell returns None -> skipped
                 "is_active": "true",              # bool branch
                 "name": "conn_a",                 # val not None branch
+                "connection_type": "file",
             },
             {
-                "configure": "",                  # _json_cell None -> branch false
-                "name": "",                       # val None branch
+                # A fully blank row is ignored by the workbook parser.
             },
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_connections(MagicMock())
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2 + i, row) for i, row in enumerate(rows)]):
+            out = parse_excel_connections(MagicMock())
         assert len(out) == 1
         assert out[0]["name"] == "conn_a"
         assert out[0]["is_active"] is True
@@ -414,6 +672,9 @@ class TestFileProviderParserHelpers:
                 "transform": "",                           # transform parsed as None
                 "source_watermark_columns": "",            # ensure_list empty branch
                 "source_table": "",                        # cast none branch
+                "source_connection_name": "src",
+                "source_query": "SELECT 1",
+                "destination_connection_name": "dst",
                 "destination_table": "orders",             # non-empty normal field
                 "transform_configure": "",                 # json none branch
             },
@@ -421,11 +682,11 @@ class TestFileProviderParserHelpers:
                 # Empty row dict leads to no src/dest/transform and not appended
             },
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_dataflows(MagicMock())
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            out = parse_excel_dataflows(MagicMock())
         assert len(out) == 1
         assert out[0]["destination"]["table"] == "orders"
-        assert "source" not in out[0]
+        assert out[0]["source"]["query"] == "SELECT 1"
 
     def test_parse_excel_dataflows_non_prefixed_none_value_skipped(self) -> None:
         rows = [
@@ -433,9 +694,17 @@ class TestFileProviderParserHelpers:
                 "name": "",  # non-prefixed scalar column -> _cast(None) path
             }
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_dataflows(MagicMock())
-        assert out == []
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            assert parse_excel_dataflows(MagicMock()) == []
+
+    def test_parse_excel_dataflows_rejects_nonblank_incomplete_row(self) -> None:
+        rows = [{"name": "missing-source"}]
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            with pytest.raises(MetadataError, match="dataflows row 2"):
+                parse_excel_dataflows(
+                    MagicMock(),
+                    source_path="metadata.xlsx",
+                )
 
     def test_parse_excel_schema_hints_missing_fields_and_non_int_precision(self) -> None:
         rows = [
@@ -461,11 +730,65 @@ class TestFileProviderParserHelpers:
                 # no column_name/data_type/format -> hint remains empty branch
             },
         ]
-        with patch.object(FileProvider, "_excel_sheet_rows", return_value=rows):
-            out = FileProvider._parse_excel_schema_hints(MagicMock())
-        assert len(out) == 1
-        assert len(out[0]["hints"]) == 1
-        assert out[0]["hints"][0]["column_name"] == "id"
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2 + i, row) for i, row in enumerate(rows)]):
+            with pytest.raises(MetadataError, match="connection_name and table_name"):
+                parse_excel_schema_hints(MagicMock())
+
+        invalid_number = {
+            "connection_name": "conn_a",
+            "table_name": "orders",
+            "column_name": "id",
+            "data_type": "INT",
+            "precision": "not-an-integer",
+        }
+        with patch(
+            "datacoolie.metadata.documents.excel.excel_sheet_rows",
+            return_value=[(7, invalid_number)],
+        ):
+            with pytest.raises(MetadataError, match="schema_hints row 7.*precision"):
+                parse_excel_schema_hints(MagicMock(), source_path="metadata.xlsx")
+
+    @pytest.mark.parametrize("field", ["precision", "scale", "ordinal_position"])
+    @pytest.mark.parametrize("value", ["3.9", 3.9, True, float("nan"), float("inf")])
+    def test_parse_excel_schema_hints_rejects_non_integer_numeric_cells(
+        self,
+        field: str,
+        value: Any,
+    ) -> None:
+        row = {
+            "connection_name": "conn_a",
+            "table_name": "orders",
+            "column_name": "id",
+            "data_type": "INT",
+            field: value,
+        }
+        with patch(
+            "datacoolie.metadata.documents.excel.excel_sheet_rows",
+            return_value=[(7, row)],
+        ):
+            with pytest.raises(MetadataError, match=f"schema_hints row 7.*{field}"):
+                parse_excel_schema_hints(MagicMock(), source_path="metadata.xlsx")
+
+    def test_parse_excel_schema_hints_accepts_whole_values_without_float_rounding(self) -> None:
+        row = {
+            "connection_name": "conn_a",
+            "table_name": "orders",
+            "column_name": "id",
+            "data_type": "INT",
+            "precision": "9007199254740993.0",
+            "scale": "0.0",
+            "ordinal_position": 1.0,
+        }
+        with patch(
+            "datacoolie.metadata.documents.excel.excel_sheet_rows",
+            return_value=[(7, row)],
+        ):
+            result = parse_excel_schema_hints(MagicMock(), source_path="metadata.xlsx")
+
+        hint = result[0]["hints"][0]
+        assert hint["precision"] == 9007199254740993
+        assert hint["scale"] == 0
+        assert hint["ordinal_position"] == 1
 
 
 # ===========================================================================
@@ -516,6 +839,7 @@ class TestFileProviderConnections:
             },
         ]
         data["dataflows"] = []
+        data["schema_hints"] = []
         path = _write_json_config(tmp_path, data)
         provider = FileProvider(config_path=path, platform=LocalPlatform())
         assert len(provider.get_connections(active_only=True)) == 0
@@ -524,7 +848,7 @@ class TestFileProviderConnections:
     def test_invalid_connection_raises(self, tmp_path: Path) -> None:
         data = {"connections": [{"name": ""}]}  # empty name → validation error
         path = _write_json_config(tmp_path, data)
-        with pytest.raises(MetadataError, match="Invalid connection"):
+        with pytest.raises(MetadataError, match="Invalid connection definition"):
             FileProvider(config_path=path, platform=LocalPlatform()).get_connections()
 
     def test_database_as_direct_field(self, tmp_path: Path) -> None:
@@ -863,6 +1187,18 @@ class TestFileProviderWatermark:
         )
         assert provider._watermark_path("df-1") == f"/wm/bronze2silver_orders_flow_df-1/{WATERMARK_FILE_NAME}"
 
+    def test_watermark_path_preserves_uri_root(self, tmp_path: Path) -> None:
+        path = _write_json_config(tmp_path, MINIMAL_CONFIG)
+        provider = FileProvider(
+            config_path=path,
+            platform=LocalPlatform(),
+            watermark_base_path="s3://bucket/",
+        )
+
+        assert provider._watermark_path("df-1") == (
+            f"s3://bucket/bronze2silver_orders_flow_df-1/{WATERMARK_FILE_NAME}"
+        )
+
     def test_watermark_overwrite(self, tmp_path: Path) -> None:
         path = _write_json_config(tmp_path, MINIMAL_CONFIG)
         wm_base = str(tmp_path / "watermarks")
@@ -910,7 +1246,11 @@ class TestFileProviderWatermark:
         platform = MagicMock()
         platform.read_file.return_value = json.dumps(MINIMAL_CONFIG)
         platform.file_exists.side_effect = RuntimeError("boom")
-        provider = FileProvider(config_path=path, platform=platform)
+        provider = FileProvider(
+            config_path=path,
+            platform=platform,
+            watermark_base_path=str(tmp_path / "watermarks"),
+        )
         with pytest.raises(WatermarkError, match="Cannot read watermark"):
             provider.get_watermark("df-1")
 
@@ -919,7 +1259,11 @@ class TestFileProviderWatermark:
         platform = MagicMock()
         platform.read_file.return_value = json.dumps(MINIMAL_CONFIG)
         platform.write_file.side_effect = RuntimeError("boom")
-        provider = FileProvider(config_path=path, platform=platform)
+        provider = FileProvider(
+            config_path=path,
+            platform=platform,
+            watermark_base_path=str(tmp_path / "watermarks"),
+        )
         with pytest.raises(WatermarkError, match="Cannot write watermark"):
             provider.update_watermark("df-1", '{"v": 1}')
 
@@ -935,6 +1279,7 @@ class TestFileProviderLifecycle:
     def test_close_clears_data(self, tmp_path: Path) -> None:
         path = _write_json_config(tmp_path, MINIMAL_CONFIG)
         provider = FileProvider(config_path=path, platform=LocalPlatform())
+        provider.initialize()
         assert len(provider._data) > 0
         provider.close()
         assert len(provider._data) == 0
@@ -994,9 +1339,12 @@ class TestFileProviderSchemaHintFields:
     def test_watermark_path_with_stage_and_name(self, tmp_path: Path) -> None:
         """Line 632: _watermark_path uses stage and name when available."""
         data = dict(MINIMAL_CONFIG)
-        data['watermark'] = {'base_path': str(tmp_path / 'wm')}
         path = _write_json_config(tmp_path, data)
-        provider = FileProvider(config_path=path, platform=LocalPlatform())
+        provider = FileProvider(
+            config_path=path,
+            platform=LocalPlatform(),
+            watermark_base_path=str(tmp_path / "wm"),
+        )
         # df-1 has stage='bronze2silver' and name='orders_flow'
         wm_path = provider._watermark_path('df-1')
         # Path should include stage and name components
@@ -1039,8 +1387,8 @@ class TestFileProviderBulkLoadSchemaHintEdgeCases:
         with pytest.raises(MetadataError):
             fp.get_dataflows()
 
-    def test_bulk_load_schema_hint_missing_conn_or_table_skipped(self, tmp_path: Path) -> None:
-        """Line 676: group without conn_ref or table is skipped."""
+    def test_bulk_load_schema_hint_missing_conn_or_table_raises(self, tmp_path: Path) -> None:
+        """A schema-hint group must identify both its connection and table."""
         config = {
             **MINIMAL_CONFIG,
             'schema_hints': [
@@ -1049,8 +1397,8 @@ class TestFileProviderBulkLoadSchemaHintEdgeCases:
         }
         path = _write_json_config(tmp_path, config)
         fp = FileProvider(config_path=path, platform=LocalPlatform())
-        dfs = fp.get_dataflows()
-        assert dfs is not None
+        with pytest.raises(MetadataError, match="missing connection and table"):
+            fp.get_dataflows()
 
     def test_bulk_load_schema_hint_conn_ref_is_valid_id(self, tmp_path: Path) -> None:
         """Line 678: when conn_ref is a valid connection_id use directly."""
@@ -1069,8 +1417,8 @@ class TestFileProviderBulkLoadSchemaHintEdgeCases:
         dfs = fp.get_dataflows()
         assert dfs is not None
 
-    def test_bulk_load_schema_hint_unknown_conn_name_skipped(self, tmp_path: Path) -> None:
-        """Line 682: unknown connection name is skipped."""
+    def test_bulk_load_schema_hint_unknown_conn_name_raises(self, tmp_path: Path) -> None:
+        """A schema-hint group must reference a configured connection."""
         config = {
             **MINIMAL_CONFIG,
             'schema_hints': [
@@ -1083,8 +1431,8 @@ class TestFileProviderBulkLoadSchemaHintEdgeCases:
         }
         path = _write_json_config(tmp_path, config)
         fp = FileProvider(config_path=path, platform=LocalPlatform())
-        dfs = fp.get_dataflows()
-        assert dfs is not None
+        with pytest.raises(MetadataError, match="unknown connection"):
+            fp.get_dataflows()
 
     def test_bulk_load_schema_hint_invalid_hint_raises(self, tmp_path: Path) -> None:
         """Lines 688-689: invalid hint fields raise MetadataError."""
@@ -1120,8 +1468,8 @@ class TestFileProviderSchemaHintsOptionalFields:
                 'is_active': 'true',
             },
         ]
-        with patch.object(FileProvider, '_excel_sheet_rows', return_value=rows):
-            out = FileProvider._parse_excel_schema_hints(MagicMock())
+        with patch("datacoolie.metadata.documents.excel.excel_sheet_rows", return_value=[(2, row) for row in rows]):
+            out = parse_excel_schema_hints(MagicMock())
         assert len(out) == 1
         hint = out[0]['hints'][0]
         assert hint.get('default_value') == 'N/A'

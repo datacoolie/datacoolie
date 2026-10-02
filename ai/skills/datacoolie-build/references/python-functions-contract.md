@@ -1,72 +1,48 @@
-# Python Function Build Contract
+# Python functions adaptation checklist
 
-## Scope
+Read the public [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+for the complete functions-root and packaging contract. Read the public
+[source patterns](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/)
+when authoring `source.python_function`. This reference only keeps the agent
+decisions and evidence needed to adapt a project runner.
 
-Read only when resolved metadata uses `source.python_function` or an explicit prebuilt function
-artifact is supplied. This reference owns authoring layout, package selection enforcement,
-inspection, isolated import/signature validation, and Build evidence. It does not justify custom
-code, provision library facilities, attach packages, or define platform commands.
+Functions are build inputs, not Driver configuration. A project may configure
+one or more functions roots; each root uses the singular `path` and is packaged
+independently. Keep the authored relative layout and import prefix. Do not put
+packaging choices in metadata or make `functions` a fixed runtime path.
 
-## One-artifact invariant
-
-The approved architecture selects `none`, `wheel`, or `zip`. A build emits no artifact or exactly
-one artifact in that format; it never emits both. Wheel is the default. ZIP is explicit and limited
-to a compatible host and simple pure-Python project code whose external imports are already in the
-approved runtime. Release does not convert formats.
-
-Use one project-specific top-level import package. Do not generate the generic package name
-`functions` and do not accept the import prefix as a runner parameter.
-
-## Authoring layouts
-
-Wheel:
-
-```text
-functions/
-  pyproject.toml
-  src/
-    project_package/
-      __init__.py
-      sources.py
+```yaml
+components:
+  functions:
+    - path: functions/loaders
+      packaging: auto
+    - path: functions/quality
+      packaging: copy
 ```
 
-ZIP:
+For `auto`, confirm the CLI dry-run result before relying on a package:
 
-```text
-functions/
-  project_package/
-    __init__.py
-    sources.py
-```
+1. valid Python build backend in the root → `wheel`;
+2. root-level `__init__.py` → wrapped `zip`;
+3. otherwise → source `copy`.
 
-`pyproject.toml` selects wheel; one importable package without it selects ZIP. Do not put this
-packaging choice in runtime `config.yaml`. Wheel builds must produce exactly one pure-Python
-`py3-none-any` wheel. ZIP content starts at the project package root and has one top-level package.
+An `__init__.py` only below the configured root, such as
+`loaders/__init__.py`, is a nested package signal and does not select ZIP for
+the parent root. Configure the nested package as its own root or select an
+explicit mode when that is the intended distribution boundary.
 
-Do not bundle DataCoolie, Spark, Polars, platform SDKs, or compiled extensions. For a wheel, record
-distribution and version from its metadata. For ZIP, both fields are null and identity is build ID
-plus SHA-256. A changed wheel byte stream for an already-built distribution/version is rejected;
-advance the version.
+Use `dc build --dry-run --format json` and then validate the assembled artifact.
+The environment manifest records each root and its resolved packaging. When
+functions are present, `functions_artifact` is a list, including for one root.
+The runtime Driver does not read this manifest and the execution host owns
+attachment/import setup.
 
-## Validation and runner handoff
+Render `allowed_function_prefixes` from the project/build that is being run;
+pass `[]` when no function source is used. A project-owned import/signature test
+may prove host compatibility, but the CLI does not install packages or replace
+that host check with another Skill validator.
 
-Run `scripts/validate_functions.py` against the exact generated artifact and all resolved metadata.
-It rejects unsafe archive members, ambiguous roots, prefix mismatches, missing callables, and
-functions that cannot accept `engine`, `source`, `watermark_start`, and `watermark_end` directly or
-through `**kwargs`. Validation imports from an isolated temporary location and never calls function
-bodies.
+## Unresolved questions
 
-The generated artifact lives under the fixed top-level build `functions/` component. The manifest
-and Build receipt use singular `functions_artifact`. A successful function-backed
-Build records a passed artifact-only `functions-artifact-import` check. Build-host function runtime
-execution is optional evidence when the host is compatible; it is not required to stage a release
-and does not replace target import and execution checks before activation.
-
-Render `allowed_function_prefixes` to the exact manifest prefix; render `[]` without a function
-artifact. Installation and attachment occur before the runner starts and belong to the prepared
-runtime and Release, respectively.
-
-## Unresolved Questions
-
-None. An execution target incompatible with the approved format requires a new Design/Build scope,
-not a second artifact variant.
+None. Resolve project-specific import and host constraints from the selected
+environment runner and installed packaging evidence.

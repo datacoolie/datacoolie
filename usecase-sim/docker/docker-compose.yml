@@ -203,7 +203,7 @@ services:
       DATACOOLIE_ICEBERG_URI: http://iceberg-rest:8181
       DATACOOLIE_MINIO_ENDPOINT: http://minio:9000
       # SQLite path uses the absolute container path (volume-mounted)
-      DATACOOLIE_SQLITE_DB: /datacoolie/usecase-sim/data/input/sqlite/orders.db
+      DATACOOLIE_SQLITE_DB: /datacoolie/usecase-sim/.runtime/data/input/sqlite/orders.db
       # DB credentials (hosts still resolve to docker service names — P1 only)
       DATACOOLIE_PG_USER: datacoolie
       DATACOOLIE_PG_PASS: datacoolie
@@ -232,9 +232,57 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       # Mount the entire datacoolie/ package dir as /datacoolie.
-      # Relative paths in metadata (./usecase-sim/data/...) resolve correctly
+      # Relative paths in metadata (./usecase-sim/.runtime/data/...) resolve correctly
       # because WORKDIR is /datacoolie.  Input data generated on the host is
       # immediately visible; output data written here appears on the host too.
+      - ../..:/datacoolie
+    working_dir: /datacoolie
+
+  # ---------------------------------------------------------------------------
+  # Opt-in Spark 4.1 qualification runtime.
+  # This service intentionally has a separate container name, host ports and
+  # Spark runtime profile so it can run beside the pinned Spark 3.5 service.
+  # It is not used by the default scenario suite; start it explicitly when
+  # running the Spark 4.1 datatype gate.
+  # ---------------------------------------------------------------------------
+  spark4:
+    build:
+      context: ../..
+      dockerfile: usecase-sim/docker/Dockerfile.spark
+      args:
+        PYSPARK_VERSION: "4.1.0"
+        DELTA_SPARK_VERSION: "4.2.0"
+        DATACOOLIE_SPARK_PROFILE: spark4
+    container_name: datacoolie-spark4
+    ports:
+      - "4042:4040"
+      - "4043:4041"
+    environment:
+      DATACOOLIE_SPARK_PROFILE: spark4
+      DATACOOLIE_ICEBERG_URI: http://iceberg-rest:8181
+      DATACOOLIE_MINIO_ENDPOINT: http://minio:9000
+      DATACOOLIE_SQLITE_DB: /datacoolie/usecase-sim/.runtime/data/input/sqlite/orders.db
+      DATACOOLIE_PG_USER: datacoolie
+      DATACOOLIE_PG_PASS: datacoolie
+      DATACOOLIE_MYSQL_USER: datacoolie
+      DATACOOLIE_MYSQL_PASS: datacoolie
+      DATACOOLIE_MSSQL_USER: sa
+      DATACOOLIE_MSSQL_PASS: Datacoolie@1
+      DATACOOLIE_ORA_USER: datacoolie
+      DATACOOLIE_ORA_PASS: datacoolie
+      DATACOOLIE_API_BEARER_TOKEN: test-bearer-token-123
+      DATACOOLIE_API_KEY_VALUE: test-api-key-456
+      DATACOOLIE_API_BASIC_USER: datacoolie
+      DATACOOLIE_API_BASIC_PASS: password123
+      DATACOOLIE_OAUTH2_CLIENT_ID: datacoolie-client
+      DATACOOLIE_OAUTH2_CLIENT_SECRET: supersecret
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_ENDPOINT_URL_S3: http://minio:9000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
       - ../..:/datacoolie
     working_dir: /datacoolie
 

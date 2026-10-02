@@ -1,0 +1,20 @@
+schema_version: 1
+project:
+  name: platform-smoke
+components:
+  metadata:
+    path: metadata
+    output:
+      layout: single
+      format: json
+environments:
+  local:
+    platform: local
+  fabric:
+    platform: fabric
+  databricks:
+    platform: databricks
+  aws:
+    platform: aws
+  aws-iceberg:
+    platform: aws

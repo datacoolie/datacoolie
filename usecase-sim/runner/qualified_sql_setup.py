@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 DATACOOLIE_ROOT = Path(__file__).resolve().parents[2]
 DELTA_FIXTURE_ROOT = (
-    DATACOOLIE_ROOT / "usecase-sim" / "data" / "output" / "qualified_sql" / "fixtures"
+    DATACOOLIE_ROOT / "usecase-sim" / ".runtime" / "data" / "output" / "qualified_sql" / "fixtures"
 )
 
 

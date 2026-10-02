@@ -143,20 +143,6 @@ class ColumnCaseMode(str, Enum):
     SNAKE = "snake"
 
 
-class LogType(str, Enum):
-    """Log entry types for structured logging."""
-
-    JOB_RUN_LOG = "job_run_log"
-    DATAFLOW_RUN_LOG = "dataflow_run_log"
-
-
-class LogPurpose(str, Enum):
-    """Log output purposes / formats."""
-
-    DEBUG = "debug_json"
-    ANALYST = "analyst"
-
-
 # ---------------------------------------------------------------------------
 # System columns (auto-added to destination data)
 # ---------------------------------------------------------------------------
@@ -204,6 +190,8 @@ WATERMARK_FILE_NAME: str = "watermark_value.json"
 DATETIME_PATTERN: str = "__datetime__"
 DATE_PATTERN: str = "__date__"
 TIME_PATTERN: str = "__time__"
+DECIMAL_PATTERN: str = "__decimal__"
+BINARY_PATTERN: str = "__binary__"
 DATE_FOLDER_PARTITION_KEY: str = "__date_folder_partition__"
 
 # ---------------------------------------------------------------------------
@@ -220,9 +208,6 @@ DATE_PLACEHOLDERS: Dict[str, tuple[str, str]] = {
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
-
-# Log partition pattern default is date-based, but can be overridden by config
-DEFAULT_PARTITION_PATTERN = "__run_date={year}-{month}-{day}"
 
 # Default values for various parameters across the framework
 DEFAULT_AUTHOR: str = "DataCoolie"

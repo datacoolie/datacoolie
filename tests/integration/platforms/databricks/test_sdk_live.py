@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from datacoolie.platforms.databricks_platform import DatabricksPlatform
-from tests.integration.cloud_config import DatabricksIntegrationConfig
+from tests.support.cloud_config import DatabricksIntegrationConfig
 from tests.integration.platforms.databricks._contract import exercise_file_contract
 
 pytestmark = [

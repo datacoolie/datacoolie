@@ -17,38 +17,39 @@ Typical usage::
 
 from __future__ import annotations
 
+import copy
 import functools
+import logging
+import sys
+import threading
+from uuid import uuid4
+from contextlib import contextmanager
+from dataclasses import replace as _dc_replace
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
-    from datacoolie.core.secret_resolver import BaseSecretResolver
-    from datacoolie.core.models import Connection
+    from datacoolie.core.secrets.resolver import BaseSecretResolver
+    from datacoolie.core.models.connection import Connection
 
 from datacoolie.core.constants import (
-    DEFAULT_MAX_WORKERS,
     ColumnCaseMode,
     DataFlowStatus,
     ExecutionType,
-    Format,
+    DATE_FOLDER_PARTITION_KEY,
 )
-from datacoolie.core.exceptions import DataCoolieError, PipelineError
-from datacoolie.core.models import (
-    DataCoolieRunConfig,
-    DataFlow,
-    DataFlowRuntimeInfo,
-    DestinationRuntimeInfo,
-    PipelineAttemptResult,
-    ReplayConfig,
-    SourceRuntimeInfo,
-    TransformRuntimeInfo,
-)
+from datacoolie.core.exceptions import ConfigurationError, DataCoolieError
+from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.runtime import DataFlowRuntimeInfo, PipelineAttemptResult
 from datacoolie.engines.base import BaseEngine
 from datacoolie.metadata.base import BaseMetadataProvider
+from datacoolie.metadata.contracts.context import MetadataProviderStartupContext
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.watermark.base import BaseWatermarkManager
 
 # Source readers
-from datacoolie.sources import BaseSourceReader
+from datacoolie.sources import BaseSourceReader, SourceReadRange
 
 # Transformers
 from datacoolie.transformers import TransformerPipeline
@@ -56,45 +57,55 @@ from datacoolie.transformers import TransformerPipeline
 # Destination writers
 from datacoolie.destinations import BaseDestinationWriter
 
-from datacoolie.orchestration.job_distributor import JobDistributor
-from datacoolie.orchestration.utils import dedupe_by_destination
-from datacoolie.orchestration.parallel_executor import ExecutionResult, ParallelExecutor
-from datacoolie.orchestration.retry_handler import RetryHandler
-from dataclasses import replace as _dc_replace
-
-from datacoolie.core.secret_provider import BaseSecretProvider, resolve_secrets
-from datacoolie.logging import ETLLogger, LogConfig, SystemLogger, create_etl_logger, create_system_logger
-from datacoolie.logging.base import get_logger
-from datacoolie.logging.context import clear_dataflow_id, set_dataflow_id
-from datacoolie.utils.helpers import generate_unique_id, utc_now
-from datacoolie.utils.datetime_utils import generate_chunk_boundaries
-
-logger = get_logger(__name__)
-
-# Keys in source.configure / connection.configure that trigger date_backward logic.
-# Cleared on the deep-copied dataflow during replay so chunk boundaries are exact.
-_BACKWARD_KEYS: tuple[str, ...] = (
-    "backward_days", "backward_months", "backward_hours",
-    "backward_years", "backward_closing_day", "backward",
+from datacoolie.orchestration.maintenance import dedupe_by_destination
+from datacoolie.orchestration.execution.activation import inactive_reason
+from datacoolie.orchestration.scheduling.job_distributor import JobDistributor
+from datacoolie.orchestration.scheduling.parallel_executor import ExecutionResult, ParallelExecutor
+from datacoolie.orchestration.execution.lifecycle import (
+    execution_observation_attempted,
+    run_dataflow_execution,
+    run_dry_run_execution,
+    run_prepared_execution,
+    log_result_safely,
+)
+from datacoolie.orchestration.execution.pipeline import (
+    build_destination_writer,
+    build_source_reader,
+    build_transformer_pipeline,
+    execute_etl_pipeline,
+    execute_maintenance_pipeline,
+)
+from datacoolie.orchestration.execution.replay import (
+    process_replay,
+    validate_replay_chunk_column,
+)
+from datacoolie.utils.retry import RetryHandler
+from datacoolie.orchestration.preparation import (
+    PreparedDataFlow,
+    prepare_execution_dataflow,
+    validate_preparation,
 )
 
-# Default transformer pipeline — names correspond to transformer_registry keys.
-# Order matters: each transformer sees the output of all preceding ones.
-# Override by subclassing DataCoolieDriver and replacing _create_transformer_pipeline.
-DEFAULT_TRANSFORMERS: list[str] = [
-    "column_value_transformer",  # 5. Normalize source values before schema casting
-    "schema_converter",       # 10. Cast normalized values to target schema types
-    "hash_column_adder",      # 18. Add stable business hashes from typed values
-    "deduplicator",           # 20. Remove duplicate source rows early
-    "column_adder",           # 30. User-configured calculated columns
-    "row_filter",             # 35. Discard unwanted rows (post-column_adder, pre-scd2)
-    "scd2_column_adder",      # 60. SCD2 validity columns from source effective-date
-    "system_column_adder",    # 70. Framework audit + dataflow run lineage columns
-    "partition_handler",      # 80. Derive partition values from final columns
-    "data_masker",            # 84. Mask structured scalar PII before projection
-    "column_projector",       # 85. Select/drop, then atomically rename columns
-    "column_name_sanitizer",  # 90. Normalize column names last
-]
+from datacoolie.core.secrets.provider import BaseSecretProvider, resolve_secrets
+from datacoolie.utils.component_paths import ComponentPathError, normalize_component_paths
+from datacoolie.logging import (
+    ExecutionLogger,
+    LogCategory,
+    LogConfig,
+    SystemLogger,
+    create_execution_logger,
+    create_system_logger,
+)
+from datacoolie.logging.base import BaseLogger
+from datacoolie.logging.configuration.constants import INTERNAL_LOGGER_NAME, LogEvent
+from datacoolie.logging.runtime.diagnostics import emit_safely
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.utils.time import utc_now
+from datacoolie.utils.chunking import generate_chunk_boundaries, normalize_chunk_range
+from datacoolie.utils.path_utils import join_path, normalize_optional_base_path
+
+logger = get_logger(__name__)
+_diagnostic_logger = logging.getLogger(INTERNAL_LOGGER_NAME)
 
 
 class DataCoolieDriver:
@@ -111,24 +122,39 @@ class DataCoolieDriver:
         engine: Data operation engine (e.g. PySpark).
         platform: Platform abstraction for file I/O.
         metadata_provider: Provides dataflow / connection metadata.
-        watermark_manager: Reads and writes watermarks.  When ``None`` and
-            *metadata_provider* is supplied, a :class:`~datacoolie.watermark.
-            watermark_manager.WatermarkManager` is created automatically.
+        metadata_base_path: Optional metadata directory for an automatically
+            created :class:`~datacoolie.metadata.file_provider.FileProvider`.
+            When a provider is injected, the path is passed through the typed
+            startup context so the provider can accept or reject it explicitly.
+        watermark_manager: Reads and writes watermarks.  When ``None`` and a
+            metadata provider is resolved (injected or inferred), a
+            :class:`~datacoolie.watermark.watermark_manager.WatermarkManager`
+            is created automatically.
         config: Execution parameters (includes ``job_id``).
         secret_provider: Resolves secrets in connection configs.
             If not provided, the resolved platform is used as the default provider.
         system_logger: Optional system-level logger.
-        etl_logger: Optional structured ETL logger.
-        base_log_path: Base directory for auto-created loggers.  When
-            provided, ``SystemLogger`` and ``ETLLogger`` are created under
-            ``<base_log_path>/system_logs`` and ``<base_log_path>/etl_logs``.
+        execution_logger: Optional structured execution logger.
+        artifact_base_path: Optional root for deployed metadata/SQL/artifacts.
+            With no injected provider it also selects FileProvider artifact
+            mode, whose metadata default is ``<artifact_base_path>/metadata``.
+            It remains available for relative SQL references when
+            ``sql_base_path`` is absent and for explicit ``artifact:/``
+            references.
+        state_base_path: Optional root for framework runtime state.  It is
+            used to derive logs and file-provider watermarks when their
+            component-specific roots are absent.
+        sql_base_path: Optional component root for relative SQL references.
+            It takes precedence over ``artifact_base_path``.
+        log_base_path: Base directory for auto-created loggers.  When
+            provided, ``SystemLogger`` and ``ExecutionLogger`` write under
+            ``<log_base_path>/system_logs`` and ``<log_base_path>/execution_logs``.
             Takes precedence over ``log_config.output_path``.
         log_config: Optional :class:`LogConfig` used as the template for
-            auto-created loggers.  If ``base_log_path`` is also given it
+            auto-created loggers.  If ``log_base_path`` is also given it
             overrides ``output_path``; otherwise ``log_config.output_path``
-            is used as the base directory.  All other fields (``log_level``,
-            ``storage_mode``, ``partition_by_date``, ``partition_pattern``,
-            ``flush_interval_seconds``) are always preserved.
+            is used as the base directory.  All other persistence/capture
+            fields are preserved.
     """
 
     def __init__(
@@ -140,93 +166,365 @@ class DataCoolieDriver:
         config: Optional[DataCoolieRunConfig] = None,
         secret_provider: Optional[BaseSecretProvider] = None,
         system_logger: Optional[SystemLogger] = None,
-        etl_logger: Optional[ETLLogger] = None,
-        base_log_path: Optional[str] = None,
+        execution_logger: Optional[ExecutionLogger] = None,
+        artifact_base_path: Optional[str] = None,
+        state_base_path: Optional[str] = None,
+        metadata_base_path: Optional[str] = None,
+        sql_base_path: str | Sequence[str] | None = None,
+        log_base_path: Optional[str] = None,
         log_config: Optional[LogConfig] = None,
     ) -> None:
         # -- Core dependencies ------------------------------------------
+        # Capture the Driver lifecycle start before any provider/platform
+        # initialization so JobRuntime includes startup and preparation.
+        self._started_at = utc_now()
+        self._log_session_id = uuid4().hex
+        self._config = self._snapshot_run_config(config)
         self._engine = engine
+        self._driver_state_lock = threading.Lock()
+        self._operation_active = False
+        self._operation_owner: Optional[int] = None
+        self._closing = False
+        self._session_failed = False
+        self._session_error_message: Optional[str] = None
+        self._last_recorded_session_exception: Optional[BaseException] = None
+        self._session_had_success = False
+        # Normalize all caller-owned roots before mutating the Engine's
+        # platform binding.  Invalid path/config input must fail before the
+        # Driver has changed any shared dependency state.
+        self._artifact_base_path = self._normalise_root(artifact_base_path, "artifact_base_path")
+        self._state_base_path = self._normalise_root(state_base_path, "state_base_path")
+        metadata_base_path = self._normalise_root(metadata_base_path, "metadata_base_path")
+        self._sql_base_path = self._normalise_component_roots(
+            sql_base_path,
+            "sql_base_path",
+            artifact_base_path=self._artifact_base_path,
+        )
+        self._log_base_path = self._normalise_root(log_base_path, "log_base_path")
+        log_config_base_path = (
+            self._normalise_root(log_config.output_path, "log_config.output_path")
+            if log_config is not None
+            else None
+        )
+
+        # Validate caller-owned logger instances before binding the optional
+        # platform onto the Engine.  A rejected logger is a pure
+        # configuration error and must not leave a shared Engine partially
+        # mutated for a caller that catches the exception and retries.
+        if (
+            system_logger is not None
+            and system_logger is execution_logger
+        ):
+            raise ConfigurationError(
+                "system_logger and execution_logger must be distinct session instances"
+            )
+        for logger_instance, role in (
+            (system_logger, "system_logger"),
+            (execution_logger, "execution_logger"),
+        ):
+            if logger_instance is not None:
+                self._validate_session_logger(logger_instance, role)
 
         # -- Platform resolution ----------------------------------------
-        # Ensure engine.platform is set, with type-safety when both supplied.
+        # Resolve one execution platform without mutating the Engine yet.
+        # Identity matters because platform instances can carry different
+        # roots, credentials, or session state.  Delaying the setter keeps
+        # provider/context validation below transactional for callers that
+        # catch a configuration error and retry with the same Engine.
         if platform is not None and engine.platform is not None:
-            if type(platform) is not type(engine.platform):
+            if platform is not engine.platform:
                 raise DataCoolieError(
-                    f"Platform type mismatch: provided {type(platform).__name__!r} "
-                    f"but engine already has {type(engine.platform).__name__!r}"
+                    "Platform type mismatch: Engine and Driver received different platform instances; "
+                    "reuse engine.platform or leave platform unset"
                 )
+            resolved_platform = engine.platform
         elif platform is not None:
-            engine.set_platform(platform)
-        elif engine.platform is None:
+            resolved_platform = platform
+        elif engine.platform is not None:
+            resolved_platform = engine.platform
+        else:
             raise DataCoolieError(
                 "A platform is required — pass platform= or set engine.platform "
                 "before creating the driver"
             )
 
         self._metadata_provider = metadata_provider
+        self._owns_metadata_provider = False
+        self._closed = False
+        # Completion callbacks run synchronously inside the executor call.
+        # Keep the metadata lookup scoped to that call so scheduler-created
+        # fallback runtimes can be persisted without making the executor know
+        # about Driver/provider concerns.
+        self._completion_metadata_by_id: Dict[str, DataFlow] = {}
+        self._completion_observed_ids: set[str] = set()
 
-        # Auto-create WatermarkManager when not explicitly provided.
-        if watermark_manager is None and metadata_provider is not None:
-            from datacoolie.watermark.watermark_manager import WatermarkManager
-            watermark_manager = WatermarkManager(metadata_provider)
-        self._watermark_manager = watermark_manager
+        # ``state_base_path`` supplies the framework's common runtime root;
+        # component-specific log configuration remains the higher-priority
+        # owner of the actual logger output location.
+        effective_base = self._log_base_path
+        if effective_base is None:
+            effective_base = log_config_base_path
+        if effective_base is None and self._state_base_path is not None:
+            effective_base = join_path(self._state_base_path, "logs")
+        self._effective_log_base_path = effective_base
 
-        self._config = config or DataCoolieRunConfig()
-        # Platforms are now BaseSecretProvider subclasses; fall back to the
-        # resolved platform itself when no explicit provider is supplied.
-        self._secret_provider: BaseSecretProvider = secret_provider or self._engine.platform
-
-        # -- Timing -----------------------------------------------------
-        self._start_time = utc_now()
-
-        # -- Loggers ----------------------------------------------------
-        # Resolve the effective base path: base_log_path wins over
-        # log_config.output_path when both are supplied.
-        effective_base = base_log_path
-        if effective_base is None and log_config is not None:
-            effective_base = log_config.output_path
-
-        if effective_base is not None:
-            base = effective_base.rstrip("/")
+        # Construct auto loggers and validate every injected logger before
+        # metadata I/O.  Construction is intentionally inert; global capture
+        # is claimed only by ``activate`` after provider startup succeeds.
+        if self._effective_log_base_path is not None:
+            base = self._effective_log_base_path
             if system_logger is None:
                 if log_config is not None:
-                    sys_cfg = _dc_replace(log_config, output_path=f"{base}/system_logs")
-                    system_logger = SystemLogger(sys_cfg, self._engine.platform)
+                    sys_cfg = _dc_replace(
+                        log_config,
+                        output_path=join_path(base, LogCategory.SYSTEM.value),
+                    )
+                    system_logger = SystemLogger(sys_cfg, resolved_platform)
                 else:
                     system_logger = create_system_logger(
-                        output_path=f"{base}/system_logs",
-                        platform=self._engine.platform,
+                        output_path=join_path(base, LogCategory.SYSTEM.value),
+                        platform=resolved_platform,
                     )
-            if etl_logger is None:
+            if execution_logger is None:
                 if log_config is not None:
-                    etl_cfg = _dc_replace(log_config, output_path=f"{base}/etl_logs")
-                    etl_logger = ETLLogger(etl_cfg, self._engine.platform)
+                    execution_cfg = _dc_replace(
+                        log_config,
+                        output_path=join_path(base, LogCategory.EXECUTION.value),
+                    )
+                    execution_logger = ExecutionLogger(execution_cfg, resolved_platform)
                 else:
-                    etl_logger = create_etl_logger(
-                        output_path=f"{base}/etl_logs",
-                        platform=self._engine.platform,
+                    execution_logger = create_execution_logger(
+                        output_path=join_path(base, LogCategory.EXECUTION.value),
+                        platform=resolved_platform,
                     )
 
         self._system_logger = system_logger
-        self._etl_logger = etl_logger
+        self._execution_logger = execution_logger
+        self._session_loggers = tuple(
+            logger_instance
+            for logger_instance in (self._execution_logger, self._system_logger)
+            if logger_instance is not None
+        )
 
-        # Always sync run config onto any loggers.
-        if self._system_logger:
-            self._system_logger.set_run_config(self._config)
-        if self._etl_logger:
-            self._etl_logger.set_run_config(self._config)
-            self._etl_logger.set_component_names(
-                engine_name=type(self._engine).__name__,
-                platform_name=type(self._engine.platform).__name__,
-                metadata_provider_name=type(self._metadata_provider).__name__,
-                watermark_manager_name=type(self._watermark_manager).__name__,
+        self._capture_ready = False
+        try:
+            # Startup is deliberately staged: dependency/context binding,
+            # logger activation, then provider initialization.  A missing
+            # provider plus a metadata/artifact root selects FileProvider;
+            # provider-less Drivers remain valid for explicit dataflows.
+            self._bind_session_components(
+                resolved_platform=resolved_platform,
+                metadata_base_path=metadata_base_path,
+                watermark_manager=watermark_manager,
+                secret_provider=secret_provider,
             )
-        if self._system_logger:
-            self._system_logger.activate()
-        if self._etl_logger:
-            self._etl_logger.activate()
+            self._activate_session_loggers()
 
-        # -- Execution components ---------------------------------------
+            # Capture startup diagnostics before any provider performs I/O.
+            emit_safely(
+                logger,
+                logging.INFO,
+                "DataCoolie session starting: job_id=%s, metadata_provider=%s",
+                self._config.job_id,
+                (
+                    type(self._metadata_provider).__name__
+                    if self._metadata_provider is not None
+                    else None
+                ),
+                extra={"event_name": LogEvent.SESSION_STARTING.value},
+                catch_base=True,
+            )
+
+            # Provider startup is the fail-fast boundary.  BaseMetadataProvider
+            # owns context application and initialization; concrete providers own
+            # the meaning of values they consume.
+            if self._metadata_provider is not None:
+                self._metadata_provider.initialize()
+
+            emit_safely(
+                logger,
+                logging.INFO,
+                "DataCoolie session ready: job_id=%s, startup=%.3fs",
+                self._config.job_id,
+                (utc_now() - self._started_at).total_seconds(),
+                extra={"event_name": LogEvent.SESSION_READY.value},
+                catch_base=True,
+            )
+        except BaseException as exc:
+            self._record_session_failure(exc)
+            startup_logger = logger if self._capture_ready else _diagnostic_logger
+            # Before this Driver owns capture, use the noncaptured diagnostic
+            # path.  This is especially important when a second Driver is
+            # rejected while another session is active.
+            emit_safely(
+                startup_logger,
+                logging.ERROR,
+                "DataCoolie session startup failed: job_id=%s",
+                self._config.job_id,
+                extra={"event_name": LogEvent.SESSION_STARTUP_FAILED.value},
+                exc_info=(type(exc), exc, exc.__traceback__),
+                catch_base=True,
+            )
+            # If execution logging reached activation, make startup failure
+            # visible as a failed JobRuntime before releasing the logger.  A
+            # failure before logger readiness remains best-effort by design.
+            if self._execution_logger is not None and self._execution_logger.is_active:
+                try:
+                    self._execution_logger.finish_job(
+                        DataFlowStatus.FAILED.value,
+                        message=self._session_error_message,
+                    )
+                except BaseException as log_exc:
+                    self._safe_diagnostic_log(
+                        startup_logger,
+                        "Startup failure could not finalize JobRuntime: %s",
+                        log_exc,
+                    )
+            # Keep provider cleanup observable while SystemLogger still owns
+            # capture, then release the session loggers.
+            self._close_owned_metadata_provider(diagnostic_logger=startup_logger)
+            self._close_session_loggers(diagnostic_logger=startup_logger)
+            raise
+
+        self._dataflows: List[DataFlow] = []
+
+    @staticmethod
+    def _snapshot_run_config(
+        config: Optional[DataCoolieRunConfig],
+    ) -> DataCoolieRunConfig:
+        """Validate and detach the run policy owned by one Driver session."""
+        if config is None:
+            return DataCoolieRunConfig()
+        if not isinstance(config, DataCoolieRunConfig):
+            raise ConfigurationError(
+                "config must be a DataCoolieRunConfig instance"
+            )
+        try:
+            values = copy.deepcopy(config.model_dump())
+            return DataCoolieRunConfig(**values)
+        except Exception as exc:
+            raise ConfigurationError(
+                "Invalid DataCoolieRunConfig supplied to Driver"
+            ) from exc
+
+    @staticmethod
+    def _normalise_root(value: Optional[str], name: str) -> Optional[str]:
+        """Normalize an optional runtime root using the shared path contract."""
+        try:
+            return normalize_optional_base_path(value, name=name)
+        except ValueError as exc:
+            raise ConfigurationError(str(exc)) from exc
+
+    @staticmethod
+    def _normalise_component_roots(
+        value: str | Sequence[str] | None,
+        name: str,
+        *,
+        artifact_base_path: Optional[str] = None,
+    ) -> str | tuple[str, ...] | None:
+        """Normalize one-or-many component roots without probing storage."""
+        try:
+            roots = normalize_component_paths(
+                value,
+                name=name,
+                artifact_base_path=artifact_base_path,
+                allow_empty=False,
+            )
+        except ComponentPathError as exc:
+            raise ConfigurationError(str(exc)) from exc
+        if roots is None:
+            return None
+        values = tuple(root.base_path for root in roots)
+        # Keep the scalar representation for the common one-root case while
+        # exposing a tuple only when callers actually configure multiple
+        # roots.  Preparation accepts either representation.
+        return values[0] if len(values) == 1 else values
+
+    @staticmethod
+    def _assemble_metadata_provider(
+        provider: Optional[BaseMetadataProvider],
+        *,
+        metadata_base_path: Optional[str],
+        artifact_base_path: Optional[str],
+    ) -> tuple[Optional[BaseMetadataProvider], bool]:
+        """Resolve provider ownership and file-provider inference once.
+
+        Explicit provider injection always wins.  When no provider is
+        supplied, either metadata root selects an explicit FileProvider root or
+        artifact root selects artifact mode (whose metadata root is bound by
+        the provider context).  No root preserves provider-less execution for
+        callers that pass dataflows directly.
+        """
+        if provider is not None:
+            return provider, False
+        if metadata_base_path is None and artifact_base_path is None:
+            return None, False
+
+        from datacoolie.metadata.file_provider import FileProvider
+
+        return FileProvider(metadata_base_path=metadata_base_path), True
+
+    @staticmethod
+    def _validate_session_logger(logger_instance: BaseLogger, role: str) -> None:
+        """Validate a typed logger contract before startup mutates it."""
+        if not isinstance(logger_instance, BaseLogger):
+            raise ConfigurationError(
+                f"{role} must be a BaseLogger instance"
+            )
+        if role == "execution_logger" and not isinstance(logger_instance, ExecutionLogger):
+            raise ConfigurationError(
+                "execution_logger must be an ExecutionLogger instance"
+            )
+        logger_instance.validate_session_eligibility()
+
+    def _bind_session_components(
+        self,
+        *,
+        resolved_platform: BasePlatform,
+        metadata_base_path: Optional[str],
+        watermark_manager: Optional[BaseWatermarkManager],
+        secret_provider: Optional[BaseSecretProvider],
+    ) -> None:
+        """Assemble and configure Driver-owned components before activation.
+
+        This phase performs dependency wiring and provider context validation,
+        but does not activate logging or perform provider I/O.  Keeping it as
+        one typed Driver phase makes ownership and startup ordering explicit
+        without introducing a cross-module service container.
+        """
+        (
+            self._metadata_provider,
+            self._owns_metadata_provider,
+        ) = self._assemble_metadata_provider(
+            self._metadata_provider,
+            metadata_base_path=metadata_base_path,
+            artifact_base_path=self._artifact_base_path,
+        )
+
+        metadata_context = MetadataProviderStartupContext(
+            platform=resolved_platform,
+            metadata_base_path=metadata_base_path,
+            sql_base_path=self._sql_base_path,
+            artifact_base_path=self._artifact_base_path,
+            state_base_path=self._state_base_path,
+            log_base_path=self._effective_log_base_path,
+        )
+        if self._metadata_provider is not None:
+            self._metadata_provider.configure_context(metadata_context)
+            if isinstance(self._metadata_provider, BaseMetadataProvider):
+                self._sql_base_path = self._metadata_provider.resolve_sql_base_path(
+                    metadata_context
+                )
+
+        if watermark_manager is None and self._metadata_provider is not None:
+            from datacoolie.watermark.watermark_manager import WatermarkManager
+
+            watermark_manager = WatermarkManager(self._metadata_provider)
+        self._watermark_manager = watermark_manager
+        # Platforms are BaseSecretProvider implementations; an explicit
+        # provider remains higher priority than the platform fallback.
+        self._secret_provider: BaseSecretProvider = secret_provider or resolved_platform
+
         self._distributor = JobDistributor(
             job_num=self._config.job_num,
             job_index=self._config.job_index,
@@ -240,8 +538,357 @@ class DataCoolieDriver:
             retry_delay=self._config.retry_delay,
         )
 
-        self._dataflows: List[DataFlow] = []
-        self._column_name_mode = ColumnCaseMode.LOWER
+        if self._system_logger:
+            self._system_logger.set_log_session_id(self._log_session_id)
+            self._system_logger.set_run_config(self._config)
+        if self._execution_logger:
+            self._execution_logger.set_log_session_id(self._log_session_id)
+            self._execution_logger.set_run_config(self._config)
+            self._execution_logger.set_component_names(
+                engine_name=type(self._engine).__name__,
+                platform_name=type(resolved_platform).__name__,
+                metadata_provider_name=(
+                    type(self._metadata_provider).__name__
+                    if self._metadata_provider is not None
+                    else None
+                ),
+                watermark_manager_name=(
+                    type(self._watermark_manager).__name__
+                    if self._watermark_manager is not None
+                    else None
+                ),
+            )
+
+        # Commit the resolved dependency only after all pure provider,
+        # logger, and execution-component validation has succeeded.
+        if self._engine.platform is None:
+            self._engine.set_platform(resolved_platform)
+
+    def _activate_session_loggers(self) -> None:
+        """Activate accepted loggers and remember capture ownership readiness."""
+        if self._system_logger:
+            self._system_logger.activate(started_at=self._started_at)
+            # Mark immediately after SystemLogger activation so a later
+            # ExecutionLogger failure still routes startup cleanup through the
+            # capture-aware diagnostic logger.
+            self._capture_ready = True
+        if self._execution_logger:
+            self._execution_logger.activate(started_at=self._started_at)
+
+    def _close_owned_metadata_provider(
+        self,
+        *,
+        diagnostic_logger: Optional[logging.Logger] = None,
+    ) -> Optional[BaseException]:
+        """Close a provider created by this Driver during startup/teardown."""
+        if not self._owns_metadata_provider or self._metadata_provider is None:
+            return None
+        provider = self._metadata_provider
+        self._owns_metadata_provider = False
+        try:
+            provider.close()
+        except Exception as exc:
+            self._safe_diagnostic_log(
+                diagnostic_logger,
+                "Metadata provider cleanup failed: %s",
+                exc,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+            return exc
+        except BaseException as exc:
+            self._safe_diagnostic_log(
+                diagnostic_logger,
+                "Metadata provider cleanup interrupted: %s",
+                exc,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+            return exc
+        return None
+
+    @staticmethod
+    def _safe_diagnostic_log(
+        diagnostic_logger: Optional[logging.Logger],
+        message: str,
+        *args: Any,
+        exc_info: Any = None,
+    ) -> None:
+        """Best-effort cleanup diagnostic with no recursive fallback path."""
+        target = diagnostic_logger or _diagnostic_logger
+        kwargs: Dict[str, Any] = {"catch_base": True}
+        if exc_info is not None:
+            kwargs["exc_info"] = exc_info
+        emit_safely(target, logging.WARNING, message, *args, **kwargs)
+
+    def _record_session_failure(
+        self,
+        error: BaseException | str | None = None,
+        *,
+        message: Optional[str] = None,
+        error_type: Optional[type[BaseException]] = None,
+    ) -> None:
+        """Record one session failure without replacing earlier details.
+
+        The Driver owns the session-level status and explanation.  Dataflow
+        errors, scheduler contract failures, startup exceptions, and
+        interruptions all enter through this method so a later failure cannot
+        erase useful context from an earlier operation.
+        """
+        with self._driver_state_lock:
+            self._session_failed = True
+            if (
+                isinstance(error, BaseException)
+                and self._last_recorded_session_exception is error
+            ):
+                return
+            if isinstance(error, BaseException):
+                self._last_recorded_session_exception = error
+            if message is None:
+                if error is not None:
+                    # Exception stringification is user-controlled.  A
+                    # malformed ``__str__`` must never replace the original
+                    # failure while the Driver is recording its summary.
+                    try:
+                        message = str(error).strip()
+                    except BaseException:
+                        message = None
+                elif error_type is not None:
+                    message = error_type.__name__
+            if not message:
+                message = (
+                    type(error).__name__
+                    if isinstance(error, BaseException)
+                    else error_type.__name__
+                    if error_type is not None
+                    else "Unknown session failure"
+                )
+            if self._session_error_message:
+                self._session_error_message = (
+                    f"{self._session_error_message}; {message}"
+                )
+            else:
+                self._session_error_message = message
+
+    @contextmanager
+    def _driver_operation(self, operation_name: Optional[str] = None):
+        """Admit one public Driver operation for the lifetime of its work.
+
+        A Driver owns shared execution state (loggers, metadata snapshots,
+        and executor resources), so overlapping public operations are not
+        safe.  Admission is deliberately kept at the orchestration boundary;
+        private helpers used by an admitted operation do not acquire it a
+        second time.
+        """
+        owner = threading.get_ident()
+        with self._driver_state_lock:
+            if self._closed or self._closing:
+                raise RuntimeError("Driver is closed")
+            if self._operation_active:
+                if self._operation_owner == owner:
+                    raise RuntimeError("Driver operation is already active")
+                raise RuntimeError("Driver already has an active operation")
+            self._operation_active = True
+            self._operation_owner = owner
+
+        try:
+            if operation_name:
+                emit_safely(
+                    logger,
+                    logging.INFO,
+                    "Operation started: %s",
+                    operation_name,
+                    extra={"event_name": LogEvent.OPERATION_STARTED.value},
+                    catch_base=True,
+                )
+            yield
+        except BaseException as exc:
+            self._record_session_failure(exc)
+            if operation_name:
+                emit_safely(
+                    logger,
+                    logging.ERROR,
+                    "Operation failed: %s",
+                    operation_name,
+                    extra={"event_name": LogEvent.OPERATION_FAILED.value},
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                    catch_base=True,
+                )
+            raise
+        finally:
+            with self._driver_state_lock:
+                self._operation_active = False
+                self._operation_owner = None
+
+    def _observe_operation_result(self, result: ExecutionResult) -> ExecutionResult:
+        """Accumulate business outcome independently from log persistence."""
+
+        with self._driver_state_lock:
+            if result.succeeded > 0:
+                self._session_had_success = True
+            if result.failed > 0:
+                self._session_failed = True
+            observed_ids = set(self._completion_observed_ids)
+        # Terminal dataflow errors are summarized by ExecutionLogger when their
+        # observation is attempted. Scheduler/operation failures with no
+        # terminal observation still belong to the Driver session summary.
+        unobserved_errors = [
+            f"{dataflow_id}: {message}"
+            for dataflow_id, message in sorted(result.errors.items())
+            if dataflow_id not in observed_ids
+        ]
+        if unobserved_errors:
+            self._record_session_failure(message="; ".join(unobserved_errors))
+        return result
+
+    @contextmanager
+    def _completion_metadata_scope(self, dataflows: List[DataFlow]):
+        """Expose declarative snapshots to completion callbacks temporarily."""
+
+        with self._driver_state_lock:
+            previous = self._completion_metadata_by_id
+            self._completion_observed_ids = set()
+            self._completion_metadata_by_id = {
+                dataflow.dataflow_id: dataflow
+                for dataflow in dataflows
+                if dataflow.dataflow_id is not None
+            }
+        try:
+            yield
+        finally:
+            with self._driver_state_lock:
+                self._completion_metadata_by_id = previous
+
+    @staticmethod
+    def _log_operation_finished(
+        operation_name: str,
+        result: ExecutionResult,
+    ) -> None:
+        """Emit one summary anchor for an admitted public operation."""
+        emit_safely(
+            logger,
+            logging.INFO,
+            "Operation finished: %s, total=%d, succeeded=%d, failed=%d, "
+            "skipped=%d, pending=%d, duration=%.3fs",
+            operation_name,
+            result.total,
+            result.succeeded,
+            result.failed,
+            result.skipped,
+            result.pending,
+            result.duration_seconds,
+            extra={"event_name": LogEvent.OPERATION_FINISHED.value},
+            catch_base=True,
+        )
+
+    def _final_job_status(self) -> str:
+        with self._driver_state_lock:
+            if self._session_failed:
+                return DataFlowStatus.FAILED.value
+            if self._session_had_success:
+                return DataFlowStatus.SUCCEEDED.value
+            return DataFlowStatus.SKIPPED.value
+
+    def _close_session_loggers(
+        self,
+        *,
+        diagnostic_logger: Optional[logging.Logger] = None,
+    ) -> Optional[BaseException]:
+        """Close loggers accepted for this Driver session, best effort."""
+        cleanup_error: Optional[BaseException] = None
+        for logger_instance in self._session_loggers:
+            try:
+                logger_instance.close()
+            except Exception as exc:
+                self._safe_diagnostic_log(
+                    diagnostic_logger,
+                    "Logger cleanup failed: %s",
+                    exc,
+                )
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+                self._safe_diagnostic_log(
+                    diagnostic_logger,
+                    "Logger cleanup interrupted: %s",
+                    exc,
+                )
+        return cleanup_error
+
+    def _prepare_execution_dataflow(
+        self,
+        dataflow: DataFlow,
+        *,
+        operation_type: str = ExecutionType.ETL.value,
+    ) -> PreparedDataFlow:
+        """Prepare one isolated DataFlow for an execution operation."""
+        return prepare_execution_dataflow(
+            dataflow,
+            platform=self._engine.platform,
+            resolve_connection_secrets=self._resolve_secrets_for_connection,
+            sql_base_path=self._sql_base_path,
+            artifact_base_path=self._artifact_base_path,
+            operation_type=operation_type,
+        )
+
+    def _validate_execution_preparation(
+        self,
+        dataflow: DataFlow,
+        *,
+        operation_type: str,
+    ) -> None:
+        """Validate file preparation without resolving business secrets."""
+        validate_preparation(
+            dataflow,
+            platform=self._engine.platform,
+            sql_base_path=self._sql_base_path,
+            artifact_base_path=self._artifact_base_path,
+            operation_type=operation_type,
+        )
+
+    def _log_dataflow_result(
+        self,
+        metadata_dataflow: DataFlow,
+        runtime: DataFlowRuntimeInfo,
+    ) -> None:
+        """Log the declarative snapshot together with runtime observations."""
+        if self._execution_logger is None:
+            return
+        self._execution_logger.log(dataflow=metadata_dataflow, runtime_info=runtime)
+
+    def _validate_watermark_storage(
+        self,
+        dataflow: DataFlow,
+        *,
+        operation_type: str,
+        watermark_start: Optional[Dict[str, Any]],
+        watermark_end: Optional[Dict[str, Any]],
+        save_watermark: bool,
+    ) -> None:
+        """Preflight provider-owned watermark storage before business I/O.
+
+        File-backed providers can validate their bound root without touching
+        the watermark file.  Other providers keep ownership of their own
+        validation and are intentionally not forced to implement a new API.
+        """
+        if operation_type == ExecutionType.MAINTENANCE.value:
+            return
+        if operation_type == ExecutionType.REPLAY.value:
+            required = save_watermark
+        else:
+            requires_read = watermark_start is None and dataflow.source.has_watermark_state
+            requires_write = save_watermark and (
+                dataflow.source.has_watermark_state or watermark_end is not None
+            )
+            required = requires_read or requires_write
+        if not required:
+            return
+
+        if self._watermark_manager is None:
+            raise ConfigurationError(
+                f"{operation_type} execution requires a watermark_manager for "
+                "the configured watermark read/save operation"
+            )
+
+        self._watermark_manager.validate_ready()
 
     # ------------------------------------------------------------------
     # Properties
@@ -253,13 +900,27 @@ class DataCoolieDriver:
 
     @property
     def config(self) -> DataCoolieRunConfig:
-        return self._config
+        return self._config.model_copy(deep=True)
 
     # ------------------------------------------------------------------
     # Dataflow loading
     # ------------------------------------------------------------------
 
     def load_dataflows(
+        self,
+        stage: Optional[Union[str, List[str]]] = None,
+        active_only: bool = True,
+        attach_schema_hints: bool = True,
+    ) -> List[DataFlow]:
+        """Load and filter dataflows for this Driver session."""
+        with self._driver_operation():
+            return self._load_dataflows(
+                stage=stage,
+                active_only=active_only,
+                attach_schema_hints=attach_schema_hints,
+            )
+
+    def _load_dataflows(
         self,
         stage: Optional[Union[str, List[str]]] = None,
         active_only: bool = True,
@@ -277,12 +938,21 @@ class DataCoolieDriver:
         Returns:
             Filtered list for this job.
         """
-        logger.info(
+        emit_safely(
+            logger,
+            logging.INFO,
             "Loading dataflows — stage: %s, job: %d/%d",
             stage,
             self._config.job_index + 1,
             self._config.job_num,
+            catch_base=True,
         )
+
+        if self._metadata_provider is None:
+            raise ConfigurationError(
+                "metadata_provider is required to load dataflows; pass one or use create_driver "
+                "with metadata_base_path/artifact_base_path"
+            )
 
         all_dataflows = self._metadata_provider.get_dataflows(
             stage=stage,
@@ -294,14 +964,29 @@ class DataCoolieDriver:
             all_dataflows, active_only=active_only
         )
 
-        logger.info(
+        emit_safely(
+            logger,
+            logging.INFO,
             "Loaded %d dataflows for this job (total: %d)",
             len(self._dataflows),
             len(all_dataflows),
+            catch_base=True,
         )
         return self._dataflows
 
     def load_maintenance_dataflows(
+        self,
+        connection: Optional[Union[str, List[str]]] = None,
+        active_only: bool = True,
+    ) -> List[DataFlow]:
+        """Load unique-destination dataflows eligible for maintenance."""
+        with self._driver_operation():
+            return self._load_maintenance_dataflows(
+                connection=connection,
+                active_only=active_only,
+            )
+
+    def _load_maintenance_dataflows(
         self,
         connection: Optional[Union[str, List[str]]] = None,
         active_only: bool = True,
@@ -325,15 +1010,24 @@ class DataCoolieDriver:
         Returns:
             Filtered list of unique-destination dataflows for this job.
         """
-        logger.info(
+        emit_safely(
+            logger,
+            logging.INFO,
             "Loading maintenance dataflows — connection: %s, job: %d/%d",
             connection,
             self._config.job_index + 1,
             self._config.job_num,
+            catch_base=True,
         )
+
+        if self._metadata_provider is None:
+            raise ConfigurationError(
+                "metadata_provider is required to load maintenance dataflows"
+            )
 
         all_dataflows = self._metadata_provider.get_maintenance_dataflows(
             connection=connection,
+            active_only=active_only,
         )
 
         unique = dedupe_by_destination(all_dataflows)
@@ -342,11 +1036,14 @@ class DataCoolieDriver:
             unique, active_only=active_only
         )
 
-        logger.info(
+        emit_safely(
+            logger,
+            logging.INFO,
             "Loaded %d maintenance dataflows for this job (unique: %d, total: %d)",
             len(self._dataflows),
             len(unique),
             len(all_dataflows),
+            catch_base=True,
         )
         return self._dataflows
 
@@ -373,6 +1070,23 @@ class DataCoolieDriver:
         dataflows: Optional[List[DataFlow]] = None,
         column_name_mode: Union[ColumnCaseMode, str] = ColumnCaseMode.LOWER,
     ) -> ExecutionResult:
+        """Execute one admitted ETL operation."""
+        with self._driver_operation("run_dataflow"):
+            result = self._run_dataflow(
+                stage=stage,
+                dataflows=dataflows,
+                column_name_mode=column_name_mode,
+            )
+            result = self._observe_operation_result(result)
+            self._log_operation_finished("run_dataflow", result)
+            return result
+
+    def _run_dataflow(
+        self,
+        stage: Optional[Union[str, List[str]]] = None,
+        dataflows: Optional[List[DataFlow]] = None,
+        column_name_mode: Union[ColumnCaseMode, str] = ColumnCaseMode.LOWER,
+    ) -> ExecutionResult:
         """Execute ETL (read → transform → write) for this job.
 
         Loads dataflows from metadata when *dataflows* is not provided.
@@ -391,35 +1105,37 @@ class DataCoolieDriver:
         Returns:
             Aggregated execution statistics.
         """
-        self._column_name_mode = ColumnCaseMode(column_name_mode)
+        resolved_column_name_mode = ColumnCaseMode(column_name_mode)
         if dataflows is None:
-            target = self.load_dataflows(stage=stage)
+            target = self._load_dataflows(stage=stage)
         else:
             target = dataflows
 
         if not target:
-            logger.info("No dataflows to process")
+            emit_safely(logger, logging.INFO, "No dataflows to process", catch_base=True)
             return ExecutionResult()
 
         if self._config.dry_run:
-            logger.info("Dry-run mode — would process %d dataflows", len(target))
-            for df in target:
-                logger.info(
-                    "  - [%s] %s → %s",
-                    df.dataflow_id,
-                    df.source.full_table_name or df.source.path,
-                    df.destination.full_table_name or df.destination.path,
-                )
-            return ExecutionResult(total=len(target))
+            return self._dry_run_dataflows(target, operation_type=ExecutionType.ETL.value)
 
         groups = self._distributor.group_dataflows(target)
-        result = self._executor.execute_with_groups(
-            groups=groups,
-            process_fn=self._process_dataflow,
-            callback=self._on_dataflow_complete,
-        )
+        process_fn = self._process_dataflow
+        if resolved_column_name_mode != ColumnCaseMode.LOWER:
+            process_fn = functools.partial(
+                self._process_dataflow,
+                column_name_mode=resolved_column_name_mode,
+            )
+        with self._completion_metadata_scope(target):
+            result = self._executor.execute_with_groups(
+                groups=groups,
+                process_fn=process_fn,
+                callback=self._record_dataflow_complete,
+                operation_type=ExecutionType.ETL.value,
+            )
 
-        logger.info(
+        emit_safely(
+            logger,
+            logging.DEBUG,
             "ETL complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d, Running: %d, Pending: %d (%.1fs)",
             result.total,
             result.succeeded,
@@ -427,52 +1143,176 @@ class DataCoolieDriver:
             result.skipped,
             result.running,
             result.pending,
-            result.duration_seconds
+            result.duration_seconds,
+            catch_base=True,
         )
         return result
 
-    def _process_dataflow(self, dataflow: DataFlow) -> DataFlowRuntimeInfo:
-        """Process a single dataflow with retry logic.
+    def _dry_run_dataflows(
+        self,
+        dataflows: List[DataFlow],
+        *,
+        operation_type: str,
+        replay: Optional[ReplayConfig] = None,
+    ) -> ExecutionResult:
+        """Validate selected operations without business or state I/O."""
+        started = utc_now()
+        result = ExecutionResult(total=len(dataflows))
+        emit_safely(
+            logger,
+            logging.INFO,
+            "Dry-run mode — validating %d dataflows",
+            len(dataflows),
+            catch_base=True,
+        )
 
-        Deep-copy metadata once so every retry shares one isolated runtime
-        object, including any secrets resolved by an earlier attempt.
-        """
-        return self._run_single_pipeline(dataflow.model_copy(deep=True))
+        for dataflow in dataflows:
+            runtime = run_dry_run_execution(
+                dataflow,
+                operation_type=operation_type,
+                validate=functools.partial(
+                    self._validate_dry_run_dataflow,
+                    operation_type=operation_type,
+                    replay=replay,
+                ),
+                log_result=self._log_dataflow_result,
+            )
+            if runtime.status == DataFlowStatus.SKIPPED.value:
+                result.skipped += 1
+            elif runtime.status == DataFlowStatus.FAILED.value:
+                result.failed += 1
+                if dataflow.dataflow_id:
+                    result.errors[dataflow.dataflow_id] = (
+                        runtime.message or "Dry-run validation failed"
+                    )
 
-    @staticmethod
-    def _apply_attempt_result(
-        dataflow_runtime: DataFlowRuntimeInfo,
-        attempt_result: PipelineAttemptResult,
-    ) -> None:
-        """Apply only the phases that participated in an execution attempt."""
-        if attempt_result.source is not None:
-            dataflow_runtime.source = attempt_result.source
-        if attempt_result.transform is not None:
-            dataflow_runtime.transform = attempt_result.transform
-        if attempt_result.destination is not None:
-            dataflow_runtime.destination = attempt_result.destination
+        result.pending = result.total - result.succeeded - result.failed - result.skipped
+        result.duration_seconds = (utc_now() - started).total_seconds()
+        return result
 
-    def _run_single_pipeline(
+    def _validate_dry_run_dataflow(
         self,
         dataflow: DataFlow,
         *,
+        operation_type: str,
+        replay: Optional[ReplayConfig],
+    ) -> None:
+        """Validate one operation-specific dry-run copy without business I/O."""
+        if operation_type == ExecutionType.REPLAY.value and replay is not None:
+            if replay.save_watermark and self._watermark_manager is None:
+                raise ConfigurationError(
+                    "Replay save_watermark=True requires a watermark_manager"
+                )
+            if replay.chunk_column is None and not dataflow.source.watermark_columns:
+                raise DataCoolieError(
+                    f"Cannot auto-resolve chunk_column: dataflow {dataflow.dataflow_id!r} "
+                    "has no watermark_columns. Set replay.chunk_column explicitly."
+                )
+            resolved_chunk_column = replay.chunk_column or dataflow.source.watermark_columns[0]
+            validate_replay_chunk_column(dataflow, resolved_chunk_column)
+            if resolved_chunk_column == DATE_FOLDER_PARTITION_KEY:
+                raise DataCoolieError(
+                    "Date-folder partition is an internal discovery key and cannot "
+                    "be used as replay.chunk_column"
+                )
+            # Validate range/interval arithmetic without consulting the
+            # watermark store or constructing a reader.
+            normalized_start, normalized_end, _ = normalize_chunk_range(
+                replay.start, replay.end
+            )
+            if replay.chunk_interval is not None:
+                generate_chunk_boundaries(
+                    start=normalized_start,
+                    end=normalized_end,
+                    interval=replay.chunk_interval,
+                )
+
+        self._validate_execution_preparation(
+            dataflow,
+            operation_type=operation_type,
+        )
+        self._validate_watermark_storage(
+            dataflow,
+            operation_type=operation_type,
+            watermark_start=None,
+            watermark_end=None,
+            save_watermark=(replay.save_watermark if replay is not None else True),
+        )
+        emit_safely(
+            logger,
+            logging.INFO,
+            "Dry-run validated [%s] %s → %s",
+            dataflow.dataflow_id,
+            dataflow.source.full_table_name or dataflow.source.path,
+            dataflow.destination.full_table_name or dataflow.destination.path,
+            catch_base=True,
+        )
+
+    def _process_dataflow(
+        self,
+        dataflow: DataFlow,
+        *,
+        column_name_mode: ColumnCaseMode = ColumnCaseMode.LOWER,
+    ) -> DataFlowRuntimeInfo:
+        """Process a single dataflow with retry logic.
+
+        Runtime timing begins when this dataflow enters processing, before
+        metadata preparation. Preparation remains outside retryable attempts.
+        """
+        return run_dataflow_execution(
+            dataflow,
+            operation_type=ExecutionType.ETL.value,
+            prepare_execution_dataflow=self._prepare_execution_dataflow,
+            retry_handler=self._retry_handler,
+            preflight=functools.partial(
+                self._validate_watermark_storage,
+                operation_type=ExecutionType.ETL.value,
+                watermark_start=None,
+                watermark_end=None,
+                save_watermark=True,
+            ),
+            attempt_runner=functools.partial(
+                self._execute_etl_pipeline,
+                column_name_mode=column_name_mode,
+            ),
+            log_result=self._log_dataflow_result,
+            attempt_kwargs={
+                "watermark_start": None,
+                "watermark_end": None,
+                "save_watermark": True,
+                # Omitted operators are resolved by the source reader.  This
+                # keeps persisted watermark-kind semantics at the source
+                # boundary instead of hard-coding them in Driver.
+                "watermark_start_operator": None,
+                "watermark_end_operator": None,
+            },
+        )
+
+    def _run_single_pipeline(
+        self,
+        prepared_dataflow: PreparedDataFlow,
+        *,
+        column_name_mode: ColumnCaseMode = ColumnCaseMode.LOWER,
         watermark_start: Optional[Dict[str, Any]] = None,
         watermark_end: Optional[Dict[str, Any]] = None,
         save_watermark: bool = True,
-        watermark_start_operator: str = ">",
-        watermark_end_operator: str = "<",
+        watermark_start_operator: Optional[str] = None,
+        watermark_end_operator: Optional[str] = None,
+        read_range: Optional[SourceReadRange] = None,
         operation_type: str = ExecutionType.ETL.value,
     ) -> DataFlowRuntimeInfo:
         """Execute one pipeline run with timing, retry, context, and logging.
 
-        This is the shared execution wrapper used by both normal ETL
-        (:meth:`_process_dataflow`) and replay chunks (:meth:`_process_replay`).
+        This adapter is used for already-prepared replay chunks. Normal ETL
+        and maintenance enter through :func:`run_dataflow_execution` so their
+        runtime includes preparation.
 
-        The *dataflow* should already be deep-copied by the caller and is
-        intentionally reused across retry attempts.
+        Preparation happens before the retry handler.  The prepared baseline
+        is never mutated; each attempt receives a fresh deep copy.
 
         Args:
-            dataflow: Pre-copied dataflow to execute.
+            prepared_dataflow: Internal pair containing the declarative
+                logging snapshot and isolated execution copy.
             watermark_start: Override the read watermark (chunk lower bound).
                 ``None`` = use the stored watermark (normal ETL).
             watermark_end: Upper watermark bound for the source reader AND
@@ -489,68 +1329,44 @@ class DataCoolieDriver:
         Returns:
             :class:`DataFlowRuntimeInfo` with timing, status, and metrics.
         """
-        dataflow_runtime = DataFlowRuntimeInfo(
-            dataflow_id=dataflow.dataflow_id,
+        return run_prepared_execution(
+            prepared_dataflow,
             operation_type=operation_type,
-            start_time=utc_now(),
-            status=DataFlowStatus.RUNNING.value,
-        )
-        status = dataflow_runtime.status
-        error_message: Optional[str] = None
-
-        attempt_result: Optional[PipelineAttemptResult] = None
-        attempts = 1
-
-        ctx_token = set_dataflow_id(dataflow.dataflow_id)
-        try:
-            attempt_result, attempts = self._retry_handler.execute(
-                self._execute_etl_pipeline, dataflow,
-                dataflow_run_id=dataflow_runtime.dataflow_run_id,
+            retry_handler=self._retry_handler,
+            preflight=functools.partial(
+                self._validate_watermark_storage,
+                operation_type=operation_type,
                 watermark_start=watermark_start,
                 watermark_end=watermark_end,
                 save_watermark=save_watermark,
-                watermark_start_operator=watermark_start_operator,
-                watermark_end_operator=watermark_end_operator,
-            )
-            status = attempt_result.status
-        except PipelineError as exc:
-            status = DataFlowStatus.FAILED.value
-            error_message = str(exc)
-            if isinstance(exc.partial_result, PipelineAttemptResult):
-                attempt_result = exc.partial_result
-            logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
-        except Exception as exc:
-            status = DataFlowStatus.FAILED.value
-            error_message = str(exc)
-            logger.error("Failed (final): %s", exc, exc_info=exc.__cause__ or exc)
-        finally:
-            clear_dataflow_id(ctx_token)
-
-        if attempt_result is not None:
-            self._apply_attempt_result(dataflow_runtime, attempt_result)
-        dataflow_runtime.end_time = utc_now()
-        dataflow_runtime.status = status
-        dataflow_runtime.error_message = error_message
-        dataflow_runtime.retry_attempts = max(0, attempts - 1)
-
-        if self._etl_logger:
-            try:
-                self._etl_logger.log(dataflow=dataflow, runtime_info=dataflow_runtime)
-            except Exception as exc:
-                logger.warning("Failed to log ETL result", exc_info=exc.__cause__ or exc)
-
-        return dataflow_runtime
+            ),
+            attempt_runner=functools.partial(
+                self._execute_etl_pipeline,
+                column_name_mode=column_name_mode,
+            ),
+            log_result=self._log_dataflow_result,
+            attempt_kwargs={
+                "watermark_start": watermark_start,
+                "watermark_end": watermark_end,
+                "save_watermark": save_watermark,
+                "watermark_start_operator": watermark_start_operator,
+                "watermark_end_operator": watermark_end_operator,
+                "read_range": read_range,
+            },
+        )
 
     def _execute_etl_pipeline(
         self,
         dataflow: DataFlow,
         dataflow_run_id: str,
         *,
+        column_name_mode: ColumnCaseMode = ColumnCaseMode.LOWER,
         watermark_start: Optional[Dict[str, Any]] = None,
         watermark_end: Optional[Dict[str, Any]] = None,
         save_watermark: bool = True,
-        watermark_start_operator: str = ">",
-        watermark_end_operator: str = "<",
+        watermark_start_operator: Optional[str] = None,
+        watermark_end_operator: Optional[str] = None,
+        read_range: Optional[SourceReadRange] = None,
     ) -> PipelineAttemptResult:
         """Run read → transform → write for *dataflow*.
 
@@ -575,106 +1391,22 @@ class DataCoolieDriver:
         Returns:
             Terminal phase runtimes and status for this attempt.
         """
-        logger.info(
-            "Starting %s: %s → %s",
-            dataflow.name,
-            dataflow.source.full_table_name or dataflow.source.path,
-            dataflow.destination.full_table_name or dataflow.destination.path,
-        )
-
-        # Replay uses an explicit start; normal ETL reads from the store.
-        watermark = (
-            watermark_start
-            if watermark_start is not None
-            else self._watermark_manager.get_watermark(dataflow_id=dataflow.dataflow_id)
-        )
-
-        source_runtime: Optional[SourceRuntimeInfo] = None
-        transform_runtime: Optional[TransformRuntimeInfo] = None
-        dest_runtime: Optional[DestinationRuntimeInfo] = None
-
-        reader: Optional[BaseSourceReader] = None
-        pipeline: Optional[TransformerPipeline] = None
-        writer: Optional[BaseDestinationWriter] = None
-
-        try:
-            # Read source
-            # Resolve secrets before creating reader/writer
-            self._resolve_connection_secrets(dataflow)
-
-            reader = self._create_source_reader(dataflow.source.connection.format)
-            df = reader.read(dataflow.source, watermark, watermark_start_operator=watermark_start_operator, 
-                             watermark_end=watermark_end, watermark_end_operator=watermark_end_operator)
-            source_runtime = reader.get_runtime_info()
-
-            if df is None or source_runtime.rows_read == 0:
-                logger.info("No data to process")
-                return PipelineAttemptResult(
-                    status=DataFlowStatus.SKIPPED.value,
-                    source=source_runtime,
-                )
-
-            # Transform
-            pipeline = self._create_transformer_pipeline(
-                dataflow_run_id=dataflow_run_id,
-            )
-            df = pipeline.transform(df, dataflow)
-            transform_runtime = pipeline.get_runtime_info()
-
-            # Write
-            # Compute watermark window for replace_by_watermark strategies.
-            dataflow.apply_watermark_window(source_runtime)
-
-            writer = self._create_destination_writer(dataflow.destination.connection.format)
-            writer.write(df, dataflow)
-            dest_runtime = writer.get_runtime_info()
-
-            # Watermark persistence: save_watermark=False skips entirely.
-            # When saving: use explicit watermark_end if provided, otherwise
-            # auto-save the reader-detected new watermark.
-            if save_watermark and self._watermark_manager:
-                wm_to_save = watermark_end if watermark_end is not None else reader.get_new_watermark()
-                if wm_to_save:
-                    self._watermark_manager.save_watermark(
-                        dataflow_id=dataflow.dataflow_id,
-                        watermark=wm_to_save,
-                        job_id=self._config.job_id,
-                        dataflow_run_id=dataflow_run_id,
-                    )
-        except Exception as exc:
-            # Recover partial runtime info from whichever component was active
-            # when the failure occurred.  Readers/transformers/writers populate
-            # their runtime info (with FAILED status and error details) even on
-            # error, so prefer those over the default-None placeholders.
-            if source_runtime is None and reader is not None:
-                source_runtime = reader.get_runtime_info()
-            if transform_runtime is None and pipeline is not None:
-                transform_runtime = pipeline.get_runtime_info()
-            if dest_runtime is None and writer is not None:
-                dest_runtime = writer.get_runtime_info()
-            raise PipelineError(
-                str(exc),
-                partial_result=PipelineAttemptResult(
-                    status=DataFlowStatus.FAILED.value,
-                    source=source_runtime,
-                    transform=transform_runtime,
-                    destination=dest_runtime,
-                ),
-            ) from exc
-
-        rows_r = source_runtime.rows_read if source_runtime else 0
-        rows_w = dest_runtime.rows_written if dest_runtime else 0
-        logger.info(
-            "Complete — Read: %d, Written: %d",
-            rows_r,
-            rows_w,
-        )
-
-        return PipelineAttemptResult(
-            status=DataFlowStatus.SUCCEEDED.value,
-            source=source_runtime,
-            transform=transform_runtime,
-            destination=dest_runtime,
+        return execute_etl_pipeline(
+            dataflow,
+            dataflow_run_id,
+            column_name_mode=column_name_mode,
+            watermark_start=watermark_start,
+            watermark_end=watermark_end,
+            save_watermark=save_watermark,
+            watermark_start_operator=watermark_start_operator,
+            watermark_end_operator=watermark_end_operator,
+            read_range=read_range,
+            watermark_manager=self._watermark_manager,
+            job_id=self._config.job_id,
+            create_source_reader=self._create_source_reader,
+            create_transformer_pipeline=self._create_transformer_pipeline,
+            create_destination_writer=self._create_destination_writer,
+            validate_watermark_storage=self._validate_watermark_storage,
         )
 
     # ------------------------------------------------------------------
@@ -687,6 +1419,23 @@ class DataCoolieDriver:
         replay: ReplayConfig,
         column_name_mode: Union[ColumnCaseMode, str] = ColumnCaseMode.LOWER,
     ) -> ExecutionResult:
+        """Execute one admitted replay operation."""
+        with self._driver_operation("run_replay"):
+            result = self._run_replay(
+                dataflows=dataflows,
+                replay=replay,
+                column_name_mode=column_name_mode,
+            )
+            result = self._observe_operation_result(result)
+            self._log_operation_finished("run_replay", result)
+            return result
+
+    def _run_replay(
+        self,
+        dataflows: Union[DataFlow, List[DataFlow]],
+        replay: ReplayConfig,
+        column_name_mode: Union[ColumnCaseMode, str] = ColumnCaseMode.LOWER,
+    ) -> ExecutionResult:
         """Replay a bounded range across one or more dataflows in sequential chunks.
 
         Each dataflow is processed concurrently (bounded by ``max_workers``);
@@ -694,7 +1443,9 @@ class DataCoolieDriver:
 
         The chunk column is resolved automatically from
         ``dataflow.source.watermark_columns[0]`` unless ``replay.chunk_column``
-        is set explicitly.
+        is set explicitly. A source-supported independent bounded-read column
+        may be selected explicitly; API sources require a matching
+        ``range_param_mapping`` binding.
 
         Args:
             dataflows: One or more dataflows to replay.
@@ -705,30 +1456,64 @@ class DataCoolieDriver:
             :class:`ExecutionResult` whose counters represent outer
             dataflows. Each dataflow aggregates its sequential chunk results.
         """
-        logger.info("Starting replay run")
+        emit_safely(logger, logging.DEBUG, "Starting replay run", catch_base=True)
 
-        self._column_name_mode = ColumnCaseMode(column_name_mode)
+        resolved_column_name_mode = ColumnCaseMode(column_name_mode)
 
         target: List[DataFlow] = dataflows if isinstance(dataflows, list) else [dataflows]
         if not target:
             return ExecutionResult()
 
-        # Pre-validate chunk_column resolution for all dataflows before executing.
-        if replay.chunk_column is None:
-            for df in target:
+        normalized_start, normalized_end, _ = normalize_chunk_range(
+            replay.start, replay.end
+        )
+        if replay.chunk_interval is not None:
+            generate_chunk_boundaries(
+                start=normalized_start,
+                end=normalized_end,
+                interval=replay.chunk_interval,
+            )
+
+        if self._config.dry_run:
+            return self._dry_run_dataflows(
+                target,
+                operation_type=ExecutionType.REPLAY.value,
+                replay=replay,
+            )
+
+        # Pre-validate chunk_column resolution and source-owned bounded-read
+        # capability for all active dataflows before executing any chunk.
+        for df in target:
+            if inactive_reason(df) is not None:
+                continue
+            resolved_chunk_column = replay.chunk_column
+            if resolved_chunk_column is None:
                 if not df.source.watermark_columns:
                     raise DataCoolieError(
                         f"Cannot auto-resolve chunk_column: dataflow {df.dataflow_id!r} "
                         f"has no watermark_columns. Set replay.chunk_column explicitly."
                     )
+                resolved_chunk_column = df.source.watermark_columns[0]
+            validate_replay_chunk_column(df, resolved_chunk_column)
 
-        result = self._executor.execute(
-            dataflows=target,
-            process_fn=functools.partial(self._process_replay, replay=replay),
-            callback=self._on_replay_complete,
-        )
+        replay_process_fn = functools.partial(self._process_replay, replay=replay)
+        if resolved_column_name_mode != ColumnCaseMode.LOWER:
+            replay_process_fn = functools.partial(
+                self._process_replay,
+                replay=replay,
+                column_name_mode=resolved_column_name_mode,
+            )
+        with self._completion_metadata_scope(target):
+            result = self._executor.execute(
+                dataflows=target,
+                process_fn=replay_process_fn,
+                callback=self._record_replay_complete,
+                operation_type=ExecutionType.REPLAY.value,
+            )
 
-        logger.info(
+        emit_safely(
+            logger,
+            logging.DEBUG,
             "Replay complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d, Running: %d, Pending: %d (%.1fs)",
             result.total,
             result.succeeded,
@@ -737,6 +1522,7 @@ class DataCoolieDriver:
             result.running,
             result.pending,
             result.duration_seconds,
+            catch_base=True,
         )
         return result
 
@@ -744,6 +1530,8 @@ class DataCoolieDriver:
         self,
         dataflow: DataFlow,
         replay: ReplayConfig,
+        *,
+        column_name_mode: ColumnCaseMode = ColumnCaseMode.LOWER,
     ) -> DataFlowRuntimeInfo:
         """Process a full replay for a single dataflow.
 
@@ -758,119 +1546,42 @@ class DataCoolieDriver:
             Single :class:`DataFlowRuntimeInfo` summarising all chunks.
             Processing stops on the first failed chunk.
         """
-        dataflow_runtime = DataFlowRuntimeInfo(
-            dataflow_id=dataflow.dataflow_id,
-            operation_type=ExecutionType.REPLAY.value,
-            start_time=utc_now(),
-            status=DataFlowStatus.RUNNING.value,
+        return process_replay(
+            dataflow,
+            replay,
+            column_name_mode=column_name_mode,
+            prepare_execution_dataflow=self._prepare_execution_dataflow,
+            validate_watermark_storage=self._validate_watermark_storage,
+            watermark_manager=self._watermark_manager,
+            run_single_pipeline=self._run_single_pipeline,
+            log_result=self._log_dataflow_result,
+            on_chunk_complete=self._record_replay_chunk_complete,
         )
-
-        # Resolve chunk column from dataflow metadata
-        col = replay.chunk_column
-        if col is None:
-            wm_cols = dataflow.source.watermark_columns
-            if not wm_cols:
-                raise DataCoolieError(
-                    f"Cannot auto-resolve chunk_column: dataflow {dataflow.dataflow_id!r} "
-                    f"has no watermark_columns. Set replay.chunk_column explicitly."
-                )
-            col = wm_cols[0]
-
-        # Generate chunk boundaries
-        if replay.chunk_interval:
-            chunks = generate_chunk_boundaries(
-                start=replay.start,
-                end=replay.end,
-                interval=replay.chunk_interval,
-            )
-        else:
-            # Single-shot: one chunk covering the entire range
-            chunks = [(replay.start, replay.end)]
-
-        # Resume support: skip completed chunks when save_watermark is enabled
-        if replay.save_watermark and self._watermark_manager:
-            stored = self._watermark_manager.get_watermark(dataflow.dataflow_id)
-            if stored and stored.get(col) is not None:
-                stored_val = stored[col]
-                chunks = [(lo, hi) for lo, hi in chunks if lo >= stored_val or (lo < stored_val < hi)]
-                if not chunks:
-                    logger.info(
-                        "Replay already complete for %s — stored watermark %s >= range end",
-                        dataflow.name,
-                        stored_val,
-                    )
-                    dataflow_runtime.end_time = utc_now()
-                    dataflow_runtime.status = DataFlowStatus.SKIPPED.value
-                    return dataflow_runtime
-
-        total = len(chunks)
-        logger.info(
-            "Replaying %s — %d chunk(s), range [%s, %s), column=%s",
-            dataflow.name,
-            total,
-            replay.start,
-            replay.end,
-            col,
-        )
-
-        chunk_results: List[DataFlowRuntimeInfo] = []
-
-        for idx, (lower, upper) in enumerate(chunks, 1):
-            logger.info("Replay chunk %d/%d: [%s, %s)", idx, total, lower, upper)
-
-            # Deep copy per chunk; disable date_backward so chunk boundaries are exact.
-            chunk_dataflow: DataFlow = dataflow.model_copy(deep=True)
-            for key in _BACKWARD_KEYS:
-                chunk_dataflow.source.configure.pop(key, None)
-            if chunk_dataflow.source.connection:
-                for key in _BACKWARD_KEYS:
-                    chunk_dataflow.source.connection.configure.pop(key, None)
-
-            # Set the upper-bound filter on source so the source reader
-            # applies it during read.  Uses strict less-than for [lower, upper)
-            # semantics — produces whole calendar-aligned chunks.
-            # watermark_end serves as both reader ceiling AND save target.
-
-            chunk_runtime = self._run_single_pipeline(
-                chunk_dataflow,
-                watermark_start={col: lower},
-                watermark_end={col: upper},
-                save_watermark=replay.save_watermark,
-                watermark_start_operator=">=",
-                operation_type=ExecutionType.REPLAY.value,
-            )
-
-            chunk_results.append(chunk_runtime)
-            dataflow_runtime.source.rows_read += chunk_runtime.source.rows_read
-            dataflow_runtime.destination.rows_written += chunk_runtime.destination.rows_written
-            dataflow_runtime.retry_attempts += chunk_runtime.retry_attempts
-            self._on_replay_complete(chunk_runtime)
-
-            if chunk_runtime.status == DataFlowStatus.FAILED.value:
-                logger.error(
-                    "Replay stopped for %s at chunk %d/%d due to failure",
-                    dataflow.name, idx, total,
-                )
-                break
-
-        # Summarise all chunk results into one DataFlowRuntimeInfo
-        failed = next((r for r in chunk_results if r.status == DataFlowStatus.FAILED.value), None)
-        all_skipped = all(r.status == DataFlowStatus.SKIPPED.value for r in chunk_results)
-        final_status = (
-            DataFlowStatus.FAILED.value if failed
-            else DataFlowStatus.SKIPPED.value if all_skipped
-            else DataFlowStatus.SUCCEEDED.value
-        )
-        dataflow_runtime.end_time = utc_now()
-        dataflow_runtime.status = final_status
-        dataflow_runtime.error_message = failed.error_message if failed else None
-        return dataflow_runtime
 
     # ------------------------------------------------------------------
     # Maintenance
     # ------------------------------------------------------------------
 
     def run_maintenance(
+        self,
+        connection: Optional[Union[str, List[str]]] = None,
+        dataflows: Optional[List[DataFlow]] = None,
+        do_compact: bool = True,
+        do_cleanup: bool = True,
+    ) -> ExecutionResult:
+        """Execute one admitted maintenance operation."""
+        with self._driver_operation("run_maintenance"):
+            result = self._run_maintenance(
+                connection=connection,
+                dataflows=dataflows,
+                do_compact=do_compact,
+                do_cleanup=do_cleanup,
+            )
+            result = self._observe_operation_result(result)
+            self._log_operation_finished("run_maintenance", result)
+            return result
+
+    def _run_maintenance(
         self,
         connection: Optional[Union[str, List[str]]] = None,
         dataflows: Optional[List[DataFlow]] = None,
@@ -894,28 +1605,48 @@ class DataCoolieDriver:
         Returns:
             Aggregated execution statistics.
         """
-        logger.info("Starting maintenance run")
+        emit_safely(logger, logging.DEBUG, "Starting maintenance run", catch_base=True)
 
         if dataflows is not None:
             target = dedupe_by_destination(dataflows)
         else:
-            target = self.load_maintenance_dataflows(connection=connection)
+            if self._metadata_provider is None:
+                raise ConfigurationError(
+                    "metadata_provider is required to load maintenance dataflows; pass one "
+                    "or provide an explicit dataflows list"
+                )
+            target = self._load_maintenance_dataflows(connection=connection)
 
         if not target:
-            logger.info("No lakehouse dataflows for maintenance")
+            emit_safely(
+                logger,
+                logging.INFO,
+                "No lakehouse dataflows for maintenance",
+                catch_base=True,
+            )
             return ExecutionResult()
 
-        result = self._executor.execute(
-            dataflows=target,
-            process_fn=functools.partial(
-                self._process_maintenance,
-                do_compact=do_compact,
-                do_cleanup=do_cleanup,
-            ),
-            callback=self._on_maintenance_complete,
-        )
+        if self._config.dry_run:
+            return self._dry_run_dataflows(
+                target,
+                operation_type=ExecutionType.MAINTENANCE.value,
+            )
 
-        logger.info(
+        with self._completion_metadata_scope(target):
+            result = self._executor.execute(
+                dataflows=target,
+                process_fn=functools.partial(
+                    self._process_maintenance,
+                    do_compact=do_compact,
+                    do_cleanup=do_cleanup,
+                ),
+                callback=self._record_maintenance_complete,
+                operation_type=ExecutionType.MAINTENANCE.value,
+            )
+
+        emit_safely(
+            logger,
+            logging.DEBUG,
             "Maintenance complete — Total: %d, Succeeded: %d, Failed: %d, Skipped: %d, Running: %d, Pending: %d (%.1fs)",
             result.total,
             result.succeeded,
@@ -924,6 +1655,7 @@ class DataCoolieDriver:
             result.running,
             result.pending,
             result.duration_seconds,
+            catch_base=True,
         )
         return result
 
@@ -941,57 +1673,20 @@ class DataCoolieDriver:
         Returns:
             Runtime info wrapping the maintenance :class:`DestinationRuntimeInfo`.
         """
-        dataflow = dataflow.model_copy(deep=True)
-        dataflow_runtime = DataFlowRuntimeInfo(
-            dataflow_id=dataflow.dataflow_id,
+        return run_dataflow_execution(
+            dataflow,
             operation_type=ExecutionType.MAINTENANCE.value,
-            start_time=utc_now(),
-            status=DataFlowStatus.RUNNING.value,
+            prepare_execution_dataflow=self._prepare_execution_dataflow,
+            retry_handler=self._retry_handler,
+            preflight=lambda _execution: None,
+            attempt_runner=self._execute_maintenance_pipeline,
+            log_result=self._log_dataflow_result,
+            attempt_kwargs={
+                "do_compact": do_compact,
+                "do_cleanup": do_cleanup,
+            },
+            include_dataflow_run_id=False,
         )
-        status: str = dataflow_runtime.status
-        error_msg: Optional[str] = None
-        attempt_result: Optional[PipelineAttemptResult] = None
-        attempts = 1
-
-        ctx_token = set_dataflow_id(dataflow.dataflow_id)
-        try:
-            attempt_result, attempts = self._retry_handler.execute(
-                self._execute_maintenance_pipeline, dataflow,
-                do_compact=do_compact, do_cleanup=do_cleanup,
-            )
-            status = attempt_result.status
-            if attempt_result.destination is not None:
-                error_msg = attempt_result.destination.error_message
-        except PipelineError as exc:
-            status = DataFlowStatus.FAILED.value
-            error_msg = str(exc)
-            if isinstance(exc.partial_result, PipelineAttemptResult):
-                attempt_result = exc.partial_result
-            logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__ or exc)
-        except Exception as exc:
-            status = DataFlowStatus.FAILED.value
-            error_msg = str(exc)
-            logger.error("Maintenance failed (final): %s", exc, exc_info=exc.__cause__ or exc)
-        finally:
-            clear_dataflow_id(ctx_token)
-
-        if attempt_result is not None:
-            self._apply_attempt_result(dataflow_runtime, attempt_result)
-        dataflow_runtime.end_time = utc_now()
-        dataflow_runtime.status = status
-        dataflow_runtime.error_message = error_msg
-        dataflow_runtime.retry_attempts = max(0, attempts - 1)
-
-        if self._etl_logger:
-            try:
-                self._etl_logger.log(
-                    dataflow=dataflow,
-                    runtime_info=dataflow_runtime,
-                )
-            except Exception as exc:
-                logger.warning("Failed to log maintenance result", exc_info=exc.__cause__ or exc)
-
-        return dataflow_runtime
 
     def _execute_maintenance_pipeline(
         self,
@@ -1012,61 +1707,13 @@ class DataCoolieDriver:
         Returns:
             Terminal destination runtime and status for this attempt.
         """
-        logger.info(
-            "Starting maintenance: %s",
-            dataflow.destination.full_table_name or dataflow.destination.path,
+        return execute_maintenance_pipeline(
+            dataflow,
+            create_destination_writer=self._create_destination_writer,
+            retention_hours=self._config.retention_hours,
+            do_compact=do_compact,
+            do_cleanup=do_cleanup,
         )
-
-        dest_runtime: Optional[DestinationRuntimeInfo] = None
-        writer: Optional[BaseDestinationWriter] = None
-        try:
-            if dataflow.destination and dataflow.destination.connection:
-                self._resolve_secrets_for_connection(dataflow.destination.connection)
-            writer = self._create_destination_writer(dataflow.destination.connection.format)
-            dest_runtime = writer.run_maintenance(
-                dataflow=dataflow,
-                do_compact=do_compact,
-                do_cleanup=do_cleanup,
-                retention_hours=self._config.retention_hours,
-            )
-        except Exception as exc:
-            if writer is not None:
-                candidate = writer.get_runtime_info()
-                if candidate.operation_type == ExecutionType.MAINTENANCE.value:
-                    if candidate.status == DataFlowStatus.RUNNING.value:
-                        candidate.end_time = utc_now()
-                        candidate.status = DataFlowStatus.FAILED.value
-                        candidate.error_message = str(exc)
-                    dest_runtime = candidate
-            raise PipelineError(
-                str(exc),
-                partial_result=PipelineAttemptResult(
-                    status=DataFlowStatus.FAILED.value,
-                    destination=dest_runtime,
-                ),
-            ) from exc
-
-        attempt_result = PipelineAttemptResult(
-            status=dest_runtime.status,
-            destination=dest_runtime,
-        )
-        if attempt_result.status == DataFlowStatus.FAILED.value:
-            raise PipelineError(
-                dest_runtime.error_message or "Maintenance failed",
-                partial_result=attempt_result,
-            )
-
-        logger.info(
-            "Maintenance %s — files_added=%d, files_removed=%d, bytes_added=%d, bytes_removed=%d, duration=%.1fs",
-            dest_runtime.status,
-            dest_runtime.files_added,
-            dest_runtime.files_removed,
-            dest_runtime.bytes_added,
-            dest_runtime.bytes_removed,
-            dest_runtime.duration_seconds,
-        )
-
-        return attempt_result
 
     # ------------------------------------------------------------------
     # Secret resolution
@@ -1087,170 +1734,298 @@ class DataCoolieDriver:
             resolver_lookup=_lookup,
         )
 
-    def _resolve_connection_secrets(self, dataflow: DataFlow) -> None:
-        """Resolve secret references on source and destination connections.
-
-        Uses the explicit ``secret_provider`` when given; otherwise the
-        driver's platform is used (platforms now implement
-        :class:`~datacoolie.core.secret_provider.BaseSecretProvider`).
-
-        Prefixed sources (e.g. ``"env:APP_"``) are dispatched to the
-        matching plugin resolver via :data:`datacoolie.resolver_registry`.
-        """
-        if dataflow.source and dataflow.source.connection:
-            self._resolve_secrets_for_connection(dataflow.source.connection)
-
-        if dataflow.destination and dataflow.destination.connection:
-            self._resolve_secrets_for_connection(dataflow.destination.connection)
-
     # ------------------------------------------------------------------
     # Factory methods
     # ------------------------------------------------------------------
 
     def _create_source_reader(self, fmt: str) -> BaseSourceReader:
-        """Create a source reader based on the connection format."""
-        from datacoolie import source_registry
-
-        kwargs: Dict[str, Any] = {"engine": self._engine}
-        if fmt == Format.FUNCTION.value and self._config.allowed_function_prefixes:
-            kwargs["allowed_prefixes"] = self._config.allowed_function_prefixes
-        return source_registry.get(fmt, **kwargs)
+        """Create a registered source reader through the pipeline boundary."""
+        return build_source_reader(
+            self._engine,
+            fmt,
+            allowed_prefixes=self._config.allowed_function_prefixes,
+        )
 
     def _create_transformer_pipeline(
         self,
         dataflow_run_id: Optional[str] = None,
+        column_name_mode: ColumnCaseMode = ColumnCaseMode.LOWER,
     ) -> TransformerPipeline:
-        """Create a default transformer pipeline from the registry."""
-        from datacoolie import transformer_registry
-
-        pipeline = TransformerPipeline(self._engine)
-        # Per-transformer extra kwargs beyond ``engine``.
-        extra_kwargs: dict[str, dict[str, object]] = {
-            "column_name_sanitizer": {"mode": self._column_name_mode},
-            "system_column_adder": {"dataflow_run_id": dataflow_run_id},
-        }
-        for name in DEFAULT_TRANSFORMERS:
-            if transformer_registry.is_available(name):
-                kwargs = extra_kwargs.get(name, {})
-                pipeline.add_transformer(
-                    transformer_registry.get(name, engine=self._engine, **kwargs)
-                )
-        return pipeline
+        """Create the default registered transformer pipeline."""
+        return build_transformer_pipeline(
+            self._engine,
+            dataflow_run_id=dataflow_run_id,
+            column_name_mode=column_name_mode,
+        )
 
     def _create_destination_writer(self, fmt: str) -> BaseDestinationWriter:
-        """Create a destination writer based on the connection format."""
-        from datacoolie import destination_registry
-
-        return destination_registry.get(fmt, engine=self._engine)
+        """Create a registered destination writer through the pipeline boundary."""
+        return build_destination_writer(self._engine, fmt)
 
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
 
     def _on_dataflow_complete(self, result: DataFlowRuntimeInfo) -> None:
-        """Callback for dataflow completion (logging handled in _process_dataflow)."""
+        """Hook for ETL completion notifications.
+
+        Mandatory execution observation is owned by
+        :meth:`_record_dataflow_complete` and therefore cannot be bypassed by
+        a subclass override.  Subclasses may override this hook for
+        monitoring/alerting and may safely call ``super()``.
+        """
         pass
 
     def _on_maintenance_complete(self, result: DataFlowRuntimeInfo) -> None:
-        """Callback for maintenance completion."""
+        """Hook for maintenance completion notifications."""
         pass
+
+    def _record_dataflow_complete(self, result: DataFlowRuntimeInfo) -> None:
+        """Persist the terminal ETL observation before notifying user hooks."""
+        try:
+            self._log_missing_execution_observation(result)
+        except Exception as exc:
+            # Completion callbacks are observational.  A diagnostic or sink
+            # failure must not suppress the user hook or change executor
+            # counters; the sink boundary already owns its own best effort.
+            self._safe_diagnostic_log(
+                None,
+                "ETL completion observation failed: %s",
+                exc,
+            )
+        self._notify_completion_hook(
+            self._on_dataflow_complete,
+            result,
+            operation_name="ETL",
+        )
+
+    def _record_maintenance_complete(self, result: DataFlowRuntimeInfo) -> None:
+        """Persist the terminal maintenance observation before its hook."""
+        try:
+            self._log_missing_execution_observation(result)
+        except Exception as exc:
+            self._safe_diagnostic_log(
+                None,
+                "Maintenance completion observation failed: %s",
+                exc,
+            )
+        self._notify_completion_hook(
+            self._on_maintenance_complete,
+            result,
+            operation_name="maintenance",
+        )
+
+    def _notify_completion_hook(
+        self,
+        hook: Any,
+        result: DataFlowRuntimeInfo,
+        *,
+        operation_name: str,
+    ) -> None:
+        """Invoke an observational completion hook without changing status."""
+        try:
+            hook(result)
+        except Exception as exc:
+            emit_safely(
+                logger,
+                logging.WARNING,
+                "%s completion hook failed",
+                operation_name,
+                extra={
+                    "dataflow_id": result.dataflow_id,
+                    "dataflow_run_id": result.dataflow_run_id,
+                },
+                exc_info=(type(exc), exc, exc.__traceback__),
+                catch_base=True,
+            )
+
+    def _on_replay_chunk_complete(self, result: DataFlowRuntimeInfo) -> None:
+        """Hook for one replay chunk; errors are isolated by the executor."""
+        pass
+
+    def _record_replay_chunk_complete(self, result: DataFlowRuntimeInfo) -> None:
+        """Persist a missing replay-chunk observation, then notify the hook."""
+
+        try:
+            self._log_missing_execution_observation(result)
+        except Exception as exc:
+            self._safe_diagnostic_log(
+                None,
+                "Replay completion observation failed: %s",
+                exc,
+            )
+        self._notify_completion_hook(
+            self._on_replay_chunk_complete,
+            result,
+            operation_name="replay chunk",
+        )
 
     def _on_replay_complete(self, result: DataFlowRuntimeInfo) -> None:
-        """Per-chunk completion hook for replay.
+        """Hook for the aggregate result of one replay dataflow.
 
-        Called after each chunk finishes (including failures). Override in
-        subclasses to add custom monitoring, alerting, or logging.
+        Per-chunk notifications use :meth:`_on_replay_chunk_complete`. Override
+        this hook for dataflow-level monitoring or alerting.
         """
         pass
+
+    def _record_replay_complete(self, result: DataFlowRuntimeInfo) -> None:
+        """Notify the replay aggregate hook without affecting the result."""
+        self._notify_completion_hook(
+            self._on_replay_complete,
+            result,
+            operation_name="replay",
+        )
+
+    def _log_missing_execution_observation(
+        self,
+        result: DataFlowRuntimeInfo,
+    ) -> None:
+        """Log one scheduler fallback without adding a second normal row."""
+
+        if execution_observation_attempted(result):
+            self._mark_completion_observed(result.dataflow_id)
+            return
+        with self._driver_state_lock:
+            metadata = self._completion_metadata_by_id.get(result.dataflow_id)
+        if metadata is None:
+            # A result without a declarative snapshot is an orchestration
+            # contract failure.  It cannot be safely projected into an
+            # execution row, so retain the error only in system diagnostics
+            # and the Driver's final JobRuntime explanation.
+            message = (
+                "Execution result has no metadata snapshot: "
+                f"dataflow_id={result.dataflow_id!r}"
+            )
+            self._record_session_failure(message=message)
+            emit_safely(
+                logger,
+                logging.ERROR,
+                message,
+                extra={"event_name": LogEvent.SCHEDULER_EXECUTION_FAILED.value},
+                catch_base=True,
+            )
+            return
+        log_result_safely(self._log_dataflow_result, metadata, result)
+        self._mark_completion_observed(result.dataflow_id)
+
+    def _mark_completion_observed(self, dataflow_id: Optional[str]) -> None:
+        """Mark one terminal observation from a possibly parallel callback."""
+
+        if self._execution_logger is None or not dataflow_id:
+            return
+        with self._driver_state_lock:
+            self._completion_observed_ids.add(dataflow_id)
 
     # ------------------------------------------------------------------
     # Logging / cleanup
     # ------------------------------------------------------------------
 
-    def _flush_logs(self) -> None:
-        """Flush all loggers."""
-        for lgr in (self._etl_logger, self._system_logger):
-            if lgr is not None:
-                try:
-                    lgr.close()
-                except Exception as exc:
-                    logger.debug("Logger flush failed: %s", exc)
-
     def close(self) -> None:
-        """Close driver and flush logs. Safe to call multiple times."""
-        self._flush_logs()
-        self._dataflows = []
+        """Close driver and its accepted session loggers once."""
+        primary_exception = sys.exception()
+        with self._driver_state_lock:
+            if self._closed or self._closing:
+                return
+            if self._operation_active:
+                raise RuntimeError("Cannot close Driver while an operation is active")
+            self._closing = True
+
+        teardown_errors: List[BaseException] = []
+
+        def remember_teardown_error(error: Optional[BaseException]) -> None:
+            if error is None:
+                return
+            if not teardown_errors:
+                teardown_errors.append(error)
+            self._record_session_failure(error)
+
+        try:
+            # Driver-owned providers are part of the business session and must
+            # be released before the final JobRuntime status is committed.
+            remember_teardown_error(
+                self._close_owned_metadata_provider(diagnostic_logger=logger)
+            )
+
+            # The finishing anchor observes the status after owned cleanup.
+            # Ordinary handler errors remain logging health issues; an
+            # interruption is a teardown failure when no primary is active.
+            finishing_error = emit_safely(
+                logger,
+                logging.INFO,
+                "DataCoolie session finishing: job_id=%s, status=%s",
+                self._config.job_id,
+                self._final_job_status(),
+                extra={"event_name": LogEvent.SESSION_FINISHING.value},
+                catch_base=True,
+            )
+            if isinstance(finishing_error, (KeyboardInterrupt, SystemExit)):
+                remember_teardown_error(finishing_error)
+            elif finishing_error is not None:
+                self._safe_diagnostic_log(
+                    _diagnostic_logger,
+                    "Session finishing diagnostic failed: %s",
+                    finishing_error,
+                    exc_info=(
+                        type(finishing_error),
+                        finishing_error,
+                        finishing_error.__traceback__,
+                    ),
+                )
+
+            # Finalize the business summary once all owned non-logger
+            # components have reported.  Logger persistence failures remain
+            # fail-open, while contract errors and interruptions are surfaced
+            # after every accepted logger has had a close attempt.
+            if self._execution_logger is not None:
+                try:
+                    self._execution_logger.finish_job(
+                        self._final_job_status(),
+                        message=self._session_error_message,
+                    )
+                except ConfigurationError as exc:
+                    remember_teardown_error(exc)
+                except Exception as exc:
+                    self._safe_diagnostic_log(
+                        _diagnostic_logger,
+                        "Job-runtime finalization failed: %s",
+                        exc,
+                        exc_info=(type(exc), exc, exc.__traceback__),
+                    )
+                except BaseException as exc:
+                    remember_teardown_error(exc)
+
+            # Keep SystemLogger last so diagnostics from the earlier cleanup
+            # attempts can still be captured.  Ordinary logger/storage errors
+            # remain best effort; an interruption is retained for precedence.
+            remember_teardown_error(
+                self._close_session_loggers(diagnostic_logger=logger)
+            )
+            self._dataflows = []
+        finally:
+            with self._driver_state_lock:
+                self._closed = True
+                self._closing = False
+        if primary_exception is None and teardown_errors:
+            raise teardown_errors[0]
 
     def __enter__(self) -> "DataCoolieDriver":
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        self.close()
-
-
-# ============================================================================
-# Factory function
-# ============================================================================
-
-
-def create_driver(
-    engine: BaseEngine,
-    platform: Optional[BasePlatform] = None,
-    metadata_provider: Optional[BaseMetadataProvider] = None,
-    watermark_manager: Optional[BaseWatermarkManager] = None,
-    job_id: Optional[str] = None,
-    job_num: int = 1,
-    job_index: int = 0,
-    max_workers: int = DEFAULT_MAX_WORKERS,
-    secret_provider: Optional[BaseSecretProvider] = None,
-    system_logger: Optional[SystemLogger] = None,
-    etl_logger: Optional[ETLLogger] = None,
-    base_log_path: Optional[str] = None,
-    log_config: Optional[LogConfig] = None,
-    **kwargs: Any,
-) -> DataCoolieDriver:
-    """Create a configured :class:`DataCoolieDriver`.
-
-    Args:
-        engine: Data operation engine.
-        platform: Platform implementation.
-        metadata_provider: Metadata provider.
-        watermark_manager: Watermark manager.  Auto-created from
-            *metadata_provider* when ``None``.
-        job_id: Optional job identifier. Auto-generated when ``None``.
-        job_num: Total parallel jobs.
-        job_index: Current job index (0-based).
-        max_workers: Max parallel workers per job.
-        secret_provider: Optional secret provider for resolving secrets in
-            connection configs.
-        system_logger: Explicit system logger (overrides auto-creation).
-        etl_logger: Explicit ETL logger (overrides auto-creation).
-        base_log_path: Base directory for auto-created loggers.
-            Takes precedence over ``log_config.output_path``.
-        log_config: Optional :class:`LogConfig` template for auto-created
-            loggers.  If ``base_log_path`` is also given it overrides
-            ``output_path``; otherwise ``log_config.output_path`` is used.
-        **kwargs: Additional :class:`DataCoolieRunConfig` options.
-
-    Returns:
-        Ready-to-use driver.
-    """
-    config = DataCoolieRunConfig(
-        job_id=job_id or generate_unique_id(),
-        job_num=job_num,
-        job_index=job_index,
-        max_workers=max_workers,
-        **kwargs,
-    )
-    return DataCoolieDriver(
-        engine=engine,
-        platform=platform,
-        metadata_provider=metadata_provider,
-        watermark_manager=watermark_manager,
-        config=config,
-        secret_provider=secret_provider,
-        system_logger=system_logger,
-        etl_logger=etl_logger,
-        base_log_path=base_log_path,
-        log_config=log_config,
-    )
+        if exc_type is not None:
+            self._record_session_failure(
+                exc_val,
+                error_type=exc_type,
+            )
+        try:
+            self.close()
+        except BaseException as cleanup_exc:
+            # A cleanup/finalization problem must not mask the active business
+            # exception raised inside the context manager.
+            if exc_type is None:
+                raise
+            self._safe_diagnostic_log(
+                None,
+                "Driver cleanup failed while preserving active exception: %s",
+                cleanup_exc,
+            )

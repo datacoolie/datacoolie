@@ -104,6 +104,26 @@ class TestTransformerPipeline:
         result = pipeline.transform({"data": 1}, df)
         assert result == {"data": 1}
 
+    def test_pipeline_reuses_previous_schema_for_mapping(self, engine: MockEngine) -> None:
+        calls = 0
+        original_get_columns = engine.get_columns
+
+        def counted_get_columns(df):
+            nonlocal calls
+            calls += 1
+            return original_get_columns(df)
+
+        engine.get_columns = counted_get_columns  # type: ignore[method-assign]
+        pipeline = TransformerPipeline(engine)
+        pipeline.add_transformer(DummyTransformer(10))
+        pipeline.add_transformer(DummyTransformer(20))
+
+        pipeline.transform({"data": 1}, _make_dataflow())
+
+        # One initial schema plus one schema after each transformer. The
+        # final output reuses the last observed schema.
+        assert calls == 3
+
     def test_single_transformer(self, engine: MockEngine) -> None:
         pipeline = TransformerPipeline(engine)
         pipeline.add_transformer(DummyTransformer(10))
@@ -135,7 +155,7 @@ class TestTransformerPipeline:
             pipeline.transform({"x": 1}, df)
         info = pipeline.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
-        assert info.error_message == "Transform failed!"
+        assert info.message == "Transform failed!"
 
     def test_runtime_info_transform_error_passthrough(self, engine: MockEngine) -> None:
         pipeline = TransformerPipeline(engine)
@@ -145,7 +165,7 @@ class TestTransformerPipeline:
             pipeline.transform({"x": 1}, df)
         info = pipeline.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
-        assert info.error_message == "explicit transform error"
+        assert info.message == "explicit transform error"
 
     def test_remove_transformer(self, engine: MockEngine) -> None:
         pipeline = TransformerPipeline(engine)

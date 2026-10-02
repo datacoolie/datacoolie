@@ -127,6 +127,12 @@ def wheel_install_smoke(repo_root: Path, version: str, wheel: Path) -> None:
 
     print("\n==> Wheel install smoke test")
     with tempfile.TemporaryDirectory(prefix="datacoolie-release-") as temp_dir:
+        smoke_cwd = Path(temp_dir)
+        smoke_environment = os.environ.copy()
+        # The smoke must resolve the installed distribution rather than a
+        # checkout or caller-provided source path.
+        smoke_environment.pop("PYTHONPATH", None)
+        smoke_environment["PYTHONNOUSERSITE"] = "1"
         environment = Path(temp_dir) / "venv"
         venv.EnvBuilder(with_pip=True, clear=True).create(environment)
         python_name = "python.exe" if sys.platform == "win32" else "python"
@@ -139,18 +145,58 @@ def wheel_install_smoke(repo_root: Path, version: str, wheel: Path) -> None:
             "--disable-pip-version-check",
             str(wheel),
         ]
-        completed = subprocess.run(install_command, cwd=repo_root, check=False)
+        completed = subprocess.run(
+            install_command,
+            cwd=smoke_cwd,
+            env=smoke_environment,
+            check=False,
+        )
         if completed.returncode != 0:
             raise SystemExit("Release verification failed at: wheel install smoke test")
-        import_command = [
+        runtime_import_command = [
             str(isolated_python),
             "-c",
-            "import datacoolie; assert datacoolie.__version__ == "
+            "from datacoolie import __version__; import datacoolie.metadata; "
+            "assert __version__ == "
             f"{version!r}",
         ]
-        completed = subprocess.run(import_command, cwd=repo_root, check=False)
+        completed = subprocess.run(
+            runtime_import_command,
+            cwd=smoke_cwd,
+            env=smoke_environment,
+            check=False,
+        )
         if completed.returncode != 0:
-            raise SystemExit("Release verification failed at: wheel import smoke test")
+            raise SystemExit("Release verification failed at: base wheel import smoke test")
+        cli_install_command = [
+            str(isolated_python),
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            f"{wheel}[cli]",
+        ]
+        completed = subprocess.run(
+            cli_install_command,
+            cwd=smoke_cwd,
+            env=smoke_environment,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise SystemExit("Release verification failed at: CLI extra install smoke test")
+        version_contract_command = [
+            str(isolated_python),
+            str(repo_root / "scripts" / "verify_installed_version.py"),
+            version,
+        ]
+        completed = subprocess.run(
+            version_contract_command,
+            cwd=smoke_cwd,
+            env=smoke_environment,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise SystemExit("Release verification failed at: installed version contracts")
 
 
 def parse_args() -> argparse.Namespace:
@@ -179,6 +225,11 @@ def main() -> int:
     print(f"DataCoolie {version}: local release verification")
     require_twine()
 
+    run_stage(
+        repo_root,
+        "Metadata schema index",
+        [sys.executable, "scripts/generate_metadata_schema_index.py", "--check"],
+    )
     run_stage(repo_root, "Poetry metadata and lock", ["poetry", "check", "--lock", "--strict"])
     run_stage(repo_root, "Build distributions", ["poetry", "build"])
 
@@ -219,6 +270,11 @@ def main() -> int:
         repo_root,
         "Non-Spark test suite",
         ["poetry", "run", "pytest", "tests/", "-m", "not spark", "-n", "0", "--tb=short"],
+    )
+    run_stage(
+        repo_root,
+        "Release contract tests",
+        ["poetry", "run", "pytest", "-c", "pyproject.toml", "scripts/tests/", "-n", "0", "--tb=short"],
     )
 
     if args.with_spark:

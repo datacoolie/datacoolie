@@ -10,14 +10,11 @@ from datacoolie.core.constants import (
     LoadType,
 )
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import (
-    Connection,
-    DataFlow,
-    Destination,
-    PartitionColumn,
-    Source,
-    Transform,
-)
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.source import Source
+from datacoolie.core.models.transform import Transform
 
 from datacoolie.destinations.iceberg_writer import IcebergWriter
 

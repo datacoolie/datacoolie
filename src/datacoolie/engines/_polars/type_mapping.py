@@ -1,4 +1,4 @@
-"""Polars type aliases and conversion expressions."""
+"""Polars datatype interpretation, native casts, and format adaptation."""
 
 from __future__ import annotations
 
@@ -8,110 +8,35 @@ from typing import Mapping, Optional
 
 import polars as pl
 
-from datacoolie.logging.base import get_logger
+from datacoolie.core.constants import Format
+from datacoolie.core.exceptions import ConfigurationError
+from datacoolie.engines.data_types import (
+    LogicalKind,
+    ResolvedDataType,
+    TimestampKind,
+    resolve_schema_hint,
+)
+from datacoolie.engines.data_types.formats import normalize_output_format, output_type_for_format
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 
 _TYPE_ALIASES: Mapping[str, pl.DataType] = MappingProxyType(
     {
+        # Output-format adaptation uses these Spark-compatible aliases. Casts
+        # from metadata use the logical resolver below instead.
         "string": pl.Utf8,
-        "str": pl.Utf8,
-        "utf8": pl.Utf8,
-        "varchar": pl.Utf8,
-        "varchar2": pl.Utf8,
-        "nvarchar": pl.Utf8,
-        "nvarchar2": pl.Utf8,
-        "char": pl.Utf8,
-        "nchar": pl.Utf8,
-        "character": pl.Utf8,
-        "character varying": pl.Utf8,
-        "text": pl.Utf8,
-        "ntext": pl.Utf8,
-        "tinytext": pl.Utf8,
-        "mediumtext": pl.Utf8,
-        "longtext": pl.Utf8,
-        "clob": pl.Utf8,
-        "nclob": pl.Utf8,
-        "enum": pl.Utf8,
-        "set": pl.Utf8,
-        "uuid": pl.Utf8,
-        "uniqueidentifier": pl.Utf8,
-        "json": pl.Utf8,
-        "jsonb": pl.Utf8,
-        "xml": pl.Utf8,
-        "citext": pl.Utf8,
-        "byte": pl.Int8,
-        "short": pl.Int16,
-        "int": pl.Int32,
-        "integer": pl.Int32,
-        "int2": pl.Int16,
-        "int4": pl.Int32,
-        "int8": pl.Int64,
-        "int16": pl.Int16,
-        "int32": pl.Int32,
-        "int64": pl.Int64,
-        "long": pl.Int64,
         "tinyint": pl.Int8,
         "smallint": pl.Int16,
-        "mediumint": pl.Int32,
+        "int": pl.Int32,
         "bigint": pl.Int64,
-        "byteint": pl.Int8,
-        "hugeint": pl.Int64,
-        "serial": pl.Int32,
-        "smallserial": pl.Int16,
-        "bigserial": pl.Int64,
-        "number": pl.Decimal,
-        "uint8": pl.UInt8,
-        "uint16": pl.UInt16,
-        "uint32": pl.UInt32,
-        "uint64": pl.UInt64,
-        "unsigned": pl.UInt64,
         "float": pl.Float32,
-        "real": pl.Float32,
-        "float4": pl.Float32,
-        "float8": pl.Float64,
-        "float32": pl.Float32,
-        "float64": pl.Float64,
         "double": pl.Float64,
-        "double precision": pl.Float64,
-        "decimal": pl.Decimal,
-        "numeric": pl.Decimal,
-        "dec": pl.Decimal,
-        "money": pl.Decimal,
-        "smallmoney": pl.Decimal,
         "boolean": pl.Boolean,
-        "bool": pl.Boolean,
-        "bit": pl.Boolean,
-        "logical": pl.Boolean,
         "date": pl.Date,
-        "date32": pl.Date,
-        "time": pl.Time,
-        "timetz": pl.Time,
-        "time with time zone": pl.Time,
-        "time without time zone": pl.Time,
         "timestamp": pl.Datetime("us", "UTC"),
-        "timestamptz": pl.Datetime("us", "UTC"),
-        "timestamp_tz": pl.Datetime("us", "UTC"),
-        "timestamp with time zone": pl.Datetime("us", "UTC"),
-        "datetimeoffset": pl.Datetime("us", "UTC"),
         "timestamp_ntz": pl.Datetime("us"),
-        "datetime": pl.Datetime("us"),
-        "datetime2": pl.Datetime("us"),
-        "smalldatetime": pl.Datetime("us"),
-        "timestamp without time zone": pl.Datetime("us"),
-        "interval": pl.Duration,
-        "duration": pl.Duration,
         "binary": pl.Binary,
-        "varbinary": pl.Binary,
-        "bytea": pl.Binary,
-        "blob": pl.Binary,
-        "tinyblob": pl.Binary,
-        "mediumblob": pl.Binary,
-        "longblob": pl.Binary,
-        "image": pl.Binary,
-        "bytes": pl.Binary,
-        "raw": pl.Binary,
-        "long raw": pl.Binary,
     }
 )
 
@@ -123,6 +48,19 @@ def to_chrono_format(fmt: str) -> str:
     if "%" in fmt:
         return fmt
     result = fmt
+    # Convert Java fractional-second runs before replacing ``ss`` with the
+    # chrono seconds directive; otherwise the fallback would also rewrite the
+    # newly-created ``%S`` token.
+    result = re.sub(
+        r"\.(S+)",
+        lambda match: f"%.{len(match.group(1))}f",
+        result,
+    )
+    result = re.sub(
+        r"(?<!%)S+",
+        lambda match: f"%{len(match.group(0))}f",
+        result,
+    )
     for java, chrono in (
         ("yyyy", "%Y"),
         ("yy", "%y"),
@@ -131,58 +69,201 @@ def to_chrono_format(fmt: str) -> str:
         ("HH", "%H"),
         ("mm", "%M"),
         ("ss", "%S"),
-        ("SSS", "%f"),
     ):
         result = result.replace(java, chrono)
     return result
 
 
+def _resolve_type(
+    target_type: str | ResolvedDataType,
+    *,
+    type_system: str | None = None,
+    precision: int | None = None,
+    scale: int | None = None,
+) -> ResolvedDataType:
+    if isinstance(target_type, ResolvedDataType):
+        return target_type
+    return resolve_schema_hint(
+        target_type,
+        type_system=type_system,
+        precision=precision,
+        scale=scale,
+    )
+
+
+def _native_dtype(resolved: ResolvedDataType) -> pl.DataType:
+    """Build the native Polars dtype for one logical datatype."""
+    if resolved.kind is LogicalKind.BOOLEAN:
+        return pl.Boolean
+    if resolved.kind is LogicalKind.SIGNED_INTEGER:
+        return {8: pl.Int8, 16: pl.Int16, 32: pl.Int32, 64: pl.Int64}[resolved.bit_width]
+    if resolved.kind is LogicalKind.UNSIGNED_INTEGER:
+        return {
+            8: pl.Int16,
+            16: pl.Int32,
+            32: pl.Int64,
+            64: pl.Decimal(resolved.precision or 20, resolved.scale or 0),
+        }[resolved.bit_width]
+    if resolved.kind is LogicalKind.FLOAT:
+        return pl.Float32 if resolved.bit_width == 32 else pl.Float64
+    if resolved.kind is LogicalKind.DECIMAL:
+        return pl.Decimal(resolved.precision or 1, resolved.scale or 0)
+    if resolved.kind is LogicalKind.STRING:
+        return pl.String
+    if resolved.kind is LogicalKind.BINARY:
+        return pl.Binary
+    if resolved.kind is LogicalKind.DATE:
+        return pl.Date
+    if resolved.kind is LogicalKind.TIMESTAMP:
+        return pl.Datetime(
+            "us",
+            "UTC" if resolved.timestamp_kind is TimestampKind.INSTANT else None,
+        )
+    raise ConfigurationError(
+        "No Polars adapter exists for resolved datatype",
+        details={"kind": resolved.kind.value, "source_type": resolved.source_type},
+    )
+
+
 def build_cast_expr(
     col_name: str,
-    target_type: str,
+    target_type: str | ResolvedDataType,
     src_dtype: pl.DataType,
     fmt: Optional[str],
-) -> Optional[pl.Expr]:
-    """Build a cast expression, returning ``None`` for an unknown type."""
-    target_lower = target_type.lower()
-    col = pl.col(col_name)
-
-    decimal_match = _DECIMAL_PATTERN.match(target_lower)
-    if decimal_match:
-        precision, scale = map(int, decimal_match.groups())
-        return col.cast(pl.Decimal(precision=precision, scale=scale))
-
-    pl_type = _TYPE_ALIASES.get(target_lower)
-    if pl_type is None:
-        logger.debug(
-            "PolarsEngine.cast_column: unknown type %r — bypassing cast, column kept as-is",
-            target_lower,
+    *,
+    type_system: str | None = None,
+    precision: int | None = None,
+    scale: int | None = None,
+) -> pl.Expr:
+    """Build a native cast, resolving a source declaration at most once."""
+    try:
+        resolved = _resolve_type(
+            target_type,
+            type_system=type_system,
+            precision=precision,
+            scale=scale,
         )
-        return None
+    except ConfigurationError:
+        logger.debug("PolarsEngine.cast_column: unsupported source type %r", target_type)
+        raise
 
-    if pl_type == pl.Date:
-        if fmt:
-            return col.str.to_date(to_chrono_format(fmt))
+    col = pl.col(col_name)
+    if resolved.kind is LogicalKind.DATE:
+        if fmt and isinstance(src_dtype, (pl.String, pl.Utf8)):
+            chrono_fmt = to_chrono_format(fmt)
+            has_time = bool(
+                re.search(r"(?:%H|%M|%S|%f|HH|mm|ss|S)", fmt)
+            )
+            if has_time:
+                return col.str.to_datetime(chrono_fmt, time_unit="us").dt.date()
+            return col.str.to_date(chrono_fmt)
         return col.cast(pl.Date)
 
-    if isinstance(pl_type, pl.Datetime):
-        time_zone = pl_type.time_zone
-        time_unit = pl_type.time_unit or "us"
-        if fmt:
+    if resolved.kind is LogicalKind.TIMESTAMP:
+        native = _native_dtype(resolved)
+        if fmt and isinstance(src_dtype, (pl.String, pl.Utf8)):
             return col.str.to_datetime(
                 to_chrono_format(fmt),
-                time_unit=time_unit,
-                time_zone=time_zone,
+                time_unit="us",
+                time_zone=native.time_zone,
             )
-        if time_zone:
-            if isinstance(src_dtype, pl.String):
-                return col.str.to_datetime(time_unit=time_unit, time_zone=time_zone)
+        if native.time_zone:
+            if isinstance(src_dtype, (pl.String, pl.Utf8)):
+                return col.str.to_datetime(time_unit="us", time_zone=native.time_zone)
             if isinstance(src_dtype, pl.Datetime) and src_dtype.time_zone:
-                return col.dt.convert_time_zone(time_zone)
-            return col.cast(pl.Datetime(time_unit)).dt.replace_time_zone(time_zone)
-        return col.cast(pl.Datetime(time_unit))
+                return col.dt.convert_time_zone(native.time_zone)
+            return col.cast(pl.Datetime("us")).dt.replace_time_zone(native.time_zone)
+        return col.cast(pl.Datetime("us"))
 
-    return col.cast(pl_type)
+    return col.cast(_native_dtype(resolved))
+
+
+_POLARS_INTEGER_TYPES = (
+    (pl.Int8, "tinyint", False),
+    (pl.Int16, "smallint", False),
+    (pl.Int32, "int", False),
+    (pl.Int64, "bigint", False),
+    (pl.UInt8, "tinyint unsigned", True),
+    (pl.UInt16, "smallint unsigned", True),
+    (pl.UInt32, "int unsigned", True),
+    (pl.UInt64, "bigint unsigned", True),
+)
+
+
+def _logical_output_type_for_native(dtype: pl.DataType) -> Optional[str]:
+    """Map a native integer to a range-preserving format rule.
+
+    This is an engine/output concern.  It must not pretend that an arbitrary
+    dataframe originated from MySQL merely because an unsigned native dtype
+    needs widening for a persisted format.
+    """
+    for dtype_class, alias, unsigned in _POLARS_INTEGER_TYPES:
+        if isinstance(dtype, dtype_class):
+            if not unsigned:
+                return alias
+            return {
+                "tinyint unsigned": "smallint",
+                "smallint unsigned": "int",
+                "int unsigned": "bigint",
+                "bigint unsigned": "decimal(20,0)",
+            }[alias]
+    return None
+
+
+def _target_dtype(target_type: str) -> pl.DataType:
+    """Return the native Polars dtype for a format-rule alias."""
+
+    decimal_match = _DECIMAL_PATTERN.match(target_type)
+    if decimal_match:
+        precision, scale = map(int, decimal_match.groups())
+        return pl.Decimal(precision, scale)
+    try:
+        return _TYPE_ALIASES[target_type]
+    except KeyError as exc:
+        raise ConfigurationError(
+            "No Polars adapter exists for output logical type",
+            details={"target_type": target_type},
+        ) from exc
+
+
+def normalize_output_frame(
+    frame: pl.LazyFrame, output_format: str | Format
+) -> pl.LazyFrame:
+    """Apply persisted-format integer rules before a Polars write or merge.
+
+    Source-hint casting remains the responsibility of ``SchemaConverter``.
+    This function only translates the already-native frame to the selected
+    format's portable physical dtype.  Lazy schema inspection avoids reading
+    the data before the writer owns materialisation.
+    """
+
+    try:
+        normalized = normalize_output_format(output_format)
+    except ConfigurationError:
+        return frame
+
+    schema = frame.collect_schema()
+    expressions: list[pl.Expr] = []
+    for column in schema.names():
+        dtype = schema[column]
+        if hasattr(pl, "Int128") and isinstance(dtype, pl.Int128):
+            raise ConfigurationError(
+                "Polars Int128 has no cross-engine persisted datatype mapping; "
+                "provide a schema hint with an explicit supported range",
+                details={"column": column, "dtype": str(dtype)},
+            )
+        logical_type = _logical_output_type_for_native(dtype)
+        if logical_type is None:
+            continue
+        target = output_type_for_format(logical_type, normalized)
+        target_dtype = _target_dtype(target)
+        if dtype != target_dtype:
+            # The format policy has already selected the target from the
+            # native dtype. Cast directly instead of resolving the same
+            # alias again through the source-hint path.
+            expressions.append(pl.col(column).cast(target_dtype).alias(column))
+
+    return frame.with_columns(expressions) if expressions else frame
 
 
 def polars_type_to_hive(dtype: pl.DataType) -> str:

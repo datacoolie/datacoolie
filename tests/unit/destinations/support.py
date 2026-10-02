@@ -16,14 +16,11 @@ from datacoolie.core.constants import (
     Format,
     LoadType,
 )
-from datacoolie.core.models import (
-    Connection,
-    DataFlow,
-    Destination,
-    PartitionColumn,
-    Source,
-    Transform,
-)
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.source import Source
+from datacoolie.core.models.transform import Transform
 from datacoolie.engines.base import BaseEngine
 
 
@@ -34,7 +31,7 @@ from datacoolie.engines.base import BaseEngine
 
 class MockEngine(BaseEngine[dict]):
     """Mock engine for destination tests.
-    
+
     Tracks all write operations, merges, compactions, cleanups, and SQL executions.
     Supports configurable state (table_exists_result) for testing conditional logic.
     """
@@ -58,16 +55,36 @@ class MockEngine(BaseEngine[dict]):
         return records
 
     # --- Read ---
-    def read_parquet(self, path, options=None): return {}
-    def read_delta(self, path, options=None): return {}
-    def read_iceberg(self, path, options=None): return {}
-    def read_csv(self, path, options=None): return {}
-    def read_json(self, path, options=None): return {}
-    def read_jsonl(self, path, options=None): return {}
-    def read_avro(self, path, options=None): return {}
-    def read_excel(self, path, options=None): return {}
-    def read_path(self, path, fmt, options=None): return {}
-    def read_database(self, *, table=None, query=None, options=None): return {}
+    def read_parquet(self, path, options=None):
+        return {}
+
+    def read_delta(self, path, options=None):
+        return {}
+
+    def read_iceberg(self, path, options=None):
+        return {}
+
+    def read_csv(self, path, options=None):
+        return {}
+
+    def read_json(self, path, options=None):
+        return {}
+
+    def read_jsonl(self, path, options=None):
+        return {}
+
+    def read_avro(self, path, options=None):
+        return {}
+
+    def read_excel(self, path, options=None):
+        return {}
+
+    def read_path(self, path, fmt, options=None):
+        return {}
+
+    def read_database(self, *, table=None, query=None, options=None):
+        return {}
+
     def execute_sql(self, sql, parameters=None):
         self._executed_sql.append(sql)
         return {}
@@ -77,28 +94,90 @@ class MockEngine(BaseEngine[dict]):
 
     # --- Write ---
     def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
-        self._written.append({"path": path, "mode": mode, "fmt": fmt})
+        self._written.append({"path": path, "mode": mode, "fmt": fmt, "options": options})
 
-    def merge_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
-        self._merged.append({"path": path, "merge_keys": merge_keys})
+    def merge_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
+        self._merged.append({"path": path, "merge_keys": merge_keys, "options": options})
 
-    def merge_overwrite_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
-        self._merge_overwritten.append({"path": path, "merge_keys": merge_keys})
+    def merge_overwrite_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None,
+        write_options=None,
+    ):
+        self._merge_overwritten.append(
+            {
+                "path": path,
+                "merge_keys": merge_keys,
+                "options": options,
+                "write_options": write_options,
+            }
+        )
 
-    def write_to_table(self, df, table_name, mode, fmt, partition_columns=None, options=None):
-        self._written.append({"table_name": table_name, "mode": mode, "fmt": fmt})
+    def write_to_table(
+        self, df, table_name, mode, fmt, partition_columns=None, options=None
+    ):
+        self._written.append(
+            {"table_name": table_name, "mode": mode, "fmt": fmt, "options": options}
+        )
 
-    def merge_to_table(self, df, table_name, merge_keys, fmt, partition_columns=None, options=None):
-        self._merged.append({"table_name": table_name, "merge_keys": merge_keys})
+    def merge_to_table(
+        self, df, table_name, merge_keys, fmt, partition_columns=None, options=None
+    ):
+        self._merged.append(
+            {"table_name": table_name, "merge_keys": merge_keys, "options": options}
+        )
 
-    def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
-        self._merge_overwritten.append({"table_name": table_name, "merge_keys": merge_keys})
+    def merge_overwrite_to_table(
+        self,
+        df,
+        table_name,
+        merge_keys,
+        fmt="delta",
+        partition_columns=None,
+        options=None,
+        write_options=None,
+    ):
+        self._merge_overwritten.append(
+            {
+                "table_name": table_name,
+                "merge_keys": merge_keys,
+                "options": options,
+                "write_options": write_options,
+            }
+        )
 
-    def scd2_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
-        self._scd2.append({"path": path, "merge_keys": merge_keys})
+    def scd2_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None,
+        write_options=None,
+    ):
+        self._scd2.append(
+            {
+                "path": path,
+                "merge_keys": merge_keys,
+                "options": options,
+                "write_options": write_options,
+            }
+        )
 
-    def scd2_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
-        self._scd2.append({"table_name": table_name, "merge_keys": merge_keys})
+    def scd2_to_table(
+        self,
+        df,
+        table_name,
+        merge_keys,
+        fmt="delta",
+        partition_columns=None,
+        options=None,
+        write_options=None,
+    ):
+        self._scd2.append(
+            {
+                "table_name": table_name,
+                "merge_keys": merge_keys,
+                "options": options,
+                "write_options": write_options,
+            }
+        )
 
     def delete_by_window_path(self, path, window, fmt="delta"):
         self._deleted_windows = getattr(self, "_deleted_windows", [])
@@ -108,31 +187,97 @@ class MockEngine(BaseEngine[dict]):
         self._deleted_windows = getattr(self, "_deleted_windows", [])
         self._deleted_windows.append({"table_name": table_name, "window": window})
 
+    def replace_window(
+        self,
+        df,
+        *,
+        table_name=None,
+        path=None,
+        window,
+        fmt="delta",
+        partition_columns=None,
+        options=None,
+    ):
+        """Record the engine-owned replacement as one operation in tests."""
+        self._deleted_windows.append(
+            {"table_name": table_name, "path": path, "window": window}
+        )
+        if not df:
+            return
+        self._written.append(
+            {
+                "table_name": table_name,
+                "path": path,
+                "mode": "append",
+                "fmt": fmt,
+                "options": options,
+            }
+        )
+
     # --- Transform ---
-    def add_column(self, df, column_name, expression): return df
-    def drop_columns(self, df, columns): return df
-    def select_columns(self, df, columns): return df
-    def rename_column(self, df, old_name, new_name): return df
-    def filter_rows(self, df, condition): return df
-    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">"): return df
-    def deduplicate(self, df, partition_columns, order_columns=None, order="desc"): return df
-    def deduplicate_by_rank(self, df, partition_columns, order_columns, order="desc"): return df
-    def cast_column(self, df, column_name, target_type, fmt=None): return df
+    def add_column(self, df, column_name, expression):
+        return df
+
+    def drop_columns(self, df, columns):
+        return df
+
+    def select_columns(self, df, columns):
+        return df
+
+    def rename_column(self, df, old_name, new_name):
+        return df
+
+    def filter_rows(self, df, condition):
+        return df
+
+    def apply_watermark_filter(
+        self, df, watermark_columns, watermark_start, *, start_operator=">"
+    ):
+        return df
+
+    def deduplicate(self, df, partition_columns, order_columns=None, order="desc"):
+        return df
+
+    def deduplicate_by_rank(self, df, partition_columns, order_columns, order="desc"):
+        return df
+
+    def cast_column(self, df, column_name, target_type, fmt=None):
+        return df
 
     # --- System ---
-    def add_system_columns(self, df, author=None, dataflow_run_id=None): return df
-    def add_file_info_columns(self, df): return df
-    def convert_timestamp_ntz_to_timestamp(self, df): return df
-    def generate_symlink_manifest(self, path): pass
+    def add_system_columns(self, df, author=None, dataflow_run_id=None):
+        return df
+
+    def add_file_info_columns(self, df):
+        return df
+
+    def convert_timestamp_ntz_to_timestamp(self, df, timezone=None):
+        return df
+
+    def generate_symlink_manifest(self, path):
+        pass
 
     # --- Metrics ---
-    def count_rows(self, df): return 0
-    def is_empty(self, df): return True
-    def get_columns(self, df): return []
-    def get_schema(self, df): return {}
-    def get_hive_schema(self, df): return {}
-    def get_max_values(self, df, columns): return {}
-    def get_count_and_max_values(self, df, columns): return (0, {})
+    def count_rows(self, df):
+        return 0
+
+    def is_empty(self, df):
+        return not bool(df)
+
+    def get_columns(self, df):
+        return []
+
+    def get_schema(self, df):
+        return {}
+
+    def get_hive_schema(self, df):
+        return {}
+
+    def get_max_values(self, df, columns):
+        return {}
+
+    def get_count_and_max_values(self, df, columns):
+        return (0, {})
 
     # --- Table ops ---
     def table_exists_by_path(self, path, *, fmt="delta"):
@@ -141,7 +286,9 @@ class MockEngine(BaseEngine[dict]):
     def table_exists_by_name(self, table_name, *, fmt="delta"):
         return self._table_exists_result
 
-    def get_history_by_path(self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+    def get_history_by_path(
+        self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
         return [{"version": 0}][:limit]
 
     def compact_by_path(self, path, *, fmt="delta", options=None):
@@ -151,13 +298,17 @@ class MockEngine(BaseEngine[dict]):
         self._cleaned.append({"path": path, "hours": retention_hours})
 
     # --- Table ops by name ---
-    def get_history_by_name(self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+    def get_history_by_name(
+        self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
         return [{"version": 0}][:limit]
 
     def compact_by_name(self, table_name, *, fmt="delta", options=None):
         self._compacted.append(table_name)
 
-    def cleanup_by_name(self, table_name, retention_hours=168, *, fmt="delta", options=None):
+    def cleanup_by_name(
+        self, table_name, retention_hours=168, *, fmt="delta", options=None
+    ):
         self._cleaned.append({"table_name": table_name, "hours": retention_hours})
 
 
@@ -186,7 +337,7 @@ def _make_dataflow(
     dest_configure: Dict[str, Any] | None = None,
 ) -> DataFlow:
     """Build a DataFlow targeting a table destination (delta/iceberg).
-    
+
     Args:
         load_type: LoadType string value (OVERWRITE, APPEND, MERGE_UPSERT, etc.)
         merge_keys: List of merge key column names (for merge operations)
@@ -194,7 +345,7 @@ def _make_dataflow(
         dest_format: Destination format (DELTA, ICEBERG, etc.)
         has_path: Whether to add base_path to destination config
         dest_configure: Extra entries for Destination.configure dict
-        
+
     Returns:
         Configured DataFlow ready for testing destination writers.
     """
@@ -250,14 +401,14 @@ def _make_file_dataflow(
     date_folder_partitions: str | None = None,
 ) -> DataFlow:
     """Build a DataFlow targeting a flat-file destination.
-    
+
     Args:
         load_type: LoadType string value (OVERWRITE, APPEND, etc.)
         dest_format: File format (PARQUET, CSV, JSON, etc.)
         has_path: Whether to add base_path to destination config
         partition_cols: List of PartitionColumn objects or None
         date_folder_partitions: Date folder partition pattern (e.g., "{year}/{month}/{day}")
-        
+
     Returns:
         Configured DataFlow for file-based destination testing.
     """

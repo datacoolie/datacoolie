@@ -6,9 +6,9 @@ after column addition but before SCD2 processing.
 
 from __future__ import annotations
 
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.transformers.base import BaseTransformer
 
 logger = get_logger(__name__)
@@ -17,14 +17,14 @@ logger = get_logger(__name__)
 class RowFilter(BaseTransformer[DF]):
     """Filter rows by a SQL expression (order = 35).
 
-    Reads :attr:`~datacoolie.core.models.Transform.filter_expression`.
+    Reads :attr:`~datacoolie.core.models.transform.Transform.filter_expression`.
     When the expression is absent or empty, the transformer is a no-op.
 
     The expression is passed verbatim to
     :meth:`engine.filter_rows` which delegates to the engine's native
     ``WHERE``-clause equivalent (Polars ``filter``, Spark ``where``, etc.).
 
-    This transformer complements :attr:`~datacoolie.core.models.Source.filter_expression`
+    This transformer complements :attr:`~datacoolie.core.models.source.Source.filter_expression`
     (applied at read time inside each source reader).  Use
     ``source.filter_expression`` for conditions on raw source columns and
     ``transform.filter_expression`` for conditions on computed or added

@@ -1,4 +1,4 @@
-"""Tests for datacoolie.utils.helpers and datacoolie.utils.converters."""
+"""Tests for datacoolie.utils identity/time helpers and converters."""
 
 from __future__ import annotations
 
@@ -14,15 +14,9 @@ from datacoolie.utils.converters import (
     to_lower_case,
     to_snake_case,
 )
-from datacoolie.utils.helpers import (
-    chunk_list,
-    ensure_list,
-    flatten_dict,
-    generate_unique_id,
-    merge_dicts,
-    name_to_uuid,
-    utc_now,
-)
+from datacoolie.utils.collections import chunk_list, ensure_list, flatten_dict, merge_dicts
+from datacoolie.utils.identity import generate_unique_id, name_to_uuid
+from datacoolie.utils.time import utc_now
 
 
 class TestNameToUuid:

@@ -9,11 +9,9 @@ import pytest
 from datacoolie.core.constants import (
     LoadType,
 )
-from datacoolie.core.models import (
-    AdditionalColumn,
-    PartitionColumn,
-    SchemaHint,
-)
+from datacoolie.core.models.transform import AdditionalColumn
+from datacoolie.core.models.destination import PartitionColumn
+from datacoolie.core.models.transform import SchemaHint
 from datacoolie.transformers.base import (
     TransformerPipeline,
 )
@@ -53,7 +51,9 @@ class TestSchemaConverter:
         df = _make_dataflow(
             use_schema_hint=False,
             schema_hints=[
-                SchemaHint(column_name="amount", data_type="DECIMAL", precision=18, scale=2),
+                SchemaHint(
+                    column_name="amount", data_type="DECIMAL", precision=18, scale=2
+                ),
             ],
         )
         sc = SchemaConverter(engine)
@@ -64,17 +64,21 @@ class TestSchemaConverter:
         df = _make_dataflow(
             use_schema_hint=True,
             schema_hints=[
-                SchemaHint(column_name="order_date", data_type="DATE", format="yyyy-MM-dd"),
-                SchemaHint(column_name="amount", data_type="DECIMAL", precision=18, scale=2),
+                SchemaHint(
+                    column_name="order_date", data_type="DATE", format="yyyy-MM-dd"
+                ),
+                SchemaHint(
+                    column_name="amount", data_type="DECIMAL", precision=18, scale=2
+                ),
             ],
         )
         sc = SchemaConverter(engine)
         sc.transform({"order_date": "x", "amount": "y"}, df)
         assert len(engine._casts) == 2
-        # Check types were mapped
+        # SchemaConverter forwards authored declarations; the engine maps them.
         cast_types = {c[0]: c[1] for c in engine._casts}
         assert cast_types["order_date"] == "DATE"
-        assert cast_types["amount"] == "DECIMAL(18,2)"
+        assert cast_types["amount"] == "DECIMAL"
 
     def test_skips_inactive_hints(self, engine: MockEngine) -> None:
         df = _make_dataflow(
@@ -125,7 +129,9 @@ class TestSchemaConverter:
         sc.transform({"x": 1}, df)
         assert len(engine._casts) == 0
 
-    def test_no_timestamp_ntz_conversion_when_disabled(self, engine: MockEngine) -> None:
+    def test_no_timestamp_ntz_conversion_when_disabled(
+        self, engine: MockEngine
+    ) -> None:
         # Use a direct mock assignment to verify branch behavior.
         engine.convert_timestamp_ntz_to_timestamp = MagicMock(side_effect=lambda x: x)
         df = _make_dataflow(
@@ -137,7 +143,9 @@ class TestSchemaConverter:
         sc.transform({"x": 1}, df)
         engine.convert_timestamp_ntz_to_timestamp.assert_not_called()
 
-    def test_unknown_schema_hint_type_is_passed_through(self, engine: MockEngine) -> None:
+    def test_unknown_schema_hint_type_is_forwarded_to_engine(
+        self, engine: MockEngine
+    ) -> None:
         engine.set_columns(["amount"])
         df = _make_dataflow(
             use_schema_hint=True,
@@ -147,7 +155,6 @@ class TestSchemaConverter:
         )
         sc = SchemaConverter(engine)
         sc.transform({"amount": 100}, df)
-        assert len(engine._casts) == 1
         assert engine._casts[0][1] == "UNKNOWN_TYPE"
 
 
@@ -195,7 +202,9 @@ class TestDeduplicator:
         assert engine._dedup_by_rank is True
         assert engine._deduplicated is False
 
-    def test_merge_overwrite_explicit_dedup_uses_row_number(self, engine: MockEngine) -> None:
+    def test_merge_overwrite_explicit_dedup_uses_row_number(
+        self, engine: MockEngine
+    ) -> None:
         """MERGE_OVERWRITE with explicit dedup_cols → ROW_NUMBER, not rank."""
         df = _make_dataflow(
             load_type=LoadType.MERGE_OVERWRITE.value,
@@ -208,7 +217,9 @@ class TestDeduplicator:
         assert engine._deduplicated is True
         assert engine._dedup_by_rank is False
 
-    def test_merge_overwrite_no_merge_keys_uses_row_number(self, engine: MockEngine) -> None:
+    def test_merge_overwrite_no_merge_keys_uses_row_number(
+        self, engine: MockEngine
+    ) -> None:
         """MERGE_OVERWRITE but merge_keys is empty → ROW_NUMBER."""
         df = _make_dataflow(
             load_type=LoadType.MERGE_OVERWRITE.value,
@@ -335,7 +346,9 @@ class TestColumnAdder:
         ca.transform({"id": 1}, df)
         assert len(engine._added_columns) == 0
 
-    def test_skips_additional_column_without_expression(self, engine: MockEngine) -> None:
+    def test_skips_additional_column_without_expression(
+        self, engine: MockEngine
+    ) -> None:
         # Construct invalid metadata intentionally to cover defensive branch.
         additional = [AdditionalColumn.model_construct(column="region", expression="")]
         df = _make_dataflow(additional_cols=additional)

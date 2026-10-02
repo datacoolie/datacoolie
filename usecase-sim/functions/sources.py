@@ -32,7 +32,7 @@ def sql_query_orders(engine, source, watermark_start=None, watermark_end=None, *
         "AWSPlatform": "s3a://datacoolie-test/output/delta",
         "FabricPlatform": "abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse/Files/output/delta",
         "DatabricksPlatform": "dbfs:/datacoolie/output/delta",
-    }.get(platform_name, "./usecase-sim/data/output/delta")
+    }.get(platform_name, "./usecase-sim/.runtime/data/output/delta")
     base_path = source.connection.configure.get("base_path", default_base_path)
 
     # Polars requires explicit table registration.

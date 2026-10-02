@@ -1,0 +1,1 @@
+{"log_schema_version":4,"_type":"system_log","datacoolie_version":"0.2.0","log_session_id":"fixture-session","job_id":"fixture-job","job_num":1,"job_index":0,"ts":"2026-09-11T00:00:02+00:00","level":"WARNING","logger":"datacoolie.example","msg":"retrying request","dataflow_id":"orders-bronze"}

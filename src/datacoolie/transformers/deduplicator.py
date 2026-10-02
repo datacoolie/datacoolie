@@ -8,9 +8,9 @@ and ``ROW_NUMBER``-based dedup otherwise.
 from __future__ import annotations
 
 from datacoolie.core.constants import LoadType
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.transformers.base import BaseTransformer
 
 logger = get_logger(__name__)

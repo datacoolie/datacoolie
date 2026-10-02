@@ -6,7 +6,8 @@
 #          package source are always in sync with the host.
 #
 # Base: python:3.11-slim + default-jdk-headless + SPARK_LOCAL_IP=127.0.0.1.
-#   - PySpark 3.5.8 is compatible with Java 21.
+#   - The Spark/Delta versions are build arguments so the same image recipe
+#     can qualify both the pinned Spark 3.5 and opt-in Spark 4.1 services.
 #   - SPARK_LOCAL_IP forces Spark RPC to use loopback, fixing BlockManager
 #     heartbeater failures caused by unresolvable container hostnames.
 #   - bitnami/spark moved off Docker Hub (tags no longer resolve).
@@ -18,6 +19,10 @@
 #   docker exec datacoolie-spark python usecase-sim/runner/run.py --engine spark ...
 
 FROM python:3.11-slim
+
+ARG PYSPARK_VERSION=3.5.9
+ARG DELTA_SPARK_VERSION=3.3.3
+ARG DATACOOLIE_SPARK_PROFILE=spark35
 
 # ---------------------------------------------------------------------------
 # Java (headless) — required by PySpark / Hadoop
@@ -36,6 +41,7 @@ ENV SPARK_LOCAL_IP=127.0.0.1
 # Point PySpark workers at this interpreter (same binary, no Windows stub issues)
 ENV PYSPARK_PYTHON=python3
 ENV PYSPARK_DRIVER_PYTHON=python3
+ENV DATACOOLIE_SPARK_PROFILE=${DATACOOLIE_SPARK_PROFILE}
 
 # ---------------------------------------------------------------------------
 # Pre-install datacoolie Python dependencies (layer-cached between rebuilds).
@@ -43,11 +49,11 @@ ENV PYSPARK_DRIVER_PYTHON=python3
 # container startup so every code change on the host is immediately visible.
 # ---------------------------------------------------------------------------
 RUN pip install --no-cache-dir \
-    "pyspark>=3.5,<4" \
-    "delta-spark>=3.0" \
+    "pyspark==${PYSPARK_VERSION}" \
+    "delta-spark==${DELTA_SPARK_VERSION}" \
     "polars>=1.0" \
     "deltalake>=0.15" \
-    "pyiceberg>=0.6" \
+    "pyiceberg>=0.12.0,<0.13.0" \
     "boto3>=1.28" \
     "httpx>=0.24" \
     "sqlalchemy>=2.0,<3.0" \
@@ -98,7 +104,7 @@ EOF
 
 # ---------------------------------------------------------------------------
 # Working directory matches the CWD convention used by all runner scripts
-# (all relative paths like ./usecase-sim/data/... resolve from here)
+# (all relative paths like ./usecase-sim/.runtime/data/... resolve from here)
 # ---------------------------------------------------------------------------
 WORKDIR /datacoolie
 

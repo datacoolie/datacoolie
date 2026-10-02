@@ -7,36 +7,48 @@ import logging
 import pytest
 
 from datacoolie.core.constants import Format, LoadType
-from datacoolie.core.models import (
-    AdditionalColumn,
-    Connection,
-    DataFlow,
-    Destination,
-    DataCoolieRunConfig,
-    PartitionColumn,
-    SchemaHint,
-    Source,
-    Transform,
-)
-from tests.integration.cloud_config import (
+from datacoolie.core.models.transform import AdditionalColumn, Transform
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.run_config import DataCoolieRunConfig
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.core.models.source import Source
+from tests.support.cloud_config import (
     pytest_add_cloud_options as _add_cloud_options,
     pytest_configure_cloud as _configure_cloud,
     pytest_gate_cloud_items as _gate_cloud_items,
+)
+from tests.support.datatype_config import (
+    pytest_add_datatype_options as _add_datatype_options,
+    pytest_configure_datatype as _configure_datatype,
+    pytest_gate_datatype_items as _gate_datatype_items,
+)
+from tests.support.runtime_config import (
+    pytest_add_runtime_options as _add_runtime_options,
+    pytest_configure_runtime as _configure_runtime,
+    pytest_gate_runtime_items as _gate_runtime_items,
 )
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     _add_cloud_options(parser)
+    _add_datatype_options(parser)
+    _add_runtime_options(parser)
 
 
 def pytest_configure(config: pytest.Config) -> None:
     _configure_cloud(config)
+    _configure_datatype(config)
+    _configure_runtime(config)
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
     _gate_cloud_items(config, items)
+    _gate_datatype_items(config, items)
+    _gate_runtime_items(config, items)
 
 
 # ---------------------------------------------------------------------------
@@ -47,15 +59,18 @@ def pytest_collection_modifyitems(
 def _caplog_datacoolie(caplog: pytest.LogCaptureFixture):
     """Ensure caplog captures records from the ``datacoolie`` logger.
 
-    ``datacoolie`` sets ``propagate = False`` to avoid duplicate console
-    output, which prevents records from reaching the root logger where
-    pytest's caplog handler lives.  This fixture temporarily attaches
-    caplog's handler directly to the ``datacoolie`` logger.
+    Explicit LogManager configuration can set ``propagate = False`` during a
+    test, while an unconfigured library leaves host propagation unchanged.
+    Attach once at the framework root and disable ancestor propagation for
+    the fixture lifetime so either state produces exactly one captured copy.
     """
     dc_logger = logging.getLogger("datacoolie")
+    previous_propagate = dc_logger.propagate
+    dc_logger.propagate = False
     dc_logger.addHandler(caplog.handler)
     yield
     dc_logger.removeHandler(caplog.handler)
+    dc_logger.propagate = previous_propagate
 
 
 # ---------------------------------------------------------------------------

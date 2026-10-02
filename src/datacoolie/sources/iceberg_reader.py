@@ -9,10 +9,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Source
+from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
 
 logger = get_logger(__name__)
@@ -27,6 +26,14 @@ class IcebergReader(BaseSourceReader[DF]):
 
     def __init__(self, engine: BaseEngine[DF]) -> None:
         super().__init__(engine)
+
+    def _supports_read_range(self) -> bool:
+        return True
+
+    def _watermark_ordering_kinds(self, candidate: Dict[str, Any]) -> Dict[str, str]:
+        """Authorize typed row maxima from the Iceberg table."""
+
+        return self._typed_row_watermark_ordering_kinds(candidate)
 
     def _read_internal(
         self,
@@ -47,7 +54,9 @@ class IcebergReader(BaseSourceReader[DF]):
 
         df = self._read_data(source)
 
-        if watermark_start or watermark_end:
+        if self._get_read_range() is not None:
+            df = self._apply_read_range_filter(df)
+        elif watermark_start or watermark_end:
             if source.watermark_columns:
                 df = self._apply_watermark_filter(df, source.watermark_columns, watermark_start or {}, watermark_end)
 
@@ -77,4 +86,3 @@ class IcebergReader(BaseSourceReader[DF]):
 
         logger.debug("%s: reading Iceberg table by name: %s", type(self).__name__, table_name)
         return self._engine.read(fmt=fmt, table_name=table_name, path=path, options=options or None)
-

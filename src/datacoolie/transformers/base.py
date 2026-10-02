@@ -8,18 +8,85 @@ order, tracking runtime info.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, List
+from dataclasses import dataclass
+from typing import Generic, List, Mapping, Optional
 
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import TransformError
-from datacoolie.core.models import DataFlow, TransformRuntimeInfo
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.runtime import TransformRuntimeInfo
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
-from datacoolie.utils.helpers import utc_now
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.utils.time import utc_now
 
 logger = get_logger(__name__)
 
 _NOT_SET = object()  # sentinel: no tracking call was made
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnMapping:
+    """Typed mapping from input columns to output columns.
+
+    ``None`` means a source column was removed. ``known=False`` marks a
+    custom transformer that changed names without declaring a mapping; an
+    active replacement window must reject that state rather than guess.
+    """
+
+    mapping: dict[str, Optional[str]]
+    known: bool = True
+
+    @classmethod
+    def identity(cls, columns: list[str]) -> "ColumnMapping":
+        return cls({column: column for column in columns})
+
+    @classmethod
+    def from_columns(
+        cls,
+        before: list[str],
+        after: list[str],
+        renames: Mapping[str, str] | None = None,
+    ) -> "ColumnMapping":
+        """Build a deterministic mapping for a built-in column transform."""
+
+        final = {column.casefold(): column for column in after}
+        explicit = {
+            source.casefold(): target for source, target in (renames or {}).items()
+        }
+        return cls(
+            {
+                source: final.get(
+                    explicit.get(source.casefold(), source).casefold()
+                )
+                for source in before
+            }
+        )
+
+    @classmethod
+    def preserve_or_unknown(cls, before: list[str], after: list[str]) -> "ColumnMapping":
+        """Infer only unchanged names; never infer a rename heuristically."""
+
+        final = {column.casefold(): column for column in after}
+        mapping = {source: final.get(source.casefold()) for source in before}
+        return cls(mapping, known=all(value is not None for value in mapping.values()))
+
+    def resolve(self, source: str) -> Optional[str]:
+        source_key = source.casefold()
+        for authored, output in self.mapping.items():
+            if authored.casefold() == source_key:
+                return output
+        return None
+
+    def compose(self, step: "ColumnMapping") -> "ColumnMapping":
+        """Compose this mapping with the next transform's mapping."""
+
+        return ColumnMapping(
+            {
+                source: None if output is None else step.resolve(output)
+                for source, output in self.mapping.items()
+            },
+            known=self.known and step.known,
+        )
 
 
 class BaseTransformer(ABC, Generic[DF]):
@@ -41,6 +108,7 @@ class BaseTransformer(ABC, Generic[DF]):
     """
 
     _applied_label: object = _NOT_SET
+    _column_mapping: Optional[ColumnMapping] = None
 
     @property
     @abstractmethod
@@ -81,6 +149,20 @@ class BaseTransformer(ABC, Generic[DF]):
         """Signal that this transformer was a no-op."""
         self._applied_label = None
 
+    def _reset_tracking(self) -> None:
+        """Reset per-invocation labels and optional column mapping."""
+        self._applied_label = _NOT_SET
+        self._column_mapping = None
+
+    def _report_column_mapping(self, mapping: ColumnMapping) -> None:
+        """Report deterministic name/drop behavior for this invocation."""
+        self._column_mapping = mapping
+
+    @property
+    def column_mapping(self) -> Optional[ColumnMapping]:
+        """Mapping reported by the most recent transform invocation."""
+        return self._column_mapping
+
     @property
     def applied_label(self) -> str | None:
         """Label resolved after :meth:`transform` returns.
@@ -105,6 +187,8 @@ class TransformerPipeline(Generic[DF]):
         self._engine = engine
         self._transformers: List[BaseTransformer[DF]] = []
         self._runtime_info = TransformRuntimeInfo()
+        self._column_mapping: Optional[ColumnMapping] = None
+        self._output_columns: list[str] = []
 
     # ------------------------------------------------------------------
     # Transformer management
@@ -156,18 +240,32 @@ class TransformerPipeline(Generic[DF]):
             start_time=utc_now(),
             status=DataFlowStatus.RUNNING.value,
         )
+        self._column_mapping = None
+        self._output_columns = []
         applied: List[str] = []
 
         try:
             result = df
+            current_columns = self._engine.get_columns(df)
+            overall_mapping = ColumnMapping.identity(current_columns)
             for transformer in self.transformers:
                 logger.debug(
                     "TransformerPipeline: running %s (order=%d)",
                     transformer.name,
                     transformer.order,
                 )
-                transformer._applied_label = _NOT_SET   # reset
+                before_columns = current_columns
+                transformer._reset_tracking()
                 result = transformer.transform(result, dataflow)
+                after_columns = self._engine.get_columns(result)
+                current_columns = after_columns
+
+                step_mapping = transformer.column_mapping
+                if step_mapping is None:
+                    step_mapping = ColumnMapping.preserve_or_unknown(
+                        before_columns, after_columns
+                    )
+                overall_mapping = overall_mapping.compose(step_mapping)
 
                 label = transformer.applied_label
                 if label is not None:
@@ -176,21 +274,23 @@ class TransformerPipeline(Generic[DF]):
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
             self._runtime_info.transformers_applied = applied
+            self._column_mapping = overall_mapping
+            self._output_columns = list(current_columns)
             return result
 
         except TransformError as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.transformers_applied = applied
-            self._runtime_info.error_message = str(exc)
-            logger.error("Transformer pipeline failed: %s", exc, exc_info=exc.__cause__ or exc)
+            self._runtime_info.message = str(exc) or type(exc).__name__
+            logger.debug("Transformer pipeline failed: %s", exc)
             raise
         except Exception as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.transformers_applied = applied
-            self._runtime_info.error_message = str(exc)
-            logger.error("Transformer pipeline failed: %s", exc, exc_info=exc.__cause__ or exc)
+            self._runtime_info.message = str(exc) or type(exc).__name__
+            logger.debug("Transformer pipeline failed: %s", exc)
             raise TransformError(
                 f"Transformer pipeline failed: {exc}",
                 details={"applied": applied},
@@ -199,3 +299,11 @@ class TransformerPipeline(Generic[DF]):
     def get_runtime_info(self) -> TransformRuntimeInfo:
         """Return runtime information from the most recent transform."""
         return self._runtime_info
+
+    def get_column_mapping(self) -> Optional[ColumnMapping]:
+        """Return the mapping from source columns to final output columns."""
+        return self._column_mapping
+
+    def get_output_columns(self) -> list[str]:
+        """Return final output columns from the most recent invocation."""
+        return list(self._output_columns)

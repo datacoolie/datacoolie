@@ -25,7 +25,8 @@ Section layout
   ``compact_by_path``, ``compact_by_name``,
   ``cleanup_by_path``, ``cleanup_by_name``
 - **Navigation** (concrete dispatchers) — ``read``, ``write``, ``merge``,
-  ``merge_overwrite``, ``exists``, ``get_history``, ``compact``, ``cleanup``
+  ``merge_overwrite``, ``replace_window``, ``exists``, ``get_history``,
+  ``compact``, ``cleanup``
 - **SCD Type 2** — ``scd2_to_path``, ``scd2_to_table``, ``scd2``
 """
 
@@ -35,14 +36,13 @@ import math
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+import sys
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
 from datacoolie.core.constants import SystemColumn, Format
-from datacoolie.core.exceptions import EngineError, TransformError
+from datacoolie.core.exceptions import ConfigurationError, EngineError, TransformError
+from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
 from datacoolie.platforms.base import BasePlatform, FileInfo
-from datacoolie.logging.base import get_logger
-
-logger = get_logger(__name__)
 
 # DataFrame type variable — bound to nothing so any DF library can be used.
 DF = TypeVar("DF")
@@ -68,8 +68,16 @@ class BaseEngine(ABC, Generic[DF]):
         return self._platform
 
     def set_platform(self, platform: BasePlatform) -> None:
-        """Attach a platform to this engine."""
-        self._platform = platform
+        """Attach a platform once; replacement would split execution state."""
+        if platform is None:
+            raise ConfigurationError("Engine platform must be a non-null instance")
+        if self._platform is None:
+            self._platform = platform
+            return
+        if self._platform is not platform:
+            raise ConfigurationError(
+                "Engine platform is already bound to a different instance"
+            )
 
     # ------------------------------------------------------------------
     # Format → file extension mapping (only exceptions to f".{fmt}")
@@ -87,11 +95,13 @@ class BaseEngine(ABC, Generic[DF]):
     # Spark embeds these into the JDBC URL; Polars strips them.
     # Extend this set when adding new driver-specific options.
 
-    DRIVER_CONNECTION_KEYS: frozenset[str] = frozenset({
-        "encrypt",
-        "trustServerCertificate",
-        "hostNameInCertificate",
-    })
+    DRIVER_CONNECTION_KEYS: frozenset[str] = frozenset(
+        {
+            "encrypt",
+            "trustServerCertificate",
+            "hostNameInCertificate",
+        }
+    )
 
     # ------------------------------------------------------------------
     # File path helpers
@@ -109,7 +119,7 @@ class BaseEngine(ABC, Generic[DF]):
         *extension* under that directory path.
         """
         resolved: list[str] = []
-        for p in (path if isinstance(path, list) else [path]):
+        for p in path if isinstance(path, list) else [path]:
             if p.endswith(extension):
                 resolved.append(p)
             else:
@@ -156,7 +166,9 @@ class BaseEngine(ABC, Generic[DF]):
         )
 
     @staticmethod
-    def _resolve_column_names(actual_columns: List[str], columns: List[str]) -> List[str]:
+    def _resolve_column_names(
+        actual_columns: List[str], columns: List[str]
+    ) -> List[str]:
         """Resolve a list of column names case-insensitively.
 
         Delegates to :meth:`_resolve_column_name` for each entry.
@@ -395,6 +407,7 @@ class BaseEngine(ABC, Generic[DF]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """Merge with full-row overwrite (rolling overwrite / SCD1-style).
 
@@ -432,6 +445,7 @@ class BaseEngine(ABC, Generic[DF]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """Merge-overwrite (delete + append) a named table via SQL MERGE + WriterV2.
 
@@ -710,8 +724,18 @@ class BaseEngine(ABC, Generic[DF]):
         column_name: str,
         target_type: str,
         fmt: Optional[str] = None,
+        *,
+        type_system: Optional[str] = None,
+        precision: Optional[int] = None,
+        scale: Optional[int] = None,
     ) -> DF:
-        """Cast a column to *target_type*, optionally using *fmt*."""
+        """Cast a column using an authored source datatype declaration.
+
+        ``target_type`` is retained as the positional parameter name for the
+        public engine contract, but it is interpreted as the source
+        declaration by the concrete adapter.  The adapter resolves it once
+        using ``type_system`` and then constructs its native datatype.
+        """
 
     # ==================================================================
     # System columns
@@ -760,8 +784,15 @@ class BaseEngine(ABC, Generic[DF]):
         return self.drop_columns(df, to_drop) if to_drop else df
 
     @abstractmethod
-    def convert_timestamp_ntz_to_timestamp(self, df: DF) -> DF:
-        """Convert all ``timestamp_ntz`` (no-TZ) columns to TZ-aware UTC timestamps."""
+    def convert_timestamp_ntz_to_timestamp(
+        self, df: DF, timezone: Optional[str] = None
+    ) -> DF:
+        """Convert NTZ columns to UTC using an explicit source timezone.
+
+        Implementations must raise when an NTZ column is present but
+        ``timezone`` is missing. A wall-clock value must never be silently
+        treated as UTC.
+        """
 
     # ==================================================================
     # Symlink manifest
@@ -881,13 +912,21 @@ class BaseEngine(ABC, Generic[DF]):
                 ``timestamp`` / ``made_current_at`` is <= *end_time*.
             fmt: Table format (``"delta"`` or ``"iceberg"``).
         """
-        
+
     @abstractmethod
-    def compact_by_path(self, path: str, *, fmt: str = "delta", options: Optional[Dict[str, Any]] = None) -> None:
+    def compact_by_path(
+        self, path: str, *, fmt: str = "delta", options: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Run compaction (``OPTIMIZE`` or equivalent) on the table at *path*."""
 
     @abstractmethod
-    def compact_by_name(self, table_name: str, *, fmt: str = "delta", options: Optional[Dict[str, Any]] = None) -> None:
+    def compact_by_name(
+        self,
+        table_name: str,
+        *,
+        fmt: str = "delta",
+        options: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Run compaction (``OPTIMIZE`` or equivalent) on a named table."""
 
     @abstractmethod
@@ -982,13 +1021,21 @@ class BaseEngine(ABC, Generic[DF]):
         """
         if table_name:
             self.write_to_table(
-                df, table_name, mode=mode, fmt=fmt,
-                partition_columns=partition_columns, options=options,
+                df,
+                table_name,
+                mode=mode,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
             )
         elif path:
             self.write_to_path(
-                df, path, mode=mode, fmt=fmt,
-                partition_columns=partition_columns, options=options,
+                df,
+                path,
+                mode=mode,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
             )
         else:
             raise EngineError("write() requires table_name or path")
@@ -1020,13 +1067,21 @@ class BaseEngine(ABC, Generic[DF]):
         """
         if table_name:
             self.merge_to_table(
-                df, table_name, merge_keys=merge_keys, fmt=fmt,
-                partition_columns=partition_columns, options=options,
+                df,
+                table_name,
+                merge_keys=merge_keys,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
             )
         elif path:
             self.merge_to_path(
-                df, path, merge_keys=merge_keys, fmt=fmt,
-                partition_columns=partition_columns, options=options,
+                df,
+                path,
+                merge_keys=merge_keys,
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
             )
         else:
             raise EngineError("merge() requires table_name or path")
@@ -1041,6 +1096,7 @@ class BaseEngine(ABC, Generic[DF]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """Merge-overwrite (delete + append) into a table name (preferred) or a path.
 
@@ -1057,15 +1113,25 @@ class BaseEngine(ABC, Generic[DF]):
             EngineError: If neither *table_name* nor *path* is provided.
         """
         if table_name:
-            self.merge_overwrite_to_table(
-                df, table_name, merge_keys=merge_keys, fmt=fmt,
-                partition_columns=partition_columns, options=options,
-            )
+            kwargs = {
+                "merge_keys": merge_keys,
+                "fmt": fmt,
+                "partition_columns": partition_columns,
+                "options": options,
+            }
+            if write_options is not None:
+                kwargs["write_options"] = write_options
+            self.merge_overwrite_to_table(df, table_name, **kwargs)
         elif path:
-            self.merge_overwrite_to_path(
-                df, path, merge_keys=merge_keys, fmt=fmt,
-                partition_columns=partition_columns, options=options,
-            )
+            kwargs = {
+                "merge_keys": merge_keys,
+                "fmt": fmt,
+                "partition_columns": partition_columns,
+                "options": options,
+            }
+            if write_options is not None:
+                kwargs["write_options"] = write_options
+            self.merge_overwrite_to_path(df, path, **kwargs)
         else:
             raise EngineError("merge_overwrite() requires table_name or path")
 
@@ -1074,7 +1140,7 @@ class BaseEngine(ABC, Generic[DF]):
         *,
         table_name: Optional[str] = None,
         path: Optional[str] = None,
-        window: Dict[str, tuple],
+        window: WindowSpec,
         fmt: str = "delta",
     ) -> None:
         """Delete all rows within the given column value window.
@@ -1085,27 +1151,128 @@ class BaseEngine(ABC, Generic[DF]):
         Args:
             table_name: Target table name.  Takes precedence over *path*.
             path: Target file path (used when *table_name* is not given).
-            window: Mapping of ``{column: (lower_bound, upper_bound)}``.
-                All rows where ``column > lower AND column <= upper``
-                (for each column) will be deleted.  The lower bound is
-                exclusive to match the source watermark filter semantics.
+            window: Explicit immutable :class:`WindowSpec`.
             fmt: Table / file format.
 
         Raises:
             EngineError: If neither *table_name* nor *path* is provided.
         """
+        normalized = normalize_window(window)
         if table_name:
-            self.delete_by_window_table(table_name, window=window, fmt=fmt)
+            self.delete_by_window_table(table_name, window=normalized, fmt=fmt)
         elif path:
-            self.delete_by_window_path(path, window=window, fmt=fmt)
+            self.delete_by_window_path(path, window=normalized, fmt=fmt)
         else:
             raise EngineError("delete_by_window() requires table_name or path")
+
+    def replace_window(
+        self,
+        df: DF,
+        *,
+        table_name: Optional[str] = None,
+        path: Optional[str] = None,
+        window: WindowSpec,
+        fmt: str = "delta",
+        partition_columns: Optional[List[str]] = None,
+        options: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """Replace rows in a bounded window with *df*.
+
+        This is the engine-owned replacement boundary.  Backends may override
+        it with a native transaction or merge implementation.  The default
+        keeps the accepted portable behavior (delete then append) inside the
+        engine rather than exposing two mutating calls to load strategies.
+        The operation is intentionally not advertised as atomic.
+        """
+
+        normalized = normalize_window(window)
+        if not normalized.bounds:
+            raise EngineError("replace_window() requires at least one bound")
+        if not table_name and not path:
+            raise EngineError("replace_window() requires table_name or path")
+        actual_columns = self.get_columns(df)
+        for column, (lower, upper) in normalized.items():
+            try:
+                self._resolve_column_name(actual_columns, column)
+            except EngineError as exc:
+                raise EngineError(
+                    f"replace_window() input is missing watermark column {column!r}"
+                ) from exc
+            if lower is None or upper is None:
+                raise EngineError(
+                    f"replace_window() requires non-null bounds for {column!r}"
+                )
+            try:
+                if normalized.lower_operator in {">", ">="} and normalized.upper_operator in {"<", "<="}:
+                    if lower > upper:
+                        raise EngineError(
+                            f"replace_window() lower bound exceeds upper bound for {column!r}"
+                        )
+            except TypeError as exc:
+                raise EngineError(
+                    f"replace_window() bounds for {column!r} are not comparable"
+                ) from exc
+        # A lazy source can be re-evaluated after the destructive delete.  Each
+        # concrete engine supplies a backend-native stable representation; the
+        # default keeps eager/test frames unchanged.
+        stable_df = self._prepare_replace_window_input(df)
+        try:
+            input_empty = self.is_empty(stable_df)
+            if table_name:
+                self.delete_by_window_table(table_name, window=normalized, fmt=fmt)
+                if input_empty:
+                    return
+                self.write_to_table(
+                    stable_df,
+                    table_name,
+                    mode="append",
+                    fmt=fmt,
+                    partition_columns=partition_columns,
+                    options=options,
+                )
+                return
+            self.delete_by_window_path(path, window=normalized, fmt=fmt)
+            if input_empty:
+                return
+            self.write_to_path(
+                stable_df,
+                path,
+                mode="append",
+                fmt=fmt,
+                partition_columns=partition_columns,
+                options=options,
+            )
+        finally:
+            operation_failed = sys.exc_info()[0] is not None
+            try:
+                self._release_replace_window_input(stable_df, original=df)
+            except Exception:
+                # Cleanup must not hide the write/delete exception that
+                # already explains a failed replacement.  If cleanup is the
+                # only failure, preserve its signal for the caller.
+                if not operation_failed:
+                    raise
+
+    def _prepare_replace_window_input(self, df: DF) -> DF:
+        """Return input whose evaluation is stable across delete then append.
+
+        Eager dataframes and test doubles are already stable.  Lazy engines
+        override this hook with a native bounded materialization strategy;
+        collecting to the Python driver is intentionally not the default.
+        """
+
+        return df
+
+    def _release_replace_window_input(self, stable_df: DF, *, original: DF) -> None:
+        """Release operation-owned native staging resources."""
+
+        _ = stable_df, original
 
     @abstractmethod
     def delete_by_window_path(
         self,
         path: str,
-        window: Dict[str, tuple],
+        window: WindowSpec,
         fmt: str = "delta",
     ) -> None:
         """Delete rows in a path-based table within the value window."""
@@ -1114,7 +1281,7 @@ class BaseEngine(ABC, Generic[DF]):
     def delete_by_window_table(
         self,
         table_name: str,
-        window: Dict[str, tuple],
+        window: WindowSpec,
         fmt: str = "delta",
     ) -> None:
         """Delete rows in a named table within the value window."""
@@ -1168,9 +1335,13 @@ class BaseEngine(ABC, Generic[DF]):
             EngineError: If neither *table_name* nor *path* is provided.
         """
         if table_name:
-            return self.get_history_by_name(table_name, limit, start_time, end_time=end_time, fmt=fmt)
+            return self.get_history_by_name(
+                table_name, limit, start_time, end_time=end_time, fmt=fmt
+            )
         if path:
-            return self.get_history_by_path(path, limit, start_time, end_time=end_time, fmt=fmt)
+            return self.get_history_by_path(
+                path, limit, start_time, end_time=end_time, fmt=fmt
+            )
         raise EngineError("get_history() requires table_name or path")
 
     def compact(
@@ -1221,9 +1392,13 @@ class BaseEngine(ABC, Generic[DF]):
             EngineError: If neither *table_name* nor *path* is provided.
         """
         if table_name:
-            self.cleanup_by_name(table_name, retention_hours=retention_hours, fmt=fmt, options=options)
+            self.cleanup_by_name(
+                table_name, retention_hours=retention_hours, fmt=fmt, options=options
+            )
         elif path:
-            self.cleanup_by_path(path, retention_hours=retention_hours, fmt=fmt, options=options)
+            self.cleanup_by_path(
+                path, retention_hours=retention_hours, fmt=fmt, options=options
+            )
         else:
             raise EngineError("cleanup() requires table_name or path")
 
@@ -1239,6 +1414,7 @@ class BaseEngine(ABC, Generic[DF]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """SCD Type 2 write to a path-based table.
 
@@ -1247,7 +1423,9 @@ class BaseEngine(ABC, Generic[DF]):
         inserting new versions with ``scd2_start_date``,
         ``scd2_is_current = true``.
         """
-        raise NotImplementedError(f"{type(self).__name__} does not support scd2_to_path")
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support scd2_to_path"
+        )
 
     def scd2_to_table(
         self,
@@ -1257,9 +1435,12 @@ class BaseEngine(ABC, Generic[DF]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """SCD Type 2 write to a named table."""
-        raise NotImplementedError(f"{type(self).__name__} does not support scd2_to_table")
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support scd2_to_table"
+        )
 
     def scd2(
         self,
@@ -1271,15 +1452,28 @@ class BaseEngine(ABC, Generic[DF]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """SCD Type 2 write to a table name (preferred) or a path."""
         if table_name:
-            self.scd2_to_table(df, table_name, merge_keys=merge_keys, fmt=fmt,
-                              partition_columns=partition_columns, options=options)
+            kwargs = {
+                "merge_keys": merge_keys,
+                "fmt": fmt,
+                "partition_columns": partition_columns,
+                "options": options,
+            }
+            if write_options is not None:
+                kwargs["write_options"] = write_options
+            self.scd2_to_table(df, table_name, **kwargs)
         elif path:
-            self.scd2_to_path(df, path, merge_keys=merge_keys, fmt=fmt,
-                             partition_columns=partition_columns, options=options)
+            kwargs = {
+                "merge_keys": merge_keys,
+                "fmt": fmt,
+                "partition_columns": partition_columns,
+                "options": options,
+            }
+            if write_options is not None:
+                kwargs["write_options"] = write_options
+            self.scd2_to_path(df, path, **kwargs)
         else:
             raise EngineError("scd2() requires table_name or path")
-
-

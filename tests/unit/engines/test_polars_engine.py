@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from threading import Lock
 import time
@@ -19,14 +19,14 @@ from datacoolie.core.constants import (  # noqa: E402
     FileInfoColumn,
     SystemColumn,
 )
-from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
+from datacoolie.core.exceptions import ConfigurationError, EngineError, TransformError  # noqa: E402
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.engines._polars import delta as delta_ops  # noqa: E402
 from datacoolie.engines._polars.iceberg import operations as iceberg_ops  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
-from datacoolie.platforms.base import FileInfo  # noqa: E402
+from datacoolie.platforms.base import BasePlatform, FileInfo  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
-from tests.unit.engines.hash_contract_vectors import (  # noqa: E402
+from tests.fixtures.engines.hash_contract_vectors import (  # noqa: E402
     HASH_CONTRACT_ROWS,
     SHA256_HASHES,
     XXHASH64_HASHES,
@@ -312,6 +312,7 @@ class TestReadCsv:
         result = engine.read_csv(str(path))
         assert isinstance(result, pl.LazyFrame)
         assert result.collect().height == 3
+        assert result.collect_schema()["id"] == pl.String
 
 
 class TestReadJson:
@@ -323,6 +324,32 @@ class TestReadJson:
         result = platform_engine.read_json(str(path))
         assert isinstance(result, pl.LazyFrame)
         assert result.collect().height == 3
+
+    def test_read_json_forwards_supported_options(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "data.json"
+        path.write_text('[{"id": 1}]', encoding="utf-8")
+        with patch("datacoolie.engines._polars.file_io.pl.read_json") as read_json:
+            read_json.return_value = pl.DataFrame({"id": [1]})
+            platform_engine.read_json(
+                str(path), options={"infer_schema_length": 7, "multiLine": "true"}
+            )
+
+        assert read_json.call_args.kwargs == {"infer_schema_length": 7}
+
+    def test_read_json_translates_spark_infer_schema_option(
+        self, platform_engine: PolarsEngine, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "data.json"
+        path.write_text('[{"id": 1}]', encoding="utf-8")
+        with patch("datacoolie.engines._polars.file_io.pl.read_json") as read_json:
+            read_json.return_value = pl.DataFrame({"id": [1]})
+            platform_engine.read_json(
+                str(path), options={"inferSchema": "false"}
+            )
+
+        assert read_json.call_args.kwargs == {"infer_schema_length": 0}
 
 
 class TestReadExcel:
@@ -983,15 +1010,13 @@ class TestCastColumn:
         ).collect()
         assert result["date_str"].dtype == pl.Date
 
-    def test_unsupported_type_bypasses_cast(
+    def test_unsupported_type_fails_before_cast(
         self, engine: PolarsEngine, sample_lf: pl.LazyFrame
     ) -> None:
-        # Unknown types bypass the cast — column keeps its original dtype
-        original_schema = sample_lf.collect_schema()
-        result_schema = engine.cast_column(
-            sample_lf, "id", "bizarre_type"
-        ).collect_schema()
-        assert result_schema["id"] == original_schema["id"]
+        from datacoolie.core.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="Unsupported Spark SQL"):
+            engine.cast_column(sample_lf, "id", "bizarre_type")
 
 
 # =====================================================================
@@ -1194,6 +1219,53 @@ class TestWatermarkFilter:
         result = engine.apply_watermark_filter(sample_lf, ["id"], {})
         assert result.collect().height == 3
 
+    def test_typed_temporal_bounds_are_compared_as_temporal_values(
+        self, engine: PolarsEngine
+    ) -> None:
+        date_frame = pl.DataFrame(
+            {"day": [date(2026, 1, 1), date(2026, 1, 3)]}
+        ).lazy()
+        date_result = engine.apply_watermark_filter(
+            date_frame, ["day"], {"day": date(2026, 1, 1)}
+        ).collect()
+        assert date_result["day"].to_list() == [date(2026, 1, 3)]
+        date_bound_result = engine.apply_watermark_filter(
+            date_frame,
+            ["day"],
+            {"day": datetime(2026, 1, 1, 12, tzinfo=timezone.utc)},
+        ).collect()
+        assert date_bound_result["day"].to_list() == [date(2026, 1, 3)]
+
+        timestamp_frame = pl.DataFrame(
+            {
+                "ts": [
+                    datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    datetime(2026, 1, 3, tzinfo=timezone.utc),
+                ]
+            }
+        ).lazy()
+        timestamp_result = engine.apply_watermark_filter(
+            timestamp_frame,
+            ["ts"],
+            {"ts": datetime(2026, 1, 1, tzinfo=timezone.utc)},
+        ).collect()
+        assert timestamp_result["ts"].to_list() == [
+            datetime(2026, 1, 3, tzinfo=timezone.utc)
+        ]
+        timestamp_bound_result = engine.apply_watermark_filter(
+            timestamp_frame, ["ts"], {"ts": date(2026, 1, 1)}
+        ).collect()
+        assert timestamp_bound_result["ts"].to_list() == [
+            datetime(2026, 1, 3, tzinfo=timezone.utc)
+        ]
+
+    def test_binary_watermark_comparison_requires_qualified_backend(
+        self, engine: PolarsEngine
+    ) -> None:
+        frame = pl.DataFrame({"version": [b"a", b"b"]}).lazy()
+        with pytest.raises(EngineError, match="qualified backend"):
+            engine.apply_watermark_filter(frame, ["version"], {"version": b"a"})
+
 
 # =====================================================================
 # SQLContext & table registration
@@ -1290,6 +1362,14 @@ class TestCatalogSetters:
         mock_platform = MagicMock(spec=BasePlatform)
         engine.set_platform(mock_platform)
         assert engine.platform is mock_platform
+
+    def test_set_platform_rejects_replacement(self, engine: PolarsEngine) -> None:
+        first = MagicMock(spec=BasePlatform)
+        second = MagicMock(spec=BasePlatform)
+        engine.set_platform(first)
+        with pytest.raises(ConfigurationError, match="already bound"):
+            engine.set_platform(second)
+        assert engine.platform is first
 
     def test_platform_via_init(self) -> None:
         from unittest.mock import MagicMock
@@ -1680,6 +1760,14 @@ class TestPolarsEngineAdvancedCoverage:
 
         mock_platform.folder_exists.return_value = False
         assert engine.table_exists_by_path("/data/tbl") is False
+
+    def test_table_exists_by_path_propagates_platform_probe_errors(self) -> None:
+        mock_platform = MagicMock()
+        mock_platform.folder_exists.side_effect = PermissionError("denied")
+        engine = PolarsEngine(platform=mock_platform)
+
+        with pytest.raises(PermissionError, match="denied"):
+            engine.table_exists_by_path("/data/tbl")
 
     def test_table_exists_by_path_iceberg_with_platform_uses_metadata_check(
         self,

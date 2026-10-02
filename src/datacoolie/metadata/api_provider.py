@@ -1,6 +1,6 @@
 """REST API metadata provider — httpx.
 
-``APIClient`` fetches connections, dataflows, schema hints and watermarks
+``APIProvider`` fetches connections, dataflows, schema hints and watermarks
 from a remote metadata API via HTTP.
 
 Authentication is done via an ``X-API-Key`` header.  The client handles
@@ -12,28 +12,49 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+
+from datacoolie.core.constants import LoadType, ProcessingMode
+from datacoolie.core.exceptions import MetadataError, WatermarkError
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.core.models.source import Source
+from datacoolie.core.models.transform import Transform
+from datacoolie.logging.runtime.manager import get_logger
+from datacoolie.metadata.base import BaseMetadataProvider
+from datacoolie.metadata.resolution.schema_hints import (
+    normalize_grouped_hints,
+    normalize_schema_name,
+    normalized_key,
+    select_schema_hints,
+)
+from datacoolie.utils.collections import ensure_list
+
+logger = get_logger(__name__)
 
 _T = TypeVar("_T")
 _K = TypeVar("_K")
 
-from datacoolie.core.constants import LoadType, ProcessingMode
-from datacoolie.core.exceptions import MetadataError, WatermarkError
-from datacoolie.core.models import (
-    Connection,
-    DataFlow,
-    Destination,
-    SchemaHint,
-    Source,
-    Transform,
-)
-from datacoolie.logging.base import get_logger
-from datacoolie.metadata.base import BaseMetadataProvider
-from datacoolie.utils.converters import parse_json
-from datacoolie.utils.helpers import ensure_list
 
-logger = get_logger(__name__)
+def _connection_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Map an API connection response to the runtime model payload."""
+
+    return {
+        "connection_id": data.get("connection_id"),
+        "workspace_id": data.get("workspace_id"),
+        "name": data.get("name"),
+        "connection_type": data.get("connection_type"),
+        "format": data.get("format"),
+        "catalog": data.get("catalog"),
+        "database": data.get("database"),
+        "configure": data.get("configure") or {},
+        "secrets_ref": data.get("secrets_ref"),
+        "is_active": data.get("is_active", True),
+    }
 
 
 def _import_httpx() -> Any:
@@ -44,17 +65,17 @@ def _import_httpx() -> Any:
         return httpx
     except ImportError as exc:
         raise MetadataError(
-            "The 'httpx' package is required for APIClient. "
+            "The 'httpx' package is required for APIProvider. "
             "Install it with: pip install httpx"
         ) from exc
 
 
 # ============================================================================
-# APIClient
+# APIProvider
 # ============================================================================
 
 
-class APIClient(BaseMetadataProvider):
+class APIProvider(BaseMetadataProvider):
     """Metadata provider backed by a remote REST API.
 
     Args:
@@ -66,6 +87,11 @@ class APIClient(BaseMetadataProvider):
         timeout: Request timeout in seconds (default ``30``).
         max_retries: Number of retries on transient failures (default ``3``).
         retry_backoff: Base backoff in seconds for exponential retry (default ``1.0``).
+        sql_base_path: One SQL root or a sequence of roots associated with
+            metadata query references. Driver preparation reads the files.
+
+    The HTTP transport is created at :meth:`initialize` (or first direct
+    request), not during construction.
     """
 
     # HTTP status codes that trigger a retry
@@ -87,10 +113,9 @@ class APIClient(BaseMetadataProvider):
         retry_backoff: float = 1.0,
         page_size: int = 200,
         max_workers: int = 8,
-        eager_prefetch: bool = False,
+        sql_base_path: str | Sequence[str] | None = None,
     ) -> None:
-        super().__init__(enable_cache=enable_cache, eager_prefetch=eager_prefetch)
-        httpx = _import_httpx()
+        super().__init__(enable_cache=enable_cache, sql_base_path=sql_base_path)
         self._base_url = base_url.rstrip("/")
         if not self._base_url.startswith("https"):
             logger.warning(
@@ -103,15 +128,38 @@ class APIClient(BaseMetadataProvider):
         self._retry_backoff = retry_backoff
         self._page_size = page_size
         self._max_workers = max(1, max_workers)
-        self._client: Any = httpx.Client(
-            base_url=self._base_url,
-            headers={
-                "X-API-Key": api_key,
-                "Accept": "application/json",
-            },
-            timeout=timeout,
-        )
-        self._maybe_eager_prefetch()
+        self._api_key = api_key
+        self._timeout = timeout
+        self._client: Any = None
+        self._client_owned = False
+
+    def _ensure_client(self) -> Any:
+        """Create the owned HTTP transport on first use."""
+        if self._client is None:
+            httpx = _import_httpx()
+            self._client = httpx.Client(
+                base_url=self._base_url,
+                headers={
+                    "X-API-Key": self._api_key,
+                    "Accept": "application/json",
+                },
+                timeout=self._timeout,
+            )
+            self._client_owned = True
+        return self._client
+
+    def _initialize_metadata(self) -> None:
+        """Acquire the configured HTTP transport before bulk loading."""
+        self._ensure_client()
+
+    def _cleanup_failed_initialization(self) -> None:
+        """Release an owned transport after a failed startup attempt."""
+        if self._client_owned and self._client is not None:
+            try:
+                self._client.close()
+            finally:
+                self._client = None
+                self._client_owned = False
 
     # ------------------------------------------------------------------
     # URL helpers
@@ -143,6 +191,7 @@ class APIClient(BaseMetadataProvider):
         Raises:
             MetadataError: On non-retryable HTTP errors.
         """
+        self._ensure_open()
         url = f"{self._ws_prefix}{path}"
 
         # Inject default page_size on paginated GETs so fewer round trips
@@ -175,7 +224,7 @@ class APIClient(BaseMetadataProvider):
         httpx = _import_httpx()
         for attempt in range(self._max_retries + 1):
             try:
-                resp = self._client.request(
+                resp = self._ensure_client().request(
                     method,
                     url,
                     params=params,
@@ -185,14 +234,20 @@ class APIClient(BaseMetadataProvider):
                     self._backoff(attempt, resp)
                     continue
                 resp.raise_for_status()
-                return resp.json()
+                try:
+                    return resp.json()
+                except (TypeError, ValueError) as exc:
+                    raise MetadataError(
+                        f"API response was not valid JSON: {method} {url}",
+                        details={"status_code": resp.status_code},
+                    ) from exc
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code in self._RETRYABLE_STATUS and attempt < self._max_retries:
                     self._backoff(attempt)
                     continue
                 raise MetadataError(
                     f"API request failed: {method} {url} \u2192 {exc.response.status_code}",
-                    details={"response_text": exc.response.text[:500]},
+                    details={"status_code": exc.response.status_code},
                 ) from exc
             except httpx.HTTPError as exc:
                 if attempt < self._max_retries:
@@ -234,8 +289,21 @@ class APIClient(BaseMetadataProvider):
         (``httpx.Client`` is thread-safe) to avoid serial latency on
         long paginated listings.
         """
-        first_data: List[Dict[str, Any]] = list(first_body.get("data", []))
+        if not isinstance(first_body, dict):
+            raise MetadataError(
+                f"API paginated response must be an object: {method} {url}"
+            )
+        raw_first_data = first_body.get("data", [])
+        if not isinstance(raw_first_data, list):
+            raise MetadataError(
+                f"API paginated response data must be a list: {method} {url}"
+            )
+        first_data: List[Dict[str, Any]] = list(raw_first_data)
         pagination = first_body.get("pagination", {})
+        if not isinstance(pagination, dict):
+            raise MetadataError(
+                f"API pagination must be an object: {method} {url}"
+            )
         total_pages = int(pagination.get("total_pages", 1))
         current_page = int(pagination.get("page", 1))
 
@@ -255,6 +323,10 @@ class APIClient(BaseMetadataProvider):
             page_params = dict(params or {})
             page_params["page"] = page_num
             body = self._execute_with_retry(method, url, params=page_params)
+            if not isinstance(body, dict) or not isinstance(body.get("data", []), list):
+                raise MetadataError(
+                    f"API paginated response data must be a list: {method} {url}"
+                )
             return list(body.get("data", []))
 
         results = self._fan_out(page_numbers, _fetch_page)
@@ -298,17 +370,9 @@ class APIClient(BaseMetadataProvider):
     @staticmethod
     def _dict_to_connection(data: Dict[str, Any]) -> Connection:
         """Map an API dict to a ``Connection`` model."""
+        payload = _connection_payload(data)
         return Connection(
-            connection_id=data["connection_id"],
-            workspace_id=data.get("workspace_id", ""),
-            name=data["name"],
-            connection_type=data.get("connection_type", ""),
-            format=data.get("format", ""),
-            catalog=data.get("catalog"),
-            database=data.get("database"),
-            configure=data.get("configure") or {},
-            secrets_ref=data.get("secrets_ref"),
-            is_active=data.get("is_active", True),
+            **payload,
         )
 
     @classmethod
@@ -337,6 +401,7 @@ class APIClient(BaseMetadataProvider):
             table=src_data.get("table"),
             query=src_data.get("query"),
             python_function=src_data.get("python_function"),
+            filter_expression=src_data.get("filter_expression"),
             watermark_columns=ensure_list(src_data.get("watermark_columns")),
             configure=src_data.get("configure") or {},
         )
@@ -389,13 +454,19 @@ class APIClient(BaseMetadataProvider):
         the three top-level requests are themselves run in parallel.
         """
         def _get_connections() -> List[Dict[str, Any]]:
-            return self._request("GET", "/connections", params={}, paginate=True)
+            return self._request(
+                "GET", "/connections", params={"active_only": "false"}, paginate=True
+            )
 
         def _get_dataflows() -> List[Dict[str, Any]]:
-            return self._request("GET", "/dataflows", params={}, paginate=True)
+            return self._request(
+                "GET", "/dataflows", params={"active_only": "false"}, paginate=True
+            )
 
         def _get_hints() -> List[Dict[str, Any]]:
-            return self._request("GET", "/schema-hints", params={}, paginate=True)
+            return self._request(
+                "GET", "/schema-hints", params={"active_only": "false"}, paginate=True
+            )
 
         with ThreadPoolExecutor(max_workers=3) as pool:
             f_conn = pool.submit(_get_connections)
@@ -405,36 +476,88 @@ class APIClient(BaseMetadataProvider):
             df_rows = f_df.result()
             hint_rows = f_hints.result()
 
-        connections = [self._dict_to_connection(d) for d in conn_rows]
-        dataflows = [self._dict_to_dataflow(d) for d in df_rows]
+        connections: List[Connection] = []
+        for index, raw in enumerate(conn_rows):
+            if not isinstance(raw, dict):
+                raise MetadataError(
+                    f"Connection response item at index {index} must be an object"
+                )
+            try:
+                connections.append(self._dict_to_connection(raw))
+            except Exception as exc:
+                raise MetadataError(
+                    f"Invalid connection response item at index {index}"
+                ) from exc
+        dataflows: List[DataFlow] = []
+        for index, raw in enumerate(df_rows):
+            if not isinstance(raw, dict):
+                raise MetadataError(
+                    f"Dataflow response item at index {index} must be an object"
+                )
+            src = raw.get("source") or {}
+            dest = raw.get("destination") or {}
+            if not isinstance(src, dict) or not isinstance(dest, dict):
+                raise MetadataError(
+                    "Dataflow response has invalid source or destination object "
+                    f"at index {index}"
+                )
+            if (not src.get("connection")) or (not dest.get("connection")):
+                raise MetadataError(
+                    "Dataflow response is missing a source or destination connection "
+                    f"at index {index}"
+                )
+            dataflows.append(self._dict_to_dataflow(raw))
         grouped = self._group_schema_hint_rows(hint_rows)
+        valid_connection_ids = {connection.connection_id for connection in connections}
+        for dataflow in dataflows:
+            for role, connection in (
+                ("source", dataflow.source.connection),
+                ("destination", dataflow.destination.connection),
+            ):
+                if connection.connection_id not in valid_connection_ids:
+                    raise MetadataError(
+                        f"Dataflow {dataflow.dataflow_id} references unknown {role} "
+                        f"connection: {connection.connection_id}"
+                    )
+        for connection_id, schema_name, table_name in grouped:
+            if connection_id not in valid_connection_ids:
+                raise MetadataError(
+                    f"Schema hint references unknown connection: {connection_id} "
+                    f"({schema_name or ''}.{table_name})"
+                )
         return connections, dataflows, grouped
 
     def _group_schema_hint_rows(
         self,
         rows: List[Dict[str, Any]],
-        *,
-        fixed_connection_id: Optional[str] = None,
     ) -> Dict[Tuple[str, Optional[str], str], List[SchemaHint]]:
         """Group raw hint rows by ``(connection_id, schema_name, table_name)``.
 
-        If *fixed_connection_id* is given, all rows are assumed to
-        belong to that connection (used by per-connection prefetch);
-        otherwise the connection id is read from each row.  Empty
-        ``schema_name`` is normalised to ``None`` so lookups match
+        Empty ``schema_name`` is normalised to ``None`` so lookups match
         ``BaseMetadataProvider._attach_schema_hints``.
         """
         grouped: Dict[Tuple[str, Optional[str], str], List[SchemaHint]] = {}
-        for row in rows:
-            cid = fixed_connection_id or row.get("connection_id")
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise MetadataError(
+                    f"Schema hint response item at index {index} must be an object"
+                )
+            cid = row.get("connection_id")
             table = row.get("table_name")
             if not cid or not table:
-                continue
+                raise MetadataError(
+                    "Schema hint response item is missing connection_id or table_name "
+                    f"at index {index}"
+                )
             schema = row.get("schema_name") or None  # normalise '' -> None
-            grouped.setdefault((cid, schema, table), []).append(
-                self._dict_to_schema_hint(row)
-            )
-        return grouped
+            try:
+                hint = self._dict_to_schema_hint(row)
+            except Exception as exc:
+                raise MetadataError(
+                    f"Invalid schema hint response item at index {index}"
+                ) from exc
+            grouped.setdefault(normalized_key(cid, schema, table), []).append(hint)
+        return normalize_grouped_hints(grouped)
 
     @staticmethod
     def _dict_to_schema_hint(data: Dict[str, Any]) -> SchemaHint:
@@ -501,15 +624,18 @@ class APIClient(BaseMetadataProvider):
 
     @staticmethod
     def _safe_single_fetch(fn: Callable[[], Optional[_T]]) -> Optional[_T]:
-        """Run *fn* and swallow ``MetadataError`` into ``None``.
+        """Run a not-found lookup and map only HTTP 404 to ``None``.
 
-        Used by lookups that map "not found / HTTP 4xx" to ``None``
-        instead of raising.
+        Authentication, transport, server and malformed-response failures
+        remain visible to callers.  The status is carried in structured
+        ``MetadataError.details`` rather than parsed from the message.
         """
         try:
             return fn()
-        except MetadataError:
-            return None
+        except MetadataError as exc:
+            if exc.details.get("status_code") == 404:
+                return None
+            raise
 
     # ------------------------------------------------------------------
     # Abstract method implementations — schema hints
@@ -521,60 +647,41 @@ class APIClient(BaseMetadataProvider):
         table_name: str,
         schema_name: Optional[str] = None,
     ) -> List[SchemaHint]:
+        requested_schema = normalize_schema_name(schema_name)
         params: Dict[str, Any] = {
             "connection_id": connection_id,
             "table_name": table_name,
         }
-        if schema_name is not None:
-            params["schema_name"] = schema_name
+        if requested_schema is not None:
+            params["schema_name"] = requested_schema
         data = self._request("GET", "/schema-hints", params=params, paginate=True)
-        return [self._dict_to_schema_hint(d) for d in data]
-
-    # ------------------------------------------------------------------
-    # Bulk schema-hint prefetch — avoid N+1 round trips
-    # ------------------------------------------------------------------
-
-    def _prefetch_schema_hints(self, dataflows: List[DataFlow]) -> None:
-        """Bulk-load schema hints for all hint-requiring connections.
-
-        Collects the distinct source ``connection_id`` values for
-        dataflows whose source has ``use_schema_hint=True``, fetches
-        all hints for each connection in a single paginated GET
-        (concurrently across connections), then groups the results by
-        ``(connection_id, schema_name, table_name)`` and writes them
-        into the cache.  The subsequent per-dataflow attach loop then
-        hits the cache instead of issuing one GET per dataflow.
-        """
-        if self._cache is None:
-            return
-
-        conn_ids: Set[str] = set()
-        for df in dataflows:
-            src_conn = df.source.connection
-            if not src_conn.use_schema_hint:
-                continue
-            if df.source.table is None:
-                continue
-            if src_conn.connection_id:
-                conn_ids.add(src_conn.connection_id)
-
-        if not conn_ids:
-            return
-
-        def _fetch_for_conn(conn_id: str) -> List[Dict[str, Any]]:
-            return self._request(
-                "GET", "/schema-hints",
-                params={"connection_id": conn_id},
-                paginate=True,
+        # A scoped API may omit repeated identity fields; the request supplies
+        # those identities for this direct lookup.
+        rows: List[Dict[str, Any]] = []
+        for index, row in enumerate(data):
+            if not isinstance(row, dict):
+                raise MetadataError(
+                    f"Schema hint response item at index {index} must be an object"
+                )
+            rows.append(
+                {
+                    **row,
+                    # Some API implementations include identity fields with
+                    # ``null``/empty values rather than omitting them.  A
+                    # direct scoped request already carries the authoritative
+                    # connection/table, so use those values for either form.
+                    "connection_id": row.get("connection_id") or connection_id,
+                    "table_name": row.get("table_name") or table_name,
+                }
             )
-
-        results = self._fan_out(list(conn_ids), _fetch_for_conn)
-
-        # Group per-connection and populate cache.
-        for cid, rows in results.items():
-            grouped = self._group_schema_hint_rows(rows, fixed_connection_id=cid)
-            for (cid2, schema, table), hints in grouped.items():
-                self._cache.set_schema_hints(cid2, schema, table, hints)
+        grouped = self._group_schema_hint_rows(rows)
+        selected = select_schema_hints(
+            grouped,
+            connection_id,
+            requested_schema,
+            table_name,
+        )
+        return selected or []
 
     # ------------------------------------------------------------------
     # Abstract method implementations — watermarks
@@ -587,16 +694,35 @@ class APIClient(BaseMetadataProvider):
         dict.  Either way, this method normalises the result to a JSON string so that
         ``WatermarkManager`` can deserialize it uniformly.
         """
-        try:
-            data = self._request("GET", f"/watermarks/{dataflow_id}")
-            current = data.get("current_value")
-            if current is None:
-                return None
-            if isinstance(current, dict):
-                return json.dumps(current)
-            return str(current)
-        except MetadataError:
-            return None
+        with self._runtime_operation():
+            try:
+                data = self._request("GET", f"/watermarks/{dataflow_id}")
+                if not isinstance(data, dict) or "current_value" not in data:
+                    raise WatermarkError(
+                        f"Invalid watermark response for dataflow {dataflow_id}"
+                    )
+                current = data["current_value"]
+                if current is None:
+                    return None
+                if isinstance(current, dict):
+                    return json.dumps(current)
+                if isinstance(current, str):
+                    return current
+                raise WatermarkError(
+                    f"Invalid watermark value for dataflow {dataflow_id}"
+                )
+            except WatermarkError:
+                raise
+            except MetadataError as exc:
+                if exc.details.get("status_code") == 404:
+                    return None
+                raise WatermarkError(
+                    f"Failed to read watermark for dataflow {dataflow_id}"
+                ) from exc
+            except Exception as exc:
+                raise WatermarkError(
+                    f"Failed to read watermark for dataflow {dataflow_id}"
+                ) from exc
 
     def update_watermark(
         self,
@@ -607,26 +733,34 @@ class APIClient(BaseMetadataProvider):
         dataflow_run_id: Optional[str] = None,
     ) -> None:
         """Update the watermark via the API."""
-        body: Dict[str, Any] = {"current_value": watermark_value}
-        if job_id is not None:
-            body["job_id"] = job_id
-        if dataflow_run_id is not None:
-            body["dataflow_run_id"] = dataflow_run_id
-        try:
-            self._request("PUT", f"/watermarks/{dataflow_id}", json_body=body)
-        except MetadataError:
-            raise
-        except Exception as exc:
-            raise WatermarkError(
-                f"Failed to update watermark for dataflow {dataflow_id}"
-            ) from exc
+        with self._runtime_operation():
+            body: Dict[str, Any] = {"current_value": watermark_value}
+            if job_id is not None:
+                body["job_id"] = job_id
+            if dataflow_run_id is not None:
+                body["dataflow_run_id"] = dataflow_run_id
+            try:
+                self._request("PUT", f"/watermarks/{dataflow_id}", json_body=body)
+            except WatermarkError:
+                raise
+            except MetadataError as exc:
+                raise WatermarkError(
+                    f"Failed to update watermark for dataflow {dataflow_id}"
+                ) from exc
+            except Exception as exc:
+                raise WatermarkError(
+                    f"Failed to update watermark for dataflow {dataflow_id}"
+                ) from exc
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def close(self) -> None:
-        """Close the HTTP client and clear cache."""
-        super().close()
-        if hasattr(self, "_client") and self._client is not None:
-            self._client.close()
+    def _close_resources(self) -> None:
+        """Close the HTTP client when this provider created it."""
+        if self._client_owned and self._client is not None:
+            try:
+                self._client.close()
+            finally:
+                self._client = None
+                self._client_owned = False

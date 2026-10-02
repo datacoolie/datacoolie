@@ -17,13 +17,13 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy import create_engine, text
 
-from datacoolie.utils.helpers import name_to_uuid as _name_to_uuid
+from datacoolie.utils.identity import name_to_uuid as _name_to_uuid
 
 logging.basicConfig(
     level=logging.INFO,
@@ -214,6 +214,7 @@ def _expected_dataflows(meta: dict) -> Dict[str, dict]:
             "source_table": src.get("table") or d.get("source_table"),
             "source_query": src.get("query") or d.get("source_query"),
             "source_python_function": src.get("python_function") or d.get("source_python_function"),
+            "source_filter_expression": src["filter_expression"] if "filter_expression" in src else d.get("source_filter_expression"),
             "source_watermark_columns": _load(src.get("watermark_columns") or d.get("source_watermark_columns")),
             "source_configure": _load(src.get("configure") or d.get("source_configure")),
             "transform": _load(d.get("transform")),
@@ -235,7 +236,7 @@ def _actual_dataflows(engine, workspace_id: str) -> Dict[str, dict]:
             text(
                 "SELECT name, dataflow_id, stage, group_number, execution_order, processing_mode, "
                 "source_connection_id, source_schema, source_table, source_query, "
-                "source_python_function, source_watermark_columns, source_configure, "
+                "source_python_function, source_filter_expression, source_watermark_columns, source_configure, "
                 "transform, "
                 "destination_connection_id, destination_schema, destination_table, "
                 "destination_load_type, destination_merge_keys, destination_configure, "
@@ -256,6 +257,7 @@ def _actual_dataflows(engine, workspace_id: str) -> Dict[str, dict]:
             "source_table": r["source_table"],
             "source_query": r["source_query"],
             "source_python_function": r["source_python_function"],
+            "source_filter_expression": r["source_filter_expression"],
             "source_watermark_columns": _load(r["source_watermark_columns"]),
             "source_configure": _load(r["source_configure"]),
             "transform": _load(r["transform"]),
@@ -280,7 +282,7 @@ def verify_dataflows(meta: dict, engine, workspace_id: str) -> Report:
     _FIELDS = [
         "dataflow_id", "stage", "group_number", "execution_order", "processing_mode",
         "source_connection_id", "source_schema", "source_table", "source_query",
-        "source_python_function", "source_watermark_columns", "source_configure",
+        "source_python_function", "source_filter_expression", "source_watermark_columns", "source_configure",
         "transform",
         "destination_connection_id", "destination_schema", "destination_table",
         "destination_load_type", "destination_merge_keys", "destination_configure",
@@ -432,7 +434,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--connection-string",
-        default="sqlite:///usecase-sim/metadata/database/datacoolie_metadata.db",
+        default="sqlite:///usecase-sim/.runtime/databases/metadata/datacoolie_metadata.db",
         help="SQLAlchemy connection string for the metadata DB",
     )
     parser.add_argument(

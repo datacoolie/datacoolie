@@ -55,7 +55,8 @@ Supported formats
             data_type: DATE
             format: yyyy-MM-dd
 
-**Excel (.xlsx)** — flat workbook with three sheets:
+**Excel (.xlsx)** — flat workbook with one or more of three supported sheets
+(legacy ``.xls`` is not supported):
 
 *connections* sheet — one row per connection:
 
@@ -87,16 +88,18 @@ Supported formats
   ``transform_masking_rules`` accept JSON strings.
 
 *schema_hints* sheet — one row per hint (grouped internally by
-  ``connection_name`` + ``table_name`` + optional ``schema_name``):
+  ``connection_name`` or ``connection_id`` + ``table_name`` + optional
+  ``schema_name``):
 
-  Columns: ``connection_name``, ``table_name``, ``schema_name`` (optional),
-    ``column_name``, ``data_type``, ``precision``, ``scale``, ``format``
+  Columns: ``connection_name`` or ``connection_id``, ``table_name``,
+    ``schema_name`` (optional), ``column_name``, ``data_type``, ``precision``,
+    ``scale``, ``format``
 
 **Separate files** — each section may live in its own file instead of (or
 in addition to) the primary ``config_path``.  Pass any combination of:
 
-* ``connections_path`` — file that contains only a ``connections`` list.
-* ``schema_hints_path`` — file that contains only a ``schema_hints`` list.
+* ``connections_path`` — file containing a ``{"connections": [...]}`` wrapper.
+* ``schema_hints_path`` — file containing a ``{"schema_hints": [...]}`` wrapper.
 
 Each override file can be YAML, JSON, or Excel in the same format as the
 corresponding section in the primary file.  When a separate path is
@@ -105,416 +108,616 @@ specified, its section **replaces** the same section from the primary file.
 
 from __future__ import annotations
 
-import json
+from collections.abc import Sequence
 from typing import Any, Dict, List, Optional, Tuple
 
 from datacoolie.core.constants import WATERMARK_FILE_NAME
-from datacoolie.core.exceptions import MetadataError, WatermarkError
-from datacoolie.core.models import (
-    Connection,
-    DataFlow,
-    Destination,
-    SchemaHint,
-    Source,
-    Transform,
-)
+from datacoolie.core.exceptions import ConfigurationError, MetadataError, PlatformError, WatermarkError
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.transform import SchemaHint
 from datacoolie.metadata.base import BaseMetadataProvider
+from datacoolie.metadata.contracts.context import MetadataProviderStartupContext
+from datacoolie.metadata.documents.parsers import (
+    METADATA_SECTION_KEYS,
+    SUPPORTED_METADATA_SUFFIXES,
+    parse_json_document,
+    parse_yaml_document,
+    validate_document,
+)
+from datacoolie.metadata.documents.excel import parse_excel
+from datacoolie.metadata.documents.mapping import (
+    build_connections,
+    build_dataflows,
+    build_grouped_schema_hints,
+)
+from datacoolie.metadata.resolution.schema_hints import (
+    select_schema_hints,
+)
 from datacoolie.platforms.base import BasePlatform
-from datacoolie.utils.converters import convert_to_bool, convert_to_int
-from datacoolie.utils.helpers import ensure_list
-from datacoolie.utils.path_utils import normalize_path
+from datacoolie.utils.path_utils import (
+    join_path,
+    normalize_path,
+    parent_path,
+    normalize_optional_base_path,
+)
+from datacoolie.logging.runtime.manager import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class FileProvider(BaseMetadataProvider):
     """Metadata provider backed by YAML, JSON, or Excel configuration files.
 
     Args:
-        config_path: Path to the primary YAML, JSON, or Excel metadata file.
-            May contain ``connections``, ``dataflows``, and/or
-            ``schema_hints`` sections.
-        platform: Platform used for watermark file I/O.
+        config_path: Exact YAML, JSON, or Excel metadata file (or an ordered
+            sequence of files).  May contain ``connections``, ``dataflows``,
+            and/or ``schema_hints`` sections.  Optional when
+            ``metadata_base_path`` is supplied.
+        platform: Optional platform used for metadata and watermark file I/O.
+            It may be supplied later with :meth:`bind_platform` when the
+            provider is assembled by a Driver or another caller.
+        metadata_base_path: Directory containing metadata documents.  All
+            supported files below the directory are discovered recursively in
+            deterministic path order; each file must use section wrappers.
         connections_path: Optional separate file that provides the
             ``connections`` list.  Overrides any ``connections`` section
             in *config_path* when supplied.
         schema_hints_path: Optional separate file that provides the
             ``schema_hints`` list.  Overrides any ``schema_hints`` section
             in *config_path* when supplied.
-        watermark_base_path: Root directory for watermark files.
-            Defaults to ``<config_path_parent>/watermarks``.
+        watermark_base_path: Optional root directory for watermark files.
+            When omitted, a Driver may bind a runtime state/log-derived path;
+            standalone metadata access remains valid until a watermark
+            operation is requested.
+        sql_base_path: One SQL root or a sequence of roots associated with
+            metadata query references. Driver preparation reads the files.
         enable_cache: Enable the in-memory cache.
     """
 
-    _EXCEL_LIST_COLS: frozenset = frozenset({
-        "source_watermark_columns",
-        "destination_merge_keys",
-        "destination_partition_columns",
-        "transform_select_columns",
-        "transform_drop_columns",
-    })
-    _EXCEL_JSON_COLS: frozenset = frozenset({
-        "configure",
-        "source_configure",
-        "destination_configure",
-        "transform_deduplicate_columns",
-        "transform_latest_data_columns",
-        "transform_additional_columns",
-        "transform_schema_hints",
-        "transform_rename_columns",
-        "transform_value_rules",
-        "transform_hash_columns",
-        "transform_masking_rules",
-        "transform_configure",
-    })
-
     def __init__(
         self,
-        config_path: str,
-        platform: BasePlatform,
+        config_path: str | Sequence[str] | None = None,
+        platform: Optional[BasePlatform] = None,
         *,
+        metadata_base_path: Optional[str] = None,
         connections_path: Optional[str] = None,
         schema_hints_path: Optional[str] = None,
         watermark_base_path: Optional[str] = None,
+        sql_base_path: str | Sequence[str] | None = None,
         enable_cache: bool = True,
-        eager_prefetch: bool = False,
     ) -> None:
-        super().__init__(enable_cache=enable_cache, eager_prefetch=eager_prefetch)
-        self._config_path = normalize_path(config_path)
-        self._connections_path = normalize_path(connections_path) if connections_path else None
-        self._schema_hints_path = normalize_path(schema_hints_path) if schema_hints_path else None
+        super().__init__(enable_cache=enable_cache, sql_base_path=sql_base_path)
+        if config_path is not None and metadata_base_path is not None:
+            raise ConfigurationError(
+                "config_path and metadata_base_path are mutually exclusive"
+            )
+        self._config_paths = self._normalise_config_paths(config_path)
+        if metadata_base_path is not None and not str(metadata_base_path).strip():
+            raise ConfigurationError("metadata_base_path must be a non-empty path when supplied")
+        self._metadata_base_path = (
+            normalize_path(str(metadata_base_path).strip())
+            if metadata_base_path is not None
+            else None
+        )
+        self._metadata_base_path_explicit = metadata_base_path is not None
+        self._artifact_base_path: Optional[str] = None
+        self._metadata_path_inferred = False
+        for option_name, option_value in (
+            ("connections_path", connections_path),
+            ("schema_hints_path", schema_hints_path),
+        ):
+            if option_value is not None and not str(option_value).strip():
+                raise ConfigurationError(
+                    f"{option_name} must be a non-empty path when supplied"
+                )
+        self._connections_path = (
+            normalize_path(str(connections_path).strip())
+            if connections_path is not None
+            else None
+        )
+        self._schema_hints_path = (
+            normalize_path(str(schema_hints_path).strip())
+            if schema_hints_path is not None
+            else None
+        )
         self._platform = platform
-        config_parent = self._config_path.rsplit("/", 1)[0] if "/" in self._config_path else ""
-        default_watermark_base = f"{config_parent}/watermarks" if config_parent else "watermarks"
-        self._watermark_base_path = normalize_path(watermark_base_path or default_watermark_base)
+        if watermark_base_path is not None and not str(watermark_base_path).strip():
+            raise ConfigurationError("watermark_base_path must be a non-empty path when supplied")
+        self._watermark_base_path = (
+            normalize_path(str(watermark_base_path).strip())
+            if watermark_base_path is not None
+            else None
+        )
+        self._watermark_base_path_explicit = watermark_base_path is not None
         self._data: Dict[str, Any] = {}
-        self._load_config()
+        self._config_loaded = False
+        self._metadata_origins: Dict[int, str] = {}
         # Memoised outputs of the ``_build_*`` helpers — the underlying
         # ``self._data`` dict is immutable during the provider's
         # lifetime, so the parsed models can be cached.
         self._all_connections_cache: Optional[List[Connection]] = None
-        self._active_connections_cache: Optional[List[Connection]] = None
-        # name -> Connection lookup for O(1) ``_resolve_connection``.
-        self._connection_by_name: Optional[Dict[str, Connection]] = None
         # Full (active + inactive) dataflow list; filtered variants are
         # derived on demand from this list.
         self._all_dataflows_cache: Optional[List[DataFlow]] = None
-        self._maybe_eager_prefetch()
+
+    @staticmethod
+    def _normalise_config_paths(
+        config_path: str | Sequence[str] | None,
+    ) -> List[str]:
+        """Normalise an exact metadata file selection."""
+        if config_path is None:
+            return []
+        values = [config_path] if isinstance(config_path, str) else list(config_path)
+        if not values:
+            raise ConfigurationError("config_path must contain at least one file")
+        result: List[str] = []
+        for value in values:
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigurationError("config_path entries must be non-empty paths")
+            result.append(normalize_path(value.strip()))
+        return result
+
+    @property
+    def metadata_base_path(self) -> Optional[str]:
+        """Return the configured metadata directory, when artifact mode is used."""
+        return self._metadata_base_path
+
+    @property
+    def artifact_base_path(self) -> Optional[str]:
+        """Return the artifact root offered by the runtime, if any."""
+        return self._artifact_base_path
+
+    @property
+    def platform(self) -> Optional[BasePlatform]:
+        """Return the platform bound for file reads and watermark I/O."""
+        return self._platform
+
+    def bind_platform(self, platform: BasePlatform) -> BasePlatform:
+        """Bind a platform dependency without performing I/O.
+
+        A provider owns no platform lifecycle.  Binding the exact same
+        instance is idempotent; replacing an already-bound instance is
+        rejected because platform instances can carry different storage
+        roots or credentials even when their types match.
+        """
+        with self._lifecycle_lock:
+            if self._closed:
+                raise RuntimeError(f"{type(self).__name__} is closed")
+            if self._in_initialization:
+                raise RuntimeError("Cannot bind platform during metadata initialization")
+            if platform is None:
+                raise ConfigurationError("FileProvider platform must be a non-null instance")
+            if self._platform is None:
+                self._platform = platform
+            elif self._platform is not platform:
+                raise ConfigurationError(
+                    "FileProvider platform is already bound to a different instance"
+                )
+            return self._platform
+
+    @staticmethod
+    def _merge_bound_path(
+        *,
+        existing: Optional[str],
+        existing_explicit: bool,
+        candidate: Optional[str],
+        candidate_explicit: bool,
+        conflict_message: str,
+        details: Dict[str, str],
+    ) -> tuple[Optional[str], bool]:
+        """Resolve one candidate root without publishing partial state.
+
+        Explicit configuration outranks an implicit default.  Equal values
+        are idempotent; an already-bound implicit value cannot silently move
+        to a different candidate.
+        """
+        if candidate is None:
+            return existing, existing_explicit
+        if existing is None:
+            return candidate, candidate_explicit
+        if existing_explicit and not candidate_explicit:
+            return existing, existing_explicit
+        if normalize_path(existing) != normalize_path(candidate):
+            raise ConfigurationError(conflict_message, details=details)
+        return existing, existing_explicit or candidate_explicit
+
+    def _configure_context(self, context: MetadataProviderStartupContext) -> None:
+        """Apply runtime defaults atomically before metadata initialization."""
+        platform = context.platform
+        # A provider-level platform is an explicit dependency and remains
+        # authoritative even when Driver carries a different execution
+        # platform.  Context only fills a missing provider platform.
+        resolved_platform = self._platform if self._platform is not None else platform
+
+        try:
+            metadata_context = normalize_optional_base_path(
+                context.metadata_base_path,
+                name="metadata_base_path",
+            )
+            artifact = normalize_optional_base_path(
+                context.artifact_base_path,
+                name="artifact_base_path",
+            )
+            state = normalize_optional_base_path(
+                context.state_base_path,
+                name="state_base_path",
+            )
+            log = normalize_optional_base_path(
+                context.log_base_path,
+                name="log_base_path",
+            )
+        except ValueError as exc:
+            raise ConfigurationError(str(exc)) from exc
+
+        if metadata_context is not None and self._config_paths:
+            raise ConfigurationError(
+                "FileProvider config_path and metadata_base_path cannot be used "
+                "together through startup context",
+                details={
+                    "config_path": ",".join(self._config_paths),
+                    "metadata_base_path": metadata_context,
+                },
+            )
+
+        metadata_candidate = None
+        metadata_candidate_explicit = metadata_context is not None
+        if metadata_context is not None:
+            metadata_candidate = metadata_context
+        metadata, metadata_explicit = self._merge_bound_path(
+            existing=self._metadata_base_path,
+            existing_explicit=self._metadata_base_path_explicit,
+            candidate=metadata_candidate,
+            candidate_explicit=metadata_candidate_explicit,
+            conflict_message=(
+                "FileProvider metadata base is already bound to a different metadata path"
+            ),
+            details={
+                "existing": self._metadata_base_path or "",
+                "requested": metadata_candidate or "",
+            },
+        )
+
+        watermark_candidate = None
+        if not self._watermark_base_path_explicit:
+            if state:
+                watermark_candidate = join_path(state, "watermarks")
+            elif log:
+                watermark_candidate = join_path(parent_path(log), "watermarks")
+        watermark, watermark_explicit = self._merge_bound_path(
+            existing=self._watermark_base_path,
+            existing_explicit=self._watermark_base_path_explicit,
+            candidate=watermark_candidate,
+            candidate_explicit=False,
+            conflict_message=(
+                "FileProvider watermark base is already bound to a different runtime path"
+            ),
+            details={
+                "existing": self._watermark_base_path or "",
+                "requested": watermark_candidate or "",
+            },
+        )
+
+        changed = (
+            resolved_platform is not self._platform
+            or artifact != self._artifact_base_path
+            or metadata != self._metadata_base_path
+            or watermark != self._watermark_base_path
+        )
+        if changed and self._initialized:
+            raise ConfigurationError(
+                "Cannot change FileProvider context after metadata initialization"
+            )
+
+        self._platform = resolved_platform
+        self._artifact_base_path = artifact
+        self._metadata_base_path = metadata
+        self._metadata_base_path_explicit = metadata_explicit
+        self._watermark_base_path = watermark
+        self._watermark_base_path_explicit = watermark_explicit
+
+    def _require_platform(self) -> BasePlatform:
+        """Return the bound platform or fail before attempting file I/O."""
+        self._ensure_open()
+        platform = self._platform
+        if platform is None:
+            raise ConfigurationError(
+                "FileProvider requires a platform before metadata or watermark I/O; "
+                "bind_platform(...) or provide platform=..."
+            )
+        return platform
+
+    @property
+    def watermark_base_path(self) -> Optional[str]:
+        """Return the effective file watermark base, if one is bound."""
+        return self._watermark_base_path
+
+    def validate_watermark_storage(self) -> None:
+        """Validate that runtime watermark operations have a resolved root.
+
+        This is intentionally a side-effect-free check used by the Driver's
+        preparation phase.  The lower-level watermark methods retain their
+        ``WatermarkError`` contract for standalone callers.
+        """
+        with self._lifecycle_lock:
+            self._require_platform()
+            if not self._watermark_base_path:
+                raise ConfigurationError(
+                    "FileProvider watermark_base_path is not configured; bind a runtime state/log path "
+                    "or supply watermark_base_path explicitly"
+                )
 
     # ------------------------------------------------------------------
     # Config loading
     # ------------------------------------------------------------------
 
+    def _initialize_metadata(self) -> None:
+        """Resolve deferred artifact metadata and load it once."""
+        self._require_platform()
+        if not self._config_loaded:
+            if not self._config_paths and self._metadata_base_path is None:
+                self._resolve_artifact_metadata_path()
+            self._load_config()
+
+    def _cleanup_failed_initialization(self) -> None:
+        """Discard a partial parse so a later startup can retry from source."""
+        self._config_loaded = False
+        self._data.clear()
+        self._metadata_origins.clear()
+        self._all_connections_cache = None
+        self._all_dataflows_cache = None
+        if self._metadata_path_inferred and not self._metadata_base_path_explicit:
+            self._metadata_base_path = None
+            self._metadata_path_inferred = False
+
+    def _resolve_artifact_metadata_path(self) -> None:
+        """Bind the conventional metadata root below the artifact root."""
+        artifact = self._artifact_base_path
+        if not artifact:
+            return
+        # Runtime artifact mode deliberately ignores project/build manifests.
+        # A custom metadata layout must be supplied explicitly through
+        # ``metadata_base_path``; artifact-only startup has one stable
+        # convention so it remains portable across providers and platforms.
+        if self._metadata_base_path is not None:
+            return
+        candidate = join_path(artifact, "metadata")
+        self._metadata_base_path = candidate
+        self._metadata_path_inferred = True
+
+    def _discover_metadata_files(self) -> List[str]:
+        """Return deterministic metadata files below ``metadata_base_path``."""
+        base = self._metadata_base_path
+        if not base:
+            raise ConfigurationError(
+                "FileProvider requires config_path or metadata_base_path before initialization"
+            )
+        platform = self._require_platform()
+        try:
+            entries = platform.list_files(base, recursive=True)
+        except Exception as exc:
+            raise MetadataError(f"Cannot list metadata directory: {base}") from exc
+
+        supported = SUPPORTED_METADATA_SUFFIXES
+        overlay_paths = {
+            normalize_path(path)
+            for path in (self._connections_path, self._schema_hints_path)
+            if path
+        }
+        overlay_relative_paths = {
+            relative
+            for path in overlay_paths
+            if (relative := self._metadata_relative_path(path)) is not None
+        }
+        paths: List[str] = []
+        for entry in entries:
+            path = normalize_path(entry.path)
+            if not path.lower().endswith(supported):
+                continue
+            relative = self._metadata_relative_path(path)
+            if path in overlay_paths or (
+                relative is not None and relative in overlay_relative_paths
+            ):
+                # Explicit section files are applied once below the primary
+                # merge, even when they live inside the discovered folder.
+                continue
+            if relative is None:
+                raise MetadataError(
+                    f"Metadata file escapes metadata_base_path: {path}"
+                )
+            paths.append(path)
+        return sorted(set(paths), key=lambda value: (value.casefold(), value))
+
+    def _metadata_relative_path(self, path: str) -> Optional[str]:
+        """Return a discovered file's relative path for scoped platform reads."""
+        base = self._metadata_base_path
+        if not base:
+            return None
+        platform = self._require_platform()
+        try:
+            return platform.relative_path_under_base(base, path)
+        except PlatformError:
+            # Explicit section overrides may live outside the metadata root.
+            # Discovery rejects an out-of-root result before loading a shard.
+            return None
+
+    def _read_metadata_text(self, path: str) -> str:
+        """Read a metadata text file without escaping a selected folder root."""
+        platform = self._require_platform()
+        relative = self._metadata_relative_path(path)
+        if relative and self._metadata_base_path:
+            return platform.read_file_under_base(self._metadata_base_path, relative)
+        return platform.read_file(path)
+
+    def _read_metadata_bytes(self, path: str) -> bytes:
+        """Read metadata bytes through an optional canonical root guard."""
+        platform = self._require_platform()
+        relative = self._metadata_relative_path(path)
+        if relative and self._metadata_base_path:
+            return platform.read_bytes_under_base(self._metadata_base_path, relative)
+        return platform.read_bytes(path)
+
     def _load_file(self, path: str) -> Dict[str, Any]:
         """Load and parse a single YAML, JSON, or Excel file.
 
-        Excel files are read directly from the filesystem (openpyxl requires
-        a seekable binary stream); all other formats go through the platform.
+        All reads go through the platform.  Excel is parsed from bytes so
+        cloud-backed providers do not need an OS-visible local path.
         """
+        self._require_platform()
         path_lower = path.lower()
-        if path_lower.endswith((".xlsx", ".xls")):
+        if path_lower.endswith(".xls"):
+            raise MetadataError(
+                f"Unsupported metadata config format: {path}; .xls is not supported, "
+                "use .xlsx"
+            )
+        if not path_lower.endswith(SUPPORTED_METADATA_SUFFIXES):
+            raise MetadataError(
+                f"Unsupported metadata config format: {path}; "
+                "expected .json, .yaml, .yml, or .xlsx"
+            )
+        if path_lower.endswith(".xlsx"):
             try:
-                return self._parse_excel(path)
+                raw_bytes = self._read_metadata_bytes(path)
+            except MetadataError:
+                raise
+            except Exception as exc:
+                raise MetadataError(f"Cannot read metadata config: {path}") from exc
+            try:
+                return parse_excel(raw_bytes, source_path=path)
             except MetadataError:
                 raise
             except Exception as exc:
                 raise MetadataError(f"Cannot parse metadata config: {path}") from exc
 
         try:
-            raw = self._platform.read_file(path)
+            raw = self._read_metadata_text(path)
         except Exception as exc:
             raise MetadataError(f"Cannot read metadata config: {path}") from exc
 
         try:
             if path_lower.endswith((".yaml", ".yml")):
-                return self._parse_yaml(raw)
-            return json.loads(raw)
+                document = parse_yaml_document(raw, path)
+            else:
+                document = parse_json_document(raw, path)
+            if not isinstance(document, dict):
+                raise MetadataError(
+                    f"Metadata document must contain a mapping at root level: {path}"
+                )
+            return document
         except MetadataError:
             raise
         except Exception as exc:
             raise MetadataError(f"Cannot parse metadata config: {path}") from exc
 
     def _load_config(self) -> None:
-        """Load the primary config file then overlay any separate section files."""
-        self._data = self._load_file(self._config_path)
+        """Load exact files or deterministic metadata-folder shards.
 
-        # Separate files override the corresponding section from the primary file.
-        if self._connections_path:
-            overlay = self._load_file(self._connections_path)
-            self._data["connections"] = overlay.get("connections", [])
-
-        if self._schema_hints_path:
-            overlay = self._load_file(self._schema_hints_path)
-            self._data["schema_hints"] = overlay.get("schema_hints", [])
-
-    @staticmethod
-    def _parse_yaml(raw: str) -> Dict[str, Any]:
-        """Parse YAML text, importing PyYAML lazily."""
-        try:
-            import yaml  # noqa: WPS433 — optional dependency
-        except ImportError as exc:
-            raise MetadataError(
-                "PyYAML is required for YAML metadata files.  "
-                "Install it with:  pip install pyyaml"
-            ) from exc
-        result = yaml.safe_load(raw)
-        if result is None:
-            return {}
-        if not isinstance(result, dict):
-            raise MetadataError("YAML metadata file must contain a mapping at root level")
-        return result
-
-
-    # -- Excel cell helpers -------------------------------------------------
-
-    @staticmethod
-    def _excel_sheet_rows(wb: Any, sheet_name: str) -> List[Dict[str, Any]]:
-        """Return a list of row-dicts for *sheet_name*, or ``[]`` if absent."""
-        if sheet_name not in wb.sheetnames:
-            return []
-        ws = wb[sheet_name]
-        headers = [
-            str(cell.value).strip() if cell.value is not None else ""
-            for cell in next(ws.iter_rows(min_row=1, max_row=1))
-        ]
-        rows: List[Dict[str, Any]] = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if all(v is None for v in row):
-                continue
-            rows.append({headers[i]: row[i] for i in range(len(headers))})
-        return rows
-
-    @staticmethod
-    def _cast(value: Any) -> Any:
-        """Normalise cell values: strip strings, return ``None`` for empty."""
-        if isinstance(value, str):
-            value = value.strip()
-            return value if value != "" else None
-        return value
-
-    @staticmethod
-    def _safe_bool(value: Any) -> bool:
-        """Coerce a cell to ``bool``; returns ``False`` for unrecognised values."""
-        try:
-            return convert_to_bool(value)
-        except ValueError:
-            return False
-
-    @staticmethod
-    def _json_cell(value: Any) -> Any:
-        """Parse a JSON object/array cell; return ``None`` if blank."""
-        if value is None:
-            return None
-        if isinstance(value, (dict, list)):
-            result = value
-        else:
-            s = str(value).strip()
-            if not s:
-                return None
-            try:
-                result = json.loads(s)
-            except (TypeError, json.JSONDecodeError) as exc:
-                raise MetadataError(f"Invalid JSON cell value: {value!r}") from exc
-        if not isinstance(result, (dict, list)):
-            raise MetadataError(f"Invalid JSON cell value: {value!r}")
-        return result if result else None
-
-    # -- Excel parsing ------------------------------------------------------
-
-    @classmethod
-    def _parse_excel(cls, path: str) -> Dict[str, Any]:
-        """Parse an Excel workbook into the standard config dict.
-
-        Expected sheets: ``connections``, ``dataflows``, ``schema_hints``
-        (all optional — missing sheets are treated as empty lists).
-
-        See module docstring for the per-sheet column conventions.
+        Every discovered document must expose section wrappers such as
+        ``{"dataflows": [...]}``; the filename never determines a stage or
+        section.  Explicit section paths replace the corresponding discovered
+        section after the folder merge.
         """
-        try:
-            import openpyxl  # noqa: WPS433 — optional dependency
-        except ImportError as exc:
-            raise MetadataError(
-                "openpyxl is required for Excel metadata files.  "
-                "Install it with:  pip install openpyxl"
-            ) from exc
-        try:
-            wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-        except Exception as exc:
-            raise MetadataError(f"Cannot read Excel metadata file: {path}") from exc
-        try:
-            return {
-                "connections": cls._parse_excel_connections(wb),
-                "dataflows": cls._parse_excel_dataflows(wb),
-                "schema_hints": cls._parse_excel_schema_hints(wb),
-            }
-        finally:
-            wb.close()
+        if self._config_paths:
+            paths = list(self._config_paths)
+        else:
+            paths = self._discover_metadata_files()
+        if not paths:
+            raise MetadataError("No supported metadata files found")
 
-    @classmethod
-    def _parse_excel_connections(cls, wb: Any) -> List[Dict[str, Any]]:
-        connections: List[Dict[str, Any]] = []
-        for row in cls._excel_sheet_rows(wb, "connections"):
-            conn: Dict[str, Any] = {}
-            cfg: Dict[str, Any] = {}
-            for key, raw_val in row.items():
-                val = cls._cast(raw_val)
-                if key == "configure":
-                    parsed = cls._json_cell(raw_val)
-                    if isinstance(parsed, dict):
-                        cfg.update(parsed)
-                elif key.startswith("configure_"):
-                    sub = key[len("configure_"):]
-                    if val is not None:
-                        cfg[sub] = val
-                elif key == "secrets_ref":
-                    parsed = cls._json_cell(raw_val)
-                    if parsed is not None:
-                        conn[key] = parsed
-                elif key == "is_active":
-                    if val is not None:
-                        conn[key] = cls._safe_bool(val)
-                elif val is not None:
-                    conn[key] = val
-            if cfg:
-                conn["configure"] = cfg
-            if conn:
-                connections.append(conn)
-        return connections
+        merged: Dict[str, Any] = {}
+        self._metadata_origins = {}
+        section_keys = set(METADATA_SECTION_KEYS)
+        for path in paths:
+            document = validate_document(
+                self._load_file(path),
+                path,
+                section_keys=section_keys,
+            )
+            for key, value in document.items():
+                if key in section_keys:
+                    existing = merged.get(key)
+                    if isinstance(existing, list):
+                        existing.extend(value)
+                    else:
+                        merged[key] = list(value)
+                    for item in value:
+                        if isinstance(item, dict):
+                            self._metadata_origins[id(item)] = path
 
-    @classmethod
-    def _parse_excel_dataflows(cls, wb: Any) -> List[Dict[str, Any]]:
-        dataflows: List[Dict[str, Any]] = []
-        for row in cls._excel_sheet_rows(wb, "dataflows"):
-            df_dict: Dict[str, Any] = {}
-            src: Dict[str, Any] = {}
-            dest: Dict[str, Any] = {}
-            transform: Dict[str, Any] = {}
-            transform_base: Dict[str, Any] = {}
-            for key, raw_val in row.items():
-                if key == "transform":
-                    parsed = cls._json_cell(raw_val)
-                    if isinstance(parsed, dict):
-                        transform_base = parsed
-                    continue
-                if key == "is_active":
-                    parsed_is_active = cls._cast(raw_val)
-                    if parsed_is_active is not None:
-                        df_dict["is_active"] = cls._safe_bool(parsed_is_active)
-                    continue
-                if key.startswith("source_"):
-                    target, sub = src, key[len("source_"):]
-                elif key.startswith("destination_"):
-                    target, sub = dest, key[len("destination_"):]
-                elif key.startswith("transform_"):
-                    target, sub = transform, key[len("transform_"):]
-                else:
-                    val = cls._json_cell(raw_val) if key in cls._EXCEL_JSON_COLS else cls._cast(raw_val)
-                    if val is not None:
-                        df_dict[key] = val
-                    continue
-                if key in cls._EXCEL_LIST_COLS:
-                    parsed = ensure_list(raw_val)
-                    if parsed:
-                        target[sub] = parsed
-                elif key in cls._EXCEL_JSON_COLS:
-                    parsed_json = cls._json_cell(raw_val)
-                    if parsed_json is not None:
-                        target[sub] = parsed_json
-                else:
-                    val = cls._cast(raw_val)
-                    if val is not None:
-                        target[sub] = val
-            if src:
-                df_dict["source"] = src
-            if dest:
-                df_dict["destination"] = dest
-            merged_transform = {**transform_base, **transform}  # transform_* sub-keys win
-            if merged_transform:
-                df_dict["transform"] = merged_transform
-            if df_dict:
-                dataflows.append(df_dict)
-        return dataflows
+        # Explicit section paths replace, rather than append to, the inferred
+        # section.  The wrapper is required to make intent unambiguous.
+        for path, section in (
+            (self._connections_path, "connections"),
+            (self._schema_hints_path, "schema_hints"),
+        ):
+            if path:
+                overlay = validate_document(
+                    self._load_file(path),
+                    path,
+                    section_keys=section_keys,
+                    required_section=section,
+                )
+                if not isinstance(overlay.get(section), list):
+                    raise MetadataError(
+                        f"Explicit {section}_path must contain a '{section}' list: {path}"
+                    )
+                merged[section] = overlay[section]
+                for item in overlay[section]:
+                    if isinstance(item, dict):
+                        self._metadata_origins[id(item)] = path
 
-    @classmethod
-    def _parse_excel_schema_hints(cls, wb: Any) -> List[Dict[str, Any]]:
-        hints_map: Dict[tuple, Dict[str, Any]] = {}
-        for row in cls._excel_sheet_rows(wb, "schema_hints"):
-            conn_name = cls._cast(row.get("connection_name"))
-            table_name = cls._cast(row.get("table_name"))
-            schema_name = cls._cast(row.get("schema_name"))
-            if not conn_name or not table_name:
-                continue
-            group_key = (conn_name, table_name, schema_name)
-            if group_key not in hints_map:
-                hints_map[group_key] = {
-                    "connection_name": conn_name,
-                    "table_name": table_name,
-                    "hints": [],
-                }
-                if schema_name is not None:
-                    hints_map[group_key]["schema_name"] = schema_name
-            hint: Dict[str, Any] = {}
-            for field in ("column_name", "data_type", "format"):
-                val = cls._cast(row.get(field))
-                if val is not None:
-                    hint[field] = val
-            for field in ("precision", "scale"):
-                converted = convert_to_int(row.get(field))
-                if converted is not None:
-                    hint[field] = converted
-            default_value = cls._cast(row.get("default_value"))
-            if default_value is not None:
-                hint["default_value"] = default_value
-            ordinal_position = convert_to_int(row.get("ordinal_position"))
-            if ordinal_position is not None:
-                hint["ordinal_position"] = ordinal_position
-            parsed_is_active = cls._cast(row.get("is_active"))
-            if parsed_is_active is not None:
-                hint["is_active"] = cls._safe_bool(parsed_is_active)
-            if hint:
-                hints_map[group_key]["hints"].append(hint)
-        return list(hints_map.values())
+        merged.setdefault("connections", [])
+        merged.setdefault("dataflows", [])
+        merged.setdefault("schema_hints", [])
+        self._data = merged
+        self._config_loaded = True
+        self._all_connections_cache = None
+        self._all_dataflows_cache = None
 
     # ------------------------------------------------------------------
     # Connection helpers
     # ------------------------------------------------------------------
 
+    def _ensure_config_loaded(self) -> None:
+        """Load deferred artifact metadata for standalone getter callers."""
+        if not self._config_loaded:
+            self._load_config()
+
+    def clear_cache(self) -> None:
+        """Clear the shared cache and rebuild parsed models from raw metadata.
+
+        File-backed providers retain the normalized document snapshot so a
+        cache clear does not reread the platform.  Parsed model memoization is
+        discarded here as well; callers cannot accidentally persist mutations
+        made to a previously returned ``DataFlow`` or ``Connection`` object.
+        """
+        with self._lifecycle_lock:
+            super().clear_cache()
+            if self._cache is not None:
+                self._all_connections_cache = None
+                self._all_dataflows_cache = None
+
     def _build_connections(self, *, active_only: bool = True) -> List[Connection]:
-        """Build ``Connection`` models from the ``connections`` section.
+        """Build connections from the immutable document snapshot.
 
-        Results are memoised — the source dict is immutable after
-        ``_load_config`` — so repeated calls are O(1).
+        Model construction lives in metadata.mapping; this method owns
+        memoization and the active-only projection.
         """
+        self._ensure_config_loaded()
         if self._all_connections_cache is None:
-            raw_list: List[Dict[str, Any]] = self._data.get("connections", [])
-            built: List[Connection] = []
-            for raw in raw_list:
-                try:
-                    built.append(Connection(**raw))
-                except Exception as exc:
-                    raise MetadataError(
-                        f"Invalid connection definition: {raw.get('name', '?')}"
-                    ) from exc
-            self._all_connections_cache = built
-            self._active_connections_cache = [c for c in built if c.is_active]
-            self._connection_by_name = {c.name: c for c in built}
-        return (
-            self._active_connections_cache if active_only  # type: ignore[return-value]
-            else self._all_connections_cache
-        )
-
-    def _resolve_connection(self, name_or_ref: str | Dict[str, Any]) -> Connection:
-        """Resolve a connection name or inline dict to a ``Connection``.
-
-        Uses the memoised ``name -> Connection`` map for O(1) lookup.
-        """
-        if isinstance(name_or_ref, dict):
-            return Connection(**name_or_ref)
-        # Warm the memoised map if not yet built.
-        if self._connection_by_name is None:
-            self._build_connections(active_only=False)
-        conn = self._connection_by_name.get(name_or_ref) if self._connection_by_name else None
-        if conn is None:
-            raise MetadataError(f"Connection not found: {name_or_ref}")
-        return conn
+            raw_list = self._data.get("connections", [])
+            self._all_connections_cache = build_connections(
+                raw_list,
+                origins=self._metadata_origins,
+            )
+        if active_only:
+            return [
+                connection
+                for connection in self._all_connections_cache
+                if connection.is_active
+            ]
+        return self._all_connections_cache
 
     # ------------------------------------------------------------------
     # Dataflow helpers
@@ -526,64 +729,34 @@ class FileProvider(BaseMetadataProvider):
         stages: Optional[List[str]] = None,
         active_only: bool = True,
     ) -> List[DataFlow]:
-        """Build ``DataFlow`` models from the ``dataflows`` section.
+        """Build dataflows from the immutable document snapshot.
 
-        The full (active + inactive, unfiltered) list is built once and
-        memoised; filtered calls derive from it in memory.
+        Mapping/validation lives in metadata.mapping; this method owns
+        memoization and cheap in-memory filtering.
         """
+        self._ensure_config_loaded()
         if self._all_dataflows_cache is None:
-            raw_list: List[Dict[str, Any]] = self._data.get("dataflows", [])
-            built: List[DataFlow] = []
-            for raw in raw_list:
-                try:
-                    built.append(self._build_single_dataflow(raw))
-                except MetadataError:
-                    raise
-                except Exception as exc:
-                    raise MetadataError(
-                        f"Invalid dataflow definition: {raw.get('name', '?')}"
-                    ) from exc
-            self._all_dataflows_cache = built
-
+            raw_list = self._data.get("dataflows", [])
+            self._all_dataflows_cache = build_dataflows(
+                raw_list,
+                self._build_connections(active_only=False),
+                origins=self._metadata_origins,
+            )
         dataflows = self._all_dataflows_cache
         if active_only:
-            dataflows = [df for df in dataflows if df.is_active]
+            dataflows = [
+                dataflow
+                for dataflow in dataflows
+                if dataflow.is_active
+            ]
         if stages is not None:
             stage_set = set(stages)
-            dataflows = [df for df in dataflows if df.stage in stage_set]
+            dataflows = [
+                dataflow
+                for dataflow in dataflows
+                if dataflow.stage in stage_set
+            ]
         return dataflows
-
-    def _build_single_dataflow(self, raw: Dict[str, Any]) -> DataFlow:
-        """Build one ``DataFlow``, resolving connection references."""
-        # -- source --
-        src_raw: Dict[str, Any] = dict(raw.get("source", {}))
-        src_conn_ref = src_raw.pop("connection_name", src_raw.pop("connection", None))
-        if src_conn_ref is None:
-            raise MetadataError(
-                f"Dataflow '{raw.get('name', '?')}' source must have "
-                "'connection_name' or 'connection'"
-            )
-        source = Source(connection=self._resolve_connection(src_conn_ref), **src_raw)
-
-        # -- destination --
-        dest_raw: Dict[str, Any] = dict(raw.get("destination", {}))
-        dest_conn_ref = dest_raw.pop("connection_name", dest_raw.pop("connection", None))
-        if dest_conn_ref is None:
-            raise MetadataError(
-                f"Dataflow '{raw.get('name', '?')}' destination must have "
-                "'connection_name' or 'connection'"
-            )
-        destination = Destination(connection=self._resolve_connection(dest_conn_ref), **dest_raw)
-
-        # -- transform (optional) --
-        transform_raw: Dict[str, Any] = raw.get("transform", {})
-
-        return DataFlow(
-            source=source,
-            destination=destination,
-            transform=Transform(**transform_raw) if transform_raw else Transform(),
-            **{k: v for k, v in raw.items() if k not in ("source", "destination", "transform")},
-        )
 
     # ------------------------------------------------------------------
     # Schema hint helpers
@@ -596,30 +769,17 @@ class FileProvider(BaseMetadataProvider):
         schema_name: Optional[str] = None,
     ) -> List[SchemaHint]:
         """Build ``SchemaHint`` models matching *connection_id* and *table_name*."""
-        raw_list: List[Dict[str, Any]] = self._data.get("schema_hints", [])
-        # All names/ids that identify the target connection (for flexible matching).
-        all_conns = self._build_connections(active_only=False)
-        target_refs = {connection_id} | {c.name for c in all_conns if c.connection_id == connection_id}
-
-        results: List[SchemaHint] = []
-        for group in raw_list:
-            conn_ref = group.get("connection_name") or group.get("connection_id")
-            if conn_ref not in target_refs:
-                continue
-            if group.get("table_name", "").lower() != table_name.lower():
-                continue
-            group_schema = group.get("schema_name")
-            if schema_name is not None and group_schema is not None:
-                if group_schema.lower() != schema_name.lower():
-                    continue
-            for hint_raw in group.get("hints", []):
-                try:
-                    results.append(SchemaHint(**hint_raw))
-                except Exception as exc:
-                    raise MetadataError(
-                        f"Invalid schema hint for {table_name}: {hint_raw}"
-                    ) from exc
-        return results
+        self._ensure_config_loaded()
+        grouped = self._build_grouped_schema_hints(
+            self._build_connections(active_only=False)
+        )
+        selected = select_schema_hints(
+            grouped,
+            connection_id,
+            schema_name,
+            table_name,
+        )
+        return selected or []
 
     # ------------------------------------------------------------------
     # Watermark file I/O
@@ -636,6 +796,12 @@ class FileProvider(BaseMetadataProvider):
         consulted first — avoids rebuilding the full dataflow list on
         every watermark read/write after a bulk-load.
         """
+        self._require_platform()
+        if not self._watermark_base_path:
+            raise WatermarkError(
+                "FileProvider watermark_base_path is not configured; bind a runtime state/log path "
+                "or supply watermark_base_path explicitly"
+            )
         df = self.get_dataflow_by_id(dataflow_id, attach_schema_hints=False)
         if df is not None:
             parts = []
@@ -647,7 +813,19 @@ class FileProvider(BaseMetadataProvider):
             folder = "_".join(parts)
         else:
             folder = dataflow_id
-        return f"{self._watermark_base_path.rstrip('/')}/{folder}/{WATERMARK_FILE_NAME}"
+        # Keep URI/drive roots intact while validating the generated
+        # dataflow-relative path.  String concatenation would turn a root
+        # such as ``file:///`` into ``file:/`` and could let an unsafe ID
+        # escape the provider's watermark base.
+        try:
+            return join_path(
+                self._watermark_base_path,
+                f"{folder}/{WATERMARK_FILE_NAME}",
+            )
+        except ValueError as exc:
+            raise WatermarkError(
+                f"Invalid watermark path for dataflow {dataflow_id!r}"
+            ) from exc
 
     # ------------------------------------------------------------------
     # Abstract method implementations
@@ -666,47 +844,24 @@ class FileProvider(BaseMetadataProvider):
         ``(connection_id, schema_name, table_name)`` so that the
         per-dataflow attach loop becomes a pure cache hit.
         """
+        self._ensure_config_loaded()
         connections = self._build_connections(active_only=False)
         dataflows = self._build_dataflows(active_only=False)
 
-        # Build name -> connection_id map for resolving hint groups that
-        # reference ``connection_name`` rather than ``connection_id``.
-        name_to_id: Dict[str, str] = {c.name: c.connection_id for c in connections}
-        valid_ids: set = {c.connection_id for c in connections}
+        # Parse schema hints through the shared selector/validator.  This
+        # keeps bulk cache population identical to direct cache-disabled reads.
+        return connections, dataflows, self._build_grouped_schema_hints(connections)
 
-        raw_hints = self._data.get("schema_hints", [])
-        if not isinstance(raw_hints, list):
-            raise MetadataError(
-                f"'schema_hints' must be a list of group objects, got {type(raw_hints).__name__!r}. "
-                'Expected format: [{"connection_name": "...", "table_name": "...", "hints": [...]}]'
-            )
-        grouped: Dict[Tuple[str, Optional[str], str], List[SchemaHint]] = {}
-        for i, group in enumerate(raw_hints):
-            if not isinstance(group, dict):
-                raise MetadataError(
-                    f"'schema_hints[{i}]' must be a dict, got {type(group).__name__!r}. "
-                    'Expected format: {"connection_name": "...", "table_name": "...", "hints": [...]}'
-                )
-            conn_ref = group.get("connection_name") or group.get("connection_id")
-            table = group.get("table_name")
-            if not conn_ref or not table:
-                continue
-            if conn_ref in valid_ids:
-                conn_id = conn_ref
-            else:
-                conn_id = name_to_id.get(conn_ref)
-            if not conn_id:
-                continue
-            schema = group.get("schema_name") or None  # normalise '' -> None
-            key = (conn_id, schema, table)
-            for hint_raw in group.get("hints", []):
-                try:
-                    grouped.setdefault(key, []).append(SchemaHint(**hint_raw))
-                except Exception as exc:
-                    raise MetadataError(
-                        f"Invalid schema hint for {table}: {hint_raw}"
-                    ) from exc
-        return connections, dataflows, grouped
+    def _build_grouped_schema_hints(
+        self,
+        connections: List[Connection],
+    ) -> Dict[Tuple[str, Optional[str], str], List[SchemaHint]]:
+        """Build and normalize all schema-hint groups from the snapshot."""
+        return build_grouped_schema_hints(
+            self._data.get("schema_hints", []),
+            connections,
+            origins=self._metadata_origins,
+        )
 
     def _fetch_connections(self, *, active_only: bool = True) -> List[Connection]:
         return self._build_connections(active_only=active_only)
@@ -739,14 +894,16 @@ class FileProvider(BaseMetadataProvider):
 
     def get_watermark(self, dataflow_id: str) -> Optional[str]:
         """Return the raw watermark JSON string for *dataflow_id*, or ``None``."""
-        path = self._watermark_path(dataflow_id)
-        try:
-            if not self._platform.file_exists(path):
-                return None
-            raw = self._platform.read_file(path)
-            return raw if raw and raw.strip() else None
-        except Exception as exc:
-            raise WatermarkError(f"Cannot read watermark at {path}") from exc
+        with self._runtime_operation():
+            platform = self._require_platform()
+            path = self._watermark_path(dataflow_id)
+            try:
+                if not platform.file_exists(path):
+                    return None
+                raw = platform.read_file(path)
+                return raw if raw and raw.strip() else None
+            except Exception as exc:
+                raise WatermarkError(f"Cannot read watermark at {path}") from exc
 
     def update_watermark(
         self,
@@ -757,11 +914,13 @@ class FileProvider(BaseMetadataProvider):
         dataflow_run_id: Optional[str] = None,
     ) -> None:
         """Write the serialised watermark JSON to a file."""
-        path = self._watermark_path(dataflow_id)
-        try:
-            self._platform.write_file(path, watermark_value, overwrite=True)
-        except Exception as exc:
-            raise WatermarkError(f"Cannot write watermark at {path}") from exc
+        with self._runtime_operation():
+            platform = self._require_platform()
+            path = self._watermark_path(dataflow_id)
+            try:
+                platform.write_file(path, watermark_value, overwrite=True)
+            except Exception as exc:
+                raise WatermarkError(f"Cannot write watermark at {path}") from exc
 
     def _fetch_schema_hints(
         self,
@@ -775,11 +934,10 @@ class FileProvider(BaseMetadataProvider):
             schema_name=schema_name,
         )
 
-    def close(self) -> None:
-        """Clear cache, memoised builders, and internal data."""
-        super().close()
+    def _close_resources(self) -> None:
+        """Clear parsed metadata and provider-local memoized models."""
         self._data.clear()
+        self._config_loaded = False
+        self._metadata_origins.clear()
         self._all_connections_cache = None
-        self._active_connections_cache = None
-        self._connection_by_name = None
         self._all_dataflows_cache = None

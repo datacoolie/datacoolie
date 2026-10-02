@@ -11,7 +11,8 @@ from datacoolie.core.constants import (
     DATE_FOLDER_PARTITION_KEY,
     Format,
 )
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.engines.base import BaseEngine
 from datacoolie.sources.base import BaseSourceReader
 
@@ -111,19 +112,35 @@ class MockEngine(BaseEngine[dict]):
     def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
         pass
 
-    def merge_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
         pass
 
-    def merge_overwrite_to_path(self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_overwrite_to_path(
+        self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None
+    ):
         pass
 
-    def write_to_table(self, df, table_name, mode, fmt, partition_columns=None, options=None):
+    def write_to_table(
+        self, df, table_name, mode, fmt, partition_columns=None, options=None
+    ):
         pass
 
-    def merge_to_table(self, df, table_name, merge_keys, fmt, partition_columns=None, options=None):
+    def merge_to_table(
+        self, df, table_name, merge_keys, fmt, partition_columns=None, options=None
+    ):
         pass
 
-    def merge_overwrite_to_table(self, df, table_name, merge_keys, fmt="delta", partition_columns=None, options=None):
+    def merge_overwrite_to_table(
+        self,
+        df,
+        table_name,
+        merge_keys,
+        fmt="delta",
+        partition_columns=None,
+        options=None,
+    ):
         pass
 
     def delete_by_window_path(self, path, window, fmt="delta"):
@@ -152,7 +169,16 @@ class MockEngine(BaseEngine[dict]):
         self._filtered = True
         return df
 
-    def apply_watermark_filter(self, df, watermark_columns, watermark_start, *, start_operator=">", watermark_end=None, end_operator="<"):
+    def apply_watermark_filter(
+        self,
+        df,
+        watermark_columns,
+        watermark_start,
+        *,
+        start_operator=">",
+        watermark_end=None,
+        end_operator="<",
+    ):
         self._filtered = True
         self._filter_watermark = watermark_start
         self._filter_end = watermark_end
@@ -217,7 +243,9 @@ class MockEngine(BaseEngine[dict]):
     def table_exists_by_name(self, table_name, *, fmt="delta"):
         return self._table_exists_result
 
-    def get_history_by_path(self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+    def get_history_by_path(
+        self, path, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
         return self._history[:limit]
 
     def compact_by_path(self, path, *, fmt="delta", options=None):
@@ -227,19 +255,23 @@ class MockEngine(BaseEngine[dict]):
         pass
 
     # --- Table ops by name ---
-    def get_history_by_name(self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"):
+    def get_history_by_name(
+        self, table_name, limit=1, start_time=None, end_time=None, *, fmt="delta"
+    ):
         return self._history[:limit]
 
     def compact_by_name(self, table_name, *, fmt="delta", options=None):
         pass
 
-    def cleanup_by_name(self, table_name, retention_hours=168, *, fmt="delta", options=None):
+    def cleanup_by_name(
+        self, table_name, retention_hours=168, *, fmt="delta", options=None
+    ):
         pass
 
     def get_hive_schema(self, df):
         return {c: "string" for c in self._columns}
 
-    def convert_timestamp_ntz_to_timestamp(self, df):
+    def convert_timestamp_ntz_to_timestamp(self, df, timezone=None):
         return df
 
     def generate_symlink_manifest(self, path):
@@ -346,7 +378,10 @@ def date_folder_source() -> Source:
         name="date_folder",
         connection_type="file",
         format=Format.PARQUET.value,
-        configure={"base_path": "/data/events", "date_folder_partitions": "{year}/{month}/{day}"},
+        configure={
+            "base_path": "/data/events",
+            "date_folder_partitions": "{year}/{month}/{day}",
+        },
     )
     return Source(
         connection=conn,
@@ -385,3 +420,25 @@ class FailingSourceReader(BaseSourceReader[dict]):
 
     def _read_data(self, source, configure=None):
         raise RuntimeError("Boom!")
+
+
+class StatefulSourceReader(BaseSourceReader[dict]):
+    """Reader that produces a watermark once, then an empty result."""
+
+    def __init__(self, engine):
+        super().__init__(engine)
+        self._calls = 0
+
+    def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+        self._calls += 1
+        if self._calls > 1:
+            return None
+        return self._finalize_read(
+            self._engine.read_delta(source.path or ""),
+            ["id"],
+            type(self).__name__,
+            "stateful test source",
+        )
+
+    def _read_data(self, source, configure=None):
+        return self._engine.read_delta(source.path or "")

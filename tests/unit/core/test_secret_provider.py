@@ -1,4 +1,4 @@
-"""Tests for core secret_provider module — BaseSecretProvider, caching, and resolve_secrets."""
+"""Tests for the core secret provider — caching and resolve_secrets."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from datacoolie.core.exceptions import DataCoolieError
-from datacoolie.core.secret_provider import (
+from datacoolie.core.secrets.provider import (
     BaseSecretProvider,
     SecretStr,
     resolve_secrets,
@@ -194,7 +194,7 @@ class TestBaseSecretProvider:
         assert provider.fetch_count == 1  # cached on second call
 
     def test_cache_hit_and_provider_fetch_have_distinct_safe_logs(self, provider, caplog):
-        caplog.set_level(logging.DEBUG, logger="datacoolie.core.secret_provider")
+        caplog.set_level(logging.DEBUG, logger="datacoolie.core.secrets.provider")
 
         provider.get_secret("db-password")
         provider.get_secret("db-password")
@@ -208,7 +208,7 @@ class TestBaseSecretProvider:
             if "Using secret from TTL cache" in record.getMessage()
         ]
         assert len(fetch_records) == 1
-        assert fetch_records[0].levelno == logging.INFO
+        assert fetch_records[0].levelno == logging.DEBUG
         assert len(cache_records) == 1
         assert cache_records[0].levelno == logging.DEBUG
         assert "db-password" not in caplog.text
@@ -297,7 +297,7 @@ class TestResolveSecrets:
         assert unwrap_secret(conn.configure["password"]) == "s3cret!"
 
     def test_repeated_resolution_reuses_existing_secret_str(self, provider, caplog):
-        caplog.set_level(logging.DEBUG, logger="datacoolie.core.secret_provider")
+        caplog.set_level(logging.DEBUG, logger="datacoolie.core.secrets.provider")
         conn = self._make_connection(
             secrets_ref={"some-source": ["password"]},
             configure={"password": "db-password"},

@@ -1,0 +1,28 @@
+{
+  "dataflows": [
+    {
+      "name": "append_events",
+      "stage": "load",
+      "source": {"connection_name": "input", "table": "events"},
+      "destination": {"connection_name": "output", "table": "events_append", "load_type": "append"}
+    },
+    {
+      "name": "full_snapshot",
+      "stage": "load",
+      "source": {"connection_name": "input", "table": "orders"},
+      "destination": {"connection_name": "output", "table": "orders_snapshot", "load_type": "overwrite"}
+    },
+    {
+      "name": "upsert_orders",
+      "stage": "load",
+      "source": {"connection_name": "input", "table": "orders"},
+      "destination": {"connection_name": "output", "table": "orders_upsert", "load_type": "merge_upsert", "merge_keys": ["order_id"]}
+    },
+    {
+      "name": "scd2_customers",
+      "stage": "load",
+      "source": {"connection_name": "input", "table": "customers"},
+      "destination": {"connection_name": "output", "table": "customers_scd2", "load_type": "scd2", "merge_keys": ["customer_id"]}
+    }
+  ]
+}

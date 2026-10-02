@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from datacoolie.core.constants import TRAILING_COLUMNS
 from datacoolie.core.exceptions import ConfigurationError
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.transformers.base import BaseTransformer
+
+
+logger = get_logger(__name__)
 
 
 class HashColumnAdder(BaseTransformer[DF]):
@@ -26,6 +30,7 @@ class HashColumnAdder(BaseTransformer[DF]):
             return df
 
         applied = 0
+        skipped_missing = 0
         reserved = {column.lower() for column in TRAILING_COLUMNS}
         for definition in definitions:
             current = self._engine.get_columns(df)
@@ -37,6 +42,7 @@ class HashColumnAdder(BaseTransformer[DF]):
             ]
             if missing:
                 if dataflow.transform.missing_column_policy == "ignore":
+                    skipped_missing += 1
                     continue
                 raise ConfigurationError(
                     "hash_columns source column not found",
@@ -60,4 +66,11 @@ class HashColumnAdder(BaseTransformer[DF]):
             self._mark_applied(f"{applied} columns")
         else:
             self._mark_skipped()
+        logger.debug(
+            "HashColumnAdder: configured_definitions=%d, added_columns=%d, "
+            "skipped_missing=%d",
+            len(definitions),
+            applied,
+            skipped_missing,
+        )
         return df

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re as _re
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time
 from typing import Any
 
 
@@ -161,7 +161,7 @@ def json_default(obj: Any) -> Any:
     * everything else → ``str(obj)``
 
     Note: a direct ``isinstance(obj, SecretStr)`` check would create a
-    circular import (converters → secret_provider → models → converters),
+    circular import (converters → core.secrets.provider → models → converters),
     so we match on the class name instead.  ``SecretStr.__str__`` also
     returns ``"***"``, but relying solely on that fallback is implicit.
     """

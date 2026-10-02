@@ -1,0 +1,16 @@
+{
+  "connections": [
+    {
+      "name": "source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {"base_path": "./data/input"}
+    },
+    {
+      "name": "destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {"base_path": "./data/output"}
+    }
+  ]
+}

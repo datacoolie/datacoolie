@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS dc_framework_dataflows (
     source_table              VARCHAR(200),
     source_query              TEXT,
     source_python_function    VARCHAR(500),
+    source_filter_expression  TEXT,
     source_watermark_columns  TEXT,
     source_configure          TEXT,
 

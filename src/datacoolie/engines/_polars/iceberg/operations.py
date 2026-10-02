@@ -11,7 +11,7 @@ import polars as pl
 from datacoolie.core.constants import LoadType, SCD2Column
 from datacoolie.core.exceptions import EngineError
 from datacoolie.engines._polars.iceberg import schema as iceberg_schema
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 
@@ -37,17 +37,14 @@ def write_table(
     *,
     catalog: Any,
 ) -> None:
-    from pyiceberg.exceptions import (  # noqa: PLC0415
-        NoSuchTableError,
-        TableAlreadyExistsError,
-    )
+    from pyiceberg.exceptions import TableAlreadyExistsError  # noqa: PLC0415
 
     pyice_id = iceberg_schema.table_id(table_name)
     arrow_table = df.collect().to_arrow()
     table_created = False
-    try:
+    if table_exists(pyice_id, catalog=catalog):
         ice_table = catalog.load_table(pyice_id)
-    except NoSuchTableError:
+    else:
         namespace = pyice_id.rsplit(".", 1)[0] if "." in pyice_id else "default"
         catalog.create_namespace_if_not_exists(namespace)
         try:
@@ -244,11 +241,7 @@ def delete_by_window(table_name: str, predicate: str, *, catalog: Any) -> None:
 
 
 def table_exists(table_name: str, *, catalog: Any) -> bool:
-    try:
-        return catalog.table_exists(iceberg_schema.table_id(table_name))
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("table_exists check failed, assuming absent: %s", exc)
-        return False
+    return catalog.table_exists(iceberg_schema.table_id(table_name))
 
 
 def history(

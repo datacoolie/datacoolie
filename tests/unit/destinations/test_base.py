@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any, Dict, List
 from unittest.mock import patch
 
@@ -11,10 +10,11 @@ import pytest
 from datacoolie.core.constants import (
     DEFAULT_RETENTION_HOURS,
     DataFlowStatus,
+    Format,
     MaintenanceType,
 )
 from datacoolie.core.exceptions import DestinationError
-from datacoolie.core.models import DataFlow
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.destinations.base import BaseDestinationWriter
 
 from tests.unit.destinations.support import MockEngine, _make_dataflow, engine
@@ -102,6 +102,20 @@ class FailingWriter(BaseDestinationWriter[dict]):
         )
 
 
+class TypedFailingWriter(BaseDestinationWriter[dict]):
+    """Writer that raises an already-typed destination error."""
+
+    def _write_internal(self, df, dataflow):
+        raise DestinationError("typed write failure")
+
+    def _maintain_internal(self, dataflow, *, do_compact, do_cleanup, retention_hours):
+        return _default_maintain(
+            self, dataflow,
+            do_compact=do_compact, do_cleanup=do_cleanup,
+            retention_hours=retention_hours,
+        )
+
+
 class MetricsWriter(BaseDestinationWriter[dict]):
     """Writer that returns synthetic maintenance metrics for coverage tests."""
 
@@ -177,6 +191,14 @@ class TestBaseDestinationWriter:
             writer.write({"data": 1}, df)
         info = writer.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
+
+    def test_typed_write_failure_records_message(self, engine: MockEngine) -> None:
+        writer = TypedFailingWriter(engine)
+        with pytest.raises(DestinationError, match="typed write failure"):
+            writer.write({"data": 1}, _make_dataflow())
+        info = writer.get_runtime_info()
+        assert info.status == DataFlowStatus.FAILED.value
+        assert info.message == "typed write failure"
 
     def test_write_records_timing(self, engine: MockEngine) -> None:
         writer = ConcreteWriter(engine)
@@ -266,6 +288,11 @@ class TestMaintenanceOperations:
         info = writer.run_maintenance(df)
         assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.SKIPPED.value
+        assert {
+            entry["message"]
+            for entry in info.operation_details
+            if entry.get("status") == DataFlowStatus.SKIPPED.value
+        } == {"Destination table does not exist"}
 
     def test_run_maintenance_no_path_uses_table_name(self, engine: MockEngine) -> None:
         """When no path is set, maintenance routes to _by_name methods using full_table_name."""
@@ -303,17 +330,12 @@ class TestMaintenanceOperations:
 
     def test_run_maintenance_fails_when_no_path_and_no_table_name(self, engine: MockEngine) -> None:
         writer = ConcreteWriter(engine)
-        dataflow = SimpleNamespace(
-            destination=SimpleNamespace(
-                path="",
-                full_table_name="",
-                connection=SimpleNamespace(format="delta"),
-            )
-        )
-        info = writer.run_maintenance(dataflow)  # type: ignore[arg-type]
+        dataflow = _make_dataflow(dest_format=Format.PARQUET.value)
+        dataflow.destination.connection.configure.pop("base_path", None)
+        info = writer.run_maintenance(dataflow)
         assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.FAILED.value
-        assert info.error_message == "Destination path or table name is required"
+        assert info.message == "Destination path or table name is required"
 
     def test_run_maintenance_operational_failure_updates_runtime_info(
         self,
@@ -331,7 +353,7 @@ class TestMaintenanceOperations:
 
         assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.FAILED.value
-        assert info.error_message == "maintenance failed"
+        assert info.message == "maintenance failed"
 
     def test_run_maintenance_enriches_sub_results_with_engine_metrics(self, engine: MockEngine) -> None:
         engine.set_table_exists(True)
@@ -408,6 +430,6 @@ class TestRunOpExceptionPath:
         )
 
         assert result["status"] == DataFlowStatus.FAILED.value
-        assert "boom" in result["error_message"]
+        assert "boom" in result["message"]
         assert len(errors) == 1
         assert "Compact: boom" in errors[0]

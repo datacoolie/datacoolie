@@ -13,7 +13,9 @@ import pytest
 
 from datacoolie.core.constants import DataFlowStatus, Format
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
+from datacoolie.sources import SourceReadRange
 from datacoolie.sources.python_function_reader import PythonFunctionReader
 
 from tests.unit.sources.support import MockEngine, engine
@@ -48,6 +50,18 @@ def _none_loader(engine, source, watermark_start=None, watermark_end=None):
 def _failing_loader(engine, source, watermark_start=None, watermark_end=None):
     """Raises an intentional error."""
     raise ValueError("intentional boom")
+
+
+def _bounded_loader(
+    engine,
+    source,
+    watermark_start=None,
+    watermark_end=None,
+    *,
+    read_range=None,
+):
+    """Accepts the source-owned bounded-read keyword."""
+    return engine._data
 
 
 # ============================================================================
@@ -123,6 +137,91 @@ class TestPythonFunctionReader:
         ):
             reader.read(src, watermark_start={"modified_at": "2024-01-01"})
         assert captured["watermark_start"] == {"modified_at": "2024-01-01"}
+
+    def test_bounded_read_forwards_range_and_null_incremental_bounds(
+        self, engine: MockEngine
+    ) -> None:
+        captured: Dict[str, Any] = {}
+
+        def _capture_bounded_loader(
+            engine,
+            source,
+            watermark_start=None,
+            watermark_end=None,
+            *,
+            read_range=None,
+        ):
+            captured.update(
+                watermark_start=watermark_start,
+                watermark_end=watermark_end,
+                read_range=read_range,
+            )
+            return engine._data
+
+        reader = PythonFunctionReader(engine)
+        src = _make_python_function_source(
+            "tests.unit.sources.test_python_function_reader._bounded_loader",
+            watermark_columns=["id"],
+        )
+        bounded = SourceReadRange("id", 1, 3)
+        with patch.object(
+            PythonFunctionReader,
+            "_resolve_function",
+            return_value=_capture_bounded_loader,
+        ):
+            result = reader.read(src, read_range=bounded)
+
+        assert result is not None
+        assert captured == {
+            "watermark_start": None,
+            "watermark_end": None,
+            "read_range": bounded,
+        }
+        assert reader.get_runtime_info().watermark_start_operator == ">="
+        assert reader.get_runtime_info().watermark_end_operator == "<"
+
+    def test_bounded_read_rejects_legacy_function_before_invocation(
+        self, engine: MockEngine
+    ) -> None:
+        invoked = False
+
+        def _legacy_loader(engine, source, watermark_start=None, watermark_end=None):
+            nonlocal invoked
+            invoked = True
+            return engine._data
+
+        reader = PythonFunctionReader(engine)
+        src = _make_python_function_source(
+            "tests.unit.sources.test_python_function_reader._sample_loader"
+        )
+        with patch.object(
+            PythonFunctionReader,
+            "_resolve_function",
+            return_value=_legacy_loader,
+        ):
+            with pytest.raises(SourceError, match="must accept a read_range keyword"):
+                reader.read(src, read_range=SourceReadRange("id", 1, 3))
+
+        assert invoked is False
+
+    def test_bounded_kwargs_failure_is_not_retried_unbounded(self, engine: MockEngine) -> None:
+        calls = []
+        bounded = SourceReadRange("id", 1, 3)
+
+        def loader(engine, source, **kwargs):
+            calls.append(kwargs)
+            raise RuntimeError("bounded loader failed")
+
+        source = _make_python_function_source(
+            "tests.unit.sources.test_python_function_reader._sample_loader",
+        )
+        with patch.object(PythonFunctionReader, "_resolve_function", return_value=loader):
+            with pytest.raises(SourceError, match="bounded loader failed"):
+                PythonFunctionReader(engine).read(source, read_range=bounded)
+        assert len(calls) == 1
+        assert calls[0]["read_range"] == bounded
+        assert calls[0]["watermark_start"] is None
+        assert calls[0]["watermark_end"] is None
 
     def test_no_post_filter_without_watermark(self, engine: MockEngine) -> None:
         """When no watermark is passed, post-filter is skipped."""

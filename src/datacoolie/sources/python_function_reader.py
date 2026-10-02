@@ -28,12 +28,13 @@ The function signature must be::
 from __future__ import annotations
 
 import importlib
+import inspect
 from typing import Any, Callable, Dict, List, Optional
 
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Source
+from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
 
 logger = get_logger(__name__)
@@ -62,6 +63,14 @@ class PythonFunctionReader(BaseSourceReader[DF]):
     def __init__(self, engine: BaseEngine[DF], allowed_prefixes: Optional[List[str]] = None) -> None:
         super().__init__(engine)
         self._allowed_prefixes: List[str] = allowed_prefixes or []
+
+    def _supports_read_range(self) -> bool:
+        return True
+
+    def _watermark_ordering_kinds(self, candidate: Dict[str, Any]) -> Dict[str, str]:
+        """Authorize typed row maxima returned by the function adapter."""
+
+        return self._typed_row_watermark_ordering_kinds(candidate)
 
     # ------------------------------------------------------------------
     # Core reading
@@ -93,7 +102,9 @@ class PythonFunctionReader(BaseSourceReader[DF]):
             return None
 
         # Post-function watermark filter (engine-level precision)
-        if (watermark_start or watermark_end) and source.watermark_columns:
+        if self._get_read_range() is not None:
+            df = self._apply_read_range_filter(df)
+        elif (watermark_start or watermark_end) and source.watermark_columns:
             df = self._apply_watermark_filter(df, source.watermark_columns, watermark_start or {}, watermark_end)
 
         df = self._apply_filter_expression(df, source)
@@ -123,8 +134,31 @@ class PythonFunctionReader(BaseSourceReader[DF]):
 
         func = self._resolve_function(func_path, self._allowed_prefixes)
 
+        kwargs = {
+            "engine": self._engine,
+            "source": source,
+            "watermark_start": watermark_start,
+            "watermark_end": watermark_end,
+        }
+        if self._get_read_range() is not None:
+            try:
+                parameters = inspect.signature(func).parameters
+            except (TypeError, ValueError) as exc:
+                raise SourceError(
+                    f"{type(self).__name__}: cannot inspect bounded function "
+                    f"'{func_path}' for read_range support"
+                ) from exc
+            if "read_range" not in parameters and not any(
+                parameter.kind is inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            ):
+                raise SourceError(
+                    f"{type(self).__name__}: bounded read function '{func_path}' "
+                    "must accept a read_range keyword"
+                )
+            kwargs["read_range"] = self._get_read_range()
         try:
-            return func(engine=self._engine, source=source, watermark_start=watermark_start, watermark_end=watermark_end)
+            return func(**kwargs)
         except Exception as exc:
             raise SourceError(
                 f"{type(self).__name__}: Python function '{func_path}' raised an error: {exc}",

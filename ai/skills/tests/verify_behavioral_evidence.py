@@ -83,19 +83,28 @@ def _eval_definitions(skill_dir: Path) -> tuple[Path, dict[str, Any], list[dict[
         if any(not isinstance(item, str) or not item.strip() for item in expectations):
             raise ValueError("Behavioral eval expectations must be non-empty strings")
     version = document.get("eval_schema_version")
-    if version is not None:
-        if len(ids) != len(set(ids)):
-            raise ValueError("Behavioral eval ids must be unique")
-        if version != EVAL_DEFINITION_VERSION:
-            raise ValueError(f"Unsupported behavioral eval definition version: {version}")
-        allowed = {"skill_name", "eval_schema_version", "case_kinds", "capability_families", "evals"}
-        if set(document) != allowed:
-            raise ValueError("Versioned eval catalog has missing or unknown top-level fields")
-        _validate_versioned_catalog(skill_dir, document, cases, ids)
+    if version != EVAL_DEFINITION_VERSION:
+        if version is None:
+            raise ValueError(
+                f"Behavioral eval definition must declare eval_schema_version {EVAL_DEFINITION_VERSION}"
+            )
+        raise ValueError(f"Unsupported behavioral eval definition version: {version}")
+    if len(ids) != len(set(ids)):
+        raise ValueError("Behavioral eval ids must be unique")
+    allowed = {"skill_name", "eval_schema_version", "case_kinds", "capability_families", "evals"}
+    if set(document) != allowed:
+        raise ValueError("Versioned eval catalog has missing or unknown top-level fields")
+    _validate_versioned_catalog(skill_dir, document, cases, ids)
     return path, document, cases
 
 
-def _validate_id_partition(value: Any, ids: list[int], label: str) -> dict[str, list[int]]:
+def _validate_id_partition(
+    value: Any,
+    ids: list[int],
+    label: str,
+    *,
+    allow_empty_members: bool = False,
+) -> dict[str, list[int]]:
     if not isinstance(value, dict) or not value:
         raise ValueError(f"{label} must be a non-empty object")
     flattened: list[int] = []
@@ -105,10 +114,17 @@ def _validate_id_partition(value: Any, ids: list[int], label: str) -> dict[str, 
             or not name
             or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in name)
             or not isinstance(members, list)
-            or not members
+            or (not members and not allow_empty_members)
             or any(not isinstance(item, int) or isinstance(item, bool) for item in members)
         ):
-            raise ValueError(f"{label} entries require kebab-case names and non-empty integer lists")
+            member_description = (
+                "integer lists"
+                if allow_empty_members
+                else "non-empty integer lists"
+            )
+            raise ValueError(
+                f"{label} entries require kebab-case names and {member_description}"
+            )
         if len(members) != len(set(members)):
             raise ValueError(f"{label} contains duplicate ids within {name}")
         flattened.extend(members)
@@ -126,7 +142,9 @@ def _validate_versioned_catalog(
     raw_kinds = document.get("case_kinds")
     if not isinstance(raw_kinds, dict) or set(raw_kinds) != {"decision", "execution"}:
         raise ValueError("case_kinds must contain exactly decision and execution")
-    kinds = _validate_id_partition(raw_kinds, ids, "case_kinds")
+    kinds = _validate_id_partition(
+        raw_kinds, ids, "case_kinds", allow_empty_members=True
+    )
     _validate_id_partition(
         document.get("capability_families"), ids, "capability_families"
     )

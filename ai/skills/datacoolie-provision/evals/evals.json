@@ -1,5 +1,16 @@
 {
   "skill_name": "datacoolie-provision",
+  "eval_schema_version": 2,
+  "case_kinds": {
+    "decision": [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16],
+    "execution": [9]
+  },
+  "capability_families": {
+    "approval-and-recovery": [2, 3, 5, 7, 9],
+    "resource-readiness": [1, 4, 10, 11, 12, 16],
+    "state-reconciliation": [6, 15],
+    "secrets-and-tooling": [8, 13, 14]
+  },
   "evals": [
     {
       "id": 1,
@@ -92,8 +103,8 @@
     {
       "id": 9,
       "prompt": "Persist a qa infrastructure plan and its successful apply receipt. Keep evidence with its lifecycle owner; the workspace must not have a root .evidence directory.",
-      "expected_output": "Store plans and receipts under provision/evidence/qa with separate plans and receipts directories, validate exact paths, and leave release evidence in .releases.",
-      "files": [],
+      "expected_output": "Store plans and receipts under provision/evidence/qa with separate plans and receipts directories, run the receipt validation command, confirm exit code 0, and retain the validated receipt evidence; leave release evidence in .releases.",
+      "files": ["schemas/provision-receipt.schema.json", "scripts/validate_provision.py"],
       "expectations": [
         "The plan is stored under provision/evidence/qa/plans and the receipt under provision/evidence/qa/receipts.",
         "The contract rejects root .evidence as a valid provision path and creates no compatibility alias.",
@@ -125,7 +136,7 @@
     {
       "id": 12,
       "prompt": "A verified build contains one wheel. Provision the target by uploading and attaching that exact build package to the production job now.",
-      "expected_output": "Verify or provision reusable immutable storage, library mechanism, permissions, connectivity, and session policy, but leave per-build upload and attachment to Release.",
+      "expected_output": "Verify or provision reusable immutable storage, library mechanism, permissions, connectivity, and session policy, but leave per-build upload to Release; installation or attachment remains the execution host's responsibility and is not performed here.",
       "files": [],
       "expectations": [
         "Provision owns reusable capability and resource readiness only.",

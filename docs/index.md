@@ -1,5 +1,5 @@
 ---
-description: DataCoolie is metadata-driven Python ETL for Polars, Spark, Fabric, Databricks, and AWS Glue, with portable intent and target-specific runners.
+description: DataCoolie is a metadata-driven, multi-engine and multi-platform Python data pipeline framework for SQL and Python dataflows.
 ---
 
 <p align="center">
@@ -9,34 +9,39 @@ description: DataCoolie is metadata-driven Python ETL for Polars, Spark, Fabric,
   </picture>
 </p>
 
+# DataCoolie — Multi-Engine, Multi-Platform Data Pipeline Framework
 
-# DataCoolie — Metadata-Driven ETL Framework for Python
+> Build metadata-driven pipelines with SQL and Python. Run with Polars or Spark
+> across Local, AWS, Microsoft Fabric and Databricks, and distribute workloads
+> across independently launched jobs.
 
-> Metadata-driven ETL framework — engine-unified, cloud-agnostic, batch-first.
-
-DataCoolie exists to stop ETL pipelines from being rewritten every time the
-engine, platform, or operating environment changes. Instead of maintaining
-separate local scripts, Spark jobs, and cloud-specific glue code, teams
-describe pipeline intent once as **metadata** (JSON / YAML / Excel / database /
-REST API) and execute it on the engine and platform they need.
+DataCoolie keeps pipeline intent separate from execution details. Teams can
+describe connections, dataflows, transforms and operational controls as
+**metadata** (JSON / YAML / Excel / database / REST API), use SQL or a custom
+Python function to produce a DataFrame, and execute compatible intent on the
+engine and platform they need.
 
 If you are comparing tools, start with the
-[Python ETL framework decision guide](python-etl-framework.md) to see where
-DataCoolie fits alongside dataframe engines, SQL transformation tools, and
-workflow orchestrators.
+[Data pipeline framework introduction](introduction/index.md) to understand
+the framework boundary and its ecosystem. The [Python ETL framework decision
+guide](introduction/choose-framework.md) adds workload-oriented comparison with
+dataframe engines, SQL transformation tools, and workflow orchestrators.
 
-That helps in four practical ways:
+That helps in six practical ways:
 
 - **Metadata-driven** — connections, dataflows, transforms, schema hints,
-    partitions, and load strategies stay declarative.
+  partitions, and load strategies stay declarative.
 - **Efficient for small and medium jobs** — lighter runtimes like Polars or
-    local execution can avoid cluster overhead when scale does not require
-    Spark.
+  local execution can avoid cluster overhead when scale does not require
+  Spark.
 - **Portable** — reuse one canonical metadata model on Fabric, Databricks, or
-    AWS with environment overlays and target-specific runners.
+  AWS with environment overlays and target-specific runners.
 - **Consistent operations** — watermarks, logging, maintenance, and load
-    behavior follow the same model across environments.
-
+  behavior follow the same model across environments.
+- **SQL and Python sources** — a source can combine multiple operations into
+  one result DataFrame; built-in transformers then work on that current frame.
+- **Independent job scale-out** — an external orchestrator can launch multiple
+  Driver sessions and use stable modulo sharding for a stage.
 
 ```mermaid
 flowchart LR
@@ -45,6 +50,24 @@ flowchart LR
     C --> D["Platform\n(Local | AWS | Fabric | Databricks)"]
     D --> E["Storage\n(Delta | Iceberg | Parquet)"]
 ```
+
+## How scale is divided
+
+DataCoolie has three independent scaling layers:
+
+1. An external orchestrator launches Driver sessions and assigns each one a
+   `job_num` and `job_index`.
+2. Each Driver schedules its assigned dataflows with its own `max_workers`,
+   group and execution-order rules.
+3. Polars or Spark performs the DataFrame work using the engine and host
+   resources selected by the runner.
+
+Grouped dataflows are assigned by `group_number % job_num`; ungrouped dataflows
+use a stable MD5 hash of their ID modulo `job_num`. This is deterministic, not
+random, and does not promise equal row counts, equal table counts or equal
+runtime per job. The external orchestrator must wait for all shards before a
+dependent stage starts. See [orchestration](reference/concepts/orchestration.md) for the
+full contract.
 
 ## Who is DataCoolie for?
 
@@ -55,33 +78,39 @@ flowchart LR
 
 !!! tip "Start here"
     If you are new to DataCoolie and want the fastest path to a working
-    pipeline, start with [Getting started](getting-started/installation.md).
+    pipeline, start with the [User guide](guide/getting-started/installation.md).
 
-    If you mainly want to understand the model before touching code, read
-    [Concepts](concepts/architecture.md) after your first quickstart or when you
-    need deeper explanations.
+    If you mainly want to understand the model before touching code, read the
+    [introduction](introduction/index.md) and then the technical
+    [concepts](reference/concepts/architecture.md).
 
 ## Choose by goal
 
 - **I want my first pipeline to run**
-    Start with [Getting started](getting-started/installation.md). For most new
-    users, the best first path is Installation → Quickstart · Polars → Your first
-    metadata guide.
+  Start with the [User guide](guide/getting-started/installation.md). For most new
+  users, the best first path is Installation → Quickstart · Polars → Your first
+  metadata guide.
 - **I need to understand metadata and workflow design**
-    Start with [How-to · Metadata guide for new users](how-to/metadata-guide/index.md),
-    then read [Concepts](concepts/index.md) for the deeper model.
+  Start with [Metadata guide for new users](guide/metadata/index.md),
+  then read [Concepts](reference/concepts/index.md) for the deeper model.
 - **I need to deploy, operate, or troubleshoot**
-    Go to [How-to guides](how-to/index.md) for task recipes and then
-    [Operations](operations/index.md) for logging, benchmarks, and troubleshooting.
+  Go to the [User guide](guide/index.md) for task recipes, then use
+  [logging and troubleshooting](guide/operations/logging.md) for operations guidance.
+- **I want to scaffold, validate, inspect, or build a project**
+  Start with the [DataCoolie CLI](guide/cli/index.md), then follow the
+  [project configuration and workflow](guide/cli/project.md).
 - **I want to explore metadata, lineage, and run health visually**
-    Open [DataCoolie Studio](datacoolie-studio.md), the local-first companion UI
-    for projects, environments, metadata, assets, lineage, sources, and ETL logs.
+  Open [DataCoolie Studio](studio/index.md), the local-first companion UI
+  for projects, environments, metadata, assets, lineage, sources, and ETL logs.
 - **I want an AI agent to build a verified DataCoolie project**
-    Install the official [DataCoolie Skills](getting-started/ai-assisted-workflow.md),
-    then watch the [multi-cloud Medallion walkthrough](tutorials/wwi-medallion-multicloud.md).
+  Install the official [DataCoolie Skills](introduction/ai-skills.md),
+  then watch the [multi-cloud Medallion walkthrough](examples/wwi-medallion-multicloud.md).
 - **I want to extend the framework**
-    Start with [Extending](extending/index.md) and use
-    [Reference](reference/index.md) for the exact contracts and API surfaces.
+  Start with [Extensions](extensions/index.md) and use
+  [Reference](reference/index.md) for the exact contracts and API surfaces.
+- **I need the project/runtime contract**
+  Read the [user guide](guide/index.md) and its
+  [runtime configuration](guide/operations/runtime-configuration.md) page.
 
 ## Quick start in two scripts
 
@@ -176,52 +205,52 @@ configuration.
 ## What DataCoolie gives you
 
 | Capability | What it means for you |
-|---|---|
+| --- | --- |
 | **Engine-unified** | Compatible pipeline intent runs on Polars and Spark. `BaseEngine[DF]` is the shared contract; target-specific runners select the implementation. |
 | **Cloud-agnostic** | `local`, `aws`, `fabric`, and `databricks` platforms abstract file I/O and secrets while environment overlays carry target paths and catalogs. |
-| **Metadata-driven** | Connections, dataflows, transforms, schema hints, partitions, and load strategies are *declarative*. Code is for extension points, not orchestration. |
+| **Metadata-driven** | Connections, dataflows, transforms, schema hints, partitions, and load strategies are *declarative*. Runner code still owns engine setup, imports and host-specific registration. |
 | **Right-sized compute** | Small and medium jobs can stay on Polars or local execution; move to Spark when scale or platform requirements justify it. |
 | **Batch-first** | `append`, `overwrite`/`full_load`, `merge_upsert`, `merge_overwrite`, and `scd2` (SCD Type 2) on supported destinations. Micro-batch and streaming are on the roadmap. |
 | **Lakehouse-native** | First-class Delta Lake and Apache Iceberg through the shared `fmt=` engine API; concrete addressing and dependency support varies by engine. |
-| **Extensible components** | Engines, platforms, sources, destinations, transformers, and secret resolvers use registries with [entry-point discovery](reference/plugin-entry-points.md); built-ins are also registered in-process. |
-| **Observable by default** | Structured `ETLLogger` (dataflow entries + job summary) and `SystemLogger` ship with the framework. |
+| **Extensible components** | Engines, platforms, sources, destinations, transformers, metadata providers, and secret resolvers have explicit contracts; entry-point discovery is available for declared plugin groups. |
+| **Observable by default** | Structured `ExecutionLogger` (dataflow entries + job summary) and `SystemLogger` ship with the framework. |
 
 ## Where to next
 
 <div class="grid cards" markdown>
 
--   :material-rocket-launch: **Getting started**
+-   :material-rocket-launch: **User guide**
 
     ---
 
     Install, run the quickstarts, and execute your first dataflow.
 
-    [:octicons-arrow-right-24: Start here](getting-started/installation.md)
+    [:octicons-arrow-right-24: Start here](guide/index.md)
 
--   :material-book-open-variant: **Concepts**
-
-    ---
-
-    Best place to learn the workflow, metadata model, and control points without
-    needing to run code.
-
-    [:octicons-arrow-right-24: Learn the model](concepts/architecture.md)
-
--   :material-cookie-outline: **How-to guides**
+-   :material-book-open-variant: **Reference**
 
     ---
 
-    Task-oriented recipes lifted from the `usecase-sim` testbed.
+    Concepts, generated contracts, environment settings, and Python API
+    signatures live together in the reference.
 
-    [:octicons-arrow-right-24: Find a recipe](how-to/index.md)
+    [:octicons-arrow-right-24: Open the reference](reference/index.md)
 
--   :material-puzzle-outline: **Extending**
+-   :material-code-braces: **Examples and templates**
+
+    ---
+
+    Small runner/project fixtures and a complete multi-cloud walkthrough.
+
+    [:octicons-arrow-right-24: Browse examples](examples/index.md)
+
+-   :material-puzzle-outline: **Extensions**
 
     ---
 
     Write a source, destination, transformer, engine, or secret resolver.
 
-    [:octicons-arrow-right-24: Build a plugin](extending/index.md)
+    [:octicons-arrow-right-24: Build a plugin](extensions/index.md)
 
 -   :material-monitor-dashboard: **DataCoolie Studio**
 
@@ -230,7 +259,7 @@ configuration.
     Explore metadata, lineage, assets, sources, and ETL run health in a
     local-first visual workspace.
 
-    [:octicons-arrow-right-24: Explore Studio](datacoolie-studio.md)
+    [:octicons-arrow-right-24: Explore Studio](studio/index.md)
 
 -   :material-robot: **DataCoolie Skills**
 
@@ -239,16 +268,16 @@ configuration.
     Use the official AI-assisted workflow to discover, design, build, provision,
     and release verified DataCoolie projects.
 
-    [:octicons-arrow-right-24: Install the Skills](getting-started/ai-assisted-workflow.md)
+    [:octicons-arrow-right-24: Install the Skills](introduction/ai-skills.md)
 
 </div>
 
 ## Support matrix
 
 | Engine | Platforms | Read formats | Write formats | Load types² |
-|---|---|---|---|---|
-| **Spark** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta, iceberg, parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
-| **Polars** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta¹, iceberg², parquet, csv, json, jsonl, avro | append, full_load, overwrite, merge_upsert, merge_overwrite, scd2 |
+| --- | --- | --- | --- | --- |
+| **Spark** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta, iceberg, parquet, csv, json, jsonl, avro | `append`, `full_load`, `overwrite`, `merge_upsert`, `merge_overwrite`, `scd2` |
+| **Polars** | local · aws · fabric · databricks | delta, iceberg, parquet, csv, json, jsonl, avro, excel, sql, api, function | delta¹, iceberg², parquet, csv, json, jsonl, avro | `append`, `full_load`, `overwrite`, `merge_upsert`, `merge_overwrite`, `scd2` |
 
 ¹ Polars writes Delta to path only — named Delta tables require Spark.
 ² Polars Iceberg writes use catalog-backed named-table operations; a generic path-based Iceberg write is not implemented. `merge_upsert`, `merge_overwrite`, and `scd2` require a lakehouse destination (delta or iceberg). File formats support `append`, `full_load`, and `overwrite` only. Named-table and catalog support still depends on the selected engine and optional dependencies.
@@ -259,36 +288,31 @@ registry of every built-in plugin.
 ## Frequently asked questions
 
 ??? question "What is DataCoolie?"
+
     DataCoolie is an open-source, metadata-driven ETL framework for Python. You define pipeline intent as JSON, YAML, or Excel metadata and reuse that canonical model on Polars, Spark, Microsoft Fabric, Databricks, or AWS Glue with environment-specific overlays and runners. It handles connections, dataflows, transforms, load strategies, watermarks, and schema hints declaratively.
 
 ??? question "How is DataCoolie different from dbt, Airflow, or Prefect?"
-    DataCoolie focuses on the **ETL execution layer**, not orchestration or SQL transforms. Unlike dbt (SQL-first transforms), DataCoolie runs Python-native dataframe operations. Unlike Airflow/Prefect (workflow schedulers), DataCoolie handles the read → transform → write → watermark lifecycle inside each job. You can use DataCoolie *inside* an Airflow DAG or Prefect flow. Read the full comparisons: [DataCoolie vs dbt](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-dbt--etl-framework-vs-sql-transforms/) · [DataCoolie vs Airflow/Prefect](https://datacoolie.github.io/datacoolie/blog/2026/05/30/datacoolie-vs-airflow--prefect--etl-framework-vs-orchestrator/).
 
-??? question "Does DataCoolie work with Polars and Spark?"
-    Yes. DataCoolie provides a unified `BaseEngine[DF]` contract. Compatible dataflow intent can run on `PolarsEngine` for lightweight local development and `SparkEngine` for distributed workloads; the runner and runtime dependencies change, and environment overlays supply target-specific configuration.
+    DataCoolie is the data pipeline execution layer, while an external scheduler owns when jobs start and how stage barriers are coordinated. Unlike a SQL-only compiler, a DataCoolie source can be SQL or Python and the resulting frame can use built-in DataFrame transforms. You can use DataCoolie inside an Airflow DAG, Prefect flow, Glue job launcher or another orchestrator. Read the [framework choice guide](introduction/choose-framework.md) for the trade-offs.
 
-??? question "Can I use DataCoolie on Microsoft Fabric?"
-    Yes. DataCoolie ships a `FabricPlatform` that handles OneLake file I/O and Key Vault secrets natively. The [Deploy to Fabric](how-to/deploy-to-fabric.md) guide walks through notebook setup step by step.
+??? question "What engines and platforms does DataCoolie support?"
 
-??? question "Is DataCoolie free and open source?"
-    Yes. DataCoolie is licensed under [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE). Install from PyPI with `pip install datacoolie`.
+    DataCoolie provides a unified `BaseEngine[DF]` contract for `PolarsEngine` and `SparkEngine`. The same compatible intent can run locally or on AWS, Microsoft Fabric, and Databricks; the runner, runtime dependencies, and environment overlays supply target-specific behavior. See the [platform concept](reference/concepts/platforms.md) and the [Fabric guide](guide/platforms/fabric.md).
 
-??? question "What data formats does DataCoolie support?"
-    Built-in engines read and write Delta Lake, Apache Iceberg, Parquet, CSV, JSON, JSONL, and Avro where the selected addressing mode and optional dependencies support them. They read Excel. DataCoolie also supports SQL database sources, REST API sources, and custom Python function sources (which must return an engine-compatible DataFrame). Format selection is per-dataflow in metadata.
+??? question "How does DataCoolie scale a large stage?"
 
-??? question "Does DataCoolie support SCD Type 2 and merge/upsert?"
-    Yes. DataCoolie has built-in load strategies for `append`, `full_load` (overwrite), `merge_upsert`, `merge_overwrite`, and `scd2` on supported lakehouse destinations. Merge keys, effective columns, and SCD2 behavior are declared in metadata. See [Merge & SCD2](how-to/merge-and-scd2.md).
+    An external orchestrator can launch several Driver sessions with the same `job_num` and distinct `job_index` values. Groups use modulo assignment and ungrouped dataflows use a stable ID hash; each Driver then applies its own `max_workers` and the selected engine uses its own compute resources. DataCoolie does not promise equal-sized shards or wait for sibling jobs, so the orchestrator owns the stage barrier. See the [orchestration concept](reference/concepts/orchestration.md).
 
 ## License
 
 [AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE) —
-free and open source. See [Contributing](contributing.md) for contribution terms.
+free and open source. See [Contributing](project/contributing.md) for contribution terms.
 
 ## Community
 
 - [GitHub Issues](https://github.com/datacoolie/datacoolie/issues) — report bugs and request features
-- [Contributing guide](contributing.md) — how to contribute code, docs, or ideas
-- :star: [Star us on GitHub](https://github.com/datacoolie/datacoolie) if DataCoolie saves you time
+- [Contributing guide](project/contributing.md) — how to contribute code, docs, or ideas
+- [Star us on GitHub](https://github.com/datacoolie/datacoolie) if DataCoolie saves you time
 
 ## Built by
 

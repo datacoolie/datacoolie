@@ -1,0 +1,37 @@
+{
+  "connections": [
+    {
+      "name": "query_fallback_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "query_fallback_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/query_fallback"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "query_artifact_relative",
+      "stage": "query_artifact_relative",
+      "source": {
+        "connection_name": "query_fallback_source",
+        "query": "queries/orders.sql"
+      },
+      "destination": {
+        "connection_name": "query_fallback_destination",
+        "table": "orders_query_artifact_relative",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ],
+  "schema_hints": []
+}

@@ -16,18 +16,20 @@ Catalog support:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, time as datetime_time
 from threading import RLock
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import polars as pl
 
 from datacoolie.core.constants import Format
 from datacoolie.core.exceptions import EngineError
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.core.qualified_names import NameInput
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.engines.base import BaseEngine, FileInfo
+from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
 from datacoolie.engines._polars.relations import (
     PatternInput,
     PolarsRelationRegistry,
@@ -54,12 +56,51 @@ from datacoolie.engines._polars.file_io import (
 )
 from datacoolie.engines._polars.type_mapping import (
     build_cast_expr,
+    normalize_output_frame,
 )
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 
 # LazyFrame.sink_delta was added in Polars 0.20.x.
 # Fall back to DataFrame.collect().write_delta on older installations.
 logger = get_logger(__name__)
+
+
+def _align_datetime_to_polars_dtype(value: datetime, dtype: pl.Datetime) -> datetime:
+    """Adapt a Python datetime to the timezone contract of a Polars column.
+
+    Polars rejects comparisons between timezone-aware and naive datetime
+    literals.  A serialized watermark can legitimately be either form, so
+    normalize it to the actual column dtype before constructing the filter.
+    Naive values are interpreted in the column timezone; aware values are
+    converted to it.  For a naive column, timezone information is removed
+    while preserving the wall-clock value expected by that column.
+    """
+
+    target_timezone = dtype.time_zone
+    if target_timezone is None:
+        return value.replace(tzinfo=None) if value.tzinfo is not None else value
+    try:
+        target_tz = ZoneInfo(target_timezone)
+    except ZoneInfoNotFoundError:
+        # Polars also accepts fixed-offset timezone strings such as ``+00:00``.
+        parsed = datetime.fromisoformat(
+            f"2000-01-01T00:00:00{target_timezone}"
+        )
+        if parsed.tzinfo is None:  # pragma: no cover - invalid Polars dtype
+            raise ValueError(f"Unsupported Polars timezone {target_timezone!r}")
+        target_tz = parsed.tzinfo
+    if value.tzinfo is None:
+        return value.replace(tzinfo=target_tz)
+    return value.astimezone(target_tz)
+
+
+def _parse_polars_date_bound(value: str) -> date:
+    """Parse legacy date or ISO datetime strings for a Polars Date column."""
+
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return datetime.fromisoformat(value).date()
 
 
 # Matches pure-numeric segments (e.g. "2026", "04") and hive key=value
@@ -96,7 +137,6 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         iceberg_catalog: Optional[Any] = None,
         sql_context: Optional[pl.SQLContext] = None,
         sql_dialect: Optional[str] = None,
-        **kwargs: Any,
     ) -> None:
         super().__init__(platform=platform)
         self._storage_options = storage_options or {}
@@ -302,7 +342,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         resolved = self._resolve_file_paths(path, ext)
         if not resolved:
             raise FileNotFoundError(f"No JSON files found at: {path}")
-        return read_json_files(resolved, self.platform)
+        return read_json_files(resolved, self.platform, options)
 
     def read_jsonl(
         self,
@@ -473,6 +513,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         * *append* — a new file is added.  File name includes a
           timestamp: ``{folder_name}_{yyyyMMdd_HHmmss}.{ext}``.
         """
+        df = normalize_output_frame(df, fmt)
         merged: Dict[str, Any] = dict(options or {})
 
         if partition_columns:
@@ -515,12 +556,17 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = normalize_output_frame(df, fmt)
         fmt_lower = fmt.lower()
         if fmt_lower == Format.DELTA.value:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — use write_to_path(path) instead"
             )
         elif fmt_lower == Format.ICEBERG.value:
+            if options:
+                raise EngineError(
+                    "PolarsEngine named Iceberg write does not support write_options"
+                )
             if partition_columns:
                 partition_columns = self._resolve_column_names(
                     self._schema_names(df), partition_columns
@@ -558,6 +604,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = normalize_output_frame(df, fmt)
         if fmt.lower() != Format.DELTA.value:
             raise EngineError(
                 f"PolarsEngine merge_to_path only supports Delta, got {fmt!r}"
@@ -586,8 +633,10 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """Rolling overwrite via MERGE DELETE + APPEND (mirrors SparkEngine)."""
+        df = normalize_output_frame(df, fmt)
         if fmt.lower() != Format.DELTA.value:
             raise EngineError(
                 f"PolarsEngine merge_overwrite_to_path only supports Delta, got {fmt!r}"
@@ -604,6 +653,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             merge_keys,
             partition_columns,
             options,
+            write_options=write_options,
             storage_options=self._storage_options,
             delta_table_cls=self.delta,
         )
@@ -617,12 +667,17 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = normalize_output_frame(df, fmt)
         fmt_lower = fmt.lower()
         if fmt_lower == Format.DELTA.value:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — use merge_to_path(path) instead"
             )
         elif fmt_lower == Format.ICEBERG.value:
+            if options:
+                raise EngineError(
+                    "PolarsEngine named Iceberg merge does not support merge_options"
+                )
             actual = self._schema_names(df)
             merge_keys = self._resolve_column_names(actual, merge_keys)
             if partition_columns:
@@ -653,13 +708,20 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
+        df = normalize_output_frame(df, fmt)
         fmt_lower = fmt.lower()
         if fmt_lower == Format.DELTA.value:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — use merge_overwrite_to_path(path) instead"
             )
         elif fmt_lower == Format.ICEBERG.value:
+            if options or write_options:
+                raise EngineError(
+                    "PolarsEngine named Iceberg merge-overwrite does not support "
+                    "merge_options or write_options"
+                )
             actual = self._schema_names(df)
             merge_keys = self._resolve_column_names(actual, merge_keys)
             if partition_columns:
@@ -689,7 +751,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     def delete_by_window_path(
         self,
         path: str,
-        window: Dict[str, tuple],
+        window: WindowSpec,
         fmt: str = "delta",
     ) -> None:
         """Delete rows in a Delta path where columns fall within the window bounds."""
@@ -708,7 +770,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     def delete_by_window_table(
         self,
         table_name: str,
-        window: Dict[str, tuple],
+        window: WindowSpec,
         fmt: str = "delta",
     ) -> None:
         """Delete rows in a named table within the value window."""
@@ -723,15 +785,22 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     "PolarsEngine.delete_by_window_table requires iceberg_catalog for Iceberg format"
                 )
             # PyIceberg requires strict ISO-8601 timestamps (T separator, not space).
+            spec = normalize_window(window)
             iso_window = {
                 col: (
                     polars_temporal.to_iso8601(lower),
                     polars_temporal.to_iso8601(upper),
                 )
-                for col, (lower, upper) in window.items()
+                for col, (lower, upper) in spec.items()
             }
             predicate = polars_temporal.build_window_predicate(
-                iso_window, quote_char=""
+                WindowSpec(
+                    bounds=iso_window,
+                    lower_operator=spec.lower_operator,
+                    upper_operator=spec.upper_operator,
+                    combine_operator=spec.combine_operator,
+                ),
+                quote_char="",
             )
             iceberg_ops.delete_by_window(
                 table_name, predicate, catalog=self._iceberg_catalog
@@ -740,6 +809,11 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         raise EngineError(
             f"PolarsEngine.delete_by_window_table: unsupported format {fmt!r}"
         )
+
+    def _prepare_replace_window_input(self, df: pl.LazyFrame) -> pl.LazyFrame:
+        """Materialize a lazy source once, then expose it lazily to writers."""
+
+        return df.collect().lazy()
 
     # ==================================================================
     # SCD Type 2
@@ -753,6 +827,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """SCD2 via two-step MERGE + APPEND on a Delta table.
 
@@ -764,6 +839,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         splitting close and insert into separate operations — same
         approach as :meth:`merge_overwrite_to_path`.
         """
+        df = normalize_output_frame(df, fmt)
         if fmt.lower() != Format.DELTA.value:
             raise EngineError(
                 f"PolarsEngine scd2_to_path only supports Delta, got {fmt!r}"
@@ -780,6 +856,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             merge_keys,
             partition_columns,
             options,
+            write_options=write_options,
             storage_options=self._storage_options,
             delta_table_cls=self.delta,
         )
@@ -792,6 +869,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         """SCD2 for named tables (Iceberg two-step, non-atomic).
 
@@ -799,12 +877,18 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
            ``__is_current = false``).
         2. Append all source rows as new versions.
         """
+        df = normalize_output_frame(df, fmt)
         fmt_lower = fmt.lower()
         if fmt_lower == Format.DELTA.value:
             raise EngineError(
                 "PolarsEngine does not support named Delta tables — use scd2_to_path(path) instead"
             )
         elif fmt_lower == Format.ICEBERG.value:
+            if options or write_options:
+                raise EngineError(
+                    "PolarsEngine named Iceberg SCD2 does not support "
+                    "merge_options or write_options"
+                )
             actual = self._schema_names(df)
             merge_keys = self._resolve_column_names(actual, merge_keys)
             if partition_columns:
@@ -923,14 +1007,68 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         watermark_end: Optional[Dict[str, Any]] = None,
         end_operator: str = "<",
     ) -> pl.LazyFrame:
-        actual = self._schema_names(df)
+        schema = df.collect_schema()
+        actual = schema.names()
         resolved = []
         for col_name in watermark_columns:
             lower_val = watermark_start.get(col_name)
             upper_val = (watermark_end or {}).get(col_name)
             if lower_val is None and upper_val is None:
                 continue
+            if isinstance(lower_val, (bytes, bytearray, memoryview)) or isinstance(
+                upper_val, (bytes, bytearray, memoryview)
+            ):
+                raise EngineError(
+                    "Binary watermark comparison requires a qualified backend"
+                )
             resolved_col = self._resolve_column_name(actual, col_name)
+            dtype = schema[resolved_col]
+            if isinstance(lower_val, str):
+                if dtype == pl.Date:
+                    lower_val = _parse_polars_date_bound(lower_val)
+                elif isinstance(dtype, pl.Datetime):
+                    lower_val = _align_datetime_to_polars_dtype(
+                        datetime.fromisoformat(lower_val), dtype
+                    )
+            elif isinstance(lower_val, datetime) and dtype == pl.Date:
+                lower_val = lower_val.date()
+            elif (
+                isinstance(lower_val, date)
+                and not isinstance(lower_val, datetime)
+                and isinstance(dtype, pl.Datetime)
+            ):
+                lower_val = _align_datetime_to_polars_dtype(
+                    datetime.combine(lower_val, datetime_time.min), dtype
+                )
+            elif isinstance(lower_val, datetime) and isinstance(dtype, pl.Datetime):
+                lower_val = _align_datetime_to_polars_dtype(lower_val, dtype)
+            elif isinstance(lower_val, (date, datetime)) and isinstance(
+                dtype, (pl.String, pl.Utf8)
+            ):
+                lower_val = lower_val.isoformat()
+            if isinstance(upper_val, str):
+                if dtype == pl.Date:
+                    upper_val = _parse_polars_date_bound(upper_val)
+                elif isinstance(dtype, pl.Datetime):
+                    upper_val = _align_datetime_to_polars_dtype(
+                        datetime.fromisoformat(upper_val), dtype
+                    )
+            elif isinstance(upper_val, datetime) and dtype == pl.Date:
+                upper_val = upper_val.date()
+            elif (
+                isinstance(upper_val, date)
+                and not isinstance(upper_val, datetime)
+                and isinstance(dtype, pl.Datetime)
+            ):
+                upper_val = _align_datetime_to_polars_dtype(
+                    datetime.combine(upper_val, datetime_time.min), dtype
+                )
+            elif isinstance(upper_val, datetime) and isinstance(dtype, pl.Datetime):
+                upper_val = _align_datetime_to_polars_dtype(upper_val, dtype)
+            elif isinstance(upper_val, (date, datetime)) and isinstance(
+                dtype, (pl.String, pl.Utf8)
+            ):
+                upper_val = upper_val.isoformat()
             resolved.append((resolved_col, lower_val, upper_val))
         return polars_transforms.apply_watermark_filter(
             df,
@@ -975,13 +1113,23 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         column_name: str,
         target_type: str,
         fmt: Optional[str] = None,
+        *,
+        type_system: Optional[str] = None,
+        precision: Optional[int] = None,
+        scale: Optional[int] = None,
     ) -> pl.LazyFrame:
         # Collect schema once — reused for name resolution and dtype inspection.
         schema = df.collect_schema()
         actual_name = self._resolve_column_name(schema.names(), column_name)
-        expr = build_cast_expr(actual_name, target_type, schema[actual_name], fmt)
-        if expr is None:
-            return df
+        expr = build_cast_expr(
+            actual_name,
+            target_type,
+            schema[actual_name],
+            fmt,
+            type_system=type_system,
+            precision=precision,
+            scale=scale,
+        )
         return df.with_columns(expr.alias(actual_name))
 
     # ==================================================================
@@ -996,8 +1144,10 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> pl.LazyFrame:
         return polars_transforms.add_system_columns(df, author, dataflow_run_id)
 
-    def convert_timestamp_ntz_to_timestamp(self, df: pl.LazyFrame) -> pl.LazyFrame:
-        return polars_transforms.convert_timestamp_ntz_to_timestamp(df)
+    def convert_timestamp_ntz_to_timestamp(
+        self, df: pl.LazyFrame, timezone: Optional[str] = None
+    ) -> pl.LazyFrame:
+        return polars_transforms.convert_timestamp_ntz_to_timestamp(df, timezone)
 
     def add_file_info_columns(
         self,
@@ -1066,27 +1216,24 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     # ==================================================================
 
     def table_exists_by_path(self, path: str, *, fmt: str = "delta") -> bool:
-        try:
-            fmt_lower = fmt.lower()
-            if fmt_lower == Format.DELTA.value:
-                return delta_ops.table_exists(
-                    path,
-                    platform=self._platform,
-                    storage_options=self._storage_options,
-                    delta_table_cls=self.delta,
-                )
-            if fmt_lower == Format.ICEBERG.value:
-                # Fast path: Iceberg tables always contain a metadata/ subdirectory.
-                if self._platform is not None:
-                    return self._platform.folder_exists(f"{path.rstrip('/')}/metadata")
-                return False
-            logger.warning(
-                "PolarsEngine table_exists_by_path: unsupported format %s",
-                fmt,
+        fmt_lower = fmt.lower()
+        if fmt_lower == Format.DELTA.value:
+            return delta_ops.table_exists(
+                path,
+                platform=self._platform,
+                storage_options=self._storage_options,
+                delta_table_cls=self.delta,
             )
+        if fmt_lower == Format.ICEBERG.value:
+            # Fast path: Iceberg tables always contain a metadata/ subdirectory.
+            if self._platform is not None:
+                return self._platform.folder_exists(f"{path.rstrip('/')}/metadata")
             return False
-        except Exception:  # noqa: BLE001
-            return False
+        logger.warning(
+            "PolarsEngine table_exists_by_path: unsupported format %s",
+            fmt,
+        )
+        return False
 
     def table_exists_by_name(self, table_name: str, *, fmt: str = "delta") -> bool:
         fmt_lower = fmt.lower()
@@ -1378,6 +1525,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
@@ -1388,6 +1536,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     fmt=fmt,
                     partition_columns=partition_columns,
                     options=options,
+                    write_options=write_options,
                 )
                 return
             if path:
@@ -1404,6 +1553,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 fmt=fmt,
                 partition_columns=partition_columns,
                 options=options,
+                write_options=write_options,
             )
         elif table_name:
             raise EngineError(
@@ -1422,6 +1572,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         fmt: str = "delta",
         partition_columns: Optional[List[str]] = None,
         options: Optional[Dict[str, str]] = None,
+        write_options: Optional[Dict[str, str]] = None,
     ) -> None:
         if fmt.lower() == Format.ICEBERG.value:
             if table_name:
@@ -1432,6 +1583,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     fmt=fmt,
                     partition_columns=partition_columns,
                     options=options,
+                    write_options=write_options,
                 )
                 return
             if path:
@@ -1448,6 +1600,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 fmt=fmt,
                 partition_columns=partition_columns,
                 options=options,
+                write_options=write_options,
             )
         elif table_name:
             raise EngineError(

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from datacoolie.core.secret_provider import SecretStr
+from datacoolie.core.secrets.provider import SecretStr
 from datacoolie.utils.converters import as_json, convert_to_bool, convert_to_int, json_default, parse_json
 
 

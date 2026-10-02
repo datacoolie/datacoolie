@@ -1,864 +1,115 @@
 {
   "skill_name": "datacoolie-build",
+  "eval_schema_version": 2,
+  "case_kinds": {
+    "decision": [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14],
+    "execution": [8]
+  },
+  "capability_families": {
+    "project-contract": [1, 2, 3, 4, 9, 11],
+    "artifact-validation": [5, 6, 7, 10],
+    "cli-automation": [8],
+    "runtime-boundary": [12],
+    "docs-routing": [13, 14]
+  },
   "evals": [
     {
       "id": 1,
-      "prompt": "Plan a new DataCoolie project from documented source contracts. Explain prerequisites, implementation boundaries, local verification, and out-of-scope lifecycle outcomes. Infrastructure exists; no source evidence or workspace files are supplied in this decision case.",
-      "expected_output": "Require verified discovery evidence for every declared source before design/build, then describe minimal framework-first bootstrap, immutable materialization, and generated-build verification. Do not claim files or tests were produced; skip provisioning and release.",
+      "prompt": "Create a new DataCoolie project and explain the generated contract.",
+      "expected_output": "Use dc init (or datacoolie init), keep datacoolie.yml as the project contract, and describe the empty metadata, sql, functions, runners, environments, and .runtime layout.",
       "files": [],
-      "expectations": [
-        "Discovery is required for every declared source because this is a new project; supplied contracts do not substitute for observed evidence.",
-        "The response gives the Build route after prerequisites but does not claim that missing files, materialization, or tests were completed.",
-        "Provision and release are out of scope, and eventual local verification must execute generated artifacts rather than durable sources."
-      ]
+      "expectations": ["datacoolie.yml is the only project contract", "No pipeline execution is performed"]
     },
     {
       "id": 2,
-      "prompt": "Explain how Build should handle an unchanged architecture when adding one environment override and correcting a runner parameter, including materialization and verification consequences. No workspace files are supplied in this decision case.",
-      "expected_output": "Use build only, preserve design, update canonical durable sources, create a new immutable build ID, and verify generated artifacts.",
+      "prompt": "A project has SQL files in two roots. Build every configured environment.",
+      "expected_output": "Declare components.sql as a list of root entries, each using the singular path key; resolve each metadata-relative SQL path against those roots, and run dc build so every environment gets an immutable artifact and current copy.",
       "files": [],
-      "expectations": [
-        "No new design decision or approval is requested when architecture bytes and contracts remain unchanged.",
-        "The environment change is an overlay rather than a full metadata clone, and the response does not claim edits or tests were completed.",
-        "Changed durable input produces a content-distinct immutable build whose generated artifacts require verification."
-      ]
+      "expectations": ["Multiple SQL roots are preserved", "All environments are built with one build_id"]
     },
     {
       "id": 3,
-      "prompt": "One configured environment uses a platform that supports two engines. Create both Python entrypoints; orchestration will invoke the exact file and choose stages at runtime.",
-      "expected_output": "Create separate platform-and-engine runners with no environment/engine runtime selector; each accepts one stage value and passes it unchanged.",
+      "prompt": "A dataflow source.query points to sql/orders/incremental.sql.",
+      "expected_output": "Keep the source query reference in metadata and resolve it during metadata preparation using artifact mode or the configured SQL roots; the framework does not require a manifest to execute.",
       "files": [],
-      "expectations": [
-        "Two non-colliding runner filenames encode platform and engine.",
-        "Environment, platform, and engine are not concrete runner parameters.",
-        "Stage-to-engine routing is absent from config.yaml."
-      ]
+      "expectations": ["The original metadata reference remains available for lineage", "Prepared execution SQL is separate from metadata logging"]
     },
     {
       "id": 4,
-      "prompt": "Create a local runner that receives metadata, watermark, log paths and may receive --stage stage_a,stage_b. The framework already owns path handling and stage parsing; keep the runner interface minimal.",
-      "expected_output": "Pass path parameters directly to framework constructors and one optional --stage scalar unchanged to exactly one driver.run call without runner-owned validation or normalization.",
+      "prompt": "Package two functions roots with auto mode.",
+      "expected_output": "Apply packaging independently per root: a valid pyproject backend produces a wheel, a root-level __init__.py produces a zip, and all other roots are copied as ordinary files.",
       "files": [],
-      "expectations": [
-        "The comma-bearing stage remains one unchanged string.",
-        "Repeated --stage, nargs, stage-plan normalization, and runner loops are absent.",
-        "Path and blank-stage validators are absent; omission produces exactly one driver.run(stage=None) call."
-      ]
+      "expectations": ["Nested package __init__.py does not zip the parent root", "Each configured root has its own packaging result"]
     },
     {
       "id": 5,
-      "prompt": "The selected authentication method is not supported, but the source, transforms, destination, load strategy, and engine are supported. Implement the pipeline.",
-      "expected_output": "Record installed-runtime evidence and add only a narrow authentication/session adapter while retaining native DataCoolie metadata, orchestration, transforms, and writes.",
+      "prompt": "Inspect the generated build output for dev and qa.",
+      "expected_output": "Use dc inspect against the project or environment and report the root manifest, environment tree, build_id, and component paths without executing a runner.",
       "files": [],
-      "expectations": [
-        "The unsupported dimension is proven against the installed runtime.",
-        "Custom code is limited to authentication/session bootstrap.",
-        "Supported dimensions still execute through DataCoolieDriver.run."
-      ]
+      "expectations": ["manifest.json is the sole build descriptor", "Inspection is read-only"]
     },
     {
       "id": 6,
-      "prompt": "Prepare this project for CI so builds are reproducible without an AI agent or installed skill in the CI runner. Keep DataCoolie itself framework-only.",
-      "expected_output": "Render project-owned automation that imports public DataCoolie APIs, without adding a package CLI or making CI depend on skill paths.",
+      "prompt": "Validate an existing .builds/current directory.",
+      "expected_output": "Use dc validate; read the build_id from current/manifest.json, locate the retained artifacts/<build_id> tree, and compare the current inventory and bytes with that immutable artifact.",
       "files": [],
-      "expectations": [
-        "Project-owned automation is generated because CI is explicitly requested.",
-        "CI does not import or download installed skill scripts.",
-        "No DataCoolie lifecycle CLI is proposed."
-      ]
+      "expectations": ["Current validation detects drift", "No remote platform state is required"]
     },
     {
       "id": 7,
-      "prompt": "Describe the minimal Build workflow for local-only verification with no custom functions and no deployment. No workspace is supplied in this decision case.",
-      "expected_output": "Explain materialization and generated-artifact verification, emit no function artifact, omit optional automation, keep runtime state persistent outside builds, and stop before Release without claiming execution occurred.",
+      "prompt": "Validate a metadata folder from another working directory.",
+      "expected_output": "Use the portable dc validate --metadata-path form for a metadata folder from another working directory, reporting scoped checks and failures without mutating source files.",
       "files": [],
-      "expectations": [
-        "Resolved metadata without Python functions produces functions_artifact null and no functions component; the answer does not rely on a vague dist-directory rule.",
-        "Automation is not generated without an explicit reproducibility or CI need.",
-        "The response does not request deployment approval or claim materialization/local execution completed without a workspace."
-      ]
+      "expectations": ["Portable paths are accepted", "Validation does not mutate source files"]
     },
     {
       "id": 8,
-      "prompt": "Deploy the already verified build whose ID I supplied to a protected test environment. Do not change the pipeline.",
-      "expected_output": "Route to release, verify the exact build and target slice, use target authorization, and never merge metadata or rebuild artifacts.",
-      "files": [],
-      "expectations": [
-        "The exact supplied build ID is used rather than latest.",
-        "Target authorization is distinct from implementation approval.",
-        "Release does not invoke build materialization."
-      ]
+      "prompt": "Generate repeatable CI helpers for project build and validation.",
+      "expected_output": "Run the automation renderer command, confirm its exit code, and retain the generated wrapper output as evidence; the wrapper must invoke the installed dc/datacoolie CLI rather than recreate project build or metadata validation logic in the skill.",
+      "files": ["scripts/render_automation.py", "SKILL.md"],
+      "expectations": ["Generated helpers delegate to the CLI", "Removed legacy scripts are not reintroduced"]
     },
     {
       "id": 9,
-      "prompt": "Author metadata for a medium project with several dataflows in each runtime stage. Choose the default file layout and explain what determines the stage passed to the driver.",
-      "expected_output": "Use dataflows/{stage}.json as the default organizational partition while requiring explicit name and stage in every dataflow; content stage, never the path, controls runtime execution.",
+      "prompt": "An approved architecture/current.md changed before the project build. Decide whether Build may continue.",
+      "expected_output": "Verify the final architecture with the existing hash-bound Design approval helper; stop on a missing or stale receipt and route the changed material contract back to Design for explicit approval.",
       "files": [],
-      "expectations": [
-        "The default is dataflows/{stage}.json.",
-        "Every dataflow declares a non-empty name and stage.",
-        "The path is organizational and does not infer runtime stage."
-      ]
+      "expectations": ["Build does not copy a second approval or hash validator", "An unchanged approved architecture remains reusable"]
     },
     {
       "id": 10,
-      "prompt": "Organize a large metadata workspace with source2bronze ERP and CRM branches, while sharding one very large stage into per-dataflow files. Keep a single runtime metadata contract.",
-      "expected_output": "Use branch/stage and stage/dataflow partitions as needed, keep explicit stage in every item, recursively merge all JSON fragments, and reject duplicate names.",
+      "prompt": "A project declares dev, qa and prod environments, but CI asks to build only dev and update current with that slice.",
+      "expected_output": "Reject environment-only materialization and run dc build for every declared environment with one build_id; current is the exact complete projection.",
       "files": [],
-      "expectations": [
-        "Branch/stage and stage/dataflow layouts remain organizational views of one contract.",
-        "Every fragment uses explicit content stage rather than path inference.",
-        "Duplicate dataflow names are rejected globally."
-      ]
+      "expectations": ["All declared environments are present in the build", "No partial current projection is published"]
     },
     {
       "id": 11,
-      "prompt": "Add a reusable replay entrypoint for a historical repair. It receives one stage value and JSON chunk configuration for a half-open range. The framework already validates replay boundaries and interval semantics. Leave production incremental state unchanged unless an operator explicitly opts in.",
-      "expected_output": "Create a thin platform-and-engine-specific replay entrypoint that preserves numeric boundary types from text transport, decodes JSON transport, otherwise delegates range and chunk semantics through ReplayConfig and DataCoolieDriver, passes one stage unchanged, and gates watermark mutation separately.",
+      "prompt": "A project uses a custom metadata root and two configured SQL roots. A runner will execute an artifact without a manifest lookup.",
+      "expected_output": "Preserve the configured component paths in the build, pass the artifact or explicit metadata and SQL roots to the Driver, and keep manifest handling in CLI tooling rather than framework runtime.",
       "files": [],
-      "expectations": [
-        "Replay is a separate replay_{platform}_{engine}[_{provider}] entrypoint rather than a runtime mode.",
-        "The entrypoint converts only integer boundary strings, decodes chunk JSON without duplicating interval validation, then calls load_dataflows and run_replay once.",
-        "Saving the watermark defaults to false and requires a separate explicit confirmation when enabled."
-      ]
+      "expectations": ["Custom component roots are not renamed to fixed folders", "The framework does not read manifest.json at runtime"]
     },
     {
       "id": 12,
-      "prompt": "Add a scheduled lakehouse maintenance entrypoint. Operators pass one framework-native connection selection, choose compact and cleanup, set retention, and explicitly authorize the operation. The framework owns target selection, deduplication, execution, logging, connection parsing, and run validation.",
-      "expected_output": "Create a thin platform-and-engine-specific maintenance entrypoint that confirms mutation and delegates directly to DataCoolieDriver.run_maintenance without runner-owned inspection or maintenance logic.",
+      "prompt": "A Polars dataflow query joins qualified Delta relations. The project runner must prepare the engine before Driver execution.",
+      "expected_output": "Keep the qualified SQL in source.query, use the runner's same-process table or catalog registration, and let the Driver execute the metadata flow without replacing the supported path with bespoke extraction code.",
       "files": [],
-      "expectations": [
-        "Maintenance is a separate maintenance_{platform}_{engine}[_{provider}] entrypoint.",
-        "The entrypoint passes connection and operation filters directly to one run_maintenance call, while numeric transport uses built-in conversion rather than custom range rules.",
-        "The entrypoint requires explicit confirmation and adds no preview, inspection, scheduler, deduper, or dry_run behavior."
-      ]
+      "expectations": ["Engine bootstrap remains runner-owned", "The query is not silently rewritten by the CLI"]
     },
     {
       "id": 13,
-      "prompt": "Explain four materializations: the first build; unchanged inputs again at the same fixed UTC second; unchanged inputs at a later UTC second; then one changed runner. State build IDs, reuse, content digests, and collision checks.",
-      "expected_output": "The same-second unchanged run reuses the identical build ID; the later unchanged run has a new timestamped ID but the same full content digest; the runner change produces a different content digest. Verification rejects mismatches and short-ID collisions with different content.",
+      "prompt": "A stale Skill note says every source must use exactly one selector and its capability table is labeled 0.1.9, while the installed framework is 0.2.0 and the public metadata/schema pages differ. Decide which contract to apply.",
+      "expected_output": "Read the compatible public documentation first, then verify the installed CLI/schema/runtime. Select the greatest compatible schema version and the selector supported by the chosen reader; do not invent universal selector exclusivity or maintain a copied capability catalog. Record and reconcile any version mismatch before editing metadata.",
       "files": [],
-      "expectations": [
-        "An unchanged materialization in the same UTC second reuses the existing identical build ID and reports reused=true rather than requiring a distinct ID.",
-        "An unchanged later-second materialization gets a distinct timestamped ID while retaining the same full content digest.",
-        "A runner change changes the content digest, and verification rejects timestamp/digest mismatch or a short build-ID collision with different content."
-      ]
+      "expectations": ["Public docs and installed evidence outrank a stale Skill summary", "Reader-specific selectors are not converted into a universal one-of rule"]
     },
     {
       "id": 14,
-      "prompt": "The installed DataCoolie runtime registers the source, engine, and destination needed by this pipeline, but the engine's optional package is missing. Implement the pipeline without changing its architecture.",
-      "expected_output": "Treat the missing package as environment setup, install or request the matching framework dependency, and retain metadata-driven DataCoolie execution rather than writing custom ingestion or destination code.",
+      "prompt": "An agent needs a known runner example but the public site is temporarily unavailable. The catalog provides a pinned revision and direct source/raw actions, and an explicitly supplied local checkout has the same revision. Decide how to proceed.",
+      "expected_output": "Use the catalog's direct action and pinned revision when available; if network access is unavailable, use the explicitly supplied same-revision local checkout as a retrieval source. Verify the file/commit or archive contents, preserve the project-owned runner boundary, and do not silently fall back to main or create a second maintained template tree.",
       "files": [],
-      "expectations": [
-        "Installed capability evidence includes all relevant registries and declared dependencies.",
-        "A missing optional dependency is not classified as an unsupported framework capability.",
-        "The implementation continues through DataCoolie metadata and driver execution."
-      ]
-    },
-    {
-      "id": 15,
-      "prompt": "Build only the development environment and let current omit the other configured environments because their overlays change independently.",
-      "expected_output": "Reject environment-scoped materialization: validate and emit one complete build containing every configured environment, include every binding and overlay in build identity, and keep current as the full runnable projection.",
-      "files": [],
-      "expectations": [
-        "Build exposes no environment selector.",
-        "A missing platform or compatible runner in any configured environment blocks the complete build.",
-        "Changing any environment overlay invalidates build identity and current retains every environment."
-      ]
-    },
-    {
-      "id": 16,
-      "prompt": "The generated build has two runners for the same environment. Artifact-verify one runner slice on a host that cannot execute that target-native runner, then hand it to release without weakening activation safety.",
-      "expected_output": "Validate the exact generated runner, typed metadata set, optional function artifact, and hashes; write a successful Build v4 artifact receipt without fabricating runtime proof; hand Release the explicit receipt so it can stage and target-qualify that runner before activation.",
-      "files": [],
-      "expectations": [
-        "Build requires generated-artifact-validation while Build-host runtime execution remains optional evidence.",
-        "The receipt binds the exact build, environment, runner, metadata, optional singular function artifact, and hashes.",
-        "Release receives an explicit successful artifact receipt path, never selects latest evidence, and still target-qualifies before activation."
-      ]
-    },
-    {
-      "id": 17,
-      "prompt": "Prepare project-owned CI build automation for a network-restricted runner. The DataCoolie framework is installed from the approved package index, but the AI skill is unavailable during CI.",
-      "expected_output": "Render project-owned build tooling with its dependency manifest and build-owned versioned schemas; validate design handoff fields locally without fetching or copying another skill's resources.",
-      "files": [],
-      "expectations": [
-        "Generated automation carries the build-tool dependency contract and build-owned schemas only.",
-        "Build validation does not use a moving URL, user schema cache, or source checkout.",
-        "No lifecycle CLI or AI workflow dependency is added to the DataCoolie package."
-      ]
-    },
-    {
-      "id": 18,
-      "prompt": "The installed runtime already proves the requested combination is supported. Add only a normal Python run entrypoint with one optional stage value, then verify the generated build. Replay and maintenance are not requested.",
-      "expected_output": "Use the common runner contract and single-stage passthrough without loading operational extensions or reopening capability fallback decisions; verify the exact generated entrypoint with an explicit build receipt.",
-      "files": [],
-      "expectations": [
-        "The implementation uses the normal run entrypoint contract and passes one stage unchanged to one driver call.",
-        "Replay, maintenance, and unsupported-adapter mechanics are not introduced into the normal runner.",
-        "Verification uses the exact generated artifacts and the explicitly selected build-verification receipt."
-      ]
-    },
-    {
-      "id": 19,
-      "prompt": "Create a Databricks Spark normal runner that a scheduled notebook task can parameterize with metadata, log, watermark, and one stage value. The verified packages will be attached to the job before it starts.",
-      "expected_output": "Use a Databricks STAGE widget, pass its scalar unchanged to one framework call, avoid runtime installation, and execute the generated artifact through DataCoolie.",
-      "files": [],
-      "expectations": [
-        "The runner reads STAGE through dbutils.widgets and does not decode or normalize it.",
-        "The notebook does not install packages or restart Python; dependency attachment is a platform prerequisite.",
-        "The exact generated runner executes one DataCoolieDriver.run call with the received stage."
-      ]
-    },
-    {
-      "id": 20,
-      "prompt": "Create a Fabric Spark normal notebook runner for a pipeline activity. It accepts one optional stage value while Fabric base parameters support simple values.",
-      "expected_output": "Expose STAGE as an optional scalar string in the tagged parameter cell, pass it unchanged once, and rely on the framework to interpret the empty default and supplied content.",
-      "files": [],
-      "expectations": [
-        "The tagged Fabric parameter cell exposes only one optional STAGE scalar.",
-        "No stage JSON decoding, normalization, or runner-side loop is introduced.",
-        "The notebook has no runtime environment/engine selector and performs no inline package installation."
-      ]
-    },
-    {
-      "id": 21,
-      "prompt": "Create a scheduled maintenance runner that accepts connection, compact/cleanup, retention, and worker parameters. DataCoolie already owns eligible-target selection, physical deduplication, dispatch, logging, and results; keep the runner minimal and require confirmation.",
-      "expected_output": "Decode only execution-host transport, require mutation confirmation, invoke DataCoolieDriver.run_maintenance once, and surface framework failure without adding inspection or preview logic.",
-      "files": [],
-      "expectations": [
-        "The runner contains no load_maintenance_dataflows call, inspect-only mode, or target preview formatter.",
-        "Mutation requires explicit confirmation and then calls run_maintenance exactly once with the received filters.",
-        "DataCoolie retains target selection, deduplication, dispatch, logging, and result ownership; the runner only converts transport types and surfaces failure."
-      ]
-    },
-    {
-      "id": 22,
-      "prompt": "Only datacoolie-build is installed. Explain how Build should consume an existing architecture/current.md and exact approval receipt, materialize the project, and render requested automation. No workspace artifacts are attached to this decision case.",
-      "expected_output": "Explain local validation of the exact handoff and Build-owned materialization/automation without locating another skill. Identify required artifacts and commands without claiming they ran.",
-      "files": [],
-      "expectations": [
-        "Build can validate a supplied exact architecture approval without requiring the design skill directory.",
-        "The response identifies required artifacts and commands but does not claim materialization or automation completed without attached files.",
-        "Malformed, stale, misnamed, or symlinked approval evidence must fail closed."
-      ]
-    },
-    {
-      "id": 23,
-      "prompt": "Discovery returned exact source column types for several direct source objects. Most mappings cover many columns and dataflows, while one dataflow needs two different casts. Author the metadata without duplicating schemas or assuming hint sources merge.",
-      "expected_output": "Write exact and broad mappings once to metadata/schema_hints.json, use transform.schema_hints only for the narrow dataflow exception, and account for transform hints replacing rather than merging with attached global hints.",
-      "files": [],
-      "expectations": [
-        "Exact source-observed, many-column, repeated, or bulk mappings are authored in top-level shared schema hints.",
-        "Transform schema hints are limited to a few columns or dataflows with intentional type differences.",
-        "A non-empty transform hint list is treated as preventing global hint attachment, not as merging with or inheriting the global list.",
-        "Query/function sources without table identity are reported as outside the shared table-key lookup rather than silently duplicated."
-      ]
-    },
-    {
-      "id": 24,
-      "prompt": "Ingest each source object in full. Some objects have direct table or API endpoint addresses; another extract genuinely requires a source-side join; one remaining source needs verified multi-step non-relational handling.",
-      "expected_output": "Use direct native addresses for whole objects, one bounded query for the join, and a metadata-addressed Python function only for the evidenced final gap.",
-      "files": [],
-      "expectations": [
-        "Direct tables, objects, paths, or endpoints are preferred over equivalent SELECT-star queries.",
-        "The query is limited to necessary source-side relational shaping.",
-        "Python is the final narrow fallback and the supported remainder stays framework-native."
-      ]
-    },
-    {
-      "id": 25,
-      "prompt": "Materialize the dev and qa slices, test the newest dev build through current, and explain how I can rerun an older version. Keep every downstream reference exact.",
-      "expected_output": "Create a UTC time-and-digest immutable artifact, generate one directly runnable current projection of the whole build, test current, and use an explicit artifact build ID for history and release identity.",
-      "files": [],
-      "expectations": [
-        "The build ID format is YYMMDD-HHMMSS plus a 12-character content-digest suffix.",
-        "Current copies the build runtime layout, omits manifest.json and SHA256SUMS, and records the exact source build ID in build.json.",
-        "Normal run, test, and validation execute current directly; historical tests select .builds/artifacts/{build_id}.",
-        "Verification receipts, release handoffs, and authorizations remain bound to the exact build ID rather than current."
-      ]
-    },
-    {
-      "id": 26,
-      "prompt": "The source contains source_created_at and transaction_date. No downstream schema requires custom ingestion audit names. Should ingestion add ingested_at and load_job_id copies of current write time and run identity?",
-      "expected_output": "Preserve distinct source and business timestamps, but use DataCoolie's framework write-time columns and driver-managed dataflow run ID instead of duplicate audit metadata when no separate consumer contract exists.",
-      "files": [],
-      "expectations": [
-        "The solution relies on framework-owned __created_at, __updated_at, and __updated_by, plus __dataflow_run_id for driver-managed runs, instead of adding semantically duplicate ingestion or job columns.",
-        "The solution does not claim that __dataflow_run_id is added by standalone transformer usage when no execution ID is supplied.",
-        "Source-created, source-modified, event, and transaction timestamps remain when their business meaning differs from framework write time.",
-        "System columns, including __dataflow_run_id, are not configured or referenced through earlier additional_columns merely to work around transformer ordering."
-      ]
-    },
-    {
-      "id": 27,
-      "prompt": "Write an append-only flat-file destination into UTC ingestion-date folders. There is no business-date partition requirement and no existing partition column; add an ingestion_date helper column and partition the output with it.",
-      "expected_output": "Use the file destination connection's native date_folder_partitions for load-time folder routing and avoid a helper column whose only purpose is the path.",
-      "files": [],
-      "expectations": [
-        "Flat-file load-time folder routing uses connection.configure.date_folder_partitions on the destination and does not add ingestion_date solely for the path.",
-        "Business or event-time data partitioning uses destination.partition_columns instead of load-time date-folder routing.",
-        "The solution chooses one partition strategy and notes that partition_columns takes precedence when both are configured."
-      ]
-    },
-    {
-      "id": 28,
-      "prompt": "A file connection has base_path set to /landing/sales/orders. Its dataflow also declares schema_name sales and table orders. Keep that metadata because the connection path already identifies the final object.",
-      "expected_output": "Treat base_path as the storage root and remove duplicated schema/table segments because DataCoolie composes the final table path from base_path, schema_name, and table.",
-      "files": [],
-      "expectations": [
-        "The connection base_path is authored as the storage root rather than including schema_name or table segments already declared by the dataflow.",
-        "The final path is explained as base_path/{schema_name}/{table}, with an empty schema_name skipped.",
-        "Query or function sources without a table identity are not incorrectly described as receiving the composed table path."
-      ]
-    },
-    {
-      "id": 29,
-      "prompt": "A mutable source has no CDC and no column that advances for every update. Discovery confirms transaction_date is filterable and corrections can arrive up to seven days late. Configure an efficient incremental load; using append is acceptable because transaction_date is increasing.",
-      "expected_output": "Use transaction_date only as a backward fallback, configure a seven-day lookback, and select an idempotent destination strategy that safely reprocesses the window rather than plain append.",
-      "files": [],
-      "expectations": [
-        "transaction_date is placed in source.watermark_columns with source-level backward lookback because it is a bounded fallback, not a reliable change signal.",
-        "The destination can reprocess the lookback window idempotently and plain append is rejected because it can duplicate reread rows.",
-        "The result states that backward does not seed the first run and cannot cover corrections older than the configured horizon."
-      ]
-    },
-    {
-      "id": 30,
-      "prompt": "Author metadata for two file ingestions. The first is a flat file drop whose stable modification timestamps identify new and replaced files. The second has the same reliable timestamps and is physically organized under year/month/day/hour folders where old folders may be corrected within three days. Their file destinations should be organized by ingestion time without adding an ingestion_date column.",
-      "expected_output": "Prefer the file modification-time virtual watermark, add source date-folder pruning only for the observed time-folder layout with a sufficient lookback, and configure destination date-folder routing independently.",
-      "files": [],
-      "expectations": [
-        "Both file sources prefer __file_modification_time and do not fabricate it as a physical source-schema column.",
-        "Only the time-folder source configures a year/month/day/hour date_folder_partitions pattern, and its lookback covers corrected old folders because pruning precedes mtime filtering.",
-        "File destinations use their own date_folder_partitions for ingestion-time routing without adding a helper data column or confusing it with source pruning."
-      ]
-    },
-    {
-      "id": 31,
-      "prompt": "Build a local Polars dataflow whose Delta source metadata query joins catalog_A.database_B.schema_C.orders and schema_C.customers. Discover tables below /lake/database_B, expose the four-part logical names, include only order/customer tables, and avoid loading unrelated tables before the query needs them.",
-      "expected_output": "Keep the join in normal Delta source.query metadata and adapt the fixed local Polars runner to register path-discovered Delta descriptors on the same engine before constructing the driver, using a structured logical prefix, component globs, and lazy default binding.",
-      "files": [],
-      "expectations": [
-        "The metadata source uses its Delta connection and source.query; registration options are not written to source.configure or a Python-function source.",
-        "The runner calls register_delta_tables on the exact PolarsEngine later passed to DataCoolieDriver, with the physical root, logical_prefix=(\"catalog_A\", \"database_B\"), recursive discovery, and bounded include/max_tables choices.",
-        "The default preload=False is retained so registration indexes descriptors and the first execute_sql use binds only referenced tables.",
-        "The environment includes datacoolie[polars-sql,polars-delta], and verification covers both full and unique suffix references."
-      ]
-    },
-    {
-      "id": 32,
-      "prompt": "Build a Polars Iceberg metadata query over catalog_A.database_B.schema_C.orders. The PyIceberg catalog is named catalog_A, enumeration should start at database_B, temporary tables must be excluded, and two dataflows reuse orders. Also prove that a short ambiguous orders reference is rejected.",
-      "expected_output": "Attach the configured catalog to PolarsEngine, register its database_B namespace in the same process before the driver, preserve the default catalog/root logical mapping, filter with component globs, and execute normal metadata queries through one reusable engine.",
-      "files": [],
-      "expectations": [
-        "Catalog mode uses register_iceberg_tables(namespace=(\"database_B\",), recursive=True) with logical_prefix omitted unless an explicit remapping is required.",
-        "Exclude patterns are component-aware and remain bootstrap configuration rather than metadata fields.",
-        "Both dataflows run through the same engine so the referenced relation is bound once and reused; registration itself remains lazy by default.",
-        "A collision fixture asserts deterministic ambiguity candidates, and the environment includes datacoolie[polars-sql,polars-iceberg]."
-      ]
-    },
-    {
-      "id": 33,
-      "prompt": "Create a Polars pipeline that reads one Delta table directly by path, applies LazyFrame transformations, and never uses source.query or engine SQL. Add the qualified SQL resolver and register every table under the lake root in case it is useful later.",
-      "expected_output": "Reject the speculative SQL setup: keep the supported direct Delta path read and normal Polars dependency path without relation discovery or the optional SQLGlot resolver.",
-      "files": [],
-      "expectations": [
-        "The source stays directly addressed because no relational SQL shaping is required.",
-        "No register_delta_tables or register_iceberg_tables call is added to the runner.",
-        "The polars-sql extra is omitted; only dependencies required by the direct Delta path are selected."
-      ]
-    },
-    {
-      "id": 34,
-      "prompt": "Build a Polars runner in an Azure Function that uses FabricPlatform to read metadata and logs from a fully qualified OneLake abfss URI. The function uses its managed identity and is not a Fabric notebook.",
-      "expected_output": "Use a Python-host runner with FabricPlatform(runtime=\"external\"), install datacoolie[fabric-external] plus the selected Polars profiles, pass the qualified path unchanged, and let DefaultAzureCredential resolve the managed identity lazily.",
-      "files": [],
-      "expectations": [
-        "The execution host is distinguished from the Fabric platform adapter, so no Fabric parameter cell or NotebookUtils dependency is introduced.",
-        "The runner selects runtime=\"external\" and does not embed or require an explicit credential object.",
-        "The qualified abfss URI is passed unchanged and no default workspace or lakehouse is invented."
-      ]
-    },
-    {
-      "id": 35,
-      "prompt": "Build a local Python runner that uses DatabricksPlatform to manage metadata under /Volumes/main/ops/config. Databricks CLI authentication is already configured. Use s3://bucket/config instead because both paths reach the same data.",
-      "expected_output": "Keep the portable /Volumes path, use DatabricksPlatform(runtime=\"external\") with datacoolie[databricks-external], and rely on Databricks unified authentication rather than replacing the path with a native-only raw cloud URI.",
-      "files": [],
-      "expectations": [
-        "The local execution host uses Python transport rather than Databricks widgets.",
-        "The runner omits workspace_client unless the application explicitly owns one.",
-        "The external runner rejects raw s3/abfss/gs addressing and preserves /Volumes/<catalog>/<schema>/<volume>."
-      ]
-    },
-    {
-      "id": 36,
-      "prompt": "Before deciding whether to process a large cloud metadata file, check whether it exists, obtain its size and modification time, and enumerate neighboring JSON files. Optimize this check by reading each file and inspecting the first line.",
-      "expected_output": "Use file_exists, get_file_info, and list_files with an extension filter; do not call read_file or read_bytes because both APIs return complete content rather than a metadata head.",
-      "files": [],
-      "expectations": [
-        "Existence uses file_exists and metadata uses FileInfo from get_file_info/list_files.",
-        "Full-file read APIs are absent from the metadata-only path.",
-        "Sorting is added only if a consumer requires deterministic order."
-      ]
-    },
-    {
-      "id": 37,
-      "prompt": "Create fixed native Fabric and Databricks notebook runners. Their host libraries and Spark runtimes are already attached, but install the external SDK extras inside each notebook so runtime detection can choose the best backend.",
-      "expected_output": "Use explicit runtime=\"fabric\" and runtime=\"databricks\" constructors, rely on NotebookUtils/dbutils supplied by the hosts, and perform no inline installation of external SDK profiles.",
-      "files": [],
-      "expectations": [
-        "Fixed native runners fail closed through explicit native modes rather than runtime=\"auto\".",
-        "The notebooks do not install, upgrade, or restart packages.",
-        "fabric-external and databricks-external are omitted from native host requirements."
-      ]
-    },
-    {
-      "id": 38,
-      "prompt": "Run AWSPlatform against MinIO for metadata files while using normal AWS Glue and Secrets Manager endpoints. Configure one endpoint URL and route every boto3 service through it.",
-      "expected_output": "Use datacoolie[aws], configure endpoint_url only as the S3-compatible storage override, and keep Glue, Athena, and Secrets Manager on their normal AWS endpoints unless an explicit per-service endpoint is supplied.",
-      "files": [],
-      "expectations": [
-        "AWSPlatform remains the public adapter for AWS and MinIO storage.",
-        "The standard boto3 credential chain is used without embedded keys.",
-        "The platform-level endpoint_url is not generalized to non-S3 services."
-      ]
-    },
-    {
-      "id": 39,
-      "prompt": "Author metadata for one catalog source named catalog_a.database_b.table_c and another named workspace_x.lakehouse_y.schema_z.table_q. Keep logical SQL qualification consistent without changing file base_path composition.",
-      "expected_output": "Map catalog/database/schema/table into the existing metadata fields, prefer connection.database for the middle namespace, and keep physical paths at base_path/schema_name/table.",
-      "files": [],
-      "expectations": [
-        "The three-level name maps to connection.catalog, connection.database, no nested schema, and table.",
-        "The four-level name maps workspace to catalog, lakehouse to database, nested schema to schema_name, and table to table.",
-        "Relational schema.table reads and physical base_path composition are not overwritten by catalog rules."
-      ]
-    },
-    {
-      "id": 40,
-      "prompt": "Build and lint an environment named preprod_blue. Its cloud metadata is build-scoped, while logs and watermarks use persistent isolated control paths.",
-      "expected_output": "Accept the project-defined environment name, materialize immutable metadata for its build ID, and pass exact persistent log/watermark paths without cloning metadata or adding config selectors.",
-      "files": [],
-      "expectations": [
-        "The environment is not rejected for being outside dev/test/prod.",
-        "Metadata remains immutable and build-scoped while logs and watermarks remain outside the build.",
-        "Runtime paths are passed unchanged rather than encoded as engine or stage configuration."
-      ]
-    },
-    {
-      "id": 41,
-      "prompt": "Create a runner that executes on an on-premises scheduler, reads an on-premises source, and uses the cloud platform adapter plus engine credentials to write to a cloud destination.",
-      "expected_output": "Use the explicit external cloud runtime, keep the scheduler as the execution/release target, and verify platform control-storage access separately from engine destination access.",
-      "files": [],
-      "expectations": [
-        "Platform, external runtime, execution host, and engine I/O responsibilities remain distinct.",
-        "The runner uses framework metadata and driver execution rather than custom ingestion.",
-        "Network and credential prerequisites route to Provision when missing or unknown."
-      ]
-    },
-    {
-      "id": 42,
-      "prompt": "Two schedulers may run the same incremental dataflow against one watermark path. Source queries can contain sensitive filters, and a target write may finish before the watermark update fails.",
-      "expected_output": "Require one active writer per environment/path/dataflow state key, avoid secret literals and restrict log access/retention, then recover through idempotent rerun or explicit replay without silently changing the watermark.",
-      "files": [],
-      "expectations": [
-        "The runner does not invent framework locking or concurrent watermark coordination.",
-        "Raw query/action logging risk is handled through authoring, classification, access, and retention controls.",
-        "Write-after-target failure retains evidence and uses idempotent recovery rather than an automatic watermark advance/reset."
-      ]
-    },
-    {
-      "id": 43,
-      "prompt": "The approved architecture selects a wheel for a function-backed Fabric and Databricks project. A request proposes pip install cells in every notebook and both WHL and ZIP packages for flexibility.",
-      "expected_output": "Honor the approved wheel selection: create only one wheel, validate it in isolation, and render the fixed project import prefix; generated notebooks contain no installation or restart behavior.",
-      "files": [],
-      "expectations": [
-        "Exactly one typed functions_artifact is emitted and it is a wheel.",
-        "The notebook allowlist equals the manifest import prefix and is not a parameter.",
-        "Package preparation remains outside runner/notebook execution."
-      ]
-    },
-    {
-      "id": 44,
-      "prompt": "The approved AWS Glue host explicitly selects a simple pure-Python ZIP. Also build a wheel as a backup and put the project under a generic top-level functions package.",
-      "expected_output": "Build only one project-named ZIP with one project-specific import package at archive root; do not emit a backup wheel or generic functions root.",
-      "files": [],
-      "expectations": [
-        "The manifest records format zip with null distribution/version.",
-        "The ZIP has one safe importable project package and no compiled dependencies.",
-        "A second package format is not generated."
-      ]
-    },
-    {
-      "id": 45,
-      "prompt": "Resolved metadata references other_package.sources.load but the selected artifact and runner allowlist use project_package. Let runtime discover it from the workspace checkout.",
-      "expected_output": "Fail Build because every metadata function must start with the artifact import prefix and validation must not resolve authoring source from the workspace.",
-      "files": [],
-      "expectations": [
-        "Prefix mismatch fails before a successful receipt is written.",
-        "Imports run from an isolated artifact-only location.",
-        "The runner allowlist is fixed and is not widened dynamically."
-      ]
-    },
-    {
-      "id": 46,
-      "prompt": "This project has no Python-function source. Create an empty functions build directory, an empty artifact record, and function import checks for consistency.",
-      "expected_output": "Emit functions_artifact null, no functions placeholder, an empty runner allowlist, and no function-specific verification checks.",
-      "files": [],
-      "expectations": [
-        "No package is created when resolved metadata has no Python function.",
-        "Manifest and receipt use the singular nullable field.",
-        "Only relevant runtime checks are required."
-      ]
-    },
-    {
-      "id": 47,
-      "prompt": "Materialize the same resolved metadata as one file, then as separate connections/dataflows files, and finally as three files with global schema hints. Let each runner discover whichever files happen to exist.",
-      "expected_output": "Build three explicit layouts with different build identities, record the full typed metadata set, and pass exactly its declared FileProvider paths; runners never scan or infer the layout.",
-      "files": [],
-      "expectations": [
-        "The supported layouts are exactly single, split-connections, and split-all.",
-        "Every metadata role is under the environment metadata component and is hash-bound.",
-        "The optional provider paths are omitted when their roles are absent."
-      ]
-    },
-    {
-      "id": 48,
-      "prompt": "In one environment, change one destination setting for every batch dataflow using a particular source connection, but give one named dataflow a different final value. Avoid repeating every matching dataflow.",
-      "expected_output": "Use one dataflows selector patch with a nested exact-subset match for the shared change, then one exact keyed dataflow override for the named exception; resolve selectors against canonical metadata and apply the exact override last.",
-      "files": [],
-      "expectations": [
-        "The shared change uses patches rather than a cloned environment metadata document or an enumerated dataflow list.",
-        "The selector type is dataflows and its where object matches scalar and nested canonical attributes.",
-        "The exact keyed override wins after all ordered patches, independent of JSON object key order."
-      ]
-    },
-    {
-      "id": 49,
-      "prompt": "For one environment, increase precision for matching discovered table-column type hints globally. Separately add a local cast to every dataflow in a selected processing group. Keep the two scopes unambiguous.",
-      "expected_output": "Use a schema_hints selector at connection/schema/table/column grain for the existing global hints, and a separate dataflows selector whose patch contains transform.schema_hints for the local casts.",
-      "files": [],
-      "expectations": [
-        "The global selector type is schema_hints and targets existing column-grain hint records.",
-        "The local change selects dataflows and modifies only their transform.schema_hints, merged by column_name.",
-        "Neither selector scope is described as merging global and local runtime hint sources."
-      ]
-    },
-    {
-      "id": 50,
-      "prompt": "The existing design permits independent ETL flows. Keep one-job usage simple, but allow this runner to scale to four external jobs when volume grows. Update the relevant runner parameters and explain the launch arrangement.",
-      "expected_output": "Expose optional job_num/job_index with defaults 1/0 through the runner's native transport. Independent flows omit group/order. For scale-out the caller launches each index 0..3 with job_num=4 and consistent metadata/environment/stage selection.",
-      "files": [],
-      "expectations": [
-        "Single-job invocations omit both shard parameters; supplied integers reach DataCoolieRunConfig.",
-        "The runner does not launch jobs or manually partition metadata, and config.yaml does not gain job parameters.",
-        "Assignment is deterministic and not guaranteed balanced; duplicate or missing indexes are not prevented by the framework."
-      ]
-    },
-    {
-      "id": 51,
-      "prompt": "A must finish before B in one normal run. Both currently have group_number=null, with execution_order=10 and 20. Will this also be safe with four jobs? Give the smallest metadata correction.",
-      "expected_output": "The null group provides no dependency barrier even in one job and can split across jobs. Assign both flows the same non-null group, preserve increasing orders, and use stop_on_error=True for failed prerequisites.",
-      "files": [],
-      "expectations": [
-        "The explanation distinguishes sorted submission from completion ordering for ungrouped flows.",
-        "The correction co-locates A/B using one group and orders them using different buckets; it does not use increasing group numbers.",
-        "A failed producer with stop_on_error=False and a missing or skipped producer are not presented as successful dependency gates."
-      ]
-    },
-    {
-      "id": 52,
-      "prompt": "Run source2bronze and bronze2silver together for separate orders and customers chains, then build a silver join consuming both. Explain the combined metadata option and the preferred operational arrangement with three jobs.",
-      "expected_output": "Prefer separate stages with an external barrier across all upstream shards and required checks. A combined stage selection is only a filter; an in-call join requires its prerequisite dependency set in one group with increasing orders, or an external barrier.",
-      "files": [],
-      "expectations": [
-        "Stage list or comma-string order does not impose execution order.",
-        "Separate chains can use separate groups, but a join across those groups cannot rely on their group numbers for readiness.",
-        "Independent flows omit group/order, and the normal runner still makes one framework call per invocation.",
-        "In stage-by-stage scale-out, finishing only the current job's upstream shard is insufficient to start the downstream stage.",
-        "Stage names are project-defined examples; no medallion-specific allowlist or fixed stage sequence is introduced."
-      ]
-    },
-    {
-      "id": 53,
-      "prompt": "Two groups each have two independent producers at order 10 and a consumer at order 20. With max_workers=2 and stop_on_error=True, are there at most two active dataflows, and does one failure halt the whole job? Does the same metadata order replay?",
-      "expected_output": "Nested group pools can run four producers; max_workers is per pool. Normal ETL stops later buckets only in the failed group and cannot interrupt running peers. Replay ignores group/order sequencing across flows and stops subsequent chunks within a failing flow.",
-      "files": [],
-      "expectations": [
-        "No global concurrency cap or job-wide fail-fast is promised.",
-        "Tied orders run concurrently; higher orders wait for the earlier bucket within their own group.",
-        "Replay dependencies require separate invocations or external gates rather than group/order metadata."
-      ]
-    },
-    {
-      "id": 54,
-      "prompt": "A downstream contract explicitly requires ingestion_timestamp and source_batch_id with semantics distinct from DataCoolie's write timestamp and dataflow run ID. Decide whether to keep them and how to avoid confusion with framework audit fields.",
-      "expected_output": "Preserve explicitly contracted, semantically distinct columns with documented provenance while retaining framework system columns; do not delete them merely because their names resemble audit metadata.",
-      "files": [],
-      "expectations": [
-        "The explicit downstream contract is honored because both fields have distinct documented semantics.",
-        "Framework write-time and run identity remain separate; custom fields are not aliases for system columns.",
-        "If semantics are duplicate or unspecified, clarification is requested instead of inventing values."
-      ]
-    },
-    {
-      "id": 55,
-      "prompt": "In one normal ETL call, group_number=0 contains A with execution_order omitted, B with execution_order=0, and C with execution_order=10. D has group_number=null and execution_order=-10. Explain scheduling and multi-job placement without treating zero as absent.",
-      "expected_output": "A/B share order bucket 0 and may overlap; C waits. Group zero is real and maps to job index 0. D remains independent despite its order and is hash-assigned when sharded.",
-      "files": [],
-      "expectations": [
-        "group_number=0 is non-null and co-locates its flows on job index 0 for any positive job_num.",
-        "Omitted execution_order and zero share bucket 0; tied members may overlap and C waits for the bucket.",
-        "D's negative order creates no completion barrier because its group is null."
-      ]
-    },
-    {
-      "id": 56,
-      "prompt": "Review job configurations (job_num=0, job_index=0), (3,-1), (3,3), and (3,2). State which are valid and whether the runner should normalize any value.",
-      "expected_output": "Only (3,2) is valid. The runner decodes integers and DataCoolieRunConfig rejects all invalid ranges without clamping or wrapping.",
-      "files": [],
-      "expectations": [
-        "The first three pairs are rejected and (3,2) is accepted.",
-        "No clamping, modulo normalization, or silent replacement of invalid values is proposed.",
-        "Validation does not launch jobs or manually partition metadata."
-      ]
-    },
-    {
-      "id": 57,
-      "prompt": "A caller passes driver.run(dataflows=explicit_list, stage=unmatched_stage) on job_index=1 of 3. The list includes an inactive flow and flows assigned to other shards. Explain selection and scheduling.",
-      "expected_output": "Every supplied flow is considered because an explicit list bypasses loading, active/stage filtering, and job assignment. Normal ETL group/order scheduling still applies.",
-      "files": [],
-      "expectations": [
-        "The stage argument does not filter an explicitly supplied list.",
-        "Inactive and other-shard supplied flows are not removed by the bypassed loader.",
-        "Normal ETL group/order scheduling still applies, unlike replay's flat inter-flow execution."
-      ]
-    },
-    {
-      "id": 58,
-      "prompt": "Run the bundled metadata validator against the supplied local_use_cases fixture. Report the exact command, exit code, and whether validation passed. Do not modify the fixture.",
-      "expected_output": "Execute the validator on the declared fixture and report success only from observed exit code zero.",
-      "files": [
-        "../../../usecase-sim/metadata/file/local_use_cases.json",
-        "scripts/validate.py"
-      ],
-      "expectations": [
-        "Evidence includes the exact validator command and observed exit code.",
-        "The supplied fixture is not modified and success is tied to exit code zero.",
-        "Grading cites captured command output or a retained execution artifact."
-      ]
-    },
-    {
-      "id": 59,
-      "prompt": "Run the supplied build-identity unit tests covering invocation time, content digest, and same-second reuse. Report exact pytest nodes or filter, exit code, and result without claiming broader Build verification.",
-      "expected_output": "Execute a targeted pytest selection and retain output proving the selected build-identity cases passed.",
-      "files": [
-        "../../../ai/skills/tests/unit/test_workspace_materialization.py",
-        "scripts/materialize.py"
-      ],
-      "expectations": [
-        "Evidence names the exact narrow pytest selection and observed exit code.",
-        "Selected tests cover later-time distinct IDs, same digest, changed digest, and same-second reuse.",
-        "The result is not presented as a full AI suite, model benchmark, or production build."
-      ]
-    },
-    {
-      "id": 60,
-      "prompt": "Run the supplied local orchestration scheduling and stage-selection contract test files. Report exact command, exit code, and test count; do not claim cloud or production execution.",
-      "expected_output": "Execute only both declared pytest files and retain their output as local contract evidence.",
-      "files": [
-        "../../../tests/unit/orchestration/test_scheduling_contract.py",
-        "../../../tests/unit/orchestration/test_stage_scheduling_contract.py"
-      ],
-      "expectations": [
-        "Evidence contains the exact pytest command, observed exit code, and test count for both files.",
-        "The result covers group/order concurrency plus stage, explicit-list, and replay selection behavior.",
-        "Claims remain limited to isolated local tests, not end-to-end ETL or cloud execution."
-      ]
+      "expectations": ["Pinned direct links and same-revision offline sources are accepted", "An unavailable revision is reported rather than guessed or silently replaced"]
     }
-  ],
-  "eval_schema_version": 2,
-  "case_kinds": {
-    "decision": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15,
-      16,
-      17,
-      18,
-      19,
-      20,
-      21,
-      22,
-      23,
-      24,
-      25,
-      26,
-      27,
-      28,
-      29,
-      30,
-      31,
-      32,
-      33,
-      34,
-      35,
-      36,
-      37,
-      38,
-      39,
-      40,
-      41,
-      42,
-      43,
-      44,
-      45,
-      46,
-      47,
-      48,
-      49,
-      50,
-      51,
-      52,
-      53,
-      54,
-      55,
-      56,
-      57
-    ],
-    "execution": [
-      58,
-      59,
-      60
-    ]
-  },
-  "capability_families": {
-    "lifecycle-routing": [
-      1,
-      8
-    ],
-    "workspace-authoring": [
-      2,
-      15,
-      40
-    ],
-    "runner-interface": [
-      3,
-      4,
-      18,
-      19,
-      20
-    ],
-    "framework-boundary": [
-      5,
-      14,
-      24
-    ],
-    "build-automation": [
-      6,
-      17,
-      22
-    ],
-    "materialization": [
-      7,
-      25
-    ],
-    "build-identity": [
-      13,
-      59
-    ],
-    "replay-runner": [
-      11
-    ],
-    "maintenance-runner": [
-      12,
-      21
-    ],
-    "metadata-layout": [
-      9,
-      10,
-      47
-    ],
-    "artifact-verification": [
-      16
-    ],
-    "schema-hints": [
-      23,
-      49
-    ],
-    "audit-columns": [
-      26,
-      54
-    ],
-    "file-routing": [
-      27,
-      28,
-      30,
-      39
-    ],
-    "incremental-loading": [
-      29
-    ],
-    "polars-qualified-sql": [
-      31,
-      32,
-      33
-    ],
-    "platform-runtime": [
-      34,
-      35,
-      37,
-      38,
-      41
-    ],
-    "platform-file-api": [
-      36
-    ],
-    "runtime-state": [
-      42
-    ],
-    "function-packaging": [
-      43,
-      44,
-      45,
-      46
-    ],
-    "overlay-selectors": [
-      48
-    ],
-    "orchestration-sharding": [
-      50,
-      56
-    ],
-    "orchestration-ordering": [
-      51,
-      55,
-      60
-    ],
-    "orchestration-stages": [
-      52
-    ],
-    "orchestration-concurrency": [
-      53
-    ],
-    "orchestration-selection": [
-      57
-    ],
-    "metadata-validation": [
-      58
-    ]
-  }
+  ]
 }

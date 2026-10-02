@@ -11,8 +11,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from datacoolie.core.secret_provider import BaseSecretProvider
-from datacoolie.utils.path_utils import normalize_path
+from datacoolie.core.exceptions import PlatformError
+from datacoolie.core.secrets.provider import BaseSecretProvider
+from datacoolie.utils.path_utils import ensure_relative_path, is_path_within, join_path, normalize_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +43,7 @@ class BasePlatform(BaseSecretProvider):
     never touches ``os``, ``shutil``, or cloud SDKs directly.
 
     Each platform also implements :meth:`_fetch_secret` so it can serve as
-    its own :class:`~datacoolie.core.secret_provider.BaseSecretProvider`,
+    its own :class:`~datacoolie.core.secrets.provider.BaseSecretProvider`,
     using its existing SDK handle (env vars / notebookutils / dbutils / boto3).
 
     **18 abstract requirements** across six categories: 17 methods declared
@@ -59,6 +60,58 @@ class BasePlatform(BaseSecretProvider):
     # ------------------------------------------------------------------
     # File I/O
     # ------------------------------------------------------------------
+
+    def read_file_under_base(self, base_path: str, relative_path: str) -> str:
+        """Read a relative resource below a configured base path.
+
+        Query/artifact resolution uses this narrow helper so the selected
+        base is validated before the platform performs I/O.  Concrete
+        platforms may override it when their storage backend has additional
+        canonical-path rules (``LocalPlatform`` rejects symlink escapes).
+        """
+        try:
+            relative = ensure_relative_path(relative_path)
+            candidate = join_path(base_path, relative)
+        except ValueError as exc:
+            raise PlatformError(f"Invalid resource path {relative_path!r}") from exc
+        if not is_path_within(base_path, candidate):
+            raise PlatformError(
+                f"Resolved resource escapes configured base path: {relative_path!r}"
+            )
+        return self.read_file(candidate)
+
+    def read_bytes_under_base(self, base_path: str, relative_path: str) -> bytes:
+        """Read binary content below a configured base with the same guard."""
+        try:
+            relative = ensure_relative_path(relative_path)
+            candidate = join_path(base_path, relative)
+        except ValueError as exc:
+            raise PlatformError(f"Invalid resource path {relative_path!r}") from exc
+        if not is_path_within(base_path, candidate):
+            raise PlatformError(
+                f"Resolved resource escapes configured base path: {relative_path!r}"
+            )
+        return self.read_bytes(candidate)
+
+    def relative_path_under_base(self, base_path: str, path: str) -> str:
+        """Return a listed path relative to a configured base.
+
+        Platform listings may return either the same logical spelling as the
+        requested root or a canonical/absolute spelling.  The default handles
+        the former; local adapters override it to validate the latter against
+        their canonical sandbox before returning a relative resource path.
+        """
+        base_value = normalize_path(base_path)
+        path_value = normalize_path(path)
+        if not is_path_within(base_value, path_value):
+            raise PlatformError(
+                f"Listed path is outside configured base path: {path!r}"
+            )
+        prefix = base_value.rstrip("/") + "/"
+        try:
+            return ensure_relative_path(path_value[len(prefix) :])
+        except ValueError as exc:
+            raise PlatformError(f"Invalid listed resource path: {path!r}") from exc
 
     @abstractmethod
     def read_file(self, path: str) -> str:

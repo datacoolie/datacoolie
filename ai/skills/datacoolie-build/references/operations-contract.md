@@ -7,7 +7,15 @@
 - Inherits common identity, parameters, construction, notebook decoding, durable/generated, and
   receipt behavior from the runner contract; it does not redefine them.
 
+Read the public [replay and backfill guide](https://datacoolie.github.io/datacoolie/guide/operations/replay-and-backfill/)
+and [maintenance guide](https://datacoolie.github.io/datacoolie/guide/operations/maintenance/)
+for user-facing operation workflows. This reference adds only agent-facing gates and evidence.
+
 ## Entrypoint identity
+
+For newly authored host-specific entrypoints, use the common runner naming
+policy. Reused public examples follow the canonical identity rule in
+[runner-contract.md](runner-contract.md#identity-and-location).
 
 ```text
 replay_{platform}_{engine}[_{provider}].py|ipynb
@@ -84,5 +92,6 @@ only where the framework requires native JSON, boolean, or numeric values.
   modes.
 - Maintenance covers direct filters, operation selection, retention, confirmation, one framework
   call, and failure reporting.
-- The build receipt records the selected operation and its objective results; common artifact and
-  receipt checks remain owned by the runner contract and build validator.
+- Runtime observations belong in the framework's normal dataflow/job logs. The CLI build manifest
+  and local validation report are the artifact evidence; replay and maintenance do not introduce
+  a second build-receipt protocol.

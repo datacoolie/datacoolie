@@ -1,0 +1,49 @@
+{
+  "connections": [
+    {
+      "name": "replay_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "replay_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "iceberg_replay_validation",
+      "stage": "iceberg_replay_validation",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "replay_iceberg_source",
+        "table": "replay_iceberg_source",
+        "watermark_columns": ["order_date"],
+        "configure": {
+          "backward_days": 7
+        }
+      },
+      "destination": {
+        "connection_name": "replay_iceberg_dest",
+        "table": "iceberg_replay_validation",
+        "load_type": "merge_overwrite",
+        "merge_keys": ["order_id"],
+        "configure": {
+          "replace_by_watermark": true
+        }
+      },
+      "transform": {}
+    }
+  ]
+}

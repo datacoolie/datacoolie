@@ -16,9 +16,9 @@ from datacoolie.core.constants import (
     FileInfoColumn,
 )
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Source
+from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.platforms.base import FileInfo
 from datacoolie.sources.base import BaseSourceReader
 
@@ -40,6 +40,17 @@ class FileReader(BaseSourceReader[DF]):
         engine: BaseEngine[DF],
     ) -> None:
         super().__init__(engine)
+
+    def _supports_read_range(self) -> bool:
+        return True
+
+    def _watermark_ordering_kinds(self, candidate: Dict[str, Any]) -> Dict[str, str]:
+        kinds = self._typed_row_watermark_ordering_kinds(candidate)
+        if DATE_FOLDER_PARTITION_KEY in candidate:
+            kinds[DATE_FOLDER_PARTITION_KEY] = "temporal"
+        if FileInfoColumn.FILE_MODIFICATION_TIME in candidate:
+            kinds[FileInfoColumn.FILE_MODIFICATION_TIME] = "temporal"
+        return kinds
 
     # ------------------------------------------------------------------
     # Core reading
@@ -65,6 +76,22 @@ class FileReader(BaseSourceReader[DF]):
         """
         if not source.path:
             raise SourceError("FileReader requires source.path")
+
+        read_range = self._get_read_range()
+        if read_range is not None and read_range.column == DATE_FOLDER_PARTITION_KEY:
+            raise SourceError(
+                "Date-folder partition is an internal discovery key and cannot "
+                "be used as chunk_column/read_range; use file modification time"
+            )
+        if (
+            read_range is not None
+            and read_range.column == FileInfoColumn.FILE_MODIFICATION_TIME
+            and self._engine.platform is None
+        ):
+            raise SourceError(
+                "A file modification-time read_range requires a platform "
+                "that can list files and modification metadata"
+            )
 
         date_pattern = source.connection.date_folder_partitions
         paths: List[str]
@@ -93,17 +120,37 @@ class FileReader(BaseSourceReader[DF]):
             self._engine.platform is not None
             and (
                     FileInfoColumn.FILE_MODIFICATION_TIME in (source.watermark_columns or [])
+                    or (
+                        read_range is not None
+                        and read_range.column == FileInfoColumn.FILE_MODIFICATION_TIME
+                    )
                     or type(self._engine).__name__ not in ("SparkEngine",)
                 )
         )
         if _tracks_mtime:
-            mtime_wm_start_raw = (watermark_start or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
-            mtime_wm_end_raw = (watermark_end or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
+            if read_range is not None and read_range.column == FileInfoColumn.FILE_MODIFICATION_TIME:
+                mtime_wm_start_raw = read_range.start
+                mtime_wm_end_raw = read_range.end
+                mtime_start_operator = read_range.lower_operator
+                mtime_end_operator = read_range.upper_operator
+            else:
+                mtime_wm_start_raw = (watermark_start or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
+                mtime_wm_end_raw = (watermark_end or {}).get(FileInfoColumn.FILE_MODIFICATION_TIME)
+                mtime_start_operator = self._watermark_start_operator
+                mtime_end_operator = self._watermark_end_operator
             file_infos = self._collect_file_infos(
                 paths, source.connection.format, mtime_wm_start_raw, mtime_wm_end_raw,
-                start_operator=self._watermark_start_operator,
-                end_operator=self._watermark_end_operator,
+                start_operator=mtime_start_operator,
+                end_operator=mtime_end_operator,
                 recursive=source.connection.use_hive_partitioning,
+                require_modification_time=(
+                    FileInfoColumn.FILE_MODIFICATION_TIME
+                    in (source.watermark_columns or [])
+                    or (
+                        read_range is not None
+                        and read_range.column == FileInfoColumn.FILE_MODIFICATION_TIME
+                    )
+                ),
             )
             paths = [fi.path for fi in file_infos]
 
@@ -126,7 +173,13 @@ class FileReader(BaseSourceReader[DF]):
         #     or set to null (no platform); never a meaningful df column to filter/max
         _wm_skip = {DATE_FOLDER_PARTITION_KEY, FileInfoColumn.FILE_MODIFICATION_TIME}
 
-        if watermark_start or watermark_end:
+        if read_range is not None:
+            # mtime ranges were already applied while listing files; applying
+            # the same range to a regular data column keeps the source-owned
+            # contract precise for readers that cannot push it down.
+            if read_range.column != FileInfoColumn.FILE_MODIFICATION_TIME:
+                df = self._apply_read_range_filter(df)
+        elif watermark_start or watermark_end:
             if source.watermark_columns:
                 wm_filter_cols = [c for c in source.watermark_columns if c not in _wm_skip]
                 if wm_filter_cols:
@@ -145,8 +198,27 @@ class FileReader(BaseSourceReader[DF]):
         # Merge date-folder watermark into new watermark (stored as ISO-8601)
         # Use the original folder paths (before _collect_file_infos rewrote
         # them to individual file paths) so the date-pattern regex matches.
-        if date_pattern and paths:
-            max_date_dt = self._get_max_date_folder_dt(folder_paths, date_pattern)
+        # Date-folder is an internal discovery watermark. A bounded replay on
+        # an ordinary row column must not advance that key from every folder
+        # scanned, because those folders are only a pruning scope. The mtime
+        # range path may derive the internal key from the files actually
+        # selected; normal incremental reads retain the existing behavior.
+        if date_pattern and paths and (
+            read_range is None
+            or read_range.column == FileInfoColumn.FILE_MODIFICATION_TIME
+        ):
+            folder_watermark_paths = folder_paths
+            if (
+                read_range is not None
+                and read_range.column == FileInfoColumn.FILE_MODIFICATION_TIME
+                and file_infos is not None
+            ):
+                folder_watermark_paths = [
+                    fi.path.rsplit("/", 1)[0] for fi in file_infos
+                ]
+            max_date_dt = self._get_max_date_folder_dt(
+                folder_watermark_paths, date_pattern
+            )
             if max_date_dt is not None:
                 new_wm[DATE_FOLDER_PARTITION_KEY] = max_date_dt.isoformat()
 
@@ -154,6 +226,15 @@ class FileReader(BaseSourceReader[DF]):
         self._set_rows_read(count)
 
         if count == 0:
+            if getattr(self, "_preserve_empty", False):
+                logger.debug(
+                    "%s: 0 rows after filtering — preserving typed empty frame. "
+                    "Table: %s (format: %s), Source path: %s",
+                    type(self).__name__,
+                    source.full_table_name,
+                    source.path,
+                )
+                return df
             logger.debug("%s: 0 rows after filtering — skipping. Table: %s (format: %s), Source path: %s", type(self).__name__, source.full_table_name, source.connection.format, source.path)
             return None
 
@@ -198,13 +279,13 @@ class FileReader(BaseSourceReader[DF]):
         start_operator: str = ">",
         end_operator: str = "<",
         recursive: bool = False,
+        require_modification_time: bool = False,
     ) -> List[FileInfo]:
         """List all files under *paths* and return those within the mtime window.
 
         Uses :meth:`~datacoolie.platforms.base.BasePlatform.list_files` with a
-        ``".{fmt}"`` extension filter.  Errors on individual paths are logged
-        as warnings and that path is skipped (same behaviour as
-        :meth:`_get_date_folder_paths`).
+        ``".{fmt}"`` extension filter. Listing errors propagate so a partial
+        discovery cannot be reported as a successful read.
 
         Args:
             paths: Leaf folder paths to scan.
@@ -221,6 +302,9 @@ class FileReader(BaseSourceReader[DF]):
             recursive: When ``True`` (hive-partitioned sources), descend into
                 sub-directories such as ``region=ABC/``.  Defaults to
                 ``False`` for flat layouts.
+            require_modification_time: When ``True``, a discovered file without
+                a modification time raises before any file is read.  When
+                ``False``, the file is retained with null metadata.
 
         Returns:
             :class:`~datacoolie.platforms.base.FileInfo` list, sorted by
@@ -241,16 +325,18 @@ class FileReader(BaseSourceReader[DF]):
         result: List[FileInfo] = []
 
         for path in paths:
-            try:
-                files = self._engine.platform.list_files(path, extension=ext, recursive=recursive)  # type: ignore[union-attr]
-            except Exception as exc:
-                logger.warning("%s: failed to list files at %s: %s", type(self).__name__, path, exc)
-                continue
+            files = self._engine.platform.list_files(path, extension=ext, recursive=recursive)  # type: ignore[union-attr]
 
             for fi in files:
                 if fi.is_dir:
                     continue
                 if fi.modification_time is None:
+                    if require_modification_time:
+                        raise SourceError(
+                            "File modification time is required for the configured "
+                            f"watermark but is unavailable for {fi.path!r}."
+                        )
+                    result.append(fi)
                     continue
                 if mtime_start_dt is not None and not lower_cmp(fi.modification_time, mtime_start_dt):
                     continue
@@ -258,7 +344,17 @@ class FileReader(BaseSourceReader[DF]):
                     continue
                 result.append(fi)
 
-        result.sort(key=lambda fi: fi.modification_time)  # type: ignore[arg-type]
+        def _sort_key(fi: FileInfo) -> Tuple[int, datetime, str]:
+            if fi.modification_time is None:
+                return (1, datetime.min.replace(tzinfo=timezone.utc), fi.path)
+            modification_time = fi.modification_time
+            if modification_time.tzinfo is None:
+                modification_time = modification_time.replace(tzinfo=timezone.utc)
+            else:
+                modification_time = modification_time.astimezone(timezone.utc)
+            return (0, modification_time, fi.path)
+
+        result.sort(key=_sort_key)
         return result
 
     @staticmethod
@@ -338,13 +434,7 @@ class FileReader(BaseSourceReader[DF]):
             next_frontier: List[Tuple[str, bool, bool]] = []
 
             for path, on_lower, on_upper in frontier:
-                try:
-                    children = self._engine.platform.list_folders(path, recursive=False)
-                except Exception as exc:
-                    logger.warning(
-                        "%s: failed to list folders at %s: %s", type(self).__name__, path, exc
-                    )
-                    continue
+                children = self._engine.platform.list_folders(path, recursive=False)
 
                 for child in children:
                     folder_name = child.rstrip("/").rsplit("/", 1)[-1]

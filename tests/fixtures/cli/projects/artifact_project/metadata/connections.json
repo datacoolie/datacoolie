@@ -1,0 +1,20 @@
+{
+  "connections": [
+    {
+      "name": "project_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "project_parquet_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/project_artifact"
+      }
+    }
+  ]
+}

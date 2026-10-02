@@ -12,7 +12,8 @@ import pytest
 
 from datacoolie.core.constants import DatabaseAuthType
 from datacoolie.core.exceptions import ConfigurationError, EngineError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.engines._polars.database import build_mssql_odbc_connection
 from datacoolie.engines.polars_engine import PolarsEngine
 from datacoolie.sources.database_reader import DatabaseReader

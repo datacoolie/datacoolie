@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.github.io/datacoolie/schema/upload-record.schema.json",
+  "title": "DataCoolie local upload record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "release_id",
+    "build_id",
+    "environment",
+    "deployment_path",
+    "source",
+    "status",
+    "uploads"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "release_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "build_id": {"type": "string", "minLength": 1},
+    "environment": {"type": "string", "minLength": 1},
+    "deployment_path": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "status": {"enum": ["success", "partial_failure", "failed"]},
+    "uploads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "current"],
+      "properties": {
+        "artifact": {"$ref": "#/$defs/upload"},
+        "current": {"$ref": "#/$defs/upload"}
+      }
+    }
+  },
+  "$defs": {
+    "upload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "files"],
+      "properties": {
+        "status": {"enum": ["success", "failed", "skipped"]},
+        "files": {"type": "integer", "minimum": 0},
+        "error": {"type": "string"}
+      }
+    }
+  }
+}

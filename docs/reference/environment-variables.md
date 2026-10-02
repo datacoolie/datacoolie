@@ -6,8 +6,8 @@ description: Reference for DataCoolie environment variables, runtime overrides, 
 # Environment variables
 
 DataCoolie does not define a fixed framework-wide environment-variable surface
-such as `DATACOOLIE_*` settings. In the current codebase, direct environment
-variable reads only happen in secret-resolution paths; most other
+such as `DATACOOLIE_*` settings. Direct environment reads cover secret
+resolution and automatic console-color detection; most other
 configuration flows through metadata, constructor arguments, or the host
 runtime.
 
@@ -17,9 +17,18 @@ runtime.
 |---|---|---|
 | `{source}{key}` | `EnvResolver` | When `secrets_ref` uses an `env:<source>` resolver key. |
 | `{source}{key}` | `LocalPlatform` | When `LocalPlatform` is the active native secret provider and `secrets_ref` uses an unprefixed source key. |
+| `NO_COLOR` | Console presentation | In `console_color="auto"`, its presence disables color, including an empty value. |
+| `TERM` | Console presentation | In `console_color="auto"`, the value `dumb` (case-insensitive) disables color. |
 
-In both cases, `key` is the current value already stored in the relevant
+For both secret lookup patterns, `key` is the current value already stored in the relevant
 `configure` field.
+
+## Console color precedence
+
+`LogConfig.console_color="always"` forces color and `"never"` disables it.
+These explicit modes take precedence over the environment. The default `"auto"`
+checks `NO_COLOR`, then `TERM=dumb`, then whether the stream supports color or
+is a terminal. See [logging configuration](runtime-configuration.md#logging-configuration).
 
 ## `EnvResolver` (`env:<prefix>`)
 

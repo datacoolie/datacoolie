@@ -1,0 +1,36 @@
+{
+  "connections": [
+    {
+      "name": "query_contract_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "query_contract_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/query_contract"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "query_root_routing",
+      "stage": "query_root_routing",
+      "source": {
+        "connection_name": "query_contract_source",
+        "query": "queries/orders.sql"
+      },
+      "destination": {
+        "connection_name": "query_contract_destination",
+        "table": "orders_query_root",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

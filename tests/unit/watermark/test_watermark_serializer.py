@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, time, timezone
+from decimal import Decimal
 
 import pytest
 
-from datacoolie.core.constants import DATETIME_PATTERN
+from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY, DATETIME_PATTERN
+from datacoolie.core.exceptions import WatermarkError
 from datacoolie.watermark.base import (
     BaseWatermarkManager,
     WatermarkSerializer,
@@ -68,6 +70,44 @@ class TestWatermarkSerializerSerialize:
         with pytest.raises(TypeError):
             WatermarkSerializer.serialize({"bad": object()})
 
+    def test_decimal_and_binary_roundtrip(self) -> None:
+        original = {
+            "amount": Decimal("001.2300"),
+            "version": b"\x00\xffv1",
+        }
+        restored = WatermarkSerializer.deserialize(WatermarkSerializer.serialize(original))
+        assert restored == original
+        assert isinstance(restored["amount"], Decimal)
+        assert isinstance(restored["version"], bytes)
+
+    @pytest.mark.parametrize("value", [Decimal("NaN"), Decimal("Infinity")])
+    def test_nonfinite_decimal_is_rejected(self, value: Decimal) -> None:
+        with pytest.raises(TypeError, match="finite"):
+            WatermarkSerializer.serialize({"amount": value})
+
+    def test_nonfinite_float_is_rejected(self) -> None:
+        with pytest.raises(TypeError, match="finite"):
+            WatermarkSerializer.serialize({"offset": float("nan")})
+
+    @pytest.mark.parametrize("value", [(1, 2), {1, 2}, frozenset({1, 2})])
+    def test_lossy_containers_are_rejected(self, value) -> None:
+        with pytest.raises(TypeError, match="Unsupported watermark container"):
+            WatermarkSerializer.serialize({"value": value})
+
+    def test_reserved_tag_container_is_rejected_before_encoding(self) -> None:
+        with pytest.raises(TypeError, match="Reserved watermark tag"):
+            WatermarkSerializer.serialize({"value": {"__date__": "2025-01-01"}})
+
+    def test_internal_date_folder_key_roundtrips_as_metadata(self) -> None:
+        value = "2026-01-02T00:00:00+00:00"
+        serialized = WatermarkSerializer.serialize(
+            {DATE_FOLDER_PARTITION_KEY: value}
+        )
+
+        assert WatermarkSerializer.deserialize(serialized) == {
+            DATE_FOLDER_PARTITION_KEY: value
+        }
+
 
 # ===========================================================================
 # WatermarkSerializer.deserialize
@@ -98,11 +138,22 @@ class TestWatermarkSerializerDeserialize:
     def test_empty_like_inputs_return_empty(self, raw) -> None:
         assert WatermarkSerializer.deserialize(raw) == {}
 
-    def test_invalid_json_returns_empty(self) -> None:
-        assert WatermarkSerializer.deserialize("not json!!!") == {}
+    def test_invalid_json_is_corruption(self) -> None:
+        with pytest.raises(WatermarkError, match="Invalid watermark JSON"):
+            WatermarkSerializer.deserialize("not json!!!")
 
-    def test_non_dict_json_returns_empty(self) -> None:
-        assert WatermarkSerializer.deserialize("[1, 2, 3]") == {}
+    def test_non_string_json_is_corruption(self) -> None:
+        with pytest.raises(WatermarkError, match="Invalid watermark JSON"):
+            WatermarkSerializer.deserialize(123)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("raw", ['{"offset": NaN}', '{"offset": Infinity}'])
+    def test_nonfinite_json_constants_are_corruption(self, raw: str) -> None:
+        with pytest.raises(WatermarkError, match="Invalid watermark JSON"):
+            WatermarkSerializer.deserialize(raw)
+
+    def test_non_dict_json_is_corruption(self) -> None:
+        with pytest.raises(WatermarkError, match="must contain an object"):
+            WatermarkSerializer.deserialize("[1, 2, 3]")
 
     def test_nested_datetime_restoration(self) -> None:
         dt_iso = "2025-06-15T10:30:00+00:00"
@@ -126,20 +177,35 @@ class TestWatermarkSerializerDeserialize:
         result = WatermarkSerializer.deserialize(raw)
         assert result["meta"] == {"key": "value"}
 
-    def test_invalid_datetime_keeps_raw_string(self) -> None:
+    def test_invalid_datetime_is_corruption(self) -> None:
         raw = json.dumps({"ts": {DATETIME_PATTERN: "not-a-date"}})
-        result = WatermarkSerializer.deserialize(raw)
-        assert result["ts"] == "not-a-date"
+        with pytest.raises(WatermarkError, match="Invalid datetime"):
+            WatermarkSerializer.deserialize(raw)
 
-    def test_invalid_date_keeps_raw_string(self) -> None:
+    def test_invalid_date_is_corruption(self) -> None:
         raw = json.dumps({"day": {"__date__": "bad-date"}})
-        result = WatermarkSerializer.deserialize(raw)
-        assert result["day"] == "bad-date"
+        with pytest.raises(WatermarkError, match="Invalid date"):
+            WatermarkSerializer.deserialize(raw)
 
-    def test_invalid_time_keeps_raw_string(self) -> None:
+    def test_invalid_time_is_corruption(self) -> None:
         raw = json.dumps({"clock": {"__time__": "bad-time"}})
-        result = WatermarkSerializer.deserialize(raw)
-        assert result["clock"] == "bad-time"
+        with pytest.raises(WatermarkError, match="Invalid time"):
+            WatermarkSerializer.deserialize(raw)
+
+    def test_ambiguous_tag_is_corruption(self) -> None:
+        raw = json.dumps({"value": {"__date__": "2025-06-15", "extra": 1}})
+        with pytest.raises(WatermarkError, match="Invalid watermark tag"):
+            WatermarkSerializer.deserialize(raw)
+
+    def test_unknown_tag_is_corruption(self) -> None:
+        raw = json.dumps({"value": {"__future_type__": "value"}})
+        with pytest.raises(WatermarkError, match="Invalid watermark tag"):
+            WatermarkSerializer.deserialize(raw)
+
+    def test_invalid_binary_is_corruption(self) -> None:
+        raw = json.dumps({"version": {"__binary__": "not-base64!"}})
+        with pytest.raises(WatermarkError, match="Invalid binary"):
+            WatermarkSerializer.deserialize(raw)
 
 
 # ===========================================================================

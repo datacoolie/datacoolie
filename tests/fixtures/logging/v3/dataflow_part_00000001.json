@@ -1,0 +1,1 @@
+{"log_schema_version":3,"_type":"dataflow_run_log","log_session_id":"fixture-session","job_id":"fixture-job","job_num":1,"job_index":0,"dataflow_id":"orders-bronze","source_query":"artifact:/sql/orders.sql","source_action":"{\"query\":\"SELECT * FROM orders\"}","status":"failed","error_message":"source unavailable"}

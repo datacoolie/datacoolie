@@ -15,8 +15,14 @@ The default run:
 1. Executes all unit tests.
 2. Validates `discover`, `design`, `build`, `provision`, and `release` skill contracts.
 3. Validates every behavioral-eval definition without calling a model.
-4. Runs local discovery fixture checks and build-owned metadata schema validation.
+4. Runs local discovery fixture checks and verifies that metadata contract
+   guidance resolves to the published project-owned schema and installed CLI.
 5. Does not start Docker or make model calls.
+
+Framework-owned metadata, CLI, project-build and canonical runner behavior
+tests live under the product `tests/unit/cli`, `tests/unit/project` and
+`tests/unit/docs` suites. This harness keeps only Skill routing, handoff and
+resource-consumption checks so a product contract is not counted twice.
 
 Run one validator:
 
@@ -120,12 +126,14 @@ Detailed manual/forward cases live in the matching `TESTING_datacoolie-*.md` fil
 - Exactly five lifecycle skills remain.
 - `AGENTS.md` and each main `SKILL.md` stay within their context budgets.
 - No maintained workflow references removed skills, phase journals, or cross-skill script paths.
-- Metadata has one canonical modular authoring layout.
+- Metadata has one canonical project-owned schema and supports the documented
+  modular authoring layouts.
 - Equal build inputs are reusable; changed inputs create another immutable ID.
 - Generated runners preserve platform/engine identity, persistent runtime paths, and unchanged
   stage passthrough.
 - Release verifies and consumes the exact build without rebuilding it.
-- No project lifecycle CLI is added to the DataCoolie package.
+- Project preparation commands are owned by the installed DataCoolie CLI;
+  workload execution remains in a project-owned runner.
 
 ## Unresolved questions
 

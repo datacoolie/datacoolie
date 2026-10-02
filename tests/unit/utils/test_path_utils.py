@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from datacoolie.utils.path_utils import build_path, normalize_path
+import pytest
+
+from datacoolie.utils.path_utils import (
+    build_path,
+    ensure_relative_path,
+    is_path_within,
+    join_path,
+    normalize_path,
+    parent_path,
+)
 
 
 class TestNormalizePath:
@@ -115,3 +124,52 @@ class TestBuildPath:
         result = build_path("s3://bucket/rest", "data", "file")
         assert "s3://" in result
         assert "file" in result
+
+
+class TestScopedPathHelpers:
+    @pytest.mark.parametrize(
+        ("base", "relative", "expected"),
+        [
+            ("/release", "sql/orders.sql", "/release/sql/orders.sql"),
+            ("C:/release", "sql/orders.sql", "C:/release/sql/orders.sql"),
+            ("s3://bucket/release", "sql/orders.sql", "s3://bucket/release/sql/orders.sql"),
+            ("dbfs:/release", "sql/orders.sql", "dbfs:/release/sql/orders.sql"),
+        ],
+    )
+    def test_join_preserves_storage_root(self, base: str, relative: str, expected: str) -> None:
+        assert join_path(base, relative) == expected
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("/logs", "/"),
+            ("C:/logs", "C:/"),
+            ("s3://bucket/logs", "s3://bucket"),
+            ("runtime/logs", "runtime"),
+        ],
+    )
+    def test_parent_preserves_storage_root(self, path: str, expected: str) -> None:
+        assert parent_path(path) == expected
+
+    @pytest.mark.parametrize("relative", ["/absolute.sql", "../escape.sql", "s3://bucket/x.sql"])
+    def test_scoped_join_rejects_escape(self, relative: str) -> None:
+        with pytest.raises(ValueError):
+            join_path("release", relative)
+
+    def test_containment_compares_uri_authority_and_segments(self) -> None:
+        assert is_path_within("s3://bucket/release", "s3://bucket/release/sql/orders.sql")
+        assert not is_path_within("s3://bucket/release", "s3://other/release/sql/orders.sql")
+        assert not is_path_within("release", "release-other/orders.sql")
+
+    def test_relative_path_canonicalizes_repeated_separators(self) -> None:
+        assert ensure_relative_path("sql//orders.sql") == "sql/orders.sql"
+        assert ensure_relative_path("./sql/./orders.sql") == "sql/orders.sql"
+
+    def test_empty_uri_authority_keeps_three_slash_root(self) -> None:
+        assert parent_path("file:///tmp/logs") == "file:///tmp"
+        assert join_path("file:///tmp", "query.sql") == "file:///tmp/query.sql"
+        assert parent_path("file:///") == "file:///"
+
+    def test_current_directory_base_is_contained(self) -> None:
+        assert join_path(".", "query.sql") == "query.sql"
+        assert is_path_within(".", "query.sql")

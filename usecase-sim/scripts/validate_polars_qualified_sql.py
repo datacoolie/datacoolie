@@ -10,7 +10,7 @@ import pyarrow.parquet as pq
 
 
 USECASE_SIM_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT_ROOT = USECASE_SIM_DIR / "data" / "output" / "qualified_sql" / "results"
+DEFAULT_OUTPUT_ROOT = USECASE_SIM_DIR / ".runtime" / "data" / "output" / "qualified_sql" / "results"
 
 EXPECTED_OUTPUTS = {
     "delta": (

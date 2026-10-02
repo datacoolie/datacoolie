@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -41,6 +40,13 @@ class TestWatermarkManagerGet:
         provider.watermarks["df-1"] = "{}"
         mgr = WatermarkManager(provider)
         assert mgr.get_watermark("df-1") is None
+
+    def test_corrupt_stored_json_is_not_first_run(self) -> None:
+        provider = StubMetadataProvider()
+        provider.watermarks["df-1"] = "not json"
+        mgr = WatermarkManager(provider)
+        with pytest.raises(WatermarkError, match="Invalid stored watermark"):
+            mgr.get_watermark("df-1")
 
     def test_datetime_roundtrip_via_string(self) -> None:
         dt = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
@@ -93,6 +99,21 @@ class TestWatermarkManagerSave:
         call_kw = provider.update_watermark.call_args
         assert call_kw.kwargs["job_id"] == "j-1"
         assert call_kw.kwargs["dataflow_run_id"] == "r-1"
+
+    def test_save_persists_source_merged_value_without_second_state_merge(self) -> None:
+        provider = StubMetadataProvider()
+        provider.watermarks["df-1"] = json.dumps({"cursor": "stored"})
+        provider.get_watermark = MagicMock(
+            side_effect=AssertionError("save must not load state")
+        )
+        mgr = WatermarkManager(provider)
+
+        # The pipeline has already applied the source-owned merge semantics.
+        mgr.save_watermark("df-1", {"cursor": "reader-owned"})
+
+        assert json.loads(provider.watermarks["df-1"]) == {
+            "cursor": "reader-owned"
+        }
 
     def test_provider_exception_wrapped_as_watermark_error(self) -> None:
         provider = StubMetadataProvider()

@@ -8,10 +8,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datacoolie.core.constants import Format
+from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY, Format
 from datacoolie.core.exceptions import SourceError
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
 from datacoolie.sources.file_reader import FileReader, FileInfo, FileInfoColumn
+from datacoolie.sources.base import SourceReadRange
 
 from tests.unit.sources.support import (
     MockEngine,
@@ -201,6 +203,36 @@ class TestFileReaderDateFolders:
         result = reader.read(date_folder_source)
         assert result is None
 
+    def test_row_range_does_not_advance_internal_date_folder_key(
+        self, engine: MockEngine, date_folder_source: Source
+    ) -> None:
+        """A row-column replay does not turn discovery scope into state."""
+        platform = MagicMock()
+        platform.list_folders.side_effect = [
+            ["/data/events/2024"],
+            ["/data/events/2024/03"],
+            ["/data/events/2024/03/15"],
+        ]
+        platform.list_files.return_value = [
+            FileInfo(
+                name="orders.parquet",
+                path="/data/events/2024/03/15/orders.parquet",
+                modification_time=datetime(2024, 3, 15, tzinfo=timezone.utc),
+                size=1,
+            )
+        ]
+        engine.set_platform(platform)
+        engine.set_max_values({"event_time": "2024-03-15"})
+
+        reader = FileReader(engine)
+        result = reader.read(
+            date_folder_source,
+            read_range=SourceReadRange("event_time", "2024-03-01", "2024-04-01"),
+        )
+
+        assert result is not None
+        assert DATE_FOLDER_PARTITION_KEY not in reader.get_new_watermark()
+
     def test_get_date_folder_paths_without_platform_returns_base_path(self, engine: MockEngine) -> None:
         reader = FileReader(engine)
         paths = reader._get_date_folder_paths("/data/base", "{year}/{month}/{day}")
@@ -212,17 +244,17 @@ class TestFileReaderDateFolders:
         paths = reader._get_date_folder_paths("/data/base", "no_placeholders_here")
         assert paths == ["/data/base"]
 
-    def test_get_date_folder_paths_handles_folder_list_errors(self, engine: MockEngine) -> None:
+    def test_get_date_folder_paths_propagates_folder_list_errors(self, engine: MockEngine) -> None:
         platform = MagicMock()
         platform.list_folders.side_effect = RuntimeError("boom")
         engine.set_platform(platform)
         reader = FileReader(engine)
-        paths = reader._get_date_folder_paths(
-            "/data/base",
-            "{year}/{month}",
-            watermark_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        )
-        assert paths == []
+        with pytest.raises(RuntimeError, match="boom"):
+            reader._get_date_folder_paths(
+                "/data/base",
+                "{year}/{month}",
+                watermark_start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            )
 
     def test_get_date_folder_paths_prunes_old_values_on_boundary(self, engine: MockEngine) -> None:
         platform = MagicMock()
@@ -321,6 +353,48 @@ class TestFileReaderMtimeFilter:
         assert result is not None
         platform.list_files.assert_called_once()
 
+    def test_bounded_mtime_range_is_independent_from_watermark_columns(self) -> None:
+        files = [
+            FileInfo(
+                name="before.parquet",
+                path="/data/events/before.parquet",
+                modification_time=datetime(2023, 12, 31, tzinfo=timezone.utc),
+                size=100,
+            ),
+            FileInfo(
+                name="selected.parquet",
+                path="/data/events/selected.parquet",
+                modification_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                size=200,
+            ),
+            FileInfo(
+                name="after.parquet",
+                path="/data/events/after.parquet",
+                modification_time=datetime(2024, 2, 1, tzinfo=timezone.utc),
+                size=300,
+            ),
+        ]
+        platform = _make_mock_platform(files)
+        engine = self._engine_with_platform(platform)
+        engine.read = MagicMock(return_value=engine._data)
+        source = _make_file_source()
+        source.watermark_columns = ["event_time"]
+
+        reader = FileReader(engine)
+        result = reader.read(
+            source,
+            read_range=SourceReadRange(
+                FileInfoColumn.FILE_MODIFICATION_TIME,
+                datetime(2024, 1, 1, tzinfo=timezone.utc),
+                datetime(2024, 2, 1, tzinfo=timezone.utc),
+            ),
+        )
+
+        assert result is not None
+        assert engine.read.call_args.kwargs["path"] == "/data/events/selected.parquet"
+        assert platform.list_files.call_args.kwargs["extension"] == ".parquet"
+        assert FileInfoColumn.FILE_MODIFICATION_TIME not in reader.get_new_watermark()
+
     def test_read_no_mtime_watermark_column_skips_filtering(self) -> None:
         """For non-Spark engines, list_files is always called (needed for add_file_info_columns).
         The watermark filter on __file_modification_time is NOT applied when the column
@@ -378,16 +452,53 @@ class TestFileReaderMtimeFilter:
         assert result is None
         platform.list_files.assert_called_once()
 
-    def test_collect_file_infos_handles_listing_errors(self) -> None:
+    def test_collect_file_infos_propagates_listing_errors(self) -> None:
         platform = MagicMock()
         platform.list_files.side_effect = RuntimeError("cannot list")
         engine = self._engine_with_platform(platform)
         reader = FileReader(engine)
 
-        infos = reader._collect_file_infos(["/x"], "parquet", None)
-        assert infos == []
+        with pytest.raises(RuntimeError, match="cannot list"):
+            reader._collect_file_infos(["/x"], "parquet", None)
 
-    def test_collect_file_infos_skips_dirs_and_missing_mtime(self) -> None:
+    def test_read_fails_when_discovered_file_cannot_be_read(self) -> None:
+        platform = _make_mock_platform([
+            FileInfo(
+                name="gone.parquet",
+                path="/data/events/gone.parquet",
+                modification_time=datetime(2024, 6, 1, tzinfo=timezone.utc),
+                size=100,
+            ),
+        ])
+        engine = self._engine_with_platform(platform)
+        engine.read = MagicMock(side_effect=RuntimeError("file disappeared after listing"))
+        reader = FileReader(engine)
+
+        with pytest.raises(SourceError, match="file disappeared after listing"):
+            reader.read(_make_file_source())
+
+        assert reader.get_new_watermark() == {}
+        assert reader.get_runtime_info().status == "failed"
+
+    def test_read_fails_before_engine_read_when_folder_discovery_is_incomplete(
+        self, engine: MockEngine, date_folder_source: Source
+    ) -> None:
+        platform = MagicMock()
+        platform.list_folders.side_effect = [
+            ["/data/events/raw/clicks/2024"],
+            RuntimeError("month listing failed"),
+        ]
+        engine.set_platform(platform)
+        engine.read = MagicMock()
+        reader = FileReader(engine)
+
+        with pytest.raises(SourceError, match="month listing failed"):
+            reader.read(date_folder_source)
+
+        engine.read.assert_not_called()
+        assert reader.get_new_watermark() == {}
+
+    def test_collect_file_infos_retains_file_with_missing_mtime_without_watermark(self) -> None:
         platform = MagicMock()
         platform.list_files.return_value = [
             FileInfo(name="d", path="/d", modification_time=None, is_dir=True),
@@ -397,7 +508,82 @@ class TestFileReaderMtimeFilter:
         reader = FileReader(engine)
 
         infos = reader._collect_file_infos(["/x"], "parquet", None)
-        assert infos == []
+        assert [info.path for info in infos] == ["/n"]
+
+    def test_collect_file_infos_fails_when_mtime_watermark_lacks_metadata(self) -> None:
+        platform = MagicMock()
+        platform.list_files.return_value = [
+            FileInfo(name="n", path="/n", is_dir=False, modification_time=None),
+        ]
+        engine = self._engine_with_platform(platform)
+        reader = FileReader(engine)
+
+        with pytest.raises(SourceError, match="modification time is required"):
+            reader._collect_file_infos(
+                ["/x"],
+                "parquet",
+                None,
+                require_modification_time=True,
+            )
+
+    def test_read_without_mtime_watermark_keeps_file_missing_metadata(self) -> None:
+        files = [
+            FileInfo(
+                name="unknown.parquet",
+                path="/data/events/unknown.parquet",
+                modification_time=None,
+            ),
+            FileInfo(
+                name="known.parquet",
+                path="/data/events/known.parquet",
+                modification_time=datetime(2024, 6, 1, tzinfo=timezone.utc),
+            ),
+        ]
+        platform = _make_mock_platform(files)
+        engine = self._engine_with_platform(platform)
+        engine.read = MagicMock(return_value=engine._data)
+        source = Source(
+            connection=Connection(
+                name="no_mtime_conn",
+                connection_type="file",
+                format="parquet",
+                configure={"base_path": "/data/events"},
+            ),
+            schema_name="events",
+            table="raw",
+            watermark_columns=["event_time"],
+        )
+
+        reader = FileReader(engine)
+        assert reader.read(source) is not None
+        assert engine.read.call_args.kwargs["path"] == [
+            "/data/events/known.parquet",
+            "/data/events/unknown.parquet",
+        ]
+
+    def test_read_with_mtime_watermark_fails_before_engine_read_for_missing_metadata(self) -> None:
+        files = [
+            FileInfo(
+                name="unknown.parquet",
+                path="/data/events/unknown.parquet",
+                modification_time=None,
+            ),
+            FileInfo(
+                name="known.parquet",
+                path="/data/events/known.parquet",
+                modification_time=datetime(2024, 6, 1, tzinfo=timezone.utc),
+            ),
+        ]
+        platform = _make_mock_platform(files)
+        engine = self._engine_with_platform(platform)
+        engine.read = MagicMock(return_value=engine._data)
+        reader = FileReader(engine)
+
+        with pytest.raises(SourceError, match="modification time is required"):
+            reader.read(_make_file_source())
+
+        engine.read.assert_not_called()
+        assert reader.get_new_watermark() == {}
 
     def test_parse_date_watermark_naive_datetime_gets_utc(self) -> None:
         dt = FileReader._parse_date_watermark(datetime(2024, 1, 1, 12, 0, 0))

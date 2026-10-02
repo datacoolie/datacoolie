@@ -1,0 +1,37 @@
+{
+  "contract_version": "0.2.0",
+  "purpose": "Coverage inventory for authored schema-hint source declarations",
+  "note": "Mapped means the current logical contract has a resolver path. Unsupported and unverified are not runtime claims.",
+  "systems": {
+    "spark_sql": {
+      "mapped": ["boolean", "tinyint", "smallint", "int", "bigint", "float", "double", "decimal(p,s)", "string", "binary", "date", "timestamp", "timestamp_ntz"],
+      "unsupported": ["array", "map", "struct", "interval", "variant"],
+      "unverified": []
+    },
+    "postgresql": {
+      "mapped": ["bool", "int2", "int4", "int8", "real", "double precision", "numeric(p,s)", "text", "bytea", "date", "timestamp", "timestamptz"],
+      "unsupported": ["jsonb", "uuid", "inet", "array", "interval", "money"],
+      "unverified": ["time", "timestamp(p)"]
+    },
+    "mysql": {
+      "mapped": ["tinyint", "smallint", "mediumint", "int", "bigint", "float", "double", "decimal(p,s)", "char", "varchar", "text", "binary", "blob", "date", "datetime", "timestamp", "year"],
+      "unsupported": ["json", "geometry", "set-as-native", "bit"],
+      "unverified": ["enum-value-semantics", "float(m,d)"]
+    },
+    "mssql": {
+      "mapped": ["bit", "tinyint", "smallint", "int", "bigint", "decimal(p,s)", "money", "smallmoney", "real", "float", "char", "varchar", "nchar", "nvarchar", "text", "xml", "binary", "varbinary", "image", "rowversion", "date", "datetime", "datetime2", "smalldatetime", "datetimeoffset"],
+      "unsupported": ["uniqueidentifier", "sql_variant", "hierarchyid", "geography", "geometry", "time"],
+      "unverified": ["xml-value-semantics"]
+    },
+    "oracle": {
+      "mapped": ["number(p,s)", "binary_float", "binary_double", "float(p)", "varchar2", "nvarchar2", "char", "clob", "raw", "blob", "bfile", "date", "timestamp", "timestamp with time zone", "timestamp with local time zone"],
+      "unsupported": ["interval year to month", "interval day to second", "rowid", "urowid", "xmltype", "json"],
+      "unverified": ["national-character-semantics"]
+    },
+    "sqlite": {
+      "mapped": ["integer", "real", "numeric(p,s)", "text", "blob", "date", "datetime", "timestamp"],
+      "unsupported": ["json1-native", "strict-custom-types", "collation-specific-types"],
+      "unverified": ["affinity-derived-declarations"]
+    }
+  }
+}

@@ -7,17 +7,57 @@ the read pipeline and applied via _apply_watermark_filter for each reader.
 from __future__ import annotations
 
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 
-from datacoolie.core.models import Connection, Source
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.source import Source
+from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY, FileInfoColumn
+from datacoolie.core.exceptions import SourceError
 from datacoolie.sources.delta_reader import DeltaReader
 from datacoolie.sources.iceberg_reader import IcebergReader
 from datacoolie.sources.database_reader import DatabaseReader
 from datacoolie.sources.file_reader import FileReader
 from datacoolie.sources.python_function_reader import PythonFunctionReader
+from datacoolie.sources.base import SourceReadRange
 
 from tests.unit.sources.support import MockEngine, delta_source, engine, db_source, file_source
+
+
+@pytest.mark.parametrize("reader_type,fmt", [
+    (FileReader, "parquet"), (DeltaReader, "delta"), (IcebergReader, "iceberg"),
+], ids=["file", "delta", "iceberg"])
+def test_row_range_routes_independent_column_and_exact_operators(reader_type, fmt):
+    engine = MockEngine()
+    engine.apply_watermark_filter = MagicMock(wraps=engine.apply_watermark_filter)
+    engine.set_max_values({"updated_at": 30})
+    source = Source(connection=Connection(name="source", format=fmt,
+                    configure={"base_path": "/data"}),
+                    table="events", watermark_columns=["updated_at"])
+    before = source.model_dump()
+    reader = reader_type(engine)
+    assert reader.read(source, read_range=SourceReadRange("id", 1, 3)) is not None
+    call = engine.apply_watermark_filter.call_args
+    assert call.args[1:3] == (["id"], {"id": 1})
+    assert call.kwargs == {"start_operator": ">=", "watermark_end": {"id": 3},
+                           "end_operator": "<"}
+    assert reader.get_new_watermark() == {"updated_at": 30}
+    assert source.model_dump() == before
+
+
+@pytest.mark.parametrize("column,message", [
+    (DATE_FOLDER_PARTITION_KEY, "internal discovery key"),
+    (FileInfoColumn.FILE_MODIFICATION_TIME, "requires a platform"),
+], ids=["internal-folder-key", "mtime-without-platform"])
+def test_file_range_rejects_unsafe_discovery_before_native_read(column, message):
+    engine = MockEngine()
+    engine.read = MagicMock(side_effect=AssertionError("must reject before I/O"))
+    source = Source(connection=Connection(name="source", format="parquet",
+                    configure={"base_path": "/data"}), table="events")
+    with pytest.raises(SourceError, match=message):
+        FileReader(engine).read(source, read_range=SourceReadRange(column, datetime(2025, 1, 1), datetime(2025, 1, 2)))
+    engine.read.assert_not_called()
 
 
 # ============================================================================

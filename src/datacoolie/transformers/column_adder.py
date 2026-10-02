@@ -10,9 +10,10 @@ from __future__ import annotations
 from typing import List
 
 from datacoolie.core.constants import DEFAULT_AUTHOR, LoadType, SCD2Column
-from datacoolie.core.models import AdditionalColumn, DataFlow
+from datacoolie.core.models.transform import AdditionalColumn
+from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.engines.base import DF, BaseEngine
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.transformers.base import BaseTransformer
 
 logger = get_logger(__name__)

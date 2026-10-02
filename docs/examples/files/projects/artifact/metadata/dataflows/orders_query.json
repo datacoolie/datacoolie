@@ -1,0 +1,18 @@
+{
+  "dataflows": [
+    {
+      "name": "orders_query",
+      "stage": "bronze2silver",
+      "source": {
+        "connection_name": "source",
+        "query": "artifact:/queries/orders.sql"
+      },
+      "destination": {
+        "connection_name": "destination",
+        "table": "orders",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

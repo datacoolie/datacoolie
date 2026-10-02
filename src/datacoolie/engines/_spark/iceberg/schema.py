@@ -9,7 +9,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as T
 
 from datacoolie.core.constants import TRAILING_COLUMNS
-from datacoolie.logging.base import get_logger
+from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 

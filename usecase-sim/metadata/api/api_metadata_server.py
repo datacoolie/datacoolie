@@ -1,7 +1,7 @@
-"""Simulated metadata API server for DataCoolie APIClient.
+"""Simulated metadata API server for DataCoolie APIProvider.
 
 Reads a JSON metadata file and serves it via REST endpoints
-compatible with the datacoolie.metadata.api_client.APIClient.
+compatible with the datacoolie.metadata.api_provider.APIProvider.
 
 Usage:
     python api_metadata_server.py --json-path ../file/local_use_cases.json --port 8000
@@ -19,7 +19,6 @@ Endpoints (all scoped under /workspaces/{workspace_id}):
 import argparse
 import json
 import math
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,7 +27,7 @@ try:
 except ImportError:
     raise SystemExit("Flask is required: pip install flask")
 
-from datacoolie.utils.helpers import name_to_uuid as _name_to_uuid
+from datacoolie.utils.identity import name_to_uuid as _name_to_uuid
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +119,15 @@ def create_app(json_path: str, watermark_dir: Optional[Path] = None) -> Flask:
     meta = _load_metadata(json_path)
 
     if watermark_dir is None:
-        watermark_dir = Path(__file__).resolve().parent / "watermarks"
+        # Keep generated API-provider state outside the metadata source tree.
+        # ``metadata/api`` remains source code and fixtures; the simulator's
+        # mutable state has one explicit runtime boundary.
+        watermark_dir = (
+            Path(__file__).resolve().parents[2]
+            / ".runtime"
+            / "watermarks"
+            / "api"
+        )
     watermark_dir.mkdir(parents=True, exist_ok=True)
     app.logger.info("Watermarks persisted under: %s", watermark_dir)
 
@@ -243,7 +250,12 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     parser.add_argument(
         "--watermark-dir",
-        default=str(Path(__file__).resolve().parent / "watermarks"),
+        default=str(
+            Path(__file__).resolve().parents[2]
+            / ".runtime"
+            / "watermarks"
+            / "api"
+        ),
         help="Directory where watermarks are persisted (one JSON file per dataflow_id)",
     )
     args = parser.parse_args()

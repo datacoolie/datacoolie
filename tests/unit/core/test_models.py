@@ -1,4 +1,4 @@
-"""Tests for datacoolie.core.models."""
+"""Tests for the datacoolie.core.models leaf modules."""
 
 from __future__ import annotations
 
@@ -6,27 +6,17 @@ from datetime import datetime, timezone
 
 import pytest
 
-from datacoolie.core.constants import DataFlowStatus, ExecutionType, Format, LoadType
+from datacoolie.core.constants import DataFlowStatus, Format, LoadType
 from datacoolie.core.exceptions import ConfigurationError
-from datacoolie.core.models import (
-    AdditionalColumn,
-    Connection,
-    DataCoolieRunConfig,
-    DataFlow,
-    DataFlowRuntimeInfo,
-    Destination,
-    DestinationRuntimeInfo,
-    JobRuntimeInfo,
-    PartitionColumn,
-    PipelineAttemptResult,
-    RuntimeInfo,
-    SchemaHint,
-    Source,
-    SourceRuntimeInfo,
-    Transform,
-    TransformRuntimeInfo,
-)
-from datacoolie.utils.helpers import name_to_uuid
+from datacoolie.core.models.transform import AdditionalColumn, Transform
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.run_config import DataCoolieRunConfig
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.runtime import DataFlowRuntimeInfo, DestinationRuntimeInfo, JobRuntimeInfo, PipelineAttemptResult, RuntimeInfo, SourceRuntimeInfo, TransformRuntimeInfo
+from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.transform import SchemaHint
+from datacoolie.core.models.source import Source
+from datacoolie.utils.identity import name_to_uuid
 
 
 # ============================================================================
@@ -55,6 +45,22 @@ class TestSchemaHint:
     def test_from_dict(self) -> None:
         sh = SchemaHint(**{"column_name": "dt", "data_type": "DATE", "format": "yyyy-MM-dd"})
         assert sh.format == "yyyy-MM-dd"
+
+    def test_normalizes_serialized_numeric_and_boolean_fields(self) -> None:
+        sh = SchemaHint(
+            column_name="amount",
+            data_type="DECIMAL",
+            precision="18",
+            scale="2",
+            ordinal_position="3",
+            is_active="false",
+        )
+        assert (sh.precision, sh.scale, sh.ordinal_position) == (18, 2, 3)
+        assert sh.is_active is False
+
+    def test_rejects_non_integral_schema_parameters(self) -> None:
+        with pytest.raises(ConfigurationError, match="precision must be an integer"):
+            SchemaHint(column_name="amount", data_type="DECIMAL", precision="18.5")
 
 
 class TestPartitionColumn:
@@ -263,6 +269,39 @@ class TestDestination:
         assert opts["optimizeWrite"] == "true"  # from connection
         assert opts["targetFileSize"] == "128MB"  # from dest
 
+    def test_merge_options_are_separate_and_legacy_aliases_do_not_leak_to_write(
+        self, dest_connection: Connection
+    ) -> None:
+        dest = Destination(
+            connection=dest_connection,
+            table="t",
+            configure={
+                "write_options": {
+                    "source_alias": "s",
+                    "target_alias": "t",
+                    "schema_mode": "merge",
+                },
+                "merge_options": {"source_alias": "new_source"},
+            },
+        )
+        assert dest.merge_options["source_alias"] == "new_source"
+        assert dest.merge_options["target_alias"] == "t"
+        assert "source_alias" not in dest.write_options
+        assert "target_alias" not in dest.write_options
+        assert dest.write_options["schema_mode"] == "merge"
+
+    def test_destination_option_configure_is_not_mutated(self, dest_connection: Connection) -> None:
+        configure = {
+            "partition_columns": [{"column": "region"}],
+            "write_options": {"header": False},
+        }
+        original = {
+            "partition_columns": [{"column": "region"}],
+            "write_options": {"header": False},
+        }
+        Destination(connection=dest_connection, table="t", configure=configure)
+        assert configure == original
+
     def test_partition_column_names(self, sample_destination: Destination) -> None:
         assert sample_destination.partition_column_names == ["year"]
 
@@ -315,6 +354,15 @@ class TestTransform:
         d = sample_transform.schema_hints_dict
         assert "order_date" in d
         assert d["order_date"].data_type == "DATE"
+
+    def test_duplicate_schema_hint_columns_are_rejected_case_insensitively(self) -> None:
+        with pytest.raises(ConfigurationError, match="duplicate columns"):
+            Transform(
+                schema_hints=[
+                    SchemaHint(column_name="Order_ID", data_type="INT"),
+                    SchemaHint(column_name="order_id", data_type="BIGINT"),
+                ]
+            )
 
     def test_from_dicts(self) -> None:
         t = Transform(
@@ -702,9 +750,21 @@ class TestTransformExtended:
     """Verify Transform advanced properties: timestamp_ntz, rank deduplication."""
     def test_convert_timestamp_ntz_default_and_override(self) -> None:
         t1 = Transform()
-        assert t1.convert_timestamp_ntz is True
+        assert t1.convert_timestamp_ntz is False
         t2 = Transform(configure={"convert_timestamp_ntz": False})
         assert t2.convert_timestamp_ntz is False
+
+    def test_schema_hint_type_system_is_preserved_on_connection(self) -> None:
+        connection = Connection(
+            name="source",
+            configure={"schema_hint_type_system": "SQL Server"},
+        )
+        assert connection.schema_hint_type_system == "SQL Server"
+
+    def test_timestamp_timezone_requires_text(self) -> None:
+        with pytest.raises(ConfigurationError):
+            Transform(configure={"timestamp_timezone": 7})
+        assert Transform(configure={"timestamp_timezone": "Asia/Ho_Chi_Minh"}).timestamp_timezone == "Asia/Ho_Chi_Minh"
 
     def test_deduplicate_by_rank_default_and_override(self) -> None:
         t1 = Transform()
@@ -1000,7 +1060,7 @@ class TestCompatModelCoverage:
     def test_model_dump_value_dataclass_branch(self) -> None:
         """Lines 109-110: _model_dump_value for plain dataclass."""
         from dataclasses import dataclass
-        from datacoolie.core.models import _model_dump_value
+        from datacoolie.core.models.base import _model_dump_value
         @dataclass
         class _Inner:
             x: int = 1
@@ -1009,25 +1069,25 @@ class TestCompatModelCoverage:
 
     def test_model_dump_value_list_branch(self) -> None:
         """Line 111: _model_dump_value for list."""
-        from datacoolie.core.models import _model_dump_value
+        from datacoolie.core.models.base import _model_dump_value
         result = _model_dump_value([1, 2, 3])
         assert result == [1, 2, 3]
 
     def test_model_dump_value_tuple_branch(self) -> None:
         """Line 113: _model_dump_value for tuple."""
-        from datacoolie.core.models import _model_dump_value
+        from datacoolie.core.models.base import _model_dump_value
         result = _model_dump_value((1, 2))
         assert result == (1, 2)
 
     def test_model_dump_value_dict_branch(self) -> None:
         """Lines 115-116: _model_dump_value for dict."""
-        from datacoolie.core.models import _model_dump_value
+        from datacoolie.core.models.base import _model_dump_value
         result = _model_dump_value({'a': 1, 'b': 2})
         assert result == {'a': 1, 'b': 2}
 
     def test_coerce_annotation_mapping_to_compat_model(self) -> None:
         """Line 147: _coerce_annotation_value coerces Mapping to CompatModel subclass."""
-        from datacoolie.core.models import _coerce_annotation_value, CompatModel
+        from datacoolie.core.models.base import CompatModel, _coerce_annotation_value
         import dataclasses
         @dataclasses.dataclass
         class _Child(CompatModel):
@@ -1084,17 +1144,18 @@ class TestDestinationAndDataFlowValidationCoverage:
         return Connection(connection_id='test-conn', name='tc')
 
     def test_destination_identity_raises_when_no_catalog_or_path(self) -> None:
-        """Line 808: destination_key raises when no catalog/database/path."""
+        """Destination target resolution fails when no physical target exists."""
         dest = Destination(
             table='test_tbl',
             connection=self._make_conn(),
         )
+        from datacoolie.destinations.resolution.target import resolve_destination_target
+
         with pytest.raises(ConfigurationError, match="cannot compute a destination identity"):
-            _ = dest.destination_key
+            resolve_destination_target(dest)
 
     def test_dataflow_validate_replace_by_watermark_no_date_backward(self) -> None:
         """Line 1021: validate() raises when replace_by_watermark but no date_backward."""
-        from unittest.mock import PropertyMock, patch
         conn = self._make_conn()
         src = Source(connection=conn)
         dest = Destination(
@@ -1108,7 +1169,6 @@ class TestDestinationAndDataFlowValidationCoverage:
             destination=dest,
             load_type=LoadType.MERGE_OVERWRITE.value,
         )
-        df._watermark_window = None
         # src.date_backward is None (no configure), so validate should raise
         with pytest.raises(ConfigurationError, match="date_backward"):
             df.validate()
@@ -1128,33 +1188,5 @@ class TestDestinationAndDataFlowValidationCoverage:
             destination=dest,
             load_type=LoadType.APPEND.value,
         )
-        df._watermark_window = None
         with pytest.raises(ConfigurationError, match="merge_overwrite"):
             df.validate()
-
-
-class TestDataFlowApplyWatermarkWindow:
-    """Cover line 1045: apply_watermark_window sets _watermark_window."""
-
-    def test_apply_watermark_window_sets_window(self) -> None:
-        """Line 1045: apply_watermark_window populates _watermark_window."""
-        from unittest.mock import MagicMock
-        conn = Connection(connection_id='w-conn', name='wc')
-        src = Source(connection=conn, configure={'backward_days': 1})
-        dest = Destination(
-            table='wm_tbl',
-            connection=conn,
-            configure={'replace_by_watermark': True},
-        )
-        df = DataFlow.model_construct(
-            dataflow_id='df-wm',
-            source=src,
-            destination=dest,
-            load_type=LoadType.MERGE_OVERWRITE.value,
-        )
-        df._watermark_window = None
-        runtime = MagicMock()
-        runtime.watermark_effective = {'created_at': '2024-01-01'}
-        runtime.watermark_after = {'created_at': '2024-02-01'}
-        df.apply_watermark_window(runtime)
-        assert df._watermark_window == {'created_at': ('2024-01-01', '2024-02-01')}

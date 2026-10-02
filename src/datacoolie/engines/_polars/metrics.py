@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 
 import polars as pl
 
+from datacoolie.core.exceptions import EngineError
 from datacoolie.engines._polars.type_mapping import polars_type_to_hive
 
 
@@ -35,6 +36,25 @@ def get_hive_schema(df: pl.LazyFrame) -> Dict[str, str]:
 def _collect_row_safe(result: pl.LazyFrame) -> Dict[str, Any]:
     """Collect one row without relying on the Windows zoneinfo database."""
     schema = result.collect_schema()
+    nanosecond_columns = [
+        name
+        for name, dtype in schema.items()
+        if isinstance(dtype, pl.Datetime) and dtype.time_unit == "ns"
+    ]
+    for column in nanosecond_columns:
+        remainder = (
+            result.select(
+                (pl.col(column).dt.nanosecond() % 1000).alias("__nanosecond_remainder")
+            )
+            .collect()
+            .get_column("__nanosecond_remainder")
+            .drop_nulls()
+        )
+        if remainder.len() and any(value != 0 for value in remainder.to_list()):
+            raise EngineError(
+                "Polars watermark extraction cannot preserve sub-microsecond "
+                f"precision for datetime column {column!r}"
+            )
     tz_columns = [
         name
         for name, dtype in schema.items()

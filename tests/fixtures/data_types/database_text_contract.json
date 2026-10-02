@@ -1,0 +1,10 @@
+{
+  "business_field_types": {
+    "label": "string"
+  },
+  "row_count": 2,
+  "rows": [
+    {"label": "alpha"},
+    {"label": null}
+  ]
+}

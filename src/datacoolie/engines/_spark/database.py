@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
+from urllib.parse import parse_qsl
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -16,6 +17,39 @@ JDBC_DRIVERS: Dict[str, str] = {
     DatabaseType.ORACLE: "oracle.jdbc.OracleDriver",
     DatabaseType.SQLITE: "org.sqlite.JDBC",
 }
+
+
+def _normalise_jdbc_string_types(
+    frame: DataFrame, *, database_type: str | DatabaseType | None = None
+) -> DataFrame:
+    """Normalize JDBC character columns to Spark's unbounded string type.
+
+    Some JDBC drivers (notably the SQLite driver) report an unbounded text
+    expression as ``VARCHAR(0)``. Spark preserves that metadata, but Delta
+    interprets it as a real length constraint and rejects every non-empty
+    value. SQLite character results are recast to the portable unbounded
+    string semantic; valid bounded character declarations from other
+    databases remain untouched.
+    """
+
+    from pyspark.sql.functions import col
+    from pyspark.sql.types import CharType, StringType, VarcharType
+
+    is_sqlite = database_type in (DatabaseType.SQLITE, "sqlite")
+    for field in frame.schema.fields:
+        data_type = field.dataType
+        if isinstance(data_type, StringType):
+            # SQLite may expose an unbounded text column as ``StringType`` in
+            # Python while retaining ``VARCHAR(0)`` in the JVM logical plan.
+            should_cast = is_sqlite
+        elif isinstance(data_type, (CharType, VarcharType)):
+            should_cast = is_sqlite or int(getattr(data_type, "length", 0)) <= 0
+        else:
+            should_cast = False
+        if not should_cast:
+            continue
+        frame = frame.withColumn(field.name, col(field.name).cast(StringType()))
+    return frame
 
 
 def build_jdbc_auth_properties(opts: Dict[str, Any]) -> Dict[str, Any]:
@@ -100,10 +134,37 @@ def read_database(
     auth_props = build_jdbc_auth_properties(merged)
     if "url" not in merged:
         merged["url"] = build_jdbc_url(merged, driver_connection_keys)
-    for key in ("database_type", "host", "port", "database"):
+    elif "driver" not in merged:
+        # An explicit JDBC URL still needs the matching driver option.  URL
+        # construction is intentionally bypassed in this branch, but driver
+        # discovery remains the engine's responsibility; otherwise Spark's
+        # DriverManager reports the opaque "No suitable driver" error.
+        driver = JDBC_DRIVERS.get(merged.get("database_type"))
+        if driver:
+            merged["driver"] = driver
+    database_type = merged.get("database_type")
+    if str(merged["url"]).startswith("jdbc:mysql:"):
+        # Connector/J's date representation loses YEAR 0 (it becomes 2000).
+        # Preserve integers by default, respecting explicit driver settings.
+        url_options = dict(parse_qsl(str(merged["url"]).partition("?")[2]))
+        option_names = {key.lower() for key in (*merged, *url_options)}
+        if "yearisdatetype" not in option_names:
+            merged["yearIsDateType"] = "false"
+    for key in (
+        "database_type",
+        "host",
+        "port",
+        "database",
+        "database_read_engine",
+        "read_options",
+        "use_schema_hint",
+        "schema_hint_type_system",
+    ):
         merged.pop(key, None)
     merged.update(auth_props)
     reader = spark.read.format("jdbc")
     for key, value in merged.items():
         reader = reader.option(key, value)
-    return reader.load()
+    return _normalise_jdbc_string_types(
+        reader.load(), database_type=database_type
+    )

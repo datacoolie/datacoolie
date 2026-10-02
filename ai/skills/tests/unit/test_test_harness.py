@@ -32,6 +32,7 @@ def test_skill_selection_collects_only_shared_and_owned_unit_modules() -> None:
         "unit/test_ai_workflow_contract.py",
         "unit/test_test_harness.py",
         "unit/test_release_receipt.py",
+        "unit/test_release_upload.py",
     ]
     assert runner._unit_targets([]) == ["unit"]
 
@@ -87,12 +88,15 @@ def test_behavioral_evidence_binds_skill_and_eval_bytes(tmp_path: Path) -> None:
     (skill / "SKILL.md").write_text("example skill\n", encoding="utf-8")
     evals = {
         "skill_name": "datacoolie-example",
+        "eval_schema_version": 2,
+        "case_kinds": {"decision": [1], "execution": []},
+        "capability_families": {"safety": [1]},
         "evals": [
             {
                 "id": 1,
-                "name": "safe-case",
                 "prompt": "Do the safe thing.",
                 "expected_output": "Fails closed.",
+                "files": [],
                 "expectations": ["No mutation", "Reports evidence"],
             }
         ],
@@ -136,12 +140,15 @@ def test_behavioral_evidence_rejects_failed_or_unbound_grading(tmp_path: Path) -
         json.dumps(
             {
                 "skill_name": "datacoolie-example",
+                "eval_schema_version": 2,
+                "case_kinds": {"decision": [1], "execution": []},
+                "capability_families": {"safety": [1]},
                 "evals": [
                     {
                         "id": 1,
-                        "name": "case",
                         "prompt": "Prompt",
                         "expected_output": "Expected",
+                        "files": [],
                         "expectations": ["One", "Two"],
                     }
                 ],
@@ -165,6 +172,26 @@ def test_behavioral_evidence_rejects_failed_or_unbound_grading(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="must pass every expectation"):
         verifier.build_evidence(skill, [grading])
+
+
+def test_eval_catalog_requires_declared_schema_version(tmp_path: Path) -> None:
+    verifier = _load_script("verify_behavioral_evidence.py")
+    skill = tmp_path / "datacoolie-example"
+    (skill / "evals").mkdir(parents=True)
+    (skill / "SKILL.md").write_text("example\n", encoding="utf-8")
+    (skill / "evals/evals.json").write_text(json.dumps({
+        "skill_name": skill.name,
+        "evals": [{
+            "id": 1,
+            "prompt": "Prompt",
+            "expected_output": "Expected",
+            "files": [],
+            "expectations": ["One", "Two"],
+        }],
+    }), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must declare eval_schema_version 2"):
+        verifier._eval_definitions(skill)
 
 
 def _versioned_eval_skill(tmp_path: Path) -> tuple[object, Path, Path]:
@@ -213,7 +240,6 @@ def test_versioned_eval_catalog_accepts_complete_kind_and_capability_partitions(
     [
         (lambda value: value["evals"].append(dict(value["evals"][0])), "ids must be unique"),
         (lambda value: value["case_kinds"].update({"other": []}), "exactly decision and execution"),
-        (lambda value: value["case_kinds"]["execution"].clear(), "non-empty integer lists"),
         (lambda value: value["capability_families"]["routing"].append(2), "exactly once"),
         (lambda value: value["evals"][0]["files"].append("../../../fixture.txt"), "Decision evals"),
         (lambda value: value["evals"][1]["files"].clear(), "Execution evals require"),
@@ -247,8 +273,8 @@ def original_gradings(tmp_path: Path):
     for case_id in (1, 2):
         # Shared expectations ensure order checking also binds the actual artifact bytes.
         cases.append({
-            "id": case_id, "name": f"case-{case_id}", "prompt": f"Prompt {case_id}",
-            "expected_output": "Expected", "expectations": ["One", "Two"],
+            "id": case_id, "prompt": f"Prompt {case_id}",
+            "expected_output": "Expected", "files": [], "expectations": ["One", "Two"],
         })
         path = tmp_path / f"grading-{case_id}.json"
         path.write_text(json.dumps({
@@ -260,7 +286,13 @@ def original_gradings(tmp_path: Path):
         }), encoding="utf-8")
         paths.append(path)
     (skill / "evals/evals.json").write_text(
-        json.dumps({"skill_name": skill.name, "evals": cases}), encoding="utf-8"
+        json.dumps({
+            "skill_name": skill.name,
+            "eval_schema_version": 2,
+            "case_kinds": {"decision": [1, 2], "execution": []},
+            "capability_families": {"evidence": [1, 2]},
+            "evals": cases,
+        }), encoding="utf-8"
     )
     return verifier, skill, paths, verifier.build_evidence(skill, paths)
 

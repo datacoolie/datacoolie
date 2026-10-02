@@ -15,7 +15,7 @@ from datacoolie.core.exceptions import PlatformError
 from datacoolie.platforms._databricks.dbutils_backend import DbutilsBackend
 from datacoolie.platforms._databricks.sdk_backend import DatabricksSdkBackend
 from datacoolie.platforms._databricks.runtime import require_dbutils
-from tests.integration.cloud_config import DatabricksIntegrationConfig
+from tests.support.cloud_config import DatabricksIntegrationConfig
 
 pytestmark = [
     pytest.mark.integration,

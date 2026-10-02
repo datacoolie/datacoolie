@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import logging
 import os
 import sys
@@ -31,9 +32,8 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datacoolie.core import DataCoolieRunConfig
+from datacoolie.logging import LogConfig
 from datacoolie.orchestration import DataCoolieDriver
-from datacoolie.platforms import LocalPlatform
-from datacoolie.watermark import WatermarkManager
 from _runner_utils import (
     MINIO_STORAGE_OPTIONS,
     build_iceberg_rest_catalog,
@@ -74,6 +74,23 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Path to metadata file (.json|.yaml|.xlsx)",
     )
+    parser.add_argument(
+        "--metadata-base-path",
+        default=None,
+        help="Directory containing metadata documents (artifact mode)",
+    )
+    parser.add_argument(
+        "--artifact-base-path",
+        default=None,
+        help="Deployed artifact root; metadata defaults to <root>/metadata",
+    )
+    parser.add_argument(
+        "--sql-base-path",
+        action="append",
+        default=None,
+        metavar="PATH",
+        help="Optional SQL root used to resolve relative SQL files; repeat for multiple roots",
+    )
     # Database source
     parser.add_argument(
         "--metadata-db-connection-string",
@@ -105,11 +122,55 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--iceberg-catalog-uri", default=None)
     parser.add_argument(
+        "--needs-iceberg",
+        action="store_true",
+        help="Initialize the Iceberg catalog even when the stage name is neutral",
+    )
+    parser.add_argument(
         "--catalog-preset", default="local", choices=["local", "unity_catalog"]
     )
     parser.add_argument("--uc-token", default="")
     parser.add_argument("--uc-credential", default="")
     parser.add_argument("--log-path", default=None)
+    parser.add_argument(
+        "--job-id",
+        default=None,
+        help="Stable Driver session/job identifier for reproducible scenarios",
+    )
+    parser.add_argument(
+        "--state-base-path",
+        default=None,
+        help="Framework runtime state root; derives logs and file watermarks",
+    )
+    parser.add_argument(
+        "--run-attributes",
+        default=None,
+        help="JSON object with caller-owned correlation attributes",
+    )
+    parser.add_argument(
+        "--log-persistence-mode",
+        choices=["snapshot", "batch"],
+        default=None,
+        help="Structured log persistence mode",
+    )
+    parser.add_argument(
+        "--log-flush-interval-seconds",
+        type=float,
+        default=None,
+        help="Periodic log flush interval (seconds)",
+    )
+    parser.add_argument(
+        "--log-flush-batch-bytes",
+        type=int,
+        default=None,
+        help="Batch log size threshold in bytes",
+    )
+    parser.add_argument(
+        "--log-console-color",
+        choices=["auto", "always", "never"],
+        default=None,
+        help="Console color policy",
+    )
     parser.add_argument("--max-workers", type=int, default=None)
     parser.add_argument(
         "--skip-api-sources",
@@ -149,7 +210,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--replay-save-watermark",
         action="store_true",
-        help="Save watermark after each chunk (init/crash-resume mode)",
+        help="Persist the source watermark observation after each successful chunk; replay always reruns its requested range",
     )
     parser.add_argument(
         "--replay-chunk-column",
@@ -172,8 +233,15 @@ def _validate_source_args(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> None:
     src = args.metadata_source
-    if src == "file" and not args.metadata_path:
-        parser.error("--metadata-source file requires --metadata-path")
+    if args.metadata_path and args.metadata_base_path:
+        parser.error("--metadata-path and --metadata-base-path are mutually exclusive")
+    if src == "file" and not any(
+        (args.metadata_path, args.metadata_base_path, args.artifact_base_path)
+    ):
+        parser.error(
+            "--metadata-source file requires --metadata-path, "
+            "--metadata-base-path, or --artifact-base-path"
+        )
     if src == "database":
         if not args.metadata_db_connection_string or not args.metadata_workspace_id:
             parser.error(
@@ -191,27 +259,30 @@ def _build_metadata(source: str, args: argparse.Namespace):
     if source == "file":
         from datacoolie.metadata import FileProvider
 
-        return FileProvider(
-            config_path=args.metadata_path,
-            platform=LocalPlatform(),
-            eager_prefetch=True,
-        )
+        # Directory and artifact modes are assembled by Driver so the same
+        # provider/platform binding contract is used by every provider type.
+        if args.metadata_path:
+            return FileProvider(
+                config_path=args.metadata_path,
+                sql_base_path=args.sql_base_path or None,
+            )
+        return None
     if source == "database":
         from datacoolie.metadata import DatabaseProvider
 
         return DatabaseProvider(
             connection_string=args.metadata_db_connection_string,
             workspace_id=args.metadata_workspace_id,
-            eager_prefetch=True,
+            sql_base_path=args.sql_base_path or None,
         )
     if source == "api":
-        from datacoolie.metadata import APIClient
+        from datacoolie.metadata import APIProvider
 
-        return APIClient(
+        return APIProvider(
             base_url=args.metadata_api_url,
             api_key=args.metadata_api_key,
             workspace_id=args.metadata_workspace_id,
-            eager_prefetch=True,
+            sql_base_path=args.sql_base_path or None,
         )
     raise ValueError(f"Unknown metadata source: {source}")
 
@@ -222,6 +293,31 @@ def _parse_kv_list(pairs: list[str]) -> dict[str, str]:
         key, _, value = kv.partition("=")
         out[key] = value
     return out
+
+
+def _parse_run_attributes(value: str | None) -> dict | None:
+    """Parse the caller-owned correlation object passed to DataCoolieRunConfig."""
+    if value is None:
+        return None
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"--run-attributes must be valid JSON: {exc.msg}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("--run-attributes must decode to a JSON object")
+    return parsed
+
+
+def _build_log_config(args: argparse.Namespace) -> LogConfig | None:
+    """Build one shared logging config only when logging overrides were given."""
+    values = {
+        "persistence_mode": args.log_persistence_mode,
+        "flush_interval_seconds": args.log_flush_interval_seconds,
+        "flush_batch_bytes": args.log_flush_batch_bytes,
+        "console_color": args.log_console_color,
+    }
+    values = {key: value for key, value in values.items() if value is not None}
+    return LogConfig(**values) if values else None
 
 
 def _run_engine_setup(
@@ -262,7 +358,22 @@ def main() -> None:
     is_spark = args.engine == "spark"
     if is_spark and args.engine_setup_function:
         raise ValueError("--engine-setup-function is supported only for Polars")
-    needs_iceberg = not args.stage or "iceberg" in args.stage.lower()
+
+    # Validate caller-owned run/log configuration before constructing an
+    # engine or platform session.  A malformed JSON payload or logging
+    # override must fail without leaking a Spark/JVM resource.
+    config_kwargs: dict = dict(
+        dry_run=args.dry_run,
+        run_attributes=_parse_run_attributes(args.run_attributes),
+    )
+    if args.job_id is not None:
+        config_kwargs["job_id"] = args.job_id
+    if args.max_workers is not None:
+        config_kwargs["max_workers"] = args.max_workers
+    config = DataCoolieRunConfig(**config_kwargs)
+    log_config = _build_log_config(args)
+
+    needs_iceberg = args.needs_iceberg or not args.stage or "iceberg" in args.stage.lower()
 
     storage_opts = _parse_kv_list(args.storage_options)
     extra_config = _parse_kv_list(args.spark_config)
@@ -333,20 +444,18 @@ def main() -> None:
     _run_engine_setup(args.engine_setup_function, args.engine_setup_arg, engine)
 
     metadata = _build_metadata(args.metadata_source, args)
-    watermark = WatermarkManager(metadata_provider=metadata)
-
-    config_kwargs: dict = dict(dry_run=args.dry_run)
-    if args.max_workers is not None:
-        config_kwargs["max_workers"] = args.max_workers
-    config = DataCoolieRunConfig(**config_kwargs)
 
     driver = DataCoolieDriver(
         engine=engine,
         platform=platform,
         metadata_provider=metadata,
-        watermark_manager=watermark,
         config=config,
-        base_log_path=args.log_path,
+        artifact_base_path=args.artifact_base_path,
+        metadata_base_path=args.metadata_base_path,
+        sql_base_path=args.sql_base_path,
+        state_base_path=args.state_base_path,
+        log_base_path=args.log_path,
+        log_config=log_config,
     )
 
     if args.replay_start:

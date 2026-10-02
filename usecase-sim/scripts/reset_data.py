@@ -2,7 +2,7 @@
 
 Performs, in order:
     1. reset_watermarks (local folders, MinIO watermarks/, DB watermark tables)
-    2. wipe local data/output/*
+    2. wipe local .runtime/data/output/*
     3. delete MinIO output/ and iceberg-warehouse/ prefixes
     4. purge Iceberg REST catalog 'default' namespace
 

@@ -38,6 +38,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import re
 import signal
 import sys
 from typing import TYPE_CHECKING, Any
@@ -68,13 +69,20 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Paths — warehouse and Derby metastore live at the datacoolie/ root so they
-# are shared between tests/ and usecase-sim/ without polluting the repo root.
+# Paths — Spark's mutable warehouse, Derby metastore, and Ivy cache live below
+# the simulator runtime boundary.  They are disposable execution state, not
+# source or checked-in fixture resources.
 # ---------------------------------------------------------------------------
 _DATACOOLIE_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-_SPARK_WAREHOUSE = str(_DATACOOLIE_ROOT / "spark-warehouse")
-_METASTORE_DIR = str(_DATACOOLIE_ROOT / "metastore_db")
-_SPARK_IVY_DIR = str(pathlib.Path(__file__).resolve().parent / "spark-jars")
+_RUNTIME_DIR = _DATACOOLIE_ROOT / "usecase-sim" / ".runtime"
+# Spark 3.5 and Spark 4.x may be started side-by-side during qualification.
+# Keep their mutable Derby/warehouse/Ivy state isolated so one JVM cannot lock
+# or reuse artifacts created by the other runtime line.
+_SPARK_PROFILE = os.environ.get("DATACOOLIE_SPARK_PROFILE", "spark35")
+_SPARK_STATE_DIR = _RUNTIME_DIR / ("spark4" if _SPARK_PROFILE == "spark4" else "spark")
+_SPARK_WAREHOUSE = str(_SPARK_STATE_DIR / "warehouse")
+_METASTORE_DIR = str(_SPARK_STATE_DIR / "metastore_db")
+_SPARK_IVY_DIR = str(_SPARK_STATE_DIR / "jars")
 
 # ---------------------------------------------------------------------------
 # MinIO defaults (docker-compose.yml)
@@ -100,7 +108,7 @@ _LOCAL_ENV_DEFAULTS: dict[str, str] = {
     # from being picked up instead of the active venv interpreter.
     "PYSPARK_PYTHON": sys.executable,
     "PYSPARK_DRIVER_PYTHON": sys.executable,
-    "DATACOOLIE_SQLITE_DB": "./usecase-sim/data/input/sqlite/orders.db",
+    "DATACOOLIE_SQLITE_DB": "./usecase-sim/.runtime/data/input/sqlite/orders.db",
     "DATACOOLIE_PG_USER": "datacoolie",
     "DATACOOLIE_PG_PASS": "datacoolie",
     "DATACOOLIE_MYSQL_USER": "datacoolie",
@@ -273,8 +281,14 @@ def _resolve_packages(
         try:
             import pyspark
             spark_major_minor = ".".join(pyspark.__version__.split(".")[:2])
+            spark_major = int(pyspark.__version__.split(".")[0])
+            scala_suffix = "2.13" if spark_major >= 4 else "2.12"
+            iceberg_version = "1.11.0" if spark_major_minor == "4.1" else "1.10.1"
             # Iceberg artifact: iceberg-spark-runtime-<spark_major.minor>_<scala_version>
-            iceberg_spark = f"org.apache.iceberg:iceberg-spark-runtime-{spark_major_minor}_2.12:1.10.1"
+            iceberg_spark = (
+                f"org.apache.iceberg:iceberg-spark-runtime-"
+                f"{spark_major_minor}_{scala_suffix}:{iceberg_version}"
+            )
             packages.append(iceberg_spark)
             packages.append("software.amazon.awssdk:bundle:2.29.51")
             logger.info("Added Iceberg Spark runtime: %s", iceberg_spark)
@@ -419,7 +433,7 @@ def build_spark_session(
         spark_config.update(_S3A_SPARK_CONFIG)
         logger.info("Injected S3A Hadoop FS config for MinIO")
 
-    # JAR packages — Ivy cache lives next to this file (spark-jars/);
+    # JAR packages — Ivy cache lives below the simulator runtime boundary;
     # first run downloads from Maven, subsequent runs reuse the cache.
     spark_config["spark.jars.ivy"] = _SPARK_IVY_DIR
     packages = _resolve_packages(
@@ -658,13 +672,30 @@ def parse_chunk_interval(pairs: list[str]) -> dict[str, int]:
     return result
 
 
+def parse_replay_bound(value: str | int) -> str | int:
+    """Convert an integer replay bound supplied through the CLI.
+
+    ``argparse`` receives every bound as text, while the framework's range
+    normalizer intentionally treats strings as ISO date/datetime values. Keep
+    that source contract intact and convert only an unambiguous signed integer
+    at the simulator runner boundary.
+    """
+
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if re.fullmatch(r"[+-]?\d+", text):
+        return int(text)
+    return value
+
+
 def replay_and_report(
     driver,
     stage: str,
     column_name_mode,
     logger: logging.Logger,
-    replay_start: str,
-    replay_end: str,
+    replay_start: str | int,
+    replay_end: str | int,
     replay_chunk_interval: list[str],
     replay_save_watermark: bool = False,
     replay_chunk_column: str | None = None,
@@ -682,8 +713,10 @@ def replay_and_report(
         replay_end: Exclusive replay range end (ISO date/datetime or int).
         replay_chunk_interval: List of ``KEY=VALUE`` strings, e.g. ``["days=1"]``.
             Pass an empty list for a single-shot (no chunking) replay.
-        replay_save_watermark: When True, save watermark after each chunk
-            (init/crash-resume mode).  Default False (backfill mode).
+        replay_save_watermark: When True, persist the source watermark
+            observation after each successful chunk. Replay always executes
+            the requested range; this flag never enables chunk checkpoint
+            resume. Default False.
         replay_chunk_column: Override the auto-resolved chunk column.
         skip_api_sources: When True, exclude dataflows with API source.
         cleanup_fn: Optional callable invoked in the ``finally`` block.
@@ -694,9 +727,11 @@ def replay_and_report(
 
     chunk_interval = parse_chunk_interval(replay_chunk_interval) or None
 
+    normalized_start = parse_replay_bound(replay_start)
+    normalized_end = parse_replay_bound(replay_end)
     replay = ReplayConfig(
-        start=replay_start,
-        end=replay_end,
+        start=normalized_start,
+        end=normalized_end,
         chunk_interval=chunk_interval,
         save_watermark=replay_save_watermark,
         chunk_column=replay_chunk_column or None,
@@ -719,7 +754,11 @@ def replay_and_report(
 
         logger.info(
             "Replay  start=%s  end=%s  chunk_interval=%s  save_watermark=%s  dataflows=%d",
-            replay_start, replay_end, chunk_interval, replay_save_watermark, len(dataflows),
+            normalized_start,
+            normalized_end,
+            chunk_interval,
+            replay_save_watermark,
+            len(dataflows),
         )
 
         result = driver.run_replay(

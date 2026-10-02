@@ -5,7 +5,7 @@ supported by APIReader.  Run this alongside the ETL runner to test all
 ``local_api_source`` stage dataflows.
 
 Usage:
-    python usecase-sim/data/mock_api_server.py [--port 8082]
+    python usecase-sim/docker/mock_api_server.py [--port 8082]
 
 Auth environment variables (defaults shown; used by secure/* endpoints):
     MOCK_BEARER_TOKEN   test-bearer-token-123
@@ -41,9 +41,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import threading
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode
 
 try:
     from flask import Flask, jsonify, request
@@ -96,6 +98,51 @@ ROWS: List[Dict[str, Any]] = [
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
+
+# The simulator keeps a short-lived, in-memory trace for the active run.  The
+# setup/validation helpers reset and read it through the private simulator
+# endpoints below.  Only method/path/query are recorded; request headers and
+# bodies are deliberately excluded so auth and signed payloads cannot leak
+# into receipts.
+_TRACE_LOCK = threading.Lock()
+_REQUEST_TRACE: list[dict[str, Any]] = []
+_TRACE_RUN_ID = "uninitialised"
+
+
+@app.before_request
+def _capture_simulator_request() -> None:
+    if request.path.startswith("/__sim/"):
+        return
+    with _TRACE_LOCK:
+        _REQUEST_TRACE.append(
+            {
+                "ordinal": len(_REQUEST_TRACE) + 1,
+                "method": request.method,
+                "path": request.path,
+                "query": request.query_string.decode("utf-8", errors="replace"),
+            }
+        )
+
+
+@app.route("/__sim/health")
+def simulator_health():
+    return jsonify({"status": "ok", "service": "mock-api"})
+
+
+@app.route("/__sim/trace/reset", methods=["POST"])
+def reset_simulator_trace():
+    global _TRACE_RUN_ID
+    run_id = request.args.get("run_id", "surface-sync")
+    with _TRACE_LOCK:
+        _REQUEST_TRACE.clear()
+        _TRACE_RUN_ID = run_id
+    return jsonify({"run_id": _TRACE_RUN_ID, "requests": 0})
+
+
+@app.route("/__sim/trace")
+def simulator_trace():
+    with _TRACE_LOCK:
+        return jsonify({"run_id": _TRACE_RUN_ID, "requests": list(_REQUEST_TRACE)})
 
 MOCK_BEARER_TOKEN = os.environ.get("MOCK_BEARER_TOKEN", "test-bearer-token-123")
 MOCK_API_KEY      = os.environ.get("MOCK_API_KEY",      "test-api-key-456")
@@ -297,13 +344,143 @@ def orders_next_link():
     page_num = int(request.args.get("page",  1))
     limit    = int(request.args.get("limit", 10))
     offset   = (page_num - 1) * limit
-    page     = _page_slice(ROWS, offset, limit)
-    has_more = (offset + limit) < len(ROWS)
-    next_url = (
-        f"http://{request.host}/api/orders/next-link?page={page_num + 1}&limit={limit}"
-        if has_more else None
-    )
+    rows = list(ROWS)
+    if request.args.get("include_late") == "1":
+        rows.append(
+            {
+                "order_id": 1028,
+                "order_date": "2024-02-02",
+                "amount": "77.70",
+                "quantity": 2,
+                "region": "US-East",
+                "modified_at": "2024-02-02T09:30:00",
+                "customer_name": "Late Arrival",
+                "status": "completed",
+            }
+        )
+    modified_since = request.args.get("modified_since")
+    cutoff = _parse_datetime(modified_since)
+    if cutoff is not None:
+        rows = [
+            row
+            for row in rows
+            if datetime.fromisoformat(row["modified_at"]) >= cutoff
+        ]
+    page     = _page_slice(rows, offset, limit)
+    has_more = (offset + limit) < len(rows)
+    next_url = None
+    if has_more:
+        next_params = {"page": page_num + 1, "limit": limit}
+        if request.args.get("include_late") == "1":
+            next_params["include_late"] = "1"
+        if modified_since is not None:
+            next_params["modified_since"] = modified_since
+        next_url = (
+            f"http://{request.host}/api/orders/next-link?"
+            f"{urlencode(next_params)}"
+        )
     return jsonify({"records": page, "_links": {"next": next_url}})
+
+
+# ---------------------------------------------------------------------------
+# Amendment 5 surface-sync fixtures
+# ---------------------------------------------------------------------------
+
+_SURFACE_REQUEST_END_ROWS = [
+    {"order_id": 2001, "covered_at": "2024-01-15T12:00:00+00:00"},
+    {"order_id": 2002, "covered_at": "2024-01-16T00:00:00+00:00"},
+    {"order_id": 2003, "covered_at": "2024-01-18T12:00:00+00:00"},
+]
+
+
+@app.route("/api/orders/surface-request-end")
+def orders_surface_request_end():
+    """Return rows for the request-end inclusive-continuation fixture."""
+    page = int(request.args.get("page", "1"))
+    lower_name = "covered_from" if "covered_from" in request.args else "from_time"
+    upper_name = "covered_to" if "covered_to" in request.args else "to_time"
+    lower_text = request.args.get(lower_name)
+    upper_text = request.args.get(upper_name)
+    lower = _parse_datetime(lower_text)
+    upper = _parse_datetime(upper_text)
+    rows = list(_SURFACE_REQUEST_END_ROWS)
+    if lower is not None:
+        rows = [
+            row
+            for row in rows
+            if datetime.fromisoformat(row["covered_at"].replace("+00:00", "")) >= lower
+        ]
+    if upper is not None:
+        # The endpoint intentionally treats the upper bound as inclusive.  The
+        # source contract's request-end mapping must therefore preserve the
+        # exact boundary on the next invocation.
+        rows = [
+            row
+            for row in rows
+            if datetime.fromisoformat(row["covered_at"].replace("+00:00", "")) <= upper
+        ]
+    if page == 1:
+        page_rows = rows[:1]
+        next_link = (
+            f"http://{request.host}/api/orders/surface-request-end?"
+            + urlencode(
+                {
+                    "page": 2,
+                    lower_name: lower_text or "",
+                    upper_name: upper_text or "",
+                }
+            )
+        ) if len(rows) > 1 else None
+    else:
+        page_rows = rows[1:]
+        next_link = None
+    return jsonify({"data": page_rows, "paging": {"next": next_link}})
+
+
+_SURFACE_NEXT_LINK_ROWS = [
+    {"order_id": 2101, "event_time": "2024-01-15T10:00:00+00:00"},
+    {"order_id": 2102, "event_time": "2024-01-15T11:00:00+00:00"},
+]
+
+
+@app.route("/api/orders/surface-next-link")
+def orders_surface_next_link():
+    """Serve opaque and repeat-query continuation variants for C5."""
+    page = int(request.args.get("page", "1"))
+    mode = request.args.get("mode", "opaque")
+    rows = list(_SURFACE_NEXT_LINK_ROWS)
+    if page != 1:
+        return jsonify({"data": rows[1:], "paging": {"next": None}})
+
+    # Keep the continuation token visibly opaque.  The trace records the URL
+    # spelling so validators can prove that opaque mode did not add bounds.
+    if mode == "opaque":
+        next_query = "page=2&mode=opaque&signed=token%2Bopaque"
+    elif mode == "matching":
+        from_value = request.args.get("from_time", "")
+        to_value = request.args.get("to_time", "")
+        next_query = urlencode(
+            {
+                "page": 2,
+                "mode": "matching",
+                "from_time": from_value,
+                "to_time": to_value,
+                "signed": "token+matching",
+            }
+        )
+    elif mode == "missing":
+        next_query = "page=2&mode=missing&signed=token%2Bmissing"
+    elif mode == "conflict":
+        next_query = "page=2&mode=conflict&from_time=conflicting&signed=token%2Bconflict"
+    elif mode == "duplicate":
+        next_query = (
+            "page=2&mode=duplicate&from_time=duplicate-a&from_time=duplicate-b"
+            "&signed=token%2Bduplicate"
+        )
+    else:
+        return jsonify({"error": f"unknown surface mode {mode}"}), 400
+    next_url = f"http://{request.host}/api/orders/surface-next-link?{next_query}"
+    return jsonify({"data": rows[:1], "paging": {"next": next_url}})
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +606,7 @@ def secure_oauth2():
 # ---------------------------------------------------------------------------
 # 12. Rate limiting — returns 429 Retry-After on the very first request,
 #     then 200 for all subsequent calls.
-#     Tests APIReader._make_request() 429 → auto-retry path.
+#     Tests the API transport helper's 429 → auto-retry path.
 #     Note: the flag resets on server restart; restart to re-test.
 # ---------------------------------------------------------------------------
 

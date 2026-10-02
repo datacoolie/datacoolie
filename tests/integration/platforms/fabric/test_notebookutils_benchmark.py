@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 
 from datacoolie.platforms._fabric.traversal import list_notebookutils_tree
-from tests.integration.cloud_config import FabricIntegrationConfig
+from tests.support.cloud_config import FabricIntegrationConfig
 
 notebookutils = pytest.importorskip("notebookutils")
 pytestmark = [

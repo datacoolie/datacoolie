@@ -25,7 +25,7 @@ from datacoolie.core.constants import (  # noqa: E402
     SystemColumn,
 )
 from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.destinations.delta_writer import DeltaWriter  # noqa: E402
 from datacoolie.engines._spark import database as spark_database  # noqa: E402
 from datacoolie.engines._spark import file_io as spark_file_io  # noqa: E402
@@ -33,7 +33,7 @@ from datacoolie.engines._spark.iceberg import operations as spark_iceberg  # noq
 from datacoolie.engines._spark import table_operations as spark_tables  # noqa: E402
 from datacoolie.engines._spark import type_mapping as spark_type_mapping  # noqa: E402
 from datacoolie.engines.spark_engine import SparkEngine  # noqa: E402
-from tests.unit.engines.hash_contract_vectors import (  # noqa: E402
+from tests.fixtures.engines.hash_contract_vectors import (  # noqa: E402
     HASH_CONTRACT_ROWS,
     SHA256_HASHES,
     XXHASH64_HASHES,
@@ -64,6 +64,7 @@ def spark() -> SparkSession:
         .config("spark.databricks.delta.retentionDurationCheck.enabled", "false")
         .config("spark.ui.enabled", "false")
         .config("spark.driver.memory", "512m")
+        .config("spark.sql.parquet.outputTimestampType", "TIMESTAMP_MICROS")
         # Optimise for small-data unit tests
         .config("spark.sql.shuffle.partitions", "1")
         .config("spark.default.parallelism", "1")
@@ -185,6 +186,23 @@ class TestReadCsv:
         csv_file.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
         df = engine.read_csv(str(csv_file))
         assert engine.count_rows(df) == 2
+        assert str(df.schema["id"].dataType) == "StringType()"
+
+    def test_write_csv_honors_canonical_header_and_separator(
+        self, engine: SparkEngine, sample_df: DataFrame, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "csv-out"
+        engine.write_to_path(
+            sample_df,
+            str(output),
+            "overwrite",
+            "csv",
+            options={"header": "false", "sep": ";"},
+        )
+        csv_files = list(output.glob("part-*.csv"))
+        assert csv_files
+        first_line = csv_files[0].read_text(encoding="utf-8").splitlines()[0]
+        assert first_line == "1;Alice;2026-01-01"
 
 
 class TestReadJson:
@@ -342,6 +360,16 @@ class TestTransforms:
         schema = engine.get_schema(result)
         assert "date" in schema["date_str"].lower()
 
+    def test_cast_timestamp_ntz_uses_format(
+        self, engine: SparkEngine, spark: SparkSession
+    ) -> None:
+        df = spark.createDataFrame([("2024-01-02 03:04:05",)], ["value"])
+        result = engine.cast_column(
+            df, "value", "timestamp_ntz", fmt="yyyy-MM-dd HH:mm:ss"
+        )
+        assert result.schema["value"].dataType.typeName() == "timestamp_ntz"
+        assert result.collect()[0]["value"].hour == 3
+
 
 class TestDeduplicate:
     def test_row_number(
@@ -465,6 +493,43 @@ class TestMetrics:
         count, maxes = engine.get_count_and_max_values(sample_df, ["id"])
         assert count == 3
         assert maxes["id"] == 3
+
+
+class TestWatermarkFilter:
+    def test_skips_inactive_missing_column(self, engine: SparkEngine, spark: SparkSession) -> None:
+        df = spark.createDataFrame([(1,), (2,)], ["id"])
+        result = engine.apply_watermark_filter(
+            df,
+            ["missing", "id"],
+            {"id": 1},
+        )
+        assert [row.id for row in result.collect()] == [2]
+
+    def test_uses_spark_case_sensitivity_and_literal_names(
+        self, engine: SparkEngine, spark: SparkSession
+    ) -> None:
+        previous = spark.conf.get("spark.sql.caseSensitive")
+        try:
+            spark.conf.set("spark.sql.caseSensitive", "false")
+            df = spark.createDataFrame([(1,), (2,)], ["UpdatedAt"])
+            assert engine.count_rows(
+                engine.apply_watermark_filter(df, ["updatedat"], {"updatedat": 1})
+            ) == 1
+
+            spark.conf.set("spark.sql.caseSensitive", "true")
+            with pytest.raises(EngineError, match="could not be resolved"):
+                engine.apply_watermark_filter(df, ["updatedat"], {"updatedat": 1})
+
+            spark.conf.set("spark.sql.caseSensitive", "false")
+            literal = spark.createDataFrame([(1, 10), (2, 20)], ["a.b", "a`b"])
+            filtered = engine.apply_watermark_filter(literal, ["a.b"], {"a.b": 1})
+            assert [row["a.b"] for row in filtered.collect()] == [2]
+
+            ambiguous = spark.createDataFrame([(1, 2)], ["Foo", "foo"])
+            with pytest.raises(EngineError, match="could not be resolved"):
+                engine.apply_watermark_filter(ambiguous, ["FOO"], {"FOO": 0})
+        finally:
+            spark.conf.set("spark.sql.caseSensitive", previous)
 
 
 # =====================================================================
@@ -795,35 +860,55 @@ class TestSparkEngineAdvanced:
         platform = MagicMock()
         engine.set_platform(platform)
 
+        platform.file_exists.return_value = False
         platform.folder_exists.return_value = True
         assert engine.table_exists_by_path("s3://x/tbl/", fmt="iceberg") is True
         platform.folder_exists.assert_called_with("s3://x/tbl/metadata")
 
-        platform.folder_exists.return_value = True
-        assert engine.table_exists_by_path("s3://x/delta/", fmt="delta") is True
-        platform.folder_exists.assert_called_with("s3://x/delta/_delta_log")
+        platform.list_files.return_value = ["data.parquet"]
+        with patch.object(engine.spark, "sql") as spark_sql:
+            spark_sql.return_value = MagicMock()
+            assert engine.table_exists_by_path("s3://x/delta/", fmt="delta") is True
+        platform.folder_exists.assert_any_call("s3://x/delta/_delta_log")
 
         platform.folder_exists.return_value = True
         assert engine.table_exists_by_path("/generic/path", fmt="parquet") is True
         platform.folder_exists.assert_called_with("/generic/path")
 
     def test_table_exists_by_path_without_platform_delta_branches(
-        self, engine: SparkEngine
+        self, engine: SparkEngine, tmp_path: Path
     ) -> None:
+        absent = tmp_path / "absent"
+        assert engine.table_exists_by_path(str(absent), fmt="delta") is False
+
+        occupied = tmp_path / "occupied"
+        occupied.mkdir()
+        (occupied / "payload.bin").write_bytes(b"occupied")
         with patch.object(engine.spark, "sql") as spark_sql:
             spark_sql.return_value = MagicMock()
-            assert engine.table_exists_by_path("/tmp/delta", fmt="delta") is True
+            assert engine.table_exists_by_path(str(occupied), fmt="delta") is True
 
-            spark_sql.side_effect = RuntimeError("not found")
-            assert engine.table_exists_by_path("/tmp/delta", fmt="delta") is False
+            spark_sql.side_effect = FileNotFoundError("not found")
+            with pytest.raises(FileNotFoundError, match="not found"):
+                engine.table_exists_by_path(str(occupied), fmt="delta")
 
-    def test_table_exists_by_name_exception_returns_false(
+    def test_table_exists_by_path_probe_error_propagates(
+        self, engine: SparkEngine
+    ) -> None:
+        engine.set_platform(MagicMock())
+        engine._platform.folder_exists.side_effect = PermissionError("denied")
+
+        with pytest.raises(PermissionError, match="denied"):
+            engine.table_exists_by_path("/data/tbl", fmt="delta")
+
+    def test_table_exists_by_name_probe_error_propagates(
         self, engine: SparkEngine
     ) -> None:
         with patch.object(
             engine.spark.catalog, "tableExists", side_effect=RuntimeError("boom")
         ):
-            assert engine.table_exists_by_name("catalog.db.tbl") is False
+            with pytest.raises(RuntimeError, match="boom"):
+                engine.table_exists_by_name("catalog.db.tbl")
 
     def test_history_dispatch_unsupported_formats_return_empty(
         self, engine: SparkEngine

@@ -6,16 +6,15 @@ Uses SQLite in-memory for fast, isolated tests.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
-from unittest.mock import MagicMock, call, patch, PropertyMock
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy import MetaData, Table, Column, String, create_engine, insert
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
 from datacoolie.core.exceptions import MetadataError, WatermarkError
-from datacoolie.core.models import Connection, DataFlow, SchemaHint
 from datacoolie.metadata.database_provider import (
     DatabaseProvider,
     _connections_table,
@@ -23,7 +22,7 @@ from datacoolie.metadata.database_provider import (
     _schema_hints_table,
     _watermarks_table,
 )
-from datacoolie.utils.helpers import generate_unique_id
+from datacoolie.utils.identity import generate_unique_id
 
 # ============================================================================
 # Constants
@@ -198,6 +197,7 @@ class TestDatabaseProviderInit:
                 pool_timeout=9,
                 pool_recycle=123,
             )
+            p._ensure_engine()
             kwargs = mock_ce.call_args.kwargs
             assert kwargs["pool_size"] == 7
             assert kwargs["max_overflow"] == 11
@@ -226,7 +226,7 @@ class TestDatabaseProviderInit:
 class TestWarmUpRetry:
     """Session open retries for serverless cold-start scenarios."""
 
-    @patch("datacoolie.orchestration.retry_handler.time.sleep")
+    @patch("datacoolie.utils.retry.time.sleep")
     def test_retries_on_connection_error(self, mock_sleep, engine: Engine) -> None:
         """First session open raises, second succeeds — one retry used."""
         p = DatabaseProvider(engine=engine, workspace_id=WS, warm_up_retries=1, warm_up_delay=0.1)
@@ -249,7 +249,7 @@ class TestWarmUpRetry:
         assert result == []
         assert real_session_calls == 2
 
-    @patch("datacoolie.orchestration.retry_handler.time.sleep")
+    @patch("datacoolie.utils.retry.time.sleep")
     def test_raises_after_all_warm_up_retries_exhausted(self, mock_sleep, engine: Engine) -> None:
         p = DatabaseProvider(engine=engine, workspace_id=WS, warm_up_retries=1, warm_up_delay=0.1)
 
@@ -259,7 +259,7 @@ class TestWarmUpRetry:
 
     def test_no_retry_overhead_on_success(self, provider: DatabaseProvider) -> None:
         """Verify that a healthy DB completes in 1 attempt (no sleep)."""
-        with patch("datacoolie.orchestration.retry_handler.time.sleep") as mock_sleep:
+        with patch("datacoolie.utils.retry.time.sleep") as mock_sleep:
             provider.get_connections()
         mock_sleep.assert_not_called()
 
@@ -387,13 +387,13 @@ class TestDataflows:
         _insert_dataflow(engine, deleted_at=datetime.now(timezone.utc))
         assert provider.get_dataflows(attach_schema_hints=False) == []
 
-    def test_orphaned_dataflow_skipped(self, provider: DatabaseProvider, engine: Engine) -> None:
-        """Dataflow with missing connection is skipped."""
+    def test_orphaned_dataflow_rejected(self, provider: DatabaseProvider, engine: Engine) -> None:
+        """A dataflow must resolve both connection references during startup."""
         _insert_connection(engine, connection_id=CONN_SRC_ID, name="src_only")
         # dest connection does not exist
         _insert_dataflow(engine)
-        dfs = provider.get_dataflows(attach_schema_hints=False)
-        assert dfs == []
+        with pytest.raises(MetadataError, match="unknown connection"):
+            provider.get_dataflows(attach_schema_hints=False)
 
     def test_dataflow_by_id(self, provider: DatabaseProvider, engine: Engine) -> None:
         self._seed_connections(engine)
@@ -427,6 +427,32 @@ class TestDataflows:
         assert df is not None
         assert df.source.configure.get("fetchsize") == 5000
 
+    @pytest.mark.parametrize("configure", [{}, {"next_link_bound_mode": "opaque"},
+                                           {"next_link_bound_mode": "repeat_query_bounds"}])
+    def test_source_pagination_config_preserved(
+        self, provider: DatabaseProvider, engine: Engine, configure: dict,
+    ) -> None:
+        self._seed_connections(engine)
+        _insert_dataflow(engine, source_configure=json.dumps(configure))
+
+        dataflow = provider.get_dataflow_by_id(DF_ID, attach_schema_hints=False)
+
+        assert dataflow is not None
+        assert dataflow.source.configure == configure
+
+    def test_dataflow_source_filter_expression_preserved(
+        self,
+        provider: DatabaseProvider,
+        engine: Engine,
+    ) -> None:
+        self._seed_connections(engine)
+        _insert_dataflow(engine, source_filter_expression="status = 'open'")
+
+        df = provider.get_dataflow_by_id(DF_ID, attach_schema_hints=False)
+
+        assert df is not None
+        assert df.source.filter_expression == "status = 'open'"
+
     def test_dataflow_dest_merge_keys(self, provider: DatabaseProvider, engine: Engine) -> None:
         self._seed_connections(engine)
         _insert_dataflow(
@@ -457,11 +483,12 @@ class TestDataflows:
         assert len(dfs) == 1
         assert dfs[0].dataflow_id == "df-mine"
 
-    def test_dataflow_by_id_orphan_returns_none(self, provider: DatabaseProvider, engine: Engine) -> None:
+    def test_dataflow_by_id_orphan_rejected(self, provider: DatabaseProvider, engine: Engine) -> None:
         # Only source connection exists; destination is missing.
         _insert_connection(engine, connection_id=CONN_SRC_ID, name="src_conn")
         _insert_dataflow(engine)
-        assert provider.get_dataflow_by_id(DF_ID, attach_schema_hints=False) is None
+        with pytest.raises(MetadataError, match="unknown connection"):
+            provider.get_dataflow_by_id(DF_ID, attach_schema_hints=False)
 
 
 # ============================================================================
@@ -477,6 +504,7 @@ class TestSchemaHints:
         assert hints == []
 
     def test_fetch_schema_hints(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_connection(engine, connection_id=CONN_DEST_ID, name="dest_conn")
         _insert_schema_hint(engine, column_name="col_a", data_type="STRING", ordinal_position=0)
         _insert_schema_hint(engine, column_name="col_b", data_type="INTEGER", ordinal_position=1)
         hints = provider.get_schema_hints(CONN_DEST_ID, "target_table")
@@ -485,6 +513,7 @@ class TestSchemaHints:
         assert hints[1].column_name == "col_b"
 
     def test_schema_hints_ordered(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_connection(engine, connection_id=CONN_DEST_ID, name="dest_conn")
         _insert_schema_hint(engine, column_name="z_last", ordinal_position=10)
         _insert_schema_hint(engine, column_name="a_first", ordinal_position=1)
         hints = provider.get_schema_hints(CONN_DEST_ID, "target_table")
@@ -493,21 +522,44 @@ class TestSchemaHints:
 
     def test_schema_hints_soft_delete(self, provider: DatabaseProvider, engine: Engine) -> None:
         from datetime import datetime, timezone
+        _insert_connection(engine, connection_id=CONN_DEST_ID, name="dest_conn")
         _insert_schema_hint(engine, column_name="deleted_col", deleted_at=datetime.now(timezone.utc))
         hints = provider.get_schema_hints(CONN_DEST_ID, "target_table")
         assert hints == []
 
     def test_schema_hints_case_insensitive_table(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_connection(engine, connection_id=CONN_DEST_ID, name="dest_conn")
         _insert_schema_hint(engine, table_name="MyTable", column_name="col_a")
         hints = provider.get_schema_hints(CONN_DEST_ID, "mytable")
         assert len(hints) == 1
 
     def test_schema_hints_with_schema_filter(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_connection(engine, connection_id=CONN_DEST_ID, name="dest_conn")
         _insert_schema_hint(engine, schema_name="dbo", column_name="col_a")
         _insert_schema_hint(engine, schema_name="sales", column_name="col_b")
         hints = provider.get_schema_hints(CONN_DEST_ID, "target_table", schema_name="dbo")
         assert len(hints) == 1
         assert hints[0].column_name == "col_a"
+
+    def test_schema_hints_exclude_foreign_workspace(
+        self,
+        provider: DatabaseProvider,
+        engine: Engine,
+    ) -> None:
+        _insert_connection(
+            engine,
+            connection_id="foreign-conn",
+            workspace_id="other-ws",
+            name="foreign_conn",
+        )
+        _insert_schema_hint(
+            engine,
+            connection_id="foreign-conn",
+            table_name="orders",
+            column_name="foreign_col",
+        )
+
+        assert provider.get_schema_hints("foreign-conn", "orders") == []
 
 
 # ============================================================================
@@ -522,21 +574,25 @@ class TestWatermarks:
         assert provider.get_watermark("nonexistent") is None
 
     def test_get_watermark(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_dataflow(engine)
         _insert_watermark(engine, current_value='{"col": "2024-06-15"}')
         wm = provider.get_watermark(DF_ID)
         assert wm == '{"col": "2024-06-15"}'
 
     def test_get_watermark_empty_value(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_dataflow(engine)
         _insert_watermark(engine, current_value="")
         assert provider.get_watermark(DF_ID) is None
 
-    def test_update_watermark_insert(self, provider: DatabaseProvider) -> None:
+    def test_update_watermark_insert(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_dataflow(engine)
         provider.update_watermark(DF_ID, '{"col": "2024-01-01"}')
         wm = provider.get_watermark(DF_ID)
         assert wm == '{"col": "2024-01-01"}'
 
     def test_update_watermark_upsert_rotates(self, provider: DatabaseProvider, engine: Engine) -> None:
         """Update shifts current_value → previous_value."""
+        _insert_dataflow(engine)
         _insert_watermark(engine, current_value='{"col": "old"}')
         provider.update_watermark(DF_ID, '{"col": "new"}')
         wm = provider.get_watermark(DF_ID)
@@ -549,7 +605,8 @@ class TestWatermarks:
             assert row is not None
             assert row.previous_value == '{"col": "old"}'
 
-    def test_update_watermark_with_job_metadata(self, provider: DatabaseProvider) -> None:
+    def test_update_watermark_with_job_metadata(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_dataflow(engine)
         provider.update_watermark(
             DF_ID,
             '{"col": "v1"}',
@@ -560,6 +617,7 @@ class TestWatermarks:
         assert wm == '{"col": "v1"}'
 
     def test_get_watermark_invalid_json(self, provider: DatabaseProvider, engine: Engine) -> None:
+        _insert_dataflow(engine)
         _insert_watermark(engine, current_value="not-json{")
         wm = provider.get_watermark(DF_ID)
         assert wm == "not-json{"
@@ -568,6 +626,27 @@ class TestWatermarks:
         with patch.object(provider, "_session", side_effect=RuntimeError("db down")):
             with pytest.raises(WatermarkError, match="Failed to read watermark"):
                 provider.get_watermark("df-x")
+
+    def test_watermark_scope_excludes_foreign_workspace(
+        self,
+        provider: DatabaseProvider,
+        engine: Engine,
+    ) -> None:
+        _insert_dataflow(engine, dataflow_id="foreign-df", workspace_id="other-ws")
+        _insert_watermark(engine, dataflow_id="foreign-df", current_value="foreign")
+
+        assert provider.get_watermark("foreign-df") is None
+        with pytest.raises(WatermarkError, match="Failed to update watermark"):
+            provider.update_watermark("foreign-df", "should-not-write")
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                _watermarks_table.select().where(
+                    _watermarks_table.c.dataflow_id == "foreign-df"
+                )
+            ).first()
+        assert row is not None
+        assert row.current_value == "foreign"
 
 
 # ============================================================================
@@ -594,25 +673,29 @@ class TestLifecycle:
         p = DatabaseProvider(engine=engine, workspace_id=WS)
         with patch.object(engine, "dispose") as dispose:
             p.close()
+            # An injected engine is owned by the caller and survives provider cleanup.
+            dispose.assert_not_called()
+
+    def test_close_disposes_provider_owned_engine(self) -> None:
+        engine = create_engine("sqlite:///:memory:")
+        with patch("datacoolie.metadata.database_provider.create_engine", return_value=engine):
+            p = DatabaseProvider(connection_string="sqlite:///:memory:", workspace_id=WS)
+            p._ensure_engine()
+        with patch.object(engine, "dispose") as dispose:
+            p.close()
             dispose.assert_called_once()
 
 
 class TestDatabaseProviderHelpers:
-    def test_supports_row_locks_false_for_sqlite(self, provider: DatabaseProvider) -> None:
-        assert provider._supports_row_locks is False
-
     def test_workspace_filter_matches_workspace(self, provider: DatabaseProvider) -> None:
         clause = provider._workspace_filter(_connections_table)
         assert clause is not None
 
-    def test_soft_delete_filter_without_deleted_at_returns_true(self) -> None:
-        t = Table("no_soft_delete", MetaData(), Column("id", String))
-        assert DatabaseProvider._soft_delete_filter(t) is True
-
-    def test_close_without_engine_attribute(self, engine: Engine) -> None:
-        p = DatabaseProvider(engine=engine, workspace_id=WS)
-        delattr(p, "_engine")
-        p.close()  # no-op branch
+    def test_close_rejected_inside_runtime_operation(self, provider: DatabaseProvider) -> None:
+        with provider._runtime_operation():
+            with pytest.raises(RuntimeError, match="runtime operation"):
+                provider.close()
+        provider.close()
 
 
 class TestWatermarkAdvancedBranches:
@@ -645,8 +728,12 @@ class TestWatermarkAdvancedBranches:
             update_result_retry = MagicMock()
             update_result_retry.rowcount = 1
 
+            owner_result = MagicMock()
+            owner_result.first.return_value = (DF_ID,)
+
             execute_results = [
                 update_result_first,
+                owner_result,
                 IntegrityError("insert", params={}, orig=Exception("dup")),
                 update_result_retry,
             ]
@@ -684,8 +771,12 @@ class TestWatermarkAdvancedBranches:
             update_result_retry = MagicMock()
             update_result_retry.rowcount = 1
 
+            owner_result = MagicMock()
+            owner_result.first.return_value = (DF_ID,)
+
             execute_results = [
                 update_result_first,
+                owner_result,
                 IntegrityError("insert", params={}, orig=Exception("dup")),
                 update_result_retry,
             ]
@@ -740,24 +831,23 @@ class TestWatermarkOperationalErrorRetry:
 
 
 class TestBulkLoad:
-    def test_prefetch_all_loads_connections_and_dataflows(self, provider: DatabaseProvider, engine: Engine) -> None:
-        """prefetch_all() exercises the _bulk_load code path."""
+    def test_initialize_loads_connections_and_dataflows(self, provider: DatabaseProvider, engine: Engine) -> None:
+        """initialize() exercises the complete _bulk_load code path."""
         # Seed some data
         _insert_connection(engine)
-        # Call prefetch_all directly
-        provider.prefetch_all()
+        provider.initialize()
         # After bulk load, get_connections should return from cache
         conns = provider.get_connections()
         assert len(conns) >= 1
 
-    def test_prefetch_all_with_orphaned_dataflow(self, provider: DatabaseProvider, engine: Engine) -> None:
-        """Orphaned dataflows (missing connections) are skipped by _bulk_load."""
+    def test_initialize_rejects_orphaned_dataflow(self, provider: DatabaseProvider, engine: Engine) -> None:
+        """Orphaned dataflows are rejected by the complete-scope load."""
         import datetime
         with engine.connect() as conn:
             conn.execute(_dataflows_table.insert().values(
                 dataflow_id='orphan-df',
                 name='orphan',
-                workspace_id='test-workspace',
+                workspace_id=WS,
                 source_connection_id='non-existent-src',
                 destination_connection_id='non-existent-dst',
                 destination_table='orphan_tbl',
@@ -767,17 +857,25 @@ class TestBulkLoad:
                 updated_at=datetime.datetime.now(),
             ))
             conn.commit()
-        provider.prefetch_all()
-        dfs = provider.get_dataflows(attach_schema_hints=False)
-        # Orphaned dataflow should be skipped
-        assert all(df.dataflow_id != 'orphan-df' for df in dfs)
+        with pytest.raises(MetadataError, match="unknown connection"):
+            provider.initialize()
+
+    def test_initialize_ignores_schema_hint_outside_workspace_scope(
+        self, provider: DatabaseProvider, engine: Engine
+    ) -> None:
+        _insert_schema_hint(engine, connection_id="missing-connection")
+
+        provider.initialize()
+
+        assert provider.is_initialized
+        assert provider.get_schema_hints("missing-connection", "target_table") == []
 
 
 class TestDatabaseProviderBulkLoadEdgeCases:
     """Cover lines 534-538 (orphaned dataflows) and 554-559 (null hint fields)."""
 
-    def test_bulk_load_skips_orphaned_dataflows(self, engine: Engine, provider: DatabaseProvider) -> None:
-        """Lines 534-538: dataflow with missing source/dest connection is skipped."""
+    def test_bulk_load_rejects_orphaned_dataflows(self, engine: Engine, provider: DatabaseProvider) -> None:
+        """A dataflow with a missing source connection fails complete loading."""
         # Insert only dest connection, not source — dataflow is orphaned
         _insert_connection(engine, connection_id=CONN_DEST_ID, name='dest_conn')
         _insert_dataflow(
@@ -786,7 +884,5 @@ class TestDatabaseProviderBulkLoadEdgeCases:
             source_connection_id='conn-missing-src',  # not in DB
             destination_connection_id=CONN_DEST_ID,
         )
-        # prefetch_all should succeed and just skip the orphan
-        provider.prefetch_all()
-        dataflows = provider.get_dataflows(attach_schema_hints=False)
-        assert all(df.dataflow_id != 'df-orphan' for df in dataflows)
+        with pytest.raises(MetadataError, match="unknown connection"):
+            provider.initialize()

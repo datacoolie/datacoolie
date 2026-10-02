@@ -1,0 +1,12 @@
+schema_version: 1
+project:
+  name: incremental-project
+components:
+  metadata:
+    path: metadata
+    output:
+      layout: single
+      format: json
+environments:
+  dev:
+    platform: local

@@ -5,7 +5,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/input/jsonl"
+        "base_path": "./usecase-sim/.runtime/data/perf/input/jsonl"
       }
     },
     {
@@ -13,7 +13,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/input/parquet"
+        "base_path": "./usecase-sim/.runtime/data/perf/input/parquet"
       }
     },
     {
@@ -21,7 +21,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/output/parquet",
+        "base_path": "./usecase-sim/.runtime/data/perf/output/parquet",
         "write_options": {
           "compression": "snappy"
         }
@@ -32,7 +32,7 @@
       "connection_type": "lakehouse",
       "format": "delta",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/output/delta"
+        "base_path": "./usecase-sim/.runtime/data/perf/output/delta"
       }
     },
     {
@@ -40,7 +40,7 @@
       "connection_type": "lakehouse",
       "format": "delta",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/output/delta"
+        "base_path": "./usecase-sim/.runtime/data/perf/output/delta"
       }
     },
     {
@@ -50,7 +50,7 @@
       "catalog": "local_catalog",
       "database": "perf_src",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/output/iceberg"
+        "base_path": "./usecase-sim/.runtime/data/perf/output/iceberg"
       }
     },
     {
@@ -60,7 +60,7 @@
       "catalog": "local_catalog",
       "database": "perf_dst",
       "configure": {
-        "base_path": "./usecase-sim/data/perf/output/iceberg"
+        "base_path": "./usecase-sim/.runtime/data/perf/output/iceberg"
       }
     }
   ],

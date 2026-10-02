@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from datacoolie.core.models import AdditionalColumn
+from datacoolie.core.models.transform import AdditionalColumn
 from datacoolie.transformers.column_adder import ColumnAdder, SystemColumnAdder, SCD2ColumnAdder
 from tests.unit.transformers.support import MockEngine, make_dataflow
 
@@ -108,21 +108,26 @@ class TestSCD2ColumnAdder:
         assert adder.order == 60
 
     def test_skips_non_scd2_load_type(self, engine: MockEngine) -> None:
-        from datacoolie.core.models import LoadType
+        from datacoolie.core.constants import LoadType
         df = _make_dataflow(load_type=LoadType.MERGE_UPSERT.value)
         adder = SCD2ColumnAdder(engine)
         adder.transform({"id": 1}, df)
         assert len(engine._added_columns) == 0
 
     def test_skips_when_no_effective_column(self, engine: MockEngine) -> None:
-        from datacoolie.core.models import LoadType
+        from datacoolie.core.constants import LoadType
         df = _make_dataflow(load_type=LoadType.SCD2.value)
         adder = SCD2ColumnAdder(engine)
         adder.transform({"id": 1}, df)
         assert len(engine._added_columns) == 0
 
     def test_adds_scd2_columns_when_configured(self, engine: MockEngine) -> None:
-        from datacoolie.core.models import LoadType, Connection, Source, Destination, DataFlow, Transform, Format
+        from datacoolie.core.constants import Format, LoadType
+        from datacoolie.core.models.connection import Connection
+        from datacoolie.core.models.dataflow import DataFlow
+        from datacoolie.core.models.destination import Destination
+        from datacoolie.core.models.source import Source
+        from datacoolie.core.models.transform import Transform
         src_conn = Connection(name="src", connection_type="lakehouse", format=Format.DELTA.value, configure={"base_path": "/a"})
         dst_conn = Connection(name="dst", connection_type="lakehouse", format=Format.DELTA.value, configure={"base_path": "/b"})
         df = DataFlow(

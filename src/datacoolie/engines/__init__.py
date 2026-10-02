@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from datacoolie.engines.base import BaseEngine
-
 if TYPE_CHECKING:
+    from datacoolie.engines.base import BaseEngine
     from datacoolie.engines.spark_engine import SparkEngine
     from datacoolie.engines.polars_engine import PolarsEngine
 
 
 def __getattr__(name: str):
+    if name == "BaseEngine":
+        from datacoolie.engines.base import BaseEngine
+        return BaseEngine
     if name == "SparkEngine":
         from datacoolie.engines.spark_engine import SparkEngine
         return SparkEngine

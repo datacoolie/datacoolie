@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -28,7 +30,8 @@ USECASE_SIM_DIR = RUNNER_DIR.parent
 DATACOOLIE_ROOT = USECASE_SIM_DIR.parent
 
 SCENARIOS_PATH = USECASE_SIM_DIR / "scenarios" / "scenarios.json"
-LOG_DIR = USECASE_SIM_DIR / "logs"
+RUNTIME_DIR = USECASE_SIM_DIR / ".runtime"
+LOG_DIR = RUNTIME_DIR / "logs"
 SCENARIO_LOG_DIR = LOG_DIR / "scenarios"
 
 # For AWS-platform scenarios the driver's loggers route through AWSPlatform,
@@ -56,8 +59,8 @@ MOCK_API_SERVICE = "mock-api"  # mock-api container (port 8082)
 
 # Stale JVM artifacts that can block the next Spark session.
 SPARK_CLEANUP_DIRS = [
-    DATACOOLIE_ROOT / "spark-warehouse",
-    DATACOOLIE_ROOT / "metastore_db",
+    RUNTIME_DIR / "spark" / "warehouse",
+    RUNTIME_DIR / "spark" / "metastore_db",
 ]
 SPARK_COOLDOWN_SECS = 6
 
@@ -107,8 +110,13 @@ def _is_spark(scenario: dict) -> bool:
     return scenario.get("engine") == "spark"
 
 
-def _docker_spark_running() -> bool:
-    """Return True when the datacoolie-spark Docker container is running."""
+def _spark_container(scenario: dict) -> str:
+    """Return the Docker Spark container selected by one scenario."""
+    return str(scenario.get("spark_container") or DOCKER_SPARK_CONTAINER)
+
+
+def _docker_spark_running(container: str = DOCKER_SPARK_CONTAINER) -> bool:
+    """Return True when the selected Docker Spark container is running."""
     try:
         result = subprocess.run(
             [
@@ -116,7 +124,7 @@ def _docker_spark_running() -> bool:
                 "inspect",
                 "--format",
                 "{{.State.Running}}",
-                DOCKER_SPARK_CONTAINER,
+                container,
             ],
             capture_output=True,
             text=True,
@@ -181,10 +189,71 @@ def _add_flag(cmd: list[str], scenario: dict, key: str, flag: str) -> None:
         cmd.append(flag)
 
 
-def _metadata_source_args(name: str, scenario: dict) -> list[str]:
+def _scenario_path_value(value: object, *, use_docker: bool) -> str:
+    """Render a repository path for the host or the mounted Spark container."""
+    text = str(value)
+    candidate = Path(text)
+    if use_docker and candidate.is_absolute():
+        return _to_container_path(candidate)
+    return text
+
+
+def _scenario_log_root(scenario: dict) -> Path:
+    """Resolve the framework log root used by one local scenario."""
+    if scenario.get("derive_log_paths_from_state") and scenario.get("state_base_path"):
+        root = (
+            DATACOOLIE_ROOT
+            / str(scenario["state_base_path"])
+            / "logs"
+        ).resolve()
+    elif scenario.get("log_base_path"):
+        root = (DATACOOLIE_ROOT / str(scenario["log_base_path"])).resolve()
+    else:
+        root = LOG_DIR.resolve()
+    runtime_root = RUNTIME_DIR.resolve()
+    if root == runtime_root or not root.is_relative_to(runtime_root):
+        raise ValueError(
+            "Scenario framework log root must resolve below usecase-sim/.runtime: "
+            f"{root}"
+        )
+    return root
+
+
+def _metadata_source_args(
+    name: str, scenario: dict, *, use_docker: bool = False
+) -> list[str]:
     meta_type = scenario["metadata_type"]
     if meta_type == "file":
-        return ["--metadata-path", scenario["metadata_path"]]
+        if scenario.get("metadata_path") and scenario.get("metadata_base_path"):
+            raise ValueError(
+                f"File scenario {name} cannot combine metadata_path and metadata_base_path"
+            )
+        args: list[str] = []
+        if scenario.get("metadata_path"):
+            args += [
+                "--metadata-path",
+                _scenario_path_value(scenario["metadata_path"], use_docker=use_docker),
+            ]
+        if scenario.get("metadata_base_path"):
+            args += [
+                "--metadata-base-path",
+                _scenario_path_value(
+                    scenario["metadata_base_path"], use_docker=use_docker
+                ),
+            ]
+        if scenario.get("artifact_base_path"):
+            args += [
+                "--artifact-base-path",
+                _scenario_path_value(
+                    scenario["artifact_base_path"], use_docker=use_docker
+                ),
+            ]
+        if not args:
+            raise ValueError(
+                f"File scenario {name} requires metadata_path, metadata_base_path, "
+                "or artifact_base_path"
+            )
+        return args
     if meta_type == "database":
         return [
             "--metadata-db-connection-string",
@@ -205,19 +274,99 @@ def _metadata_source_args(name: str, scenario: dict) -> list[str]:
     raise ValueError(f"Unknown metadata_type={meta_type} for scenario {name}")
 
 
-def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[str]:
+def _append_runtime_args(
+    cmd: list[str], scenario: dict, *, use_docker: bool
+) -> None:
+    """Append path, correlation, and logging overrides shared by runners."""
+
+    state_base_path = scenario.get("state_base_path")
+    if state_base_path:
+        cmd.extend([
+            "--state-base-path",
+            _scenario_path_value(state_base_path, use_docker=use_docker),
+        ])
+
+    sql_base_path = scenario.get("sql_base_path")
+    if sql_base_path:
+        # The framework contract accepts one root or an ordered collection of
+        # roots.  Repeat the CLI flag so each root remains an independent
+        # value; do not serialize a list into one shell argument.
+        sql_roots = (
+            sql_base_path
+            if isinstance(sql_base_path, (list, tuple))
+            else [sql_base_path]
+        )
+        for root in sql_roots:
+            cmd.extend([
+                "--sql-base-path",
+                _scenario_path_value(root, use_docker=use_docker),
+            ])
+
+    if scenario.get("job_id"):
+        cmd.extend(["--job-id", str(scenario["job_id"])])
+
+    run_attributes = scenario.get("run_attributes")
+    if run_attributes is not None:
+        if not isinstance(run_attributes, dict):
+            raise ValueError(f"Scenario {scenario.get('name', '<unnamed>')} run_attributes must be an object")
+        encoded = json.dumps(run_attributes, separators=(",", ":"))
+        cmd.extend(["--run-attributes", encoded])
+
+    for key, flag in (
+        ("log_persistence_mode", "--log-persistence-mode"),
+        ("log_flush_interval_seconds", "--log-flush-interval-seconds"),
+        ("log_flush_batch_bytes", "--log-flush-batch-bytes"),
+        ("log_console_color", "--log-console-color"),
+    ):
+        if scenario.get(key) is not None:
+            cmd.extend([flag, str(scenario[key])])
+
+
+def build_command(
+    name: str,
+    scenario: dict,
+    use_docker: bool = False,
+    spark_container: str = DOCKER_SPARK_CONTAINER,
+) -> list[str]:
     """Build a subprocess command from a scenario definition."""
     meta_type = scenario["metadata_type"]
+    if meta_type == "maintenance":
+        if scenario.get("metadata_path") and scenario.get("metadata_base_path"):
+            raise ValueError(
+                f"Maintenance scenario {name} cannot combine metadata_path and metadata_base_path"
+            )
+        if not any(
+            (
+                scenario.get("metadata_path"),
+                scenario.get("metadata_base_path"),
+                scenario.get("artifact_base_path"),
+            )
+        ):
+            raise ValueError(
+                f"Maintenance scenario {name} requires metadata_path, metadata_base_path, "
+                "or artifact_base_path"
+            )
     script = MAINTENANCE_SCRIPT if meta_type == "maintenance" else RUN_SCRIPT
     platform = scenario.get("platform", "local")
-    log_path = AWS_LOG_PATH if platform == "aws" else str(LOG_DIR)
+    if scenario.get("derive_log_paths_from_state"):
+        if not scenario.get("state_base_path"):
+            raise ValueError(
+                f"Scenario {name} must define state_base_path when deriving log paths"
+            )
+        log_path: str | None = None
+    elif scenario.get("log_base_path"):
+        log_path = _scenario_path_value(
+            scenario["log_base_path"], use_docker=use_docker
+        )
+    else:
+        log_path = AWS_LOG_PATH if platform == "aws" else str(LOG_DIR)
 
     if use_docker:
         # Run inside the datacoolie-spark container (Linux, no Windows JVM issues).
         # The container volume-mounts DATACOOLIE_ROOT → /datacoolie, so Windows
         # absolute paths are converted to their container equivalents.
         script_path = _to_container_path(script)
-        container_log = CONTAINER_ROOT + "/usecase-sim/logs"
+        container_log = CONTAINER_ROOT + "/usecase-sim/.runtime/logs"
         # AWS-platform loggers route through AWSPlatform, which needs an s3:// URI;
         # only local-platform loggers write to the container filesystem path.
         docker_log = AWS_LOG_PATH if platform == "aws" else container_log
@@ -227,16 +376,16 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
             "exec",
             "-e",
             "PYTHONUNBUFFERED=1",
-            DOCKER_SPARK_CONTAINER,
+            spark_container,
             "python3",
             script_path,
             "--engine",
             scenario["engine"],
             "--platform",
             platform,
-            "--log-path",
-            docker_log,
         ]
+        if log_path is not None:
+            cmd.extend(["--log-path", docker_log if platform == "local" else log_path])
     else:
         # `-u` forces unbuffered stdout in the child so the tee streams live.
         cmd = [
@@ -247,13 +396,32 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
             scenario["engine"],
             "--platform",
             platform,
-            "--log-path",
-            log_path,
         ]
+        if log_path is not None:
+            cmd.extend(["--log-path", log_path])
+
+    _append_runtime_args(cmd, scenario, use_docker=use_docker)
 
     if meta_type == "maintenance":
-        if "metadata_path" in scenario:
-            cmd += ["--metadata-path", scenario["metadata_path"]]
+        if scenario.get("metadata_path"):
+            cmd += [
+                "--metadata-path",
+                _scenario_path_value(scenario["metadata_path"], use_docker=use_docker),
+            ]
+        if scenario.get("metadata_base_path"):
+            cmd += [
+                "--metadata-base-path",
+                _scenario_path_value(
+                    scenario["metadata_base_path"], use_docker=use_docker
+                ),
+            ]
+        if scenario.get("artifact_base_path"):
+            cmd += [
+                "--artifact-base-path",
+                _scenario_path_value(
+                    scenario["artifact_base_path"], use_docker=use_docker
+                ),
+            ]
         if scenario.get("connection"):
             cmd += ["--connection", scenario["connection"]]
         _add_flag(cmd, scenario, "dry_run", "--dry-run")
@@ -261,11 +429,12 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
         return cmd
 
     cmd += ["--metadata-source", meta_type]
-    cmd += _metadata_source_args(name, scenario)
+    cmd += _metadata_source_args(name, scenario, use_docker=use_docker)
     cmd += ["--stage", scenario.get("stage", "")]
     if scenario.get("column_name_mode"):
         cmd += ["--column-name-mode", scenario["column_name_mode"]]
     _add_flag(cmd, scenario, "dry_run", "--dry-run")
+    _add_flag(cmd, scenario, "needs_iceberg", "--needs-iceberg")
     _add_flag(cmd, scenario, "skip_api_sources", "--skip-api-sources")
     if scenario.get("max_workers") is not None:
         cmd += ["--max-workers", str(scenario["max_workers"])]
@@ -288,6 +457,71 @@ def build_command(name: str, scenario: dict, use_docker: bool = False) -> list[s
         if scenario.get("replay_chunk_column"):
             cmd += ["--replay-chunk-column", str(scenario["replay_chunk_column"])]
     return cmd
+
+
+def _scenario_invocations(scenario: dict) -> list[dict]:
+    """Return the ordered child runs for one scenario.
+
+    Most registry entries still represent one process.  Surface-sync cases
+    use the small declarative extension to exercise recovery across process
+    boundaries while keeping setup, cleanup, and final validation scenario
+    owned.  The child dictionaries override only command fields; they are not
+    persisted or merged into the registry.
+    """
+    raw = scenario.get("invocations")
+    if raw is None:
+        return [{}]
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("scenario invocations must be a non-empty list")
+    if any(not isinstance(item, dict) for item in raw):
+        raise ValueError("scenario invocation entries must be objects")
+    return raw
+
+
+def _invocation_scenario(scenario: dict, invocation: dict) -> dict:
+    effective = dict(scenario)
+    effective.pop("invocations", None)
+    effective.update(invocation)
+    return effective
+
+
+def _invocation_expected_exit(scenario: dict, invocation: dict, count: int) -> int:
+    if "expected_exit_code" in invocation:
+        return int(invocation["expected_exit_code"])
+    if count == 1:
+        return int((scenario.get("validation") or {}).get("expected_exit_code", 0))
+    return 0
+
+
+def _state_snapshot(scenario: dict) -> dict:
+    """Hash a local invocation state root for keyed recovery assertions."""
+    raw = scenario.get("state_base_path")
+    if not raw or str(raw).startswith(("s3://", "abfs://", "dbfs:/")):
+        return {"root": raw, "files": [], "sha256": None}
+    root = (DATACOOLIE_ROOT / str(raw)).resolve()
+    if not root.exists():
+        return {"root": str(root), "files": [], "sha256": None}
+    files: list[dict[str, object]] = []
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        item: dict[str, object] = {
+            "path": str(path.relative_to(root)),
+            "sha256": digest,
+        }
+        # Watermark payloads are small, non-secret state and are needed to
+        # prove multi-invocation semantics after a later invocation advances
+        # the same state root. Keep the historical value in the receipt while
+        # retaining hashes for every other file.
+        if path.name == "watermark_value.json":
+            try:
+                item["value"] = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+        files.append(item)
+    combined = hashlib.sha256(
+        json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {"root": str(root), "files": files, "sha256": combined}
 
 
 # ---------------------------------------------------------------------------
@@ -322,12 +556,15 @@ def _spark_cooldown(last_spark_finish: float) -> None:
 
 def _pre_clean_paths(scenario: dict) -> None:
     """Delete stale output paths listed in a scenario's pre_clean_paths."""
-    allowed_root = (DATACOOLIE_ROOT / "usecase-sim" / "data" / "output").resolve()
+    # Scenario cleanup is still constrained to the simulator's run-scoped
+    # data root.  Qualification preparations may place engine-addressed output
+    # under a named run root rather than the legacy ``data/output`` folder.
+    allowed_root = (DATACOOLIE_ROOT / "usecase-sim" / ".runtime" / "data").resolve()
     for rel_path in scenario.get("pre_clean_paths", []):
         path = (DATACOOLIE_ROOT / rel_path).resolve()
         if path == allowed_root or not path.is_relative_to(allowed_root):
             raise ValueError(
-                "pre_clean_paths must resolve below usecase-sim/data/output: "
+                "pre_clean_paths must resolve below usecase-sim/.runtime/data: "
                 f"{rel_path}"
             )
         if not path.exists():
@@ -337,6 +574,37 @@ def _pre_clean_paths(scenario: dict) -> None:
             logger.info("  [pre-clean] removed stale output: %s", path)
         except OSError as exc:
             logger.warning("  [pre-clean] could not remove %s: %s", path, exc)
+
+
+def _pre_clean_job_logs(scenario: dict) -> None:
+    """Remove prior simulator log files for an explicitly stable job id.
+
+    Snapshot logs intentionally contain one file per job.  A repeated
+    scenario run must therefore clear only that job's files before starting;
+    no broad runtime/logs cleanup is permitted.
+    """
+    job_id = scenario.get("job_id")
+    if not job_id or scenario.get("platform", "local") != "local":
+        return
+    token = str(job_id)
+    log_root = _scenario_log_root(scenario)
+    if not log_root.exists():
+        return
+    removed = 0
+    for path in log_root.rglob("*.json"):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if f'"job_id":"{token}"' not in text and f'"job_id": "{token}"' not in text:
+            continue
+        try:
+            path.unlink()
+            removed += 1
+        except OSError as exc:
+            logger.warning("  [pre-clean] could not remove log %s: %s", path, exc)
+    if removed:
+        logger.info("  [pre-clean] removed %d log file(s) for job_id=%s", removed, token)
 
 
 def _run_scenario_setup(name: str, scenario: dict) -> tuple[int, str]:
@@ -393,6 +661,9 @@ def _validate_scenario_result(
     scenario: dict,
     actual_exit_code: int,
     console_log: Path,
+    *,
+    use_docker: bool = False,
+    spark_container: str = DOCKER_SPARK_CONTAINER,
 ) -> tuple[int, str]:
     """Apply declarative exit, console, and output validation to one run."""
     if actual_exit_code == 124:
@@ -422,7 +693,18 @@ def _validate_scenario_result(
         if not validator_path.is_file():
             return 1, f"FAIL (validation script not found: {validator})"
 
-        validator_cmd = [sys.executable, str(validator_path)]
+        if validation.get("in_container") and use_docker:
+            validator_cmd = [
+                "docker",
+                "exec",
+                "-e",
+                "PYTHONUNBUFFERED=1",
+                spark_container,
+                "python3",
+                _to_container_path(validator_path),
+            ]
+        else:
+            validator_cmd = [sys.executable, str(validator_path)]
         validator_cmd.extend(str(arg) for arg in validation.get("args", []))
         try:
             completed = subprocess.run(
@@ -480,7 +762,7 @@ def _send_cancel_signal(
                     [
                         "docker",
                         "exec",
-                        DOCKER_SPARK_CONTAINER,
+                        cmd[4] if len(cmd) > 4 else DOCKER_SPARK_CONTAINER,
                         "pkill",
                         "-TERM",
                         "-f",
@@ -614,19 +896,27 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
     results: dict[str, int] = {}
     last_spark_finish = 0.0
 
-    # Check once whether the Docker Spark container is available.
-    has_spark_scenarios = any(_is_spark(scenarios.get(n, {})) for n in names)
-    docker_spark = has_spark_scenarios and _docker_spark_running()
-    if has_spark_scenarios:
-        if docker_spark:
+    # Check each selected Spark container independently. This lets the opt-in
+    # Spark 4.x gate coexist with the pinned Spark 3.5 service and fall back to
+    # host PySpark only for a missing profile.
+    spark_container_status: dict[str, bool] = {}
+    for scenario in (scenarios.get(n, {}) for n in names):
+        if not _is_spark(scenario):
+            continue
+        container = _spark_container(scenario)
+        if container in spark_container_status:
+            continue
+        running = _docker_spark_running(container)
+        spark_container_status[container] = running
+        if running:
             logger.info(
                 "[spark] Docker container '%s' is running — Spark scenarios will execute inside the container.",
-                DOCKER_SPARK_CONTAINER,
+                container,
             )
         else:
             logger.warning(
                 "[spark] Docker container '%s' is NOT running — falling back to local PySpark.",
-                DOCKER_SPARK_CONTAINER,
+                container,
             )
             _cleanup_spark_state("pre-flight")
 
@@ -636,7 +926,10 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
     for n in names:
         s = scenarios.get(n, {})
         needed.update(str(service) for service in s.get("services", []))
-        if docker_spark and _is_spark(s):
+        if (
+            _is_spark(s)
+            and spark_container_status.get(_spark_container(s), False)
+        ):
             # metadata-api: needed when metadata source is "api"
             svc = METADATA_TYPE_SERVICES.get(s.get("metadata_type", ""))
             if svc:
@@ -655,19 +948,17 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             continue
 
         scenario = scenarios[name]
-        use_docker = _is_spark(scenario) and docker_spark
+        spark_container = _spark_container(scenario)
+        use_docker = (
+            _is_spark(scenario)
+            and spark_container_status.get(spark_container, False)
+        )
 
-        if _is_spark(scenario) and not docker_spark:
+        if _is_spark(scenario) and not use_docker:
             _spark_cooldown(last_spark_finish)
 
-        try:
-            cmd = build_command(name, scenario, use_docker=use_docker)
-        except ValueError as exc:
-            logger.error("Scenario %s: %s", name, exc)
-            results[name] = 1
-            continue
-
         _pre_clean_paths(scenario)
+        _pre_clean_job_logs(scenario)
 
         setup_rc, setup_status = _run_scenario_setup(name, scenario)
         if setup_rc != 0:
@@ -675,20 +966,132 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             logger.info("  Result: %s", setup_status)
             continue
 
-        console_log = SCENARIO_LOG_DIR / f"{name}.console.log"
-        timeout = _resolve_timeout(scenario)
+        # A small registry-owned escape hatch is used for qualification
+        # scripts that construct their own fresh fixture and execute a real
+        # Driver.  It keeps those scripts out of the ordinary metadata/dataflow
+        # child path while retaining scenario cleanup, console capture, and
+        # validation receipts.
+        if scenario.get("skip_pipeline"):
+            combined_console = SCENARIO_LOG_DIR / f"{name}.console.log"
+            combined_console.write_text("", encoding="utf-8")
+            logger.info("▸ Running standalone validation: %s", name)
+            final_rc, status = _validate_scenario_result(
+                scenario,
+                0,
+                combined_console,
+                use_docker=use_docker,
+                spark_container=spark_container,
+            )
+            results[name] = final_rc
+            logger.info("  Result: %s", status)
+            continue
 
-        logger.info("▸ Running scenario: %s", name)
-        logger.info("  Command: %s", " ".join(cmd))
-        logger.info("  Console log: %s", console_log)
+        try:
+            invocations = _scenario_invocations(scenario)
+        except ValueError as exc:
+            logger.error("Scenario %s: %s", name, exc)
+            results[name] = 1
+            continue
 
-        rc, _ = _run_with_tee(cmd, console_log, timeout)
-        validated_rc, status = _validate_scenario_result(scenario, rc, console_log)
-        results[name] = validated_rc
+        # Each invocation gets its own console receipt.  The combined file is
+        # fed to the existing final validator so single-invocation scenarios
+        # retain their original output contract.
+        combined_console = SCENARIO_LOG_DIR / f"{name}.console.log"
+        combined_console.write_text("", encoding="utf-8")
+        invocation_receipts: list[dict] = []
+        invocation_failed = False
+        for index, invocation in enumerate(invocations, start=1):
+            effective = _invocation_scenario(scenario, invocation)
+            try:
+                cmd = build_command(
+                    name,
+                    effective,
+                    use_docker=use_docker,
+                    spark_container=spark_container,
+                )
+            except ValueError as exc:
+                logger.error("Scenario %s invocation %d: %s", name, index, exc)
+                results[name] = 1
+                invocation_failed = True
+                break
+
+            label = str(invocation.get("label") or f"run{index}")
+            if len(invocations) == 1:
+                console_log = combined_console
+            else:
+                console_log = SCENARIO_LOG_DIR / f"{name}.{label}.console.log"
+            timeout = int(invocation.get("timeout_seconds", _resolve_timeout(effective)))
+
+            logger.info("▸ Running scenario: %s [%s]", name, label)
+            logger.info("  Command: %s", " ".join(cmd))
+            logger.info("  Console log: %s", console_log)
+
+            if _is_spark(effective) and not use_docker:
+                _spark_cooldown(last_spark_finish)
+            state_before = _state_snapshot(effective)
+            rc, _ = _run_with_tee(cmd, console_log, timeout)
+            state_after = _state_snapshot(effective)
+            expected = _invocation_expected_exit(scenario, invocation, len(invocations))
+            invocation_receipts.append(
+                {
+                    "label": label,
+                    "command": cmd,
+                    "expected_exit_code": expected,
+                    "actual_exit_code": rc,
+                    "state_before": state_before,
+                    "state_after": state_after,
+                    "console_log": str(console_log),
+                    "recorded_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            if rc != expected:
+                logger.error(
+                    "  Invocation %s failed: expected exit %s, got %s",
+                    label,
+                    expected,
+                    rc,
+                )
+                results[name] = rc or 1
+                invocation_failed = True
+                break
+
+            required_text = invocation.get("required_console_text", [])
+            if isinstance(required_text, str):
+                required_text = [required_text]
+            invocation_text = console_log.read_text(
+                encoding="utf-8", errors="replace"
+            )
+            missing = [text for text in required_text if text not in invocation_text]
+            if missing:
+                logger.error("  Invocation %s missing console text: %s", label, missing)
+                results[name] = 1
+                invocation_failed = True
+                break
+
+            if console_log != combined_console:
+                with combined_console.open("a", encoding="utf-8") as merged:
+                    merged.write(f"\n--- invocation {label} ---\n")
+                    merged.write(invocation_text)
+            if _is_spark(effective) and not use_docker:
+                last_spark_finish = time.monotonic()
+
+        receipt_path = SCENARIO_LOG_DIR / f"{name}.invocations.json"
+        receipt_path.write_text(
+            json.dumps(invocation_receipts, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        if invocation_failed:
+            continue
+
+        final_rc, status = _validate_scenario_result(
+            scenario,
+            0,
+            combined_console,
+            use_docker=False,
+            spark_container=spark_container,
+        )
+        results[name] = final_rc
         logger.info("  Result: %s", status)
-
-        if _is_spark(scenario) and not docker_spark:
-            last_spark_finish = time.monotonic()
 
     return _print_summary(results)
 

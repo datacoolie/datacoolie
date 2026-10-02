@@ -1,0 +1,235 @@
+{
+  "datatype_matrix_mysql": {
+    "business_field_types": {
+      "my_row_id": "int32",
+      "my_tinyint_unsigned": "int16",
+      "my_smallint_unsigned": "int32",
+      "my_mediumint": "int32",
+      "my_bigint_unsigned": "decimal(20,0)",
+      "my_float": "float",
+      "my_double": "double",
+      "my_decimal": "decimal(18,2)",
+      "my_text": "string",
+      "my_binary": "binary",
+      "my_date": "date",
+      "my_datetime": "timestamp_ntz",
+      "my_timestamp": "timestamp",
+      "my_year": "int16"
+    },
+    "formats": {
+      "iceberg": {
+        "business_field_types": {
+          "my_row_id": "int32",
+          "my_tinyint_unsigned": "int32",
+          "my_smallint_unsigned": "int32",
+          "my_mediumint": "int32",
+          "my_bigint_unsigned": "decimal(20,0)",
+          "my_float": "float",
+          "my_double": "double",
+          "my_decimal": "decimal(18,2)",
+          "my_text": "string",
+          "my_binary": "binary",
+          "my_date": "date",
+          "my_datetime": "timestamp_ntz",
+          "my_timestamp": "timestamp",
+          "my_year": "int32"
+        }
+      }
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "my_row_id": 1,
+        "my_tinyint_unsigned": 255,
+        "my_smallint_unsigned": 65535,
+        "my_mediumint": 8388607,
+        "my_bigint_unsigned": {"decimal": "18446744073709551615"},
+        "my_float": 1.25,
+        "my_double": 2.5,
+        "my_decimal": {"decimal": "12.30"},
+        "my_text": "mysql",
+        "my_binary": {"bytes_base64": "bXk="},
+        "my_date": {"date": "2024-01-15"},
+        "my_datetime": {"datetime": "2024-01-15T10:30:45.123456"},
+        "my_timestamp": {"datetime": "2024-01-15T03:30:45.123456+00:00"},
+        "my_year": 2024
+      },
+      {
+        "my_row_id": 2,
+        "my_tinyint_unsigned": null,
+        "my_smallint_unsigned": null,
+        "my_mediumint": null,
+        "my_bigint_unsigned": null,
+        "my_float": null,
+        "my_double": null,
+        "my_decimal": null,
+        "my_text": null,
+        "my_binary": null,
+        "my_date": null,
+        "my_datetime": null,
+        "my_timestamp": null,
+        "my_year": null
+      }
+    ]
+  },
+  "datatype_matrix_mssql": {
+    "business_field_types": {
+      "ms_row_id": "int32",
+      "ms_bit": "bool",
+      "ms_tinyint": "int16",
+      "ms_smallint": "int16",
+      "ms_int": "int32",
+      "ms_bigint": "int64",
+      "ms_decimal": "decimal(18,2)",
+      "ms_money": "decimal(19,4)",
+      "ms_smallmoney": "decimal(10,4)",
+      "ms_real": "float",
+      "ms_float": "double",
+      "ms_string": "string",
+      "ms_binary": "binary",
+      "ms_date": "date",
+      "ms_datetime": "timestamp_ntz",
+      "ms_datetimeoffset": "timestamp"
+    },
+    "formats": {
+      "iceberg": {
+        "business_field_types": {
+          "ms_row_id": "int32",
+          "ms_bit": "bool",
+          "ms_tinyint": "int32",
+          "ms_smallint": "int32",
+          "ms_int": "int32",
+          "ms_bigint": "int64",
+          "ms_decimal": "decimal(18,2)",
+          "ms_money": "decimal(19,4)",
+          "ms_smallmoney": "decimal(10,4)",
+          "ms_real": "float",
+          "ms_float": "double",
+          "ms_string": "string",
+          "ms_binary": "binary",
+          "ms_date": "date",
+          "ms_datetime": "timestamp_ntz",
+          "ms_datetimeoffset": "timestamp"
+        }
+      }
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "ms_row_id": 1,
+        "ms_bit": true,
+        "ms_tinyint": 255,
+        "ms_smallint": 32767,
+        "ms_int": 2147483647,
+        "ms_bigint": 9223372036854775807,
+        "ms_decimal": {"decimal": "12.30"},
+        "ms_money": {"decimal": "1234.5678"},
+        "ms_smallmoney": {"decimal": "12.3400"},
+        "ms_real": 1.25,
+        "ms_float": 2.5,
+        "ms_string": "mssql",
+        "ms_binary": {"bytes_base64": "bXM="},
+        "ms_date": {"date": "2024-01-15"},
+        "ms_datetime": {"datetime": "2024-01-15T10:30:45.123456"},
+        "ms_datetimeoffset": {"datetime": "2024-01-15T03:30:45.123456+00:00"}
+      },
+      {
+        "ms_row_id": 2,
+        "ms_bit": null,
+        "ms_tinyint": null,
+        "ms_smallint": null,
+        "ms_int": null,
+        "ms_bigint": null,
+        "ms_decimal": null,
+        "ms_money": null,
+        "ms_smallmoney": null,
+        "ms_real": null,
+        "ms_float": null,
+        "ms_string": null,
+        "ms_binary": null,
+        "ms_date": null,
+        "ms_datetime": null,
+        "ms_datetimeoffset": null
+      }
+    ]
+  },
+  "datatype_matrix_oracle": {
+    "business_field_types": {
+      "ora_row_id": "decimal(10,0)",
+      "ora_number": "decimal(18,2)",
+      "ora_binary_float": "float",
+      "ora_binary_double": "double",
+      "ora_float": "float",
+      "ora_string": "string",
+      "ora_binary": "binary",
+      "ora_date": "timestamp_ntz",
+      "ora_timestamp": "timestamp_ntz",
+      "ora_timestamptz": "timestamp"
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "ora_row_id": {"decimal": "1"},
+        "ora_number": {"decimal": "12.30"},
+        "ora_binary_float": 1.25,
+        "ora_binary_double": 2.5,
+        "ora_float": 3.5,
+        "ora_string": "oracle",
+        "ora_binary": {"bytes_base64": "b3I="},
+        "ora_date": {"datetime": "2024-01-15T10:30:45"},
+        "ora_timestamp": {"datetime": "2024-01-15T10:30:45.123456"},
+        "ora_timestamptz": {"datetime": "2024-01-15T03:30:45.123456+00:00"}
+      },
+      {
+        "ora_row_id": {"decimal": "2"},
+        "ora_number": null,
+        "ora_binary_float": null,
+        "ora_binary_double": null,
+        "ora_float": null,
+        "ora_string": null,
+        "ora_binary": null,
+        "ora_date": null,
+        "ora_timestamp": null,
+        "ora_timestamptz": null
+      }
+    ]
+  },
+  "datatype_matrix_sqlite": {
+    "business_field_types": {
+      "sqlite_row_id": "int64",
+      "sqlite_integer": "int64",
+      "sqlite_real": "double",
+      "sqlite_numeric": "decimal(18,2)",
+      "sqlite_text": "string",
+      "sqlite_blob": "binary",
+      "sqlite_date": "date",
+      "sqlite_datetime": "timestamp_ntz",
+      "sqlite_timestamp": "timestamp_ntz"
+    },
+    "row_count": 2,
+    "rows": [
+      {
+        "sqlite_row_id": 1,
+        "sqlite_integer": 9223372036854775807,
+        "sqlite_real": 2.5,
+        "sqlite_numeric": {"decimal": "12.30"},
+        "sqlite_text": "sqlite",
+        "sqlite_blob": {"bytes_base64": "c3FsaXRl"},
+        "sqlite_date": {"date": "2024-01-15"},
+        "sqlite_datetime": {"datetime": "2024-01-15T10:30:45.123456"},
+        "sqlite_timestamp": {"datetime": "2024-01-15T10:30:45.123456"}
+      },
+      {
+        "sqlite_row_id": 2,
+        "sqlite_integer": null,
+        "sqlite_real": null,
+        "sqlite_numeric": null,
+        "sqlite_text": null,
+        "sqlite_blob": null,
+        "sqlite_date": null,
+        "sqlite_datetime": null,
+        "sqlite_timestamp": null
+      }
+    ]
+  }
+}

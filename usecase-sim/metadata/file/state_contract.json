@@ -1,0 +1,39 @@
+{
+  "connections": [
+    {
+      "name": "state_contract_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "state_contract_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/state_contract"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "state_base_path",
+      "stage": "state_base_path",
+      "source": {
+        "connection_name": "state_contract_source",
+        "query": "queries/orders.sql",
+        "watermark_columns": [
+          "order_id"
+        ]
+      },
+      "destination": {
+        "connection_name": "state_contract_destination",
+        "table": "orders_state",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

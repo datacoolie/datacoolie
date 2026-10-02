@@ -1,4 +1,4 @@
-"""Tests for APIClient — httpx-backed metadata provider.
+"""Tests for APIProvider — httpx-backed metadata provider.
 
 Uses ``unittest.mock`` to patch httpx responses (no real HTTP traffic).
 """
@@ -6,6 +6,8 @@ Uses ``unittest.mock`` to patch httpx responses (no real HTTP traffic).
 from __future__ import annotations
 
 import json
+import importlib
+import threading
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
@@ -53,31 +55,39 @@ def _import_httpx_for_tests() -> Any:
     return httpx
 
 
-def _build_api_client(
+def _build_api_provider(
     fake_client: _FakeClient,
     **overrides: Any,
 ) -> Any:
-    """Create APIClient wired to a fake httpx client for deterministic tests."""
-    with patch("datacoolie.metadata.api_client._import_httpx") as mock_imp:
+    """Create APIProvider wired to a fake httpx client for deterministic tests."""
+    cfg = {
+        "base_url": "https://api.test.io",
+        "api_key": "k",
+        "workspace_id": "ws-1",
+        "enable_cache": False,
+        "max_retries": 0,
+        "retry_backoff": 0.0,
+    }
+    cfg.update(overrides)
+
+    # Public metadata reads now perform a complete-scope startup before the
+    # requested live read when caching is disabled.  Most focused tests below
+    # provide one response for that live read, so hide the three startup
+    # probes from the fake transport while keeping the bulk-load test (which
+    # explicitly enables caching) on the real path.
+    if cfg["enable_cache"] is False:
+        fake_client.enable_bootstrap_empty()
+
+    with patch("datacoolie.metadata.api_provider._import_httpx") as mock_imp:
         mock_httpx = MagicMock()
         mock_httpx.Client.return_value = fake_client
         mock_httpx.HTTPStatusError = _import_httpx_for_tests().HTTPStatusError
         mock_httpx.HTTPError = _import_httpx_for_tests().HTTPError
         mock_imp.return_value = mock_httpx
 
-        from datacoolie.metadata.api_client import APIClient
+        from datacoolie.metadata.api_provider import APIProvider
 
-        cfg = {
-            "base_url": "https://api.test.io",
-            "api_key": "k",
-            "workspace_id": "ws-1",
-            "enable_cache": False,
-            "max_retries": 0,
-            "retry_backoff": 0.0,
-        }
-        cfg.update(overrides)
-
-        client = APIClient(**cfg)
+        client = APIProvider(**cfg)
         client._client = fake_client
         return client
 
@@ -88,9 +98,9 @@ def _new_client_for_retries(
     max_retries: int = 1,
     retry_backoff: float = 0.0,
 ) -> tuple[Any, _FakeClient]:
-    """Create a retry-enabled APIClient and its backing fake client."""
+    """Create a retry-enabled APIProvider and its backing fake client."""
     fake_client = _FakeClient(responses=responses)
-    client = _build_api_client(
+    client = _build_api_provider(
         fake_client,
         max_retries=max_retries,
         retry_backoff=retry_backoff,
@@ -101,12 +111,32 @@ def _new_client_for_retries(
 class _FakeClient:
     """Stand-in for ``httpx.Client`` that records calls."""
 
-    def __init__(self, *, responses: List[_FakeResponse] | None = None, **kw: Any) -> None:
+    def __init__(
+        self,
+        *,
+        responses: List[_FakeResponse] | None = None,
+        bootstrap_empty: bool = False,
+        **kw: Any,
+    ) -> None:
         self._responses = list(responses or [])
         self._call_log: List[Dict[str, Any]] = []
         self._idx = 0
+        self._bootstrap_remaining = 3 if bootstrap_empty else 0
+        self._bootstrap_lock = threading.Lock()
+
+    def enable_bootstrap_empty(self) -> None:
+        """Return empty collection bodies for the startup bulk-load probes."""
+        with self._bootstrap_lock:
+            self._bootstrap_remaining = 3
 
     def request(self, method: str, url: str, **kw: Any) -> _FakeResponse:
+        with self._bootstrap_lock:
+            is_bulk_listing = url.rstrip("/").endswith(
+                ("/connections", "/dataflows", "/schema-hints")
+            )
+            if self._bootstrap_remaining and is_bulk_listing:
+                self._bootstrap_remaining -= 1
+                return _FakeResponse(200, json_data={"data": []})
         call = {"method": method, "url": url, **kw}
         self._call_log.append(call)
         if self._idx < len(self._responses):
@@ -187,27 +217,27 @@ def _schema_hint_dict(
 
 
 # ============================================================================
-# Fixture — build an APIClient with a fake httpx Client
+# Fixture — build an APIProvider with a fake httpx Client
 # ============================================================================
 
 
 @pytest.fixture()
 def make_client():
-    """Factory that creates an APIClient with prepared mock responses."""
+    """Factory that creates an APIProvider with prepared mock responses."""
 
     def _factory(responses: List[_FakeResponse] | None = None):
-        fake_client = _FakeClient(responses=responses or [])
+        fake_client = _FakeClient(responses=responses or [], bootstrap_empty=True)
         # Patch httpx.Client so the constructor uses our fake
-        with patch("datacoolie.metadata.api_client._import_httpx") as mock_imp:
+        with patch("datacoolie.metadata.api_provider._import_httpx") as mock_imp:
             mock_httpx = MagicMock()
             mock_httpx.Client.return_value = fake_client
             mock_httpx.HTTPStatusError = _import_httpx_for_tests().HTTPStatusError
             mock_httpx.HTTPError = _import_httpx_for_tests().HTTPError
             mock_imp.return_value = mock_httpx
 
-            from datacoolie.metadata.api_client import APIClient
+            from datacoolie.metadata.api_provider import APIProvider
 
-            client = APIClient(
+            client = APIProvider(
                 base_url="https://api.test.io",
                 api_key="test-key",
                 workspace_id="ws-1",
@@ -226,7 +256,7 @@ def make_client():
 # ============================================================================
 
 
-class TestAPIClientConnections:
+class TestAPIProviderConnections:
 
     def test_fetch_connections(self, make_client) -> None:
         data = [_connection_dict("a"), _connection_dict("b", "c-2")]
@@ -249,7 +279,6 @@ class TestAPIClientConnections:
         assert conn.name == "my_conn"
 
     def test_connection_by_id_not_found(self, make_client) -> None:
-        httpx = _import_httpx_for_tests()
         err_resp = _FakeResponse(404, json_data={"detail": "not found"})
         client, _ = make_client([err_resp])
         conn = client.get_connection_by_id("missing")
@@ -281,7 +310,7 @@ class TestAPIClientConnections:
 # ============================================================================
 
 
-class TestAPIClientDataflows:
+class TestAPIProviderDataflows:
 
     def test_fetch_dataflows(self, make_client) -> None:
         data = [_dataflow_dict()]
@@ -304,7 +333,7 @@ class TestAPIClientDataflows:
         data = [_dataflow_dict()]
         resp = _FakeResponse(200, _paginated(data))
         client, fake = make_client([resp])
-        dfs = client.get_dataflows(stage=["bronze", "silver"], attach_schema_hints=False)
+        client.get_dataflows(stage=["bronze", "silver"], attach_schema_hints=False)
         assert fake.calls[0]["params"]["stage"] == "bronze,silver"
 
     def test_dataflow_by_id(self, make_client) -> None:
@@ -326,6 +355,28 @@ class TestAPIClientDataflows:
         assert df is not None
         assert df.source.connection.name == "src_conn"
 
+    def test_dataflow_source_filter_expression_preserved(self, make_client) -> None:
+        payload = _dataflow_dict()
+        payload["source"]["filter_expression"] = "status = 'open'"
+        client, _ = make_client([_FakeResponse(200, payload)])
+
+        df = client.get_dataflow_by_id("df-1", attach_schema_hints=False)
+
+        assert df is not None
+        assert df.source.filter_expression == "status = 'open'"
+
+    @pytest.mark.parametrize("configure", [{}, {"next_link_bound_mode": "opaque"},
+                                           {"next_link_bound_mode": "repeat_query_bounds"}])
+    def test_source_pagination_config_preserved(self, make_client, configure: dict) -> None:
+        payload = _dataflow_dict()
+        payload["source"]["configure"] = configure
+        client, _ = make_client([_FakeResponse(200, payload)])
+
+        dataflow = client.get_dataflow_by_id("df-1", attach_schema_hints=False)
+
+        assert dataflow is not None
+        assert dataflow.source.configure == configure
+
     def test_dataflow_destination_linked(self, make_client) -> None:
         resp = _FakeResponse(200, _dataflow_dict())
         client, _ = make_client([resp])
@@ -346,7 +397,7 @@ class TestAPIClientDataflows:
 # ============================================================================
 
 
-class TestAPIClientSchemaHints:
+class TestAPIProviderSchemaHints:
 
     def test_fetch_schema_hints(self, make_client) -> None:
         data = [_schema_hint_dict("col_a", "STRING"), _schema_hint_dict("col_b", "INT")]
@@ -368,13 +419,30 @@ class TestAPIClientSchemaHints:
         client, _ = make_client([resp])
         assert client.get_schema_hints("c-1", "no_table") == []
 
+    def test_scoped_hint_identity_nulls_use_requested_values(self, make_client) -> None:
+        """Scoped responses may include null identity fields."""
+        data = [
+            _schema_hint_dict(
+                "col_a",
+                "STRING",
+                connection_id=None,
+                table_name=None,
+            )
+        ]
+        resp = _FakeResponse(200, _paginated(data))
+        client, _ = make_client([resp])
+
+        hints = client.get_schema_hints("c-1", "orders")
+
+        assert [hint.column_name for hint in hints] == ["col_a"]
+
 
 # ============================================================================
 # Watermarks tests
 # ============================================================================
 
 
-class TestAPIClientWatermarks:
+class TestAPIProviderWatermarks:
 
     def test_get_watermark(self, make_client) -> None:
         resp = _FakeResponse(200, {"current_value": '{"col": "2024-01-01"}'})
@@ -414,7 +482,7 @@ class TestAPIClientWatermarks:
 # ============================================================================
 
 
-class TestAPIClientPagination:
+class TestAPIProviderPagination:
 
     def test_multi_page_collection(self, make_client) -> None:
         page1 = _FakeResponse(200, _paginated([_connection_dict("a")], page=1, total_pages=2))
@@ -430,7 +498,7 @@ class TestAPIClientPagination:
 # ============================================================================
 
 
-class TestAPIClientLifecycle:
+class TestAPIProviderLifecycle:
 
     def test_close(self, make_client) -> None:
         client, _ = make_client()
@@ -446,13 +514,65 @@ class TestAPIClientLifecycle:
         client._client = None
         client.close()  # no-op branch
 
+    def test_close_waits_for_first_runtime_operation(self, make_client) -> None:
+        client, _ = make_client([])
+        started = threading.Event()
+        release = threading.Event()
+        close_finished = threading.Event()
+        runtime_client = MagicMock()
+        runtime_client.request.return_value = _FakeResponse(
+            200,
+            {"current_value": "value"},
+        )
+
+        def acquire_client():
+            started.set()
+            assert release.wait(2)
+            client._client = runtime_client
+            client._client_owned = True
+            return runtime_client
+
+        reader_result: list[str | None] = []
+
+        def read_watermark() -> None:
+            reader_result.append(client.get_watermark("df-1"))
+
+        def close_provider() -> None:
+            client.close()
+            close_finished.set()
+
+        with patch.object(client, "_ensure_client", side_effect=acquire_client):
+            reader = threading.Thread(target=read_watermark)
+            reader.start()
+            assert started.wait(2)
+
+            closer = threading.Thread(target=close_provider)
+            closer.start()
+            assert not close_finished.wait(0.05)
+
+            release.set()
+            reader.join(2)
+            closer.join(2)
+
+        assert reader_result == ["value"]
+        assert close_finished.is_set()
+        runtime_client.close.assert_called_once()
+        assert client._client is None
+
+    def test_close_rejected_by_same_thread_runtime_operation(self, make_client) -> None:
+        client, _ = make_client([])
+        with client._runtime_operation():
+            with pytest.raises(RuntimeError, match="runtime operation"):
+                client.close()
+        client.close()
+
 
 # ============================================================================
 # Retry / error handling tests
 # ============================================================================
 
 
-class TestAPIClientRetryAndErrors:
+class TestAPIProviderRetryAndErrors:
 
     def test_retry_on_500(self, make_client) -> None:
         """Retryable status (500) is retried, then succeeds."""
@@ -481,31 +601,31 @@ class TestAPIClientRetryAndErrors:
                 raise httpx.ConnectError("Connection refused")
 
         fake_client = FailClient()
-        client = _build_api_client(fake_client, max_retries=0)
+        client = _build_api_provider(fake_client, max_retries=0)
         with pytest.raises(MetadataError, match="API request error"):
             client._request("GET", "/test")
 
     def test_backoff_respects_retry_after_header(self) -> None:
         """_backoff uses Retry-After header when present."""
-        client = _build_api_client(_FakeClient(), retry_backoff=0.0)
+        client = _build_api_provider(_FakeClient(), retry_backoff=0.0)
         resp = _FakeResponse(429, json_data={}, headers={"Retry-After": "0.01"})
-        with patch("datacoolie.metadata.api_client.time.sleep") as mock_sleep:
+        with patch("datacoolie.metadata.api_provider.time.sleep") as mock_sleep:
             client._backoff(0, resp)
             mock_sleep.assert_called_once()
             # Should use the Retry-After value (0.01) since it's > base delay (0.0)
             assert mock_sleep.call_args[0][0] >= 0.01
 
     def test_backoff_ignores_bad_retry_after(self) -> None:
-        client = _build_api_client(_FakeClient(), retry_backoff=0.0)
+        client = _build_api_provider(_FakeClient(), retry_backoff=0.0)
         resp = _FakeResponse(429, json_data={}, headers={"Retry-After": "not-a-number"})
-        with patch("datacoolie.metadata.api_client.time.sleep") as mock_sleep:
+        with patch("datacoolie.metadata.api_provider.time.sleep") as mock_sleep:
             client._backoff(0, resp)
             mock_sleep.assert_called_once()
 
     def test_update_watermark_metadata_error_propagates(self, make_client) -> None:
         err_resp = _FakeResponse(400, json_data={"error": "bad request"})
         client, _ = make_client([err_resp])
-        with pytest.raises(MetadataError):
+        with pytest.raises(WatermarkError, match="Failed to update watermark"):
             client.update_watermark("df-1", '{"col": "v1"}')
 
     def test_watermark_invalid_json_raises(self, make_client) -> None:
@@ -515,10 +635,25 @@ class TestAPIClientRetryAndErrors:
         wm = client.get_watermark("df-1")
         assert wm == "not-json{"
 
-    def test_fetch_connection_by_name_metadata_error_returns_none(self, make_client) -> None:
+    def test_fetch_connection_by_name_backend_error_propagates(self, make_client) -> None:
         err_resp = _FakeResponse(500, json_data={"detail": "boom"})
         client, _ = make_client([err_resp])
-        assert client.get_connection_by_name("x") is None
+        with pytest.raises(MetadataError):
+            client.get_connection_by_name("x")
+
+    @pytest.mark.parametrize("status_code", [401, 503])
+    def test_get_watermark_backend_error_propagates(self, make_client, status_code: int) -> None:
+        err_resp = _FakeResponse(status_code, json_data={"detail": "failure"})
+        client, _ = make_client([err_resp])
+        with pytest.raises(WatermarkError, match="Failed to read watermark"):
+            client.get_watermark("df-1")
+
+    def test_get_watermark_malformed_json_propagates(self, make_client) -> None:
+        response = _FakeResponse(200, {"current_value": "value"})
+        response.json = MagicMock(side_effect=ValueError("invalid json"))
+        client, _ = make_client([response])
+        with pytest.raises(WatermarkError, match="Failed to read watermark"):
+            client.get_watermark("df-1")
 
     def test_update_watermark_with_dataflow_run_id(self, make_client) -> None:
         ok = _FakeResponse(200, {"status": "ok"})
@@ -560,7 +695,7 @@ class TestAPIClientRetryAndErrors:
                 return _FakeResponse(200, {"current_value": "ok"})
 
         fake_client = FlakyClient()
-        client = _build_api_client(fake_client, max_retries=1)
+        client = _build_api_provider(fake_client, max_retries=1)
 
         with patch.object(client, "_backoff") as backoff:
             assert client.get_watermark("df-1") == "ok"
@@ -573,16 +708,16 @@ class TestAPIClientRetryAndErrors:
             client._request("GET", "/x")
 
     def test_backoff_without_retry_after_header(self) -> None:
-        client = _build_api_client(_FakeClient(), retry_backoff=0.01)
+        client = _build_api_provider(_FakeClient(), retry_backoff=0.01)
 
-        with patch("datacoolie.metadata.api_client.time.sleep") as sleep:
+        with patch("datacoolie.metadata.api_provider.time.sleep") as sleep:
             client._backoff(0, _FakeResponse(429, json_data={}, headers={}))
             sleep.assert_called_once_with(0.01)
 
     def test_backoff_without_response_uses_exponential_delay(self) -> None:
-        client = _build_api_client(_FakeClient(), retry_backoff=0.5)
+        client = _build_api_provider(_FakeClient(), retry_backoff=0.5)
 
-        with patch("datacoolie.metadata.api_client.time.sleep") as sleep:
+        with patch("datacoolie.metadata.api_provider.time.sleep") as sleep:
             client._backoff(2, None)
             sleep.assert_called_once_with(2.0)
 
@@ -603,16 +738,18 @@ class TestAPIClientRetryAndErrors:
         class FlakyClient(_FakeClient):
             def __init__(self):
                 super().__init__()
-                self.n = 0
+                self.connection_attempts = 0
 
             def request(self, method, url, **kw):  # type: ignore[override]
-                self.n += 1
-                if self.n == 1:
-                    return WeirdResponse()
-                return _FakeResponse(200, _paginated([_connection_dict("ok")]))
+                if url.rstrip("/").endswith("/connections"):
+                    self.connection_attempts += 1
+                    if self.connection_attempts == 1:
+                        return WeirdResponse()
+                    return _FakeResponse(200, _paginated([_connection_dict("ok")]))
+                return _FakeResponse(200, {"data": []})
 
         fake_client = FlakyClient()
-        client = _build_api_client(fake_client, max_retries=1)
+        client = _build_api_provider(fake_client, max_retries=1)
 
         with patch.object(client, "_backoff") as backoff:
             out = client.get_connections()
@@ -625,7 +762,11 @@ class TestAPIClientRetryAndErrors:
 # ============================================================================
 
 
-class TestAPIClientImportGuard:
+class TestAPIProviderImportGuard:
+    def test_legacy_api_client_module_is_not_available(self) -> None:
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("datacoolie.metadata.api_client")
+
 
     def test_missing_httpx_raises(self) -> None:
         """When httpx is not installed, a clear MetadataError is raised."""
@@ -638,7 +779,7 @@ class TestAPIClientImportGuard:
             return real_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=_block_httpx):
-            from datacoolie.metadata.api_client import _import_httpx
+            from datacoolie.metadata.api_provider import _import_httpx
             with pytest.raises(MetadataError, match="httpx"):
                 _import_httpx()
 
@@ -648,19 +789,19 @@ class TestAPIClientImportGuard:
 # ============================================================================
 
 
-class TestAPIClientBaseUrl:
+class TestAPIProviderBaseUrl:
     """Verify base_url is stored as-is (after stripping any trailing slash)."""
 
     def _make_client(self, base_url: str) -> Any:
         fake_client = _FakeClient()
-        with patch("datacoolie.metadata.api_client._import_httpx") as mock_imp:
+        with patch("datacoolie.metadata.api_provider._import_httpx") as mock_imp:
             mock_httpx = MagicMock()
             mock_httpx.Client.return_value = fake_client
             mock_httpx.HTTPStatusError = _import_httpx_for_tests().HTTPStatusError
             mock_httpx.HTTPError = _import_httpx_for_tests().HTTPError
             mock_imp.return_value = mock_httpx
-            from datacoolie.metadata.api_client import APIClient
-            client = APIClient(
+            from datacoolie.metadata.api_provider import APIProvider
+            client = APIProvider(
                 base_url=base_url,
                 api_key="k",
                 workspace_id="ws-1",
@@ -708,14 +849,14 @@ class TestTLSWarning:
         import logging
 
         with caplog.at_level(logging.WARNING):
-            _build_api_client(_FakeClient(), base_url="http://insecure.test.io")
+            _build_api_provider(_FakeClient(), base_url="http://insecure.test.io")
         assert any("insecure" in rec.message.lower() for rec in caplog.records)
 
     def test_https_url_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         import logging
 
         with caplog.at_level(logging.WARNING):
-            _build_api_client(_FakeClient(), base_url="https://secure.test.io")
+            _build_api_provider(_FakeClient(), base_url="https://secure.test.io")
         assert not any("insecure" in rec.message.lower() for rec in caplog.records)
 
 
@@ -736,7 +877,7 @@ class TestPaginationBound:
             for i in range(1, 1002)
         ]
         fake_client = _FakeClient(responses=responses)
-        client = _build_api_client(fake_client)
+        client = _build_api_provider(fake_client)
 
         with caplog.at_level(logging.WARNING):
             conns = client.get_connections()
@@ -752,7 +893,7 @@ class TestFanOut:
 
     def test_fan_out_multiple_keys(self) -> None:
         """When len(keys) > 1, uses ThreadPoolExecutor."""
-        client = _build_api_client(_FakeClient())
+        client = _build_api_provider(_FakeClient())
 
         def _fetcher(k: str) -> str:
             return f'result-{k}'
@@ -763,14 +904,14 @@ class TestFanOut:
 
     def test_fan_out_single_key_serial(self) -> None:
         """Single key uses serial path."""
-        client = _build_api_client(_FakeClient())
+        client = _build_api_provider(_FakeClient())
 
         results = client._fan_out(['only'], lambda k: f'v-{k}')
         assert results == {'only': 'v-only'}
 
     def test_fan_out_empty_returns_empty(self) -> None:
         """Empty keys returns empty dict without calling fetcher."""
-        client = _build_api_client(_FakeClient())
+        client = _build_api_provider(_FakeClient())
         called = []
         results = client._fan_out([], lambda k: called.append(k) or 'x')
         assert results == {}
@@ -781,7 +922,7 @@ class TestGroupSchemaHintRows:
     """Cover _group_schema_hint_rows (lines 427-437)."""
 
     def test_groups_by_connection_table(self) -> None:
-        client = _build_api_client(_FakeClient())
+        client = _build_api_provider(_FakeClient())
         rows = [
             {'connection_id': 'c1', 'table_name': 'orders', 'schema_name': 'public', 'column_name': 'id', 'data_type': 'INT'},
             {'connection_id': 'c1', 'table_name': 'orders', 'schema_name': 'public', 'column_name': 'name', 'data_type': 'STRING'},
@@ -791,16 +932,16 @@ class TestGroupSchemaHintRows:
         assert len(result[('c1', 'public', 'orders')]) == 2
         assert len(result[('c2', None, 'items')]) == 1
 
-    def test_skips_rows_without_table(self) -> None:
-        client = _build_api_client(_FakeClient())
+    def test_rejects_rows_without_table(self) -> None:
+        client = _build_api_provider(_FakeClient())
         rows = [
             {'connection_id': 'c1', 'table_name': None, 'column_name': 'id', 'data_type': 'INT'},
         ]
-        result = client._group_schema_hint_rows(rows)
-        assert result == {}
+        with pytest.raises(MetadataError, match="missing connection_id or table_name"):
+            client._group_schema_hint_rows(rows)
 
     def test_empty_schema_name_normalised_to_none(self) -> None:
-        client = _build_api_client(_FakeClient())
+        client = _build_api_provider(_FakeClient())
         rows = [
             {'connection_id': 'c1', 'table_name': 'tbl', 'schema_name': '', 'column_name': 'col', 'data_type': 'STRING'},
         ]
@@ -809,7 +950,7 @@ class TestGroupSchemaHintRows:
         assert ('c1', None, 'tbl') in result
 
 
-class TestAPIClientBulkLoad:
+class TestAPIProviderBulkLoad:
     """Cover lines 391-411: parallel _bulk_load via ThreadPoolExecutor."""
 
     def test_bulk_load_fetches_connections_dataflows_hints_in_parallel(self) -> None:
@@ -828,6 +969,7 @@ class TestAPIClientBulkLoad:
             'is_active': True,
             'source': {
                 'table': 'src',
+                'filter_expression': "status = 'open'",
                 'connection': {
                     'connection_id': 'c-1',
                     'name': 'my_conn',
@@ -857,116 +999,13 @@ class TestAPIClientBulkLoad:
             _FakeResponse(200, json_data={'data': [], 'next_cursor': None}),
         ]
         fake_client = _FakeClient(responses=responses)
-        client = _build_api_client(fake_client, enable_cache=True)
-        # prefetch_all triggers _bulk_load
-        client.prefetch_all()
+        client = _build_api_provider(fake_client, enable_cache=True)
+        client.initialize()
         conns = client.get_connections()
         assert len(conns) == 1
         assert conns[0].connection_id == 'c-1'
+        dataflows = client.get_dataflows(attach_schema_hints=False)
+        assert len(dataflows) == 1
+        assert dataflows[0].source.filter_expression == "status = 'open'"
 
-
-class TestAPIClientPrefetchSchemaHints:
-    """Cover lines 548-577: _prefetch_schema_hints."""
-
-    def test_prefetch_schema_hints_populates_cache(self) -> None:
-        """Lines 548-577: fetches schema hints per connection and caches them."""
-        from datacoolie.core.models import Connection, DataFlow, Destination, Source
-
-        hint_row = {
-            'connection_id': 'c-1',
-            'table_name': 'orders',
-            'schema_name': None,
-            'column_name': 'id',
-            'data_type': 'INT',
-            'ordinal_position': 0,
-            'is_active': True,
-        }
-        # Responses: hints request returns one hint
-        responses = [
-            _FakeResponse(200, json_data={'data': [hint_row], 'next_cursor': None}),
-        ]
-        fake_client = _FakeClient(responses=responses)
-        client = _build_api_client(fake_client, enable_cache=True)
-        # Inject a cache to make prefetch work
-        from datacoolie.metadata.base import MetadataCache
-        client._cache = MetadataCache()
-
-        conn = Connection(
-            connection_id='c-1', name='c-1',
-            configure={'use_schema_hint': True}
-        )
-        df = DataFlow(
-            dataflow_id='df-1',
-            source=Source(connection=conn, table='orders'),
-            destination=Destination(connection=conn, table='orders'),
-        )
-        client._prefetch_schema_hints([df])
-        hints = client._cache.get_schema_hints('c-1', None, 'orders')
-        assert hints is not None
-
-    def test_prefetch_schema_hints_skips_when_no_cache(self) -> None:
-        """Line 549: early return when cache is None."""
-        from datacoolie.core.models import Connection, DataFlow, Destination, Source
-
-        responses = []
-        fake_client = _FakeClient(responses=responses)
-        client = _build_api_client(fake_client, enable_cache=False)
-
-        conn = Connection(
-            connection_id='c-1', name='c-1',
-            configure={'use_schema_hint': True}
-        )
-        df = DataFlow(
-            dataflow_id='df-1',
-            source=Source(connection=conn, table='orders'),
-            destination=Destination(connection=conn, table='orders'),
-        )
-        # Should not make any requests
-        client._prefetch_schema_hints([df])
-        assert fake_client._idx == 0
-
-
-class TestPrefetchSchemaHintsEarlyExits:
-    """Cover lines 555, 557, 562: early exits in _prefetch_schema_hints."""
-
-    def _make_client_with_cache(self) -> "APIClient":
-        from unittest.mock import MagicMock
-        client = _build_api_client(_FakeClient())
-        # Provide a non-None cache so lines 548-549 don't short-circuit
-        client._cache = MagicMock()
-        return client
-
-    def _make_dataflow(self, use_schema_hint=True, table=None) -> "DataFlow":
-        from datacoolie.core.models import Connection, DataFlow, Destination, Source, Transform
-        conn = Connection(
-            connection_id='conn-1',
-            name='test',
-            configure={'use_schema_hint': use_schema_hint},
-        )
-        src = Source(connection=conn, table=table)
-        dest = Destination(table='dest_tbl', connection=conn, configure={'catalog': 'cat'})
-        return DataFlow.model_construct(
-            dataflow_id='df-1', source=src, destination=dest,
-            load_type='append', transform=Transform(),
-        )
-
-    def test_no_schema_hint_skips_connection(self) -> None:
-        """Line 555: continue when use_schema_hint is False."""
-        client = self._make_client_with_cache()
-        df = self._make_dataflow(use_schema_hint=False, table='tbl')
-        # conn_ids will be empty → returns on line 562
-        client._prefetch_schema_hints([df])
-
-    def test_no_table_skips_connection(self) -> None:
-        """Line 557: continue when df.source.table is None."""
-        client = self._make_client_with_cache()
-        df = self._make_dataflow(use_schema_hint=True, table=None)
-        # conn_ids will be empty → returns on line 562
-        client._prefetch_schema_hints([df])
-
-    def test_empty_conn_ids_returns_early(self) -> None:
-        """Line 562: return when conn_ids is empty."""
-        client = self._make_client_with_cache()
-        # Empty list of dataflows → conn_ids stays empty
-        client._prefetch_schema_hints([])
-        # No exception means early return
+# End of API client tests.

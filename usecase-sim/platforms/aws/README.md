@@ -1,5 +1,14 @@
 # AWS Assets for usecase-sim
 
+## Before using these larger scenarios
+
+For a small first run, use the public [platform smoke guide](../../../docs/examples/runners.md#platform-smoke) and its complete download. These simulator assets are a separate, broader scenario set. Prepare the generated input described in [the simulator README](../../README.md), then upload it to each source connection's configured path.
+
+Replace the complete set of values before executing: runner metadata/log/watermark roots **and** every metadata connection's input/output `base_path`, catalog/database namespace, region and optional secret references. A runner root variable does not rewrite business metadata. Choose sandbox destinations: overwrite/maintenance stages can alter existing data. Install a matching DataCoolie release or checkout wheel and the selected engine/format dependencies. The public platform guide owns current host bootstrap/session configuration.
+
+For the secret example, `configure.username="db_user"` and `configure.password="db_pass"` look up JSON keys **db_user/db_pass**, not username/password. Keep the actual secret ARN/name and region consistent. For wheel provisioning use Glue `--additional-python-modules` (including resolved dependencies); `--extra-py-files` alone is not an installed-wheel recipe.
+
+
 Prepared AWS assets for file + Delta + Iceberg scenarios using real S3 and
 AWS Secrets Manager. The sample metadata currently targets the `s3://de-dev-0007/`
 bucket, and the scripts below default to the same bucket.
@@ -163,7 +172,7 @@ Root bucket: `s3://de-dev-0007/`
    the JAR via `--extra-jars`.
 5. `datacoolie` wheel uploaded to S3 and referenced via
    `--additional-python-modules` or a Glue Python environment. `Note`: `datacoolie` wheel built and uploaded to S3 (see **Installing datacoolie on Glue** below).
-6. Input files uploaded from the local repo folder `usecase-sim/data/input/`
+6. Input files uploaded from the local repo folder `usecase-sim/.runtime/data/input/`
    to the corresponding S3 paths.
 7. Metadata file `aws_glue_use_cases.json` uploaded to
   `s3://de-dev-0007/metadata/aws_glue_use_cases.json`.
@@ -246,14 +255,14 @@ upload it to S3, and reference it via Glue job parameters.
 cd datacoolie/          # repo sub-folder that contains pyproject.toml
 pip install build
 python -m build --wheel --outdir dist/
-# produces: dist/datacoolie-0.1.3-py3-none-any.whl
+# produces: dist/datacoolie-<matching-version>-py3-none-any.whl
 ```
 
 ### 2 — Upload wheel to S3
 
 ```bash
-aws s3 cp dist/datacoolie-0.1.3-py3-none-any.whl \
-    s3://de-dev-0007/libraries/datacoolie-0.1.3-py3-none-any.whl \
+aws s3 cp dist/datacoolie-<matching-version>-py3-none-any.whl \
+    s3://de-dev-0007/libraries/datacoolie-<matching-version>-py3-none-any.whl \
     --region ap-southeast-1
 ```
 
@@ -261,16 +270,18 @@ aws s3 cp dist/datacoolie-0.1.3-py3-none-any.whl \
 
 #### Spark job (`sample_aws_glue_spark.py`)
 
-`pyspark` and `delta-spark` are provided by the Glue 4.0 / 5.0 runtime — **do
-not** include them in `--additional-python-modules`.
+Choose Glue 5.0 for the current Python 3.11 baseline. Glue supplies Spark;
+activate bundled Delta/Iceberg with the complete session recipe in the
+[public Glue guide](../../../docs/guide/platforms/aws-glue.md). Do not install
+another PySpark runtime through `--additional-python-modules`.
 
 | Parameter | Value |
 |---|---|
-| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.3-py3-none-any.whl` |
-| `--additional-python-modules` | `boto3>=1.28` |
+| `--additional-python-modules` | Matching DataCoolie wheel S3 URI plus frozen compatible dependency wheels |
 
-> `boto3` is also pre-installed in Glue 4.0+; you can omit it if the
-> pre-installed version is sufficient.
+The current `aws` extra requires `boto3>=1.43.2`; resolve it together with
+compatible botocore and DataCoolie's base dependencies. A wheel on
+`--extra-py-files` alone is not a complete installation recipe.
 
 ### Extras reference (`pyproject.toml`)
 
@@ -281,7 +292,7 @@ The `datacoolie` package uses composable capability extras for local
 |---|---|
 | `datacoolie[aws]` | AWS S3, Glue, and S3-compatible MinIO/LocalStack through boto3 |
 | `datacoolie[polars-delta,aws]` | Local Polars + Delta path with AWS storage |
-| `datacoolie[spark,aws]` | Local client for a Spark runtime that supplies Spark/Delta |
+| `datacoolie[spark-delta,aws]` | Local runtime that installs Spark/Delta itself; not for managed Glue |
 
 Example install for the local Polars scenario:
 ```bash
@@ -343,7 +354,7 @@ aws s3 cp functions.zip \
 
 | Glue parameter | Value |
 |---|---|
-| `--extra-py-files` | `s3://de-dev-0007/libraries/datacoolie-0.1.3-py3-none-any.whl,s3://de-dev-0007/libraries/functions.zip` |
+| `--extra-py-files` | `s3://de-dev-0007/libraries/functions.zip` |
 
 Glue will unzip `functions.zip` and add it to `sys.path`, making
 `functions.sources.sql_query_orders` importable.
@@ -493,7 +504,7 @@ To create the secret for testing:
 ```bash
 aws secretsmanager create-secret \
   --name de-dev-0007/datacoolie/rds \
-  --secret-string '{"username":"myuser","password":"mypassword"}' \
+  --secret-string '{"db_user":"myuser","db_pass":"mypassword"}' \
   --region ap-southeast-1
 ```
 
@@ -515,7 +526,7 @@ aws secretsmanager create-secret \
 
 ## Quick start (Spark job, recommended)
 
-1. Upload input data from `usecase-sim/data/input/` to S3 input paths.
+1. Upload input data from `usecase-sim/.runtime/data/input/` to S3 input paths.
 2. Upload `aws_glue_use_cases.json` to `s3://de-dev-0007/metadata/`.
 3. Create the Glue Spark job as described above.
 4. Run with `STAGE=read_file,load_delta` to validate file reads and Delta writes.
@@ -529,7 +540,7 @@ aws secretsmanager create-secret \
    pip install "datacoolie[polars-delta,aws]"
    aws configure    # enter Access Key ID, Secret, Region, output format
    ```
-2. Upload input data from `usecase-sim/data/input/` to the corresponding S3 input paths.
+2. Upload input data from `usecase-sim/.runtime/data/input/` to the corresponding S3 input paths.
 3. Upload `aws_glue_use_cases.json` to `s3://de-dev-0007/metadata/`.
 4. Run a single stage to validate:
    ```bash

@@ -42,15 +42,15 @@ if not os.environ.get("DATACOOLIE_PIP_MODE"):
 # ---------------------------------------------------------------------------
 # Imports
 # ---------------------------------------------------------------------------
-from awsglue.context import GlueContext
-from awsglue.utils import getResolvedOptions
-from pyspark.context import SparkContext
+from awsglue.context import GlueContext  # noqa: E402
+from awsglue.utils import getResolvedOptions  # noqa: E402
+from pyspark.context import SparkContext  # noqa: E402
 
-from datacoolie.core import DataCoolieRunConfig
-from datacoolie.engines.spark_engine import SparkEngine
-from datacoolie.metadata import FileProvider
-from datacoolie.orchestration import DataCoolieDriver
-from datacoolie.platforms.aws_platform import AWSPlatform
+from datacoolie.core import DataCoolieRunConfig  # noqa: E402
+from datacoolie.engines.spark_engine import SparkEngine  # noqa: E402
+from datacoolie.metadata import FileProvider  # noqa: E402
+from datacoolie.orchestration import DataCoolieDriver  # noqa: E402
+from datacoolie.platforms.aws_platform import AWSPlatform  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -93,7 +93,7 @@ logger.info("Metadata: %s", METADATA_PATH)
 # ---------------------------------------------------------------------------
 platform = AWSPlatform(region=REGION)
 engine = SparkEngine(spark, platform=platform)
-metadata = FileProvider(METADATA_PATH, platform=platform)
+metadata = FileProvider(config_path=METADATA_PATH)
 config = DataCoolieRunConfig(max_workers=8)
 
 # ---------------------------------------------------------------------------
@@ -101,10 +101,14 @@ config = DataCoolieRunConfig(max_workers=8)
 # ---------------------------------------------------------------------------
 with DataCoolieDriver(
     engine=engine,
+    platform=platform,
     metadata_provider=metadata,
     config=config,
-    base_log_path=LOG_BASE_PATH,
+    log_base_path=LOG_BASE_PATH,
 ) as driver:
     result = driver.run(stage=STAGE if STAGE else None)
 
 logger.info("DataCoolie run complete. result=%s", result)
+
+if result.failed or result.pending:
+    raise RuntimeError(f"DataCoolie incomplete: {result.failed} failed, {result.pending} pending dataflows")

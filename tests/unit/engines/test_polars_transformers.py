@@ -9,7 +9,7 @@ import pytest
 pl = pytest.importorskip("polars", reason="polars not installed")
 
 from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
-from datacoolie.core.models import HashColumn, MaskingRule, ValueRule  # noqa: E402
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
 
 

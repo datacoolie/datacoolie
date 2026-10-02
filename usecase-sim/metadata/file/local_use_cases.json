@@ -5,7 +5,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "./usecase-sim/data/input/csv",
+        "base_path": "./usecase-sim/.runtime/data/input/csv",
         "read_options": {
           "header": "true",
           "inferSchema": "true"
@@ -17,7 +17,7 @@
       "connection_type": "file",
       "format": "json",
       "configure": {
-        "base_path": "./usecase-sim/data/input/json",
+        "base_path": "./usecase-sim/.runtime/data/input/json",
         "read_options": {
           "multiLine": "true"
         }
@@ -28,7 +28,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/input/parquet"
+        "base_path": "./usecase-sim/.runtime/data/input/parquet"
       }
     },
     {
@@ -36,7 +36,7 @@
       "connection_type": "file",
       "format": "avro",
       "configure": {
-        "base_path": "./usecase-sim/data/input/avro"
+        "base_path": "./usecase-sim/.runtime/data/input/avro"
       }
     },
     {
@@ -44,7 +44,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "./usecase-sim/data/input/jsonl"
+        "base_path": "./usecase-sim/.runtime/data/input/jsonl"
       }
     },
     {
@@ -52,7 +52,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "./usecase-sim/data/output/csv"
+        "base_path": "./usecase-sim/.runtime/data/output/csv"
       }
     },
     {
@@ -60,7 +60,7 @@
       "connection_type": "file",
       "format": "json",
       "configure": {
-        "base_path": "./usecase-sim/data/output/json"
+        "base_path": "./usecase-sim/.runtime/data/output/json"
       }
     },
     {
@@ -68,7 +68,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/output/parquet",
+        "base_path": "./usecase-sim/.runtime/data/output/parquet",
         "write_options": {
           "compression": "snappy"
         }
@@ -79,7 +79,7 @@
       "connection_type": "file",
       "format": "avro",
       "configure": {
-        "base_path": "./usecase-sim/data/output/avro"
+        "base_path": "./usecase-sim/.runtime/data/output/avro"
       }
     },
     {
@@ -87,7 +87,7 @@
       "connection_type": "file",
       "format": "jsonl",
       "configure": {
-        "base_path": "./usecase-sim/data/output/jsonl"
+        "base_path": "./usecase-sim/.runtime/data/output/jsonl"
       }
     },
     {
@@ -95,7 +95,7 @@
       "connection_type": "file",
       "format": "excel",
       "configure": {
-        "base_path": "./usecase-sim/data/input/excel"
+        "base_path": "./usecase-sim/.runtime/data/input/excel"
       }
     },
     {
@@ -103,7 +103,7 @@
       "connection_type": "lakehouse",
       "format": "delta",
       "configure": {
-        "base_path": "./usecase-sim/data/output/delta"
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
       }
     },
     {
@@ -111,7 +111,7 @@
       "connection_type": "lakehouse",
       "format": "delta",
       "configure": {
-        "base_path": "./usecase-sim/data/output/delta"
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
       }
     },
     {
@@ -121,7 +121,7 @@
       "catalog": "local_catalog",
       "database": "default",
       "configure": {
-        "base_path": "./usecase-sim/data/output/iceberg"
+        "base_path": "./usecase-sim/.runtime/data/output/iceberg"
       }
     },
     {
@@ -131,7 +131,7 @@
       "catalog": "local_catalog",
       "database": "default",
       "configure": {
-        "base_path": "./usecase-sim/data/output/iceberg"
+        "base_path": "./usecase-sim/.runtime/data/output/iceberg"
       }
     },
     {
@@ -342,7 +342,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/input/parquet_dated",
+        "base_path": "./usecase-sim/.runtime/data/input/parquet_dated",
         "date_folder_partitions": "{year}/{month}/{day}"
       }
     },
@@ -351,7 +351,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/output/parquet_dated",
+        "base_path": "./usecase-sim/.runtime/data/output/parquet_dated",
         "date_folder_partitions": "{year}/{month}/{day}"
       }
     },
@@ -360,7 +360,7 @@
       "connection_type": "file",
       "format": "parquet",
       "configure": {
-        "base_path": "./usecase-sim/data/input/parquet_hive",
+        "base_path": "./usecase-sim/.runtime/data/input/parquet_hive",
         "use_hive_partitioning": true
       }
     },
@@ -375,7 +375,7 @@
       "connection_type": "file",
       "format": "csv",
       "configure": {
-        "base_path": "./usecase-sim/data/input/csv",
+        "base_path": "./usecase-sim/.runtime/data/input/csv",
         "read_options": {
           "header": "true",
           "inferSchema": "true"
@@ -2969,7 +2969,7 @@
         "schema_hints": [
           {
             "column_name": "modified_at",
-            "data_type": "DATETIME"
+            "data_type": "timestamp_ntz"
           }
         ]
       },

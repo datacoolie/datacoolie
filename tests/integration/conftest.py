@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.integration.cloud_config import (
+from tests.support.cloud_config import (
     AwsIntegrationConfig,
     DatabricksIntegrationConfig,
     FabricIntegrationConfig,

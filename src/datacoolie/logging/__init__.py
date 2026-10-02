@@ -1,48 +1,35 @@
-"""Logging package — base infrastructure, system logger, ETL logger.
+"""Public logging API for system and execution logging.
 
-Provides:
-
-* :class:`LogManager` — singleton for configuring Python logging.
-* :class:`BaseLogger` — ABC for persistent loggers.
-* :class:`SystemLogger` — captures and uploads Python log output.
-* :class:`ETLLogger` — structured dataflow/maintenance execution logs.
-* :func:`get_logger` — convenience factory for child loggers.
+The runtime manager, capture handler, context propagation, and persistence
+helpers are implementation details. Applications should use
+:class:`SystemLogger` for operational records and :class:`ExecutionLogger`
+for structured run records.
 """
 
-from datacoolie.logging.base import (
-    BaseLogger,
-    CaptureHandler,
-    DataflowContextFilter,
-    LogConfig,
+from datacoolie.logging.base import BaseLogger
+from datacoolie.logging.configuration.config import LogConfig
+from datacoolie.logging.configuration.constants import (
+    ConsoleColor,
+    LogCategory,
     LogLevel,
-    LogManager,
-    LogRecord,
+    LogType,
+    PersistenceMode,
     StorageMode,
-    get_logger,
 )
-from datacoolie.logging.context import (
-    clear_dataflow_id,
-    get_dataflow_id,
-    set_dataflow_id,
-)
-from datacoolie.logging.etl_logger import ETLLogger, create_etl_logger
+from datacoolie.logging.execution_logger import ExecutionLogger, create_execution_logger
 from datacoolie.logging.system_logger import SystemLogger, create_system_logger
 
 __all__ = [
     "BaseLogger",
-    "CaptureHandler",
-    "DataflowContextFilter",
-    "ETLLogger",
+    "ConsoleColor",
+    "ExecutionLogger",
+    "LogCategory",
     "LogConfig",
     "LogLevel",
-    "LogManager",
-    "LogRecord",
+    "LogType",
+    "PersistenceMode",
     "StorageMode",
     "SystemLogger",
-    "clear_dataflow_id",
-    "create_etl_logger",
+    "create_execution_logger",
     "create_system_logger",
-    "get_dataflow_id",
-    "get_logger",
-    "set_dataflow_id",
 ]

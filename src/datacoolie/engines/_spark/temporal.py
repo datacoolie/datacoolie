@@ -5,13 +5,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 
+from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
 
-def build_window_predicate(window: Dict[str, tuple], quote_char: str = "`") -> str:
-    return " AND ".join(
-        f"{quote_char}{column}{quote_char} > '{lower}' AND "
-        f"{quote_char}{column}{quote_char} <= '{upper}'"
-        for column, (lower, upper) in window.items()
-    )
+
+def build_window_predicate(
+    window: WindowSpec, quote_char: str = "`"
+) -> str:
+    spec = normalize_window(window)
+    clauses = [
+        f"{quote_char}{column}{quote_char} {spec.lower_operator} '{lower}' AND "
+        f"{quote_char}{column}{quote_char} {spec.upper_operator} '{upper}'"
+        for column, (lower, upper) in spec.items()
+    ]
+    if not clauses:
+        return "1 = 0"
+    return f" {spec.combine_operator} ".join(clauses)
 
 
 def align_ms_boundaries(
