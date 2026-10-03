@@ -32,7 +32,7 @@ from .parser import CLIUsageError
 
 
 def _config(args: Any):
-    return load_project_config(Path(args.project_dir)) if getattr(args, "project_dir", None) else discover_project()
+    return load_project_config(Path(args.project_dir)) if args.project_dir else discover_project()
 
 
 def _append_not_checked(details: dict[str, Any], additional: list[str]) -> None:
@@ -55,12 +55,12 @@ def _append_not_checked(details: dict[str, Any], additional: list[str]) -> None:
 
 def execute(args: Any) -> dict[str, Any]:
     command = args.command
-    if command in {"init", "metadata"} and getattr(args, "project_dir", None):
+    if command in {"init", "metadata"} and args.project_dir:
         raise CLIUsageError(f"--project-dir is not supported for {command}")
     if (
         command == "inspect"
-        and getattr(args, "inspect_command", None) == "capabilities"
-        and getattr(args, "project_dir", None)
+        and args.inspect_command == "capabilities"
+        and args.project_dir
     ):
         raise CLIUsageError("--project-dir is not supported for inspect capabilities")
     if command == "init":
@@ -104,7 +104,7 @@ def execute(args: Any) -> dict[str, Any]:
             from datacoolie.project.documents import load_snapshot
             snapshot = load_snapshot(metadata_path)
             metadata = snapshot.merged()
-            config = _config(args) if getattr(args, "project_dir", None) else None
+            config = _config(args) if args.project_dir else None
             selected_env = args.environments[0] if args.environments and len(args.environments) == 1 else None
             if args.environments and len(args.environments) > 1:
                 raise CLIUsageError("Standalone metadata validation accepts at most one --env")
@@ -151,7 +151,7 @@ def execute(args: Any) -> dict[str, Any]:
             only=set(args.only) if args.only else None,
         ).to_dict()
     if command == "inspect":
-        sub = getattr(args, "inspect_command", None)
+        sub = args.inspect_command
         if sub is None:
             return inspect_project(_config(args))
         if sub == "config":
@@ -163,7 +163,7 @@ def execute(args: Any) -> dict[str, Any]:
                 raise CLIUsageError("--name is supported only for connections or dataflows")
             if args.stage and args.section != "dataflows":
                 raise CLIUsageError("--stage is supported only for dataflows")
-            config = _config(args) if (args.metadata_path is None or getattr(args, "project_dir", None)) else None
+            config = _config(args) if (args.metadata_path is None or args.project_dir) else None
             if args.env and config is None:
                 raise ProjectValidationError("--env for metadata inspection requires --project-dir")
             if args.env and config is not None and args.env not in config.environments:

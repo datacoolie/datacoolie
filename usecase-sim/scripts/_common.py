@@ -9,6 +9,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from runtime_paths import (
+    DATACOOLIE_ROOT as DATACOOLIE,  # noqa: F401 - exported shared path
+    USECASE_SIM_DIR as USECASE_SIM,
+    RUNTIME_DIR, DATA_DIR, LOG_DIR, WATERMARKS_DIR,  # noqa: F401 - exported shared paths
+)
 
 logger = logging.getLogger("usecase_sim")
 
@@ -16,21 +24,14 @@ logger = logging.getLogger("usecase_sim")
 # Paths
 # ---------------------------------------------------------------------------
 SCRIPTS_DIR = Path(__file__).resolve().parent
-USECASE_SIM = SCRIPTS_DIR.parent
-DATACOOLIE = USECASE_SIM.parent
-
-RUNTIME_DIR = USECASE_SIM / ".runtime"
-DATA_DIR = RUNTIME_DIR / "data"
 INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 PERF_DIR = DATA_DIR / "perf"
 PERF_INPUT_DIR = PERF_DIR / "input"
 PERF_OUTPUT_DIR = PERF_DIR / "output"
 
-LOG_DIR = RUNTIME_DIR / "logs"
 SCENARIO_LOG_DIR = LOG_DIR / "scenarios"
-WATERMARKS_DIR = RUNTIME_DIR / "watermarks"
-DATABASES_DIR = RUNTIME_DIR / "databases"
+DATABASES_DIR = DATA_DIR / "databases"
 METADATA_DATABASE_DIR = DATABASES_DIR / "metadata"
 SOURCE_DATABASE_DIR = DATABASES_DIR / "source"
 
@@ -44,9 +45,9 @@ API_WATERMARKS_DIR = WATERMARKS_DIR / "api"
 DOCKER_DIR = USECASE_SIM / "docker"
 COMPOSE_FILE = DOCKER_DIR / "docker-compose.yml"
 
-LOCAL_USE_CASES_JSON = METADATA_FILE_DIR / "local_use_cases.json"
-AWS_USE_CASES_JSON = METADATA_FILE_DIR / "aws_use_cases.json"
-PERF_USE_CASES_JSON = METADATA_FILE_DIR / "perf_test.json"
+LOCAL_USE_CASES_JSON = METADATA_FILE_DIR / "baseline" / "local_use_cases.json"
+AWS_USE_CASES_JSON = METADATA_FILE_DIR / "baseline" / "aws_use_cases.json"
+PERF_USE_CASES_JSON = METADATA_FILE_DIR / "performance" / "perf_test.json"
 
 # ---------------------------------------------------------------------------
 # MinIO / Iceberg defaults (match docker-compose.yml + _runner_utils.py)

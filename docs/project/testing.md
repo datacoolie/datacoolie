@@ -65,7 +65,8 @@ The suites have deliberately separate owners:
 - `tests/` tests the `src/datacoolie` package and owns only its fixtures and
   shared harnesses.
 - `scripts/tests/` verifies release and packaging contracts.
-- `ai/skills/tests/` verifies AI Skills and build-schema contracts.
+- `ai/skills/tests/` tests Skill-owned scripts and evidence tooling; source
+  integration is opt-in. Framework and CLI contracts stay under `tests/`.
 - `usecase-sim/` is an executable scenario runner. It owns preparation and
   framework execution; selected feature-specific validation hooks remain
   runner-owned, while datatype parity assertions live in
@@ -113,7 +114,7 @@ authored contract and has the following bounded qualification cells:
   contract for Parquet, Delta, and Iceberg. This is source-convention and
   engine/output qualification; it does not replace live database extraction
   cells.
-- `usecase-sim/metadata/file/datatype_qualification.json` is the checked-in
+- `usecase-sim/metadata/file/datatypes/datatype_qualification.json` is the checked-in
   logical contract. Qualification setup materializes disposable execution
   metadata under `.runtime/data/datatype_qualification/`; the integration test
   uses an additional run-scoped `<run-id>/metadata/` directory so engine and
@@ -147,7 +148,7 @@ poetry run pytest tests/integration/data_types `
 # Select the PostgreSQL extraction cells while the runtime matrix is built.
 poetry install --with dev -E source-db-polars -E metadata-db
 poetry run python -m pip install psycopg2-binary
-poetry run python usecase-sim/scripts/setup_platform.py --services postgres
+poetry run python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres
 poetry run pytest tests/integration/data_types/test_postgresql_extraction.py `
   --datatype-qualification -m "integration and datatype_qualification" -n 0 -q -rs
 
@@ -155,10 +156,10 @@ poetry run pytest tests/integration/data_types/test_postgresql_extraction.py `
 # fixtures through SQLAlchemy. The Oracle test uses the separate oracledb
 # driver.
 poetry install --with dev -E source-db-native-polars -E source-db-oracle-polars -E metadata-db
-poetry run python usecase-sim/scripts/setup_platform.py --services mysql mssql
+poetry run python usecase-sim/scripts/bootstrap/setup_platform.py --services mysql mssql
 poetry run pytest tests/integration/data_types/test_mysql_mssql_extraction.py `
   --datatype-qualification -m "integration and datatype_qualification" -n 0 -q -rs
-poetry run python usecase-sim/scripts/setup_platform.py --services oracle
+poetry run python usecase-sim/scripts/bootstrap/setup_platform.py --services oracle
 poetry run pytest tests/integration/data_types/test_oracle_extraction.py `
   --datatype-qualification -m "integration and datatype_qualification" -n 0 -q -rs
 
@@ -170,13 +171,13 @@ poetry run pytest `
   --datatype-qualification -m "spark and datatype_qualification" -n 0 -q -rs
 
 # Run the pinned Spark 3.5.9 container cross-engine Delta/Iceberg cell.
-poetry run python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+poetry run python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
 poetry run pytest tests/integration/data_types/test_spark_container_cross_engine.py `
   --datatype-qualification -m datatype_qualification -n 0 -q
 
 # Run the opt-in Spark 4.1.0 + Delta 4.2.0 coordinate.
 docker compose -f usecase-sim/docker/docker-compose.yml build spark4
-poetry run python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark4
+poetry run python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark4
 poetry run pytest tests/integration/data_types/test_spark4_container_cross_engine.py `
   --datatype-qualification --spark4-qualification `
   -m "spark4_qualification and datatype_qualification" -n 0 -q
@@ -214,7 +215,7 @@ python -m pytest tests/integration/runtime `
   --runtime-qualification -m runtime_qualification -n 0 -q
 
 # Prepare simulator services separately before any native qualification cells.
-python usecase-sim/scripts/setup_platform.py
+python usecase-sim/scripts/bootstrap/setup_platform.py
 ```
 
 Native Spark/Polars Delta and Iceberg persistence comparisons are an explicit

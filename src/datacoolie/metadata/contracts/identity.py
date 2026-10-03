@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
 
+from datacoolie.core.models.connection import Connection
 from datacoolie.utils.identity import is_usable_identifier
 
 
@@ -25,9 +25,9 @@ def dataflow_identity_error(
 
 
 def connection_identity_error(
-    connection: Any,
-    by_id: Mapping[str, Any],
-    by_name: Mapping[str, Any],
+    connection: Connection,
+    by_id: Mapping[str, Connection],
+    by_name: Mapping[str, list[Connection]],
     *,
     context: str,
 ) -> str | None:
@@ -40,8 +40,8 @@ def connection_identity_error(
     gated contract.
     """
 
-    connection_id = getattr(connection, "connection_id", None)
-    name = getattr(connection, "name", None)
+    connection_id = connection.connection_id
+    name = connection.name
     if not is_usable_identifier(connection_id):
         return f"{context} connection must have a non-empty connection_id"
     if not is_usable_identifier(name):
@@ -49,7 +49,7 @@ def connection_identity_error(
 
     known_by_id = by_id.get(connection_id)
     if known_by_id is not None:
-        expected_name = getattr(known_by_id, "name", None)
+        expected_name = known_by_id.name
         if name != expected_name:
             return (
                 f"{context} connection {connection_id} has conflicting name "

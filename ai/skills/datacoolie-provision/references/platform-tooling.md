@@ -6,7 +6,9 @@ Use this reference only when direct platform operations are the selected mechani
 control-plane tool selection, tooling availability, current documentation lookup, preview
 classification, fallback, command evidence, and result capture.
 It does not select resources, define naming, prescribe versions, or override an existing IaC source
-of truth.
+of truth. For DataCoolie project/runtime boundaries, read the public [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/),
+[runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/),
+and [platform concepts](https://datacoolie.github.io/datacoolie/reference/concepts/platforms/).
 
 ## Control-plane selection
 
@@ -79,9 +81,9 @@ constraints from memory.
 ## Control-resource verification
 
 Use current official platform commands or APIs to verify the approved resource identity, location,
-access policy, and persistence behavior. The normal control-resource choices are a persistent local
-directory, AWS S3 bucket, Fabric Lakehouse, or Databricks governed Volume. These are defaults,
-not permission to invent a resource outside approved requirements.
+access policy, and persistence behavior. Select the actual control-storage form from the approved
+project requirements and the public runtime/platform pages; a public platform recipe is not
+permission to invent a resource outside the approved scope.
 
 Verify access from the intended execution host. For an external cloud adapter running on premises,
 include outbound network reachability, workload identity, and create/read/update behavior for the
@@ -92,3 +94,13 @@ artifact storage, least-privilege access, supported library/environment mechanis
 fresh session is required. This is readiness evidence only. Per-build upload, attachment,
 activation, import testing, and rollback belong to the execution host or the
 project/platform workflow. Release only uploads the retained bytes.
+
+## Outcome-scoped verification
+
+For inventory/plan-only work, record the selected control plane, installed tool
+versions, approved target identity, and checks that were skipped without mutating
+resources. For an approved apply or readiness check, derive expected resource
+identity, access, and persistence from the approved requirements and matching
+public platform/project recipe; re-read observable state after mutation. Report
+partial changes, unavailable credentials/hosts, and unresolved questions
+separately from successful command exit.

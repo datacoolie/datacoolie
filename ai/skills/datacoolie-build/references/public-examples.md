@@ -36,16 +36,27 @@ an archive download.
    alone is not publication evidence. Do not silently fall back to `main` when
    a concrete link is unavailable.
 
-For an explicitly supplied, pinned checkout, the corresponding repository and
-raw paths are under `docs/examples/files/`. A local checkout is a retrieval
-source only; it must not become a second editable runner tree.
-
-When network access is unavailable, use an explicitly supplied local checkout of
-the same revision. The checkout is a retrieval source only; it must not become a
-second editable runner tree. Skills keep agent-specific workflow decisions,
-approval gates and evidence handling, while the public examples own framework
-construction and host-parameter contracts.
+When network access is unavailable, use an explicitly supplied, pinned checkout
+of the same revision; its repository and raw paths are under
+`docs/examples/files/`. The checkout is a retrieval source only and must not
+become a second editable runner tree. Skills keep agent-specific workflow
+decisions, approval gates and evidence handling, while the public examples own
+framework construction and host-parameter contracts.
 
 The catalog owns the runner and project inventory. Do not copy its list into a
 Skill reference or create a second machine-readable registry. If an entry is
 missing, report the uncovered canonical source instead of guessing a path.
+
+## Recipe and evidence boundary
+
+The selected guide and project recipe own prerequisites, working directory,
+commands, adaptation points, expected selection/output/state, and rerun behavior.
+For author/build-only requests, retrieve and validate the declared files or
+archive without forcing workload execution. For an explicitly requested safe
+runtime check, follow the public [build and execute workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/#build-and-execute)
+and selected recipe: use the CLI-selected environment and retain its fresh-copy
+execution, independent output/state, rerun and retained/current validation
+evidence. Classify legitimate empty or skipped results and report skipped host,
+dependency, or cloud checks. Keep source, raw, and archive content tied to the
+same published revision and report body/content mismatches even when the HTTP
+request succeeds.

@@ -44,6 +44,7 @@ CANONICAL_METADATA = (
     / "usecase-sim"
     / "metadata"
     / "file"
+    / "datatypes"
     / "datatype_qualification.json"
 )
 EXPECTED_CONTRACT = json.loads(

@@ -20,6 +20,9 @@ releases.
 Use the smallest packaged read-only probe before manual investigation. Scripts generate repeatable
 rows and status; the agent enriches only verified gaps.
 
+- Use source access restricted to read-only by the source/IAM owner. This is an input prerequisite,
+  not a permission boundary implemented by probe scripts. Limit operations to inspection and reads;
+  report access gaps to that owner without granting privileges, escalating access, or testing writes.
 - Resolve credentials, headers, and storage options from environment variables or ambient identity.
 - Reject secret-bearing command arguments and do not retain source values by default.
 - Bound remote traversal, catalog inspection, custom queries, samples, and network calls.
@@ -58,9 +61,11 @@ Resolve resources relative to this skill and read only the matching reference.
    layout summaries under `.scratch/discover/`; they are supporting evidence, not another inventory.
 4. Resolve or report partial and failed probes. Never describe partial coverage as complete.
 5. For a new project, merge all usable probe CSVs, including a single input, with
-   `merge_observations.py`. For an existing source, use refresh mode with the current inventory as
+   `merge_observations.py`. For a full-source refresh, use the current inventory as
    `--base`, explicit `--replace-source` and status inputs, a scratch candidate output, and a scratch
-   diff. Do not replace prior complete evidence with a partial probe unless that exact source is
+   diff. Refresh replaces the whole named source. A filtered probe's complete status does not prove
+   full-source coverage; retain that evidence in scratch until the coverage gap is resolved.
+   Do not replace prior complete evidence with a partial probe unless that exact source is
    explicitly accepted. Promote the validated candidate to `discover/observations.csv`.
 6. Preserve exact observed column types so build can author shared schema hints without re-querying
    or guessing. Keep probe time, method, scope, and failures in status JSON and the report rather

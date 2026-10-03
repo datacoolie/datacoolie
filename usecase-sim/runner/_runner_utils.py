@@ -43,6 +43,17 @@ import signal
 import sys
 from typing import TYPE_CHECKING, Any
 
+_USECASE_SIM_IMPORT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+if str(_USECASE_SIM_IMPORT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_USECASE_SIM_IMPORT_ROOT))
+
+from runtime_paths import (  # noqa: E402
+    spark_data_dir,
+    spark_dependencies_dir,
+    spark_log_dir,
+    spark_profile,
+)
+
 # ---------------------------------------------------------------------------
 # Windows console encoding — pyiceberg uses ✅/❌ emojis in schema
 # compatibility output that cp1252 cannot encode.  Switching the error
@@ -53,7 +64,7 @@ if sys.platform == "win32":
         if hasattr(_stream, "reconfigure"):
             _stream.reconfigure(errors="replace")
 
-from datacoolie.platforms import LocalPlatform
+from datacoolie.platforms import LocalPlatform  # noqa: E402
 
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession
@@ -69,20 +80,17 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Paths — Spark's mutable warehouse, Derby metastore, and Ivy cache live below
-# the simulator runtime boundary.  They are disposable execution state, not
-# source or checked-in fixture resources.
+# Paths — Spark's mutable warehouse, Derby metastore, Ivy cache, and Derby
+# diagnostics are isolated by runtime profile below the canonical runtime
+# boundary.  Keep these aliases for existing fixture tests and custom runners;
+# ``build_spark_session`` resolves the active profile at call time.
 # ---------------------------------------------------------------------------
-_DATACOOLIE_ROOT = pathlib.Path(__file__).parent.parent.parent.resolve()
-_RUNTIME_DIR = _DATACOOLIE_ROOT / "usecase-sim" / ".runtime"
-# Spark 3.5 and Spark 4.x may be started side-by-side during qualification.
-# Keep their mutable Derby/warehouse/Ivy state isolated so one JVM cannot lock
-# or reuse artifacts created by the other runtime line.
-_SPARK_PROFILE = os.environ.get("DATACOOLIE_SPARK_PROFILE", "spark35")
-_SPARK_STATE_DIR = _RUNTIME_DIR / ("spark4" if _SPARK_PROFILE == "spark4" else "spark")
+_SPARK_PROFILE = spark_profile()
+_SPARK_STATE_DIR = spark_data_dir(_SPARK_PROFILE)
 _SPARK_WAREHOUSE = str(_SPARK_STATE_DIR / "warehouse")
 _METASTORE_DIR = str(_SPARK_STATE_DIR / "metastore_db")
-_SPARK_IVY_DIR = str(_SPARK_STATE_DIR / "jars")
+_SPARK_IVY_DIR = str(spark_dependencies_dir(_SPARK_PROFILE))
+_SPARK_DERBY_LOG_DIR = spark_log_dir(_SPARK_PROFILE)
 
 # ---------------------------------------------------------------------------
 # MinIO defaults (docker-compose.yml)
@@ -349,6 +357,20 @@ def build_spark_session(
     Returns:
         Configured ``SparkSession``.
     """
+    # Base: warehouse + Derby metastore location.  Resolve the profile for
+    # every session so tests and container entrypoints may select Spark 4
+    # without importing this module again in the same process.
+    active_profile = spark_profile()
+    spark_state_dir = spark_data_dir(active_profile)
+    spark_warehouse = spark_state_dir / "warehouse"
+    metastore_dir = spark_state_dir / "metastore_db"
+    derby_log_dir = spark_log_dir(active_profile)
+    ivy_dir = spark_dependencies_dir(active_profile)
+    # Spark/Derby create most descendants lazily, but the Derby stream log
+    # property points at a file and must have a stable parent before the JVM
+    # starts.
+    derby_log_dir.mkdir(parents=True, exist_ok=True)
+
     # Base: warehouse + Derby metastore location
     spark_config: dict[str, str] = {
         # Cluster mode — single local machine, all available cores
@@ -356,9 +378,10 @@ def build_spark_session(
         # 64 GB driver heap (local mode has no separate executor JVM)
         "spark.driver.memory": "64g",
         "spark.driver.maxResultSize": "8g",
-        "spark.sql.warehouse.dir": _SPARK_WAREHOUSE,
+        "spark.sql.warehouse.dir": str(spark_warehouse),
         "spark.driver.extraJavaOptions": (
-            f"-Dderby.system.home={_METASTORE_DIR}"
+            f"-Dderby.system.home={metastore_dir}"
+            f" -Dderby.stream.error.file={derby_log_dir / 'derby.log'}"
             " -Dsun.zip.disableMemoryMapping=true"
             # Silence AWS SDK for Java 1.x maintenance-mode banner
             # (hadoop-aws 3.3.4 still ships aws-java-sdk-bundle 1.x).
@@ -435,7 +458,7 @@ def build_spark_session(
 
     # JAR packages — Ivy cache lives below the simulator runtime boundary;
     # first run downloads from Maven, subsequent runs reuse the cache.
-    spark_config["spark.jars.ivy"] = _SPARK_IVY_DIR
+    spark_config["spark.jars.ivy"] = str(ivy_dir)
     packages = _resolve_packages(
         needs_s3=needs_s3, needs_iceberg=needs_iceberg, catalog_preset=catalog_preset,
     )

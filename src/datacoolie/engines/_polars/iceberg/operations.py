@@ -291,11 +291,11 @@ def history(
 def expire_snapshots(ice_table: Any, retention_hours: int) -> None:
     cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=retention_hours)
     cutoff_ms = int(cutoff.timestamp() * 1000)
-    current_id = getattr(ice_table.metadata, "current_snapshot_id", None)
+    current_id = ice_table.metadata.current_snapshot_id
     expired = [
         snapshot
         for snapshot in (ice_table.snapshots() or [])
-        if getattr(snapshot, "timestamp_ms", 0) < cutoff_ms
+        if snapshot.timestamp_ms < cutoff_ms
         and snapshot.snapshot_id != current_id
     ]
     if not expired:

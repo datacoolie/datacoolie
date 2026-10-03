@@ -1,105 +1,89 @@
 # DataCoolie AI Workflow
 
-This file owns agent routing, safety, approvals and handoffs. Public
-documentation owns the shared framework and project contract. Do not copy
-those contracts into Skills or into this file.
+Public documentation is the source of truth for shared framework/project
+contracts and recipes. This file owns agent routing, existing authorization
+boundaries, sequencing, evidence and handoff.
 
 ## Start with the public contract
 
-Use the smallest relevant page before acting:
+Read the smallest compatible public page before selecting or adapting a
+framework capability. Use installed CLI/schema/API evidence to verify the
+selected version. Investigate discrepancies; report the affected docs owner
+and evidence instead of silently choosing a conflicting summary or behavior.
 
-- [Project and CLI workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
-  owns `datacoolie.yml`, layout, build output and the external upload handoff.
-- [CLI commands](https://datacoolie.github.io/datacoolie/guide/cli/commands/)
-  owns commands, options, responses and exit behavior.
-- [Runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
-  owns paths, fallbacks, lifecycle and provider boundaries.
-- [Metadata schema index](https://datacoolie.github.io/datacoolie/schema/index.json)
-  owns versioned metadata contracts. Use the stable
-  [latest schema alias](https://datacoolie.github.io/datacoolie/schema/latest/metadata.schema.json)
-  for current authoring/discovery, and the installed CLI for offline checks.
-  Pin a versioned URL for reproducible artifacts.
-- [Examples catalog](https://datacoolie.github.io/datacoolie/examples/)
-  owns executable sample source and project downloads.
+| Need | Public owner |
+|---|---|
+| Project layout, preparation and upload handoff | [Project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/) |
+| Commands, options, validation scope and responses | [CLI commands](https://datacoolie.github.io/datacoolie/guide/cli/commands/) |
+| Define or change metadata | [Metadata guide](https://datacoolie.github.io/datacoolie/guide/metadata/) and [field reference](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#metadata-document) |
+| Select a metadata schema | [Schema index](https://datacoolie.github.io/datacoolie/schema/index.json) and [current alias](https://datacoolie.github.io/datacoolie/schema/latest/metadata.schema.json); apply the documented version-selection policy |
+| Provider, runtime paths and lifecycle | [Providers](https://datacoolie.github.io/datacoolie/guide/providers/) and [runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/) |
+| Stage selection, results and completion gates | [Run a stage](https://datacoolie.github.io/datacoolie/guide/operations/run-stage/) and [orchestration](https://datacoolie.github.io/datacoolie/reference/concepts/orchestration/) |
+| Maintained projects and runtime runner source | [Examples catalog](https://datacoolie.github.io/datacoolie/examples/) and the selected entry's guide |
 
-When a Skill summary conflicts with a public contract, the public page owns
-framework behavior. Keep the Skill summary only when it adds agent sequencing,
-decision gates, evidence requirements or project-specific adaptation.
+Keep shared technical explanations in their public owners. Skill references
+add only contextual decisions, task sequencing, adaptation checks and evidence.
 
 ## Example retrieval protocol
 
-Use the catalog to discover a sample, then use its direct action:
+Use the catalog to discover a sample, then follow its direct `guide`, `source`,
+`raw`, `project-files` or `download` action for the requested purpose. Read the
+recipe before adapting files; its prerequisites, commands, working directory,
+expected artifacts and rerun behavior govern that example.
 
-- `source` opens the rendered source page;
-- `raw` opens the exact file bytes;
-- `project-files` opens the project section in the catalog;
-- `download` retrieves the complete project archive.
-
-Pin the published revision when reproducibility matters. Verify the retrieved
-source, raw bytes and archive belong to the same revision. If the requested
-revision is not published or a file is unavailable, report that fact and stop;
-do not silently substitute another revision. Runner source is owned by the
-public examples and by each project; Skills do not provide a runtime runner
-tree.
+Pin the published compatible revision when reproducibility matters. Verify
+retrieved content and archive membership against that revision; a successful
+HTTP status or a local preview alone does not establish publication. If the
+revision/file is unavailable, report the blocker rather than substituting
+another revision. An explicitly supplied same-revision local checkout is an
+offline retrieval source. Public examples and projects own runtime runner
+source; Skills do not keep a second maintained runner tree.
 
 ## Agent-owned workflow
 
-Use the five lifecycle Skills for their distinct responsibilities:
+| Skill | Owns | Handoff boundary |
+|---|---|---|
+| `datacoolie-discover` | Source facts, bounded probes and evidence assessments | Source/IAM owner supplies read-only access; Design chooses strategy and Build authors metadata |
+| `datacoolie-design` | Material project intent, trade-offs, acceptance criteria and approval | Public docs define available behavior; Build implements and proves it |
+| `datacoolie-build` | Project metadata, runners, functions, CLI invocation and requested local verification | CLI prepares and validates artifacts; framework executes the documented capabilities |
+| `datacoolie-provision` | Infrastructure source, exact plan/apply approval and resource readiness | Platform tools perform resource changes; Build and Release consume readiness evidence |
+| `datacoolie-release` | Authorized upload, adapter choice and transfer evidence | CLI owns local artifact validation; target workflow owns activation and operation |
 
-| Skill | Agent responsibility |
-|---|---|
-| `datacoolie-discover` | verified source facts and bounded evidence |
-| `datacoolie-design` | architecture, data contracts and material decisions |
-| `datacoolie-build` | source edits, CLI validation/build, runners and local checks |
-| `datacoolie-provision` | required target resources and readiness evidence |
-| `datacoolie-release` | local validation and upload of one exact environment artifact |
+CLI owns schema/project/artifact validation, packaging and manifests. Framework
+owns runtime execution semantics. Skills select documented capabilities, supply
+project intent and interpret evidence; their helpers automate only skill-owned
+probes, approvals, receipts or thin command wrappers. Do not reproduce CLI or
+framework logic in skill scripts or project runners.
 
-Do not route ordinary project authoring through a different Skill merely to
-repeat a contract. Discovery facts feed design; material design approval feeds
-Build; missing target resources feed Provision; an exact locally validated
-artifact feeds Release. Release is upload-only and does not activate, install,
-execute, monitor or recover a workload.
+Route compatible project authoring directly to Build. Require relevant
+source discovery for missing/new facts, Design approval for material changes,
+Provision for evidenced resource gaps and Release for authorized uploads.
+Reuse exact handoff artifacts; do not introduce a parallel workflow state store.
 
-## Project and runtime boundary
+## Verification and handoff
 
-Read and change project files through the public project/CLI documentation.
-The CLI prepares and validates a project; it does not run a Driver or user
-code. Runners remain project-owned scripts or notebooks and choose the engine,
-metadata provider, table registration and explicit component paths.
+Select checks from the requested outcome and compatible public docs:
 
-At runtime, preserve these ownership boundaries:
+- Author/validate: apply the metadata/CLI guidance and report the actual scope,
+  warnings and skipped checks. Validation success certifies that scope.
+- Build/artifact: follow the project recipe and verify the selected build and
+  artifact; report identity and check scope separately from runtime evidence.
+- Requested local runtime verification: use the matching project-owned runner,
+  recipe and project acceptance criteria. Check selection/results and read
+  output independently; inspect state/log evidence when relevant. Empty/skipped
+  outcomes are interpreted against those criteria. Report unmet outcomes even
+  when a command exits zero.
 
-- metadata providers own metadata access and provider-specific paths;
-- framework preparation resolves inline SQL and `.sql`/`artifact:/...` references;
-- `DataCoolieRunConfig.run_attributes` carries external scheduler/job context;
-- Driver owns session lifecycle and execution;
-- logging owns `log_base_path`, snapshot/batch persistence and schema-v3 records;
-- the watermark manager reads/saves values through its selected provider boundary.
+When a required host, dependency or resource is unavailable, report which
+checks remain unverified and route the concrete gap to its owner.
 
-Callers own explicit `artifact_base_path`, `metadata_base_path`,
-`sql_base_path`, `state_base_path`, `watermark_base_path` and `log_base_path`
-choices. Do not add `base_log_path`; it is retired. Shared storage may use
-`.runtime/<environment>/logs/` and `.runtime/<environment>/watermarks/`, while
-an already isolated single-environment root may use `.runtime/logs/` and
-`.runtime/watermarks/`. The framework does not infer an environment from a
-folder name.
+Keep credentials and sensitive discovery values out of authored files,
+artifacts and evidence. Preserve custom runner bytes during CLI validation/build.
+For CLI automation use `--format json`, check exit status and `ok`, then interpret
+the documented response scope. Reuse existing reports/manifests/receipts.
 
-External scheduler context is one strict JSON object passed as
-`run_attributes`; do not invent a second session identity or a parallel
-workflow-state envelope.
-
-## Safety, evidence and handoff
-
-- Keep credentials and discovery evidence out of metadata, SQL, runners,
-  manifests and logs.
-- Preserve custom runner bytes; validation/build may copy them but never run or
-  rewrite them.
-- Use `--format json` for automation and check both process exit code and the
-  response `ok` field.
-- Report exact input/output paths or IDs, checks performed and skipped,
-  blockers/next owner and unresolved questions.
-- Reuse CLI reports, manifests and existing approval/provision/upload receipts;
-  do not create a second handoff envelope or workflow state store.
-- The lifecycle covered by these Skills ends at local validation and upload.
-  Monitoring, activation, workload execution, replay, recovery and other
-  post-deploy operations remain outside their scope.
+Return exact source/artifact paths or IDs, docs/example revision, performed and
+skipped checks, outcome limitations, next owner and unresolved questions.
+Local verification is separate from upload. Release remains upload-only;
+activation, workload operation, monitoring and recovery after deployment belong
+to the project's platform workflow.

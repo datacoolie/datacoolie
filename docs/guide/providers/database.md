@@ -117,11 +117,11 @@ declare one; conflicting explicit roots fail during startup.
 Fresh installs include the nullable `source_filter_expression` column on
 `dc_framework_dataflows`. Before deploying a runtime/API service that reads an
 existing database, compare its schema with the current declaration and review
-the matching additive migration sample under
-[`usecase-sim/metadata/database/migrations/`](https://github.com/datacoolie/datacoolie/tree/main/usecase-sim/metadata/database/migrations).
-Apply the reviewed change through your database migration process. The
-repository samples include preflight and postflight queries. `create_tables()`
-and the scenario seeder do not alter an existing table, and application startup
+an additive migration for your database dialect. Apply the reviewed change
+through your database migration process. Check whether the column already
+exists before applying the change, then verify its nullability and confirm
+that existing metadata and watermarks are preserved. `create_tables()` and
+the scenario seeder do not alter an existing table, and application startup
 does not run migrations.
 
 Existing rows remain `NULL` until an operator performs a reviewed data
@@ -140,12 +140,11 @@ schema changes in a reviewed migration; provider startup does not apply them.
 ### Scenario validation artifacts
 
 The repository's
-[`usecase-sim/scripts/setup_metadata.py`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/scripts/setup_metadata.py)
+[`usecase-sim/scripts/bootstrap/setup_metadata.py`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/scripts/bootstrap/setup_metadata.py)
 fans out a large scenario document to several database dialects and file
 formats. Its [dialect DDL](https://github.com/datacoolie/datacoolie/tree/main/usecase-sim/metadata/database)
-and [migration samples](https://github.com/datacoolie/datacoolie/tree/main/usecase-sim/metadata/database/migrations)
-are useful when validating those scenarios. They are repository testbed assets;
-review them for your database before adapting them to an application rollout.
+creates fresh scenario databases. These are repository testbed assets; review
+them for your database before adapting them to an application rollout.
 
 ## Concurrency notes
 

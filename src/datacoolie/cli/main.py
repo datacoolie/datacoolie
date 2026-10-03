@@ -58,30 +58,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = execute(args)
     except CLIUsageError as exc:
-        if exc.usage and choose_format(getattr(args, "format", requested)) == "text":
+        if exc.usage and choose_format(args.format) == "text":
             sys.stderr.write(exc.usage)
         _emit_error(
             _error_payload(exc),
-            requested=getattr(args, "format", requested),
+            requested=args.format,
         )
         return 2
     except Exception as exc:
         _emit_error(
             _error_payload(exc),
-            requested=getattr(args, "format", requested),
+            requested=args.format,
         )
         return _exit_code(exc)
     if isinstance(result, dict):
         failure = _failure_from_result(result)
         if failure is not None:
-            _emit_error(failure, requested=getattr(args, "format", None))
+            _emit_error(failure, requested=args.format)
             return 1
     try:
-        _emit_success(result, requested=getattr(args, "format", None))
+        _emit_success(result, requested=args.format)
     except (TypeError, ValueError) as exc:
         # ``render`` serializes before writing JSON, so this fallback cannot
         # leave a partially written machine-readable document behind.
-        _emit_error(_error_payload(exc), requested=getattr(args, "format", requested))
+        _emit_error(_error_payload(exc), requested=args.format)
         return 1
     return 0
 

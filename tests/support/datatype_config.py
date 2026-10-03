@@ -194,6 +194,6 @@ def require_docker_services(services: Iterable[str]) -> tuple[DockerServiceStatu
         )
         raise pytest.UsageError(
             "Datatype qualification services are not ready: "
-            f"{details}. Run usecase-sim/scripts/setup_platform.py first."
+            f"{details}. Run usecase-sim/scripts/bootstrap/setup_platform.py first."
         )
     return statuses

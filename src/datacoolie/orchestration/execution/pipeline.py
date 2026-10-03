@@ -7,7 +7,7 @@ outer scheduling or final execution logging.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 from datacoolie.core.constants import DataFlowStatus, ExecutionType, Format
 from datacoolie.core.exceptions import PipelineError
@@ -26,6 +26,9 @@ from datacoolie.orchestration.execution.window import (
 from datacoolie.utils.time import utc_now
 
 logger = get_logger(__name__)
+
+
+_RuntimeT = TypeVar("_RuntimeT", SourceRuntimeInfo, TransformRuntimeInfo, DestinationRuntimeInfo)
 
 
 DEFAULT_TRANSFORMERS: list[str] = [
@@ -50,35 +53,75 @@ def _validate_watermark_boundary(
     *,
     boundary: str,
 ) -> None:
-    """Validate a lower/upper/candidate watermark before side effects.
-
-    Built-in readers expose the protected source/engine hook.  Small custom
-    readers can opt in by implementing the same hook; a duck-typed reader that
-    has no hook cannot claim binary ordering and is rejected before writing.
-    """
+    """Validate a lower/upper/candidate watermark before side effects."""
 
     if not watermark:
         return
 
-    validator = getattr(reader, "_validate_watermark_comparison", None)
-    if callable(validator):
-        validator(watermark, boundary=boundary)
-        return
+    reader._validate_watermark_comparison(watermark, boundary=boundary)
 
-    def _contains_binary(value: Any) -> bool:
-        if isinstance(value, (bytes, bytearray, memoryview)):
-            return True
-        if isinstance(value, dict):
-            return any(_contains_binary(nested) for nested in value.values())
-        if isinstance(value, (list, tuple)):
-            return any(_contains_binary(nested) for nested in value)
-        return False
 
-    if _contains_binary(watermark):
+def _require_callable_contract(
+    component: Any,
+    component_name: str,
+    method_names: tuple[str, ...],
+) -> None:
+    """Reject incomplete structural test/plugin doubles before side effects.
+
+    The lookup is intentionally confined to this injection boundary.  Once a
+    component passes the contract check, the pipeline uses direct method calls
+    so required framework hooks remain visible and fail loudly if a component
+    violates the contract later.
+    """
+
+    type_name = type(component).__name__
+    for method_name in method_names:
+        try:
+            method = getattr(component, method_name)
+        except Exception as exc:  # noqa: BLE001
+            raise PipelineError(
+                f"{component_name} ({type_name}) must expose callable "
+                f"{method_name}()"
+            ) from exc
+        if not callable(method):
+            raise PipelineError(
+                f"{component_name} ({type_name}) must expose callable "
+                f"{method_name}()"
+            )
+
+
+def _runtime_info(
+    component: Any,
+    expected_type: type[_RuntimeT],
+    component_name: str,
+) -> _RuntimeT:
+    """Read and validate one phase runtime object."""
+
+    value = component.get_runtime_info()
+    if not isinstance(value, expected_type):
         raise PipelineError(
-            "Binary watermark comparison requires a qualified backend "
-            f"for {boundary}"
+            f"{component_name}.get_runtime_info() must return "
+            f"{expected_type.__name__}"
         )
+    return value
+
+
+def _safe_runtime_capture(
+    component: Any,
+    expected_type: type[_RuntimeT],
+    *,
+    phase_started: bool,
+    runtime_attempted: bool,
+) -> Optional[_RuntimeT]:
+    """Capture only a valid runtime without masking the primary exception."""
+
+    if component is None or not phase_started or runtime_attempted:
+        return None
+    try:
+        value = component.get_runtime_info()
+    except Exception:  # noqa: BLE001
+        return None
+    return value if isinstance(value, expected_type) else None
 
 
 def build_source_reader(
@@ -164,13 +207,6 @@ def execute_etl_pipeline(
     requested_watermark_start = None if read_range is not None else watermark_start
     requested_watermark_end = None if read_range is not None else watermark_end
     watermark = requested_watermark_start
-    if (
-        watermark is None
-        and watermark_manager is not None
-        and dataflow.source.has_watermark_state
-        and read_range is None
-    ):
-        watermark = watermark_manager.get_watermark(dataflow_id=dataflow.dataflow_id)
 
     source_runtime: Optional[SourceRuntimeInfo] = None
     transform_runtime: Optional[TransformRuntimeInfo] = None
@@ -179,9 +215,46 @@ def execute_etl_pipeline(
     pipeline: Optional[TransformerPipeline] = None
     writer: Optional[BaseDestinationWriter] = None
     watermark_to_save: Optional[Dict[str, Any]] = None
+    source_phase_started = False
+    source_runtime_attempted = False
+    transform_phase_started = False
+    transform_runtime_attempted = False
+    destination_phase_started = False
+    destination_runtime_attempted = False
 
     try:
         reader = create_source_reader(dataflow.source.connection.format)
+        _require_callable_contract(
+            reader,
+            "source reader",
+            (
+                "read",
+                "get_runtime_info",
+                "get_new_watermark",
+                "_validate_watermark_comparison",
+                "merge_watermark",
+            ),
+        )
+        if watermark_manager is not None:
+            _require_callable_contract(
+                watermark_manager,
+                "watermark manager",
+                ("get_watermark", "save_watermark", "serialize"),
+            )
+
+        # Capability validation must precede checkpoint I/O.  A partially
+        # implemented reader/manager is a configuration error, not a reason
+        # to touch persisted state before failing.
+        if (
+            watermark is None
+            and watermark_manager is not None
+            and dataflow.source.has_watermark_state
+            and read_range is None
+        ):
+            watermark = watermark_manager.get_watermark(
+                dataflow_id=dataflow.dataflow_id
+            )
+
         _validate_watermark_boundary(reader, watermark, boundary="lower bound")
         _validate_watermark_boundary(
             reader, requested_watermark_end, boundary="upper bound"
@@ -197,12 +270,18 @@ def execute_etl_pipeline(
             requested_watermark_end is not None or read_range is not None
         ):
             read_kwargs["preserve_empty"] = True
+        source_phase_started = True
         frame = reader.read(
             dataflow.source,
             watermark,
             **read_kwargs,
         )
-        source_runtime = reader.get_runtime_info()
+        source_runtime_attempted = True
+        source_runtime = _runtime_info(
+            reader,
+            SourceRuntimeInfo,
+            "source reader",
+        )
 
         # The replacement scope belongs to this execution attempt.  Keep it
         # out of ``DataFlow`` so metadata remains immutable and a retry cannot
@@ -239,7 +318,7 @@ def execute_etl_pipeline(
                     else source_runtime.watermark_end_operator
                 )
             ),
-            watermark_kind=getattr(source_runtime, "watermark_kind", None),
+            watermark_kind=source_runtime.watermark_kind,
         )
 
         # A normal empty read is a no-op.  An explicitly bounded replay is
@@ -275,24 +354,12 @@ def execute_etl_pipeline(
                     dataflow_id=dataflow.dataflow_id
                 )
                 # Ordering and opaque-token semantics belong to the reader
-                # that produced the observation. Keep a compatibility fallback
-                # for custom managers/readers that predate the source hook.
-                # Resolve the hook from the reader instance.  Built-in readers
-                # override it on the class, while plugin/duck-typed readers
-                # may provide an instance-bound implementation.
-                reader_merge = getattr(reader, "merge_watermark", None)
-                if callable(reader_merge):
-                    watermark_to_save = reader.merge_watermark(
-                        existing_watermark,
-                        watermark_to_save,
-                    )
-                else:
-                    manager_merge = getattr(watermark_manager, "merge_watermark", None)
-                    if callable(manager_merge):
-                        watermark_to_save = manager_merge(
-                            dataflow.dataflow_id,
-                            watermark_to_save,
-                        )
+                # that produced the observation. The manager never performs a
+                # second, generic merge.
+                watermark_to_save = reader.merge_watermark(
+                    existing_watermark,
+                    watermark_to_save,
+                )
                 _validate_watermark_boundary(
                     reader, watermark_to_save, boundary="new watermark"
                 )
@@ -301,9 +368,7 @@ def execute_etl_pipeline(
                 # catch unsupported scalar values such as a non-finite
                 # Decimal, which would otherwise fail after a successful
                 # write and make a retry duplicate data.
-                serializer = getattr(watermark_manager, "serialize", None)
-                if callable(serializer):
-                    serializer(watermark_to_save)
+                watermark_manager.serialize(watermark_to_save)
                 validate_watermark_storage(
                     dataflow,
                     operation_type=ExecutionType.ETL.value,
@@ -316,8 +381,14 @@ def execute_etl_pipeline(
             dataflow_run_id=dataflow_run_id,
             column_name_mode=column_name_mode,
         )
+        transform_phase_started = True
         frame = pipeline.transform(frame, dataflow)
-        transform_runtime = pipeline.get_runtime_info()
+        transform_runtime_attempted = True
+        transform_runtime = _runtime_info(
+            pipeline,
+            TransformRuntimeInfo,
+            "transformer pipeline",
+        )
         watermark_window = map_watermark_window(
             watermark_window,
             column_mapping=pipeline.get_column_mapping(),
@@ -325,8 +396,19 @@ def execute_etl_pipeline(
         )
 
         writer = create_destination_writer(dataflow.destination.connection.format)
+        _require_callable_contract(
+            writer,
+            "destination writer",
+            ("write", "get_runtime_info"),
+        )
+        destination_phase_started = True
         writer.write(frame, dataflow, watermark_window=watermark_window)
-        destination_runtime = writer.get_runtime_info()
+        destination_runtime_attempted = True
+        destination_runtime = _runtime_info(
+            writer,
+            DestinationRuntimeInfo,
+            "destination writer",
+        )
 
         if watermark_to_save and watermark_manager:
             watermark_manager.save_watermark(
@@ -336,12 +418,27 @@ def execute_etl_pipeline(
                 dataflow_run_id=dataflow_run_id,
             )
     except Exception as exc:
-        if source_runtime is None and reader is not None:
-            source_runtime = reader.get_runtime_info()
-        if transform_runtime is None and pipeline is not None:
-            transform_runtime = pipeline.get_runtime_info()
-        if destination_runtime is None and writer is not None:
-            destination_runtime = writer.get_runtime_info()
+        if source_runtime is None:
+            source_runtime = _safe_runtime_capture(
+                reader,
+                SourceRuntimeInfo,
+                phase_started=source_phase_started,
+                runtime_attempted=source_runtime_attempted,
+            )
+        if transform_runtime is None:
+            transform_runtime = _safe_runtime_capture(
+                pipeline,
+                TransformRuntimeInfo,
+                phase_started=transform_phase_started,
+                runtime_attempted=transform_runtime_attempted,
+            )
+        if destination_runtime is None:
+            destination_runtime = _safe_runtime_capture(
+                writer,
+                DestinationRuntimeInfo,
+                phase_started=destination_phase_started,
+                runtime_attempted=destination_runtime_attempted,
+            )
         raise PipelineError(
             str(exc) or type(exc).__name__,
             partial_result=PipelineAttemptResult(
@@ -380,17 +477,40 @@ def execute_maintenance_pipeline(
     )
     destination_runtime: Optional[DestinationRuntimeInfo] = None
     writer: Optional[BaseDestinationWriter] = None
+    destination_phase_started = False
+    destination_runtime_attempted = False
     try:
         writer = create_destination_writer(dataflow.destination.connection.format)
-        destination_runtime = writer.run_maintenance(
+        _require_callable_contract(
+            writer,
+            "destination writer",
+            ("run_maintenance", "get_runtime_info"),
+        )
+        destination_phase_started = True
+        candidate = writer.run_maintenance(
             dataflow=dataflow,
             do_compact=do_compact,
             do_cleanup=do_cleanup,
             retention_hours=retention_hours,
         )
+        destination_runtime_attempted = True
+        if not isinstance(candidate, DestinationRuntimeInfo):
+            raise PipelineError(
+                "destination writer.run_maintenance() must return "
+                "DestinationRuntimeInfo"
+            )
+        destination_runtime = candidate
     except Exception as exc:
-        if writer is not None:
-            candidate = writer.get_runtime_info()
+        if destination_runtime is None:
+            candidate = _safe_runtime_capture(
+                writer,
+                DestinationRuntimeInfo,
+                phase_started=destination_phase_started,
+                runtime_attempted=destination_runtime_attempted,
+            )
+        else:
+            candidate = destination_runtime
+        if candidate is not None:
             if candidate.operation_type == ExecutionType.MAINTENANCE.value:
                 if candidate.status == DataFlowStatus.RUNNING.value:
                     candidate.end_time = utc_now()

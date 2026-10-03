@@ -22,8 +22,9 @@ author runtime metadata.
 
 Put one `SELECT` or `WITH` statement in a file and run `scripts/probe_db.py` with environment-backed
 connection information, a scratch JSON `--output`, `--max-rows`, and `--timeout-seconds`. The SQL
-file must be self-contained because the probe does not bind parameters. The script rejects multiple
-or mutating statements, rolls back the transaction, and refuses drivers that cannot enforce the
+file must be self-contained because the probe does not bind parameters. Review it as a read operation
+under the supplied read-only source access. SQL token checks and transaction rollback are additional
+guards, not source authorization enforcement. The script refuses drivers that cannot enforce the
 requested timeout unless the operator explicitly accepts that limitation.
 
 ## Unsupported Source

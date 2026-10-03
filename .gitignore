@@ -2,6 +2,7 @@
 __pycache__/
 .cache/
 .scratch/
+.runtime/
 
 # Spark artifacts (shared across tests and usecase-sim)
 # iceberg-warehouse is NOT local — REST catalog stores it on MinIO/S3
@@ -9,7 +10,7 @@ spark-warehouse/
 metastore_db/
 derby.log
 
-# Ivy cache for Spark JAR dependencies (usecase-sim/runner/spark-jars/)
+# Legacy cache paths remain ignored; active simulator Ivy cache is under .runtime/dependencies/spark.
 **/spark-jars/
 
 # Local virtual environments and ProperDocs build output.

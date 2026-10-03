@@ -24,6 +24,13 @@ pytestmark = pytest.mark.integration
     ({"next_link_bound_mode": 1}, 1),
     ({"next_link_bound_mode": True}, 1),
     ({"next_link_bound_mode": {}}, 1),
+] + [
+    ({key: value}, 1)
+    for key in (
+        "watermark_param_mapping", "watermark_to_param", "watermark_param_location",
+        "watermark_param_format", "watermark_range_to_exclusive_offset",
+    )
+    for value in (None, "", {})
 ])
 def test_api_mode_authoring_reports_path_without_starting_runtime(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -59,4 +66,5 @@ def test_api_mode_authoring_reports_path_without_starting_runtime(
     assert path.read_bytes() == original
     if expected:
         assert payload["error"]["code"] == "validation.failed"
-        assert "/dataflows/0/source/configure/next_link_bound_mode" in json.dumps(payload)
+        key = next(iter(configure))
+        assert f"/dataflows/0/source/configure/{key}" in json.dumps(payload)

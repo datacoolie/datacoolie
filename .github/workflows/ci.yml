@@ -48,7 +48,7 @@ jobs:
       - name: Install release validation and build tools
         run: poetry run python -m pip install --upgrade -r scripts/requirements-release.txt
 
-      - name: Run deterministic AI skill gate
+      - name: Test AI skill scripts
         run: poetry run python ai/skills/tests/run_all.py
 
       - name: Run local release gate

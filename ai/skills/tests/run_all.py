@@ -1,182 +1,39 @@
-"""Run the five outcome-based DataCoolie skill validators and unit tests.
-
-Default execution is fast and does not start external services. Pass ``--integration`` to start the
-Docker fixture stack and run discovery's Docker probes.
-"""
-
+"""Run tests for maintained Skill scripts; source services are opt-in."""
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
-import os
 from pathlib import Path
 
-
-HERE = Path(__file__).parent
-SKILL_RUNNERS = {
-    "discover": "run_discover.py",
-    "design": "run_design.py",
-    "build": "run_build.py",
-    "provision": "run_provision.py",
-    "release": "run_release.py",
-}
-
-SHARED_UNIT_TESTS = (
-    "unit/test_ai_workflow_contract.py",
-    "unit/test_test_harness.py",
-)
-SKILL_UNIT_TESTS = {
-    "discover": (
-        "unit/test_discovery_dependencies.py",
-        "unit/test_discovery_evidence.py",
-        "unit/test_introspect_api.py",
-        "unit/test_introspect_db.py",
-        "unit/test_introspect_files.py",
-        "unit/test_introspect_lakehouse.py",
-    ),
-    "design": ("unit/test_design_approval.py",),
-    "build": (
-        "unit/test_build_tooling_contract.py",
-        "unit/test_project_automation.py",
-        "unit/test_public_examples_routing.py",
-    ),
-    "provision": ("unit/test_provision_receipt.py",),
-    "release": (
-        "unit/test_release_receipt.py",
-        "unit/test_release_upload.py",
-    ),
-}
-
-INTEGRATION_ENVIRONMENT = {
-    "DATACOOLIE_TEST_POSTGRES_URL": (
-        "postgresql+psycopg2://datacoolie:datacoolie@localhost:5442/pagila"
-    ),
-    "DATACOOLIE_TEST_MYSQL_URL": (
-        "mysql+pymysql://datacoolie:datacoolie@localhost:3316/sakila"
-    ),
-    "DATACOOLIE_TEST_MSSQL_URL": (
-        "mssql+pyodbc://sa:Testing%40123@localhost:1444/AdventureWorksLT"
-        "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
-    ),
-}
-
-
-def _run(
-    command: list[str], *, cwd: Path = HERE, environment: dict[str, str] | None = None
-) -> int:
-    print("\n> " + " ".join(command))
-    return subprocess.run(command, cwd=cwd, env=environment, check=False).returncode
-
-
-def _unit_targets(selected: list[str]) -> list[str]:
-    if not selected:
-        return ["unit"]
-    targets = list(SHARED_UNIT_TESTS)
-    for skill in selected:
-        for target in SKILL_UNIT_TESTS[skill]:
-            if target not in targets:
-                targets.append(target)
-    return targets
-
-
-def _validate_selection(selected: list[str], *, integration: bool) -> None:
-    unknown = sorted(set(selected) - set(SKILL_RUNNERS))
-    if unknown:
-        raise ValueError(f"Unknown skill validator(s): {', '.join(unknown)}")
-    if integration and selected and "discover" not in selected:
-        raise ValueError("--integration requires the discover validator")
-
-
-def _integration_environment(base: dict[str, str] | None = None) -> dict[str, str]:
-    environment = dict(os.environ if base is None else base)
-    environment.update(INTEGRATION_ENVIRONMENT)
-    return environment
-
-
-def _start_integration_services() -> int:
-    return _run(
-        [
-            "docker",
-            "compose",
-            "-f",
-            str(HERE / "docker-compose.yml"),
-            "up",
-            "-d",
-            "--wait",
-        ]
-    )
-
-
-def _seed_integration_services() -> int:
-    mssql = _run(
-        [
-            "docker", "exec", "skills-test-mssql", "bash", "-lc",
-            "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa "
-            "-P \"$MSSQL_SA_PASSWORD\" -No -i /opt/mssql-scripts/adventureworks-lt.sql",
-        ]
-    )
-    if mssql != 0:
-        return mssql
-    return _run([sys.executable, str(HERE / "fixtures/iceberg/seed_iceberg.py")])
-
-
-def _stop_integration_services() -> int:
-    return _run(
-        [
-            "docker", "compose", "-f", str(HERE / "docker-compose.yml"),
-            "down", "--volumes", "--remove-orphans",
-        ]
-    )
+HERE = Path(__file__).resolve().parent
 
 
 def main() -> int:
-    args = sys.argv[1:]
-    integration = "--integration" in args
-    keep_integration = "--keep-integration" in args
-    selected = [arg for arg in args if not arg.startswith("--")]
-    try:
-        _validate_selection(selected, integration=integration)
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    skills = selected or list(SKILL_RUNNERS)
+    parser = argparse.ArgumentParser(description=__doc__)
+    groups = sorted(path.name for path in (HERE / "unit").iterdir() if path.is_dir()
+                    and not path.name.startswith(("_", ".")))
+    parser.add_argument("groups", nargs="*", metavar="GROUP",
+                        help=f"Select: {', '.join(groups)}; build is an alias for automation")
+    parser.add_argument("--integration", action="store_true", help="Also test Discover with Docker sources")
+    parser.add_argument("--keep-integration", action="store_true", help="Keep source services after tests")
+    args = parser.parse_args()
+    args.groups = ["automation" if name == "build" else name for name in args.groups]
+    unknown = sorted(set(args.groups) - set(groups))
+    if unknown:
+        parser.error(f"Unknown script test group(s): {', '.join(unknown)}")
+    if args.integration and args.groups and "discover" not in args.groups:
+        parser.error("--integration requires the discover group")
+    if args.keep_integration and not args.integration:
+        parser.error("--keep-integration requires --integration")
 
-    results: dict[str, int] = {}
-    results["unit"] = _run(
-        [sys.executable, "-m", "pytest", "-o", "addopts=", *_unit_targets(selected), "-q"]
-    )
-    results["behavioral-definitions"] = _run(
-        [
-            sys.executable,
-            str(HERE / "verify_behavioral_evidence.py"),
-            "verify-definitions",
-            *(str(HERE.parent / f"datacoolie-{skill}") for skill in skills),
-        ]
-    )
-    integration_attempted = integration
-    try:
-        if integration:
-            results["docker-start"] = _start_integration_services()
-            if results["docker-start"] == 0:
-                results["docker-seed"] = _seed_integration_services()
-                integration = results["docker-seed"] == 0
-            else:
-                integration = False
-        for skill in skills:
-            command = [sys.executable, str(HERE / SKILL_RUNNERS[skill])]
-            environment = None
-            if skill == "discover" and integration:
-                command.append("--docker")
-                environment = _integration_environment()
-            results[skill] = _run(command, environment=environment)
-    finally:
-        if integration_attempted and not keep_integration:
-            results["docker-stop"] = _stop_integration_services()
-
-    print("\nDataCoolie AI skill verification")
-    for name, result in results.items():
-        print(f"  [{'PASS' if result == 0 else 'FAIL'}] {name}")
-    return 1 if any(result != 0 for result in results.values()) else 0
+    targets = [HERE / "unit" / name for name in dict.fromkeys(args.groups)] if args.groups else [HERE / "unit"]
+    if args.integration:
+        targets.append(HERE / "integration")
+    command = [sys.executable, "-m", "pytest", "-o", "addopts=", *map(str, targets), "-q"]
+    if args.keep_integration:
+        command.append("--keep-services")
+    return subprocess.run(command, cwd=HERE.parents[2], check=False).returncode
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ Replaces:
 
 Usage:
     python usecase-sim/runner/run.py --engine polars --metadata-source file \
-        --metadata-path usecase-sim/metadata/file/local_use_cases.json --stage read__csv
+        --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json --stage read__csv
 
     python usecase-sim/runner/run.py --engine spark --metadata-source database \
         --metadata-db-connection-string "sqlite:///..." \
@@ -42,13 +42,17 @@ from _runner_utils import (
     run_and_report,
     setup_platform,
 )
+from runtime_paths import (
+    DATACOOLIE_ROOT, LOG_DIR as LOG_DIR, USECASE_SIM_DIR, WATERMARKS_DIR,
+    AWS_WATERMARK_PATH, runtime_child, apply_runtime_defaults,
+)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("run")
-USECASE_SIM_ROOT = Path(__file__).resolve().parent.parent
+USECASE_SIM_ROOT = USECASE_SIM_DIR
 
 
 def parse_args() -> argparse.Namespace:
@@ -131,7 +135,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--uc-token", default="")
     parser.add_argument("--uc-credential", default="")
-    parser.add_argument("--log-path", default=None)
+    parser.add_argument(
+        "--log-path",
+        default=None,
+        help="Structured log root (default: local .runtime/logs or AWS logs URI)",
+    )
     parser.add_argument(
         "--job-id",
         default=None,
@@ -140,7 +148,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--state-base-path",
         default=None,
-        help="Framework runtime state root; derives logs and file watermarks",
+        help="Framework runtime state root for provider/session context",
+    )
+    parser.add_argument(
+        "--watermark-path",
+        default=None,
+        help="Explicit FileProvider watermark root (default: local .runtime/watermarks or AWS URI)",
     )
     parser.add_argument(
         "--run-attributes",
@@ -226,6 +239,7 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
     _validate_source_args(parser, args)
+    _apply_runtime_defaults(args)
     return args
 
 
@@ -254,19 +268,40 @@ def _validate_source_args(
             )
 
 
+_apply_runtime_defaults = apply_runtime_defaults
+
+
 def _build_metadata(source: str, args: argparse.Namespace):
     """Instantiate the correct MetadataProvider for the requested source."""
     if source == "file":
         from datacoolie.metadata import FileProvider
 
+        watermark_path = getattr(args, "watermark_path", None)
+        if not watermark_path:
+            state = getattr(args, "state_base_path", None)
+            if state:
+                watermark_path = runtime_child(state, "watermarks")
+            else:
+                watermark_path = (
+                    AWS_WATERMARK_PATH
+                    if getattr(args, "platform", "local") == "aws"
+                    else str(WATERMARKS_DIR)
+                )
         # Directory and artifact modes are assembled by Driver so the same
         # provider/platform binding contract is used by every provider type.
+        # Inject an uninitialized provider with an explicit watermark root;
+        # passing config_path together with metadata_base_path would violate
+        # the FileProvider startup contract.
         if args.metadata_path:
             return FileProvider(
                 config_path=args.metadata_path,
+                watermark_base_path=watermark_path,
                 sql_base_path=args.sql_base_path or None,
             )
-        return None
+        return FileProvider(
+            watermark_base_path=watermark_path,
+            sql_base_path=args.sql_base_path or None,
+        )
     if source == "database":
         from datacoolie.metadata import DatabaseProvider
 
@@ -352,6 +387,9 @@ def _run_engine_setup(
 
 
 def main() -> None:
+    # All metadata documents and relative fixture paths use the product root
+    # convention, independent of the shell directory used to invoke the CLI.
+    os.chdir(DATACOOLIE_ROOT)
     args = parse_args()
 
     is_aws = args.platform == "aws"

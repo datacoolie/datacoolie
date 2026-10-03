@@ -89,7 +89,7 @@ A strict build checks site construction; it does not execute every recipe.
 | Markdown, navigation, generators or public docstrings | The strict build and SEO commands above; source/command and rendered-page review |
 | Framework code | Install `dev` and required extras, then run the affected `tests/` paths; [testing strategy](testing.md) explains default selection and skips |
 | Optional dependency declarations or release scripts | `poetry check --lock --strict` and `poetry run pytest -c pyproject.toml scripts/tests/ -n 0 -rs` |
-| AI skills/build schemas | `poetry run python ai/skills/tests/run_all.py`; this is separate from core pytest |
+| AI Skill scripts | `poetry run python ai/skills/tests/run_all.py`; tests only Skill-owned scripts and tooling, separately from core pytest |
 | Simulator scenario/validator | The selected scenario through `run_scenario.py`; use [expected-failure assertions](expected-failure-scenarios.md) for negative cases |
 | Spark, database or persisted-format behavior | Select the relevant [qualification cell](testing.md#datatype-qualification) and its prerequisites; record cells you did not run |
 | Release version/tag or distributions | The complete local release gate below |

@@ -1,48 +1,43 @@
 # Python functions adaptation checklist
 
 Read the public [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
-for the complete functions-root and packaging contract. Read the public
-[source patterns](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/)
-when authoring `source.python_function`. This reference only keeps the agent
-decisions and evidence needed to adapt a project runner.
+for the functions-root and packaging contract, the public [function project recipe](https://datacoolie.github.io/datacoolie/examples/dataflows/#function-project-recipe)
+for a complete adaptation, and the public [source patterns](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/)
+when authoring `source.python_function`. This reference keeps only the agent decisions and evidence
+needed to adapt a project runner.
 
-Functions are build inputs, not Driver configuration. A project may configure
-one or more functions roots; each root uses the singular `path` and is packaged
-independently. Keep the authored relative layout and import prefix. Do not put
-packaging choices in metadata or make `functions` a fixed runtime path.
+## Build decision
 
-```yaml
-components:
-  functions:
-    - path: functions/loaders
-      packaging: auto
-    - path: functions/quality
-      packaging: copy
-```
+- Treat functions as project build inputs. Use the project's configured functions roots and preserve
+  each authored relative layout and import prefix; do not turn `functions` into a fixed runtime path.
+- Packaging is decided by the installed CLI per configured root. Run
+  `dc build --dry-run --format json` and record the returned root inventory and packaging decisions
+  before relying on a package. Do not infer packaging from a filename or copy the CLI's rule here.
+- Assemble and validate the exact artifact after the preview. The build manifest is artifact
+  evidence; the runtime Driver does not use it to install or import functions.
 
-For `auto`, confirm the CLI dry-run result before relying on a package:
+## Runtime and host boundary
 
-1. valid Python build backend in the root → `wheel`;
-2. root-level `__init__.py` → wrapped `zip`;
-3. otherwise → source `copy`.
+When the public runner contract uses `allowed_function_prefixes`, render it from the selected
+project/build and follow the recipe's documented no-function path otherwise. Keep import prefixes
+fixed in the project-owned runner. The execution host owns wheel/ZIP/source attachment, installation,
+and import compatibility; Build does not install a package or replace that host check with another
+Skill validator.
 
-An `__init__.py` only below the configured root, such as
-`loaders/__init__.py`, is a nested package signal and does not select ZIP for
-the parent root. Configure the nested package as its own root or select an
-explicit mode when that is the intended distribution boundary.
+When adapting the public function recipe, preserve only its existing project-owned bootstrap and
+fixed import prefixes. Do not add runtime-selected module roots, arbitrary search paths, package
+installation, or runner-owned packaging.
 
-Use `dc build --dry-run --format json` and then validate the assembled artifact.
-The environment manifest records each root and its resolved packaging. When
-functions are present, `functions_artifact` is a list, including for one root.
-The runtime Driver does not read this manifest and the execution host owns
-attachment/import setup.
+## Outcome-scoped verification
 
-Render `allowed_function_prefixes` from the project/build that is being run;
-pass `[]` when no function source is used. A project-owned import/signature test
-may prove host compatibility, but the CLI does not install packages or replace
-that host check with another Skill validator.
+For author/build-only requests, inspect the dry-run plan, validate the assembled artifact, and
+report each configured root and any skipped host import check. For an explicitly requested safe
+runtime check, follow the public [build and execute workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/#build-and-execute)
+and Function recipe: use CLI packaging evidence, the selected built environment and independent
+import/output/state checks. Keep the retained/current validation evidence and report legitimate
+empty/skipped work or unavailable host packages rather than converting them into success claims.
 
 ## Unresolved questions
 
-None. Resolve project-specific import and host constraints from the selected
-environment runner and installed packaging evidence.
+None. Resolve project-specific import and host constraints from the selected environment runner,
+public recipe, and installed packaging evidence.

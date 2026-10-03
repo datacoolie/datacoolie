@@ -1,8 +1,10 @@
 # Platform upload tooling
 
-Use this reference only after a project has selected its target storage and
-official copy mechanism. It describes command hygiene, not target provisioning,
-activation, scheduler creation, or workload execution.
+Use this reference only after the project has selected its target storage and
+official copy mechanism. The public [project workflow and release handoff](https://datacoolie.github.io/datacoolie/guide/cli/project/#release-handoff-external-upload-workflow)
+owns the DataCoolie artifact mapping and phase order. This reference keeps
+command hygiene, not target provisioning, activation, scheduler creation, or
+workload execution.
 
 ## Selection
 
@@ -27,7 +29,12 @@ to project files or release records.
   flags.
 - Capture exit status and a redacted, bounded error message.
 
-The release workflow runs the adapter twice in order: immutable
-`artifacts/<build_id>` first, then `current`. Remote state observation or
-checksum comparison is outside this upload-only contract and must not be
-reported as performed by a successful copy command.
+Follow the public release handoff for the two ordered upload phases. Remote
+state observation or checksum comparison is outside this upload-only contract
+and must not be reported as performed by a successful copy command.
+
+For author/build-only requests, perform CLI/artifact checks without invoking a
+runner. For authorized uploads, report local validation and transfer commands
+with their performed, skipped, and unavailable checks. Route target/runtime
+verification to the project/platform owner; Release does not execute a runner
+or target workload.

@@ -12,7 +12,7 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `metadata_type` | ✓ | `file`, `database`, `api`, or `maintenance` |
 | `platform` | | `local` (default) or `aws` — sets `is_aws` in runners |
 | `metadata_path` | file / maintenance | Path to JSON / YAML / XLSX metadata file |
-| `metadata_base_path` | file / maintenance | Directory of section-wrapped metadata documents; Driver creates the FileProvider |
+| `metadata_base_path` | file / maintenance | Directory of section-wrapped metadata documents; Driver binds the simulator FileProvider |
 | `artifact_base_path` | file / maintenance | Deployed artifact root; metadata defaults to `<root>/metadata` when no explicit metadata root is supplied |
 | `sql_base_path` | | Optional SQL root for shorthand references such as `queries/orders.sql`; provider configuration is preferred and Driver input is the session fallback; repeatable roots use their folder prefix |
 | `metadata_db_connection_string` | database | SQLAlchemy URL |
@@ -24,9 +24,9 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `connection` | maintenance | Connection name filter |
 | `skip_api_sources` | | Skip dataflows with `connection_type=api` |
 | `dry_run` | | Driver-level dry-run |
-| `state_base_path` | | Runtime state root; derives logs and file-provider watermarks when component roots are absent |
-| `log_base_path` | | Explicit framework log root; overrides state-derived/default logs |
-| `derive_log_paths_from_state` | | Omit `--log-path` so Driver derives logs below `state_base_path` |
+| `state_base_path` | | Runtime state root; simulator derives file-provider watermarks while framework logs use the shared root |
+| `log_base_path` | | Optional explicit root; local scenarios require `.runtime/logs`, AWS uses an S3 log root |
+| `watermark_path` | | Explicit file-provider watermark root; otherwise simulator uses `state_base_path/watermarks` or `.runtime/watermarks` |
 | `job_id` | | Stable Driver session/job identifier used by log validators |
 | `run_attributes` | | JSON object of caller-owned external correlation values persisted with JobRuntime |
 | `log_persistence_mode` | | Structured logger mode: `snapshot` or `batch` |
@@ -49,6 +49,12 @@ Consult [../README.md](../README.md) for narrative context and usage.
 `required_console_text` (string or list), `script` (repository-relative Python
 file), optional `args`, and `timeout_seconds` for that script. A scenario is
 reported as PASS only when every configured assertion succeeds.
+
+All local scenarios share `usecase-sim/.runtime/logs`; the framework creates
+`execution_logs/` and `system_logs/` directly below it. `validation.require_log_session`
+requires a new job snapshot from the current child and forwards its
+`log_session_id` to the validator. This prevents older shared logs from satisfying
+the runtime log checks. Console and invocation receipts remain in `logs/scenarios/`.
 
 The dispatcher first checks each invocation's exit, then calls final validation
 with `0`. For negative tests, declare `invocations: [{"expected_exit_code": 2}]`
@@ -134,7 +140,7 @@ never mutate those fixtures during a run.
 | `local_polars_query_artifact_relative_nested` | Nested artifact-relative SQL | `shared/sql2/customers.sql` remains unchanged and resolves below the artifact root without a manifest |
 | `local_polars_query_explicit_multiple_roots` | Explicit SQL routing | repeated `--sql-base-path` values route a prefixed reference through explicit roots |
 | `local_polars_query_root_routing` | Component SQL root | shorthand `queries/orders.sql` resolves below `sql_base_path` |
-| `local_polars_state_base_path` | Runtime root derivation | `state_base_path` produces `logs/` and `watermarks/` below the supplied root |
+| `local_polars_state_base_path` | Runtime root routing | Logs and watermarks use separate explicit simulator roots |
 | `local_polars_runtime_log_contract` | Snapshot execution logging | v4 `message`, `source_query`, executed `source_action.query`, `job_id`, and `run_attributes` |
 | `local_polars_logging_batch` | Batch execution logging | immutable `.json` part plus replace-one JobRuntime snapshot |
 | `local_polars_dry_run_query_file` | Preparation-only execution | query file is resolved; no business output or watermark is written |
@@ -147,7 +153,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | stage | `""` (all) |
 | column_name_mode | lower |
 | priority | P0 |
@@ -160,7 +166,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | priority | P0 |
@@ -173,7 +179,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | priority | P0 |
@@ -186,7 +192,7 @@ never mutate those fixtures during a run.
 | engine | spark |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | skip_api_sources | `true` |
@@ -207,13 +213,13 @@ by local regression tests and are not claimed by this pair.
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/local_use_cases.json` |
+| metadata | `metadata/file/baseline/local_use_cases.json` |
 | stage | `replay_test` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
 | persistence | `replay_save_watermark: true` |
-| outputs | `.runtime/data/output/delta/orders_replay` plus isolated state under `.runtime/data/replay_validation/{polars,spark}` |
-| assertions | `scripts/validate_replay_output.py` |
+| outputs | `.runtime/data/output/delta/orders_replay` plus isolated state under `.runtime/watermarks/replay_validation/{polars,spark}` |
+| assertions | `scripts/features/replay/validate_replay_output.py` |
 | Docker | optional for Spark dispatch; the case definition remains local-engine qualification |
 
 ---
@@ -234,7 +240,7 @@ discovery limits the scan, while mtime decides which files are read.
 | replay range | `[2024-01-15T00:00:00+00:00, 2024-01-17T00:00:00+00:00)` |
 | chunking | `__file_modification_time`, `days=1` |
 | persistence | `replay_save_watermark: true` |
-| assertions | `scripts/validate_date_mtime_replay_output.py` checks IDs, boundary selection and saved mtime state |
+| assertions | `scripts/features/replay/validate_date_mtime_replay_output.py` checks IDs, boundary selection and saved mtime state |
 | Docker | optional for Polars; Docker Spark is used when the Spark container is running |
 
 The range is owned by `FileReader`: folder boundaries remain inclusive for
@@ -253,13 +259,13 @@ final saved `order_date=2024-01-17` observation.
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/replay_api_validation.json` |
+| metadata | `metadata/file/replay/replay_api_validation.json` |
 | stage | `replay_api_validation` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
 | persisted watermark | `order_date` only |
 | destination | Delta `api_replay_validation` |
-| assertions | `scripts/validate_replay_output.py` validates rows, selected IDs, range and saved state |
+| assertions | `scripts/features/replay/validate_replay_output.py` validates rows, selected IDs, range and saved state |
 | services | `mock-api` |
 | Docker | required when the selected profile starts the service through Compose; Spark may use host fallback when its container is absent |
 
@@ -281,6 +287,20 @@ profile removes the cap and persists all 30 fixture rows plus
 through the same endpoint and reuses the saved state; it appends only ID `1028`
 and advances the state to `2024-02-02T09:30:00`.
 
+The six metadata fixtures use a canonical lower-only
+`range_param_mapping` for `modified_at` with `watermark_value: observed_max`.
+The mock endpoint applies the lower `modified_at >= modified_since` predicate;
+its continuation URLs remain opaque and are followed as returned.
+
+The request-end routes `/api/orders/ranged`, `/api/orders/ranged-inclusive`,
+`/api/secure/bearer-ranged`, and `/api/orders/wm-body` expose `modified_at` as
+UTC-aware ISO timestamps. Use UTC-aware explicit replay bounds for these
+routes; split bootstrap resolves `watermark_range_start` with the configured
+timezone. Offset-bearing requests are converted to UTC instants before mock
+selection, not stripped to local wall time. Other observed-max fixtures retain
+their existing naive UTC response shape. This is a synthetic endpoint contract,
+not a runtime coercion rule for real APIs.
+
 Run each engine in this order so the state and Delta output are shared by the
 three profiles:
 
@@ -296,11 +316,11 @@ python usecase-sim/runner/run_scenario.py --scenario local_spark_api_continuatio
 
 | Field | Value |
 |---|---|
-| metadata | Polars uses `metadata/file/api_incremental_recovery_{fail,continuation}.json` plus `api_incremental_recovery.json`; Spark uses the corresponding `_spark` metadata files to isolate its output base |
+| metadata | Polars uses `metadata/file/api_incremental/api_incremental_recovery_fail.json` / `api_incremental_continuation.json` plus `api_incremental_recovery.json`; Spark uses the corresponding `_spark` metadata files to isolate its output base |
 | source | `mock-api` `/api/orders/next-link` with `modified_since` pushdown |
 | pagination | opaque same-origin `next_link`, `limit=5`; failure uses `max_pages=1` |
 | destination | Delta `api_incremental_recovery_validation` |
-| state | `usecase-sim/.runtime/data/replay_validation/api_recovery_{polars,spark}` |
+| state | `usecase-sim/.runtime/watermarks/replay_validation/api_recovery_{polars,spark}` |
 | assertions | failure exit `2` and no commit; recovery `30` rows; continuation `31` rows with ID `1028` once |
 | Docker | `mock-api`; Spark uses the existing `datacoolie-spark` container |
 
@@ -320,7 +340,7 @@ the generated 30-row sample locally; each run pushes a half-open
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/replay_sql_validation.json` |
+| metadata | `metadata/file/replay/replay_sql_validation.json` |
 | source | SQLite `orders` table from `.runtime/data/input/sqlite/orders.db` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
@@ -351,11 +371,11 @@ persisted schema/value assertions and cross-engine comparison.
 
 | Field | Value |
 |---|---|
-| canonical metadata | `metadata/file/datatype_qualification.json` |
+| canonical metadata | `metadata/file/datatypes/datatype_qualification.json` |
 | generated metadata | `.runtime/data/datatype_qualification/metadata/{engine}_{format}.json` |
 | stage | `datatype_qualification` |
 | priority | P1 |
-| setup | `scripts/prepare_datatype_qualification.py` |
+| setup | `scripts/features/datatypes/prepare_datatype_qualification.py` |
 | assertions | `tests/integration/data_types/test_usecase_sim_cross_engine.py` |
 | output roots | `.runtime/data/datatype_qualification/output/{format}/{polars,spark}` |
 
@@ -368,7 +388,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | database |
 | platform | local |
-| metadata_db_connection_string | `sqlite:///./usecase-sim/.runtime/databases/metadata/datacoolie_metadata.db` |
+| metadata_db_connection_string | `sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db` |
 | metadata_workspace_id | `local-workspace` |
 | stage | `""` |
 | priority | P1 |
@@ -429,7 +449,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | database |
 | platform | local |
-| metadata_db_connection_string | `sqlite:///./usecase-sim/.runtime/databases/metadata/datacoolie_metadata.db` |
+| metadata_db_connection_string | `sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db` |
 | metadata_workspace_id | `local-workspace` |
 | skip_api_sources | `true` |
 | priority | P1 |
@@ -465,7 +485,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | connection | `local_delta_dest` |
 | priority | P1 |
 
@@ -476,7 +496,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |
@@ -488,7 +508,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | connection | `local_delta_dest` |
 | priority | P1 |
 
@@ -499,7 +519,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |
@@ -587,7 +607,7 @@ replaced rather than appended again. The saved authored watermark is
 | destination | engine-specific REST Iceberg table `default.iceberg_replay_validation_{polars\|spark}` |
 | selection column | `order_date` |
 | load | `merge_overwrite` + `replace_by_watermark: true` |
-| assertions | `scripts/validate_iceberg_replay_output.py` checks rows, snapshots, rerun replacement and S3 state |
+| assertions | `scripts/features/replay/validate_iceberg_replay_output.py` checks rows, snapshots, rerun replacement and S3 state |
 | Docker | `minio` + `iceberg-rest`; Spark uses `datacoolie-spark` |
 
 This is an AWS-compatible MinIO/REST qualification. It does not claim parity

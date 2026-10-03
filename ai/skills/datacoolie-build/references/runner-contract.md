@@ -1,157 +1,76 @@
 # DataCoolie runner contract
 
 Read this reference when authoring or reviewing a Python or notebook entrypoint.
-The runner is project-owned execution code. It constructs framework components
-and calls one framework operation; it does not become a second project/build
-system.
-
-Use the public [runtime configuration guide](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
-and [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
-for the full path/build contract. The checks below are the agent-facing
-adaptation and handoff rules that remain specific to runners.
+The runner is project-owned execution code: it constructs framework components
+and calls one framework operation. The public [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/),
+[runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/),
+[provider guide](https://datacoolie.github.io/datacoolie/guide/providers/),
+[run-stage guide](https://datacoolie.github.io/datacoolie/guide/operations/run-stage/),
+and [published runner examples](https://datacoolie.github.io/datacoolie/examples/runners/)
+own layout, constructor fields, defaults, host setup, and recipe details.
 
 ## Identity and location
 
-Runners are stored below `runners/<environment>/` and copied to the same
-environment directory in a build. For newly authored host-specific runners,
-keep implementation identity in the filename:
-
-```text
-run_<platform>_<engine>[_{provider}].py|ipynb
-replay_<platform>_<engine>[_{provider}].py|ipynb
-maintenance_<platform>_<engine>[_{provider}].py|ipynb
-```
-
-When reusing a maintained [public example](public-examples.md), preserve its
-canonical filename, including generic project-owned names. Verify the fixed
-platform, engine, provider and operation from its source and usage guide; a
-generic filename does not permit runtime implementation selectors.
-
-The environment is selected by the directory, not by a runtime flag. Platform,
-engine, provider, and operation are fixed by the entrypoint. Use separate files
-for normal run, replay, and maintenance rather than a large mode switch.
+Derive runner location, environment mapping, host setup, and copy behavior from the public project
+workflow and the selected [public example](public-examples.md). For a newly authored host-specific
+runner, keep platform, engine, provider, and operation identity in its descriptive filename and use
+separate files for normal run, replay, and maintenance. When reusing a maintained example, preserve
+its canonical filename and fixed host/operation identity; a generic filename does not permit runtime
+implementation selectors. The selected project/environment remains the source of truth.
 
 ## Construction boundary
 
-Each runner may do only the following:
+Each runner may only:
 
-1. Decode its execution-host parameters (including one optional `stage` scalar
-   and optional integer `job_num`/`job_index`, default `1`/`0`).
+1. Decode execution-host parameters, including one received stage value and any caller-supplied job
+   context defined by the public recipe.
 2. Construct the selected platform, engine, and metadata provider.
-3. Perform required engine-local setup through public APIs (for example,
-   register qualified Delta/Iceberg tables for Polars SQL).
-4. Construct `DataCoolieRunConfig` and pass caller-owned runtime paths.
+3. Perform required engine-local setup through public APIs, such as qualified Delta/Iceberg
+   registration for Polars SQL.
+4. Construct `DataCoolieRunConfig` and pass caller-owned runtime paths and `run_attributes`.
 5. Construct `DataCoolieDriver` and call exactly one selected operation.
 
-The runner does not discover or merge metadata, resolve query files, install
-packages, create scheduler jobs, mutate target resources, or execute another
-runner. Preparation—including SQL-file and secret resolution—belongs to the
-framework execution context before a reader is created. Authored metadata is
-not rewritten by a runner.
+The runner does not discover or merge metadata, resolve query files, install packages, create
+scheduler jobs, mutate target resources, or execute another runner. Preparation, including SQL-file
+and secret resolution, belongs to the framework execution context; authored metadata is not
+rewritten by a runner.
 
 ## Paths and context
 
-Use the path that matches the chosen runtime mode:
-
-| Mode | Required/optional input |
-|---|---|
-| Project artifact | `artifact_base_path`; metadata defaults to `<artifact>/metadata` unless `metadata_base_path` is explicit |
-| Standalone metadata | `metadata_path` (one file) or `metadata_base_path` (metadata directory) |
-| SQL files | one or more `sql_base_path` values on the metadata provider or Driver; provider roots are preferred and Driver roots are the session fallback |
-| Runtime state | `state_base_path`; provider may derive missing component roots |
-| File-provider watermark | optional `watermark_base_path`; it takes precedence over derivation |
-| Log output | `log_base_path`; do not use `base_log_path` |
-
-Pass paths explicitly and unchanged. `FileProvider` may be constructed without
-a platform, but the platform is required once it performs I/O. Provider-specific
-attributes remain behind `BaseMetadataProvider`; the Driver validates only
-cross-component conflicts and startup readiness.
-
-Use the public [metadata provider guide](https://datacoolie.github.io/datacoolie/guide/providers/)
-and [runtime path ownership guide](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
-for provider/Driver precedence and SQL-root examples.
-
-External scheduler/job identifiers are caller-owned `run_attributes`, one strict
-JSON object passed to `DataCoolieRunConfig`. Do not introduce another session ID
-or place scheduler fields in project metadata. Secrets are resolved by the
-configured provider and never written to metadata, artifacts, or logs.
-
-Example Python construction:
-
-```python
-platform = LocalPlatform()
-engine = PolarsEngine(platform=platform)
-metadata = FileProvider(
-    metadata_base_path=args.metadata_base_path,
-    platform=platform,
-    watermark_base_path=args.watermark_base_path,
-    sql_base_path=args.sql_base_path or None,
-)
-config = DataCoolieRunConfig(
-    job_num=args.job_num,
-    job_index=args.job_index,
-    run_attributes=args.run_attributes,
-    dry_run=args.dry_run,
-)
-with DataCoolieDriver(
-    engine=engine,
-    metadata_provider=metadata,
-    artifact_base_path=args.artifact_base_path,
-    sql_base_path=args.sql_base_path,
-    state_base_path=args.state_base_path,
-    log_base_path=args.log_base_path,
-    config=config,
-) as driver:
-    result = driver.run(stage=args.stage)
-```
-
-When an artifact root is provided with no metadata provider, the Driver creates
-the file provider for `<artifact>/metadata`. If a provider is supplied, an
-explicit `metadata_base_path` must agree with the provider's configured root;
-conflicting explicit SQL roots also fail during construction. A provider may
-retain SQL roots without a platform; Driver preparation uses its execution
-platform to read the selected file. A project runner should pass exact
-component roots rather than reading `manifest.json`; the framework intentionally
-ignores build manifests.
+Use the public [runtime path ownership guide](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
+and the selected provider page for the exact component roots, precedence, fallback, and caller
+context. Pass project-selected roots unchanged; do not invent a fixed metadata or SQL root or a
+second path alias. The public runtime guide owns the run-attribute shape and persistence boundary;
+pass caller-owned scheduler context through the documented run configuration without introducing
+another session identity or placing scheduler fields in project metadata. Secrets are resolved by
+the configured provider and never written to metadata, artifacts, or logs.
 
 ## Stage, replay, and maintenance
 
-Pass one received stage value unchanged to one call:
-
-```python
-driver.run(stage=stage)
-```
-
-Do not split comma-delimited values, create stage plans, hardcode medallion
-names, or call the driver repeatedly inside the runner. An external orchestrator
-may invoke the same runner again for another stage. Replay and maintenance use
-their dedicated operation APIs and their own safety parameters; read
-`operations-contract.md` for those details.
+Pass one received stage value through one `driver.run(stage=stage)` call. Do not split a selection,
+create stage plans, hardcode layer names, or call the driver repeatedly inside a normal runner.
+Use the dedicated operation reference and public guides for replay/maintenance safety parameters.
+External orchestration may invoke the same runner again for another stage.
 
 ## Functions
 
-Build may package each configured functions root as a wheel, root-init ZIP, or
-copied source. The runner does not package or install it. Pass a fixed
-`allowed_function_prefixes` list rendered from the authored project/build, or
-`[]` when no function source is used. Never accept the import prefix as a runtime
-selector. Do not add a new `sys.path` bootstrap. When reusing the maintained
-[Function project recipe](https://datacoolie.github.io/datacoolie/examples/dataflows/#function-project-recipe),
-preserve only its existing project-owned bootstrap: the root is derived from
-the entrypoint layout, and the import path is the authored source root or its
-deterministic CLI-built functions ZIP. Keep the fixed import prefixes; this
-exception does not permit runtime-selected module roots, arbitrary search
-paths, package installation or runner-owned packaging.
+Use the public [function project recipe](https://datacoolie.github.io/datacoolie/examples/dataflows/#function-project-recipe)
+and sibling [function guidance](python-functions-contract.md) for build/host boundaries. The runner does not
+package or install functions. Preserve the recipe's existing project-owned import/bootstrap
+adaptation and fixed prefixes against the selected project/build; do not turn them into runtime
+selectors, arbitrary search paths, or a new runner-owned `sys.path` bootstrap.
 
-## Verification checklist
+## Outcome-scoped verification
 
-- Runner path is `runners/<env>`; implementation identity is fixed by the
-  descriptive filename or verified canonical example source and guide.
-- It has no `--env`, platform, engine, provider, or operation selector.
-- `log_base_path` is used; `base_log_path` is absent.
-- Metadata, SQL, artifact, state, watermark, and run-attribute values are passed
-  to framework APIs without runner-side reinterpretation.
-- Stage reaches one framework call unchanged; job shard values reach
-  `DataCoolieRunConfig`.
-- No package installation, remote upload, activation, or workload discovery is
-  performed by the runner.
-- The exact built runner bytes remain the authored bytes.
+For author/build-only requests, inspect the runner source, validate the project, build the requested
+artifact, and confirm that the built runner bytes remain the authored bytes. Do not execute a
+workload merely to certify authoring/build success. For an explicitly requested safe runtime check,
+follow the public [build and execute workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/#build-and-execute)
+and matching recipe for the exact copy, command and path contract. Confirm the CLI-selected retained
+environment is the one being checked, read output/state independently and preserve the documented
+rerun and retained/current validation evidence. Identify legitimate empty or skipped results,
+unavailable host dependencies, and any unperformed cloud check.
+
+Report exact input/output paths or IDs, the CLI/result evidence, checks performed and skipped,
+blockers/next owner, and unresolved questions. No package installation, remote upload, activation,
+or workload discovery belongs in a Build runner.

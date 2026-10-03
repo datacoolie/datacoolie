@@ -32,9 +32,9 @@ Endpoint catalogue:
     12. GET  /api/orders/rate-limited   429 on first call then 200 (tests retry)
     13. GET  /api/secure/oauth2         OAuth2 bearer (token auto-fetched at runtime)
     14. GET  /api/orders/ranged         Range-split: modified_since + modified_until filter
-    15. GET  /api/orders/ranged-inclusive  Range-split with inclusive upper bound (tests watermark_range_to_exclusive_offset)
+    15. GET  /api/orders/ranged-inclusive  Range-split with inclusive upper bound (canonical <= upper + residual < end)
     16. GET  /api/secure/bearer-ranged     Bearer auth + date range filter (auth + range-split)
-    17. POST /api/orders/wm-body           POST body watermark push-down (watermark_param_location="body")
+    17. POST /api/orders/wm-body           POST body watermark push-down (canonical body range bindings)
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ import argparse
 import base64
 import threading
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -54,7 +54,7 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Embedded data (30 rows — same dataset as scripts/generate_data.py)
+# Embedded data (30 rows — same dataset as scripts/bootstrap/generate_data.py)
 # ---------------------------------------------------------------------------
 
 ROWS: List[Dict[str, Any]] = [
@@ -209,13 +209,13 @@ def _check_basic() -> Optional[tuple]:
 
 
 # ---------------------------------------------------------------------------
-# Datetime parsing helper — handles all watermark_param_format variants
+# Datetime parsing helper — handles all API range mapping formats
 # ---------------------------------------------------------------------------
 
 def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
     """Convert *value* to a naive UTC datetime in any format APIReader may send.
 
-    Supported formats (mirrors ``watermark_param_format`` options):
+    Supported formats (mirrors ``range_param_mapping.*.format`` options):
 
     * ``"iso"``         — ``"2024-01-15T12:00:00"``
     * ``"date"``        — ``"2024-01-15"``
@@ -228,7 +228,10 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
         return None
     # ISO / date / datetime / datetime_ms — fromisoformat handles all of these
     try:
-        return datetime.fromisoformat(value).replace(tzinfo=None)
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=None)
     except ValueError:
         pass
     # Unix timestamp: seconds when < 1e10, milliseconds when >= 1e10
@@ -624,11 +627,30 @@ def orders_rate_limited():
 
 # ---------------------------------------------------------------------------
 # 14. Range-split: date range filter with modified_since + modified_until
-#     APIReader: watermark_range_interval_unit="day",
-#                watermark_param_mapping={"modified_at": "modified_since"},
-#                watermark_to_param="modified_until"
+#     APIReader: watermark_range_interval_unit="day" and
+#                range_param_mapping.modified_at lower >= / upper <,
+#                format="iso", response_column="modified_at",
+#                watermark_value="request_end"
 #     Server returns rows where modified_since <= modified_at < modified_until.
 # ---------------------------------------------------------------------------
+
+def _utc_range_response(rows: List[Dict[str, Any]]) -> Any:
+    """Range routes expose UTC instants for canonical residual filtering.
+
+    Embedded naive timestamps denote UTC; leave the shared dataset untouched
+    so unrelated full-read/observed-max fixtures retain their declared shapes.
+    """
+    payload = [
+        {
+            **row,
+            "modified_at": datetime.fromisoformat(row["modified_at"])
+            .replace(tzinfo=timezone.utc)
+            .isoformat(),
+        }
+        for row in rows
+    ]
+    return jsonify({"data": payload, "total": len(payload)})
+
 
 @app.route("/api/orders/ranged")
 def orders_ranged():
@@ -641,15 +663,14 @@ def orders_ranged():
     ceiling = _parse_datetime(modified_until)
     if ceiling is not None:
         rows = [r for r in rows if datetime.fromisoformat(r["modified_at"]) < ceiling]
-    return jsonify({"data": rows, "total": len(rows)})
+    return _utc_range_response(rows)
 
 
 # ---------------------------------------------------------------------------
 # 15. Range-split with INCLUSIVE upper bound (modified_until is <= instead of <)
-#     Used to test watermark_range_to_exclusive_offset: the client subtracts an
-#     epsilon from the boundary sent to the API so rows exactly at the split
-#     point are not fetched twice by adjacent ranges.
-#     APIReader: watermark_range_to_exclusive_offset="1s"
+#     The canonical mapping declares upper operator <= and response_column
+#     modified_at. APIReader sends the true end and applies residual < end
+#     filtering to the response; no epsilon is subtracted from the request.
 # ---------------------------------------------------------------------------
 
 @app.route("/api/orders/ranged-inclusive")
@@ -664,14 +685,14 @@ def orders_ranged_inclusive():
     if ceiling is not None:
         # Inclusive upper bound: <= ceiling (BETWEEN A AND B semantics)
         rows = [r for r in rows if datetime.fromisoformat(r["modified_at"]) <= ceiling]
-    return jsonify({"data": rows, "total": len(rows)})
+    return _utc_range_response(rows)
 
 
 # ---------------------------------------------------------------------------
 # 16. Bearer auth + date range filter
 #     Combines token validation with modified_since / modified_until filtering.
 #     Tests that auth and watermark range-split work together.
-#     APIReader: connection auth_type="bearer" + watermark_range_interval_unit
+#     APIReader: connection auth_type="bearer" + canonical range_param_mapping
 # ---------------------------------------------------------------------------
 
 @app.route("/api/secure/bearer-ranged")
@@ -688,13 +709,13 @@ def secure_bearer_ranged():
     ceiling = _parse_datetime(modified_until)
     if ceiling is not None:
         rows = [r for r in rows if datetime.fromisoformat(r["modified_at"]) < ceiling]
-    return jsonify({"data": rows, "total": len(rows)})
+    return _utc_range_response(rows)
 
 
 # ---------------------------------------------------------------------------
 # 17. POST body watermark push-down
 #     modified_since / modified_until are in the JSON request body (not params).
-#     Tests APIReader watermark_param_location="body" with wm_to_param.
+#     Tests APIReader range_param_mapping with lower/upper bindings in the body.
 # ---------------------------------------------------------------------------
 
 @app.route("/api/orders/wm-body", methods=["POST"])
@@ -709,7 +730,7 @@ def orders_wm_body():
     ceiling = _parse_datetime(modified_until)
     if ceiling is not None:
         rows = [r for r in rows if datetime.fromisoformat(r["modified_at"]) < ceiling]
-    return jsonify({"data": rows, "total": len(rows)})
+    return _utc_range_response(rows)
 
 
 # ---------------------------------------------------------------------------

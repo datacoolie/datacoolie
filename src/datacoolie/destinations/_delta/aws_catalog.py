@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Mapping, Optional
 from datacoolie.core.constants import Format
 from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.destinations.resolution.target import resolve_destination_target
+from datacoolie.engines.base import BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.platforms.aws_platform import AWSPlatform
 
@@ -100,7 +101,7 @@ class AwsDeltaCatalogCoordinator:
     no driver-level capability probing or generic catalog bus is introduced.
     """
 
-    def __init__(self, engine: Any) -> None:
+    def __init__(self, engine: BaseEngine[Any]) -> None:
         self._engine = engine
 
     def _resolve_path(self, dataflow: DataFlow) -> Optional[str]:
@@ -123,7 +124,7 @@ class AwsDeltaCatalogCoordinator:
 
     def capture_state(self, dataflow: DataFlow) -> Optional[AwsDeltaState]:
         """Capture pre-write Glue state, or ``None`` when AWS is not active."""
-        platform = getattr(self._engine, "platform", None)
+        platform = self._engine.platform
         if not isinstance(platform, AWSPlatform):
             return None
 

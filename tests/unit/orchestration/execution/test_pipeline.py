@@ -52,6 +52,9 @@ def test_maintenance_message_tracks_known_and_unknown_no_ops(
                 operation_details=operation_details,
             )
 
+        def get_runtime_info(self):
+            return DestinationRuntimeInfo(status=DataFlowStatus.SKIPPED.value)
+
     result = execute_maintenance_pipeline(
         _dataflow(),
         create_destination_writer=lambda _fmt: SkippingWriter(),
@@ -80,6 +83,25 @@ class _Reader:
 
     def get_new_watermark(self):
         return None
+
+    def _validate_watermark_comparison(self, watermark, *, boundary="watermark"):
+        def contains_binary(value):
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                return True
+            if isinstance(value, dict):
+                return any(contains_binary(nested) for nested in value.values())
+            if isinstance(value, (list, tuple)):
+                return any(contains_binary(nested) for nested in value)
+            return False
+
+        if contains_binary(watermark):
+            raise ValueError(
+                "Binary watermark comparison requires a qualified backend "
+                f"for {boundary}"
+            )
+
+    def merge_watermark(self, existing, candidate):
+        return {**(existing or {}), **(candidate or {})}
 
 
 class _Pipeline:
@@ -141,6 +163,154 @@ def test_etl_attempt_uses_explicit_components_without_driver() -> None:
     assert result.source.rows_read == 1
     assert result.destination.rows_written == 1
     assert calls == ["read", "transform", "write"]
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "read",
+        "get_runtime_info",
+        "get_new_watermark",
+        "_validate_watermark_comparison",
+        "merge_watermark",
+    ],
+)
+def test_missing_reader_contract_fails_before_checkpoint_or_pipeline_side_effects(
+    missing,
+) -> None:
+    reader = _Reader()
+    setattr(reader, missing, None)
+    events: list[str] = []
+
+    class Manager:
+        def get_watermark(self, **_kwargs):
+            events.append("get-watermark")
+            return {"id": 1}
+
+        def save_watermark(self, **_kwargs):
+            events.append("save-watermark")
+
+        def serialize(self, value):
+            events.append("serialize")
+            return str(value)
+
+    dataflow = _dataflow()
+    dataflow.source.watermark_columns = ["id"]
+
+    with pytest.raises(PipelineError, match=missing):
+        execute_etl_pipeline(
+            dataflow,
+            "run-missing-reader-contract",
+            column_name_mode="lower",
+            watermark_start=None,
+            watermark_end=None,
+            save_watermark=True,
+            watermark_manager=Manager(),
+            job_id="job-missing-reader-contract",
+            create_source_reader=lambda _fmt: reader,
+            create_transformer_pipeline=lambda **_kwargs: events.append("transform"),
+            create_destination_writer=lambda _fmt: events.append("writer"),
+            validate_watermark_storage=lambda *_args, **_kwargs: events.append("validate"),
+        )
+
+    assert events == []
+
+
+@pytest.mark.parametrize("missing", ["get_watermark", "save_watermark", "serialize"])
+def test_missing_manager_contract_fails_before_checkpoint_or_source_side_effects(
+    missing,
+) -> None:
+    reader = _Reader()
+    events: list[str] = []
+
+    class Manager:
+        def get_watermark(self, **_kwargs):
+            events.append("get-watermark")
+            return None
+
+        def save_watermark(self, **_kwargs):
+            events.append("save-watermark")
+
+        def serialize(self, value):
+            events.append("serialize")
+            return str(value)
+
+    manager = Manager()
+    setattr(manager, missing, None)
+    dataflow = _dataflow()
+    dataflow.source.watermark_columns = ["id"]
+
+    with pytest.raises(PipelineError, match=missing):
+        execute_etl_pipeline(
+            dataflow,
+            "run-missing-manager-contract",
+            column_name_mode="lower",
+            watermark_start=None,
+            watermark_end=None,
+            save_watermark=True,
+            watermark_manager=manager,
+            job_id="job-missing-manager-contract",
+            create_source_reader=lambda _fmt: reader,
+            create_transformer_pipeline=lambda **_kwargs: events.append("transform"),
+            create_destination_writer=lambda _fmt: events.append("writer"),
+            validate_watermark_storage=lambda *_args, **_kwargs: events.append("validate"),
+        )
+
+    assert events == []
+
+
+def test_runtime_hook_failure_preserves_primary_error_and_valid_partial_runtime() -> None:
+    class FailingRuntimeReader(_Reader):
+        def get_runtime_info(self):
+            raise RuntimeError("source runtime hook failed")
+
+    reader = FailingRuntimeReader()
+    with pytest.raises(PipelineError, match="source runtime hook failed") as caught:
+        execute_etl_pipeline(
+            _dataflow(),
+            "run-runtime-hook-failure",
+            column_name_mode="lower",
+            watermark_start=None,
+            watermark_end=None,
+            save_watermark=False,
+            watermark_manager=None,
+            job_id="job-runtime-hook-failure",
+            create_source_reader=lambda _fmt: reader,
+            create_transformer_pipeline=lambda **_kwargs: _Pipeline(),
+            create_destination_writer=lambda _fmt: _Writer(),
+            validate_watermark_storage=lambda *_args, **_kwargs: None,
+        )
+
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert caught.value.partial_result.source is None
+    assert caught.value.partial_result.transform is None
+    assert caught.value.partial_result.destination is None
+
+
+def test_wrong_transform_runtime_does_not_replace_primary_contract_error() -> None:
+    class WrongRuntimePipeline(_Pipeline):
+        def get_runtime_info(self):
+            return None
+
+    with pytest.raises(PipelineError, match="TransformRuntimeInfo") as caught:
+        execute_etl_pipeline(
+            _dataflow(),
+            "run-wrong-transform-runtime",
+            column_name_mode="lower",
+            watermark_start=None,
+            watermark_end=None,
+            save_watermark=False,
+            watermark_manager=None,
+            job_id="job-wrong-transform-runtime",
+            create_source_reader=lambda _fmt: _Reader(),
+            create_transformer_pipeline=lambda **_kwargs: WrongRuntimePipeline(),
+            create_destination_writer=lambda _fmt: _Writer(),
+            validate_watermark_storage=lambda *_args, **_kwargs: None,
+        )
+
+    assert isinstance(caught.value.partial_result.source, SourceRuntimeInfo)
+    assert caught.value.partial_result.transform is None
+    assert caught.value.partial_result.destination is None
 
 
 def test_confirmed_empty_replay_reaches_writer_with_window() -> None:
@@ -234,6 +404,9 @@ def test_failed_write_does_not_commit_new_watermark() -> None:
 
         def get_watermark(self, **_kwargs):
             return None
+
+        def serialize(self, value):
+            return str(value)
 
         def save_watermark(self, **kwargs):
             self.saved.append(kwargs)

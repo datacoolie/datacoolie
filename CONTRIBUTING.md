@@ -50,7 +50,7 @@ By contributing, you represent and agree that:
 1. Fork the repository and create a feature branch.
 2. Make your changes with clear, self-contained commits.
 3. Add or update source-package tests under `datacoolie/tests/`; keep release
-   contract tests under `scripts/tests/` and AI skill schema tests under
+   contract tests under `scripts/tests/` and AI Skill script tests under
    `ai/skills/tests/`.
 4. Run the test suite locally and ensure it passes.
 5. Sign off every commit (`git commit -s`).
@@ -66,7 +66,7 @@ poetry run python -m pip install --upgrade -r scripts/requirements-release.txt
 poetry run pytest tests/
 ```
 
-Run the ownership-specific contract suites when changing their areas:
+Run the ownership-specific script suites when changing their areas:
 
 ```bash
 poetry run pytest -c pyproject.toml scripts/tests/ -n 0

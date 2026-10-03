@@ -9,7 +9,6 @@ import pytest
 
 from datacoolie.core.exceptions import SourceError
 from datacoolie.sources._api.ranges import format_bound
-from datacoolie.sources._api.watermark import format_watermark_value
 from datacoolie.sources.api_reader import APIReader
 from datacoolie.sources import SourceReadRange
 from datacoolie.core.models.connection import Connection
@@ -103,17 +102,18 @@ def test_iso_bound_precision_is_checked_before_datetime_parsing(value, expected)
         assert format_bound(value, "iso") == expected
 
 
-def test_legacy_watermark_formatter_keeps_existing_truncation_behavior():
+def test_canonical_bound_formatter_rejects_lossy_temporal_precision():
     value = datetime(2026, 1, 1, 12, 30, 0, 123456, tzinfo=timezone.utc)
 
-    assert format_watermark_value(value, "datetime") == "2026-01-01T12:30:00"
-    assert format_watermark_value(value, "datetime_ms") == "2026-01-01T12:30:00.123"
+    with pytest.raises(SourceError, match="precision|loss"):
+        format_bound(value, "datetime")
+    with pytest.raises(SourceError, match="precision|loss"):
+        format_bound(value, "datetime_ms")
 
 
 @pytest.mark.parametrize("wire_format", ["date", "datetime", "datetime_ms", "timestamp_ms"])
 def test_api_range_compiler_rejects_lossy_precision_before_http(wire_format):
-    # The new binding compiler owns this rejection. The legacy formatter may
-    # retain its established rounding behavior for legacy incremental routes.
+    # The canonical binding compiler owns this rejection before HTTP.
     source = Source(
         connection=Connection(name="precision-api", connection_type="api", format="api",
                               configure={"base_url": "https://api.example.com"}),

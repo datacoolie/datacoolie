@@ -156,15 +156,17 @@ Quick database connectivity check:
       `offset_max_workers` respects the provider's rate limit, and `max_pages`
       cannot silently truncate the intended result. `rate_limit_delay` does
       not throttle those parallel requests.
-- [ ] For the **legacy incremental API split**,
-      `watermark_range_interval_unit` has `watermark_to_param` and
-      `watermark_param_mapping`, and the first run has
-      `watermark_range_start`; the API accepts both lower and upper bounds.
-      These fields are not required for canonical bounded replay.
-- [ ] For API bounded reads or replay, prefer `range_param_mapping` with an
+- [ ] For canonical API incremental splitting, `range_param_mapping` has
+      lower and upper bindings for the active field. Set
+      `watermark_range_interval_unit`, `watermark_range_interval_amount`, and
+      `watermark_range_max_workers` deliberately; use
+      `watermark_range_start` when the first run has no stored lower value.
+- [ ] For API bounded reads or replay, use `range_param_mapping` with an
       explicit lower and upper binding for the selected field. Check each
-      binding's location, operator, wire format, and `response_column`; use
-      `format: integer` for numeric bounds so values are not stringified.
+      binding's location, endpoint operator, format, and `response_column`.
+      Lower and upper bindings may use a parameter-name string shorthand or an
+      object; integer formats include `integer`, `int`, `native_integer`, and
+      `number`.
 - [ ] For API `range_param_mapping`, choose one `watermark_value` meaning per
       active request: `observed_max` requires a returned response field, while
       `request_end` requires an exact covered end and complete pagination.
@@ -175,22 +177,32 @@ Quick database connectivity check:
       calendar dates, `datetime` values are whole seconds, and millisecond
       formats require millisecond-aligned values. Unrepresentable fractional
       precision fails before the request.
+- [ ] If an endpoint implements an inclusive upper operator (`<=`) for a
+      canonical `[start, end)` request, the binding uses that real operator and
+      `response_column` performs the residual `< end` filter. Do not subtract an
+      epsilon.
 - [ ] For API `next_link` pagination, treat the continuation URL as opaque by
       default. Configure `next_link_bound_mode: repeat_query_bounds` only when
       the endpoint contract requires query bounds on every page; matching,
       missing, duplicate, and conflicting bounds have distinct outcomes.
 - [ ] A bounded API replay `chunk_column` has a matching
       `range_param_mapping` entry with both lower and upper bindings. The
-      selected field may be outside `source.watermark_columns`; legacy
-      `watermark_param_mapping` plus `watermark_to_param` is not sufficient
-      for an exact `[start, end)` read.
+      selected field may be outside `source.watermark_columns`; only authored
+      watermark columns are persisted.
 - [ ] For API next-link pagination, returned links remain on the configured
       HTTP(S) origin. The reader rejects a foreign host/port, scheme downgrade,
       userinfo, or non-HTTP(S) continuation before sending the next request.
-- [ ] For a legacy endpoint whose upper bound is inclusive,
-      `watermark_range_to_exclusive_offset` is intentionally set and its
-      precision matches the API parameter. Do not use it to emulate an
-      exclusive canonical range; use `range_param_mapping` operators.
+- [ ] During the unreleased `0.2.0` cutover, reject the presence (including
+      null or empty values) of `watermark_param_mapping`, `watermark_to_param`,
+      `watermark_param_location`, `watermark_param_format`, and
+      `watermark_range_to_exclusive_offset` in `source.configure`. Replace them
+      manually with `range_param_mapping`; do not rely on automatic migration.
+- [ ] Before resuming existing API state, classify a lower-only historical
+      range as `observed_max` and a lower-plus-upper range as `request_end` only
+      after endpoint coverage and checkpoint meaning are verified. Do not reset
+      or infer state from scalar shape. If precision or completeness is
+      uncertain, use a controlled operator-approved replay; binary rollback is
+      not state rollback.
 - [ ] If `watermark_to_param_timezone` is set, the source-level value is
       intentional; it overrides the connection-level value.
 - [ ] For function sources: `source.python_function` is a dotted path like

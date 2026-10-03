@@ -295,6 +295,39 @@ The build command does not deploy or run a dataflow. A project-owned runner
 chooses whether to load metadata from the authored tree, `current`, or a
 deployed environment and then creates the appropriate `DataCoolieDriver`.
 
+### Edit, build and verify
+
+Keep the authored project as the source while iterating. After a small edit,
+run the narrowest relevant check first: metadata validation for metadata
+changes, a targeted function or SQL check for code changes, or a runner check
+when the entrypoint changed. At a candidate checkpoint, validate the project,
+build it, and validate the selected artifact:
+
+```bash
+dc validate --project-dir <project> --format json
+dc build --project-dir <project> --format json
+dc validate --artifact-path <build_path-from-the-build-response> --format json
+```
+
+Run these commands and any recipe check from the user's existing `.venv` (or
+already active Python environment). It may live outside the project; project
+creation and build do not create, bundle, install into, or upgrade an
+environment. If a recipe fails because a package or host capability is absent,
+report that runtime prerequisite gap instead of changing the environment as
+part of a runner.
+
+When runtime verification is requested, use the `build_path` and environment
+inventory returned by the build command to select the exact retained
+`<build_path>/<env>` tree. Copy that complete environment into a new, empty
+execution directory outside the authored project and its `.builds/` tree, then
+run the public recipe from the copy with its documented working directory and
+arguments. Confirm that the recipe's output and runtime-state paths are absent
+before the first run, read the expected result and state independently of the
+runner's stdout, and rerun when the recipe specifies overwrite or idempotency
+behavior. Keep the retained build and `current` roots untouched by the run and
+validate both of them again afterward. A source-tree run can check an authored
+runner, but it does not prove that the built artifact is runnable.
+
 ### Release handoff (external upload workflow)
 
 There is intentionally no `dc release` command. A project-owned adapter, CI

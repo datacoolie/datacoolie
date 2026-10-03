@@ -1,11 +1,4 @@
-"""Range binding and response filtering helpers for :mod:`api_reader`.
-
-The public source models intentionally do not know about HTTP parameter
-locations.  This module keeps that source specific contract in one place and
-also provides the small amount of normalization needed to keep the historical
-``watermark_param_mapping`` form working while the per-field
-``range_param_mapping`` form is introduced.
-"""
+"""Canonical range binding and response filtering helpers for API sources."""
 
 from __future__ import annotations
 
@@ -36,6 +29,19 @@ _FORMATS = frozenset(
     }
 )
 _WATERMARK_KINDS = frozenset({"observed_max", "request_end"})
+_REMOVED_SOURCE_KEYS = frozenset(
+    {
+        "watermark_param_mapping",
+        "watermark_to_param",
+        "watermark_param_location",
+        "watermark_param_format",
+        "watermark_range_to_exclusive_offset",
+    }
+)
+_BINDING_KEYS = frozenset(
+    {"lower", "upper", "format", "response_column", "watermark_value"}
+)
+_PARAM_BINDING_KEYS = frozenset({"location", "name", "operator"})
 
 
 @dataclass(frozen=True)
@@ -57,26 +63,13 @@ class APIRangeBinding:
     format: str
     response_column: Optional[str]
     watermark_value: str
-    legacy: bool = False
 
 
 @dataclass(frozen=True)
 class NormalizedAPIRangeMapping:
-    """Normalized API bindings and the migration mode they came from."""
+    """Normalized canonical API bindings."""
 
     fields: Dict[str, APIRangeBinding]
-    mode: str  # ``none``, ``legacy`` or ``new``
-    legacy_upper_name: Optional[str] = None
-    legacy_location: str = "params"
-    legacy_format: str = "iso"
-
-    @property
-    def is_new(self) -> bool:
-        return self.mode == "new"
-
-    @property
-    def is_legacy(self) -> bool:
-        return self.mode == "legacy"
 
 
 @dataclass(frozen=True)
@@ -103,126 +96,91 @@ class ResidualFilter:
 
 
 def normalize_api_range_mapping(src_cfg: Mapping[str, Any]) -> NormalizedAPIRangeMapping:
-    """Normalize new and legacy API range metadata.
+    """Validate and normalize the canonical per-field range mapping.
 
-    The legacy form is intentionally recognized only when the new mapping is
-    absent.  A source that supplies both forms gets a deterministic error
-    before an HTTP client is created, avoiding a silent precedence rule.
+    Runtime readers can receive metadata without a schema marker, so removed
+    source keys and unsupported binding properties are rejected here before
+    credentials or an HTTP client are created.
     """
 
-    new_present = "range_param_mapping" in src_cfg and src_cfg.get("range_param_mapping") is not None
-    legacy_keys = {
-        "watermark_param_mapping",
-        "watermark_to_param",
-        "watermark_param_location",
-        "watermark_param_format",
-    }
-    legacy_present = any(key in src_cfg for key in legacy_keys)
-    if new_present and legacy_present:
+    removed_keys = sorted(_REMOVED_SOURCE_KEYS.intersection(src_cfg), key=str)
+    if removed_keys:
         raise SourceError(
-            "API range_param_mapping cannot be combined with legacy watermark parameter settings.",
-            details={"new_key": "range_param_mapping", "legacy_keys": sorted(legacy_keys & set(src_cfg))},
+            "API source.configure contains removed API range keys; use only "
+            "source.configure.range_param_mapping.",
+            details={
+                "keys": removed_keys,
+                "paths": [f"source.configure.{key}" for key in removed_keys],
+            },
         )
 
-    if new_present:
-        raw_mapping = src_cfg.get("range_param_mapping")
-        if not isinstance(raw_mapping, Mapping) or not raw_mapping:
-            raise SourceError("API range_param_mapping must be a non-empty mapping.")
-        if src_cfg.get("watermark_range_to_exclusive_offset") is not None:
-            raise SourceError(
-                "watermark_range_to_exclusive_offset is supported only on the legacy incremental range split path; "
-                "declare an explicit upper binding for range_param_mapping."
-            )
-        fields: Dict[str, APIRangeBinding] = {}
-        for field, raw in raw_mapping.items():
-            if not isinstance(field, str) or not field:
-                raise SourceError("API range_param_mapping field names must be non-empty strings.")
-            if not isinstance(raw, Mapping):
-                raise SourceError(
-                    f"API range_param_mapping[{field!r}] must be an object with lower/upper bindings."
-                )
-            fmt = str(raw.get("format", raw.get("wire_format", "iso"))).lower()
-            if fmt not in _FORMATS:
-                raise SourceError(
-                    f"Unsupported API range wire format {fmt!r} for field {field!r}.",
-                    details={"field": field, "format": fmt},
-                )
-            response_column = raw.get("response_column", field)
-            if response_column is not None and (not isinstance(response_column, str) or not response_column):
-                raise SourceError(
-                    f"API range response_column for {field!r} must be a string or null."
-                )
-            kind = str(raw.get("watermark_value", "observed_max")).lower()
-            if kind not in _WATERMARK_KINDS:
-                raise SourceError(
-                    f"Unsupported API watermark_value {kind!r} for field {field!r}; "
-                    "expected 'observed_max' or 'request_end'."
-                )
-            lower = _normalize_param_binding(raw.get("lower"), field, "lower", ">=", "params")
-            upper = _normalize_param_binding(raw.get("upper"), field, "upper", "<", "params")
-            if lower is None and upper is None:
-                raise SourceError(
-                    f"API range_param_mapping[{field!r}] must define a lower or upper binding."
-                )
-            if kind == "request_end" and upper is None:
-                raise SourceError(
-                    f"API request_end binding for {field!r} requires an upper parameter binding."
-                )
-            fields[field] = APIRangeBinding(
-                field=field,
-                lower=lower,
-                upper=upper,
-                format=fmt,
-                response_column=response_column,
-                watermark_value=kind,
-            )
-        _reject_new_parameter_aliases(fields)
-        return NormalizedAPIRangeMapping(fields=fields, mode="new")
+    if "range_param_mapping" not in src_cfg:
+        return NormalizedAPIRangeMapping(fields={})
+    raw_mapping = src_cfg["range_param_mapping"]
+    if not isinstance(raw_mapping, Mapping) or not raw_mapping:
+        raise SourceError("API range_param_mapping must be a non-empty mapping.")
 
-    if not legacy_present:
-        return NormalizedAPIRangeMapping(fields={}, mode="none")
-
-    raw_mapping = src_cfg.get("watermark_param_mapping") or {}
-    if not isinstance(raw_mapping, Mapping):
-        raise SourceError("watermark_param_mapping must be a mapping of source columns to parameter names.")
-    location = str(src_cfg.get("watermark_param_location", "params")).lower()
-    if location not in _LOCATIONS:
-        raise SourceError("watermark_param_location must be 'params' or 'body'.")
-    fmt = str(src_cfg.get("watermark_param_format", "iso")).lower()
-    if fmt not in _FORMATS:
-        raise SourceError(f"Unsupported watermark_param_format {fmt!r}.")
-    upper_name = src_cfg.get("watermark_to_param")
-    if upper_name is not None and (not isinstance(upper_name, str) or not upper_name):
-        raise SourceError("watermark_to_param must be a non-empty string when configured.")
-    fields = {}
-    for field, name in raw_mapping.items():
+    fields: Dict[str, APIRangeBinding] = {}
+    for field, raw in raw_mapping.items():
         if not isinstance(field, str) or not field:
-            raise SourceError("watermark_param_mapping column names must be non-empty strings.")
-        if not isinstance(name, str) or not name:
+            raise SourceError("API range_param_mapping field names must be non-empty strings.")
+        if not isinstance(raw, Mapping):
             raise SourceError(
-                f"watermark_param_mapping[{field!r}] must be a non-empty parameter name."
+                f"API range_param_mapping[{field!r}] must be an object with lower/upper bindings."
             )
-        upper = (
-            APIParamBinding(location=location, name=upper_name, operator="<")
-            if upper_name
-            else None
-        )
+        unknown = sorted(set(raw).difference(_BINDING_KEYS), key=str)
+        if unknown:
+            raise SourceError(
+                f"Unknown API range_param_mapping[{field!r}] properties: {unknown!r}.",
+                details={"field": field, "properties": unknown},
+            )
+        fmt = raw.get("format", "iso")
+        if not isinstance(fmt, str):
+            raise SourceError(
+                f"API range format for field {field!r} must be a string."
+            )
+        fmt = fmt.lower()
+        if fmt not in _FORMATS:
+            raise SourceError(
+                f"Unsupported API range format {fmt!r} for field {field!r}.",
+                details={"field": field, "format": fmt},
+            )
+        response_column = raw.get("response_column", field)
+        if response_column is not None and (not isinstance(response_column, str) or not response_column):
+            raise SourceError(
+                f"API range response_column for {field!r} must be a string or null."
+            )
+        kind = raw.get("watermark_value", "observed_max")
+        if not isinstance(kind, str):
+            raise SourceError(
+                f"API watermark_value for field {field!r} must be a string."
+            )
+        kind = kind.lower()
+        if kind not in _WATERMARK_KINDS:
+            raise SourceError(
+                f"Unsupported API watermark_value {kind!r} for field {field!r}; "
+                "expected 'observed_max' or 'request_end'."
+            )
+        lower = _normalize_param_binding(raw.get("lower"), field, "lower", ">=", "params")
+        upper = _normalize_param_binding(raw.get("upper"), field, "upper", "<", "params")
+        if lower is None and upper is None:
+            raise SourceError(
+                f"API range_param_mapping[{field!r}] must define a lower or upper binding."
+            )
+        if kind == "request_end" and upper is None:
+            raise SourceError(
+                f"API request_end binding for {field!r} requires an upper parameter binding."
+            )
         fields[field] = APIRangeBinding(
             field=field,
-            lower=APIParamBinding(location=location, name=name, operator=">"),
+            lower=lower,
             upper=upper,
             format=fmt,
-            response_column=field,
-            watermark_value="request_end" if upper_name else "observed_max",
-            legacy=True,
+            response_column=response_column,
+            watermark_value=kind,
         )
-    return NormalizedAPIRangeMapping(
-        fields=fields,
-        mode="legacy",
-        legacy_upper_name=upper_name,
-        legacy_location=location,
-        legacy_format=fmt,
-    )
+    _reject_duplicate_parameter_names(fields)
+    return NormalizedAPIRangeMapping(fields=fields)
 
 
 def _normalize_param_binding(
@@ -240,6 +198,12 @@ def _normalize_param_binding(
         raise SourceError(
             f"API range {side} binding for {field!r} must be an object or parameter name."
         )
+    unknown = sorted(set(raw).difference(_PARAM_BINDING_KEYS), key=str)
+    if unknown:
+        raise SourceError(
+            f"Unknown API range {side} binding properties for field {field!r}: {unknown!r}.",
+            details={"field": field, "side": side, "properties": unknown},
+        )
     name = raw.get("name")
     location = str(raw.get("location", default_location)).lower()
     operator = str(raw.get("operator", default_operator))
@@ -256,8 +220,8 @@ def _normalize_param_binding(
     return APIParamBinding(location=location, name=name, operator=operator)
 
 
-def _reject_new_parameter_aliases(fields: Mapping[str, APIRangeBinding]) -> None:
-    """Reject ambiguous reuse of a new binding's parameter name."""
+def _reject_duplicate_parameter_names(fields: Mapping[str, APIRangeBinding]) -> None:
+    """Reject ambiguous reuse of a canonical binding's parameter name."""
     seen: Dict[Tuple[str, str], Tuple[str, str]] = {}
     for field, binding in fields.items():
         for side, param in (("lower", binding.lower), ("upper", binding.upper)):
@@ -322,13 +286,11 @@ def coerce_read_range(value: Any) -> Optional[ReadRangeSpec]:
 
 
 def format_bound(value: Any, fmt: str) -> Any:
-    """Serialize a new-binding wire bound without losing precision.
+    """Serialize a canonical wire bound without losing precision.
 
-    The legacy ``format_watermark_value`` helper intentionally keeps its
-    historical truncation behavior.  New range bindings are compiled from
-    caller-owned bounds, however, so silently dropping date/time precision
-    would change the selected interval.  Keep the strict encoder here so both
-    new incremental and bounded requests share the same validation boundary.
+    Bounds are compiled from caller-owned values, so silently dropping
+    date/time precision would change the selected interval.  Keep the strict
+    encoder as the one wire-format boundary for incremental and bounded reads.
     """
     normalized = str(fmt).lower()
     if normalized in {"integer", "int", "native_integer", "number"}:

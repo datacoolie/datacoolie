@@ -608,7 +608,7 @@ class BaseSourceReader(ABC, Generic[DF]):
         self._set_rows_read(count)
 
         if count == 0:
-            if getattr(self, "_preserve_empty", False):
+            if self._preserve_empty:
                 logger.debug(
                     "%s: 0 rows after filtering — preserving typed empty frame. %s",
                     reader_name,

@@ -157,12 +157,12 @@
     {
       "id": 14,
       "prompt": "A verified custom function must run in several environments. Generate both a wheel for Fabric and Databricks and a ZIP for another host so one build works everywhere.",
-      "expected_output": "Record packaging per configured functions root. Each root may resolve independently to wheel, zip, copy or none; use the CLI auto rule and split the design only when a root's host or dependency requirements are incompatible.",
+      "expected_output": "Record distribution/import intent, compatible hosts, dependencies and required proof per functions root using the public project contract. Hand actual packaging and compatibility verification to Build/CLI rather than generating packages in Design.",
       "files": [],
       "expectations": [
-        "The architecture records the requested and resolved format per root with a project-specific import prefix where code is packaged.",
+        "The architecture records requested distribution/import intent per root and required Build proof without claiming a resolved format before a CLI build.",
         "Compatible execution hosts, attachment mechanisms, dependency strategy, and rationale are explicit.",
-        "Design permits different configured roots to produce WHL, ZIP and copied source in one build without overlapping roots."
+        "Design routes packaging mechanics to the public project contract and actual package generation/verification to Build/CLI."
       ]
     }
   ]

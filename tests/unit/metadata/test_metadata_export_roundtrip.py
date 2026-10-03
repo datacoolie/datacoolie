@@ -12,7 +12,7 @@ from datacoolie.metadata.documents.excel import parse_excel
 
 
 def _load_setup_metadata() -> ModuleType:
-    script = Path(__file__).parents[3] / "usecase-sim" / "scripts" / "setup_metadata.py"
+    script = Path(__file__).parents[3] / "usecase-sim" / "scripts" / "bootstrap" / "setup_metadata.py"
     spec = importlib.util.spec_from_file_location("setup_metadata_for_test", script)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load {script}")

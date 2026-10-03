@@ -3,14 +3,15 @@
   "eval_schema_version": 2,
   "case_kinds": {
     "decision": [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14],
-    "execution": [8]
+    "execution": [8, 15, 16, 17, 18]
   },
   "capability_families": {
     "project-contract": [1, 2, 3, 4, 9, 11],
     "artifact-validation": [5, 6, 7, 10],
     "cli-automation": [8],
     "runtime-boundary": [12],
-    "docs-routing": [13, 14]
+    "docs-routing": [13, 14, 15],
+    "recipe-execution": [16, 17, 18]
   },
   "evals": [
     {
@@ -100,7 +101,7 @@
     {
       "id": 13,
       "prompt": "A stale Skill note says every source must use exactly one selector and its capability table is labeled 0.1.9, while the installed framework is 0.2.0 and the public metadata/schema pages differ. Decide which contract to apply.",
-      "expected_output": "Read the compatible public documentation first, then verify the installed CLI/schema/runtime. Select the greatest compatible schema version and the selector supported by the chosen reader; do not invent universal selector exclusivity or maintain a copied capability catalog. Record and reconcile any version mismatch before editing metadata.",
+      "expected_output": "Read the compatible public documentation first, then verify the installed CLI/schema/runtime. Apply the supported schema and reader-specific selector from the compatible docs and installed evidence; do not invent universal selector exclusivity or maintain a copied capability catalog. Record and reconcile any version mismatch before editing metadata.",
       "files": [],
       "expectations": ["Public docs and installed evidence outrank a stale Skill summary", "Reader-specific selectors are not converted into a universal one-of rule"]
     },
@@ -110,6 +111,84 @@
       "expected_output": "Use the catalog's direct action and pinned revision when available; if network access is unavailable, use the explicitly supplied same-revision local checkout as a retrieval source. Verify the file/commit or archive contents, preserve the project-owned runner boundary, and do not silently fall back to main or create a second maintained template tree.",
       "files": [],
       "expectations": ["Pinned direct links and same-revision offline sources are accepted", "An unavailable revision is reported rather than guessed or silently replaced"]
+    },
+    {
+      "id": 15,
+      "prompt": "Repair a temporary metadata project using the compatible public Metadata Guide and the supplied canonical artifact fixture. The dataflow must use explicit-ID identity without a display name, the project must keep its configured metadata root, and the chosen destination strategy must follow the documentation's conditional merge-key rule, including the documented usable-window case. Start with an invalid metadata variant containing a transient schema/type error, run the installed CLI validation in JSON mode, retain the initial failure diagnostics and exit code, apply the documented correction, and rerun validation. Assess the merge-key question from the docs without executing a workload.",
+      "expected_output": "Read the referenced public metadata pages and fixture before editing an isolated copy. Preserve the fixture's configured component paths, make the identity and load-strategy changes supported by the selected docs, and report both validation commands with their observed exit codes and JSON diagnostics. The final result is a validation-only handoff; no runner or workload is executed.",
+      "files": [
+        "../../../docs/guide/metadata/first-metadata-file.md",
+        "../../../docs/guide/metadata/destination-and-load-patterns.md",
+        "../../../docs/guide/metadata/merge-and-scd2.md",
+        "../../../docs/guide/metadata/validation-checklist.md",
+        "../../../docs/examples/files/projects/artifact/datacoolie.yml",
+        "../../../docs/examples/files/projects/artifact/metadata/dataflows/orders_query.json",
+        "../../../docs/examples/files/projects/artifact/runners/dev/run.py"
+      ],
+      "expectations": [
+        "The isolated metadata repair cites the referenced public docs and preserves the fixture's configured project roots",
+        "Initial and corrected CLI validation commands, exit codes, and JSON diagnostics are retained as evidence",
+        "The report is scoped to validation and does not claim workload execution"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Retrieve or extract the compatible canonical artifact project and follow its public recipe and CLI project/commands docs. In an isolated project root, run the documented validation and actual build commands, use the reported build identity and inventory to select the complete dev environment, copy it to a fresh empty execution directory outside the source and .builds tree, and execute the copied artifact runner there. Independently read the documented output and runtime state, rerun the built artifact to check the documented overwrite behavior, and validate the retained build and current roots afterward. Keep the recipe/source revision and every command's exit code in the evidence.",
+      "expected_output": "Use the public example catalog/recipe, CLI project/commands docs and supplied project/runner files at one compatible revision. Run validation and build, record the CLI-selected build/environment identity, prove output/state are absent in a disjoint execution copy before running the copied artifact runner, retain stdout/stderr and exit codes, then check the documented Parquet result and runtime records independently, including the rerun result and post-run validation of the untouched original roots. Report any unavailable dependency or host check as skipped instead of claiming it passed.",
+      "files": [
+        "../../../docs/examples/dataflows.md",
+        "../../../docs/examples/index.md",
+        "../../../docs/guide/cli/project.md",
+        "../../../docs/guide/cli/commands.md",
+        "../../../docs/examples/files/projects/artifact/datacoolie.yml",
+        "../../../docs/examples/files/projects/artifact/metadata/connections.json",
+        "../../../docs/examples/files/projects/artifact/metadata/dataflows/orders_query.json",
+        "../../../docs/examples/files/projects/artifact/queries/orders.sql",
+        "../../../docs/examples/files/projects/artifact/data/input/orders.csv",
+        "../../../docs/examples/files/projects/artifact/runners/dev/run.py"
+      ],
+      "expectations": [
+        "Recipe, source/project revision, CLI commands, runner command, and observed exit codes are retained as execution evidence",
+        "The complete selected environment runs from a fresh disjoint copy with generated output/state absent before the first run, and retained/current validation succeeds afterward",
+        "The requested artifact output and documented runtime state are checked independently of the runner's own stdout",
+        "Unavailable host or dependency checks are reported as skipped with their scope"
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Use the canonical artifact recipe and runner in an isolated copy to test outcome reporting. The documented stage selection is expected to produce one output artifact, but invoke a variant whose stage selection is empty while the process exits zero. Compare the requested selection and output with the command evidence and an independent filesystem readback, then report the unmet expectation. Also run a separately labeled control where an empty selection/input is explicitly the requested outcome and keep that control acceptable.",
+      "expected_output": "Retain the recipe/project provenance, commands, exit codes, stdout/stderr and output/state inspection for both runs. Treat exit code zero as process evidence only: report the missing expected selection/output for the nonempty request, while classifying the explicitly empty control as a legitimate empty result rather than a failure.",
+      "files": [
+        "../../../docs/examples/dataflows.md",
+        "../../../docs/examples/files/projects/artifact/datacoolie.yml",
+        "../../../docs/examples/files/projects/artifact/metadata/dataflows/orders_query.json",
+        "../../../docs/examples/files/projects/artifact/runners/dev/run.py"
+      ],
+      "expectations": [
+        "The agent reports the documented selection/output mismatch from independent evidence even though the command exit code is zero",
+        "Commands, observed exit codes, and output or state evidence are retained for the mismatch and the control",
+        "An explicitly empty selection/input control is classified as legitimate empty and is not reported as an execution failure"
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "Adapt the public Function project recipe using the user's existing .venv or active Python environment. Validate and build the isolated project, use the CLI dry-run and build inventory to confirm per-root packaging, select the built function package, copy the complete dev environment to a fresh empty execution directory outside the source and .builds tree, and run the project-owned runner there with its fixed functions import prefix. Read the expected output and runtime state independently, rerun the artifact, and validate the retained build and current roots afterward. Do not perform environment setup or package installation as part of the runner.",
+      "expected_output": "Follow the public Function recipe and CLI packaging contract. Retain each CLI command's exit code plus dry-run/build packaging evidence, execute the selected built ZIP or copied functions root from a fresh disjoint environment with the authored runner and fixed import prefix, verify output/state and rerun behavior independently, and keep the original retained/current roots valid. If a dependency or host capability is unavailable, report the runtime scope as skipped; do not turn environment discovery or setup into Build work.",
+      "files": [
+        "../../../docs/examples/dataflows.md",
+        "../../../docs/guide/cli/project.md",
+        "../../../docs/guide/cli/commands.md",
+        "../../../docs/examples/files/projects/function/datacoolie.yml",
+        "../../../docs/examples/files/projects/function/metadata/dataflows/orders_function.json",
+        "../../../docs/examples/files/projects/function/functions/__init__.py",
+        "../../../docs/examples/files/projects/function/functions/sources.py",
+        "../../../docs/examples/files/projects/function/runners/dev/run.py"
+      ],
+      "expectations": [
+        "CLI dry-run and build evidence identifies the configured function-root packaging and the exact selected artifact",
+        "The built Function runner executes from a fresh disjoint copy with the fixed import prefix and independently verified output/state, including rerun behavior",
+        "The user's existing environment is reused without runner-owned installation or environment creation, and unavailable prerequisites are reported with scope"
+      ]
     }
   ]
 }

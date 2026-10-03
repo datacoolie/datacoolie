@@ -179,11 +179,58 @@ def test_next_link_metadata_mode_rejected_at_authored_path(value: object) -> Non
 @pytest.mark.parametrize("configure", [
     {"range_param_mapping": {"modified_at": {"lower": "since", "upper": "until"}},
      "watermark_range_interval_unit": "day"},
-    {"watermark_param_mapping": {"modified_at": "since"}, "watermark_to_param": "until",
+    {"range_param_mapping": {"modified_at": {"lower": "since", "upper": "until",
+                                              "watermark_value": "request_end"}},
      "watermark_range_interval_unit": "day", "watermark_range_start": "2026-01-01T00:00:00Z"},
 ])
-def test_split_metadata_keeps_canonical_and_legacy_structural_forms(configure: dict) -> None:
+def test_split_metadata_keeps_canonical_structural_forms(configure: dict) -> None:
     # Stored lower state and endpoint guarantees are runtime context, not required authoring fields.
     _, diagnostics = validate_metadata_schema(_api_metadata(configure), framework_version="0.2.0")
+
+    assert diagnostics == ()
+
+
+@pytest.mark.parametrize("key", [
+    "watermark_param_mapping", "watermark_to_param", "watermark_param_location",
+    "watermark_param_format", "watermark_range_to_exclusive_offset",
+])
+@pytest.mark.parametrize("value", [None, "", {}, "old"])
+@pytest.mark.parametrize("canonical", [False, True])
+def test_current_schema_rejects_removed_api_keys_by_presence(key, value, canonical) -> None:
+    configure = {key: value}
+    if canonical:
+        configure["range_param_mapping"] = {"updated_at": {"lower": "since", "upper": "until"}}
+    document = _api_metadata(configure)
+    before = deepcopy(document)
+    _, diagnostics = validate_metadata_schema(document, framework_version="0.2.0")
+
+    assert diagnostics
+    assert any(issue.path == f"/dataflows/0/source/configure/{key}" for issue in diagnostics)
+    assert document == before
+
+
+def test_current_schema_keeps_unrelated_extensions_and_canonical_timezone_controls() -> None:
+    _, diagnostics = validate_metadata_schema(_api_metadata({
+        "custom_plugin_setting": {"enabled": True},
+        "range_param_mapping": {"updated_at": {"lower": "since", "upper": "until"}},
+        "watermark_to_param_timezone": "+07:00", "watermark_range_interval_unit": "day",
+        "watermark_range_start": "2026-01-01T00:00:00+07:00", "watermark_range_max_workers": 2,
+    }), framework_version="0.2.0")
+
+    assert diagnostics == ()
+
+
+def test_current_schema_requires_binding_for_incremental_split() -> None:
+    _, diagnostics = validate_metadata_schema(_api_metadata({
+        "watermark_range_interval_unit": "day", "watermark_range_start": "2026-01-01",
+    }), framework_version="0.2.0")
+
+    assert diagnostics
+
+
+def test_released_schema_retains_historical_api_configuration() -> None:
+    _, diagnostics = validate_metadata_schema(_api_metadata({
+        "watermark_param_mapping": {"updated_at": "since"}, "watermark_to_param": "until",
+    }), framework_version="0.1.5")
 
     assert diagnostics == ()

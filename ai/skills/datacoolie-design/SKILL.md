@@ -17,6 +17,10 @@ inventing contracts. Own material system behavior: stage graph, transition grain
 load/change strategy, compatible platform intent, control-storage and recovery policy, resource
 requirements, and release policy.
 
+Record desired behavior and acceptance criteria using compatible public docs. Build translates
+approved intent into documented configuration and runners; the framework owns execution semantics.
+Do not restate those mechanics or design a parallel implementation of an available capability.
+
 Design does not inspect sources, author exact metadata or code, create resources, verify runtime
 behavior, or deploy. It may create only the workspace container, `architecture/`, and
 `.approvals/design/`.
@@ -59,12 +63,13 @@ decision and is not runtime or package CLI functionality.
 4. Describe capability intent across source, authentication, engine, transforms, destination,
    load, platform, and dependencies. Prefer a credible native DataCoolie path; identify only a
    suspected unsupported boundary for build-time proof.
- 5. When a verified unsupported boundary requires Python functions, record packaging intent for
-    each configured functions root. A single build may contain different root results: `wheel`,
-    `zip`, `copy`, or `none`. `auto` is a Build/CLI decision (`pyproject.toml` backend → wheel,
-    root-level `__init__.py` → wrapped ZIP, otherwise source copy); Design records the compatible
-    host, import prefix, dependency strategy, rationale, and required proof per root. Do not
-    collapse independent roots into one global format or request duplicate overlapping roots.
+5. When functions are required, record project-specific distribution/import and host
+   intent for each configured root. Read the public
+   [functions project contract](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+   and selected [project recipe](https://datacoolie.github.io/datacoolie/examples/dataflows/)
+   for packaging and import behavior. Design records host, import prefix,
+   dependency strategy, rationale and required proof; Build verifies actual
+   packaging against that contract. Preserve independent root intent.
 6. Record required resources and release policy without provisioning or deploying. The policy
    defines each runner's deployment kind and native target identity, stable target current identity,
    candidate activation mechanism, in-flight execution
@@ -78,7 +83,9 @@ decision and is not runtime or package CLI functionality.
     isolated paths and access controls.
 7. List compatible engines/platforms without binding stages to engines. Record execution host and
    native/external platform runtime mode separately from platform intent when an adapter can run on
-   multiple hosts. Runtime orchestration selects an exact runner and supplies the stage value.
+   multiple hosts. Use the public
+   [stage execution guide](https://datacoolie.github.io/datacoolie/guide/operations/run-stage/)
+   for invocation behavior; Build authors the runner and platform orchestration supplies its inputs.
    For external cloud adapters, identify the actual scheduler or host separately from the cloud
    platform/resource context.
 8. Define retention and access for logs, backup/recovery and outage behavior for watermarks, and

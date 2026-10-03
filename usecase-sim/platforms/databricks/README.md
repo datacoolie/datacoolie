@@ -17,7 +17,7 @@ Database metadata is intentionally out of scope for this asset set.
 ## What is in this folder
 
 - `databricks_use_cases.json`:
-  - Derived from `metadata/file/local_use_cases.json`.
+  - Derived from `metadata/file/baseline/local_use_cases.json`.
   - Constrained to file + delta scenarios only.
   - Includes stages: `read_file`, `write_file`, `read_lakehouse`, `load_delta`.
   - Paths rewritten to Databricks UC Volume style.

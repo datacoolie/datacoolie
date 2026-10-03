@@ -18,7 +18,7 @@ from datacoolie.core.constants import (
 )
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.destination import Destination, PartitionColumn
+from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.source import Source
 from datacoolie.core.models.transform import Transform
 from datacoolie.engines.base import BaseEngine
@@ -37,6 +37,7 @@ class MockEngine(BaseEngine[dict]):
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._table_exists_result: bool = False
         self._written: list = []
         self._merged: list = []

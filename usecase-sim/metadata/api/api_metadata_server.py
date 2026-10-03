@@ -4,7 +4,7 @@ Reads a JSON metadata file and serves it via REST endpoints
 compatible with the datacoolie.metadata.api_provider.APIProvider.
 
 Usage:
-    python api_metadata_server.py --json-path ../file/local_use_cases.json --port 8000
+    python api_metadata_server.py --json-path ../file/baseline/local_use_cases.json --port 8000
 
 Endpoints (all scoped under /workspaces/{workspace_id}):
     GET  /workspaces/{ws}/connections                  — paginated list
@@ -243,7 +243,7 @@ def main():
     parser = argparse.ArgumentParser(description="DataCoolie simulated metadata API server")
     parser.add_argument(
         "--json-path",
-        default=str(Path(__file__).resolve().parent.parent / "file" / "local_use_cases.json"),
+        default=str(Path(__file__).resolve().parent.parent / "file" / "baseline" / "local_use_cases.json"),
         help="Path to source JSON metadata file",
     )
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")

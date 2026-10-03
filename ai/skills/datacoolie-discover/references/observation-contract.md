@@ -57,31 +57,32 @@ change | insert | update | delete | append | auxiliary | backward
 | `auxiliary` | The value is a tie-breaker or secondary candidate combined with another role/column. |
 | `backward` | A transaction/business date can bound a lookback; it is not full change coverage. |
 
-DataCoolie combines multiple watermark columns with OR predicates. Separate insert, update, and
-delete-event columns can therefore form one candidate set. Record the set, alternatives, and
-limitations in `report.md`; do not add another grouping convention to the CSV.
+Record each candidate's mutation coverage, complementary signals, alternatives, and limitations in
+`report.md`; do not add another grouping convention to the CSV. Build maps approved intent to the
+public [execution-window contract](https://datacoolie.github.io/datacoolie/reference/api/engines/#neutral-execution-windows).
 
 ### Backward and file-source evidence
 
 Use `backward` primarily when an object has no reliable column or source-native feed that captures
 every relevant change, but a filterable transaction/business date can bound a correction window.
-Do not present that date as equivalent to a true change watermark. Confirm the expected late-change
-horizon and record that corrections older than the chosen lookback can be missed.
+Do not present that date as equivalent to a true change watermark. Confirm the observed late-change
+horizon and limitations; Design chooses the lookback and correction policy.
 
 For file sources, inspect delivery behavior separately from row schema:
 
 - Determine whether the storage platform exposes stable file modification times and whether copy,
-  rewrite, or restore operations preserve their intended meaning. This evidence lets build prefer
-  DataCoolie's file-modification-time mechanism without inventing an observed column.
+  rewrite, or restore operations preserve their intended meaning.
 - Record a date-folder pattern only when the physical path really contains ordered
   year/month/day/hour levels. A folder date bounds path discovery; it does not prove row-change
   coverage.
 - Assess a column inside the file as a row watermark only when its semantics independently satisfy
   the normal mutation-coverage checks.
 
-`__file_modification_time` and the internal date-folder watermark are framework values, not source
-schema columns. Keep their feasibility and limitations in `report.md`, not as fabricated rows in
-`observations.csv`.
+Keep delivery/layout facts and limitations in `report.md`. Do not fabricate source-schema rows for
+framework virtual values. Build uses the public
+[file-source incremental cases](https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/#file-source-incremental-cases)
+and [late-arriving file guide](https://datacoolie.github.io/datacoolie/guide/metadata/late-arriving-files/)
+to implement the approved intent.
 
 ## Mandatory Assessment
 
@@ -106,11 +107,13 @@ After merging observations:
 
 An identity is `append` alone only after append-only behavior is confirmed. On mutable data it may
 be `append|auxiliary` alongside update/change evidence. A `backward` candidate must state the
-lookback/correction horizon, target replacement behavior, and risk of missing older corrections.
+observed correction horizon and coverage limitations. Hand unresolved lookback and target
+replacement choices to Design; reference an existing approved policy when available.
 
-If no reliable candidate exists, recommend full load/overwrite only when project-specific volume,
-duration, source pressure, cost, and SLA make it acceptable. For large or unknown cases, record a
-human decision. Do not invent a universal row-count threshold.
+If no reliable candidate exists, record full-refresh feasibility only when project-specific volume,
+duration, source pressure, cost, and SLA support it. The `full_refresh` assessment is evidence for
+Design, not a selected runtime load strategy. For large or unknown cases, record a human decision.
+Do not invent a universal row-count threshold.
 
 ## Manual Rows And Annotations
 

@@ -69,6 +69,15 @@ def _load_llms_generator():
     return module
 
 
+def _load_metadata_reference():
+    path = DOCS / "scripts" / "_metadata_reference.py"
+    spec = importlib.util.spec_from_file_location("datacoolie_metadata_reference", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_public_landing_pages_and_runtime_reference_are_present() -> None:
     """The docs-first navigation has one landing page per public concern."""
     expected = {
@@ -232,7 +241,17 @@ def test_api_guides_do_not_misstate_offset_or_range_contract() -> None:
     source = (DOCS / "guide/metadata/source-patterns.md").read_text(encoding="utf-8")
     advanced = (DOCS / "guide/metadata/api-advanced.md").read_text(encoding="utf-8")
 
-    assert '"watermark_param_mapping": {"updated_at": "updated_since"}' in source
+    assert '"range_param_mapping": {' in source
+    assert '"range_param_mapping": {' in advanced
+    assert "request_end` requires a concrete request" in advanced
+    assert "unbounded first read does not synthesize" in advanced
+    assert "Regenerate any derived YAML/Excel metadata" in advanced
+    assert "does not rewrite" in advanced
+    assert "already-generated metadata" in advanced
+    for content in (source, advanced):
+        assert '"watermark_param_mapping": {"updated_at": "updated_since"}' not in content
+        assert '"watermark_to_param": "updated_before"' not in content
+        assert '"wire_format"' not in content
     assert '"offset_param": "skip"' in source
     assert '"offset_param": "page"' not in source
     assert "record offsets" in source and "page" in source
@@ -245,7 +264,28 @@ def test_api_guides_do_not_misstate_offset_or_range_contract() -> None:
         "replace_by_watermark",
     ):
         assert token in source
-    assert '"watermark_param_mapping": {"updated_at": "updated_since"}' in advanced
+
+
+def test_generated_metadata_reference_omits_rejected_api_range_rows() -> None:
+    """Forbidden schema properties must not appear as supported reference rows."""
+    from datacoolie.project.schema import LATEST_SCHEMA_URL, resolve_metadata_schema
+
+    renderer = _load_metadata_reference()
+    content = renderer.render_metadata_reference(
+        resolve_metadata_schema().document,
+        latest_url=LATEST_SCHEMA_URL,
+    )
+
+    assert "| `dataflows[].source.configure.range_param_mapping` |" in content
+    removed = (
+        "watermark_param_mapping",
+        "watermark_to_param",
+        "watermark_param_location",
+        "watermark_param_format",
+        "watermark_range_to_exclusive_offset",
+    )
+    for field in removed:
+        assert f"| `dataflows[].source.configure.{field}` |" not in content
 
 
 def test_metadata_docs_use_the_generated_latest_schema_alias() -> None:
@@ -346,7 +386,7 @@ def test_metadata_configure_and_advanced_guides_cover_cases_and_parse_snippets()
             "aws_sigv4",
         ),
         "guide/metadata/api-advanced.md": (
-            "watermark_param_mapping", "max_pages", "merge_upsert",
+            "range_param_mapping", "max_pages", "merge_upsert",
         ),
         "guide/metadata/watermark-window-replacement.md": (
             "merge_overwrite", "replace_by_watermark", "not guaranteed atomic",

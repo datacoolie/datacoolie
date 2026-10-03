@@ -6,7 +6,7 @@ Replaces:
 
 Usage:
     python usecase-sim/runner/maintenance.py --engine polars \
-        --metadata-path usecase-sim/metadata/file/local_use_cases.json \
+        --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json \
         --connection local_delta_dest
 
     python usecase-sim/runner/maintenance.py --engine spark \
@@ -36,6 +36,7 @@ from _runner_utils import (
     install_graceful_shutdown,
     setup_platform,
 )
+from runtime_paths import DATACOOLIE_ROOT, apply_runtime_defaults
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,11 +73,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iceberg-catalog-uri", default=None)
     parser.add_argument("--uc-token", default="")
     parser.add_argument("--uc-credential", default="")
-    parser.add_argument("--log-path", default=None)
+    parser.add_argument(
+        "--log-path",
+        default=None,
+        help="Structured log root (default: local .runtime/logs or AWS logs URI)",
+    )
     parser.add_argument("--job-id", default=None,
                         help="Stable Driver session/job identifier for reproducible scenarios")
     parser.add_argument("--state-base-path", default=None,
                         help="Framework runtime state root")
+    parser.add_argument(
+        "--watermark-path",
+        default=None,
+        help="Explicit FileProvider watermark root (default: local .runtime/watermarks or AWS URI)",
+    )
     parser.add_argument("--run-attributes", default=None,
                         help="JSON object with caller-owned correlation attributes")
     parser.add_argument("--log-persistence-mode", choices=["snapshot", "batch"], default=None)
@@ -98,6 +108,7 @@ def parse_args() -> argparse.Namespace:
         )
     if args.metadata_path and args.metadata_base_path:
         parser.error("--metadata-path and --metadata-base-path are mutually exclusive")
+    _apply_runtime_defaults(args)
     return args
 
 
@@ -107,6 +118,9 @@ def _parse_kv_list(pairs: list[str]) -> dict[str, str]:
         key, _, value = kv.partition("=")
         out[key] = value
     return out
+
+
+_apply_runtime_defaults = apply_runtime_defaults
 
 
 def _parse_run_attributes(value: str | None) -> dict | None:
@@ -133,6 +147,9 @@ def _build_log_config(args: argparse.Namespace) -> LogConfig | None:
 
 
 def main() -> None:
+    # Keep metadata, SQL, and relative fixture paths anchored at the product
+    # root regardless of the shell directory used to invoke this script.
+    os.chdir(DATACOOLIE_ROOT)
     args = parse_args()
 
     is_aws = args.platform == "aws"
@@ -204,13 +221,13 @@ def main() -> None:
             iceberg_catalog=iceberg_catalog,
         )
 
-    metadata = (
-        FileProvider(
-            config_path=args.metadata_path,
-            sql_base_path=args.sql_base_path or None,
-        )
-        if args.metadata_path
-        else None
+    # Directory and artifact modes still need a provider instance so Driver
+    # can bind metadata/artifact context during startup.  Keep config_path
+    # absent in those modes to avoid the provider's path conflict contract.
+    metadata = FileProvider(
+        config_path=args.metadata_path,
+        watermark_base_path=args.watermark_path,
+        sql_base_path=args.sql_base_path or None,
     )
     driver = DataCoolieDriver(
         engine=engine,

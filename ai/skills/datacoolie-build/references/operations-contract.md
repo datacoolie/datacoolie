@@ -3,95 +3,61 @@
 ## Scope
 
 - Read together with `references/runner-contract.md` only when replay or maintenance is required.
-- Owns replay ranges/chunking/watermark mutation and maintenance mutation confirmation.
-- Inherits common identity, parameters, construction, notebook decoding, durable/generated, and
-  receipt behavior from the runner contract; it does not redefine them.
+- This reference owns agent authorization, persistent-state risk, operation separation, and
+  evidence gates. The public operation guides own parameters, defaults, range semantics, and
+  framework scheduling.
 
-Read the public [replay and backfill guide](https://datacoolie.github.io/datacoolie/guide/operations/replay-and-backfill/)
-and [maintenance guide](https://datacoolie.github.io/datacoolie/guide/operations/maintenance/)
-for user-facing operation workflows. This reference adds only agent-facing gates and evidence.
+Read the public [replay and backfill guide](https://datacoolie.github.io/datacoolie/guide/operations/replay-and-backfill/),
+[maintenance guide](https://datacoolie.github.io/datacoolie/guide/operations/maintenance/),
+[runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/),
+and [run-stage guide](https://datacoolie.github.io/datacoolie/guide/operations/run-stage/)
+before adapting a project runner. This reference adds only agent-facing gates and evidence.
 
 ## Entrypoint identity
 
-For newly authored host-specific entrypoints, use the common runner naming
-policy. Reused public examples follow the canonical identity rule in
-[runner-contract.md](runner-contract.md#identity-and-location).
-
-```text
-replay_{platform}_{engine}[_{provider}].py|ipynb
-maintenance_{platform}_{engine}[_{provider}].py|ipynb
-```
-
+For newly authored host-specific entrypoints, use the common runner naming policy. Reused public
+examples follow the canonical identity rule in [runner-contract.md](runner-contract.md#identity-and-location).
 Keep replay and maintenance separate from normal `run` and from each other. The caller selects the
 exact entrypoint; do not add a runtime operation selector.
 
-## Replay extension
+## Replay gate
 
-In addition to common parameters, accept `start`, `end`, optional `chunk_interval`, optional
-`chunk_column`, and `save_watermark`.
-
-- Construct `ReplayConfig` and call `driver.load_dataflows(stage=stage)` followed by
-  `driver.run_replay(dataflows=flows, replay=replay)`.
-- Preserve `[start, end)` and boundary types. Decode integer strings from text-only transports;
-  otherwise pass boundary values through without runner-owned range validation.
-- Decode an optional JSON chunk interval into its native value, then let `ReplayConfig` and replay
-  execution validate its keys, shape, values, and range. Omit it for one replay window.
-- A stage string, comma string, or list remains one framework selection. With no stage, load all
-  assigned active dataflows once. External orchestration owns repeated stage invocations and
-  completion gates; use separate replay invocations for dependent stages.
-- Default `save_watermark` to false. Enabling it requires separate explicit confirmation because it
-  advances persistent state and can interfere with a concurrent incremental run.
-- Use the same JSON chunk representation for Python and notebook/job entrypoints. Databricks widget
-  booleans and run-config integers arrive as strings and require transport decoding.
-
-Within one replay call, DataCoolie runs dataflows in parallel and chunks for each dataflow
-sequentially. Metadata group/order does not sequence replay dataflows. Read
-[orchestration-contract.md](orchestration-contract.md) for job assignment and current failure limits.
-Do not recreate either scheduler in the entrypoint.
+- Follow the public replay recipe for accepted parameters, boundary types, chunking, and result
+  handling; do not duplicate framework validation in the entrypoint.
+- Preserve the caller's stage selection and use separate replay invocations for dependent stages;
+  external orchestration owns repeated calls and completion gates.
+- Watermark mutation is opt-in. Keep the safe no-mutation mode as the default and require separate
+  explicit confirmation before enabling a persistent watermark advance.
+- DataCoolie owns replay execution and result aggregation. The runner decodes only the selected
+  host transport and must not recreate a scheduler.
 
 ## Persistent state safety
 
-Use one active writer for each `{environment, watermark_base_path, dataflow_id}` state key unless
-the project has a separately verified coordination mechanism. This applies across normal runs,
-replay with `save_watermark=true`, and overlapping scheduler instances; the runner does not invent
-locking around the framework.
+Use one active writer for each environment/dataflow watermark state key unless the project has a
+separately verified coordination mechanism. This applies across normal runs, replay with watermark
+mutation, and overlapping scheduler instances; the runner does not invent locking around the
+framework.
 
 Treat watermark storage as critical state. If target output succeeds but watermark persistence
 fails, stop and retain the failure evidence. Retry only through the project's idempotent load or an
 explicit replay/recovery action; never advance or reset the watermark merely to clear the error.
 
-## Maintenance extension
+## Maintenance gate
 
-In addition to common parameters, accept optional connection filters, compact/cleanup selection,
-retention hours, worker count, and explicit mutation confirmation.
+- Read the public maintenance guide for supported target selection, retention, and operation inputs.
+- Require explicit executable confirmation before a mutating maintenance call; a comment or
+  Markdown warning is not a gate.
+- Keep maintenance separate from normal execution and do not add runner-owned preview,
+  target-description, scheduling, or `dry_run` behavior.
+- DataCoolie owns supported-target selection, physical-target deduplication, dispatch, logging, and
+  result aggregation. The runner makes one selected framework call after authorization.
 
-- Call `driver.run_maintenance(connection=..., do_compact=..., do_cleanup=...)` once after explicit
-  confirmation.
-- Keep at least one of compact or cleanup enabled. Decode retention as an integer and let
-  `DataCoolieRunConfig` validate it.
-- Do not add runner-owned preview, target-description, scheduling, or `dry_run` behavior. If runtime
-  usage needs new operational evidence or validation, add it to the framework contract first.
-- Use maintenance only for installed supported destinations. Retention must not be shorter than
-  active-reader or recovery requirements.
+## Outcome-scoped verification
 
-Pass one optional connection selection unchanged; DataCoolie accepts a scalar, comma-separated
-string, JSON-array string, or native list. Map an omitted notebook value to `None`.
-
-DataCoolie owns supported-target selection, physical-target deduplication, parallel dispatch,
-logging, and result aggregation. Do not reproduce that logic in the entrypoint.
-
-## Operation-specific notebook gates
-
-Confirmation values default to false and must be checked in executable code. A comment or markdown
-warning is not a gate. Pass stage and connection selections unchanged and decode widget strings
-only where the framework requires native JSON, boolean, or numeric values.
-
-## Operation-specific verification
-
-- Replay covers range boundaries, chunking, one stage value, failure handling, and both watermark
-  modes.
-- Maintenance covers direct filters, operation selection, retention, confirmation, one framework
-  call, and failure reporting.
-- Runtime observations belong in the framework's normal dataflow/job logs. The CLI build manifest
-  and local validation report are the artifact evidence; replay and maintenance do not introduce
-  a second build-receipt protocol.
+For author/build-only requests, validate the runner/project and built artifact without executing a
+workload. For an explicitly requested safe replay or maintenance check, derive expected selection,
+output, and state changes from the matching public recipe and project acceptance criteria; inspect
+the framework result/logs and independent output/state evidence. Identify legitimate empty or
+skipped outcomes, and report performed checks, skipped host/dependency checks, and unresolved
+questions. The CLI build manifest and local validation report remain artifact evidence; runtime
+observations belong to the operation's normal logs and result.

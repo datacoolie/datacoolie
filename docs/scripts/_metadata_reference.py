@@ -40,11 +40,10 @@ FIELD_NOTES: dict[str, str] = {
     "dataflows[].source.configure.max_pages": "API safety cap, default 1,000 pages. If another page is required at the cap, the reader fails instead of returning a partial result; choose the budget with the provider's completeness contract.",
     "dataflows[].source.configure.rate_limit_delay": "Seconds between sequential API pages only. It does not throttle concurrent offset pages selected by `total_path`.",
     "dataflows[].source.configure.max_retries": "Retries HTTP 429 using Retry-After or exponential backoff; other HTTP errors are not retried by this setting.",
-    "dataflows[].source.configure.watermark_param_mapping": "Legacy API incremental range-split map from authored watermark column names to lower-bound parameter names. Required for saved-watermark resume in that legacy mode; without it no lower bound is sent. Canonical bounded/replay bindings use `range_param_mapping` instead.",
-    "dataflows[].source.configure.range_param_mapping": "Canonical API per-field lower/upper bindings for bounded reads and replay. The selected field may be outside `source.watermark_columns`; only configured watermark columns are persisted. See [API range configuration](../guide/metadata/source-patterns.md#push-down-and-split-watermark-ranges).",
-    "dataflows[].source.configure.watermark_range_interval_unit": "API incremental split mode (canonical or legacy): pair it with `range_param_mapping` for canonical lower/upper bindings, or with `watermark_to_param` and `watermark_param_mapping` for legacy mapping. The first incremental run may need `watermark_range_start` when no lower watermark is saved. Explicit bounded reads and replay receive their `[start, end)` range from the source contract and do not require split settings. See [API range configuration](../guide/metadata/source-patterns.md#push-down-and-split-watermark-ranges).",
-    "dataflows[].source.configure.watermark_range_start": "Fallback lower bound for API incremental split reads (canonical or legacy) when no stored lower watermark exists. Explicit bounded reads and replay receive their `[start, end)` range from the source contract; do not add this field solely to configure replay.",
-    "dataflows[].source.configure.watermark_range_to_exclusive_offset": "Legacy inclusive-upper-bound adjustment for incremental split requests. It changes only the wire value sent to that legacy endpoint; it is not a replacement for canonical bounded `range_param_mapping` operators.",
+    "dataflows[].source.configure.range_param_mapping": "Canonical API per-field lower/upper bindings for incremental push-down, split ranges, bounded reads, and replay. Lower and upper bindings accept a parameter-name shorthand or an object with location and operator; `format` keeps the supported temporal and integer aliases. The selected field may be outside `source.watermark_columns`; only configured watermark columns are persisted. See [API range configuration](../guide/metadata/source-patterns.md#push-down-and-split-watermark-ranges).",
+    "dataflows[].source.configure.watermark_range_interval_unit": "Canonical API incremental split unit. Pair it with `range_param_mapping` lower and upper bindings for the selected field; the first incremental run may need `watermark_range_start` when no lower watermark is saved. Explicit bounded reads and replay receive their `[start, end)` range from the source contract and do not require split settings. See [API range configuration](../guide/metadata/source-patterns.md#push-down-and-split-watermark-ranges).",
+    "dataflows[].source.configure.watermark_range_start": "Fallback lower bound for canonical API incremental split reads when no stored lower watermark exists. Explicit bounded reads and replay receive their `[start, end)` range from the source contract; do not add this field solely to configure replay.",
+    "dataflows[].source.configure.watermark_to_param_timezone": "Source-level timezone for generated API upper bounds and watermark advancement. It overrides the connection-level default; use an IANA name or ±HH:MM offset.",
     "dataflows[].source.configure.backward_days": "Source-level look-back override for watermark preparation. Connection-level look-back is used when no source override applies.",
     "dataflows[].source.configure.backward": "Structured look-back override with `days`, `months`, `hours`, `years`, or `closing_day`; use it as one authored option set.",
     "dataflows[].destination.load_type": "`merge_overwrite` can be paired with `destination.configure.replace_by_watermark: true` for bounded window replacement.",
@@ -274,7 +273,11 @@ def _definition_rows(
     rows: list[tuple[str, str, str, str, str]] = []
     nested: list[tuple[str, Mapping[str, Any]]] = []
     for name, raw in properties.items():
+        if raw is False:
+            continue
         field = raw if isinstance(raw, Mapping) else {}
+        if field.get("not") == {}:
+            continue
         path = f"{prefix}.{name}"
         resolved = _resolve(field, schema)
         description = _clean(resolved.get("description", ""))
@@ -284,6 +287,27 @@ def _definition_rows(
         if isinstance(field.get("properties"), Mapping):
             nested.append((path, resolved))
     return rows, nested
+
+
+def _rejected_paths(
+    node: Mapping[str, Any], schema: Mapping[str, Any], prefix: str,
+) -> list[str]:
+    """Return authored property paths explicitly rejected by the schema."""
+
+    properties, _ = _properties(node, schema)
+    rejected: list[str] = []
+    for name, raw in properties.items():
+        path = f"{prefix}.{name}"
+        if raw is False:
+            rejected.append(path)
+            continue
+        field = raw if isinstance(raw, Mapping) else {}
+        if field.get("not") == {}:
+            rejected.append(path)
+            continue
+        if isinstance(field.get("properties"), Mapping):
+            rejected.extend(_rejected_paths(field, schema, path))
+    return rejected
 
 
 def _conditional_connection_rows(schema: Mapping[str, Any]) -> list[tuple[str, list[tuple[str, str, str, str, str]]]]:
@@ -554,6 +578,27 @@ def render_metadata_reference(
         _append_definition(sections, schema, rules, definition, level=3)
     _append_definition(sections, schema, rules, "Destination")
     _append_definition(sections, schema, rules, "PartitionColumn", level=3)
+
+    source = _defs(schema).get("Source")
+    rejected_source_fields = (
+        _rejected_paths(source, schema, "dataflows[].source")
+        if isinstance(source, Mapping)
+        else []
+    )
+    if rejected_source_fields:
+        sections.extend(
+            [
+                "",
+                "## Rejected authored fields",
+                "",
+                "These source properties are reserved as explicit schema rejections; they are not supported configuration rows. Use the canonical API range contract instead. For remote lower-bound push-down, a canonical binding must declare a lower parameter; without it no lower bound is sent.",
+                "",
+            ]
+        )
+        sections.extend(
+            f'- <span id="{_field_anchor(path)}"></span>`{path}` is rejected before an API request.'
+            for path in rejected_source_fields
+        )
 
     sections.extend(
         [

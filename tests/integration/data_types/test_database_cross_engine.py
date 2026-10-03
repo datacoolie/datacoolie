@@ -42,6 +42,7 @@ CANONICAL_METADATA = (
     / "usecase-sim"
     / "metadata"
     / "file"
+    / "datatypes"
     / "datatype_qualification.json"
 )
 POSTGRES_EXPECTED = json.loads(

@@ -4,7 +4,7 @@ Compares connections, dataflows, and schema hints field by field.
 
 Usage (from the datacoolie/ directory):
     python usecase-sim/metadata/database/verify_metadata.py \\
-        --json-path usecase-sim/metadata/file/local_use_cases.json \\
+        --json-path usecase-sim/metadata/file/baseline/local_use_cases.json \\
         --connection-string "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie" \\
         --workspace-id local-workspace
 """
@@ -18,6 +18,10 @@ import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from runtime_paths import DATACOOLIE_ROOT
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -174,7 +178,7 @@ def verify_connections(meta: dict, engine, workspace_id: str) -> Report:
 # ---------------------------------------------------------------------------
 
 def _build_dst_configure(dst: dict, d: dict) -> Any:
-    """Mirror the scripts/setup_metadata.py seeding logic for destination_configure."""
+    """Mirror the scripts/bootstrap/setup_metadata.py seeding logic for destination_configure."""
     dst_configure = dst.get("configure") or d.get("destination_configure") or {}
     if isinstance(dst_configure, str):
         try:
@@ -424,17 +428,18 @@ def _print_report(name: str, report: Report) -> int:
 
 
 def main() -> None:
+    os.chdir(DATACOOLIE_ROOT)
     parser = argparse.ArgumentParser(
         description="Verify that DB metadata matches the source JSON file."
     )
     parser.add_argument(
         "--json-path",
-        default="usecase-sim/metadata/file/local_use_cases.json",
+        default="usecase-sim/metadata/file/baseline/local_use_cases.json",
         help="Path to the use-cases JSON file",
     )
     parser.add_argument(
         "--connection-string",
-        default="sqlite:///usecase-sim/.runtime/databases/metadata/datacoolie_metadata.db",
+        default="sqlite:///usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db",
         help="SQLAlchemy connection string for the metadata DB",
     )
     parser.add_argument(

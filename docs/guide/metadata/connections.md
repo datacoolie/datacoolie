@@ -236,8 +236,8 @@ API, omit `auth_type`. Put the endpoint-specific `endpoint`,
 `method`,
 `params`,
 `body`, response
-`data_path`, pagination, and watermark request settings in
-`source.configure`. The built-in API connection reads sources; no built-in API
+`data_path`, pagination, canonical `range_param_mapping`, and its split/timezone
+settings in `source.configure`. The built-in API connection reads sources; no built-in API
 destination writer is registered. See [Source patterns](source-patterns.md#rest-api-source)
 for a complete source and [API source configuration](source-patterns.md#api-source-configuration)
 for all request, response, pagination and incremental options.

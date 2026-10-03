@@ -428,9 +428,7 @@ def read_database_native(
                 )
             return frame.lazy()
         finally:
-            close_cursor = getattr(cursor, "close", None)
-            if callable(close_cursor):
-                close_cursor()
+            cursor.close()
     finally:
         connection.close()
 
@@ -520,9 +518,7 @@ def read_database_oracle(
                 infer_schema_length=infer_schema_length,
             ).lazy()
         finally:
-            close_cursor = getattr(cursor, "close", None)
-            if callable(close_cursor):
-                close_cursor()
+            cursor.close()
     finally:
         connection.close()
 

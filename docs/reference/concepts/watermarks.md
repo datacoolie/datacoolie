@@ -74,9 +74,10 @@ Source readers apply the watermark **during** the read when possible:
 - **Parquet / Delta / Iceberg** — read through the engine, then apply the
   engine's DataFrame watermark filter.
 - **Database (JDBC / connectorx)** — appended `WHERE watermark_col > ...`.
-- **API** — injected into request params/body via `source.configure`
-  keys such as `watermark_param_mapping`, `watermark_to_param`,
-  `watermark_param_location`, and `watermark_param_format`.
+- **API** — canonical `source.configure.range_param_mapping` injects active
+  lower/upper bounds into query parameters or top-level JSON body fields.
+  `watermark_to_param_timezone` and the `watermark_range_*` controls remain
+  available for timezone selection and canonical incremental splitting.
 - **CSV / JSON / Excel** — full scan, then filter in the engine (fallback).
   Schema hints are applied by the transform layer, not by the reader; when a
   weakly typed source is used for a watermark, configure the source's native
@@ -97,6 +98,24 @@ through `SourceReadRange` and does not infer the range from persisted state.
 | Normal ETL, observed max | `>` | Exclusive — skip the exact last-saved row |
 | Normal ETL, saved request end | `>=` | Inclusive — resume at the first uncovered value |
 | Replay chunk | `>=` / `<` | Exact left-closed, right-open source range |
+
+### API range state and manual cutover
+
+For canonical API bindings, `watermark_value: "observed_max"` means that the
+saved value is the greatest response value actually observed. A lower-only
+historical range must keep that meaning. `watermark_value: "request_end"` means
+that the saved value is an exclusive covered request end; use it only after the
+endpoint's complete-pagination guarantee and checkpoint meaning are verified.
+The next lower operator is `>` for an observed maximum and `>=` for a covered
+request end.
+
+An inclusive endpoint operator (`<=`) is paired with response-side residual
+filtering for the exact exclusive request end; do not subtract an epsilon. Do
+not reset, coerce, or infer saved state from the shape of a scalar. If precision
+or completeness is uncertain, pause continuation and use a controlled,
+operator-approved replay for a verified interval. Rolling back a binary or
+metadata file does not roll back destination rows or saved state; reconcile or
+replay from operator-held snapshots.
 
 ## Backward look-back
 

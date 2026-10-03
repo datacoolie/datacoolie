@@ -14,116 +14,6 @@ from datacoolie.logging.runtime.manager import get_logger
 
 logger = get_logger(__name__)
 
-def inject_stored_watermark(
-    target: Dict[str, Any],
-    wm_mapping: Dict[str, str],
-    watermark: Dict[str, Any],
-    wm_format: str,
-) -> None:
-    """Inject stored watermark values into *target* (params or body dict).
-
-    For each ``{wm_col: api_param}`` pair in *wm_mapping*, looks up
-    ``wm_col`` in *watermark* and, when a non-``None`` value is found,
-    serialises it with :meth:`_format_watermark_value` and writes it into
-    *target* under ``api_param``.  Mutates *target* in place.
-
-    ``date``, ``datetime``, and ISO-8601 string values are accepted for the
-    historical temporal formats.  The explicit ``integer`` format preserves
-    an integer as an integer on the wire; this is used by the new API range
-    binding contract and is intentionally not inferred from ``iso``.
-
-    Raises:
-        SourceError: When a pushed watermark value is not a ``date``,
-            ``datetime``, or parseable ISO-8601 string.
-    """
-    for wm_col, api_param in wm_mapping.items():
-        wm_val = watermark.get(wm_col)
-        if wm_val is None:
-            continue
-        if wm_format in {"integer", "int", "native_integer", "number"}:
-            if isinstance(wm_val, bool) or type(wm_val) is not int:
-                raise SourceError(
-                    f"Integer watermark push-down requires an int. "
-                    f"Column {wm_col!r} has unsupported type {type(wm_val).__name__!r}.",
-                    details={"column": wm_col, "type": type(wm_val).__name__, "api_param": api_param},
-                )
-        elif not isinstance(wm_val, (date, datetime, str)):
-            raise SourceError(
-                f"Watermark push-down only supports date/datetime values. "
-                f"Column {wm_col!r} has unsupported type {type(wm_val).__name__!r}.",
-                details={"column": wm_col, "type": type(wm_val).__name__, "api_param": api_param},
-            )
-        if isinstance(wm_val, str):
-            try:
-                datetime.fromisoformat(wm_val)
-            except ValueError as exc:
-                raise SourceError(
-                    f"Watermark push-down column {wm_col!r} string value is not "
-                    f"a valid ISO-8601 date/datetime: {wm_val!r}.",
-                    details={"column": wm_col, "value": wm_val, "api_param": api_param},
-                ) from exc
-        target[api_param] = format_watermark_value(wm_val, wm_format)
-        logger.debug(
-            "APIReader watermark push-down: %s=%s (from %s)",
-            api_param, target[api_param], wm_col,
-        )
-
-def format_watermark_value(
-    value: Union[datetime, date, str, int],
-    fmt: str,
-) -> Any:
-    """Serialise a watermark value to the string format the API expects.
-
-    Args:
-        value: A ``datetime`` or an ISO-8601 string (as stored by WatermarkManager).
-        fmt:   ``"iso"`` | ``"datetime"`` | ``"datetime_ms"`` | ``"date"``
-               | ``"timestamp"`` | ``"timestamp_ms"``
-
-    Returns:
-        String representation ready to be set as a query param or body field.
-    """
-    if fmt in {"integer", "int", "native_integer", "number"}:
-        if isinstance(value, bool) or type(value) is not int:
-            raise SourceError(
-                f"Integer watermark format requires an int, got {type(value).__name__}."
-            )
-        return value  # type: ignore[return-value]
-
-    if isinstance(value, str):
-        try:
-            value = datetime.fromisoformat(value)
-        except ValueError:
-            # Unparseable string — pass through unchanged
-            return value
-
-    if type(value) is date:  # exact check — datetime IS-A date, must come before datetime block
-        if fmt == "date":
-            return value.isoformat()
-        value = datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
-
-    if not isinstance(value, datetime):
-        return str(value)
-
-    if fmt == "date":
-        return value.date().isoformat()
-    if fmt == "timestamp":
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return str(value.timestamp())
-    if fmt == "timestamp_ms":
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return str(int(value.timestamp() * 1000))
-    if fmt == "datetime":
-        # ISO datetime without timezone, second precision (e.g. "2024-01-15T12:30:45")
-        return value.replace(tzinfo=None, microsecond=0).isoformat()
-    if fmt == "datetime_ms":
-        # ISO datetime without timezone, millisecond precision (e.g. "2024-01-15T12:30:45.123")
-        naive = value.replace(tzinfo=None)
-        return naive.strftime("%Y-%m-%dT%H:%M:%S.") + f"{naive.microsecond // 1000:03d}"
-    # "iso" (default) — preserve whatever timezone state the datetime has
-    return value.isoformat()
-
 def resolve_timezone(tz_str: Optional[str]) -> Any:
     """Resolve a timezone string to a :class:`~datetime.tzinfo` object.
 
@@ -163,32 +53,6 @@ def resolve_timezone(tz_str: Optional[str]) -> Any:
         f"Cannot resolve timezone {tz_str!r}. "
         "Use an IANA name (e.g. 'Asia/Ho_Chi_Minh') or a UTC offset (e.g. '+07:00').",
     )
-
-def adjust_range_to(dt: datetime, mode: Optional[str]) -> datetime:
-    """Subtract a small epsilon from *dt* before sending it to the API.
-
-    Prevents duplicate rows at range split boundaries when the API uses
-    inclusive ``BETWEEN from AND to`` semantics.  The adjusted value is
-    only sent to the API; the internal boundary used to start the next
-    sub-range in :meth:`_build_watermark_ranges` is unchanged so that
-    adjacent ranges remain contiguous with no gaps.
-
-    Args:
-        dt:   Upper-bound datetime for a single sub-range.
-        mode: ``"1ms"`` (1 millisecond), ``"1s"`` (1 second),
-              ``"1day"`` (1 day), or ``None`` (no adjustment, default).
-
-    Returns:
-        Adjusted :class:`~datetime.datetime`, or *dt* unchanged when
-        *mode* is ``None`` or unrecognised.
-    """
-    if mode == "1ms":
-        return dt - timedelta(milliseconds=1)
-    if mode == "1s":
-        return dt - timedelta(seconds=1)
-    if mode == "1day":
-        return dt - timedelta(days=1)
-    return dt
 
 def build_watermark_ranges(
     from_dt: datetime,
@@ -292,4 +156,4 @@ def resolve_range_from_dt(
 
     return None
 
-__all__ = ["adjust_range_to", "build_watermark_ranges", "format_watermark_value", "inject_stored_watermark", "resolve_range_from_dt", "resolve_timezone"]
+__all__ = ["build_watermark_ranges", "resolve_range_from_dt", "resolve_timezone"]

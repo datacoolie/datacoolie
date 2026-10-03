@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import warnings
 
 
 BUILD_WRAPPER = '''#!/usr/bin/env python3
@@ -78,10 +79,10 @@ if __name__ == "__main__":
 '''
 
 
-README = """# Project automation\n\nThese wrappers call the installed `dc`/`datacoolie` CLI. They do not vendor\nmetadata merging, validation, packaging, or artifact-manifest code.\n\n- `python automation/validate.py` validates the project.\n- `python automation/build.py` validates and builds every environment.\n\nRelease/upload remains a target-owned workflow.\n"""
+README = """# Project automation\n\nThese wrappers call the installed `dc`/`datacoolie` CLI. They do not vendor\nmetadata merging, validation, packaging, or artifact-manifest code.\n\n- `python automation/validate.py` validates the project.\n- `python automation/build.py` validates and builds every environment.\n\nRelease/upload remains a target-owned workflow. The renderer's legacy\n`--metadata-layout` option is accepted for compatibility and emits a\ndeprecation warning; project configuration and the installed CLI own layout\ndecisions.\n"""
 
 
-def render(workspace: Path, *, force: bool = False, metadata_layout: str = "single") -> Path:
+def render(workspace: Path, *, force: bool = False, metadata_layout: str | None = None) -> Path:
     """Create direct CLI wrappers; *metadata_layout* is retained for API compatibility.
 
     The CLI configuration is authoritative, so a renderer option cannot change
@@ -89,7 +90,12 @@ def render(workspace: Path, *, force: bool = False, metadata_layout: str = "sing
     pass the preview option while they migrate to ``datacoolie.yml``.
     """
 
-    del metadata_layout
+    if metadata_layout is not None:
+        warnings.warn(
+            "metadata_layout is deprecated; use datacoolie.yml and the installed CLI",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     workspace = workspace.expanduser().resolve()
     config = workspace / "datacoolie.yml"
     if not config.is_file():
@@ -113,7 +119,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--force", action="store_true")
-    parser.add_argument("--metadata-layout", choices=("single", "split", "preserve"), default="single")
+    parser.add_argument("--metadata-layout", choices=("single", "split", "preserve"), default=None)
     args = parser.parse_args()
     try:
         output = render(args.workspace, force=args.force, metadata_layout=args.metadata_layout)

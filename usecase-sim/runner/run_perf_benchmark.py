@@ -24,11 +24,11 @@ Usage (from the datacoolie/ directory):
 
 Options:
     --engine          polars | spark
-    --metadata-path   path to perf_test.json (default: ./usecase-sim/metadata/file/perf_test.json)
+    --metadata-path   path to perf_test.json (default: ./usecase-sim/metadata/file/performance/perf_test.json)
     --stages          comma-separated stage names (default: all 8 stages in dependency order)
     --max-size        largest size to run: 10k|50k|100k|500k|1m|5m|10m|50m (default: 1m)
     --output-dir      where to store JSON result files and the report
-                      (default: ./usecase-sim/.runtime/data/perf/benchmark_results)
+                      (default: ./usecase-sim/.runtime/logs/performance/benchmark_results)
     --reset           call reset_perf_data.py before benchmarking
     --report-only     skip benchmarking; only regenerate the markdown report
     --no-iceberg      skip iceberg stages (useful when docker/REST catalog is unavailable)
@@ -53,11 +53,26 @@ from typing import Any
 _RUNNER_DIR = Path(__file__).resolve().parent
 _USECASE_SIM_DIR = _RUNNER_DIR.parent
 _DATACOOLIE_DIR = _USECASE_SIM_DIR.parent
-_DEFAULT_METADATA = str(_USECASE_SIM_DIR / "metadata" / "file" / "perf_test.json")
-_DEFAULT_OUTPUT_DIR = str(
-    _USECASE_SIM_DIR / ".runtime" / "data" / "perf" / "benchmark_results"
+if str(_USECASE_SIM_DIR) not in sys.path:
+    sys.path.insert(0, str(_USECASE_SIM_DIR))
+from runtime_paths import (  # noqa: E402
+    DATACOOLIE_ROOT,
+    LOG_DIR,
+    WATERMARKS_DIR,
+    USECASE_SIM_DIR,
 )
-_RESET_SCRIPT = str(_USECASE_SIM_DIR / "scripts" / "reset_perf_data.py")
+
+_USECASE_SIM_DIR = USECASE_SIM_DIR
+_DATACOOLIE_DIR = DATACOOLIE_ROOT
+_DEFAULT_METADATA = str(
+    _USECASE_SIM_DIR / "metadata" / "file" / "performance" / "perf_test.json"
+)
+_DEFAULT_OUTPUT_DIR = str(
+    LOG_DIR / "performance" / "benchmark_results"
+)
+_RESET_SCRIPT = str(
+    _USECASE_SIM_DIR / "scripts" / "features" / "performance" / "reset_perf_data.py"
+)
 
 sys.path.insert(0, str(_RUNNER_DIR))
 
@@ -162,13 +177,17 @@ def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
         storage_options=storage_opts,
         iceberg_catalog=iceberg_catalog,
     )
-    metadata = FileProvider(config_path=metadata_path)
+    metadata = FileProvider(
+        config_path=metadata_path,
+        watermark_base_path=str(WATERMARKS_DIR / "performance"),
+    )
     config = DataCoolieRunConfig(max_workers=1)  # single-threaded for fair comparison
     return DataCoolieDriver(
         engine=engine,
         platform=platform,
         metadata_provider=metadata,
         config=config,
+        log_base_path=str(LOG_DIR),
     )
 
 
@@ -194,13 +213,17 @@ def _build_spark_driver(metadata_path: str):
     )
     platform = LocalPlatform()
     engine = SparkEngine(spark_session=spark, platform=platform)
-    metadata = FileProvider(config_path=metadata_path)
+    metadata = FileProvider(
+        config_path=metadata_path,
+        watermark_base_path=str(WATERMARKS_DIR / "performance"),
+    )
     config = DataCoolieRunConfig(max_workers=1)
     return DataCoolieDriver(
         engine=engine,
         platform=platform,
         metadata_provider=metadata,
         config=config,
+        log_base_path=str(LOG_DIR),
     ), spark
 
 
@@ -676,6 +699,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    os.chdir(_DATACOOLIE_DIR)
     args = parse_args()
     output_dir = Path(args.output_dir)
 

@@ -56,17 +56,15 @@ documentation remain authoritative.
 3. Observe target state and classify every requirement as `present`, `missing`, `drifted`,
    `inaccessible`, or `unknown`. Provision only confirmed gaps or explicitly requested changes.
    Treat an existing, accessible, policy-compliant resource as ready without forcing a no-op apply.
-4. When control storage is required, preserve the approved environment boundary. Prefer a
-   dedicated persistent resource separate from business data: a directory locally, an S3 bucket
-   on AWS, a Lakehouse on Fabric, or a governed Volume on Databricks. Use a shared resource
-   only when the requirements explicitly allow an isolated path and access boundary.
-    Verify readiness for the configured metadata component and any configured functions roots;
-    their default names are project conventions, not fixed target names. Do not impose names on
-    runner resources, logs, watermarks, candidate/current references, or deployment markers.
- 5. When the selected build contract uses function artifacts, verify reusable readiness only:
-    immutable artifact storage, environment/library capability for each selected wheel, ZIP or
-    source-copy result, permissions, network access, and fresh-session behavior. Do not upload,
-    install, attach or activate a build-specific artifact.
+4. When control storage is required, preserve the approved environment boundary
+   and resolve configured components through the public project workflow. Read
+   [runtime configuration](https://datacoolie.github.io/datacoolie/guide/operations/runtime-configuration/)
+   and the selected [platform guide](https://datacoolie.github.io/datacoolie/guide/platforms/)
+   for addressing/setup. Verify only approved resource intent; use isolated
+   paths/access when requirements permit shared storage.
+5. For functions, use the selected public project/runner recipe to determine
+   reusable host/storage requirements. Verify capability, access and fresh-session
+   readiness without uploading, installing, attaching or activating build bytes.
 6. Persist an idempotent, environment-scoped plan covering actions, data-bearing impact, cost,
    permissions, state, rollback, tool versions, and unresolved risks.
 7. Validate or preview without mutation. If the tool has no trustworthy non-mutating preview,

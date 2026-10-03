@@ -948,6 +948,15 @@ class TestProcessDataflow:
             rows_read=10, status=DataFlowStatus.SUCCEEDED.value
         )
         mock_reader.get_new_watermark.return_value = {"col": "val"}
+        mock_reader.merge_watermark.side_effect = (
+            lambda _existing, candidate: dict(candidate)
+        )
+        mock_reader._validate_watermark_comparison.side_effect = (
+            lambda _watermark, *, boundary: None
+        )
+        from datacoolie.watermark.base import WatermarkSerializer
+
+        wm.serialize.side_effect = WatermarkSerializer.serialize
 
         # Mock pipeline
         mock_pipeline = MagicMock()
@@ -2104,6 +2113,9 @@ class TestRunReplay:
         ]
         reader.get_new_watermark.side_effect = observations
         reader.merge_watermark.side_effect = lambda existing, candidate: dict(candidate)
+        reader._validate_watermark_comparison.side_effect = (
+            lambda _watermark, *, boundary: None
+        )
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
         mock_reader_fn.return_value = reader
 
@@ -2186,6 +2198,15 @@ class TestRunReplay:
         reader.read.return_value = "fake_df"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
         reader.get_new_watermark.return_value = {"order_date": date(2025, 4, 1)}
+        reader.merge_watermark.side_effect = (
+            lambda _existing, candidate: dict(candidate)
+        )
+        reader._validate_watermark_comparison.side_effect = (
+            lambda _watermark, *, boundary: None
+        )
+        from datacoolie.watermark.base import WatermarkSerializer
+
+        watermark.serialize.side_effect = WatermarkSerializer.serialize
         mock_reader_fn.return_value = reader
 
         pipeline = MagicMock()

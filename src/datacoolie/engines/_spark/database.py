@@ -43,7 +43,7 @@ def _normalise_jdbc_string_types(
             # Python while retaining ``VARCHAR(0)`` in the JVM logical plan.
             should_cast = is_sqlite
         elif isinstance(data_type, (CharType, VarcharType)):
-            should_cast = is_sqlite or int(getattr(data_type, "length", 0)) <= 0
+            should_cast = is_sqlite or int(data_type.length) <= 0
         else:
             should_cast = False
         if not should_cast:

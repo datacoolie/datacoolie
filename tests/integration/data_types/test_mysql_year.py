@@ -68,7 +68,8 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import IntegerType, ShortType
 from datacoolie.engines.spark_engine import SparkEngine
 
-jar = next(Path('/datacoolie/usecase-sim/.runtime/spark/jars/jars').glob('*mysql*.jar'))
+profile = os.environ.get('DATACOOLIE_SPARK_PROFILE', 'spark35')
+jar = next((Path('/datacoolie/usecase-sim/.runtime/dependencies/spark') / profile / 'jars').glob('*mysql*.jar'))
 spark = (SparkSession.builder.master('local[2]').appName('mysql-year-regression')
          .config('spark.driver.extraClassPath', str(jar)).getOrCreate())
 spark.sparkContext.setLogLevel('ERROR')

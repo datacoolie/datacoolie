@@ -20,7 +20,7 @@ from datacoolie.destinations._delta.aws_catalog import (
 from datacoolie.destinations.base import BaseDestinationWriter
 from datacoolie.destinations.strategies.load import get_load_strategy
 from datacoolie.destinations.resolution.target import resolve_destination_target
-from datacoolie.engines.base import DF
+from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.engines.contracts.windows import WindowSpec
 from datacoolie.logging.runtime.manager import get_logger
 
@@ -31,7 +31,7 @@ _UNSET = object()
 class DeltaWriter(BaseDestinationWriter[DF]):
     """Destination writer for Delta Lake tables."""
 
-    def __init__(self, engine: Any) -> None:
+    def __init__(self, engine: BaseEngine[DF]) -> None:
         super().__init__(engine)
         self._aws_catalog = AwsDeltaCatalogCoordinator(engine)
 

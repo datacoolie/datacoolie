@@ -268,7 +268,7 @@ class APIProvider(BaseMetadataProvider):
         delay = self._retry_backoff * (2 ** attempt)
         # honour Retry-After header when present
         if resp is not None:
-            retry_after = getattr(resp, "headers", {}).get("Retry-After")
+            retry_after = resp.headers.get("Retry-After")
             if retry_after:
                 try:
                     delay = max(delay, float(retry_after))

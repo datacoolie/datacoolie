@@ -17,7 +17,7 @@ API, and a metadata REST API).
 ## 1. What is usecase-sim?
 
 - **Library under test:** the `datacoolie` package in `src/datacoolie/`.
-- **What it exercises:** 51 named scenarios covering 2 engines, 3 metadata
+- **What it exercises:** named scenarios covering 2 engines, 3 metadata
   sources, 2 storage platforms, and lakehouse maintenance. The set is
   representative; it is not a complete engine × source × platform cross-product.
 - **Why it exists:** one-command regression coverage for the selected ETL
@@ -50,17 +50,25 @@ pip install -e ".[all]"
 
 ```
 usecase-sim/
-├── scripts/       # Bootstrap, reset, fixture generation, and output validation
+├── scripts/
+│   ├── bootstrap/ # Environment setup, shared fixtures, metadata seed and reset
+│   └── features/  # Topic-owned preparation and output validation
 ├── runner/        # ETL runners (run.py, maintenance.py) + dispatcher (run_scenario.py)
 ├── scenarios/     # scenarios.json (multi entries) + SCENARIOS.md (field reference)
 ├── metadata/
-│   ├── file/      # JSON use-case files (local, aws, perf) + generated yaml/xlsx
+│   ├── file/      # baseline, api_incremental, datatypes, replay, sql,
+│   │              # runtime, transformers, performance
 │   ├── database/  # DDL per dialect + verify_metadata.py
 │   └── api/       # Standalone dev metadata server (reads JSON)
 ├── docker/        # docker-compose.yml, mock_api_server.py, pg_api_metadata_server.py
 ├── functions/     # Custom Python source functions (sources.py)
 ├── artifacts/     # Checked-in deployed-artifact fixtures used by artifact scenarios
-├── .runtime/      # Generated data, logs, watermarks, and databases (gitignored)
+├── runtime_paths.py # Canonical simulator roots
+├── .runtime/      # Generated artifacts (gitignored)
+│   ├── data/      # Inputs, outputs, generated metadata, databases, Spark state
+│   ├── logs/      # Framework logs, scenario receipts, console and Derby logs
+│   ├── watermarks/ # Source state, separated by topic/case/engine
+│   └── dependencies/spark/ # Ivy cache, isolated spark35 and spark4 profiles
 └── platforms/
     ├── aws/          # Glue/local AWS samples; dispatcher integration remains separate
     ├── databricks/  # Prepared metadata + notebook samples
@@ -68,6 +76,11 @@ usecase-sim/
 ```
 
 ---
+
+See [metadata topics](metadata/file/README.md) and [script ownership](scripts/README.md).
+Relative simulator CLI paths resolve from `datacoolie/`, including when a runner
+is invoked from `usecase-sim/`. Feature-specific generated folders belong inside
+the corresponding runtime area.
 
 ## 4. Full start
 
@@ -79,15 +92,15 @@ minutes cold but has no "is service X up?" guesswork.
 # From the repository root
 
 # 1. Start all 11 services and wait for exposed ports (≈ 60 s cold, 10 s warm)
-python usecase-sim/scripts/setup_platform.py
+python usecase-sim/scripts/bootstrap/setup_platform.py
 
 # 2. Seed metadata into file + every DB dialect + api-db
-python usecase-sim/scripts/setup_metadata.py `
+python usecase-sim/scripts/bootstrap/setup_metadata.py `
     --targets file,db:sqlite,db:postgresql,db:mysql,db:mssql,db:oracle `
     --truncate
 
 # 3. Generate the 30-row sample set plus focused transformer fixture
-python usecase-sim/scripts/generate_data.py
+python usecase-sim/scripts/bootstrap/generate_data.py
 
 # 4. Run every scenario
 python usecase-sim/runner/run_scenario.py --all
@@ -96,7 +109,7 @@ python usecase-sim/runner/run_scenario.py --all
 **Expected result** (≈ a few minutes, depending on cold/warm JVM):
 
 ```
-Total: 51 | PASS: 51 | FAIL: 0
+Total: <selected> | PASS: <selected> | FAIL: 0
 ```
 
 Or, for a first sanity check after step 3:
@@ -117,7 +130,7 @@ generated data, logs, and watermarks remain isolated under `.runtime/`.
 Tear everything down:
 
 ```powershell
-python usecase-sim/scripts/setup_platform.py --down --volumes
+python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes
 ```
 
 ### Running only what you need
@@ -170,7 +183,7 @@ python usecase-sim/runner/run_scenario.py --priority P0
 python usecase-sim/runner/run_scenario.py --all
 ```
 
-The MinIO target also publishes `metadata/file/aws_use_cases.json` to
+The MinIO target also publishes `metadata/file/baseline/aws_use_cases.json` to
 `s3://datacoolie-test/metadata/aws_use_cases.json`, which is the metadata URI
 used by the AWS-platform scenarios.
 
@@ -187,7 +200,7 @@ the Spark, MinIO and Iceberg REST services, then run the opt-in integration
 test from the product root:
 
 ```powershell
-python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
 ..\.venv\Scripts\python.exe -m pytest --datatype-qualification `
   -m datatype_qualification tests/integration/data_types/test_spark_container_cross_engine.py
 
@@ -210,7 +223,7 @@ service beside the default Spark 3.5 service, then run its dedicated gate:
 
 ```powershell
 docker compose -f usecase-sim/docker/docker-compose.yml build spark4
-python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark4
+python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark4
 ..\.venv\Scripts\python.exe -m pytest `
   tests/integration/data_types/test_spark4_container_cross_engine.py `
   --datatype-qualification --spark4-qualification `
@@ -219,7 +232,7 @@ python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
 
 The `spark4` image pins PySpark 4.1.0, Delta Lake 4.2.0 and resolves
 `iceberg-spark-runtime-4.1_2.13:1.11.0`. Its mutable state lives below
-`.runtime/spark4/`, so it can run next to `datacoolie-spark`. A scenario may
+`.runtime/data/spark/spark4/`, so it can run next to `datacoolie-spark`. A scenario may
 select it with `"spark_container": "datacoolie-spark4"`; the default remains
 `datacoolie-spark`. A passing gate is evidence only for this pinned coordinate.
 
@@ -229,7 +242,7 @@ These paths have different ownership and lifecycles:
 
 | Path | Role | Used by |
 |---|---|---|
-| `metadata/file/datatype_qualification.json` | Checked-in canonical logical metadata contract | Fixture preparation and contract-coverage checks |
+| `metadata/file/datatypes/datatype_qualification.json` | Checked-in canonical logical metadata contract | Fixture preparation and contract-coverage checks |
 | `.runtime/data/datatype_qualification/metadata/{engine}_{format}.json` | Generated execution metadata for manually invoked named scenarios | `run_scenario.py --scenario local_*_datatype_qualification*` |
 | `.runtime/data/datatype_qualification/runs/<run-id>/metadata/{engine}_{format}.json` | Run-isolated execution metadata with unique output/table bindings | `tests/integration/data_types/test_usecase_sim_cross_engine.py` |
 
@@ -247,7 +260,7 @@ under the core repository boundary invoke it as a black box.
 
 | Concern | Handling |
 |---|---|
-| Spark JVM cooldown | 6 s pause + stale `.runtime/spark/warehouse/` + `.runtime/spark/metastore_db/` wipe between host Spark scenarios; container profiles use isolated state roots |
+| Spark JVM cooldown | 6 s pause + stale `.runtime/data/spark/spark35/warehouse/` + `.runtime/data/spark/spark35/metastore_db/` wipe between host Spark scenarios; container profiles use isolated state roots |
 | Timeouts | 450 s (spark), 300 s (polars), 600 s (maintenance); override per scenario via `"timeout_seconds"` |
 | Cancellation | On timeout, signal the child, allow 120 s for `driver.close()` and log flush, then hard-kill if needed |
 | Exit code | `0` iff every scenario passed |
@@ -263,7 +276,7 @@ directly — all flags documented in section 7.
 ```powershell
 python usecase-sim/runner/run.py `
     --engine polars --metadata-source file --platform local `
-    --metadata-path usecase-sim/metadata/file/local_use_cases.json `
+    --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json `
     --stage local_csv2parquet
 ```
 
@@ -298,20 +311,20 @@ Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 | `local_spark_datatype_qualification` | spark | typed/weak file metadata matrix | executes the same eight dataflows in the simulator Spark container when available (otherwise the documented local fallback); parity assertions live in the opt-in integration test |
 | `local_polars_qualified_sql_delta` | polars | focused file metadata | 4/3/2/1 names, filters, lazy reuse |
 | `local_polars_qualified_sql_delta_ambiguity` | polars | focused file metadata | expected ambiguity failure |
-| `local_polars_artifact_default_metadata` | polars | static artifact | Driver-inferred FileProvider, default metadata root, artifact SQL |
+| `local_polars_artifact_default_metadata` | polars | static artifact | Driver-bound FileProvider, default metadata root, artifact SQL |
 | `local_polars_artifact_custom_metadata` | polars | static artifact | explicit nested metadata root with arbitrary shard names |
 | `local_polars_query_artifact_relative` | polars | static artifact | shorthand SQL resolved directly below the artifact root |
 | `local_polars_query_artifact_relative_nested` | polars | static artifact | nested artifact-relative SQL path remains unchanged without a manifest |
 | `local_polars_query_explicit_multiple_roots` | polars | exact file + SQL roots | repeated SQL root flags route a prefixed reference through explicit roots |
 | `local_polars_query_root_routing` | polars | exact file + SQL root | shorthand SQL resolved from an explicit `sql_base_path` (including its root prefix) |
-| `local_polars_state_base_path` | polars | exact file + SQL root | derived logs and file-watermark state below a state root |
+| `local_polars_state_base_path` | polars | exact file + SQL root | explicit logs and watermarks in independent runtime areas |
 | `local_polars_runtime_log_contract` | polars | static artifact | v4 runtime `message` plus metadata/runtime query fields and `run_attributes` |
 | `local_polars_logging_batch` | polars | static artifact | immutable batch parts plus replace-one job snapshot |
 | `local_polars_dry_run_query_file` | polars | exact file + SQL root | preparation-only query-file validation without business I/O |
 | `local_polars_startup_failure` | polars | malformed exact file | provider startup failure diagnostics before dataflow execution |
 
 The transformer feature scenarios require the local fixture generated by
-`python usecase-sim/scripts/generate_data.py --targets local`. Positive
+`python usecase-sim/scripts/bootstrap/generate_data.py --targets local`. Positive
 scenarios run an output validator after the ETL child exits; negative scenarios
 assert both the expected exit code and stable error text.
 
@@ -412,7 +425,7 @@ Unified ETL runner. Dispatches any `(engine × metadata-source)` combination.
 | `--catalog-preset` | | `local` | `local` \| `unity_catalog` |
 | `--uc-token` / `--uc-credential` | | `""` | Unity Catalog auth |
 | `--log-path` | | `None` | Directory for framework logs; driver writes `system_logs/` and `execution_logs/` under it |
-| `--state-base-path` | | `None` | Runtime state root; derives log and file-watermark paths when component roots are absent |
+| `--state-base-path` | | `None` | Runtime state root; derives file-watermark paths while logs default to the shared root |
 | `--job-id` | | generated | Stable Driver session/job identifier (useful for deterministic scenario logs) |
 | `--run-attributes JSON` | | `None` | Caller-owned JSON object persisted with JobRuntime for external correlation |
 | `--log-persistence-mode` | | `None` | `snapshot` or `batch` structured log persistence |
@@ -459,7 +472,7 @@ Compact + cleanup for Delta and Iceberg tables.
 | `--iceberg-catalog-uri` | | `None` | Override Iceberg REST URI |
 | `--uc-token` / `--uc-credential` | | `""` | Unity Catalog auth |
 | `--log-path` | | `None` | Directory for framework logs (same layout as `run.py`) |
-| `--state-base-path` | | `None` | Runtime state root for derived logs/watermarks |
+| `--state-base-path` | | `None` | Runtime state root for derived watermarks; simulator logs use the shared log root |
 | `--job-id` | | generated | Stable Driver session/job identifier |
 | `--run-attributes JSON` | | `None` | Caller-owned correlation object |
 | `--log-persistence-mode` | | `None` | `snapshot` or `batch` |
@@ -478,7 +491,8 @@ Compact + cleanup for Delta and Iceberg tables.
 
 The dispatcher writes three kinds of logs under `usecase-sim/.runtime/logs/`:
 
-- `system_logs/` and `execution_logs/` — driver output (forwarded via `--log-path`).
+- `system_logs/` and `execution_logs/` — driver output directly under the shared
+  `.runtime/logs` root, including local replay, maintenance and benchmark runs.
 - `scenarios/run_scenario.log` — dispatcher's own log (which scenarios ran, commands, pass/fail summary).
 - `scenarios/<name>.console.log` — full stdout+stderr tee of each scenario's child process (also streamed live to the terminal).
 
@@ -511,15 +525,16 @@ forms:
 
 ## 8. Bootstrap scripts
 
-All scripts live in [`scripts/`](scripts/) and import shared helpers from
-`scripts/_common.py`. Run from the `datacoolie/` directory.
+Scripts live in [`scripts/bootstrap/`](scripts/bootstrap/) and
+[`scripts/features/`](scripts/features/). Shared service and fixture helpers
+remain in `scripts/_common.py`; canonical roots live in `runtime_paths.py`.
 
 ### `setup_platform.py` — start / stop Docker stack
 
 ```powershell
-python usecase-sim/scripts/setup_platform.py                         # up all, wait for ports
-python usecase-sim/scripts/setup_platform.py --services postgres minio
-python usecase-sim/scripts/setup_platform.py --down --volumes        # tear down + wipe data
+python usecase-sim/scripts/bootstrap/setup_platform.py                         # up all, wait for ports
+python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres minio
+python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes        # tear down + wipe data
 ```
 
 | Flag | Default | Purpose |
@@ -534,15 +549,15 @@ python usecase-sim/scripts/setup_platform.py --down --volumes        # tear down
 
 ```powershell
 # Default: file + db:sqlite + db:postgresql (local workspace)
-python usecase-sim/scripts/setup_metadata.py
+python usecase-sim/scripts/bootstrap/setup_metadata.py
 
 # Seed every dialect, truncating first
-python usecase-sim/scripts/setup_metadata.py `
+python usecase-sim/scripts/bootstrap/setup_metadata.py `
     --targets file,db:postgresql,db:mysql,db:mssql,db:oracle --truncate
 
 # AWS workspace into postgres
-python usecase-sim/scripts/setup_metadata.py `
-    --json usecase-sim/metadata/file/aws_use_cases.json `
+python usecase-sim/scripts/bootstrap/setup_metadata.py `
+    --json usecase-sim/metadata/file/baseline/aws_use_cases.json `
     --workspace-id aws-workspace --targets db:postgresql --truncate
 ```
 
@@ -567,8 +582,8 @@ Targets: `file`, `db:sqlite`, `db:postgresql`, `db:mysql`, `db:mssql`,
 | `--targets LIST` | all reachable | `local`, `minio`, `pg`, `mysql`, `mssql`, `oracle` |
 
 ```powershell
-python usecase-sim/scripts/generate_data.py --targets local,minio
-python usecase-sim/scripts/generate_data.py --targets pg,mysql
+python usecase-sim/scripts/bootstrap/generate_data.py --targets local,minio
+python usecase-sim/scripts/bootstrap/generate_data.py --targets pg,mysql
 ```
 
 ### `reset_watermarks.py` — delete watermarks only
@@ -648,13 +663,13 @@ credentials are hardcoded — intended for local dev only.
 
 ```powershell
 # P1 database scenario on postgres only
-python usecase-sim/scripts/setup_platform.py --services postgres
+python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres
 
 # P2 AWS iceberg scenario
-python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest
+python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest
 
 # P1 metadata-api scenario (postgres + api server)
-python usecase-sim/scripts/setup_platform.py --services postgres metadata-api
+python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres metadata-api
 ```
 
 ### Windows: running Spark via Docker (recommended)
@@ -668,7 +683,7 @@ output data are shared through a volume mount — no path changes needed.
 
 ```powershell
 # From the datacoolie/ directory — build image + start dependencies + spark
-python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
 ```
 
 On first start the container runs `pip install -e /datacoolie --no-deps`
@@ -678,7 +693,7 @@ this is fast). No separate setup script needed.
 **Generate input data on the host (once per reset):**
 
 ```powershell
-python usecase-sim/scripts/generate_data.py --targets local
+python usecase-sim/scripts/bootstrap/generate_data.py --targets local
 ```
 
 **Run any Spark scenario via `docker exec`:**
@@ -687,13 +702,13 @@ python usecase-sim/scripts/generate_data.py --targets local
 # Single stage
 docker exec datacoolie-spark python usecase-sim/runner/run.py `
   --engine spark --metadata-source file --platform local `
-  --metadata-path ./usecase-sim/metadata/file/local_use_cases.json `
+  --metadata-path ./usecase-sim/metadata/file/baseline/local_use_cases.json `
   --stage load_delta --column-name-mode lower --skip-api-sources
 
 # All stages
 docker exec datacoolie-spark python usecase-sim/runner/run.py `
   --engine spark --metadata-source file --platform local `
-  --metadata-path ./usecase-sim/metadata/file/local_use_cases.json `
+  --metadata-path ./usecase-sim/metadata/file/baseline/local_use_cases.json `
   --stage "" --column-name-mode lower --skip-api-sources
 
 # Interactive shell for debugging
@@ -737,9 +752,9 @@ hint definitions.
 
 ### File
 
-Primary sources: [local_use_cases.json](metadata/file/local_use_cases.json),
-[aws_use_cases.json](metadata/file/aws_use_cases.json),
-[perf_test.json](metadata/file/perf_test.json). Running
+Primary sources: [local_use_cases.json](metadata/file/baseline/local_use_cases.json),
+[aws_use_cases.json](metadata/file/baseline/aws_use_cases.json),
+[perf_test.json](metadata/file/performance/perf_test.json). Running
 `setup_metadata.py --targets file` emits YAML and XLSX siblings used by the
 `*_yaml` / `*_excel` scenarios.
 
@@ -750,17 +765,16 @@ Schema files per dialect: `metadata/database/schema.sql` (SQLite),
 `schema_oracle.sql`. All create the same four `dc_framework_*` tables.
 Seeded by `setup_metadata.py --targets db:<dialect>`.
 
-For an existing database, run the reviewed additive
-[`metadata/database/migrations/`](metadata/database/migrations/) script before
-deploying a runtime that reads `source_filter_expression`; `create_tables()`
-and the seeder do not upgrade an existing table.
+The simulator uses the fresh-install schemas above. To upgrade an existing
+database, follow the [database provider schema upgrade guidance](../docs/guide/providers/database.md#schema-upgrade-for-source-predicates);
+`create_tables()` and the seeder do not upgrade an existing table.
 
 Oracle setup is safe to repeat. To reset only the simulator's local metadata
 workspace and then prove the non-truncating path is idempotent:
 
 ```powershell
-python usecase-sim/scripts/setup_metadata.py --targets db:oracle --truncate
-python usecase-sim/scripts/setup_metadata.py --targets db:oracle
+python usecase-sim/scripts/bootstrap/setup_metadata.py --targets db:oracle --truncate
+python usecase-sim/scripts/bootstrap/setup_metadata.py --targets db:oracle
 ```
 
 Setup now fails fast if a required framework table or expected seeded metadata
@@ -770,7 +784,7 @@ Verify DB matches JSON source:
 
 ```powershell
 python usecase-sim/metadata/database/verify_metadata.py `
-    --json-path usecase-sim/metadata/file/local_use_cases.json `
+    --json-path usecase-sim/metadata/file/baseline/local_use_cases.json `
     --connection-string "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie" `
     --workspace-id local-workspace
 ```
@@ -796,7 +810,7 @@ function:
   registers tables for Polars, queries the metastore for Spark. Supports Local,
   AWS, Fabric, and Databricks platforms via `base_path` lookups.
 
-[`metadata/file/polars_qualified_sql.json`](metadata/file/polars_qualified_sql.json)
+[`metadata/file/sql/polars_qualified_sql.json`](metadata/file/sql/polars_qualified_sql.json)
 contains only normal Delta/Iceberg sources with portable SQL declared as
 `source.query`. It has no Python-function source or test-only source
 configuration. The scenario's same-process engine setup registers the fixture
@@ -846,7 +860,7 @@ Or directly:
 ```powershell
 python usecase-sim/runner/maintenance.py `
     --engine polars --platform local `
-    --metadata-path usecase-sim/metadata/file/local_use_cases.json `
+    --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json `
     --connection local_delta_dest `
     --retention-hours 168
 ```
@@ -862,7 +876,7 @@ serialise those external jobs or use distinct targets.
 ```powershell
 # Generate full benchmark inputs.
 # JSONL is only generated through 1m; parquet/delta/iceberg go through 50m.
-python usecase-sim/scripts/generate_perf_data.py
+python usecase-sim/scripts/features/performance/generate_perf_data.py
 
 # Run each engine from a clean output state for a fair comparison.
 python usecase-sim/runner/run_perf_benchmark.py --engine polars --max-size 50m --reset
@@ -875,10 +889,10 @@ python usecase-sim/runner/run_perf_benchmark.py --report-only
 Notes:
 
 - Run all benchmark commands from the repository root.
-- `--reset` calls `usecase-sim/scripts/reset_perf_data.py` and clears perf outputs only. It does not delete generated inputs or `.runtime/data/perf/benchmark_results/`.
-- Each engine run writes one JSON file to `.runtime/data/perf/benchmark_results/` and also regenerates `perf_report.md` from whatever result files already exist.
+- `--reset` calls `usecase-sim/scripts/features/performance/reset_perf_data.py` and clears perf outputs only. It does not delete generated inputs or `.runtime/logs/performance/benchmark_results/`.
+- Each engine run writes one JSON file to `.runtime/logs/performance/benchmark_results/` and also regenerates `perf_report.md` from whatever result files already exist.
 - `--report-only` is the clean way to rebuild the final comparison after both engine runs finish.
-- If you want to regenerate inputs as well, use `python usecase-sim/scripts/reset_perf_data.py --all` before `generate_perf_data.py`.
+- If you want to regenerate inputs as well, use `python usecase-sim/scripts/features/performance/reset_perf_data.py --all` before `generate_perf_data.py`.
 - If Docker-backed services are unavailable, use `--no-iceberg` and keep `--max-size 1m` because JSONL inputs stop at `1m`.
 
 ---
@@ -887,7 +901,7 @@ Notes:
 
 | Symptom | Fix |
 |---|---|
-| `ERROR DerbyLockFile` on second Spark run | `run_scenario.py` auto-wipes `.runtime/spark/warehouse/` + `.runtime/spark/metastore_db/`; if running `run.py` directly, delete them between runs |
+| `ERROR DerbyLockFile` on second Spark run | `run_scenario.py` auto-wipes `.runtime/data/spark/spark35/warehouse/` + `.runtime/data/spark/spark35/metastore_db/`; if running `run.py` directly, delete them between runs |
 | Local Spark raises `ChecksumException` for a shared Delta file | Run through `runner/run.py` or `run_scenario.py`; local runners apply the scoped Hadoop checksum policy after creating Spark. Direct framework callers keep checksum verification enabled. |
 | Broad Spark scenarios slow down after many reruns | Use `run_scenario.py`; each affected scenario resets its stateless generated Delta targets while preserving watermark-dependent state. |
 | `BucketAlreadyOwnedByYou` on MinIO | Benign; `_common.ensure_bucket` is idempotent |

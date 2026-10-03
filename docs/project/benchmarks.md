@@ -33,7 +33,7 @@ output under `usecase-sim/.runtime/data/perf/output/parquet/`.
 Choose a new result directory for each measurement:
 
 ```powershell
-poetry run python usecase-sim/scripts/generate_perf_data.py `
+poetry run python usecase-sim/scripts/features/performance/generate_perf_data.py `
   --sizes 10k --formats jsonl --targets local
 poetry run python usecase-sim/runner/run_perf_benchmark.py `
   --engine polars --stages perf_jsonl_parquet --max-size 10k --no-iceberg `
@@ -77,8 +77,8 @@ before selecting Spark.
 ```powershell
 poetry install --with dev -E polars-delta -E polars-iceberg -E aws -E spark-delta
 poetry run python -m pip install numpy
-poetry run python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest
-poetry run python usecase-sim/scripts/generate_perf_data.py `
+poetry run python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest
+poetry run python usecase-sim/scripts/features/performance/generate_perf_data.py `
   --sizes 10k,50k,100k,500k,1m
 ```
 
@@ -104,7 +104,7 @@ this recipe. JSONL generation stops at 1M.
 
 ## What it measures
 
-The [metadata](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/metadata/file/perf_test.json)
+The [metadata](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/metadata/file/performance/perf_test.json)
 defines eight stages in seed/dependency order:
 
 | Source → destination | Load type |

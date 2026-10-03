@@ -3,7 +3,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -39,7 +39,7 @@
       "required_console_text": [
         "active schema-hint column(s) not found and skipped: ['missing_schema_one', 'missing_schema_two']"
       ],
-      "script": "usecase-sim/scripts/validate_transformer_features.py"
+      "script": "usecase-sim/scripts/features/transformers/validate_transformer_features.py"
     },
     "notes": "Polars transformer metadata regression with output reconciliation"
   },
@@ -47,7 +47,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -86,7 +86,7 @@
       "required_console_text": [
         "active schema-hint column(s) not found and skipped: ['missing_schema_one', 'missing_schema_two']"
       ],
-      "script": "usecase-sim/scripts/validate_transformer_features.py"
+      "script": "usecase-sim/scripts/features/transformers/validate_transformer_features.py"
     },
     "notes": "Spark transformer metadata regression with output reconciliation"
   },
@@ -94,17 +94,24 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_dedup_strict",
     "column_name_mode": "lower",
     "priority": "P0",
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/parquet/tf_dedup_strict"
     ],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Column 'missing_order' not found"]
+      "required_console_text": [
+        "Column 'missing_order' not found"
+      ]
     },
     "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore"
   },
@@ -112,7 +119,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_dedup_strict",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -122,10 +129,17 @@
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/parquet/tf_dedup_strict"
     ],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Column 'missing_order' not found"]
+      "required_console_text": [
+        "Column 'missing_order' not found"
+      ]
     },
     "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore"
   },
@@ -133,15 +147,24 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_invalid_fill",
     "column_name_mode": "lower",
     "priority": "P0",
-    "pre_clean_paths": ["usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"
+    ],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Transformer literal is incompatible with the target column"]
+      "required_console_text": [
+        "Transformer literal is incompatible with the target column"
+      ]
     },
     "notes": "Expected failure: fill_null rejects a string literal for an integer column"
   },
@@ -149,18 +172,27 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_invalid_fill",
     "column_name_mode": "lower",
     "priority": "P0",
     "skip_api_sources": true,
     "max_workers": 1,
     "timeout_seconds": 300,
-    "pre_clean_paths": ["usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"
+    ],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Transformer literal is incompatible with the target column"]
+      "required_console_text": [
+        "Transformer literal is incompatible with the target column"
+      ]
     },
     "notes": "Expected failure: fill_null rejects a string literal for an integer column"
   },
@@ -168,15 +200,24 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_invalid_redact",
     "column_name_mode": "lower",
     "priority": "P0",
-    "pre_clean_paths": ["usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"
+    ],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Transformer literal is incompatible with the target column"]
+      "required_console_text": [
+        "Transformer literal is incompatible with the target column"
+      ]
     },
     "notes": "Expected failure: redact rejects a string literal for an integer column"
   },
@@ -184,18 +225,27 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_invalid_redact",
     "column_name_mode": "lower",
     "priority": "P0",
     "skip_api_sources": true,
     "max_workers": 1,
     "timeout_seconds": 300,
-    "pre_clean_paths": ["usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"
+    ],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Transformer literal is incompatible with the target column"]
+      "required_console_text": [
+        "Transformer literal is incompatible with the target column"
+      ]
     },
     "notes": "Expected failure: redact rejects a string literal for an integer column"
   },
@@ -203,15 +253,24 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_sanitizer_collision",
     "column_name_mode": "lower",
     "priority": "P0",
-    "pre_clean_paths": ["usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"
+    ],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Column sanitization would create duplicate column names"]
+      "required_console_text": [
+        "Column sanitization would create duplicate column names"
+      ]
     },
     "notes": "Expected failure: distinct source names cannot collapse to one sanitized name"
   },
@@ -219,18 +278,27 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
     "stage": "transform_features_sanitizer_collision",
     "column_name_mode": "lower",
     "priority": "P0",
     "skip_api_sources": true,
     "max_workers": 1,
     "timeout_seconds": 300,
-    "pre_clean_paths": ["usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"
+    ],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Column sanitization would create duplicate column names"]
+      "required_console_text": [
+        "Column sanitization would create duplicate column names"
+      ]
     },
     "notes": "Expected failure: distinct source names cannot collapse to one sanitized name"
   },
@@ -238,7 +306,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -248,31 +316,42 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/polars",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/polars",
     "stage": "replay_test",
     "column_name_mode": "lower",
     "priority": "P0",
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/orders_replay",
-      "usecase-sim/.runtime/data/replay_validation/polars"
+      "usecase-sim/.runtime/watermarks/replay_validation/polars"
     ],
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_output.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/orders_replay",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00",
-        "--expected-rows", "6",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/polars",
-        "--expected-watermark", "2024-01-17T12:30:00"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/orders_replay",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00",
+        "--expected-rows",
+        "6",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/polars",
+        "--expected-watermark",
+        "2024-01-17T12:30:00"
       ]
     },
     "notes": "Bounded Polars replay: three sequential half-open chunks, persisted source observation, and output/state validation"
@@ -281,32 +360,43 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/spark",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/spark",
     "stage": "replay_test",
     "column_name_mode": "lower",
     "priority": "P0",
     "skip_api_sources": true,
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/orders_replay",
-      "usecase-sim/.runtime/data/replay_validation/spark"
+      "usecase-sim/.runtime/watermarks/replay_validation/spark"
     ],
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_output.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/orders_replay",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00",
-        "--expected-rows", "6",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/spark",
-        "--expected-watermark", "2024-01-17T12:30:00"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/orders_replay",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00",
+        "--expected-rows",
+        "6",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/spark",
+        "--expected-watermark",
+        "2024-01-17T12:30:00"
       ]
     },
     "notes": "Bounded Spark replay: three sequential half-open chunks, persisted source observation, and output/state validation"
@@ -316,30 +406,40 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "usecase-sim/.runtime/data/replay_date_mtime_validation_polars.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/date_mtime_polars",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_polars",
     "stage": "date_mtime_replay_validation",
     "column_name_mode": "lower",
     "priority": "P1",
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/date_mtime_replay_validation_polars",
-      "usecase-sim/.runtime/data/replay_validation/date_mtime_polars"
+      "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_polars"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_date_mtime_replay.py",
-      "args": ["--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/prepare_date_mtime_replay.py",
+      "args": [
+        "--engine",
+        "polars"
+      ]
     },
     "replay_start": "2024-01-15T00:00:00+00:00",
     "replay_end": "2024-01-17T00:00:00+00:00",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "__file_modification_time",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_date_mtime_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py",
       "args": [
-        "--engine", "polars",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/date_mtime_polars"
+        "--engine",
+        "polars",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_polars"
       ]
     },
     "notes": "Date-folder discovery is bounded conservatively; exact file selection uses the source-owned mtime column with inclusive start and exclusive end"
@@ -349,31 +449,41 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "usecase-sim/.runtime/data/replay_date_mtime_validation_spark.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/date_mtime_spark",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_spark",
     "stage": "date_mtime_replay_validation",
     "column_name_mode": "lower",
     "priority": "P1",
     "skip_api_sources": true,
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/date_mtime_replay_validation_spark",
-      "usecase-sim/.runtime/data/replay_validation/date_mtime_spark"
+      "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_spark"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_date_mtime_replay.py",
-      "args": ["--engine", "spark"]
+      "script": "usecase-sim/scripts/features/replay/prepare_date_mtime_replay.py",
+      "args": [
+        "--engine",
+        "spark"
+      ]
     },
     "replay_start": "2024-01-15T00:00:00+00:00",
     "replay_end": "2024-01-17T00:00:00+00:00",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "__file_modification_time",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_date_mtime_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py",
       "args": [
-        "--engine", "spark",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/date_mtime_spark"
+        "--engine",
+        "spark",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_spark"
       ]
     },
     "notes": "Docker Spark qualification of date-folder discovery plus exact file mtime replay boundaries"
@@ -382,33 +492,47 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay_api_validation.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_polars",
+    "metadata_path": "./usecase-sim/metadata/file/replay/replay_api_validation.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_polars",
     "stage": "replay_api_validation",
     "column_name_mode": "lower",
     "priority": "P0",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/api_replay_validation",
-      "usecase-sim/.runtime/data/replay_validation/api_polars"
+      "usecase-sim/.runtime/watermarks/replay_validation/api_polars"
     ],
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_output.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_replay_validation",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00",
-        "--expected-rows", "6",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_polars",
-        "--expected-watermark-column", "order_date",
-        "--expected-watermark", "2024-01-17"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_replay_validation",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00",
+        "--expected-rows",
+        "6",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_polars",
+        "--expected-watermark-column",
+        "order_date",
+        "--expected-watermark",
+        "2024-01-17"
       ]
     },
     "notes": "Canonical API range mapping with modified_at as an independent replay column and order_date as the persisted source watermark"
@@ -417,33 +541,47 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay_api_validation.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_spark",
+    "metadata_path": "./usecase-sim/metadata/file/replay/replay_api_validation.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_spark",
     "stage": "replay_api_validation",
     "column_name_mode": "lower",
     "priority": "P0",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/api_replay_validation",
-      "usecase-sim/.runtime/data/replay_validation/api_spark"
+      "usecase-sim/.runtime/watermarks/replay_validation/api_spark"
     ],
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_output.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_replay_validation",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00",
-        "--expected-rows", "6",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_spark",
-        "--expected-watermark-column", "order_date",
-        "--expected-watermark", "2024-01-17"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_replay_validation",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00",
+        "--expected-rows",
+        "6",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_spark",
+        "--expected-watermark-column",
+        "order_date",
+        "--expected-watermark",
+        "2024-01-17"
       ]
     },
     "notes": "Canonical API range mapping on Spark with modified_at as an independent replay column and order_date as the persisted source watermark"
@@ -452,24 +590,35 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental_recovery_fail.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_recovery_polars",
+    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery_fail.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
-      "usecase-sim/.runtime/data/replay_validation/api_recovery_polars"
+      "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars"
     ],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["API pagination reached max_pages=1"],
-      "script": "usecase-sim/scripts/validate_api_incremental_failure.py",
+      "required_console_text": [
+        "API pagination reached max_pages=1"
+      ],
+      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_failure.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_recovery_polars"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars"
       ]
     },
     "notes": "Expected failure: the first API page is read but an unconsumed next_link prevents destination and watermark commit"
@@ -478,20 +627,27 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental_recovery.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_recovery_polars",
+    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Result — total: 1, succeeded: 1, failed: 0"],
-      "script": "usecase-sim/scripts/validate_api_incremental_recovery.py",
+      "required_console_text": [
+        "Result — total: 1, succeeded: 1, failed: 0"
+      ],
+      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_recovery_polars",
-        "--expected-rows", "30"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
+        "--expected-rows",
+        "30"
       ]
     },
     "notes": "Recovery after a failed paginated API read; all pages commit rows and the observed modified_at watermark"
@@ -500,20 +656,27 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental_continuation.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_recovery_polars",
+    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_continuation.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Result — total: 1, succeeded: 1, failed: 0"],
-      "script": "usecase-sim/scripts/validate_api_incremental_recovery.py",
+      "required_console_text": [
+        "Result — total: 1, succeeded: 1, failed: 0"
+      ],
+      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_recovery_polars",
-        "--expected-rows", "31",
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
+        "--expected-rows",
+        "31",
         "--continuation"
       ]
     },
@@ -523,24 +686,35 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental_recovery_spark_fail.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_recovery_spark",
+    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery_spark_fail.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/api_recovery_spark",
-      "usecase-sim/.runtime/data/replay_validation/api_recovery_spark"
+      "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark"
     ],
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["API pagination reached max_pages=1"],
-      "script": "usecase-sim/scripts/validate_api_incremental_failure.py",
+      "required_console_text": [
+        "API pagination reached max_pages=1"
+      ],
+      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_failure.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_recovery_spark"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark"
       ]
     },
     "notes": "Expected Docker Spark failure: incomplete pagination must not commit a destination or watermark"
@@ -549,20 +723,27 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental_recovery_spark.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_recovery_spark",
+    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery_spark.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Result — total: 1, succeeded: 1, failed: 0"],
-      "script": "usecase-sim/scripts/validate_api_incremental_recovery.py",
+      "required_console_text": [
+        "Result — total: 1, succeeded: 1, failed: 0"
+      ],
+      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_recovery_spark",
-        "--expected-rows", "30"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
+        "--expected-rows",
+        "30"
       ]
     },
     "notes": "Docker Spark recovery after failed API pagination; the source commits only after every next_link page succeeds"
@@ -571,20 +752,27 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental_continuation_spark.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/api_recovery_spark",
+    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_continuation_spark.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Result — total: 1, succeeded: 1, failed: 0"],
-      "script": "usecase-sim/scripts/validate_api_incremental_recovery.py",
+      "required_console_text": [
+        "Result — total: 1, succeeded: 1, failed: 0"
+      ],
+      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/api_recovery_spark",
-        "--expected-rows", "31",
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
+        "--expected-rows",
+        "31",
         "--continuation"
       ]
     },
@@ -594,36 +782,51 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay_sql_validation.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/sql_polars",
+    "metadata_path": "./usecase-sim/metadata/file/replay/replay_sql_validation.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/sql_polars",
     "stage": "replay_sql_validation",
     "column_name_mode": "lower",
     "priority": "P0",
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/sql_replay_validation",
-      "usecase-sim/.runtime/data/replay_validation/sql_polars"
+      "usecase-sim/.runtime/watermarks/replay_validation/sql_polars"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/generate_data.py",
-      "args": ["--targets", "local"]
+      "script": "usecase-sim/scripts/bootstrap/generate_data.py",
+      "args": [
+        "--targets",
+        "local"
+      ]
     },
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_output.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/sql_replay_validation",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00",
-        "--expected-rows", "6",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/sql_polars",
-        "--expected-watermark-column", "order_date",
-        "--expected-watermark", "2024-01-17"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/sql_replay_validation",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00",
+        "--expected-rows",
+        "6",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/sql_polars",
+        "--expected-watermark-column",
+        "order_date",
+        "--expected-watermark",
+        "2024-01-17"
       ]
     },
     "notes": "SQLite SQL pushdown with modified_at as an independent replay column and order_date as the persisted source watermark"
@@ -632,36 +835,51 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay_sql_validation.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_validation/sql_spark",
+    "metadata_path": "./usecase-sim/metadata/file/replay/replay_sql_validation.json",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/sql_spark",
     "stage": "replay_sql_validation",
     "column_name_mode": "lower",
     "priority": "P0",
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/delta/sql_replay_validation",
-      "usecase-sim/.runtime/data/replay_validation/sql_spark"
+      "usecase-sim/.runtime/watermarks/replay_validation/sql_spark"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/generate_data.py",
-      "args": ["--targets", "local"]
+      "script": "usecase-sim/scripts/bootstrap/generate_data.py",
+      "args": [
+        "--targets",
+        "local"
+      ]
     },
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_output.py",
       "args": [
-        "--output", "usecase-sim/.runtime/data/output/delta/sql_replay_validation",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00",
-        "--expected-rows", "6",
-        "--state-root", "usecase-sim/.runtime/data/replay_validation/sql_spark",
-        "--expected-watermark-column", "order_date",
-        "--expected-watermark", "2024-01-17"
+        "--output",
+        "usecase-sim/.runtime/data/output/delta/sql_replay_validation",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00",
+        "--expected-rows",
+        "6",
+        "--state-root",
+        "usecase-sim/.runtime/watermarks/replay_validation/sql_spark",
+        "--expected-watermark-column",
+        "order_date",
+        "--expected-watermark",
+        "2024-01-17"
       ]
     },
     "notes": "SQLite SQL pushdown on Spark with modified_at as an independent replay column and order_date as the persisted source watermark"
@@ -675,25 +893,38 @@
     "stage": "aws_replay_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["minio"],
+    "services": [
+      "minio"
+    ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_aws_replay.py",
-      "args": ["--engine", "polars"],
+      "script": "usecase-sim/scripts/features/replay/prepare_aws_replay.py",
+      "args": [
+        "--engine",
+        "polars"
+      ],
       "timeout_seconds": 120
     },
     "replay_start": "2024-01-15T00:00:00",
     "replay_end": "2024-01-18T00:00:00",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_s3_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_s3_replay_output.py",
       "args": [
-        "--engine", "polars",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00"
+        "--engine",
+        "polars",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00"
       ]
     },
     "notes": "AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks"
@@ -707,26 +938,39 @@
     "stage": "aws_replay_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["minio"],
+    "services": [
+      "minio"
+    ],
     "skip_api_sources": true,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_aws_replay.py",
-      "args": ["--engine", "spark"],
+      "script": "usecase-sim/scripts/features/replay/prepare_aws_replay.py",
+      "args": [
+        "--engine",
+        "spark"
+      ],
       "timeout_seconds": 120
     },
     "replay_start": "2024-01-15T00:00:00",
     "replay_end": "2024-01-18T00:00:00",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "modified_at",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_s3_replay_output.py",
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_s3_replay_output.py",
       "args": [
-        "--engine", "spark",
-        "--start", "2024-01-15T00:00:00",
-        "--end", "2024-01-18T00:00:00"
+        "--engine",
+        "spark",
+        "--start",
+        "2024-01-15T00:00:00",
+        "--end",
+        "2024-01-18T00:00:00"
       ]
     },
     "notes": "AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks"
@@ -740,22 +984,36 @@
     "stage": "iceberg_replay_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["minio", "iceberg-rest"],
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_iceberg_replay.py",
-      "args": ["--engine", "polars"],
+      "script": "usecase-sim/scripts/features/replay/prepare_iceberg_replay.py",
+      "args": [
+        "--engine",
+        "polars"
+      ],
       "timeout_seconds": 120
     },
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "order_date",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_iceberg_replay_output.py",
-      "args": ["--engine", "polars"],
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py",
+      "args": [
+        "--engine",
+        "polars"
+      ],
       "timeout_seconds": 480
     },
     "notes": "AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows"
@@ -769,23 +1027,37 @@
     "stage": "iceberg_replay_validation",
     "column_name_mode": "lower",
     "priority": "P1",
-    "services": ["minio", "iceberg-rest"],
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
     "skip_api_sources": true,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_iceberg_replay.py",
-      "args": ["--engine", "spark"],
+      "script": "usecase-sim/scripts/features/replay/prepare_iceberg_replay.py",
+      "args": [
+        "--engine",
+        "spark"
+      ],
       "timeout_seconds": 120
     },
     "replay_start": "2024-01-15",
     "replay_end": "2024-01-18",
-    "replay_chunk_interval": ["days=1"],
+    "replay_chunk_interval": [
+      "days=1"
+    ],
     "replay_chunk_column": "order_date",
     "replay_save_watermark": true,
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["Replay result", "save_watermark=True"],
-      "script": "usecase-sim/scripts/validate_iceberg_replay_output.py",
-      "args": ["--engine", "spark"],
+      "required_console_text": [
+        "Replay result",
+        "save_watermark=True"
+      ],
+      "script": "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py",
+      "args": [
+        "--engine",
+        "spark"
+      ],
       "timeout_seconds": 720
     },
     "notes": "AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows"
@@ -794,7 +1066,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.yaml",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.yaml",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -804,7 +1076,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.xlsx",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.xlsx",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -815,7 +1087,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -834,7 +1106,7 @@
     "engine": "polars",
     "metadata_type": "database",
     "platform": "local",
-    "metadata_db_connection_string": "sqlite:///./usecase-sim/.runtime/databases/metadata/datacoolie_metadata.db",
+    "metadata_db_connection_string": "sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db",
     "metadata_workspace_id": "local-workspace",
     "stage": "",
     "column_name_mode": "lower",
@@ -889,7 +1161,7 @@
     "engine": "spark",
     "metadata_type": "database",
     "platform": "local",
-    "metadata_db_connection_string": "sqlite:///./usecase-sim/.runtime/databases/metadata/datacoolie_metadata.db",
+    "metadata_db_connection_string": "sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db",
     "metadata_workspace_id": "local-workspace",
     "stage": "",
     "column_name_mode": "lower",
@@ -939,7 +1211,7 @@
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
     "connection": "local_delta_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on delta via Polars"
@@ -948,7 +1220,7 @@
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
     "connection": "local_iceberg_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on iceberg via Polars"
@@ -957,7 +1229,7 @@
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
     "connection": "local_delta_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on delta via Spark"
@@ -966,7 +1238,7 @@
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
     "connection": "local_iceberg_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on iceberg via Spark"
@@ -1032,7 +1304,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_delta",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1047,18 +1319,27 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/delta_lazy_reuse"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 60
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_polars_qualified_sql.py",
-      "args": ["--suite", "delta"]
+      "script": "usecase-sim/scripts/features/sql/validate_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta"
+      ]
     },
     "notes": "Seven isolated Delta qualified-SQL cases with output reconciliation"
   },
@@ -1066,7 +1347,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_delta_ambiguity",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1075,15 +1356,26 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/delta_ambiguity"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-ambiguity"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-ambiguity"
+      ],
       "timeout_seconds": 60
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-ambiguity"]
+      "args": [
+        "--suite",
+        "delta-ambiguity"
+      ]
     },
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
@@ -1098,13 +1390,16 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_iceberg",
     "column_name_mode": "lower",
     "priority": "P1",
     "max_workers": 1,
     "timeout_seconds": 120,
-    "services": ["minio", "iceberg-rest"],
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_default_root",
       "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_logical_prefix",
@@ -1114,18 +1409,27 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_lazy_reuse"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "iceberg-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "iceberg-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "iceberg-positive"]
+      "args": [
+        "--suite",
+        "iceberg-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_polars_qualified_sql.py",
-      "args": ["--suite", "iceberg"]
+      "script": "usecase-sim/scripts/features/sql/validate_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "iceberg"
+      ]
     },
     "notes": "Six isolated Iceberg catalog qualified-SQL cases with output reconciliation"
   },
@@ -1133,26 +1437,40 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_iceberg_ambiguity",
     "column_name_mode": "lower",
     "priority": "P1",
     "max_workers": 1,
     "timeout_seconds": 120,
-    "services": ["minio", "iceberg-rest"],
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_ambiguity"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "iceberg-ambiguity"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "iceberg-ambiguity"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "iceberg-ambiguity"]
+      "args": [
+        "--suite",
+        "iceberg-ambiguity"
+      ]
     },
-    "invocations": [{"label": "expected_failure", "expected_exit_code": 2}],
+    "invocations": [
+      {
+        "label": "expected_failure",
+        "expected_exit_code": 2
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
@@ -1177,17 +1495,23 @@
       "usecase-sim/.runtime/data/output/artifact/orders_artifact"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/artifact/orders_artifact",
@@ -1212,17 +1536,23 @@
       "usecase-sim/.runtime/data/output/custom_metadata/orders_custom_metadata"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/custom_metadata/orders_custom_metadata",
@@ -1246,17 +1576,23 @@
       "usecase-sim/.runtime/data/output/multi_sql_roots/customers_artifact_relative"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/multi_sql_roots/customers_artifact_relative",
@@ -1270,7 +1606,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/multi_sql_root_contract.json",
+    "metadata_path": "./usecase-sim/metadata/file/sql/multi_sql_root_contract.json",
     "sql_base_path": [
       "usecase-sim/artifacts/multi-sql-roots/sql1",
       "usecase-sim/artifacts/multi-sql-roots/shared/sql2"
@@ -1284,17 +1620,23 @@
       "usecase-sim/.runtime/data/output/explicit_multi_sql/customers_explicit_multiple_roots"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/explicit_multi_sql/customers_explicit_multiple_roots",
@@ -1308,8 +1650,8 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/query_contract.json",
-    "sql_base_path": "./usecase-sim/metadata/file/queries",
+    "metadata_path": "./usecase-sim/metadata/file/sql/query_contract.json",
+    "sql_base_path": "./usecase-sim/metadata/file/sql/queries",
     "state_base_path": "usecase-sim/.runtime",
     "stage": "query_root_routing",
     "column_name_mode": "lower",
@@ -1319,17 +1661,23 @@
       "usecase-sim/.runtime/data/output/query_contract/orders_query_root"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/query_contract/orders_query_root",
@@ -1358,17 +1706,23 @@
       "usecase-sim/.runtime/data/output/artifact/orders_artifact"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_execution_logs.py",
+      "script": "usecase-sim/scripts/features/runtime/validate_execution_logs.py",
       "args": [
         "--job-id",
         "usecase-runtime-log-contract",
@@ -1380,7 +1734,8 @@
         "snapshot",
         "--run-attributes",
         "{\"factory_job\":\"factory-123\",\"source\":\"artifact\"}"
-      ]
+      ],
+      "require_log_session": true
     },
     "notes": "v4 runtime message contract, metadata/runtime query representations, and external run_attributes"
   },
@@ -1401,17 +1756,23 @@
       "usecase-sim/.runtime/data/output/artifact/orders_artifact"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_execution_logs.py",
+      "script": "usecase-sim/scripts/features/runtime/validate_execution_logs.py",
       "args": [
         "--job-id",
         "usecase-logging-batch",
@@ -1421,7 +1782,8 @@
         "artifact:/queries/orders.sql",
         "--mode",
         "batch"
-      ]
+      ],
+      "require_log_session": true
     },
     "notes": "Immutable terminal dataflow batch part plus one replace-one JobRuntime snapshot"
   },
@@ -1429,17 +1791,28 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/startup_failure.json",
+    "metadata_path": "./usecase-sim/metadata/file/runtime/startup_failure.json",
     "state_base_path": "usecase-sim/.runtime",
     "stage": "startup_failure",
     "job_id": "usecase-startup-failure",
     "priority": "P0",
-    "invocations": [{"label": "startup_failure", "expected_exit_code": 1}],
+    "invocations": [
+      {
+        "label": "startup_failure",
+        "expected_exit_code": 1
+      }
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "required_console_text": ["DataCoolie session startup failed"],
-      "script": "usecase-sim/scripts/validate_startup_failure_logs.py",
-      "args": ["--job-id", "usecase-startup-failure"]
+      "required_console_text": [
+        "DataCoolie session startup failed"
+      ],
+      "script": "usecase-sim/scripts/features/runtime/validate_startup_failure_logs.py",
+      "args": [
+        "--job-id",
+        "usecase-startup-failure"
+      ],
+      "require_log_session": true
     },
     "notes": "Malformed provider document fails at Driver startup before any dataflow runtime"
   },
@@ -1458,17 +1831,23 @@
       "usecase-sim/.runtime/data/output/query_fallback/orders_query_artifact_relative"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_polars_qualified_sql.py",
-      "args": ["--suite", "delta-positive"],
+      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "args": [
+        "--suite",
+        "delta-positive"
+      ],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/query_fallback/orders_query_artifact_relative",
@@ -1482,10 +1861,9 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/state_contract.json",
-    "sql_base_path": "./usecase-sim/metadata/file/queries",
-    "state_base_path": "usecase-sim/.runtime/state_contract",
-    "derive_log_paths_from_state": true,
+    "metadata_path": "./usecase-sim/metadata/file/runtime/state_contract.json",
+    "sql_base_path": "./usecase-sim/metadata/file/sql/queries",
+    "state_base_path": "usecase-sim/.runtime/watermarks/state_contract",
     "stage": "state_base_path",
     "column_name_mode": "lower",
     "job_id": "usecase-state-base-path",
@@ -1494,36 +1872,41 @@
       "usecase-sim/.runtime/data/output/state_contract/orders_state"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_state_contract.py",
+      "script": "usecase-sim/scripts/features/runtime/prepare_state_contract.py",
       "args": [],
       "timeout_seconds": 120
     },
     "engine_setup": {
       "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": ["--suite", "delta-positive"]
+      "args": [
+        "--suite",
+        "delta-positive"
+      ]
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_state_paths.py",
+      "script": "usecase-sim/scripts/features/runtime/validate_state_paths.py",
       "args": [
         "--state-root",
-        "usecase-sim/.runtime/state_contract",
+        "usecase-sim/.runtime/watermarks/state_contract",
         "--output",
         "usecase-sim/.runtime/data/output/state_contract/orders_state",
         "--minimum-rows",
-        "1"
-      ]
+        "1",
+        "--log-root",
+        "usecase-sim/.runtime/logs"
+      ],
+      "require_log_session": true
     },
-    "notes": "state_base_path derives logger and FileProvider watermark roots"
+    "notes": "Explicit log and FileProvider watermark roots remain in separate simulator areas"
   },
   "local_polars_dry_run_query_file": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/query_contract.json",
-    "sql_base_path": "./usecase-sim/metadata/file/queries",
-    "state_base_path": "usecase-sim/.runtime/dry_run_query",
-    "derive_log_paths_from_state": true,
+    "metadata_path": "./usecase-sim/metadata/file/sql/query_contract.json",
+    "sql_base_path": "./usecase-sim/metadata/file/sql/queries",
+    "state_base_path": "usecase-sim/.runtime/watermarks/dry_run_query",
     "stage": "query_root_routing",
     "column_name_mode": "lower",
     "dry_run": true,
@@ -1534,15 +1917,16 @@
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_dry_run.py",
+      "script": "usecase-sim/scripts/features/runtime/validate_dry_run.py",
       "args": [
         "--state-root",
-        "usecase-sim/.runtime/dry_run_query",
+        "usecase-sim/.runtime/watermarks/dry_run_query",
         "--log-root",
-        "usecase-sim/.runtime/dry_run_query/logs",
+        "usecase-sim/.runtime/logs",
         "--output",
         "usecase-sim/.runtime/data/output/query_contract/orders_query_root"
-      ]
+      ],
+      "require_log_session": true
     },
     "notes": "Dry-run resolves the SQL file and validates paths without reader/writer/watermark I/O"
   },
@@ -1555,8 +1939,11 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "setup": {
-      "script": "usecase-sim/scripts/prepare_datatype_qualification.py",
-      "args": ["--run-root", "usecase-sim/.runtime/data/datatype_qualification"]
+      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "args": [
+        "--run-root",
+        "usecase-sim/.runtime/data/datatype_qualification"
+      ]
     },
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/datatype_qualification/output/parquet/polars"
@@ -1578,8 +1965,11 @@
     "max_workers": 1,
     "timeout_seconds": 300,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_datatype_qualification.py",
-      "args": ["--run-root", "usecase-sim/.runtime/data/datatype_qualification"]
+      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "args": [
+        "--run-root",
+        "usecase-sim/.runtime/data/datatype_qualification"
+      ]
     },
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/datatype_qualification/output/parquet/spark"
@@ -1598,13 +1988,20 @@
     "column_name_mode": "lower",
     "priority": "P2",
     "setup": {
-      "script": "usecase-sim/scripts/prepare_datatype_qualification.py",
-      "args": ["--run-root", "usecase-sim/.runtime/data/datatype_qualification", "--formats", "delta"]
+      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "args": [
+        "--run-root",
+        "usecase-sim/.runtime/data/datatype_qualification",
+        "--formats",
+        "delta"
+      ]
     },
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/datatype_qualification/output/delta/polars"
     ],
-    "validation": {"expected_exit_code": 0},
+    "validation": {
+      "expected_exit_code": 0
+    },
     "notes": "Same canonical datatype contract persisted through Polars Delta"
   },
   "local_spark_datatype_qualification_delta": {
@@ -1619,13 +2016,20 @@
     "max_workers": 1,
     "timeout_seconds": 300,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_datatype_qualification.py",
-      "args": ["--run-root", "usecase-sim/.runtime/data/datatype_qualification", "--formats", "delta"]
+      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "args": [
+        "--run-root",
+        "usecase-sim/.runtime/data/datatype_qualification",
+        "--formats",
+        "delta"
+      ]
     },
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/datatype_qualification/output/delta/spark"
     ],
-    "validation": {"expected_exit_code": 0},
+    "validation": {
+      "expected_exit_code": 0
+    },
     "notes": "Same canonical datatype contract persisted through Spark Delta"
   },
   "local_polars_datatype_qualification_iceberg": {
@@ -1638,10 +2042,17 @@
     "priority": "P2",
     "needs_iceberg": true,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_datatype_qualification.py",
-      "args": ["--run-root", "usecase-sim/.runtime/data/datatype_qualification", "--formats", "iceberg"]
+      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "args": [
+        "--run-root",
+        "usecase-sim/.runtime/data/datatype_qualification",
+        "--formats",
+        "iceberg"
+      ]
     },
-    "validation": {"expected_exit_code": 0},
+    "validation": {
+      "expected_exit_code": 0
+    },
     "notes": "Same canonical datatype contract persisted through Polars Iceberg"
   },
   "local_spark_datatype_qualification_iceberg": {
@@ -1657,10 +2068,17 @@
     "max_workers": 1,
     "timeout_seconds": 450,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_datatype_qualification.py",
-      "args": ["--run-root", "usecase-sim/.runtime/data/datatype_qualification", "--formats", "iceberg"]
+      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "args": [
+        "--run-root",
+        "usecase-sim/.runtime/data/datatype_qualification",
+        "--formats",
+        "iceberg"
+      ]
     },
-    "validation": {"expected_exit_code": 0},
+    "validation": {
+      "expected_exit_code": 0
+    },
     "notes": "Same canonical datatype contract persisted through Spark Iceberg"
   },
   "local_polars_replay_surface_sync_c1": {
@@ -1668,42 +2086,60 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c1/polars/metadata/c1_initial_polars.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c1/polars/state",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/polars",
     "stage": "surface_sync_c1",
     "job_id": "surface-c1-polars",
     "priority": "P1",
     "timeout_seconds": 300,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_replay_surface_sync.py",
-      "args": ["--case", "c1", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c1",
+        "--engine",
+        "polars"
+      ]
     },
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_sync/c1/polars"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_sync/c1/polars"
+    ],
     "invocations": [
-      {"label": "initial"},
+      {
+        "label": "initial"
+      },
       {
         "label": "replay_no_save",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c1/polars/metadata/c1_replay_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c1/polars/state",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/polars",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-18T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time"
       },
       {
         "label": "replay_save",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c1/polars/metadata/c1_replay_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c1/polars/state",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/polars",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-18T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time",
         "replay_save_watermark": true
       }
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_surface_sync.py",
-      "args": ["--case", "c1", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c1",
+        "--engine",
+        "polars"
+      ]
     },
     "notes": "C1 multi-invocation keyed file replay: high stored watermark, save=False state preservation, and monotonic save=True"
   },
@@ -1712,42 +2148,60 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c1/spark/metadata/c1_initial_spark.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c1/spark/state",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/spark",
     "stage": "surface_sync_c1",
     "job_id": "surface-c1-spark",
     "priority": "P1",
     "timeout_seconds": 450,
     "setup": {
-      "script": "usecase-sim/scripts/prepare_replay_surface_sync.py",
-      "args": ["--case", "c1", "--engine", "spark"]
+      "script": "usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c1",
+        "--engine",
+        "spark"
+      ]
     },
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_sync/c1/spark"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_sync/c1/spark"
+    ],
     "invocations": [
-      {"label": "initial"},
+      {
+        "label": "initial"
+      },
       {
         "label": "replay_no_save",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c1/spark/metadata/c1_replay_spark.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c1/spark/state",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/spark",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-18T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time"
       },
       {
         "label": "replay_save",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c1/spark/metadata/c1_replay_spark.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c1/spark/state",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/spark",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-18T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time",
         "replay_save_watermark": true
       }
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_surface_sync.py",
-      "args": ["--case", "c1", "--engine", "spark"]
+      "script": "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c1",
+        "--engine",
+        "spark"
+      ]
     },
     "notes": "C1 multi-invocation keyed file replay on Spark"
   },
@@ -1756,33 +2210,48 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c3/polars/metadata/c3_polars.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c3/polars/state",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c3/polars",
     "stage": "surface_sync_c3",
     "job_id": "surface-c3-polars",
     "priority": "P1",
     "timeout_seconds": 300,
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_replay_surface_sync.py",
-      "args": ["--case", "c3", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c3",
+        "--engine",
+        "polars"
+      ]
     },
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_sync/c3/polars"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_sync/c3/polars"
+    ],
     "invocations": [
       {
         "label": "request_end_first",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "covered_at",
         "replay_save_watermark": true
       },
-      {"label": "request_end_second"},
+      {
+        "label": "request_end_second"
+      },
       {
         "label": "incomplete_pagination",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c3/polars/metadata/c3_incomplete_polars.json",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "covered_at",
         "replay_save_watermark": true,
         "expected_exit_code": 2
@@ -1790,8 +2259,13 @@
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_surface_sync.py",
-      "args": ["--case", "c3", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c3",
+        "--engine",
+        "polars"
+      ]
     },
     "notes": "C3 ordinary request-end continuation and incomplete-page no-save oracle"
   },
@@ -1800,33 +2274,48 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c3/spark/metadata/c3_spark.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c3/spark/state",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c3/spark",
     "stage": "surface_sync_c3",
     "job_id": "surface-c3-spark",
     "priority": "P1",
     "timeout_seconds": 450,
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_replay_surface_sync.py",
-      "args": ["--case", "c3", "--engine", "spark"]
+      "script": "usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c3",
+        "--engine",
+        "spark"
+      ]
     },
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_sync/c3/spark"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_sync/c3/spark"
+    ],
     "invocations": [
       {
         "label": "request_end_first",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "covered_at",
         "replay_save_watermark": true
       },
-      {"label": "request_end_second"},
+      {
+        "label": "request_end_second"
+      },
       {
         "label": "incomplete_pagination",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c3/spark/metadata/c3_incomplete_spark.json",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "covered_at",
         "replay_save_watermark": true,
         "expected_exit_code": 2
@@ -1834,8 +2323,13 @@
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_surface_sync.py",
-      "args": ["--case", "c3", "--engine", "spark"]
+      "script": "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c3",
+        "--engine",
+        "spark"
+      ]
     },
     "notes": "C3 request-end continuation on Spark"
   },
@@ -1844,45 +2338,60 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_ms_polars.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c4/polars/state/ms",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/ms",
     "stage": "surface_sync_c4",
     "job_id": "surface-c4-polars",
     "priority": "P1",
     "timeout_seconds": 300,
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_replay_surface_sync.py",
-      "args": ["--case", "c4", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c4",
+        "--engine",
+        "polars"
+      ]
     },
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_sync/c4/polars"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_sync/c4/polars"
+    ],
     "invocations": [
       {
         "label": "aligned_ms",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_ms_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c4/polars/state/ms",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/ms",
         "replay_start": "2024-01-15T11:59:59.123000+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
-        "replay_chunk_interval": ["days=2"],
+        "replay_chunk_interval": [
+          "days=2"
+        ],
         "replay_chunk_column": "event_time",
         "replay_save_watermark": true
       },
       {
         "label": "iso",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_iso_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c4/polars/state/iso",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/iso",
         "replay_start": "2024-01-15T11:59:59.123000+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
-        "replay_chunk_interval": ["days=2"],
+        "replay_chunk_interval": [
+          "days=2"
+        ],
         "replay_chunk_column": "event_time",
         "replay_save_watermark": true
       },
       {
         "label": "invalid_precision",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_invalid_precision_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c4/polars/state/invalid_precision",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/invalid_precision",
         "replay_start": "2024-01-15T00:00:00.000001+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
-        "replay_chunk_interval": ["days=2"],
+        "replay_chunk_interval": [
+          "days=2"
+        ],
         "replay_chunk_column": "event_time",
         "replay_save_watermark": true,
         "expected_exit_code": 2
@@ -1890,10 +2399,12 @@
       {
         "label": "invalid_observed",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_invalid_observed_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c4/polars/state/invalid_observed",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/invalid_observed",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
-        "replay_chunk_interval": ["days=2"],
+        "replay_chunk_interval": [
+          "days=2"
+        ],
         "replay_chunk_column": "event_time",
         "replay_save_watermark": true,
         "expected_exit_code": 2
@@ -1901,8 +2412,13 @@
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_surface_sync.py",
-      "args": ["--case", "c4", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c4",
+        "--engine",
+        "polars"
+      ]
     },
     "notes": "C4 aligned timestamp-ms and ISO requests plus precision and observed-max pre-HTTP failures"
   },
@@ -1911,70 +2427,94 @@
     "metadata_type": "file",
     "platform": "local",
     "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_opaque_polars.json",
-    "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c5/polars/state/opaque",
+    "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/opaque",
     "stage": "surface_sync_c5",
     "job_id": "surface-c5-polars",
     "priority": "P1",
     "timeout_seconds": 300,
-    "services": ["mock-api"],
+    "services": [
+      "mock-api"
+    ],
     "setup": {
-      "script": "usecase-sim/scripts/prepare_replay_surface_sync.py",
-      "args": ["--case", "c5", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c5",
+        "--engine",
+        "polars"
+      ]
     },
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_sync/c5/polars"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_sync/c5/polars"
+    ],
     "invocations": [
       {
         "label": "opaque",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_opaque_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c5/polars/state/opaque",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/opaque",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time"
       },
       {
         "label": "matching",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_matching_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c5/polars/state/matching",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/matching",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time"
       },
       {
         "label": "missing",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_missing_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c5/polars/state/missing",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/missing",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time"
       },
       {
         "label": "conflict",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_conflict_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c5/polars/state/conflict",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/conflict",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time",
         "expected_exit_code": 2
       },
       {
         "label": "duplicate",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_duplicate_polars.json",
-        "state_base_path": "usecase-sim/.runtime/data/replay_surface_sync/c5/polars/state/duplicate",
+        "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/duplicate",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
-        "replay_chunk_interval": ["days=1"],
+        "replay_chunk_interval": [
+          "days=1"
+        ],
         "replay_chunk_column": "event_time",
         "expected_exit_code": 2
       }
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_surface_sync.py",
-      "args": ["--case", "c5", "--engine", "polars"]
+      "script": "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+      "args": [
+        "--case",
+        "c5",
+        "--engine",
+        "polars"
+      ]
     },
     "notes": "C5 opaque and repeat-query next-link continuation with missing, matching, conflict, and duplicate bound variants"
   },
@@ -1984,11 +2524,18 @@
     "platform": "local",
     "priority": "P1",
     "skip_pipeline": true,
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_window_polars_registry"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_window_polars_registry"
+    ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/validate_replay_window_safety.py",
-      "args": ["--engine", "polars", "--root", "usecase-sim/.runtime/data/replay_surface_window_polars_registry"],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_window_safety.py",
+      "args": [
+        "--engine",
+        "polars",
+        "--root",
+        "usecase-sim/.runtime/data/replay_surface_window_polars_registry"
+      ],
       "timeout_seconds": 900
     },
     "notes": "Standalone C2/C6 native Delta window-safety qualification; validator owns the fresh fixture and receipt"
@@ -1999,12 +2546,19 @@
     "platform": "local",
     "priority": "P1",
     "skip_pipeline": true,
-    "pre_clean_paths": ["usecase-sim/.runtime/data/replay_surface_window_spark_registry"],
+    "pre_clean_paths": [
+      "usecase-sim/.runtime/data/replay_surface_window_spark_registry"
+    ],
     "validation": {
       "expected_exit_code": 0,
       "in_container": true,
-      "script": "usecase-sim/scripts/validate_replay_window_safety.py",
-      "args": ["--engine", "spark", "--root", "usecase-sim/.runtime/data/replay_surface_window_spark_registry"],
+      "script": "usecase-sim/scripts/features/replay/validate_replay_window_safety.py",
+      "args": [
+        "--engine",
+        "spark",
+        "--root",
+        "usecase-sim/.runtime/data/replay_surface_window_spark_registry"
+      ],
       "timeout_seconds": 1200
     },
     "notes": "Standalone C2/C6 qualification executed inside the existing Docker Spark profile"

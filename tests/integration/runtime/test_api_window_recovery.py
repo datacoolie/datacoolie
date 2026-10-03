@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from unittest.mock import patch
 
 import polars as pl
 import pytest
@@ -71,6 +70,36 @@ def _run_driver_with_start_operator(
         )
 
 
+def _run_bounded_window(
+    metadata_path: Path,
+    state_root: Path,
+    log_root: Path,
+    *,
+    job_id: str,
+    watermark_start: dict,
+    watermark_end: dict,
+):
+    platform = LocalPlatform()
+    provider = FileProvider(config_path=str(metadata_path), platform=platform)
+    with DataCoolieDriver(
+        engine=PolarsEngine(platform=platform),
+        platform=platform,
+        metadata_provider=provider,
+        state_base_path=str(state_root),
+        log_base_path=str(log_root),
+        config=DataCoolieRunConfig(job_id=job_id, retry_count=0, retry_delay=0),
+    ) as driver:
+        dataflow = provider.get_dataflows(stage="bronze")[0]
+        prepared = driver._prepare_execution_dataflow(dataflow)
+        return driver._run_single_pipeline(
+            prepared,
+            watermark_start=watermark_start,
+            watermark_end=watermark_end,
+            watermark_start_operator=">=",
+            watermark_end_operator="<",
+        )
+
+
 def _run_replay(
     metadata_path: Path,
     state_root: Path,
@@ -99,23 +128,32 @@ def _write_metadata(
     *,
     watermark_columns: list[str] | None = None,
     source_config: dict | None = None,
+    include_range_mapping: bool = True,
+    destination_format: str = "parquet",
+    destination_connection_type: str = "file",
+    destination_load_type: str = "append",
+    destination_connection_config: dict | None = None,
+    destination_load_config: dict | None = None,
 ) -> None:
     configure = {
         "endpoint": "/items",
-        "watermark_param_mapping": {"updated_at": "updated_since"},
-        "watermark_to_param": "updated_before",
-        "watermark_param_format": "iso",
+        "range_param_mapping": {
+            "updated_at": {
+                "lower": {"name": "updated_since", "operator": ">="},
+                "upper": {"name": "updated_before", "operator": "<"},
+                "format": "iso",
+                "response_column": "updated_at",
+                "watermark_value": "observed_max",
+            }
+        },
     }
+    if not include_range_mapping:
+        configure.pop("range_param_mapping")
     if source_config:
         configure.update(source_config)
-        if "range_param_mapping" in source_config:
-            for legacy_key in (
-                "watermark_param_mapping",
-                "watermark_to_param",
-                "watermark_param_format",
-                "watermark_param_location",
-            ):
-                configure.pop(legacy_key, None)
+    destination_configure = {"base_path": str(output_root)}
+    if destination_connection_config:
+        destination_configure.update(destination_connection_config)
     path.write_text(
         json.dumps(
             {
@@ -128,9 +166,9 @@ def _write_metadata(
                     },
                     {
                         "name": "destination",
-                        "connection_type": "file",
-                        "format": "parquet",
-                        "configure": {"base_path": str(output_root)},
+                        "connection_type": destination_connection_type,
+                        "format": destination_format,
+                        "configure": destination_configure,
                     },
                 ],
                 "dataflows": [
@@ -146,7 +184,8 @@ def _write_metadata(
                         "destination": {
                             "connection_name": "destination",
                             "table": "events",
-                            "load_type": "append",
+                            "load_type": destination_load_type,
+                            "configure": destination_load_config or {},
                         },
                     }
                 ],
@@ -174,7 +213,7 @@ def _read_checkpoint_values(state_root: Path) -> dict:
     return WatermarkSerializer.deserialize(_read_checkpoint(state_root))
 
 
-def test_api_request_window_and_checkpoint_share_bound_across_restart(tmp_path):
+def test_api_observed_max_checkpoint_advances_across_restart(tmp_path):
     state = {"queries": []}
 
     class Handler(BaseHTTPRequestHandler):
@@ -210,40 +249,145 @@ def test_api_request_window_and_checkpoint_share_bound_across_restart(tmp_path):
         base_url = f"http://127.0.0.1:{server.server_address[1]}"
         _write_metadata(metadata_path, base_url, output_root)
 
-        first_bound = datetime(2026, 9, 27, 10, 0, tzinfo=timezone.utc)
-        with patch("datacoolie.sources.api_reader.datetime") as clock:
-            clock.now.return_value = first_bound
-            first = _run_driver(
-                metadata_path,
-                state_root,
-                log_root,
-                job_id="api-window-recovery",
-            )
+        first = _run_driver(
+            metadata_path,
+            state_root,
+            log_root,
+            job_id="api-window-recovery",
+        )
 
         assert (first.total, first.succeeded, first.failed) == (1, 1, 0), first.errors
         assert _read_ids(output_root) == [1]
         first_checkpoint = _read_checkpoint(state_root)
-        assert first_bound.isoformat() in first_checkpoint
-        assert state["queries"][0]["updated_before"] == [first_bound.isoformat()]
+        assert "2026-09-27T09:59:00+00:00" in first_checkpoint
+        assert "updated_before" not in state["queries"][0]
         assert "updated_since" not in state["queries"][0]
 
-        second_bound = datetime(2026, 9, 27, 10, 2, tzinfo=timezone.utc)
-        with patch("datacoolie.sources.api_reader.datetime") as clock:
-            clock.now.return_value = second_bound
-            second = _run_driver(
-                metadata_path,
-                state_root,
-                log_root,
-                job_id="api-window-recovery",
-            )
+        second = _run_driver(
+            metadata_path,
+            state_root,
+            log_root,
+            job_id="api-window-recovery",
+        )
 
         assert (second.total, second.succeeded, second.failed) == (1, 1, 0), second.errors
         assert _read_ids(output_root) == [1, 2]
-        assert state["queries"][1]["updated_since"] == [first_bound.isoformat()]
-        assert state["queries"][1]["updated_before"] == [second_bound.isoformat()]
+        assert state["queries"][1]["updated_since"] == ["2026-09-27T09:59:00+00:00"]
+        assert "updated_before" not in state["queries"][1]
         second_checkpoint = _read_checkpoint(state_root)
         assert second_checkpoint != first_checkpoint
-        assert second_bound.isoformat() in second_checkpoint
+        assert "2026-09-27T10:01:00+00:00" in second_checkpoint
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.runtime_qualification
+def test_api_unmapped_filtered_empty_replaces_native_delta_window(tmp_path):
+    """A non-empty unmapped response can still qualify an empty replacement."""
+
+    pytest.importorskip("deltalake")
+    state = {"mode": "seed", "queries": []}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - stdlib handler API
+            query = parse_qs(urlparse(self.path).query)
+            state["queries"].append(query)
+            if state["mode"] == "seed":
+                payload = [
+                    {"id": 1, "updated_at": 1},
+                    {"id": 2, "updated_at": 15},
+                    {"id": 3, "updated_at": 25},
+                ]
+            else:
+                # The API response is non-empty, but all rows are outside the
+                # bounded replacement window and must be filtered after
+                # materialization by BaseSourceReader.
+                payload = [
+                    {"id": 90, "updated_at": 5},
+                    {"id": 91, "updated_at": 7},
+                ]
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        output_root = tmp_path / "output"
+        state_root = tmp_path / "state"
+        log_root = tmp_path / "logs"
+        metadata_path = tmp_path / "metadata.json"
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        _write_metadata(
+            metadata_path,
+            base_url,
+            output_root,
+            include_range_mapping=False,
+            source_config={"backward_days": 1},
+            destination_format="delta",
+            destination_connection_type="lakehouse",
+            destination_load_type="merge_overwrite",
+            destination_load_config={"replace_by_watermark": True},
+        )
+
+        seeded = _run_driver(
+            metadata_path,
+            state_root,
+            log_root,
+            job_id="api-unmapped-replacement",
+        )
+        assert (seeded.total, seeded.succeeded, seeded.failed) == (1, 1, 0), seeded.errors
+        target = output_root / "events"
+        assert (
+            PolarsEngine()
+            .read_delta(str(target))
+            .collect()
+            .select("id", "updated_at")
+            .sort("updated_at")
+            .to_dicts()
+        ) == [
+            {"id": 1, "updated_at": 1},
+            {"id": 2, "updated_at": 15},
+            {"id": 3, "updated_at": 25},
+        ]
+        checkpoint_before = _read_checkpoint_values(state_root)
+
+        state["mode"] = "filtered-empty"
+        replaced = _run_bounded_window(
+            metadata_path,
+            state_root,
+            log_root,
+            job_id="api-unmapped-replacement",
+            watermark_start={"updated_at": 10},
+            watermark_end={"updated_at": 20},
+        )
+
+        assert replaced.status == "succeeded", replaced.message
+        assert replaced.source is not None
+        assert replaced.source.rows_read == 0
+        assert replaced.source.watermark_after is None
+        assert (
+            PolarsEngine()
+            .read_delta(str(target))
+            .collect()
+            .select("id", "updated_at")
+            .sort("updated_at")
+            .to_dicts()
+        ) == [
+            {"id": 1, "updated_at": 1},
+            {"id": 3, "updated_at": 25},
+        ]
+        assert _read_checkpoint_values(state_root) == checkpoint_before
+        assert state["queries"] == [{}, {}]
     finally:
         server.shutdown()
         server.server_close()

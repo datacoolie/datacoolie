@@ -15,7 +15,7 @@
 #
 # Build context: datacoolie/  (two levels up from usecase-sim/docker/)
 # Usage:
-#   python usecase-sim/scripts/setup_platform.py --services minio iceberg-rest spark
+#   python usecase-sim/scripts/bootstrap/setup_platform.py --services minio iceberg-rest spark
 #   docker exec datacoolie-spark python usecase-sim/runner/run.py --engine spark ...
 
 FROM python:3.11-slim

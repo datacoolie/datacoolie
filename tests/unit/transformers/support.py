@@ -22,6 +22,7 @@ class MockEngine(BaseEngine[dict]):
     """Shared mock engine for transformer tests."""
 
     def __init__(self) -> None:
+        super().__init__()
         self._columns: List[str] = [
             "id",
             "name",

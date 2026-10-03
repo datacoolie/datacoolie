@@ -1,20 +1,18 @@
 # Python functions upload note
 
-Functions are ordinary files in the selected environment projection. Build may
-produce several roots, each packaged as wheel, ZIP, or copied source according
-to `datacoolie.yml`. Release does not rebuild, convert, install, attach, import,
-or execute them.
+Read the public [project workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/)
+and [function project recipe](https://datacoolie.github.io/datacoolie/examples/dataflows/#function-project-recipe)
+for functions-root layout, packaging results, and host import setup. Release
+consumes the exact retained environment projection produced by Build; it does
+not rebuild, convert, install, attach, import, or execute functions.
 
-Upload the complete retained environment tree, including every functions root,
-in the same ordered two phases as other artifact files:
+Upload every retained environment file through the public release handoff's
+ordered phases. The execution host or platform deployment workflow owns package attachment/import
+and must use the build's
+published inventory and the project's fixed import prefixes. A release receipt
+is transfer evidence, not proof of import or runtime health.
 
-```text
-<deployment_path>/artifacts/<build_id>/
-<deployment_path>/current/
-```
-
-The execution host or a platform-owned deployment workflow may later attach a
-specific package. That workflow must consume the root manifest inventory and
-the project runner's fixed import prefixes; it must not infer a singular
-`functions_artifact` field or consult a release receipt as proof of import or
-runtime health.
+For author/build-only requests, inspect the build manifest and packaging plan
+without running a workload. For an authorized upload, report local validation
+and transfer evidence only; host import, workload output, activation, and target
+health checks belong to the project/platform workflow.

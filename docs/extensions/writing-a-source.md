@@ -117,6 +117,31 @@ whose values are all `null` is discarded before merge and save. A direct reader
 call may still expose that raw all-null mapping through `get_new_watermark()`.
 A reader that does not opt into typed ordering keeps candidate values opaque.
 
+## Required runtime contract
+
+Every reader used by the ETL orchestrator must expose callable implementations
+of `read`, `get_runtime_info`, `get_new_watermark`,
+`_validate_watermark_comparison`, and `merge_watermark`. Built-in readers get
+these methods from `BaseSourceReader`; a structurally compatible injected
+reader is also valid, but it must implement the complete contract. Missing or
+non-callable hooks fail before checkpoint state is read, source I/O starts,
+transformers or writers are constructed, or state is saved.
+
+`get_runtime_info()` must return `SourceRuntimeInfo`. The runtime object is read
+after `read()` and its declared watermark fields drive replacement-window
+planning. Do not return `None`, a mapping, or a generic mock in place of the
+model. If a reader raises while exposing partial runtime state, the original
+read/transform/write error remains authoritative; invalid secondary runtime
+values are discarded.
+
+When a `BaseWatermarkManager` is supplied to ETL, it must expose callable
+`get_watermark`, `save_watermark`, and `serialize` methods. The reader owns
+watermark semantics: the orchestrator calls the reader's `merge_watermark`
+exactly once, then calls manager `serialize` before writing the destination.
+The manager's generic `merge_watermark` method is not an ETL fallback. A
+serialization or validation failure prevents both destination mutation and
+checkpoint save.
+
 ## Register
 
 In **your** package's `pyproject.toml`:

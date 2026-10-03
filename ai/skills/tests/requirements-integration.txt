@@ -1,6 +1,0 @@
-# Optional dependencies for `python run_all.py --integration`.
-psycopg2-binary>=2.9,<3
-PyMySQL>=1.1,<2
-pyodbc>=5,<6
-trino>=0.336,<1
-boto3>=1.43.2,<2

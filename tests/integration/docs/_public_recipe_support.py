@@ -135,6 +135,82 @@ def run(
     )
 
 
+def run_cli_json(
+    project: Path, *arguments: str, environment: dict[str, str]
+) -> tuple[subprocess.CompletedProcess[str], dict]:
+    """Run the supplied checkout's CLI and decode its machine-readable response."""
+    completed = run(
+        [sys.executable, "-m", "datacoolie", *arguments],
+        cwd=project.parent,
+        environment=environment,
+    )
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            f"CLI did not return JSON: stdout={completed.stdout!r} "
+            f"stderr={completed.stderr!r}"
+        ) from exc
+    assert isinstance(payload, dict)
+    return completed, payload
+
+
+def copy_selected_environment(
+    project: Path,
+    build_payload: dict,
+    target: Path,
+    recipe_command: list[str],
+) -> tuple[Path, list[str], dict[str, object]]:
+    """Copy one CLI-selected environment and derive its manifest runner command.
+
+    The helper deliberately handles only the documented Python recipe shape:
+    it preserves the recipe arguments and replaces its source runner path with
+    the runner listed by the retained build manifest.
+    """
+    data = build_payload.get("data")
+    assert isinstance(data, dict)
+    build_path = Path(data["build_path"]).resolve()
+    current_path = Path(data["current_path"]).resolve()
+    environments = data.get("environments")
+    assert isinstance(environments, list) and environments
+    environment_name = environments[0]
+    assert isinstance(environment_name, str)
+    source = build_path / environment_name
+    assert source.is_dir()
+
+    target = target.resolve()
+    project_root = project.resolve()
+    assert not target.exists(), f"Execution copy already exists: {target}"
+    for forbidden in (project_root, build_path, current_path):
+        assert not target.is_relative_to(forbidden), (
+            f"Execution copy must be disjoint from {forbidden}: {target}"
+        )
+
+    manifest_path = build_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    environment_manifest = manifest["environments"][environment_name]
+    runner_files = environment_manifest["runners"]["files"]
+    assert len(runner_files) == 1
+    runner = Path(runner_files[0])
+    source_runner = source / runner
+    assert source_runner.is_file()
+
+    shutil.copytree(source, target)
+    copied_runner = target / runner
+    assert copied_runner.read_bytes() == source_runner.read_bytes()
+
+    assert recipe_command and Path(recipe_command[0]).name in {"python", "python3"}
+    assert len(recipe_command) >= 2
+    built_command = ["python", runner.as_posix(), *recipe_command[2:]]
+    return target, built_command, {
+        "build_path": build_path,
+        "current_path": current_path,
+        "environment": environment_name,
+        "runner": runner,
+        "functions_artifact": manifest.get("functions_artifact"),
+    }
+
+
 def _materialize_downloaded_runner(project: Path, script: str) -> str:
     """Copy only the two literal separately downloaded operation runners."""
     source = {

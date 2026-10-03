@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
 
-DATACOOLIE_ROOT = Path(__file__).resolve().parents[2]
+USECASE_SIM_DIR = Path(__file__).resolve().parents[1]
+if str(USECASE_SIM_DIR) not in sys.path:
+    sys.path.insert(0, str(USECASE_SIM_DIR))
+from runtime_paths import DATA_DIR  # noqa: E402
+
+
 DELTA_FIXTURE_ROOT = (
-    DATACOOLIE_ROOT / "usecase-sim" / ".runtime" / "data" / "output" / "qualified_sql" / "fixtures"
+    DATA_DIR / "output" / "qualified_sql" / "fixtures"
 )
 
 

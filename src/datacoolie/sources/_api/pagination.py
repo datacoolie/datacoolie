@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import dataclasses
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
@@ -13,7 +11,6 @@ from datacoolie.core.exceptions import SourceError
 from datacoolie.logging.runtime.manager import get_logger
 from .records import extract_records, resolve_path
 from .transport import make_request, safe_url
-from .watermark import adjust_range_to, format_watermark_value
 
 logger = get_logger(__name__)
 
@@ -155,25 +152,6 @@ def _repeat_query_bounds(
         pairs.extend(additions)
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(pairs), parts.fragment))
 
-@dataclasses.dataclass(frozen=True)
-class _RangeCallConfig:
-    """Immutable configuration bundle passed to each parallel range call.
-
-    Frozen so it can be safely shared across threads without copying.
-    """
-
-    client: Any
-    url: str
-    method: str
-    base_params: Dict[str, Any]
-    base_body: Dict[str, Any]
-    wm_mapping: Dict[str, str]
-    wm_to_param: str
-    wm_location: str
-    wm_format: str
-    overlap_mode: Optional[str]
-    src_cfg: Dict[str, Any]
-
 def fetch_single_range(
     client: Any,
     url: str,
@@ -265,11 +243,9 @@ def fetch_single_range(
                 raise SourceError(
                     "Unsupported API next_link_bound_mode; expected 'opaque' or 'repeat_query_bounds'.",
                     details={"next_link_bound_mode": repr(next_link_bound_mode)},
-                )
+            )
             if next_link_bound_mode == "repeat_query_bounds":
-                active_query_bounds = src_cfg.get("_active_query_bounds")
-                if active_query_bounds is None:
-                    active_query_bounds = _infer_query_bounds(src_cfg, local_params)
+                active_query_bounds = src_cfg.get("_active_query_bounds", {})
                 current_url = _repeat_query_bounds(
                     current_url,
                     active_query_bounds or {},
@@ -433,94 +409,7 @@ def fetch_offset_concurrent(
     return all_records
 
 
-def _infer_query_bounds(
-    src_cfg: Dict[str, Any],
-    params: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Infer active query bound values for direct pagination helper callers."""
-    if not params:
-        return {}
-    names: List[str] = []
-    raw_mapping = src_cfg.get("range_param_mapping")
-    if isinstance(raw_mapping, dict):
-        for item in raw_mapping.values():
-            if not isinstance(item, dict):
-                continue
-            for side in ("lower", "upper"):
-                bound = item.get(side)
-                if isinstance(bound, str):
-                    names.append(bound)
-                elif isinstance(bound, dict) and bound.get("location", "params") == "params":
-                    name = bound.get("name")
-                    if isinstance(name, str):
-                        names.append(name)
-    legacy_mapping = src_cfg.get("watermark_param_mapping")
-    if isinstance(legacy_mapping, dict):
-        names.extend(name for name in legacy_mapping.values() if isinstance(name, str))
-        upper = src_cfg.get("watermark_to_param")
-        if isinstance(upper, str):
-            names.append(upper)
-    return {name: params[name] for name in names if name in params}
-
-def execute_range_call(
-    cfg: _RangeCallConfig,
-    r_from_to: Tuple[datetime, datetime],
-) -> List[Dict[str, Any]]:
-    """Execute one sub-range API call using a shared :class:`_RangeCallConfig`.
-
-    Used as the per-item callable in :meth:`concurrent.futures.Executor.map`.
-    Each call gets its own copies of ``params`` and ``body`` so mutations
-    across concurrent calls are isolated.
-
-    Args:
-        cfg:       Frozen configuration shared across all range calls.
-        r_from_to: ``(range_start, range_end)`` for this sub-range.
-
-    Returns:
-        All records fetched for this sub-range across all pages.
-    """
-    r_from, r_to = r_from_to
-    r_params = dict(cfg.base_params)
-    r_body = dict(cfg.base_body)
-    r_target = r_params if cfg.wm_location == "params" else r_body
-
-    for api_param in cfg.wm_mapping.values():
-        r_target[api_param] = format_watermark_value(r_from, cfg.wm_format)
-
-    r_to_sent = adjust_range_to(r_to, cfg.overlap_mode)
-    r_target[cfg.wm_to_param] = format_watermark_value(r_to_sent, cfg.wm_format)
-
-    first_api_param = next(iter(cfg.wm_mapping.values()), "from")
-    logger.debug(
-        "APIReader range call: %s=%s %s=%s",
-        first_api_param, r_target.get(first_api_param),
-        cfg.wm_to_param, r_target.get(cfg.wm_to_param),
-    )
-
-    request_cfg = dict(cfg.src_cfg)
-    request_cfg["_active_query_bounds"] = (
-        {
-            **{
-                api_param: r_params[api_param]
-                for api_param in cfg.wm_mapping.values()
-                if cfg.wm_location == "params" and api_param in r_params
-            },
-            **(
-                {cfg.wm_to_param: r_params[cfg.wm_to_param]}
-                if cfg.wm_location == "params" and cfg.wm_to_param in r_params
-                else {}
-            ),
-        }
-        if cfg.wm_location == "params"
-        else {}
-    )
-    return fetch_single_range(
-        cfg.client, cfg.url, cfg.method, r_params, r_body or None, request_cfg,
-    )
-
 __all__ = [
-    "_RangeCallConfig",
-    "execute_range_call",
     "fetch_offset_concurrent",
     "fetch_single_range",
     "resolve_same_origin_next_url",

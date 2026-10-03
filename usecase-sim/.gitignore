@@ -1,11 +1,11 @@
 # Generated data, runner outputs, and mutable provider state
 .runtime/
 
-# Generated metadata siblings (rebuild with scripts/setup_metadata.py --targets file)
-metadata/file/*.yaml
-metadata/file/*.xlsx
+# Generated metadata siblings (rebuild with scripts/bootstrap/setup_metadata.py --targets file)
+metadata/file/**/*.yaml
+metadata/file/**/*.xlsx
 
-# Ivy cache for Spark JAR dependencies (usecase-sim/runner/spark-jars/)
+# Legacy cache names; active Ivy cache is below .runtime/dependencies/spark.
 **/spark-jars/
 
 # Python

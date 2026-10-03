@@ -91,6 +91,14 @@ alone does not change this in-memory relation example. To reset without a
 destructive cleanup command, extract a fresh ZIP copy into another directory;
 generated output and `.runtime/` belong to each extracted project.
 
+To verify the built form, run the documented project validation and build
+commands first, select the environment from the build response, and copy that
+retained environment to a new empty directory outside the project and
+`.builds/`. Run the same recipe from that copy and inspect the Parquet result
+and `.runtime/` records independently. Keep the retained build and `current`
+directories unchanged, then validate them again; generated output and runtime
+state belong only to the disposable execution copy.
+
 ## Function project {#function-project}
 
 ### Function project recipe {#function-project-recipe}
@@ -103,8 +111,10 @@ Open **Function project** ([project-files](index.md#function-project) ·
 function package is **functions/sources.py**
 ([source](source/projects/function/functions/sources.py.md) ·
 [raw](files/projects/function/functions/sources.py)).
-The `python_function` path is metadata, while packaging/import setup remains
-project runner code. Extract the ZIP and change to its `function/` root:
+The `python_function` path is metadata. The CLI packages each configured
+functions root; the execution environment prepares the resulting package and
+dependencies, while the project runner keeps the recipe's fixed import and
+bootstrap setup. Extract the ZIP and change to its `function/` root:
 
 ```bash
 python -m pip install "datacoolie[polars]==0.2.0"
@@ -132,8 +142,8 @@ assert rows.rows() == [
 
 Rerunning keeps the three-row overwrite result. To adapt the function, edit
 `functions/sources.py` and the `python_function` value in the dataflow; keep
-`functions/__init__.py` and install any function dependencies in the execution
-environment. For the automatic packaging check, add the `cli` extra and run
+`functions/__init__.py` and make any function dependencies available in the
+execution environment. For the automatic packaging check, add the `cli` extra and run
 `python -m pip install "datacoolie[cli,polars]==0.2.0"`, then
 `dc --project-dir . build --format json` from the extracted root. A fresh
 extraction resets generated output and `.runtime/`.

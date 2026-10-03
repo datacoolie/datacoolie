@@ -16,7 +16,7 @@ deferred, so these assets are intended for direct notebook execution.
 ## What is in this folder
 
 - `fabric_use_cases.json`:
-  - Near-full clone of `metadata/file/local_use_cases.json`.
+  - Near-full clone of `metadata/file/baseline/local_use_cases.json`.
   - Constrained to file + delta flows only.
   - Rewritten to OneLake ABFSS paths.
 - `sample_fabric_spark.ipynb`:

@@ -87,7 +87,6 @@ class TestConnectionType:
         assert ConnectionType.FILE.value == "file"
         assert ConnectionType.DATABASE.value == "database"
         assert ConnectionType.API.value == "api"
-        assert ConnectionType.STREAMING.value == "streaming"
         assert ConnectionType.FUNCTION.value == "function"
 
 
@@ -130,9 +129,6 @@ class TestConnectionTypeFormats:
     def test_function_formats(self) -> None:
         allowed = CONNECTION_TYPE_FORMATS[ConnectionType.FUNCTION.value]
         assert Format.FUNCTION.value in allowed
-
-    def test_streaming_empty(self) -> None:
-        assert len(CONNECTION_TYPE_FORMATS[ConnectionType.STREAMING.value]) == 0
 
     def test_all_formats_in_exactly_one_connection_type(self) -> None:
         for fmt in Format:

@@ -7,7 +7,6 @@ package so the public component remains easy to discover.
 
 from __future__ import annotations
 
-import functools
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
@@ -20,8 +19,6 @@ from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
 from datacoolie.sources._api.auth import apply_auth, get_http_auth
 from datacoolie.sources._api.pagination import (
-    _RangeCallConfig,
-    execute_range_call,
     fetch_single_range,
     validate_pagination_type,
 )
@@ -40,8 +37,6 @@ from datacoolie.sources._api.ranges import (
 from datacoolie.sources._api.transport import safe_url
 from datacoolie.sources._api.watermark import (
     build_watermark_ranges,
-    format_watermark_value,
-    inject_stored_watermark,
     resolve_range_from_dt,
     resolve_timezone,
 )
@@ -49,6 +44,7 @@ from datacoolie.utils.chunking import validate_iso_fraction_precision
 
 logger = get_logger(__name__)
 _DATETIME_TYPE = datetime
+_RANGE_INTERVAL_UNITS = frozenset({"hour", "day", "month", "year"})
 
 
 def validate_api_bounded_range(source: Source, column: str) -> None:
@@ -60,10 +56,10 @@ def validate_api_bounded_range(source: Source, column: str) -> None:
     """
 
     mapping = normalize_api_range_mapping(source.configure)
-    if not mapping.is_new:
+    if not mapping.fields:
         raise SourceError(
-            "API bounded replay requires range_param_mapping; legacy "
-            "watermark_param_mapping cannot express an independent [start, end) range."
+            "API bounded replay requires range_param_mapping with canonical "
+            "lower and upper bindings."
         )
 
     binding = mapping.fields.get(column)
@@ -116,9 +112,9 @@ class APIReader(BaseSourceReader[DF]):
               (``application/json``) — some providers (e.g. GitHub Apps) expect JSON.
             - ``token_request_extras`` (dict): Extra fields forwarded to the token POST body.
             - ``watermark_to_param_timezone`` (str, optional): Default timezone for
-              the ``"now"`` timestamp injected into ``watermark_to_param`` and for
-              advancing watermarks of pushed-down columns.  Can be overridden per
-              source via the source-level key of the same name (source wins).
+              generated request-end bounds and for advancing request-end watermarks.
+              Can be overridden per source via the source-level key of the same name
+              (source wins).
               Accepts IANA names or UTC offset strings; defaults to ``"UTC"``.
 
         ``auth_type="aws_sigv4"`` (API Gateway IAM auth, direct AWS service endpoints):
@@ -173,54 +169,32 @@ class APIReader(BaseSourceReader[DF]):
               ``total_path`` is configured for concurrent offset fetching (default ``4``).
               Has no effect when ``total_path`` is absent.
 
-        Incremental / watermark push-down (``source.configure``):
-            Instead of filtering rows in memory after fetching, these keys inject the
-            stored watermark value directly into the outgoing request so the API server
-            returns only new records — analogous to a SQL ``WHERE col > last_value``.
+        Canonical watermark and bounded range push-down
+        (``source.configure.range_param_mapping``):
+            Each mapped field declares separate lower and upper endpoint
+            parameters, their operators and locations, wire format, response
+            column, and watermark meaning (``"observed_max"`` or
+            ``"request_end"``).  Lower and upper bindings may use the shorthand
+            parameter names or the explicit ``{"name": ..., "location": ...,
+            "operator": ...}`` form.  Supported formats include ``"iso"``,
+            ``"date"``, ``"timestamp"``, ``"timestamp_ms"``, ``"datetime"``,
+            ``"datetime_ms"``, ``"integer"``, and ``"number"``.
 
-            - ``watermark_param_mapping`` (dict): Maps each ``watermark_columns`` entry
-              to its API parameter name, e.g.
-              ``{"updated_at": "updated_since", "id": "after_id"}``.
-              Only columns that are present in the stored watermark are injected.
-              Pushed-down columns may be absent from the API response; they skip
-              in-memory filtering and their new watermark is set to ``"now"``
-              (see ``watermark_to_param_timezone``) rather than the column's max
-              value in the dataframe.
-            - ``watermark_to_param`` (str, optional): API parameter name to receive the
-              current UTC timestamp as an upper bound ("to" side of the window).
-              If omitted, no upper-bound parameter is sent.
-            - ``watermark_param_location`` (str): Where to inject — ``"params"`` (default,
-              URL query string) or ``"body"`` (JSON/form POST body).
-            - ``watermark_param_format`` (str): How to serialise the watermark value:
-              ``"iso"`` (default, e.g. ``"2024-01-15T12:00:00"``),
-              ``"date"`` (``"2024-01-15"``),
-              ``"timestamp"`` (Unix seconds as float string),
-              ``"timestamp_ms"`` (Unix milliseconds as int string)
-              ``"datetime"`` (``"2024-01-15 12:00:00"``),
-              ``"datetime_ms"`` (``"2024-01-15 12:00:00.123"``).
-            - ``watermark_to_param_timezone`` (str, optional): Timezone for the
-              ``"now"`` timestamp injected into ``watermark_to_param`` and used
-              when advancing the watermark of pushed-down columns.  Accepts IANA
-              names (``"Asia/Ho_Chi_Minh"``, ``"America/New_York"``) or UTC
-              offset strings (``"+07:00"``, ``"-05:30"``).  Defaults to ``"UTC"``.
-              Source-level value takes precedence over the connection-level default.
-
-        Bounded source ranges (``source.configure.range_param_mapping``):
-            Each mapped field can declare separate lower and upper endpoint
-            parameters, their operators, wire format, response column, and
-            watermark meaning (``"observed_max"`` or ``"request_end"``).
-            Replay may select a mapped field even when it is not listed in
-            ``source.watermark_columns``; the mapping controls selection while
-            only authored watermark columns are eligible for persisted state.
             A bounded replay requires both lower and upper bindings and uses
-            the exact ``[start, end)`` range. The legacy
-            ``watermark_param_mapping`` form remains for incremental reads but
-            cannot express this independent bounded contract.
+            the exact authored operators.  Replay may select a mapped field
+            even when it is not listed in ``source.watermark_columns``; the
+            mapping controls selection while only authored watermark columns
+            are eligible for persisted state.  Ordinary unmapped watermark
+            columns continue to use response-side filtering.
+
+            ``watermark_to_param_timezone`` (str, optional) selects the timezone
+            used for generated request-end bounds and date/datetime alignment.
+            It accepts IANA names or UTC offset strings and defaults to ``UTC``.
 
         Range-split / parallel fetch (``source.configure``):
             Splits a large watermark window into equal-sized intervals and calls
-            the API concurrently for each sub-range.  Requires ``watermark_to_param``
-            to be set so each range's upper-bound can be passed to the API.
+            the API concurrently for each sub-range.  Requires one canonical
+            range mapping with lower and upper bindings.
 
             - ``watermark_range_interval_unit`` (str): Interval unit for each sub-range
               — ``"hour"``, ``"day"``, ``"month"``, or ``"year"``.  When set, range
@@ -233,15 +207,7 @@ class APIReader(BaseSourceReader[DF]):
               saved.
             - ``watermark_range_max_workers`` (int): Maximum parallel HTTP workers
               (default ``4``).
-            - ``watermark_range_to_exclusive_offset`` (str, optional): Epsilon
-              subtracted from each range's upper-bound **before sending it to the
-              API**, to prevent duplicate rows when the API uses inclusive
-              ``BETWEEN from AND to`` semantics.  The internal boundary that
-              starts the next range is unchanged.  Values: ``None`` (default
-              — no adjustment, correct for APIs with half-open ``[from, to)``
-              semantics), ``"1ms"`` (1 millisecond), ``"1s"`` (1 second),
-              ``"1day"`` (1 day; for date-precision parameters like
-              ``"2025-01-15"``).
+            Each split request receives the exact contiguous interval boundary.
     """
 
     def _resolve_watermark_operators(
@@ -254,8 +220,8 @@ class APIReader(BaseSourceReader[DF]):
 
         resolved_end = end_operator if end_operator is not None else "<"
         mapping = normalize_api_range_mapping(source.configure)
-        stored = getattr(self, "_pending_watermark_start", None)
-        pending_end = getattr(self, "_pending_watermark_end", None)
+        stored = self._pending_watermark_start
+        pending_end = self._pending_watermark_end
         active_kinds = {
             binding.watermark_value
             for field, binding in mapping.fields.items()
@@ -288,21 +254,21 @@ class APIReader(BaseSourceReader[DF]):
         *,
         boundary: str = "watermark",
     ) -> None:
-        """Validate raw new-binding ISO precision before look-back parsing.
+        """Validate canonical ISO precision before look-back parsing.
 
         ``BaseSourceReader`` applies ``date_backward`` before the API binding
         compiler sees a stored lower bound.  Validate the caller-owned string
         first so ``datetime.fromisoformat`` cannot silently discard digits.
-        The check is limited to new range mappings; legacy API formatting
-        retains its established behavior.
+        The check applies to every canonical range binding before the base
+        reader can coerce a stored ISO value and discard fractional digits.
         """
 
         super()._validate_watermark_comparison(watermark, boundary=boundary)
-        source = getattr(self, "_active_source", None)
+        source = self._active_source
         if source is None or not watermark:
             return
         mapping = normalize_api_range_mapping(source.configure)
-        if not mapping.is_new:
+        if not mapping.fields:
             return
         side = "upper" if "upper" in boundary else "lower"
         for field, binding in mapping.fields.items():
@@ -338,9 +304,9 @@ class APIReader(BaseSourceReader[DF]):
 
     def _watermark_ordering_kinds(self, candidate: Dict[str, Any]) -> Dict[str, str]:
         """Authorize ordering from the API binding's declared wire format."""
-        # Legacy API mappings still calculate observed maxima from response
-        # columns that are not bound to request parameters. Preserve the
-        # built-in typed-row contract for those fields; strings remain opaque.
+        # Unmapped API watermark columns still calculate observed maxima from
+        # response rows. Preserve the built-in typed-row contract for those
+        # fields; strings remain opaque.
         kinds: Dict[str, str] = self._typed_row_watermark_ordering_kinds(candidate)
         source = self._active_source
         if source is None:
@@ -367,12 +333,11 @@ class APIReader(BaseSourceReader[DF]):
         conn_cfg = source.connection.configure
         src_cfg = source.configure
 
-        # ``read_range`` is introduced by the source contract without making
-        # API metadata responsible for importing the shared model.  Keep a
-        # fallback for an older BaseSourceReader that stores it on the reader
-        # while the public signature is being migrated by the coordinator.
+        # BaseSourceReader stores the per-instance range for the internal
+        # handoff; keep the accessor as the source of truth when the caller
+        # does not pass an explicit value.
         if read_range is None:
-            read_range = getattr(self, "_read_range", None)
+            read_range = self._get_read_range()
         normalized_mapping = normalize_api_range_mapping(src_cfg)
         normalized_read_range = coerce_read_range(read_range)
         self._set_runtime_watermark_kind(
@@ -382,116 +347,24 @@ class APIReader(BaseSourceReader[DF]):
             watermark_end=watermark_end,
             read_range=normalized_read_range,
         )
-        if normalized_mapping.is_new or normalized_read_range is not None:
-            return self._read_new_range(
-                source,
-                watermark_start,
-                watermark_end=watermark_end,
-                read_range=normalized_read_range,
-                mapping=normalized_mapping,
-            )
-
         base_url = conn_cfg.get("base_url", "").rstrip("/")
         endpoint = src_cfg.get("endpoint", "")
         url = f"{base_url}/{endpoint.lstrip('/')}" if endpoint else base_url
         action["url"] = safe_url(url)
         self._set_source_action(action)
-
         if not base_url:
             raise SourceError(
                 "APIReader requires 'base_url' in connection.configure",
                 details={"connection": source.connection.name},
             )
 
-        wm_mapping = src_cfg.get("watermark_param_mapping") or {}
-        wm_to_param = src_cfg.get("watermark_to_param")
-        request_watermark_end = dict(watermark_end or {})
-
-        records = self._read_data(
+        return self._read_new_range(
             source,
-            watermark_start=watermark_start,
-            watermark_end=request_watermark_end or watermark_end,
+            watermark_start,
+            watermark_end=watermark_end,
+            read_range=normalized_read_range,
+            mapping=normalized_mapping,
         )
-
-        # Legacy request-end resolution lives in the raw API path so explicit
-        # active-field bounds are not replaced by a synthetic ``now`` value.
-        # The context is also the source of truth when a shared upper
-        # parameter was applied to all legacy mapped fields on an unbounded
-        # incremental read.
-        request_watermark_end = dict(
-            getattr(self, "_api_read_context", {}).get(
-                "effective_end", request_watermark_end
-            )
-        )
-
-        if not records:
-            logger.debug(
-                "APIReader: 0 records fetched — skipping. Table: %s (format: %s), URL: %s",
-                source.full_table_name,
-                source.connection.format,
-                safe_url(url),
-            )
-            self._set_rows_read(0)
-            self._set_new_watermark({})
-            return None
-
-        df = self._records_to_dataframe(records)
-
-        # Identify which watermark columns are pushed down to the API
-        # (the API filters them server-side so they may be absent from the response).
-        _wm_mapping = wm_mapping
-        # A lower-bound mapping alone cannot justify advancing to the current
-        # time: no request upper bound would have been applied. In that mode,
-        # use any returned watermark column for row-derived progress instead.
-        _pushed_cols = set(_wm_mapping) if wm_to_param else set()
-        _non_pushed_cols = [c for c in (source.watermark_columns or []) if c not in _pushed_cols]
-
-        if (watermark_start or watermark_end) and source.watermark_columns:
-            # Apply in-memory filter only for columns not already pushed to the API.
-            if _non_pushed_cols:
-                df = self._apply_watermark_filter(df, _non_pushed_cols, watermark_start or {}, watermark_end)
-
-        df = self._apply_filter_expression(df, source)
-
-        # Compute count and max watermark only from columns present in the
-        # dataframe (non-pushed). Pushed-down columns use the exact upper bound
-        # sent with the request.
-        count, new_wm = self._calculate_count_and_new_watermark(
-            df, _non_pushed_cols,
-        )
-
-        # Advance pushed-down columns — they are filtered server-side and may
-        # not appear in the response dataframe at all.
-        # Use the same effective upper bound as the request so that
-        # source_runtime.watermark_after matches what the driver will save.
-        if count > 0 and _pushed_cols and source.watermark_columns:
-            for _col in source.watermark_columns:
-                if _col in _pushed_cols and request_watermark_end.get(_col) is not None:
-                    new_wm[_col] = request_watermark_end[_col]
-
-        self._set_new_watermark(new_wm)
-        self._set_rows_read(count)
-
-        if count == 0:
-            if getattr(self, "_preserve_empty", False):
-                logger.debug(
-                    "APIReader: 0 rows after filtering — preserving typed empty frame. "
-                    "Table: %s (format: %s), URL: %s",
-                    source.full_table_name,
-                    source.connection.format,
-                    safe_url(url),
-                )
-                return df
-            logger.debug(
-                "APIReader: 0 rows after filtering — skipping. Table: %s (format: %s), URL: %s",
-                source.full_table_name,
-                source.connection.format,
-                safe_url(url),
-            )
-            return None
-
-        logger.debug("APIReader: read %d rows from %s", count, safe_url(url))
-        return df
 
     def _read_new_range(
         self,
@@ -523,6 +396,15 @@ class APIReader(BaseSourceReader[DF]):
             return None
 
         df = self._records_to_dataframe(records)
+        # No-mapping reads use the base watermark filter after materializing
+        # rows so bounded replacement can preserve a typed empty frame.
+        if not mapping.fields:
+            df = self._apply_watermark_filter(
+                df,
+                list(source.watermark_columns or []),
+                watermark_start or {},
+                watermark_end,
+            )
         df = self._apply_filter_expression(df, source)
         # A request-end field advances only from the endpoint's confirmed
         # covered end below. Never reinterpret a row maximum as a request-end
@@ -552,7 +434,7 @@ class APIReader(BaseSourceReader[DF]):
             # frame is retained for replacement.
             self._set_new_watermark({})
             self._set_rows_read(0)
-            if getattr(self, "_preserve_empty", False):
+            if self._preserve_empty:
                 return df
             return None
 
@@ -611,12 +493,6 @@ class APIReader(BaseSourceReader[DF]):
         read_range: Any = None,
     ) -> List[Dict[str, Any]]:
         """Fetch all pages from the API and return collected records."""
-        if httpx is None:
-            raise SourceError(
-                "APIReader requires 'httpx'. Install it with: pip install httpx",
-            )
-
-        conn_cfg = source.connection.configure
         src_cfg = source.configure
         if configure:
             src_cfg = {**src_cfg, **configure}
@@ -624,200 +500,19 @@ class APIReader(BaseSourceReader[DF]):
         normalized_mapping = normalize_api_range_mapping(src_cfg)
         normalized_read_range = coerce_read_range(read_range)
         if normalized_read_range is None:
-            normalized_read_range = coerce_read_range(getattr(self, "_read_range", None))
-        if normalized_mapping.is_new or normalized_read_range is not None:
-            return self._read_data_new(
-                source,
-                src_cfg,
-                watermark_start=watermark_start,
-                watermark_end=watermark_end,
-                read_range=normalized_read_range,
-                mapping=normalized_mapping,
-            )
-
-        # Runtime callers can bypass metadata schema validation. Reject a
-        # typo before resolving credentials or constructing an HTTP client so
-        # it cannot look like a completed incremental read.
-        validate_pagination_type(src_cfg.get("pagination_type"))
-        if src_cfg.get("next_link_bound_mode", "opaque") not in {
-            "opaque",
-            "repeat_query_bounds",
-        }:
+            normalized_read_range = coerce_read_range(self._get_read_range())
+        if httpx is None:
             raise SourceError(
-                "Unsupported API next_link_bound_mode; expected 'opaque' or 'repeat_query_bounds'."
+                "APIReader requires 'httpx'. Install it with: pip install httpx",
             )
-
-        base_url = conn_cfg.get("base_url", "").rstrip("/")
-        endpoint = src_cfg.get("endpoint", "")
-        url = f"{base_url}/{endpoint.lstrip('/')}" if endpoint else base_url
-
-        method = src_cfg.get("method", "GET").upper()
-        params = dict(src_cfg.get("params", {}))
-        body = dict(src_cfg.get("body") or {})
-        timeout = float(conn_cfg.get("timeout", 30))
-
-        # Watermark push-down config
-        wm_mapping: Dict[str, str] = src_cfg.get("watermark_param_mapping") or {}
-        wm_to_param: Optional[str] = src_cfg.get("watermark_to_param")
-        wm_location: str = src_cfg.get("watermark_param_location", "params").lower()
-        wm_format: str = src_cfg.get("watermark_param_format", "iso").lower()
-
-        # Range-split config
-        interval_unit: Optional[str] = src_cfg.get("watermark_range_interval_unit")
-        interval_amount = src_cfg.get("watermark_range_interval_amount", 1)
-        max_workers: int = int(src_cfg.get("watermark_range_max_workers", 4))
-        overlap_mode = src_cfg.get("watermark_range_to_exclusive_offset")
-        if overlap_mode is not None and not interval_unit:
-            raise SourceError(
-                "watermark_range_to_exclusive_offset is supported only on the legacy incremental range split path."
-            )
-
-        # Shared timezone for the "now" used as wm_to_param upper-bound.
-        # Source-level setting takes precedence over connection-level default.
-        wm_to_tz = resolve_timezone(
-            src_cfg.get("watermark_to_param_timezone")
-            or conn_cfg.get("watermark_to_param_timezone")
+        return self._read_data_new(
+            source,
+            src_cfg,
+            watermark_start=watermark_start,
+            watermark_end=watermark_end,
+            read_range=normalized_read_range,
+            mapping=normalized_mapping,
         )
-
-        request_watermark_end = dict(watermark_end or {})
-
-        # Resolve one legacy request upper bound before opening the client.
-        # A shared ``watermark_to_param`` cannot represent two different
-        # explicit active upper values, and an explicit value always wins over
-        # the default clock ceiling.
-        if wm_to_param:
-            request_watermark_end, legacy_to_value = self._resolve_legacy_request_end(
-                wm_mapping,
-                watermark_start=watermark_start,
-                watermark_end=request_watermark_end,
-                wm_tz=wm_to_tz,
-            )
-        else:
-            legacy_to_value = None
-        self._api_read_context = {
-            "effective_end": dict(request_watermark_end),
-            "legacy_to_value": legacy_to_value,
-        }
-
-        if not interval_unit:
-            # ----------------------------------------------------------------
-            # Normal single-call path: inject stored watermark + upper bound
-            # ----------------------------------------------------------------
-            if watermark_start and wm_mapping:
-                target = params if wm_location == "params" else body
-                inject_stored_watermark(target, wm_mapping, watermark_start, wm_format)
-
-            if wm_to_param:
-                to_val = legacy_to_value
-                if to_val is None:
-                    # ``_resolve_legacy_request_end`` supplies this whenever
-                    # the shared upper parameter is configured.  Keep the
-                    # fallback defensive for custom callers that pass a
-                    # false-y mapping object.
-                    to_val = datetime.now(tz=wm_to_tz)
-                to_target = params if wm_location == "params" else body
-                to_target[wm_to_param] = format_watermark_value(to_val, wm_format)
-
-        headers = dict(conn_cfg.get("default_headers", {}))
-        # Unwrap SecretStr values before passing to auth/HTTP libraries.
-        auth_cfg = unwrap_configure(conn_cfg)
-        apply_auth(headers, auth_cfg)
-        http_auth = get_http_auth(auth_cfg)
-
-        # Warn when credentials are sent over plain HTTP
-        auth_type = conn_cfg.get("auth_type", "")
-        if auth_type and not url.lower().startswith("https"):
-            logger.warning(
-                "API credentials (auth_type=%s) sent over non-HTTPS URL: %s",
-                auth_type,
-                safe_url(url),
-            )
-
-        with httpx.Client(
-            timeout=timeout,
-            headers=headers,
-            auth=http_auth,
-            follow_redirects=False,
-        ) as client:
-            if interval_unit:
-                # ------------------------------------------------------------
-                # Range-split path: divide [from_dt, now) into sub-windows
-                # and call the API concurrently for each window.
-                # ------------------------------------------------------------
-                if not wm_to_param:
-                    raise SourceError(
-                        "watermark_range_interval_unit requires 'watermark_to_param' "
-                        "to be set so each range's upper bound can be sent to the API.",
-                    )
-
-                # Determine lower bound of the entire window
-                from_dt: Optional[datetime] = resolve_range_from_dt(
-                    watermark_start, wm_mapping, src_cfg.get("watermark_range_start"),
-                    tz=wm_to_tz,
-                )
-
-                if from_dt is None:
-                    raise SourceError(
-                        "watermark_range_interval_unit requires either a stored watermark "
-                        "or 'watermark_range_start' in source.configure",
-                    )
-
-                to_dt: Optional[datetime] = None
-                # Cap to_dt at watermark_end when provided (replay)
-                if request_watermark_end and wm_mapping:
-                    _upper_col = next((c for c in wm_mapping if request_watermark_end.get(c) is not None), None)
-                    if _upper_col:
-                        _cap = request_watermark_end[_upper_col]
-                        if isinstance(_cap, _DATETIME_TYPE):
-                            to_dt = _cap
-                        elif type(_cap) is date:
-                            to_dt = datetime(_cap.year, _cap.month, _cap.day, tzinfo=wm_to_tz)
-                        elif isinstance(_cap, str):
-                            to_dt = datetime.fromisoformat(_cap)
-                if to_dt is None:
-                    to_dt = datetime.now(tz=wm_to_tz)
-                # Normalise timezone so from_dt and to_dt are comparable
-                if from_dt.tzinfo is None:
-                    to_dt = to_dt.replace(tzinfo=None)
-
-                ranges = build_watermark_ranges(from_dt, to_dt, interval_amount, interval_unit)
-                if not ranges:
-                    return []
-
-                cfg = _RangeCallConfig(
-                    client=client,
-                    url=url,
-                    method=method,
-                    base_params=dict(params),
-                    base_body=dict(body) if body else {},
-                    wm_mapping=wm_mapping,
-                    wm_to_param=wm_to_param,
-                    wm_location=wm_location,
-                    wm_format=wm_format,
-                    overlap_mode=overlap_mode,
-                    src_cfg=src_cfg,
-                )
-
-                call = functools.partial(execute_range_call, cfg)
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    batches = list(executor.map(call, ranges))
-
-                return [rec for batch in batches for rec in batch]
-
-            else:
-                # Single-call path (watermark already injected above)
-                request_cfg = dict(src_cfg)
-                request_cfg["_active_query_bounds"] = {
-                    **{
-                        api_param: params[api_param]
-                        for api_param in wm_mapping.values()
-                        if api_param in params
-                    },
-                    **({wm_to_param: params[wm_to_param]} if wm_to_param and wm_to_param in params else {}),
-                }
-                if wm_location == "body":
-                    request_cfg["_active_query_bounds"] = {}
-                return fetch_single_range(client, url, method, params, body or None, request_cfg)
 
     def _read_data_new(
         self,
@@ -829,7 +524,7 @@ class APIReader(BaseSourceReader[DF]):
         read_range: Optional[ReadRangeSpec],
         mapping: NormalizedAPIRangeMapping,
     ) -> List[Dict[str, Any]]:
-        """Compile and execute new API bindings, including residual filtering."""
+        """Compile and execute canonical API bindings, including residual filtering."""
         conn_cfg = source.connection.configure
         base_url = conn_cfg.get("base_url", "").rstrip("/")
         endpoint = src_cfg.get("endpoint", "")
@@ -845,25 +540,37 @@ class APIReader(BaseSourceReader[DF]):
                 "Unsupported API next_link_bound_mode; expected 'opaque' or 'repeat_query_bounds'."
             )
 
+        interval_unit_configured = "watermark_range_interval_unit" in src_cfg
+        interval_unit = src_cfg.get("watermark_range_interval_unit")
+        if interval_unit_configured:
+            if not isinstance(interval_unit, str) or interval_unit not in _RANGE_INTERVAL_UNITS:
+                raise SourceError(
+                    "watermark_range_interval_unit must be one of 'hour', 'day', 'month', or 'year'."
+                )
+            if not mapping.fields:
+                raise SourceError(
+                    "API range splitting requires range_param_mapping with canonical "
+                    "lower and upper bindings."
+                )
+
         # Validate the complete request contract before constructing the client
-        # or dispatching a request.  This is especially important for mixed
-        # observed-max/request-end state and bounded legacy migration errors.
-        if read_range is not None and not mapping.is_new:
+        # or dispatching a request.
+        if read_range is not None and not mapping.fields:
             raise SourceError(
-                "A bounded read_range cannot use legacy watermark parameter mapping. "
-                "Declare range_param_mapping with explicit endpoint operators and response_column."
+                "A bounded read_range requires range_param_mapping with explicit "
+                "endpoint operators and response_column."
             )
         if read_range is not None and (watermark_start or watermark_end):
             raise SourceError(
                 "read_range is mutually exclusive with incremental watermark bounds."
             )
-        if read_range is not None and src_cfg.get("watermark_range_interval_unit"):
+        if read_range is not None and interval_unit_configured:
             raise SourceError(
-                "read_range cannot be combined with legacy watermark range splitting."
+                "read_range cannot be combined with API range splitting."
             )
 
-        effective_start_operator = getattr(self, "_watermark_start_operator", None)
-        effective_end_operator = getattr(self, "_watermark_end_operator", "<") or "<"
+        effective_start_operator = self._watermark_start_operator
+        effective_end_operator = self._watermark_end_operator
         active_fields = self._active_new_fields(
             mapping,
             watermark_start=watermark_start,
@@ -890,12 +597,20 @@ class APIReader(BaseSourceReader[DF]):
                     "watermark_values": sorted(kinds),
                 },
             )
+        if not read_range and (
+            len(active_fields) > 1
+            or (active_fields and active_unmapped_fields)
+        ):
+            raise SourceError(
+                "API active watermark OR predicate cannot be represented by one "
+                "bounded request; use one mapped field or response-side filtering."
+            )
 
         wm_tz = resolve_timezone(
             src_cfg.get("watermark_to_param_timezone")
             or conn_cfg.get("watermark_to_param_timezone")
         )
-        if src_cfg.get("watermark_range_interval_unit"):
+        if interval_unit_configured:
             split_field = (
                 active_fields[0]
                 if active_fields
@@ -950,17 +665,18 @@ class APIReader(BaseSourceReader[DF]):
         # from the materialized response together with mapped residuals; doing
         # this before response observation avoids turning the fields into an
         # accidental AND predicate.
-        for field in active_unmapped_fields:
-            residual_filters.append(
-                ResidualFilter(
-                    field=field,
-                    response_column=field,
-                    lower=(watermark_start or {}).get(field),
-                    upper=(watermark_end or {}).get(field),
-                    lower_operator=effective_start_operator or ">",
-                    upper_operator=effective_end_operator,
+        if mapping.fields:
+            for field in active_unmapped_fields:
+                residual_filters.append(
+                    ResidualFilter(
+                        field=field,
+                        response_column=field,
+                        lower=(watermark_start or {}).get(field),
+                        upper=(watermark_end or {}).get(field),
+                        lower_operator=effective_start_operator or ">",
+                        upper_operator=effective_end_operator,
+                    )
                 )
-            )
 
         headers = dict(conn_cfg.get("default_headers", {}))
         auth_cfg = unwrap_configure(conn_cfg)
@@ -994,7 +710,11 @@ class APIReader(BaseSourceReader[DF]):
         # Filtering after pagination is deliberate: a continuation may omit
         # visible bounds or return a superset, and every page must receive the
         # same residual selection before state is observed.
-        records = filter_records_by_ranges(records, residual_filters)
+        # Canonical mappings own raw residual filtering. With no mapping,
+        # return the fetched rows so BaseSourceReader can materialize and
+        # apply its ordinary watermark filter with preserve-empty semantics.
+        if mapping.fields:
+            records = filter_records_by_ranges(records, residual_filters)
         self._api_read_context = {
             "watermark_updates": watermark_updates,
             "complete": True,
@@ -1014,13 +734,12 @@ class APIReader(BaseSourceReader[DF]):
         start_operator: str,
         end_operator: str,
     ) -> List[Dict[str, Any]]:
-        """Execute the legacy-style parallel split using new bindings.
+        """Execute a canonical parallel split using one range binding.
 
         A split has one source selection column and keeps the exact
         ``[start, end)`` contract for every sub-call.  Per-field mappings are
         still used for wire names, locations and residual response filtering;
-        the legacy exclusive-offset setting is intentionally rejected during
-        normalization for this path.
+        every sub-call receives the exact compiled interval bounds.
         """
         if len(active_fields) > 1:
             raise SourceError(
@@ -1360,19 +1079,18 @@ class APIReader(BaseSourceReader[DF]):
                 if binding.watermark_value == "request_end":
                     updates[field] = upper
 
-            if binding.watermark_value == "request_end" and binding.response_column is None:
+            if binding.response_column is None:
                 # Without a response field there is no residual predicate to
-                # remove an endpoint superset.  Request-end advancement is
-                # therefore safe only when both authored endpoint operators
-                # exactly implement the effective request bounds.
+                # remove an endpoint superset. The endpoint must implement
+                # every active bound exactly.
                 if lower is not None and binding.lower.operator != desired_lower:
                     raise SourceError(
-                        f"Request-end API binding for {field!r} needs response_column "
+                        f"API binding for {field!r} needs response_column "
                         "when its lower endpoint operator differs from the requested bound."
                     )
                 if upper is not None and binding.upper.operator != end_operator:
                     raise SourceError(
-                        f"Request-end API binding for {field!r} needs response_column "
+                        f"API binding for {field!r} needs response_column "
                         "when its upper endpoint operator differs from the requested bound."
                     )
             if lower is not None or upper is not None:
@@ -1506,7 +1224,7 @@ class APIReader(BaseSourceReader[DF]):
         field: str,
         side: str,
     ) -> Any:
-        """Compile a new-binding bound with actionable precision context."""
+        """Compile a canonical bound with actionable precision context."""
 
         try:
             return format_bound(value, binding.format)
@@ -1516,7 +1234,7 @@ class APIReader(BaseSourceReader[DF]):
                 "side": side,
                 "format": binding.format,
             }
-            details.update(getattr(exc, "details", {}))
+            details.update(exc.details)
             raise SourceError(
                 f"API {side} bound for field {field!r} cannot be represented "
                 f"losslessly with format {binding.format!r}: {exc.message}",
@@ -1550,41 +1268,6 @@ class APIReader(BaseSourceReader[DF]):
         seen[key] = (field, side)
         target[binding.name] = value
 
-    @staticmethod
-    def _resolve_legacy_request_end(
-        wm_mapping: Dict[str, str],
-        *,
-        watermark_start: Optional[Dict[str, Any]],
-        watermark_end: Dict[str, Any],
-        wm_tz: Any,
-    ) -> tuple[Dict[str, Any], Any]:
-        """Resolve the historical shared upper parameter without ambiguity."""
-        explicit = [
-            watermark_end[column]
-            for column in wm_mapping
-            if watermark_end.get(column) is not None
-        ]
-        if explicit:
-            first = explicit[0]
-            if any(value != first for value in explicit[1:]):
-                raise SourceError(
-                    "Legacy watermark_to_param cannot represent different active upper bounds.",
-                    details={"columns": [column for column in wm_mapping if watermark_end.get(column) is not None]},
-                )
-            return dict(watermark_end), first
-
-        now = datetime.now(tz=wm_tz)
-        effective = dict(watermark_end)
-        # An unbounded legacy incremental call historically applies the
-        # shared ceiling to each mapped field.  Keep that behavior; explicit
-        # partial bounds above never receive a synthetic value.
-        first_value: Any = now
-        for index, column in enumerate(wm_mapping):
-            previous = (watermark_start or {}).get(column)
-            effective[column] = now.date() if type(previous) is date else now
-            if index == 0:
-                first_value = effective[column]
-        return effective, first_value
     def _records_to_dataframe(self, records: List[Dict[str, Any]]) -> DF:
         """Convert a list of dicts to a DataFrame via the engine.
 

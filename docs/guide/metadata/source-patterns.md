@@ -693,6 +693,9 @@ pages. See [pagination contracts](#choose-the-pagination-contract).
 | `page_size`, `max_pages`, `data_path` | Response traversal and size |
 | `total_path`, `offset_max_workers` | Parallel offset pagination |
 | `rate_limit_delay`, `max_retries` | Delay between sequential pages; retry HTTP 429 responses |
+| `range_param_mapping` | Canonical per-field lower/upper API bindings, operators, format, residual response field, and state meaning |
+| `watermark_to_param_timezone` | Source override for generated API upper bounds and watermark advancement |
+| `watermark_range_interval_unit`, `watermark_range_interval_amount`, `watermark_range_start`, `watermark_range_max_workers` | Canonical incremental range splitting and its first-run/worker controls |
 
 `source.filter_expression` is deliberately absent from the request table. Put
 server-side filters in the endpoint-specific `params` or `body` when the API
@@ -904,8 +907,9 @@ bound that the endpoint confirmed. Omitted incremental lower operators resolve
 to `>` for `observed_max` and `>=` for `request_end`; active fields with mixed
 semantics are rejected before HTTP. A bounded replay uses `[start, end)` and
 requires endpoint operators and a `response_column` that can enforce any
-boundary the endpoint cannot enforce itself. Legacy `watermark_param_mapping`
-does not provide this independent bounded-range contract.
+boundary the endpoint cannot enforce itself. If the endpoint uses an inclusive
+upper operator (`<=`), keep that operator in the binding and apply the exact
+residual `< end` check to `response_column`; do not subtract an epsilon.
 
 A tracked `observed_max` binding must have a non-null `response_column`; the
 reader rejects a missing column mapping before HTTP, even when watermark saving
@@ -920,8 +924,10 @@ requires whole seconds, and `datetime_ms` / `timestamp_ms` require millisecond
 alignment. `timestamp` preserves fractional Unix seconds using exact decimal
 encoding. For example, `12:30:00.123456` cannot use `datetime_ms`; use `iso` or
 supply a bound that is already aligned. Validation happens before HTTP for
-both incremental and bounded reads. Legacy `watermark_param_mapping` retains
-its existing formatting behavior.
+both incremental and bounded reads. String lower/upper shorthand and the
+schema-supported integer aliases (`integer`, `int`, `native_integer`, and
+`number`) remain valid. Declare `format` in the binding; do not use a
+runtime-only alias.
 
 When the reader generates an incremental upper bound from the current time,
 it chooses a ceiling compatible with the binding's precision and logical
@@ -941,8 +947,9 @@ Set a binding's `location` to `params` for query parameters or `body` for a
 top-level JSON body field. Nested body paths are outside this generic mapping
 contract and require a source-specific adapter.
 
-Use `watermark_param_mapping` to map stored watermark columns to API parameter
-names. Add `watermark_to_param` when the API accepts an upper bound:
+Canonical incremental splitting uses the same `range_param_mapping` as bounded
+reads and replay. Keep the split controls together with a complete lower and
+upper binding for the active field:
 
 ```json
 {
@@ -951,50 +958,39 @@ names. Add `watermark_to_param` when the API accepts an upper bound:
     "watermark_columns": ["updated_at"],
     "configure": {
       "endpoint": "/orders",
-      "watermark_param_mapping": {"updated_at": "updated_since"},
-      "watermark_to_param": "updated_before",
-      "watermark_param_location": "params",
-      "watermark_param_format": "iso",
+      "range_param_mapping": {
+        "updated_at": {
+          "lower": "updated_since",
+          "upper": {"name": "updated_before", "operator": "<"},
+          "format": "iso",
+          "response_column": "updated_at",
+          "watermark_value": "observed_max"
+        }
+      },
       "watermark_to_param_timezone": "Asia/Ho_Chi_Minh",
       "watermark_range_interval_unit": "day",
       "watermark_range_interval_amount": 1,
-      "watermark_range_start": "2026-01-01T00:00:00Z",
-      "watermark_range_max_workers": 4,
-      "watermark_range_to_exclusive_offset": "1ms"
+      "watermark_range_start": "2026-01-01T00:00:00+07:00",
+      "watermark_range_max_workers": 4
     }
   }
 }
 ```
 
-The **legacy incremental split** requires
-`watermark_range_interval_unit` and `watermark_to_param`. On the first run it
-also requires `watermark_range_start`; later runs can start from the saved
-watermark when `watermark_param_mapping` is present. The API must accept both
-mapped lower and configured upper bounds; omitting the mapping causes every
-range request to lack a lower bound. Supported interval units are `hour`,
-`day`, `month`, and `year`.
-
-Canonical bounded reads and replay use `range_param_mapping` instead. Each
-selected field declares both endpoint bindings and their operators, so a
-canonical request can enforce the exact `[start, end)` interval without
-`watermark_to_param`, `watermark_range_start`, or legacy interval fields. A
-canonical numeric field is read as one finite range; use replay's integer
-`chunk_interval: {"step": ...}` when several numeric chunks are needed.
-
-The legacy upper-bound behavior is unchanged. Set
-`watermark_range_to_exclusive_offset` to `1ms`, `1s`, or `1day` only when that
-API treats its upper bound as inclusive, for example a `BETWEEN from AND to`
-query. The offset changes the value sent to the API; adjacent internal range
-boundaries remain contiguous. This adjustment does not replace the explicit
-operators on a canonical `range_param_mapping` binding.
+`watermark_range_interval_unit` supports `hour`, `day`, `month`, and `year`.
+The first split run needs either a stored lower watermark or
+`watermark_range_start`. `watermark_range_interval_amount` controls the size
+of each interval and `watermark_range_max_workers` controls concurrent range
+requests. These controls apply to canonical incremental splitting; explicit
+bounded reads and replay receive their `[start, end)` range from the source
+contract and do not need them.
 
 `watermark_to_param_timezone` accepts an IANA name such as
 `Asia/Ho_Chi_Minh` or a UTC offset such as `+07:00`. A source-level value wins
 over the same connection-level default. The range endpoint and the stored
 watermark must use a precision and timezone that the API understands.
 
-`watermark_param_format` controls how a stored date/datetime becomes the upper
-bound request parameter:
+`range_param_mapping.<field>.format` controls how a bound is encoded:
 
 | Format | Example output | Behavior |
 |---|---|---|
@@ -1002,19 +998,23 @@ bound request parameter:
 | `date` | `2026-01-02` | Calendar date only |
 | `timestamp` | `1767323045.0` | Unix seconds; naive datetimes are treated as UTC |
 | `timestamp_ms` | `1767323045000` | Unix milliseconds; naive datetimes are treated as UTC |
-| `datetime` | `2026-01-02T03:04:05` | Naive ISO datetime truncated to whole seconds |
+| `datetime` | `2026-01-02T03:04:05` | Naive ISO datetime at whole-second precision |
 | `datetime_ms` | `2026-01-02T03:04:05.123` | Naive ISO datetime retaining millisecond precision |
+| `integer`, `int`, `native_integer`, `number` | `42` | Integer aliases for native numeric API bounds |
 
-Unparseable string watermarks pass through unchanged; typed date/datetime values
-use the conversion rules above. Choose a format and timezone accepted by the
-API rather than relying on a provider-specific default.
+String lower/upper shorthand is equivalent to an object with `name` and the
+default location/operator. Use an object when the endpoint needs `body` or an
+explicit operator. Bounds that cannot be represented at the declared precision
+fail before HTTP; no lossy truncation is used.
 
 ### Avoid invalid combinations
 
 - Do not put pagination keys on the connection; they belong to the source.
-- Do not enable the **legacy incremental split** without `watermark_to_param`
-  and a first-run `watermark_range_start`. Canonical bounded reads and replay
-  use `range_param_mapping` instead.
+- For the unreleased `0.2.0` cutover, the removed source names
+  `watermark_param_mapping`, `watermark_to_param`, `watermark_param_location`,
+  `watermark_param_format`, and `watermark_range_to_exclusive_offset` are
+  rejected even when their values are null or empty. Replace them manually
+  with `range_param_mapping`; no automatic migration is performed.
 - Do not use `cursor_param` or `next_link_path` with the wrong
   `pagination_type`.
 - Do not use a custom or misspelled `pagination_type`; only `offset`, `cursor`,
@@ -1105,8 +1105,7 @@ replay window supplies one. Later reads use the stored watermark and any
 configured look-back. A database reader adds a SQL watermark condition; other
 readers use different mechanisms. Checkpoint advancement also differs: most
 readers use the maximum observed watermark, while canonical API bindings use
-their configured `watermark_value` (`observed_max` or `request_end`) and the
-legacy split path advances from its covered request boundary.
+their configured `watermark_value` (`observed_max` or `request_end`).
 
 Behavior differs by source family:
 
@@ -1114,7 +1113,7 @@ Behavior differs by source family:
 |---------------|--------------------|
 | Parquet / Delta / Iceberg | Engine DataFrame filter after read |
 | Database | `WHERE` clause pushed to SQL; query mode filters its returned columns |
-| API | Mapped watermark fields are pushed into request params/body; unmapped fields are filtered in the engine after fetching |
+| API | Fields with an active `range_param_mapping` binding are pushed into request params/body; unmapped fields are filtered in the engine after fetching |
 | File formats | `__file_modification_time` can select files during listing; row-column watermarks filter in the engine after read |
 | Python function | Incremental watermarks are passed into the function first; bounded `read_range` is a separate source-owned contract, then the framework filters again after the function returns |
 
@@ -1278,8 +1277,8 @@ output mapping, and delete/append failure boundary.
 
 Look-back changes the lower bound derived from the saved watermark. API range
 splitting separately divides a `[from, to)` interval into requests; configure
-that on the API source with `watermark_to_param` and a range interval. See
-[Push down and split watermark ranges](#push-down-and-split-watermark-ranges)
+the selected field's `range_param_mapping` and the canonical range interval
+controls on the API source. See [Push down and split watermark ranges](#push-down-and-split-watermark-ranges)
 for timezone and inclusive-upper-bound handling.
 
 Replay supplies an explicit bounded range and can cap an API range's upper
