@@ -8,12 +8,23 @@ import os
 import tempfile
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from datacoolie.logging.configuration.config import normalize_storage_mode
 from datacoolie.logging.configuration.constants import INTERNAL_LOGGER_NAME, StorageMode
+from datacoolie.logging.persistence.diagnostics import (
+    DEFAULT_DIAGNOSTIC_MAX_BYTES,
+    DiagnosticBudget,
+    OMITTED,
+    normalize_issue_entries,
+)
+from datacoolie.logging.persistence.bounded_encoder import (
+    BoundedEncodingError,
+    bounded_json_dumps,
+    bounded_json_size,
+)
 from datacoolie.logging.presentation.formatting import format_context_suffix
 from datacoolie.utils.time import utc_now
 
@@ -25,6 +36,29 @@ def _optional_text(value: object) -> Optional[str]:
     return value if isinstance(value, str) and value else None
 
 
+def _optional_positive_int(value: object) -> Optional[int]:
+    """Return a positive non-boolean integer or omit malformed metadata."""
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
+def _bound_record(record: "LogRecord", max_bytes: int) -> "LogRecord":
+    """Bound captured diagnostic text before it reaches fallback storage."""
+
+    budget = DiagnosticBudget(max_bytes=max_bytes)
+    for issue in normalize_issue_entries(record.diagnostic_issues):
+        budget.add_issue(issue["field"], issue["reason"])
+    message = budget.normalize(record.message, path="/msg")
+    exc_info = budget.normalize(record.exc_info, path="/exc_info")
+    return replace(
+        record,
+        message=None if message is OMITTED else message,
+        exc_info=None if exc_info is OMITTED else exc_info,
+        diagnostic_issues=budget.issues or None,
+    )
+
+
 @dataclass
 class LogRecord:
     """Captured log entry."""
@@ -32,7 +66,7 @@ class LogRecord:
     timestamp: datetime
     level: str
     logger_name: str
-    message: str
+    message: Optional[str]
     module: Optional[str] = None
     func_name: Optional[str] = None
     line_no: Optional[int] = None
@@ -40,6 +74,8 @@ class LogRecord:
     dataflow_id: Optional[str] = None
     dataflow_run_id: Optional[str] = None
     event_name: Optional[str] = None
+    attempt_number: Optional[int] = None
+    diagnostic_issues: Optional[List[Dict[str, str]]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to a JSON-compatible dictionary."""
@@ -47,14 +83,18 @@ class LogRecord:
             "ts": self.timestamp.isoformat(),
             "level": self.level,
             "logger": self.logger_name,
-            "msg": self.message,
         }
+        if self.message is not None:
+            d["msg"] = self.message
         if isinstance(self.dataflow_id, str) and self.dataflow_id:
             d["dataflow_id"] = self.dataflow_id
         if isinstance(self.dataflow_run_id, str) and self.dataflow_run_id:
             d["dataflow_run_id"] = self.dataflow_run_id
         if isinstance(self.event_name, str) and self.event_name:
             d["event_name"] = self.event_name
+        attempt_number = _optional_positive_int(self.attempt_number)
+        if attempt_number is not None:
+            d["attempt_number"] = attempt_number
         if self.module:
             d["module"] = self.module
         if self.func_name:
@@ -63,6 +103,9 @@ class LogRecord:
             d["line"] = self.line_no
         if self.exc_info:
             d["exc_info"] = self.exc_info
+        issues = normalize_issue_entries(self.diagnostic_issues)
+        if issues:
+            d["diagnostic_issues"] = issues
         return d
 
     @classmethod
@@ -72,7 +115,7 @@ class LogRecord:
             timestamp=datetime.fromisoformat(d["ts"]),
             level=d["level"],
             logger_name=d["logger"],
-            message=d["msg"],
+            message=d.get("msg"),
             module=d.get("module"),
             func_name=d.get("func"),
             line_no=d.get("line"),
@@ -80,6 +123,8 @@ class LogRecord:
             dataflow_id=_optional_text(d.get("dataflow_id")),
             dataflow_run_id=_optional_text(d.get("dataflow_run_id")),
             event_name=_optional_text(d.get("event_name")),
+            attempt_number=_optional_positive_int(d.get("attempt_number")),
+            diagnostic_issues=normalize_issue_entries(d.get("diagnostic_issues")),
         )
 
     def format(self, include_location: bool = False) -> str:
@@ -99,7 +144,7 @@ class LogRecord:
         parts = [ts, self.level, logger_part]
         if context:
             parts.append(context)
-        parts.append(self.message)
+        parts.append(self.message or "")
         base = " - ".join(parts)
         if self.exc_info:
             base += f"\n{self.exc_info}"
@@ -124,6 +169,7 @@ class CaptureHandler(logging.Handler):
         level: int = logging.DEBUG,
         storage_mode: str = StorageMode.MEMORY.value,
         max_buffer_bytes: int = 512 * 1024 * 1024,
+        diagnostic_max_bytes: int = DEFAULT_DIAGNOSTIC_MAX_BYTES,
     ) -> None:
         super().__init__(level)
         storage_mode = normalize_storage_mode(storage_mode)
@@ -133,8 +179,15 @@ class CaptureHandler(logging.Handler):
             or max_buffer_bytes <= 0
         ):
             raise ValueError("max_buffer_bytes must be a positive integer")
+        if (
+            isinstance(diagnostic_max_bytes, bool)
+            or not isinstance(diagnostic_max_bytes, int)
+            or diagnostic_max_bytes <= 0
+        ):
+            raise ValueError("diagnostic_max_bytes must be a positive integer")
         self._storage_mode = storage_mode
         self._max_buffer_bytes = max_buffer_bytes
+        self._diagnostic_max_bytes = diagnostic_max_bytes
         self._records: List[LogRecord] = []
         self._buffered_bytes = 0
         self._dropped_records = 0
@@ -168,6 +221,7 @@ class CaptureHandler(logging.Handler):
         storage_mode: str,
         formatter: logging.Formatter,
         max_buffer_bytes: Optional[int] = None,
+        diagnostic_max_bytes: Optional[int] = None,
     ) -> None:
         """Atomically update capture settings without detaching the handler."""
         storage_mode = normalize_storage_mode(storage_mode)
@@ -177,6 +231,12 @@ class CaptureHandler(logging.Handler):
             or max_buffer_bytes <= 0
         ):
             raise ValueError("max_buffer_bytes must be a positive integer")
+        if diagnostic_max_bytes is not None and (
+            isinstance(diagnostic_max_bytes, bool)
+            or not isinstance(diagnostic_max_bytes, int)
+            or diagnostic_max_bytes <= 0
+        ):
+            raise ValueError("diagnostic_max_bytes must be a positive integer")
 
         with self.lock:
             candidate_max = (
@@ -184,20 +244,34 @@ class CaptureHandler(logging.Handler):
                 if max_buffer_bytes is None
                 else max_buffer_bytes
             )
+            candidate_diagnostic_max = (
+                self._diagnostic_max_bytes
+                if diagnostic_max_bytes is None
+                else diagnostic_max_bytes
+            )
             if storage_mode != self._storage_mode:
                 records = (
                     self._load_from_file(raise_on_error=True)
                     if self._storage_mode == StorageMode.FILE.value
                     else list(self._records)
                 )
+                records = [
+                    _bound_record(record, candidate_diagnostic_max)
+                    for record in records
+                ]
                 records, dropped = self._bounded_prefix(records, candidate_max)
 
                 if storage_mode == StorageMode.FILE.value:
                     new_temp_file = self._new_temp_file_path()
                     try:
                         with open(new_temp_file, "w", encoding="utf-8") as handle:
+                            written = 0
                             for record in records:
-                                handle.write(json.dumps(record.to_dict(), default=str) + "\n")
+                                size = self._record_size(record)
+                                handle.write(
+                                    self._record_line(record, candidate_max - written)
+                                )
+                                written += size
                     except Exception:
                         try:
                             if os.path.exists(new_temp_file):
@@ -211,6 +285,7 @@ class CaptureHandler(logging.Handler):
                     self._temp_file = new_temp_file
                     self._storage_mode = storage_mode
                     self._max_buffer_bytes = candidate_max
+                    self._diagnostic_max_bytes = candidate_diagnostic_max
                     if old_temp_file and os.path.exists(old_temp_file):
                         self._safe_remove(old_temp_file)
                 else:
@@ -222,30 +297,36 @@ class CaptureHandler(logging.Handler):
                     self._temp_file = None
                     self._storage_mode = storage_mode
                     self._max_buffer_bytes = candidate_max
+                    self._diagnostic_max_bytes = candidate_diagnostic_max
 
                 for record in dropped:
                     self._record_drop(self._record_size(record), "reconfigure capacity")
-            elif max_buffer_bytes is not None:
-                if candidate_max < self._max_buffer_bytes:
+            elif max_buffer_bytes is not None or diagnostic_max_bytes is not None:
+                if (
+                    candidate_max < self._max_buffer_bytes
+                    or diagnostic_max_bytes is not None
+                ):
                     records = (
                         self._load_from_file(raise_on_error=True)
                         if self._storage_mode == StorageMode.FILE.value
                         else list(self._records)
                     )
+                    records = [
+                        _bound_record(record, candidate_diagnostic_max)
+                        for record in records
+                    ]
                     records, dropped = self._bounded_prefix(records, candidate_max)
                     if self._storage_mode == StorageMode.FILE.value:
                         new_temp_file = self._new_temp_file_path()
                         try:
                             with open(new_temp_file, "w", encoding="utf-8") as handle:
+                                written = 0
                                 for record in records:
+                                    size = self._record_size(record)
                                     handle.write(
-                                        json.dumps(
-                                            record.to_dict(),
-                                            ensure_ascii=False,
-                                            separators=(",", ":"),
-                                        )
-                                        + "\n"
+                                        self._record_line(record, candidate_max - written)
                                     )
+                                    written += size
                         except Exception:
                             self._safe_remove(new_temp_file)
                             raise
@@ -262,6 +343,8 @@ class CaptureHandler(logging.Handler):
                         self._record_drop(self._record_size(record), "reconfigure capacity")
                 else:
                     self._max_buffer_bytes = candidate_max
+
+            self._diagnostic_max_bytes = candidate_diagnostic_max
 
             self.setLevel(level)
             self.setFormatter(formatter)
@@ -312,7 +395,11 @@ class CaptureHandler(logging.Handler):
                     getattr(record, "dataflow_run_id", None)
                 ),
                 event_name=_optional_text(getattr(record, "event_name", None)),
+                attempt_number=_optional_positive_int(
+                    getattr(record, "attempt_number", None)
+                ),
             )
+            lr = _bound_record(lr, self._diagnostic_max_bytes)
 
             callback = self._record_callback
             consumed = False
@@ -334,15 +421,29 @@ class CaptureHandler(logging.Handler):
 
     @staticmethod
     def _record_size(record: LogRecord) -> int:
-        return len(
-            (
-                json.dumps(
-                    record.to_dict(),
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                )
-                + "\n"
-            ).encode("utf-8")
+        """Count one JSONL record without materializing its full JSON text."""
+
+        return bounded_json_size(
+            record.to_dict(),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            newline=True,
+        )
+
+    @staticmethod
+    def _record_line(record: LogRecord, max_bytes: int) -> str:
+        """Render a record only after bounded admission has reserved space."""
+
+        if max_bytes <= 1:
+            raise BoundedEncodingError("capture record has no room for JSON")
+        return (
+            bounded_json_dumps(
+                record.to_dict(),
+                max_bytes=max_bytes - 1,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            + "\n"
         )
 
     def _record_drop(self, size: int, reason: str) -> None:
@@ -366,16 +467,14 @@ class CaptureHandler(logging.Handler):
             try:
                 with open(self._temp_file, "a", encoding="utf-8") as handle:
                     handle.write(
-                        json.dumps(
-                            record.to_dict(),
-                            ensure_ascii=False,
-                            separators=(",", ":"),
+                        self._record_line(
+                            record,
+                            self._max_buffer_bytes - self._buffered_bytes,
                         )
-                        + "\n"
                     )
                 self._buffered_bytes += size
                 return True
-            except OSError as exc:
+            except (BoundedEncodingError, OSError) as exc:
                 _diagnostic_logger.warning(
                     "Capture file fallback failed; retaining in memory: %s",
                     exc,
@@ -580,6 +679,7 @@ class CaptureHandler(logging.Handler):
         with self.lock:
             restored: List[LogRecord] = []
             for record in records:
+                record = _bound_record(record, self._diagnostic_max_bytes)
                 size = self._record_size(record)
                 if self._buffered_bytes + size > self._max_buffer_bytes:
                     self._record_drop(size, "restore capacity")

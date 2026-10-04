@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
 from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.source import Source
 from datacoolie.orchestration.scheduling.parallel_executor import ExecutionResult, ParallelExecutor

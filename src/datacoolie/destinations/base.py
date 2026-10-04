@@ -10,20 +10,249 @@ writes and the **Strategy** pattern for load-type dispatch.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from copy import deepcopy
 from datetime import datetime
+from math import isfinite
+from numbers import Integral, Real
 from typing import Any, Dict, Generic, List, Optional
 
-from datacoolie.core.constants import DEFAULT_RETENTION_HOURS, DataFlowStatus, ExecutionType
+from datacoolie.core.constants import (
+    DEFAULT_RETENTION_HOURS,
+    DataFlowStatus,
+    ExecutionType,
+    LoadType,
+    MaintenanceType,
+)
 from datacoolie.core.exceptions import DestinationError
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DestinationRuntimeInfo
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.destinations.resolution.target import ResolvedDestination, resolve_destination_target
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
 from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.utils.time import utc_now
 
 logger = get_logger(__name__)
+
+
+_DESTINATION_METRIC_FIELDS = (
+    "rows_written",
+    "rows_inserted",
+    "rows_updated",
+    "rows_deleted",
+    "files_added",
+    "files_removed",
+    "bytes_added",
+    "bytes_removed",
+)
+_MetricValues = Dict[str, Optional[int]]
+
+
+def _empty_metric_values() -> _MetricValues:
+    """Return a nullable metric map with no fabricated measurements."""
+
+    return {name: None for name in _DESTINATION_METRIC_FIELDS}
+
+
+def _coerce_metric_value(value: Any) -> Optional[int]:
+    """Accept non-negative integral counts without lossy coercion."""
+
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, Integral):
+        result = int(value)
+    elif isinstance(value, Real):
+        numeric = float(value)
+        if not isfinite(numeric) or not numeric.is_integer():
+            return None
+        result = int(numeric)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            result = int(text, 10)
+        except ValueError:
+            return None
+    else:
+        return None
+    return result if result >= 0 else None
+
+
+def _parse_history_metric_fields(
+    history: List[Dict[str, Any]],
+    *,
+    container_key: str,
+    aliases: Dict[str, tuple[str, ...]],
+) -> _MetricValues:
+    """Parse sparse history without turning missing keys into zero.
+
+    A metric is known only when every relevant history entry supplies a valid
+    value for that metric.  This keeps an explicit zero measurable while
+    preserving uncertainty from an absent or sparse entry.
+    """
+
+    result = _empty_metric_values()
+    if not history:
+        return result
+
+    totals = {name: 0 for name in aliases}
+    seen = {name: False for name in aliases}
+    unknown = {name: False for name in aliases}
+
+    for entry in history:
+        container = entry.get(container_key) if isinstance(entry, Mapping) else None
+        if not isinstance(container, Mapping):
+            container = {}
+        for name, keys in aliases.items():
+            found = False
+            value: Optional[int] = None
+            for key in keys:
+                if key not in container:
+                    continue
+                found = True
+                raw_value = container[key]
+                if raw_value is not None:
+                    value = _coerce_metric_value(raw_value)
+                break
+            if not found or value is None:
+                unknown[name] = True
+            else:
+                seen[name] = True
+                totals[name] += value
+
+    for name in aliases:
+        result[name] = None if unknown[name] or not seen[name] else totals[name]
+    return result
+
+
+def _normalise_metric_values(values: Mapping[str, Any] | None) -> _MetricValues:
+    """Project a parser result onto the destination metric contract."""
+
+    result = _empty_metric_values()
+    if not values:
+        return result
+    for name in _DESTINATION_METRIC_FIELDS:
+        value = values.get(name)
+        if value is not None:
+            result[name] = _coerce_metric_value(value)
+    return result
+
+
+def _apply_known_zero_metrics(metrics: _MetricValues, names: set[str]) -> None:
+    """Fill only metrics proven unaffected by the operation semantics."""
+
+    for name in names:
+        if metrics[name] is None:
+            metrics[name] = 0
+
+
+def _known_write_zero_metrics(load_type: str) -> set[str]:
+    """Return write metrics that the selected operation cannot affect."""
+
+    if load_type == LoadType.APPEND.value:
+        return {
+            "rows_updated",
+            "rows_deleted",
+            "files_removed",
+            "bytes_removed",
+        }
+    if load_type == LoadType.MERGE_UPSERT.value:
+        return {"rows_deleted"}
+    return set()
+
+
+def _known_maintenance_zero_metrics(operation: str) -> set[str]:
+    """Return metrics unaffected by a successful physical maintenance op."""
+
+    if operation not in {"compact", "cleanup"}:
+        return set()
+    names = {
+        "rows_written",
+        "rows_inserted",
+        "rows_updated",
+        "rows_deleted",
+    }
+    if operation == "cleanup":
+        names.update({"files_added", "bytes_added"})
+    return names
+
+
+def _aggregate_maintenance_metrics(
+    parsed: Mapping[str, Mapping[str, Any]],
+    sub_results: List[Dict[str, Any]],
+    *,
+    requested_operations: set[str],
+    operation_errors: bool = False,
+) -> _MetricValues:
+    """Aggregate known maintenance operations with nullable propagation."""
+
+    operation_status = {
+        entry.get("operation"): entry.get("status")
+        for entry in sub_results
+        if isinstance(entry, Mapping)
+        and entry.get("operation") in {"compact", "cleanup"}
+    }
+    per_operation: Dict[str, _MetricValues] = {}
+    for operation, status in operation_status.items():
+        if status == DataFlowStatus.SKIPPED.value:
+            continue
+        if status == DataFlowStatus.SUCCEEDED.value and operation in parsed:
+            metrics = _normalise_metric_values(parsed[operation])
+        else:
+            # A failed or malformed entered operation has no trustworthy
+            # affected-dimension measurement.  Keep only the dimensions its
+            # operation semantics prove cannot change.
+            metrics = _empty_metric_values()
+        _apply_known_zero_metrics(metrics, _known_maintenance_zero_metrics(operation))
+        per_operation[operation] = metrics
+
+    if not per_operation:
+        skipped_operations = {
+            operation
+            for operation, status in operation_status.items()
+            if status == DataFlowStatus.SKIPPED.value
+        }
+        all_requested_not_performed = requested_operations.issubset(skipped_operations)
+        if operation_errors or (
+            requested_operations and not all_requested_not_performed
+        ):
+            return _empty_metric_values()
+        return {name: 0 for name in _DESTINATION_METRIC_FIELDS}
+
+    result = _empty_metric_values()
+    for name in _DESTINATION_METRIC_FIELDS:
+        values = [metrics[name] for metrics in per_operation.values()]
+        result[name] = None if any(value is None for value in values) else sum(values)
+    return result
+
+
+def _safe_debug(message: str, *args: Any) -> None:
+    """Keep optional diagnostic logging from changing the business result."""
+
+    try:
+        logger.debug(message, *args)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _safe_warning(message: str, *args: Any) -> None:
+    """Keep optional maintenance diagnostics from changing the outcome."""
+
+    try:
+        logger.warning(message, *args)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _safe_info(message: str, *args: Any) -> None:
+    """Keep informational maintenance diagnostics from changing the outcome."""
+
+    try:
+        logger.info(message, *args)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ============================================================================
@@ -140,52 +369,105 @@ class BaseDestinationWriter(ABC, Generic[DF]):
                     watermark_window=watermark_window,
                 )
 
-            self._runtime_info.end_time = utc_now()
-            self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
-
-            # Fetch history once — enrich metrics + store in operation_details
-            try:
-                history = self._get_history(
-                    dataflow, limit=2,
-                    start_time=self._runtime_info.start_time,
-                    end_time=self._runtime_info.end_time,
-                )
-                
-                if history:
-                    self._runtime_info.operation_details = history
-                    engine_metrics = self._parse_write_metrics(history)
-                    self._runtime_info.rows_written = engine_metrics.get("rows_written", 0)
-                    self._runtime_info.rows_inserted = engine_metrics.get("rows_inserted", 0)
-                    self._runtime_info.rows_updated = engine_metrics.get("rows_updated", 0)
-                    self._runtime_info.rows_deleted = engine_metrics.get("rows_deleted", 0)
-                    self._runtime_info.files_added = engine_metrics.get("files_added", 0)
-                    self._runtime_info.files_removed = engine_metrics.get("files_removed", 0)
-                    self._runtime_info.bytes_added = engine_metrics.get("bytes_added", 0)
-                    self._runtime_info.bytes_removed = engine_metrics.get("bytes_removed", 0)
-            except Exception:
-                logger.debug("Could not retrieve table history for operation_details")
-
-            return self._runtime_info
-
         except DestinationError as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.message = str(exc) or type(exc).__name__
-            logger.debug("Destination write failed: %s", exc)
+            attached_runtime = getattr(exc, "runtime_info", None)
+            if attached_runtime is None or attached_runtime is self._runtime_info:
+                exc.runtime_info = self._detached_runtime_info()
+            _safe_debug("Destination write failed: %s", exc)
             raise
         except Exception as exc:
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.message = str(exc) or type(exc).__name__
-            logger.debug("Destination write failed: %s", exc)
+            _safe_debug("Destination write failed: %s", exc)
             raise DestinationError(
                 f"Failed to write destination: {exc}",
-                details={"table_name": table_name, "path": dest_path, "load_type": dataflow.load_type},
+                details={"table_name": table_name, "path": dest_path, "load_type": self._runtime_info.operation_type},
+                runtime_info=self._detached_runtime_info(),
             ) from exc
+
+        # The physical write has acknowledged success.  History lookup,
+        # parsing, logging, and operation-zero enrichment are diagnostics and
+        # must never turn that acknowledged result into a retryable failure.
+        self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
+        try:
+            self._runtime_info.end_time = utc_now()
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Destination end-time capture failed: %s", exc)
+        try:
+            self._enrich_write_runtime(dataflow)
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Destination metric enrichment failed: %s", exc)
+        return self._runtime_info
 
     def get_runtime_info(self) -> DestinationRuntimeInfo:
         """Return runtime information from the most recent write."""
         return self._runtime_info
+
+    def _detached_runtime_info(self) -> DestinationRuntimeInfo:
+        """Return a detached partial snapshot for a component error."""
+
+        try:
+            return deepcopy(self._runtime_info)
+        except Exception:  # noqa: BLE001
+            snapshot = DestinationRuntimeInfo(
+                start_time=self._runtime_info.start_time,
+                end_time=self._runtime_info.end_time,
+                status=self._runtime_info.status,
+                message=self._runtime_info.message,
+                operation_type=self._runtime_info.operation_type,
+            )
+            for name in _DESTINATION_METRIC_FIELDS:
+                try:
+                    setattr(snapshot, name, getattr(self._runtime_info, name))
+                except Exception:  # noqa: BLE001
+                    pass
+            return snapshot
+
+    def _enrich_write_runtime(self, dataflow: DataFlow) -> None:
+        """Best-effort history/metric enrichment after write acknowledgement."""
+
+        history: List[Dict[str, Any]] = []
+        try:
+            candidate = self._get_history(
+                dataflow,
+                limit=2,
+                start_time=self._runtime_info.start_time,
+                end_time=self._runtime_info.end_time,
+            )
+            if isinstance(candidate, list):
+                history = candidate
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Could not retrieve table history for operation_details: %s", exc)
+
+        if history:
+            try:
+                self._runtime_info.operation_details = deepcopy(history)
+            except Exception as exc:  # noqa: BLE001
+                _safe_debug("Could not retain destination history: %s", exc)
+
+        metrics = _empty_metric_values()
+        try:
+            metrics = _normalise_metric_values(self._parse_write_metrics(history))
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Could not parse destination history metrics: %s", exc)
+
+        try:
+            _apply_known_zero_metrics(
+                metrics,
+                _known_write_zero_metrics(dataflow.load_type),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Could not derive operation-proven destination zeros: %s", exc)
+
+        try:
+            for name in _DESTINATION_METRIC_FIELDS:
+                setattr(self._runtime_info, name, metrics[name])
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Could not attach destination metrics: %s", exc)
 
     # ------------------------------------------------------------------
     # Maintenance
@@ -236,7 +518,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             self._runtime_info.end_time = utc_now()
             self._runtime_info.status = DataFlowStatus.FAILED.value
             self._runtime_info.message = str(exc) or type(exc).__name__
-            logger.debug("Maintenance preflight failed: %s", exc)
+            _safe_debug("Maintenance preflight failed: %s", exc)
             return self._runtime_info
 
         if not dest_path and not dest_table_name:
@@ -247,7 +529,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         hours = retention_hours if retention_hours is not None else DEFAULT_RETENTION_HOURS
 
-        logger.debug(
+        _safe_debug(
             "Maintenance start — table=%s, path=%s, format=%s, do_compact=%s, "
             "do_cleanup=%s, retention_hours=%d",
             dest_table_name, dest_path, dest_fmt, do_compact, do_cleanup, hours,
@@ -267,12 +549,12 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             # The orchestration boundary owns the terminal traceback.  Keep
             # this handled partial-maintenance detail at DEBUG so a single
             # failure is not emitted once per provider/wrapper layer.
-            logger.debug("Maintenance failed for %s: %s", dest_table_name or dest_path, exc)
+            _safe_debug("Maintenance failed for %s: %s", dest_table_name or dest_path, exc)
         any_succeeded = any(
             entry.get("status") == DataFlowStatus.SUCCEEDED.value for entry in sub_results
         )
         if sub_results:
-            logger.debug(
+            _safe_debug(
                 "Maintenance sub-operations — %s",
                 ", ".join(
                     f"{e.get('operation')}={e.get('status')}"
@@ -281,27 +563,22 @@ class BaseDestinationWriter(ABC, Generic[DF]):
                 ),
             )
 
-        # Fetch history once — enrich sub-results + store raw history
         try:
-            history = self._get_history(
-                dataflow, limit=5,
-                start_time=self._runtime_info.start_time, end_time=self._runtime_info.end_time,
+            self._enrich_maintenance_runtime(
+                dataflow,
+                sub_results,
+                requested_operations={
+                    operation
+                    for operation, enabled in (
+                        (MaintenanceType.COMPACT.value, do_compact),
+                        (MaintenanceType.CLEANUP.value, do_cleanup),
+                    )
+                    if enabled
+                },
+                operation_errors=bool(errors),
             )
-            maint_metrics = self._parse_maintenance_metrics(history)
-            for op_key, metrics in maint_metrics.items():
-                self._runtime_info.files_added += metrics.get("files_added", 0)
-                self._runtime_info.files_removed += metrics.get("files_removed", 0)
-                self._runtime_info.bytes_added += metrics.get("bytes_added", 0)
-                self._runtime_info.bytes_removed += metrics.get("bytes_removed", 0)
-                for entry in sub_results:
-                    if entry.get("operation") == op_key:
-                        entry["engine_metrics"] = metrics
-                        break
-            if history:
-                sub_results.append({"operation": "history", "data": history})
-        except Exception as exc:
-            logger.warning("Failed to get maintenance metrics: %s", exc)
-
+        except Exception as exc:  # noqa: BLE001
+            _safe_warning("Maintenance metric enrichment failed: %s", exc)
         self._runtime_info.operation_details = sub_results
 
         if errors:
@@ -314,6 +591,77 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         self._runtime_info.end_time = utc_now()
         return self._runtime_info
+
+    def _enrich_maintenance_runtime(
+        self,
+        dataflow: DataFlow,
+        sub_results: List[Dict[str, Any]],
+        *,
+        requested_operations: set[str],
+        operation_errors: bool,
+    ) -> None:
+        """Best-effort maintenance history enrichment after operations run."""
+
+        history: List[Dict[str, Any]] = []
+        try:
+            candidate = self._get_history(
+                dataflow,
+                limit=5,
+                start_time=self._runtime_info.start_time,
+                end_time=self._runtime_info.end_time,
+            )
+            if isinstance(candidate, list):
+                history = candidate
+        except Exception as exc:  # noqa: BLE001
+            _safe_warning("Failed to get maintenance history: %s", exc)
+
+        if history:
+            try:
+                sub_results.append({"operation": "history", "data": deepcopy(history)})
+            except Exception as exc:  # noqa: BLE001
+                _safe_debug("Could not retain maintenance history: %s", exc)
+
+        parsed: Dict[str, Mapping[str, Any]] = {}
+        try:
+            candidate = self._parse_maintenance_metrics(history)
+            if isinstance(candidate, Mapping):
+                parsed = {
+                    operation: values
+                    for operation, values in candidate.items()
+                    if isinstance(operation, str) and isinstance(values, Mapping)
+                }
+        except Exception as exc:  # noqa: BLE001
+            _safe_warning("Failed to parse maintenance metrics: %s", exc)
+
+        for operation, metrics in parsed.items():
+            if operation not in {"compact", "cleanup"}:
+                continue
+            try:
+                for entry in sub_results:
+                    if (
+                        entry.get("operation") == operation
+                        and entry.get("status") == DataFlowStatus.SUCCEEDED.value
+                    ):
+                        entry["engine_metrics"] = dict(metrics)
+                        break
+            except Exception as exc:  # noqa: BLE001
+                _safe_debug("Could not attach %s maintenance metrics: %s", operation, exc)
+
+        try:
+            aggregate = _aggregate_maintenance_metrics(
+                parsed,
+                sub_results,
+                requested_operations=requested_operations,
+                operation_errors=operation_errors,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _safe_warning("Failed to aggregate maintenance metrics: %s", exc)
+            aggregate = _empty_metric_values()
+        try:
+            for name in _DESTINATION_METRIC_FIELDS:
+                setattr(self._runtime_info, name, aggregate[name])
+        except Exception as exc:  # noqa: BLE001
+            _safe_debug("Could not attach maintenance metrics: %s", exc)
 
     def _run_op(
         self,
@@ -347,23 +695,23 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
         try:
             if table_exists:
-                logger.debug("%s starting at %s", op_name.capitalize(), location)
+                _safe_debug("%s starting at %s", op_name.capitalize(), location)
                 fn()
                 status = DataFlowStatus.SUCCEEDED.value
             else:
-                logger.info("%s skipped — table does not exist at %s", op_name.capitalize(), location)
+                _safe_info("%s skipped — table does not exist at %s", op_name.capitalize(), location)
         except Exception as exc:
             status = DataFlowStatus.FAILED.value
             message = str(exc) or type(exc).__name__
             errors.append(f"{op_name.capitalize()}: {message}")
             # This helper records the partial result and lets the outer
             # execution boundary emit the one terminal traceback.
-            logger.debug("%s failed for %s: %s", op_name.capitalize(), location, exc)
+            _safe_debug("%s failed for %s: %s", op_name.capitalize(), location, exc)
 
         end = utc_now()
         duration = (end - start).total_seconds()
         if status == DataFlowStatus.SUCCEEDED.value:
-            logger.debug("%s succeeded at %s (%.2fs)", op_name.capitalize(), location, duration)
+            _safe_debug("%s succeeded at %s (%.2fs)", op_name.capitalize(), location, duration)
         result = {
             "operation": op_name,
             "status": status,
@@ -447,21 +795,17 @@ class BaseDestinationWriter(ABC, Generic[DF]):
 
     def _parse_write_metrics(
         self, history: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
+    ) -> Dict[str, Optional[int]]:
         """Parse write metrics from raw history entries.
 
         Override in format-specific writers (e.g. :class:`DeltaWriter`,
         :class:`IcebergWriter`) to extract row/file/byte counts.
         """
-        return {
-            "rows_written": 0, "rows_inserted": 0, "rows_updated": 0,
-            "rows_deleted": 0, "files_added": 0, "files_removed": 0,
-            "bytes_added": 0, "bytes_removed": 0,
-        }
+        return _empty_metric_values()
 
     def _parse_maintenance_metrics(
         self, history: List[Dict[str, Any]]
-    ) -> Dict[str, Dict[str, int]]:
+    ) -> Dict[str, Dict[str, Optional[int]]]:
         """Parse maintenance metrics from raw history entries.
 
         Override in format-specific writers to classify history entries

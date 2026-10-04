@@ -141,7 +141,7 @@ never mutate those fixtures during a run.
 | `local_polars_query_explicit_multiple_roots` | Explicit SQL routing | repeated `--sql-base-path` values route a prefixed reference through explicit roots |
 | `local_polars_query_root_routing` | Component SQL root | shorthand `queries/orders.sql` resolves below `sql_base_path` |
 | `local_polars_state_base_path` | Runtime root routing | Logs and watermarks use separate explicit simulator roots |
-| `local_polars_runtime_log_contract` | Snapshot execution logging | v4 `message`, `source_query`, executed `source_action.query`, `job_id`, and `run_attributes` |
+| `local_polars_runtime_log_contract` | Snapshot execution logging | v6 `message`, `source_query`, nested native `source_action.query`, `job_id`, and `run_attributes` |
 | `local_polars_logging_batch` | Batch execution logging | immutable `.json` part plus replace-one JobRuntime snapshot |
 | `local_polars_dry_run_query_file` | Preparation-only execution | query file is resolved; no business output or watermark is written |
 | `local_polars_startup_failure` | Fail-fast startup | malformed provider input emits startup lifecycle diagnostics before dataflow execution |
@@ -221,6 +221,34 @@ by local regression tests and are not claimed by this pair.
 | outputs | `.runtime/data/output/delta/orders_replay` plus isolated state under `.runtime/watermarks/replay_validation/{polars,spark}` |
 | assertions | `scripts/features/replay/validate_replay_output.py` |
 | Docker | optional for Spark dispatch; the case definition remains local-engine qualification |
+
+---
+
+### `local_polars_replay_surface_window_safety` / `local_spark_replay_surface_window_safety`
+
+These paired C2/C6 scenarios run the native Delta window-safety validator against
+a fresh validator-owned fixture. The validator asserts:
+
+- `typed-empty`: bounded replay skips before transform, write, or save; target
+  rows and watermark bytes/mtime remain unchanged.
+- `folder-only`: folder progress without a usable row window fails closed; the
+  existing target remains unchanged.
+- `mixed-folder-row`: folder discovery plus a row watermark yields a usable
+  replacement window and succeeds.
+- `retry-after-write`: the dedicated driver wraps the native writer and injects
+  one post-write acknowledgement error. Whole-dataflow retry then succeeds with
+  attempts `1` and `2` under one `dataflow_run_id`, without duplicate rows.
+
+Each case also checks persisted native-array attempt history and one terminal
+dataflow record plus one job record at job grain. These are validator assertions;
+this reference does not claim an execution receipt.
+
+| Field | Value |
+|---|---|
+| validator | `scripts/features/replay/validate_replay_window_safety.py` |
+| native cases | `typed-empty`, `folder-only`, `mixed-folder-row`, `retry-after-write` |
+| target | native Delta fixture created under the scenario root |
+| Spark | dispatched through the existing Docker Spark profile |
 
 ---
 

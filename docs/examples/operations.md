@@ -124,7 +124,7 @@ With the two-row snapshot and `step=2`, the first recovery run writes the two
 requested business rows and saves `updated_sequence=2`. Every requested chunk
 runs again on the next invocation; an append destination can therefore contain
 two copies of each row after the repeat. `save_watermark` persists the reader's
-observations after successful writes but is not a replay checkpoint. The
+observations after successful writes but is not replay progress tracking. The
 destination write and watermark write are separate operations, so a hard
 termination after the destination commit can still leave output to be written
 again. The framework does not promise exactly-once delivery for an append
@@ -169,3 +169,6 @@ normative contracts are [logging](../guide/operations/logging.md) and
 Do not call a logger's private flush method from a runner. Configure the public
 `LogConfig`, close the Driver in a context manager or `finally`, and preserve the
 structured records for diagnostics.
+Current persisted records use schema version 6. Diagnostic detail is bounded by the shared
+65,536-byte UTF-8 budget by default, while each complete JSON Lines record is capped at 1 MiB;
+`LogConfig` exposes both limits.

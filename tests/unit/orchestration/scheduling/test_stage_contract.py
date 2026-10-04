@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.orchestration.driver import DataCoolieDriver
 

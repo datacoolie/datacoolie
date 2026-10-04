@@ -16,7 +16,13 @@ from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
 from datacoolie.sources.database_reader import DatabaseReader
 
-from tests.unit.sources.support import MockEngine, db_source, engine, query_source
+from tests.unit.sources.support import (
+    MockEngine,
+    db_source,
+    engine,
+    query_source,
+    read_request,
+)
 
 
 # ============================================================================
@@ -30,15 +36,15 @@ class TestDatabaseReader:
     def test_read_from_table(self, engine: MockEngine, db_source: Source) -> None:
         engine.set_max_values({"updated_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        result = reader.read(db_source)
+        result = reader.read(db_source, request=read_request())
         assert result is not None
-        info = reader.get_runtime_info()
+        info = result.runtime
         assert info.rows_read == 3
 
     def test_read_from_query(self, engine: MockEngine, query_source: Source) -> None:
         engine.set_max_values({"modified_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        result = reader.read(query_source)
+        result = reader.read(query_source, request=read_request())
         assert result is not None
 
     def test_read_with_watermark_table_mode(self, engine: MockEngine, db_source: Source) -> None:
@@ -46,7 +52,7 @@ class TestDatabaseReader:
         engine.set_max_values({"updated_at": "2024-06-15"})
         reader = DatabaseReader(engine)
         wm = {"updated_at": "2024-06-01"}
-        result = reader.read(db_source, watermark_start=wm)
+        result = reader.read(db_source, request=read_request(watermark_start=wm))
         assert result is not None
         # Table mode uses a query with WHERE clause instead of post-filter
         assert engine._last_query is not None
@@ -56,15 +62,15 @@ class TestDatabaseReader:
     def test_read_zero_rows(self, engine: MockEngine, db_source: Source) -> None:
         engine.set_data({}, 0)
         reader = DatabaseReader(engine)
-        result = reader.read(db_source)
-        assert result is None
+        result = reader.read(db_source, request=read_request())
+        assert result.frame is None
 
     def test_read_no_table_no_query_raises(self, engine: MockEngine) -> None:
         conn = Connection(name="bad", connection_type="database", format="sql", configure={})
         src = Source(connection=conn)
         reader = DatabaseReader(engine)
         with pytest.raises(SourceError, match="requires source.query or source.table"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_build_connection_config(self, db_source: Source) -> None:
         config = DatabaseReader._build_options(db_source)
@@ -76,7 +82,7 @@ class TestDatabaseReader:
 
     def test_read_table_passes_full_table_name(self, engine: MockEngine, db_source: Source) -> None:
         reader = DatabaseReader(engine)
-        reader.read(db_source)
+        reader.read(db_source, request=read_request())
         # Engine receives the unquoted schema.table for JDBC
         assert engine._last_table == "public.users"
         assert engine._last_query is None
@@ -84,8 +90,8 @@ class TestDatabaseReader:
     def test_source_action_recorded(self, engine: MockEngine, db_source: Source) -> None:
         engine.set_max_values({"updated_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        reader.read(db_source)
-        info = reader.get_runtime_info()
+        result = reader.read(db_source, request=read_request())
+        info = result.runtime
         assert info.source_action["reader"] == "DatabaseReader"
         assert info.source_action["table"] == "public.users"
 
@@ -217,7 +223,12 @@ class TestTableModeWatermark:
         )
         engine.set_max_values({"event_time": "2024-07-01", "seq_id": 200})
         reader = DatabaseReader(engine)
-        result = reader.read(src, watermark_start={"event_time": "2024-06-01", "seq_id": 100})
+        result = reader.read(
+            src,
+            request=read_request(
+                watermark_start={"event_time": "2024-06-01", "seq_id": 100}
+            ),
+        )
         assert result is not None
         assert engine._last_query is not None
         assert "event_time > '2024-06-01'" in engine._last_query
@@ -227,7 +238,7 @@ class TestTableModeWatermark:
     def test_table_no_watermark_uses_table(self, engine: MockEngine, db_source: Source) -> None:
         engine.set_max_values({"updated_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        reader.read(db_source)
+        reader.read(db_source, request=read_request())
         assert engine._last_table == "public.users"
         assert engine._last_query is None
 
@@ -235,7 +246,7 @@ class TestTableModeWatermark:
         """First run (watermark_start=None): reads table directly, no WHERE clause."""
         engine.set_max_values({"updated_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        reader.read(db_source, watermark_start=None)
+        reader.read(db_source, request=read_request(watermark_start=None))
         assert engine._last_table == "public.users"
         assert engine._last_query is None
 
@@ -255,7 +266,7 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark_start=None)
+        reader.read(src, request=read_request(watermark_start=None))
         assert engine._last_query == original_query
 
     def test_query_with_watermark_wraps_subquery(self, engine: MockEngine) -> None:
@@ -272,7 +283,10 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark_start={"modified_at": "2024-06-01"})
+        reader.read(
+            src,
+            request=read_request(watermark_start={"modified_at": "2024-06-01"}),
+        )
         expected = f"SELECT * FROM ({original_query}) t1 WHERE modified_at > '2024-06-01'"
         assert engine._last_query == expected
 
@@ -288,7 +302,10 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"ts": "2024-07-01", "seq": 200})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark_start={"ts": "2024-06-01", "seq": 100})
+        reader.read(
+            src,
+            request=read_request(watermark_start={"ts": "2024-06-01", "seq": 100}),
+        )
         assert engine._last_query is not None
         assert "t1 WHERE" in engine._last_query
         assert "ts > '2024-06-01'" in engine._last_query
@@ -309,7 +326,10 @@ class TestQueryModeWatermark:
         )
         engine.set_max_values({"modified_at": "2024-07-01"})
         reader = DatabaseReader(engine)
-        reader.read(src, watermark_start={"modified_at": None})
+        reader.read(
+            src,
+            request=read_request(watermark_start={"modified_at": None}),
+        )
         assert engine._last_query == original_query
 
 
@@ -443,6 +463,7 @@ class TestDatabaseReaderFilterExpression:
 
         engine = MagicMock()
         engine.read_database.return_value = MagicMock()
+        engine.count_rows.return_value = 0
 
         reader = DatabaseReader(engine=engine)
 
@@ -460,7 +481,7 @@ class TestDatabaseReaderFilterExpression:
         reader._watermark_end = {}
         reader._watermark_start_operator = '>'
         reader._watermark_end_operator = '<'
-        reader.read(source)
+        reader.read(source, request=read_request())
 
         call_kwargs = engine.read_database.call_args
         # verify filter_expression was incorporated in the SQL

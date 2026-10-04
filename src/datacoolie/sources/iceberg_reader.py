@@ -13,6 +13,7 @@ from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
 
 logger = get_logger(__name__)
 
@@ -38,11 +39,11 @@ class IcebergReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         """Read an Iceberg table, optionally filtering by watermark."""
+        watermark_start = self._get_effective_watermark_start()
+        watermark_end = request.watermark_end
         action: dict = {"reader": type(self).__name__}
         if source.query:
             action["query"] = source.query

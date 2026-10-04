@@ -1737,7 +1737,7 @@
       ],
       "require_log_session": true
     },
-    "notes": "v4 runtime message contract, metadata/runtime query representations, and external run_attributes"
+    "notes": "v6 runtime message contract, metadata/runtime query representations, and external run_attributes"
   },
   "local_polars_logging_batch": {
     "engine": "polars",
@@ -2538,7 +2538,7 @@
       ],
       "timeout_seconds": 900
     },
-    "notes": "Standalone C2/C6 native Delta window-safety qualification; validator owns the fresh fixture and receipt"
+    "notes": "Standalone C2/C6 native Delta window-safety validator: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-folder-row succeeds; retry-after-write injects one post-write native acknowledgement error and checks same-ID attempts 1/2, deduplicated rows, native-array attempt history, and one job-grain outcome. Validator owns the fixture and assertions"
   },
   "local_spark_replay_surface_window_safety": {
     "engine": "spark",
@@ -2561,6 +2561,6 @@
       ],
       "timeout_seconds": 1200
     },
-    "notes": "Standalone C2/C6 qualification executed inside the existing Docker Spark profile"
+    "notes": "Standalone C2/C6 native Delta window-safety validator through the existing Docker Spark profile: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-folder-row succeeds; retry-after-write injects one post-write native acknowledgement error and checks same-ID attempts 1/2, deduplicated rows, native-array attempt history, and one job-grain outcome. Validator owns the fixture and assertions"
   }
 }

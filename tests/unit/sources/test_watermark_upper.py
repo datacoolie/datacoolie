@@ -20,9 +20,16 @@ from datacoolie.sources.iceberg_reader import IcebergReader
 from datacoolie.sources.database_reader import DatabaseReader
 from datacoolie.sources.file_reader import FileReader
 from datacoolie.sources.python_function_reader import PythonFunctionReader
-from datacoolie.sources.base import SourceReadRange
+from datacoolie.sources.contracts import SourceReadRange
 
-from tests.unit.sources.support import MockEngine, delta_source, engine, db_source, file_source
+from tests.unit.sources.support import (
+    MockEngine,
+    delta_source,
+    engine,
+    db_source,
+    file_source,
+    read_request,
+)
 
 
 @pytest.mark.parametrize("reader_type,fmt", [
@@ -37,12 +44,17 @@ def test_row_range_routes_independent_column_and_exact_operators(reader_type, fm
                     table="events", watermark_columns=["updated_at"])
     before = source.model_dump()
     reader = reader_type(engine)
-    assert reader.read(source, read_range=SourceReadRange("id", 1, 3)) is not None
+    result = reader.read(
+        source,
+        request=read_request(read_range=SourceReadRange("id", 1, 3)),
+    )
+    assert result is not None
     call = engine.apply_watermark_filter.call_args
     assert call.args[1:3] == (["id"], {"id": 1})
     assert call.kwargs == {"start_operator": ">=", "watermark_end": {"id": 3},
                            "end_operator": "<"}
-    assert reader.get_new_watermark() == {"updated_at": 30}
+    assert result.candidate is not None
+    assert result.candidate.values == {"updated_at": 30}
     assert source.model_dump() == before
 
 
@@ -56,7 +68,14 @@ def test_file_range_rejects_unsafe_discovery_before_native_read(column, message)
     source = Source(connection=Connection(name="source", format="parquet",
                     configure={"base_path": "/data"}), table="events")
     with pytest.raises(SourceError, match=message):
-        FileReader(engine).read(source, read_range=SourceReadRange(column, datetime(2025, 1, 1), datetime(2025, 1, 2)))
+        FileReader(engine).read(
+            source,
+            request=read_request(
+                read_range=SourceReadRange(
+                    column, datetime(2025, 1, 1), datetime(2025, 1, 2)
+                )
+            ),
+        )
     engine.read.assert_not_called()
 
 
@@ -71,7 +90,10 @@ class TestDeltaReaderUpperWatermark:
         reader = DeltaReader(engine)
         lower = {"modified_at": "2024-06-01"}
         upper = {"modified_at": "2024-06-20"}
-        result = reader.read(delta_source, watermark_start=lower, watermark_end=upper)
+        result = reader.read(
+            delta_source,
+            request=read_request(watermark_start=lower, watermark_end=upper),
+        )
         assert result is not None
         assert engine._filtered is True
         assert engine._filter_end == {"modified_at": "2024-06-20"}
@@ -81,7 +103,10 @@ class TestDeltaReaderUpperWatermark:
         engine.set_max_values({"modified_at": "2024-06-15"})
         reader = DeltaReader(engine)
         upper = {"modified_at": "2024-06-20"}
-        result = reader.read(delta_source, watermark_start=None, watermark_end=upper)
+        result = reader.read(
+            delta_source,
+            request=read_request(watermark_start=None, watermark_end=upper),
+        )
         assert result is not None
         assert engine._filtered is True
         assert engine._filter_end == {"modified_at": "2024-06-20"}
@@ -90,7 +115,10 @@ class TestDeltaReaderUpperWatermark:
         engine.set_max_values({"modified_at": "2024-06-15"})
         reader = DeltaReader(engine)
         lower = {"modified_at": "2024-06-01"}
-        result = reader.read(delta_source, watermark_start=lower)
+        result = reader.read(
+            delta_source,
+            request=read_request(watermark_start=lower),
+        )
         assert result is not None
         assert engine._filtered is True
         # No end bound — _filter_end should be None
@@ -115,7 +143,10 @@ class TestIcebergReaderUpperWatermark:
         reader = IcebergReader(engine)
         lower = {"updated_at": "2024-07-01"}
         upper = {"updated_at": "2024-07-15"}
-        result = reader.read(src, watermark_start=lower, watermark_end=upper)
+        result = reader.read(
+            src,
+            request=read_request(watermark_start=lower, watermark_end=upper),
+        )
         assert result is not None
         assert engine._filter_watermark == {"updated_at": "2024-07-01"}
         assert engine._filter_end == {"updated_at": "2024-07-15"}
@@ -132,7 +163,10 @@ class TestDatabaseReaderUpperWatermark:
         reader = DatabaseReader(engine)
         lower = {"updated_at": "2024-06-01"}
         upper = {"updated_at": "2024-06-20"}
-        result = reader.read(db_source, watermark_start=lower, watermark_end=upper)
+        result = reader.read(
+            db_source,
+            request=read_request(watermark_start=lower, watermark_end=upper),
+        )
         assert result is not None
         # DatabaseReader pushes window to SQL
         assert engine._last_query is not None
@@ -143,7 +177,10 @@ class TestDatabaseReaderUpperWatermark:
         engine.set_max_values({"updated_at": "2024-06-15"})
         reader = DatabaseReader(engine)
         upper = {"updated_at": "2024-06-20"}
-        result = reader.read(db_source, watermark_start=None, watermark_end=upper)
+        result = reader.read(
+            db_source,
+            request=read_request(watermark_start=None, watermark_end=upper),
+        )
         assert result is not None
         assert engine._last_query is not None
         assert "updated_at < '2024-06-20'" in engine._last_query
@@ -198,7 +235,10 @@ class TestFileReaderUpperWatermark:
         reader = FileReader(engine)
         lower = {"event_time": "2024-06-01"}
         upper = {"event_time": "2024-06-20"}
-        result = reader.read(file_source, watermark_start=lower, watermark_end=upper)
+        result = reader.read(
+            file_source,
+            request=read_request(watermark_start=lower, watermark_end=upper),
+        )
         assert result is not None
         assert engine._filtered is True
         assert engine._filter_watermark == {"event_time": "2024-06-01"}
@@ -228,7 +268,10 @@ class TestPythonFunctionReaderUpperWatermark:
         reader = PythonFunctionReader(engine)
         lower = {"ts": "2024-06-01"}
         upper = {"ts": "2024-06-15"}
-        result = reader.read(src, watermark_start=lower, watermark_end=upper)
+        result = reader.read(
+            src,
+            request=read_request(watermark_start=lower, watermark_end=upper),
+        )
         assert result is not None
         assert engine._filtered is True
         assert engine._filter_watermark == {"ts": "2024-06-01"}

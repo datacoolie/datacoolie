@@ -14,6 +14,7 @@ from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
 
 
 class RangeExampleReader(BaseSourceReader[DF]):
@@ -32,24 +33,22 @@ class RangeExampleReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         frame = self._read_data(source)
 
-        # ``BaseSourceReader.read`` stores SourceReadRange on the reader before
-        # calling this hook.  Apply it to the actual frame; a capability flag
-        # alone does not prove exact range support.
+        # ``BaseSourceReader.read`` stores the requested SourceReadRange on the
+        # reader before calling this hook. Apply it to the actual frame; a
+        # capability flag alone does not prove exact range support.
         read_range = self._get_read_range()
         if read_range is not None:
             frame = self._apply_read_range_filter(frame)
-        elif watermark_start or watermark_end:
+        elif request.watermark_start or request.watermark_end:
             frame = self._apply_watermark_filter(
                 frame,
                 source.watermark_columns,
-                watermark_start or {},
-                watermark_end,
+                request.watermark_start or {},
+                request.watermark_end,
             )
 
         frame = self._apply_filter_expression(frame, source)

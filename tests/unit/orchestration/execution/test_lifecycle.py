@@ -5,14 +5,18 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import PipelineError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, PipelineAttemptResult
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
 from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.source import Source
 from datacoolie.orchestration.execution.lifecycle import (
+    format_dataflow_message,
     run_dataflow_execution,
     run_dry_run_execution,
     run_prepared_execution,
@@ -25,6 +29,8 @@ from datacoolie.logging.runtime.context import (
 )
 from datacoolie.utils.time import utc_now
 from datacoolie.utils.retry import RetryHandler
+from datacoolie.watermark.contracts import WatermarkSaveStatus
+from datacoolie.watermark.runtime import WatermarkRuntimeInfo
 
 
 def _prepared() -> PreparedDataFlow:
@@ -37,17 +43,219 @@ def _prepared() -> PreparedDataFlow:
     return PreparedDataFlow(metadata=dataflow.model_copy(deep=True), execution=dataflow)
 
 
+def _routed_prepared(name: str = "orders_to_bronze") -> PreparedDataFlow:
+    source_connection = Connection(
+        name="source",
+        format="delta",
+        catalog="sales",
+        database="public",
+    )
+    destination_connection = Connection(
+        name="destination",
+        format="delta",
+        catalog="lakehouse",
+        database="bronze",
+    )
+    metadata = DataFlow(
+        dataflow_id=f"{name}-id",
+        name=name,
+        source=Source(connection=source_connection, table="orders"),
+        destination=Destination(
+            connection=destination_connection,
+            table="orders",
+        ),
+    )
+    return PreparedDataFlow(
+        metadata=metadata,
+        execution=metadata.model_copy(deep=True),
+    )
+
+
+def _finish_attempt(
+    attempt: AttemptRuntimeInfo,
+    status: str,
+    message: str | None = None,
+) -> AttemptRuntimeInfo:
+    """Mutate and return the lifecycle-owned attempt object."""
+    attempt.status = status
+    attempt.message = message
+    return attempt
+
+
+def test_format_dataflow_message_uses_safe_tableless_labels_and_escapes_controls():
+    connection = Connection(
+        name="source",
+        format="delta",
+        catalog="sales\nwarehouse",
+    )
+    dataflow = DataFlow(
+        dataflow_id="labels",
+        name="orders\tto\nbronze",
+        source=Source(connection=connection, table="orders\nraw"),
+        destination=Destination(connection=connection, table="orders\rbronze"),
+    )
+
+    message = format_dataflow_message(dataflow, "reason={}", "line\n	break")
+
+    assert message == (
+        "orders\\tto\\nbronze | `sales\\nwarehouse`.`orders\\nraw` → "
+        "`sales\\nwarehouse`.`orders\\rbronze` | reason=line\\n\\tbreak"
+    )
+
+
+def test_format_dataflow_message_uses_query_python_and_unknown_source_labels():
+    connection = Connection(name="source", format="delta")
+    dataflow = DataFlow(
+        dataflow_id="labels",
+        name="labels",
+        source=Source(connection=connection, query="SELECT secret"),
+        destination=Destination(connection=connection, table="orders"),
+    )
+
+    assert "| <query> → `orders` |" in format_dataflow_message(dataflow, "operation=etl")
+    dataflow.source.query = None
+    dataflow.source.python_function = "load_secret"
+    assert "| <python_function> → `orders` |" in format_dataflow_message(
+        dataflow, "operation=etl"
+    )
+    dataflow.source.python_function = None
+    assert "| <unknown> → `orders` |" in format_dataflow_message(dataflow, "operation=etl")
+
+
+def test_format_dataflow_message_falls_back_without_rendering_exception():
+    dataflow = _routed_prepared().metadata
+
+    class BrokenText:
+        def __str__(self) -> str:
+            raise RuntimeError("render failed")
+
+    assert format_dataflow_message(dataflow, "cause={}", BrokenText()) == (
+        "orders_to_bronze | `sales`.`public`.`orders` → "
+        "`lakehouse`.`bronze`.`orders` | details unavailable"
+    )
+
+
+def test_lifecycle_messages_keep_authored_route_across_retry_and_execution_mutation(
+    caplog,
+) -> None:
+    prepared = _routed_prepared()
+    attempts = 0
+    caplog.set_level(logging.DEBUG, logger="datacoolie")
+
+    def attempt(
+        execution: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
+        nonlocal attempts
+        attempts += 1
+        execution.name = "execution-clone"
+        execution.source.table = "resolved-orders"
+        if attempts == 1:
+            raise ValueError("first\nfailure")
+        return _finish_attempt(attempt, DataFlowStatus.SUCCEEDED.value)
+
+    runtime = run_prepared_execution(
+        prepared,
+        operation_type="etl",
+        retry_handler=RetryHandler(retry_count=1, retry_delay=0),
+        preflight=lambda _dataflow: None,
+        attempt_runner=attempt,
+        log_result=lambda _metadata, _runtime: None,
+    )
+
+    route = "orders_to_bronze | `sales`.`public`.`orders` → `lakehouse`.`bronze`.`orders` |"
+    lifecycle_records = [
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None)
+        in {"dataflow.started", "dataflow.finished", "retry.scheduled"}
+    ]
+    assert runtime.status == DataFlowStatus.SUCCEEDED.value
+    assert [record.event_name for record in lifecycle_records] == [
+        "dataflow.started",
+        "retry.scheduled",
+        "dataflow.finished",
+    ]
+    assert all(route in record.getMessage() for record in lifecycle_records)
+    assert "operation=etl" in lifecycle_records[0].getMessage()
+    assert "attempt=1/2, delay=0.0s, cause=first\\nfailure" in lifecycle_records[1].getMessage()
+    assert "status=succeeded" in lifecycle_records[-1].getMessage()
+
+
+def test_lifecycle_skip_message_uses_authored_route(caplog) -> None:
+    dataflow = _routed_prepared().metadata
+    dataflow.source.connection.is_active = False
+    caplog.set_level(logging.INFO, logger="datacoolie")
+
+    runtime = run_dataflow_execution(
+        dataflow,
+        operation_type="etl",
+        prepare_execution_dataflow=lambda *_args, **_kwargs: pytest.fail(
+            "inactive flow must not prepare"
+        ),
+        retry_handler=RetryHandler(retry_count=0, retry_delay=0),
+        preflight=lambda _dataflow: None,
+        attempt_runner=lambda _dataflow, *, attempt, **_kwargs: _finish_attempt(
+            attempt, DataFlowStatus.SUCCEEDED.value
+        ),
+        log_result=lambda _metadata, _runtime: None,
+    )
+
+    assert runtime.status == DataFlowStatus.SKIPPED.value
+    skipped = next(record for record in caplog.records if "reason=" in record.getMessage())
+    assert skipped.getMessage() == (
+        "orders_to_bronze | `sales`.`public`.`orders` → "
+        "`lakehouse`.`bronze`.`orders` | reason=source connection 'source' is inactive"
+    )
+
+
+def test_lifecycle_carries_watermark_evidence_from_terminal_attempt() -> None:
+    prepared = _prepared()
+    watermark = WatermarkRuntimeInfo(
+        save_status=WatermarkSaveStatus.SAVED,
+        saved_watermark={"updated_at": 12},
+    )
+
+    def attempt(_dataflow: DataFlow, *, attempt: AttemptRuntimeInfo, **_kwargs):
+        attempt.status = DataFlowStatus.SUCCEEDED.value
+        attempt.watermark = watermark
+        return attempt
+
+    runtime = run_prepared_execution(
+        prepared,
+        operation_type="etl",
+        retry_handler=RetryHandler(retry_count=0, retry_delay=0),
+        preflight=lambda _dataflow: None,
+        attempt_runner=attempt,
+        log_result=lambda _metadata, _runtime: None,
+    )
+
+    assert len(runtime.attempts) == 1
+    assert runtime.final_attempt is not attempt
+    assert runtime.final_attempt.watermark is not watermark
+    assert runtime.final_attempt.watermark.save_status is WatermarkSaveStatus.SAVED
+    assert runtime.final_attempt.watermark.saved_watermark == {"updated_at": 12}
+
+
 def test_exhausted_retry_count_and_metadata_snapshot_are_isolated() -> None:
     prepared = _prepared()
     attempts: list[DataFlow] = []
     logged: list[tuple[DataFlow, DataFlowRuntimeInfo]] = []
 
-    def attempt(dataflow: DataFlow, **_kwargs: object) -> PipelineAttemptResult:
+    def attempt(
+        dataflow: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
         attempts.append(dataflow)
         dataflow.source.query = "SELECT 1"
+        attempt.status = DataFlowStatus.FAILED.value
         raise PipelineError(
             "write failed",
-            partial_result=PipelineAttemptResult(status=DataFlowStatus.FAILED.value),
+            attempt=attempt,
         )
 
     runtime = run_prepared_execution(
@@ -72,10 +280,15 @@ def test_preflight_failure_does_not_invoke_attempt_or_retry() -> None:
     invoked = False
     logged: list[DataFlowRuntimeInfo] = []
 
-    def attempt(_dataflow: DataFlow, **_kwargs: object) -> PipelineAttemptResult:
+    def attempt(
+        _dataflow: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
         nonlocal invoked
         invoked = True
-        return PipelineAttemptResult(status=DataFlowStatus.SUCCEEDED.value)
+        return _finish_attempt(attempt, DataFlowStatus.SUCCEEDED.value)
 
     def fail_preflight(_dataflow: DataFlow) -> None:
         raise ValueError("invalid watermark")
@@ -103,9 +316,10 @@ def test_returned_failure_message_and_empty_exception_are_terminal_explanations(
         operation_type="etl",
         retry_handler=RetryHandler(retry_count=0, retry_delay=0),
         preflight=lambda _dataflow: None,
-        attempt_runner=lambda _dataflow, **_kwargs: PipelineAttemptResult(
-            status=DataFlowStatus.FAILED.value,
-            message="attempt returned a failure",
+        attempt_runner=lambda _dataflow, *, attempt, **_kwargs: _finish_attempt(
+            attempt,
+            DataFlowStatus.FAILED.value,
+            "attempt returned a failure",
         ),
         log_result=lambda _metadata, _runtime: None,
     )
@@ -120,8 +334,8 @@ def test_returned_failure_message_and_empty_exception_are_terminal_explanations(
         operation_type="etl",
         retry_handler=RetryHandler(retry_count=0, retry_delay=0),
         preflight=empty_preflight,
-        attempt_runner=lambda _dataflow, **_kwargs: PipelineAttemptResult(
-            status=DataFlowStatus.SUCCEEDED.value
+        attempt_runner=lambda _dataflow, *, attempt, **_kwargs: _finish_attempt(
+            attempt, DataFlowStatus.SUCCEEDED.value
         ),
         log_result=lambda _metadata, _runtime: None,
     )
@@ -132,8 +346,13 @@ def test_returned_failure_message_and_empty_exception_are_terminal_explanations(
 def test_result_log_failure_does_not_change_terminal_status() -> None:
     prepared = _prepared()
 
-    def attempt(_dataflow: DataFlow, **_kwargs: object) -> PipelineAttemptResult:
-        return PipelineAttemptResult(status=DataFlowStatus.SUCCEEDED.value)
+    def attempt(
+        _dataflow: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
+        return _finish_attempt(attempt, DataFlowStatus.SUCCEEDED.value)
 
     def broken_log(_metadata: DataFlow, _runtime: DataFlowRuntimeInfo) -> None:
         raise OSError("log sink unavailable")
@@ -162,8 +381,13 @@ def test_dataflow_runtime_includes_preparation_and_observer_isolation() -> None:
             execution=prepared.execution.model_copy(deep=True),
         )
 
-    def attempt(_dataflow: DataFlow, **_kwargs: object) -> PipelineAttemptResult:
-        return PipelineAttemptResult(status=DataFlowStatus.SUCCEEDED.value)
+    def attempt(
+        _dataflow: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
+        return _finish_attempt(attempt, DataFlowStatus.SUCCEEDED.value)
 
     def mutate_observer(metadata: DataFlow, runtime: DataFlowRuntimeInfo) -> None:
         observed.append((metadata, runtime))
@@ -198,10 +422,15 @@ def test_dataflow_runtime_covers_preparation_failure_without_attempt() -> None:
         preparation_started.append(utc_now())
         raise ValueError("query file missing")
 
-    def attempt(_dataflow: DataFlow, **_kwargs: object) -> PipelineAttemptResult:
+    def attempt(
+        _dataflow: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
         nonlocal attempts
         attempts += 1
-        return PipelineAttemptResult(status=DataFlowStatus.SUCCEEDED.value)
+        return _finish_attempt(attempt, DataFlowStatus.SUCCEEDED.value)
 
     runtime = run_dataflow_execution(
         dataflow,
@@ -227,8 +456,13 @@ def test_execution_emits_one_terminal_pair_and_restores_parent_context(caplog) -
     prepared = _prepared()
     caplog.set_level(logging.INFO, logger="datacoolie")
 
-    def attempt(_dataflow: DataFlow, **_kwargs: object) -> PipelineAttemptResult:
-        return PipelineAttemptResult(status=DataFlowStatus.SUCCEEDED.value)
+    def attempt(
+        _dataflow: DataFlow,
+        *,
+        attempt: AttemptRuntimeInfo,
+        **_kwargs: object,
+    ) -> AttemptRuntimeInfo:
+        return _finish_attempt(attempt, DataFlowStatus.SUCCEEDED.value)
 
     with dataflow_context("parent", "parent-run"):
         runtime = run_prepared_execution(
@@ -270,8 +504,8 @@ def test_preparation_failure_emits_only_one_terminal_traceback(caplog) -> None:
         prepare_execution_dataflow=fail_prepare,
         retry_handler=RetryHandler(retry_count=0, retry_delay=0),
         preflight=lambda _dataflow: None,
-        attempt_runner=lambda _dataflow, **_kwargs: PipelineAttemptResult(
-            status=DataFlowStatus.SUCCEEDED.value
+        attempt_runner=lambda _dataflow, *, attempt, **_kwargs: _finish_attempt(
+            attempt, DataFlowStatus.SUCCEEDED.value
         ),
         log_result=lambda _metadata, _runtime: None,
     )
@@ -352,8 +586,8 @@ def test_concurrent_execution_contexts_do_not_cross_contaminate() -> None:
             operation_type="etl",
             retry_handler=RetryHandler(retry_count=0, retry_delay=0),
             preflight=lambda _dataflow: None,
-            attempt_runner=lambda _dataflow, **_kwargs: PipelineAttemptResult(
-                status=DataFlowStatus.SUCCEEDED.value
+            attempt_runner=lambda _dataflow, *, attempt, **_kwargs: _finish_attempt(
+                attempt, DataFlowStatus.SUCCEEDED.value
             ),
             log_result=observe,
         )

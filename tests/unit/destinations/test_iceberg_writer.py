@@ -300,6 +300,57 @@ class TestIcebergWriterMaintenance:
 
 
 class TestIcebergWriterMetricsParsing:
+    def test_parse_write_metrics_preserves_sparse_and_measured_zero(
+        self, engine: MockEngine
+    ) -> None:
+        writer = IcebergWriter(engine)
+        m = writer._parse_write_metrics(
+            [{
+                "summary": {
+                    "added-records": "0",
+                    "added-data-files": "0",
+                    "added-files-size": "0",
+                }
+            }]
+        )
+
+        assert m["rows_written"] == 0
+        assert m["rows_inserted"] == 0
+        assert m["files_added"] == 0
+        assert m["bytes_added"] == 0
+        assert m["rows_updated"] is None
+        assert m["rows_deleted"] is None
+        assert m["files_removed"] is None
+        assert m["bytes_removed"] is None
+
+    @pytest.mark.parametrize("invalid_count", [True, -1, 1.5, "1.5"])
+    def test_parse_write_metrics_rejects_invalid_counts(
+        self, engine: MockEngine, invalid_count
+    ) -> None:
+        writer = IcebergWriter(engine)
+        m = writer._parse_write_metrics(
+            [{"summary": {"added-records": invalid_count}}]
+        )
+
+        assert m["rows_written"] is None
+        assert m["rows_inserted"] is None
+
+    def test_append_write_uses_only_operation_proven_zeros(self, engine: MockEngine) -> None:
+        writer = IcebergWriter(engine)
+        info = writer.write(
+            {"data": 1},
+            _make_dataflow(
+                load_type=LoadType.APPEND.value,
+                dest_format=Format.ICEBERG.value,
+            ),
+        )
+
+        assert info.rows_written is None
+        assert info.rows_updated == 0
+        assert info.rows_deleted == 0
+        assert info.files_removed == 0
+        assert info.bytes_removed == 0
+
     def test_parse_maintenance_metrics_maps_and_accumulates(self, engine: MockEngine) -> None:
         writer = IcebergWriter(engine)
         history = [
@@ -336,6 +387,43 @@ class TestIcebergWriterMetricsParsing:
         assert m["compact"]["files_removed"] == 1
         assert m["cleanup"]["files_removed"] == 5
         assert m["cleanup"]["bytes_removed"] == 100
+
+    def test_parse_maintenance_metrics_preserves_sparse_and_known_zero(
+        self, engine: MockEngine
+    ) -> None:
+        writer = IcebergWriter(engine)
+        m = writer._parse_maintenance_metrics(
+            [{
+                "operation": "REPLACE",
+                "summary": {"added-data-files": "0"},
+            }]
+        )
+
+        assert m["compact"]["files_added"] == 0
+        assert m["compact"]["files_removed"] is None
+        assert m["compact"]["bytes_added"] is None
+        assert m["compact"]["bytes_removed"] is None
+        assert m["compact"]["rows_written"] == 0
+
+    def test_parse_maintenance_metrics_rejects_invalid_counts(
+        self, engine: MockEngine
+    ) -> None:
+        writer = IcebergWriter(engine)
+        m = writer._parse_maintenance_metrics(
+            [{
+                "operation": "REPLACE",
+                "summary": {
+                    "added-data-files": True,
+                    "deleted-data-files": -1,
+                    "added-files-size": 1.5,
+                },
+            }]
+        )
+
+        assert m["compact"]["files_added"] is None
+        assert m["compact"]["files_removed"] is None
+        assert m["compact"]["bytes_added"] is None
+        assert m["compact"]["rows_written"] == 0
 
     def test_parse_maintenance_metrics_ignores_unknown_operation(self, engine: MockEngine) -> None:
         writer = IcebergWriter(engine)

@@ -14,7 +14,7 @@ from typing import Generic, List, Mapping, Optional
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import TransformError
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import TransformRuntimeInfo
+from datacoolie.transformers.runtime import TransformRuntimeInfo
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.utils.time import utc_now

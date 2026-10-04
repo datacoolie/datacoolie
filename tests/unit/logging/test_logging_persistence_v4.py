@@ -63,7 +63,9 @@ def test_execution_snapshot_writes_job_and_dataflow_json(tmp_path):
     dataflow = make_dataflow("df-1")
     dataflow.source.query = "sql/orders/incremental.sql"
     runtime = make_runtime("df-1")
-    runtime.source.source_action = {"query": "SELECT * FROM orders WHERE id > 10"}
+    runtime.attempts[0].source.source_action = {
+        "query": "SELECT * FROM orders WHERE id > 10"
+    }
     logger.log(dataflow, runtime)
     logger.finish_job("succeeded")
     logger.close()
@@ -86,17 +88,21 @@ def test_execution_snapshot_writes_job_and_dataflow_json(tmp_path):
         "log_schema_version",
         "_type",
     ]
-    dataflow_row = dict(dataflow_pairs)
-    job_row = dict(job_pairs)
+    dataflow_row = json.loads(dataflow_payload)
+    job_row = json.loads(job_payload)
     assert dataflow_row["datacoolie_version"] == job_row["datacoolie_version"] == __version__
-    assert dataflow_row["log_schema_version"] == 4
+    assert dataflow_row["log_schema_version"] == 6
     assert dataflow_row["log_session_id"]
     assert dataflow_row["log_session_id"] == job_row["log_session_id"]
     assert dataflow_row["source_query"] == "sql/orders/incremental.sql"
     assert dataflow_row["message"] is None
     assert "error_message" not in dataflow_row
     assert "skip_reason" not in dataflow_row
-    assert json.loads(dataflow_row["source_action"])["query"].startswith("SELECT")
+    assert dataflow_row["attempts"][0]["source"]["source_action"][
+        "query"
+    ].startswith("SELECT")
+    assert dataflow_row["attempts"][0]["source"]["rows_read"] == 100
+    assert dataflow_row["metrics"]["rows_written"] == 100
     assert job_row["run_attributes"] == '{"pipeline_run_id":"p-1"}'
     assert job_row["status"] == "succeeded"
     assert job_row["log_records_dropped"] == 0
@@ -186,7 +192,7 @@ def test_system_logger_uses_shared_json_writer(tmp_path):
     files = list(tmp_path.rglob("system_*.json"))
     assert len(files) == 1
     record = json.loads(files[0].read_text(encoding="utf-8"))
-    assert record["log_schema_version"] == 4
+    assert record["log_schema_version"] == 6
     assert record["datacoolie_version"] == __version__
     assert record["_type"] == "system_log"
     assert record["log_session_id"]

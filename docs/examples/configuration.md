@@ -128,6 +128,8 @@ config = DataCoolieRunConfig(
 log_config = LogConfig(
     output_path="./.runtime/logs",
     persistence_mode="snapshot",
+    diagnostic_max_bytes=65_536,
+    max_record_bytes=1_048_576,
 )
 ```
 
@@ -137,6 +139,8 @@ The complete logging example is **configuration/logging_modes.py**
 ([source](source/configuration/logging_modes.py.md) ·
 [raw](files/configuration/logging_modes.py)). Snapshot mode replaces the
 stable projection; batch mode emits JSON Lines records in `.json` files.
+The diagnostic budget defaults to 65,536 UTF-8 bytes per persisted dataflow/system record, and
+the complete encoded record defaults to a 1 MiB limit; both can be set on `LogConfig`.
 
 ### Multiple SQL roots {#multiple-sql-roots}
 

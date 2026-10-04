@@ -64,11 +64,14 @@ window. A deterministic rename is permitted when the runtime can map it.
 
 ## First run, empty reads, and recovery
 
-An absent destination is initialized with an overwrite-style write. A normal
-empty incremental read skips replacement. An explicitly bounded empty replay
-can delete the specified target window; an empty window on an absent target
-does not create an unrelated table. Replay boundaries and commands belong to
-[Operations](../operations/replay-and-backfill.md).
+An absent destination is initialized with an overwrite-style write. A source
+read that returns `None` or `rows_read == 0` skips transformation, replacement,
+and watermark save, including for an explicitly bounded replay; it cannot
+delete the target window. If a non-empty source result becomes empty during
+transformation, the empty frame still reaches the writer, and a replacement
+writer may delete the selected scope without appending rows. An empty
+transformed batch does not create an absent destination. Replay boundaries and
+commands belong to [Operations](../operations/replay-and-backfill.md).
 
 The default engine operation deletes the bounded rows and then appends the
 batch; it is not guaranteed atomic. If append fails after deletion, recover

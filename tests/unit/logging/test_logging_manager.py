@@ -97,6 +97,43 @@ class TestLogManagerContextFilter:
         )
         assert any(record.message == "check format" for record in mgr.capture_handler.get_records())
 
+    def test_console_omits_run_id_while_capture_keeps_same_record_context(self, capsys):
+        from datacoolie.logging.runtime.context import (
+            clear_dataflow_context,
+            set_dataflow_context,
+        )
+
+        mgr = LogManager.get_instance()
+        mgr.configure(
+            capture_logs=True,
+            console_output=True,
+            console_color="always",
+            force=True,
+        )
+        lgr = mgr.get_logger("datacoolie.test.console_ctx")
+
+        token = set_dataflow_context("df-console-test", "run-console-test")
+        try:
+            lgr.info("same record", extra={"event_name": "dataflow.started"})
+        finally:
+            clear_dataflow_context(token)
+
+        console_output = capsys.readouterr().err
+        assert "[df-console-test] [dataflow.started]" in console_output
+        assert "run-console-test" not in console_output
+        assert "\x1b[36mINFO\x1b[0m" in console_output
+
+        capture_handler = mgr.capture_handler
+        assert capture_handler is not None
+        assert "[df-console-test] [run-console-test:dataflow.started]" in (
+            capture_handler.get_formatted_logs()
+        )
+        captured = capture_handler.get_records()
+        assert len(captured) == 1
+        assert captured[0].dataflow_id == "df-console-test"
+        assert captured[0].dataflow_run_id == "run-console-test"
+        assert captured[0].event_name == "dataflow.started"
+
 
 
 class TestLogManager:

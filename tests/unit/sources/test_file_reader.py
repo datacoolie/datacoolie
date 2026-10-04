@@ -13,7 +13,7 @@ from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
 from datacoolie.sources.file_reader import FileReader, FileInfo, FileInfoColumn
-from datacoolie.sources.base import SourceReadRange
+from datacoolie.sources.contracts import SourceReadRange
 
 from tests.unit.sources.support import (
     MockEngine,
@@ -21,6 +21,7 @@ from tests.unit.sources.support import (
     file_source,
     file_source_csv,
     date_folder_source,
+    read_request,
 )
 
 
@@ -28,13 +29,13 @@ class TestFileReader:
     def test_read_parquet(self, engine: MockEngine, file_source: Source) -> None:
         engine.set_max_values({"event_time": "2024-06-01"})
         reader = FileReader(engine)
-        result = reader.read(file_source)
+        result = reader.read(file_source, request=read_request())
         assert result is not None
-        assert "__file_name" in result
+        assert "__file_name" in result.frame
 
     def test_read_csv(self, engine: MockEngine, file_source_csv: Source) -> None:
         reader = FileReader(engine)
-        result = reader.read(file_source_csv)
+        result = reader.read(file_source_csv, request=read_request())
         assert result is not None
 
     def test_read_no_path_raises(self, engine: MockEngine) -> None:
@@ -42,7 +43,7 @@ class TestFileReader:
         src = Source(connection=conn)
         reader = FileReader(engine)
         with pytest.raises(SourceError, match="requires source.path"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_read_unsupported_format_raises(self, engine: MockEngine) -> None:
         conn = Connection(
@@ -53,13 +54,13 @@ class TestFileReader:
         src = Source(connection=conn, table="test")
         reader = FileReader(engine)
         with pytest.raises(SourceError):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_read_zero_rows_returns_none(self, engine: MockEngine, file_source: Source) -> None:
         engine.set_data({}, 0)
         reader = FileReader(engine)
-        result = reader.read(file_source)
-        assert result is None
+        result = reader.read(file_source, request=read_request())
+        assert result.frame is None
 
     def test_read_json(self, engine: MockEngine) -> None:
         conn = Connection(
@@ -70,7 +71,7 @@ class TestFileReader:
         )
         src = Source(connection=conn, schema_name="events", table="logs")
         reader = FileReader(engine)
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_read_excel(self, engine: MockEngine) -> None:
@@ -82,7 +83,7 @@ class TestFileReader:
         )
         src = Source(connection=conn, schema_name="reports", table="sales")
         reader = FileReader(engine)
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_hive_partitioning_sets_base_path_for_multi_paths(self, engine: MockEngine) -> None:
@@ -105,7 +106,10 @@ class TestFileReader:
         reader = FileReader(engine)
         engine._filtered = False
 
-        result = reader.read(file_source, watermark_start={"event_time": "2024-05-01"})
+        result = reader.read(
+            file_source,
+            request=read_request(watermark_start={"event_time": "2024-05-01"}),
+        )
         assert result is not None
         assert engine._filtered is True
 
@@ -162,7 +166,7 @@ class TestFileReaderDateFolders:
         """Without a platform, falls back to base path."""
         engine.set_max_values({"event_time": "2024-06-01"})
         reader = FileReader(engine)
-        result = reader.read(date_folder_source)
+        result = reader.read(date_folder_source, request=read_request())
         assert result is not None
 
     def test_read_with_date_folders_with_platform(
@@ -189,7 +193,7 @@ class TestFileReaderDateFolders:
         ]
         engine.set_platform(mock_platform)
         reader = FileReader(engine)
-        result = reader.read(date_folder_source)
+        result = reader.read(date_folder_source, request=read_request())
         assert result is not None
 
     def test_read_with_date_folders_empty(
@@ -200,8 +204,24 @@ class TestFileReaderDateFolders:
         mock_platform.list_folders.return_value = []
         engine.set_platform(mock_platform)
         reader = FileReader(engine)
-        result = reader.read(date_folder_source)
-        assert result is None
+        result = reader.read(date_folder_source, request=read_request())
+        assert result.frame is None
+
+    def test_read_with_date_folders_empty_does_not_report_old_state_as_observed(
+        self, engine: MockEngine, date_folder_source: Source
+    ) -> None:
+        mock_platform = MagicMock()
+        mock_platform.list_folders.return_value = []
+        engine.set_platform(mock_platform)
+        reader = FileReader(engine)
+        previous = {DATE_FOLDER_PARTITION_KEY: "2024-03-15T00:00:00+00:00"}
+
+        result = reader.read(
+            date_folder_source,
+            request=read_request(watermark_start=previous),
+        )
+        assert result.frame is None
+        assert result.candidate is None
 
     def test_row_range_does_not_advance_internal_date_folder_key(
         self, engine: MockEngine, date_folder_source: Source
@@ -227,11 +247,16 @@ class TestFileReaderDateFolders:
         reader = FileReader(engine)
         result = reader.read(
             date_folder_source,
-            read_range=SourceReadRange("event_time", "2024-03-01", "2024-04-01"),
+            request=read_request(
+                read_range=SourceReadRange(
+                    "event_time", "2024-03-01", "2024-04-01"
+                )
+            ),
         )
 
         assert result is not None
-        assert DATE_FOLDER_PARTITION_KEY not in reader.get_new_watermark()
+        assert result.candidate is not None
+        assert DATE_FOLDER_PARTITION_KEY not in result.candidate.values
 
     def test_get_date_folder_paths_without_platform_returns_base_path(self, engine: MockEngine) -> None:
         reader = FileReader(engine)
@@ -348,7 +373,10 @@ class TestFileReaderMtimeFilter:
 
         watermark = {FileInfoColumn.FILE_MODIFICATION_TIME: "2024-03-01T00:00:00+00:00"}
         reader = FileReader(engine)
-        result = reader.read(_make_file_source(), watermark_start=watermark)
+        result = reader.read(
+            _make_file_source(),
+            request=read_request(watermark_start=watermark),
+        )
 
         assert result is not None
         platform.list_files.assert_called_once()
@@ -383,17 +411,22 @@ class TestFileReaderMtimeFilter:
         reader = FileReader(engine)
         result = reader.read(
             source,
-            read_range=SourceReadRange(
-                FileInfoColumn.FILE_MODIFICATION_TIME,
-                datetime(2024, 1, 1, tzinfo=timezone.utc),
-                datetime(2024, 2, 1, tzinfo=timezone.utc),
+            request=read_request(
+                read_range=SourceReadRange(
+                    FileInfoColumn.FILE_MODIFICATION_TIME,
+                    datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    datetime(2024, 2, 1, tzinfo=timezone.utc),
+                )
             ),
         )
 
         assert result is not None
         assert engine.read.call_args.kwargs["path"] == "/data/events/selected.parquet"
         assert platform.list_files.call_args.kwargs["extension"] == ".parquet"
-        assert FileInfoColumn.FILE_MODIFICATION_TIME not in reader.get_new_watermark()
+        assert (
+            result.candidate is None
+            or FileInfoColumn.FILE_MODIFICATION_TIME not in result.candidate.values
+        )
 
     def test_read_no_mtime_watermark_column_skips_filtering(self) -> None:
         """For non-Spark engines, list_files is always called (needed for add_file_info_columns).
@@ -426,7 +459,10 @@ class TestFileReaderMtimeFilter:
 
         watermark = {"some_other_column": "2024-01-01"}
         reader = FileReader(engine)
-        result = reader.read(source_no_mtime, watermark_start=watermark)
+        result = reader.read(
+            source_no_mtime,
+            request=read_request(watermark_start=watermark),
+        )
 
         assert result is not None
         # Non-Spark engines always call list_files to populate FileInfo metadata
@@ -447,9 +483,12 @@ class TestFileReaderMtimeFilter:
 
         watermark = {FileInfoColumn.FILE_MODIFICATION_TIME: "2024-01-01T00:00:00+00:00"}
         reader = FileReader(engine)
-        result = reader.read(_make_file_source(), watermark_start=watermark)
+        result = reader.read(
+            _make_file_source(),
+            request=read_request(watermark_start=watermark),
+        )
 
-        assert result is None
+        assert result.frame is None
         platform.list_files.assert_called_once()
 
     def test_collect_file_infos_propagates_listing_errors(self) -> None:
@@ -474,11 +513,11 @@ class TestFileReaderMtimeFilter:
         engine.read = MagicMock(side_effect=RuntimeError("file disappeared after listing"))
         reader = FileReader(engine)
 
-        with pytest.raises(SourceError, match="file disappeared after listing"):
-            reader.read(_make_file_source())
+        with pytest.raises(SourceError, match="file disappeared after listing") as raised:
+            reader.read(_make_file_source(), request=read_request())
 
-        assert reader.get_new_watermark() == {}
-        assert reader.get_runtime_info().status == "failed"
+        assert raised.value.runtime_info is not None
+        assert raised.value.runtime_info.status == "failed"
 
     def test_read_fails_before_engine_read_when_folder_discovery_is_incomplete(
         self, engine: MockEngine, date_folder_source: Source
@@ -493,10 +532,9 @@ class TestFileReaderMtimeFilter:
         reader = FileReader(engine)
 
         with pytest.raises(SourceError, match="month listing failed"):
-            reader.read(date_folder_source)
+            reader.read(date_folder_source, request=read_request())
 
         engine.read.assert_not_called()
-        assert reader.get_new_watermark() == {}
 
     def test_collect_file_infos_retains_file_with_missing_mtime_without_watermark(self) -> None:
         platform = MagicMock()
@@ -555,7 +593,7 @@ class TestFileReaderMtimeFilter:
         )
 
         reader = FileReader(engine)
-        assert reader.read(source) is not None
+        assert reader.read(source, request=read_request()) is not None
         assert engine.read.call_args.kwargs["path"] == [
             "/data/events/known.parquet",
             "/data/events/unknown.parquet",
@@ -580,10 +618,9 @@ class TestFileReaderMtimeFilter:
         reader = FileReader(engine)
 
         with pytest.raises(SourceError, match="modification time is required"):
-            reader.read(_make_file_source())
+            reader.read(_make_file_source(), request=read_request())
 
         engine.read.assert_not_called()
-        assert reader.get_new_watermark() == {}
 
     def test_parse_date_watermark_naive_datetime_gets_utc(self) -> None:
         dt = FileReader._parse_date_watermark(datetime(2024, 1, 1, 12, 0, 0))

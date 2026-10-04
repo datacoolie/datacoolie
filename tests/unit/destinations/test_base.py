@@ -175,8 +175,9 @@ class TestBaseDestinationWriter:
         df = _make_dataflow()
         info = writer.write({"data": 1}, df)
         assert info.status == DataFlowStatus.SUCCEEDED.value
-        # ConcreteWriter uses the default parser which returns zeros
-        assert info.rows_written == 0
+        # ConcreteWriter has no measured history fields.
+        assert info.rows_written is None
+        assert info.bytes_saved is None
 
     def test_write_no_path_succeeds_with_table_name(self, engine: MockEngine) -> None:
         writer = ConcreteWriter(engine)
@@ -187,18 +188,22 @@ class TestBaseDestinationWriter:
     def test_write_failure_wraps_exception(self, engine: MockEngine) -> None:
         writer = FailingWriter(engine)
         df = _make_dataflow()
-        with pytest.raises(DestinationError, match="Failed to write destination"):
+        with pytest.raises(DestinationError, match="Failed to write destination") as caught:
             writer.write({"data": 1}, df)
         info = writer.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
+        assert caught.value.runtime_info is not None
+        assert caught.value.runtime_info is not info
 
     def test_typed_write_failure_records_message(self, engine: MockEngine) -> None:
         writer = TypedFailingWriter(engine)
-        with pytest.raises(DestinationError, match="typed write failure"):
+        with pytest.raises(DestinationError, match="typed write failure") as caught:
             writer.write({"data": 1}, _make_dataflow())
         info = writer.get_runtime_info()
         assert info.status == DataFlowStatus.FAILED.value
         assert info.message == "typed write failure"
+        assert caught.value.runtime_info is not None
+        assert caught.value.runtime_info is not info
 
     def test_write_records_timing(self, engine: MockEngine) -> None:
         writer = ConcreteWriter(engine)
@@ -219,6 +224,46 @@ class TestBaseDestinationWriter:
         df = _make_dataflow()
         info = writer.write({"data": 1}, df)
         assert info.status == DataFlowStatus.SUCCEEDED.value
+
+    def test_after_write_metric_enrichment_failure_cannot_fail_write(
+        self, engine: MockEngine
+    ) -> None:
+        class FailingMetricWriter(ConcreteWriter):
+            def _parse_write_metrics(self, history):
+                raise RuntimeError("metric parser failed")
+
+        writer = FailingMetricWriter(engine)
+        with patch.object(
+            __import__("datacoolie.destinations.base", fromlist=["logger"]).logger,
+            "debug",
+            side_effect=RuntimeError("diagnostic logger failed"),
+        ):
+            info = writer.write({"data": 1}, _make_dataflow())
+
+        assert info.status == DataFlowStatus.SUCCEEDED.value
+        assert info.rows_written is None
+
+    def test_append_preserves_operation_proven_zero_metrics(self) -> None:
+        writer = ConcreteWriter(NoHistoryEngine())
+        df = _make_dataflow(load_type="append")
+        info = writer.write({"data": 1}, df)
+
+        assert info.rows_written is None
+        assert info.rows_updated == 0
+        assert info.rows_deleted == 0
+        assert info.files_removed == 0
+        assert info.bytes_removed == 0
+
+    def test_end_time_capture_failure_cannot_repeat_acknowledged_write(self) -> None:
+        from datetime import datetime, timezone
+
+        writer = ConcreteWriter(NoHistoryEngine())
+        with patch("datacoolie.destinations.base.utc_now", side_effect=[
+            datetime(2026, 10, 4, tzinfo=timezone.utc), RuntimeError("clock unavailable")
+        ]):
+            info = writer.write({"data": 1}, _make_dataflow(load_type="append"))
+        assert info.status == DataFlowStatus.SUCCEEDED.value
+        assert info.end_time is None
 
 
 # ============================================================================
@@ -293,6 +338,44 @@ class TestMaintenanceOperations:
             for entry in info.operation_details
             if entry.get("status") == DataFlowStatus.SKIPPED.value
         } == {"Destination table does not exist"}
+        for name in (
+            "rows_written",
+            "rows_inserted",
+            "rows_updated",
+            "rows_deleted",
+            "files_added",
+            "files_removed",
+            "bytes_added",
+            "bytes_removed",
+        ):
+            assert getattr(info, name) == 0
+        assert info.bytes_saved == 0
+
+    def test_run_maintenance_all_operations_disabled_are_known_zero(
+        self, engine: MockEngine
+    ) -> None:
+        engine.set_table_exists(True)
+        writer = ConcreteWriter(engine)
+
+        info = writer.run_maintenance(
+            _make_dataflow(),
+            do_compact=False,
+            do_cleanup=False,
+        )
+
+        assert info.status == DataFlowStatus.SKIPPED.value
+        for name in (
+            "rows_written",
+            "rows_inserted",
+            "rows_updated",
+            "rows_deleted",
+            "files_added",
+            "files_removed",
+            "bytes_added",
+            "bytes_removed",
+        ):
+            assert getattr(info, name) == 0
+        assert info.bytes_saved == 0
 
     def test_run_maintenance_no_path_uses_table_name(self, engine: MockEngine) -> None:
         """When no path is set, maintenance routes to _by_name methods using full_table_name."""
@@ -354,6 +437,18 @@ class TestMaintenanceOperations:
         assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.FAILED.value
         assert info.message == "maintenance failed"
+        for name in (
+            "rows_written",
+            "rows_inserted",
+            "rows_updated",
+            "rows_deleted",
+            "files_added",
+            "files_removed",
+            "bytes_added",
+            "bytes_removed",
+        ):
+            assert getattr(info, name) is None
+        assert info.bytes_saved is None
 
     def test_run_maintenance_enriches_sub_results_with_engine_metrics(self, engine: MockEngine) -> None:
         engine.set_table_exists(True)
@@ -383,6 +478,52 @@ class TestMaintenanceOperations:
         df = _make_dataflow()
         info = writer.run_maintenance(df)
         assert info.status == DataFlowStatus.SUCCEEDED.value
+        assert info.rows_written == 0
+        assert info.files_added is None
+        assert info.bytes_saved is None
+
+    def test_malformed_maintenance_metrics_cannot_fail_operation(
+        self, engine: MockEngine
+    ) -> None:
+        class MalformedMaintenanceWriter(ConcreteWriter):
+            def _parse_maintenance_metrics(self, history):
+                raise ValueError("malformed maintenance metrics")
+
+        engine.set_table_exists(True)
+        writer = MalformedMaintenanceWriter(engine)
+        with patch.object(
+            __import__("datacoolie.destinations.base", fromlist=["logger"]).logger,
+            "warning",
+            side_effect=RuntimeError("diagnostic logger failed"),
+        ):
+            info = writer.run_maintenance(_make_dataflow())
+
+        assert info.status == DataFlowStatus.SUCCEEDED.value
+        assert info.rows_written == 0
+
+    def test_run_maintenance_preserves_sparse_and_known_zero_metrics(
+        self, engine: MockEngine
+    ) -> None:
+        class SparseMaintenanceWriter(ConcreteWriter):
+            def _parse_maintenance_metrics(self, history):
+                return {
+                    "compact": {
+                        "files_added": 0,
+                        "files_removed": None,
+                    }
+                }
+
+        engine.set_table_exists(True)
+        info = SparseMaintenanceWriter(engine).run_maintenance(
+            _make_dataflow(), do_cleanup=False
+        )
+
+        assert info.rows_written == 0
+        assert info.files_added == 0
+        assert info.files_removed is None
+        assert info.bytes_added is None
+        assert info.bytes_removed is None
+        assert info.bytes_saved is None
 
     def test_run_maintenance_metrics_match_second_entry_and_unmatched_key(self, engine: MockEngine) -> None:
         class LoopCoverageWriter(ConcreteWriter):

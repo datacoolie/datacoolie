@@ -14,7 +14,11 @@ import sys
 from typing import Optional, TextIO
 
 from datacoolie.logging.configuration.constants import ConsoleColor
-from datacoolie.logging.presentation.formatting import ContextFormatter, prepare_record
+from datacoolie.logging.presentation.formatting import (
+    ContextFormatter,
+    format_context_suffix,
+    prepare_record,
+)
 
 _RESET = "\x1b[0m"
 _DIM = "\x1b[2m"
@@ -72,6 +76,11 @@ class ConsoleFormatter(ContextFormatter):
 
     def format(self, record: logging.LogRecord) -> str:
         isolated = prepare_record(record)
+        context = format_context_suffix(
+            isolated.dataflow_id,
+            event_name=isolated.event_name,
+        )
+        isolated.datacoolie_context = f" {context}" if context else ""
         level = str(record.levelname)
         prefix = self._colors.get(level)
         if self.colorize and prefix:

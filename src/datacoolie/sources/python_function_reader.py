@@ -36,6 +36,7 @@ from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
 
 logger = get_logger(__name__)
 
@@ -79,9 +80,7 @@ class PythonFunctionReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         """Call the user-defined function and process the result.
 
@@ -93,12 +92,15 @@ class PythonFunctionReader(BaseSourceReader[DF]):
             3. Calculate count and new watermark.
             4. Return ``None`` if zero rows.
         """
+        watermark_start = self._get_effective_watermark_start()
+        watermark_end = request.watermark_end
         self._set_source_action({"reader": type(self).__name__, "function": source.python_function or ""})
 
         df = self._read_data(source, watermark_start=watermark_start, watermark_end=watermark_end)
 
         if df is None:
             logger.info("%s: function returned None — skipping.", type(self).__name__)
+            self._set_rows_read(0)
             return None
 
         # Post-function watermark filter (engine-level precision)

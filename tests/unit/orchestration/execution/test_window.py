@@ -8,6 +8,17 @@ from datacoolie.orchestration.execution.window import map_watermark_window
 from datacoolie.transformers.base import ColumnMapping
 
 
+def test_explicit_range_is_independent_of_opaque_persisted_cursor():
+    window = build_watermark_window(enabled=True, watermark_effective={"id": 1},
+        watermark_after={"cursor": "next"}, explicit_start=None, explicit_end={"id": 5},
+        start_operator=">=", end_operator="<", watermark_kind="opaque")
+    assert window == WindowSpec(bounds={"id": (1, 5)}, lower_operator=">=", upper_operator="<")
+
+    assert build_watermark_window(enabled=True, watermark_effective={"cursor": "old"},
+        watermark_after={"cursor": "new"}, explicit_start=None, explicit_end=None,
+        start_operator=">", end_operator="<", watermark_kind="opaque") is None
+
+
 def test_rolling_window_uses_observed_upper_and_or_across_columns() -> None:
     window = build_watermark_window(
         enabled=True,

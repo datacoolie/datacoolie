@@ -75,7 +75,7 @@ class TestSystemLogger:
             "_type",
         ]
         row = dict(ordered_pairs)
-        assert row["log_schema_version"] == 4
+        assert row["log_schema_version"] == 6
         assert row["_type"] == "system_log"
         assert row["log_session_id"]
         assert row["job_id"] == "factory/job-1"

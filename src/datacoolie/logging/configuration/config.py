@@ -14,6 +14,7 @@ from datacoolie.logging.configuration.constants import (
     PersistenceMode,
     StorageMode,
 )
+from datacoolie.logging.persistence.diagnostics import DEFAULT_DIAGNOSTIC_MAX_BYTES
 from datacoolie.logging.persistence.layout import validate_partition_pattern
 from datacoolie.utils.path_utils import normalize_path
 
@@ -97,6 +98,8 @@ class LogConfig:
     spool_directory: Optional[str] = None
     close_timeout_seconds: float = 10.0
     console_color: str = ConsoleColor.AUTO.value
+    diagnostic_max_bytes: int = DEFAULT_DIAGNOSTIC_MAX_BYTES
+    max_record_bytes: int = 1024 * 1024
 
     def __post_init__(self) -> None:
         self.log_level = normalize_log_level(self.log_level, field_name="log_level")
@@ -136,6 +139,8 @@ class LogConfig:
             "flush_batch_bytes",
             "buffer_memory_bytes",
             "spool_max_bytes",
+            "diagnostic_max_bytes",
+            "max_record_bytes",
         ):
             value = getattr(self, field_name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:

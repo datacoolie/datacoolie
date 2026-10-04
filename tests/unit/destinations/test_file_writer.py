@@ -50,6 +50,11 @@ class TestFileWriter:
         assert info.status == DataFlowStatus.SUCCEEDED.value
         assert engine._written[0]["mode"] == "append"
         assert engine._written[0]["fmt"] == "csv"
+        assert info.rows_written is None
+        assert info.rows_updated == 0
+        assert info.rows_deleted == 0
+        assert info.files_removed == 0
+        assert info.bytes_removed == 0
 
     def test_write_append_json(self, engine: MockEngine) -> None:
         df = _make_file_dataflow(load_type=LoadType.APPEND.value, dest_format=Format.JSON.value)

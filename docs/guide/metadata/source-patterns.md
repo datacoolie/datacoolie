@@ -53,7 +53,7 @@ the function may use any fields on the `Source` it receives, including `table`.
 | `query` | Inline SQL or a relative/artifact `.sql` file; takes precedence over `table` when reading |
 | `python_function` | Function-source mode instead of a physical table |
 | `watermark_columns` | Incremental loading |
-| `filter_expression` | SQL predicate evaluated against the reader result before transforms; query mode uses returned columns/aliases |
+| `filter_expression` | Read-stage SQL predicate evaluated against reader-result columns before transforms; query mode uses returned columns/aliases |
 | `configure` | Source-specific settings such as `read_options` or API endpoint/params; precedence varies by key |
 
 In practice, choose the read mode first:
@@ -85,7 +85,11 @@ or custom function code already handles types; a few casts can be defined in
 `watermark_columns` enables **incremental loading**. The saved watermark and filter
 depend on the reader: SQL may push bounds into the query, while files and
 lakehouse sources can filter in the engine. API request push-down is optional;
-without it, the API reader can still filter fetched records locally. See
+without it, the API reader can still filter fetched records locally. For a
+predicate that uses only source-result columns, prefer `source.filter_expression`
+when an earlier read-stage filter is useful. Pushdown is reader-specific and
+not guaranteed, and DataCoolie does not automatically move a transform filter
+to the source. See
 [Incremental windows and look-back](#incremental-windows-and-look-back) for
 bounds and look-back.
 
@@ -1268,10 +1272,12 @@ fallback needs them.
 The [Cross-boundary combinations](../../reference/metadata-schema.md#cross-boundary-combinations)
 section collects these source and destination requirements.
 
-An ordinary empty incremental read does not replace a window. An explicitly
-bounded empty replay can delete its window. Follow the [complete window
-recipe](watermark-window-replacement.md) for its assumptions, first run,
-output mapping, and delete/append failure boundary.
+A source read that returns `None` or `rows_read == 0` never enters replacement,
+including during a bounded replay, so it cannot delete the selected scope. If
+the non-empty source result becomes empty during transformation, the writer
+still receives that result and replacement may delete the selected scope.
+Follow the [complete window recipe](watermark-window-replacement.md) for its
+assumptions, first run, output mapping, and delete/append failure boundary.
 
 ### Relate look-back to API ranges and replay
 

@@ -6,21 +6,21 @@ concrete transformers: :class:`SchemaConverter`, :class:`Deduplicator`,
 :class:`ColumnNameSanitizer`, :class:`SystemColumnAdder`.
 """
 
-from datacoolie.transformers.base import (
-    BaseTransformer,
-    ColumnMapping,
-    TransformerPipeline,
-)
-from datacoolie.transformers.column_adder import ColumnAdder, SCD2ColumnAdder, SystemColumnAdder
-from datacoolie.transformers.column_projector import ColumnProjector
-from datacoolie.transformers.column_value_transformer import ColumnValueTransformer
-from datacoolie.transformers.column_name_sanitizer import ColumnNameSanitizer
-from datacoolie.transformers.data_masker import DataMasker
-from datacoolie.transformers.deduplicator import Deduplicator
-from datacoolie.transformers.hash_column_adder import HashColumnAdder
-from datacoolie.transformers.partition_handler import PartitionHandler
-from datacoolie.transformers.schema_converter import SchemaConverter
-from datacoolie.transformers.row_filter import RowFilter
+from importlib import import_module
+
+
+def __getattr__(name):
+    modules = {
+        "BaseTransformer": "base", "ColumnMapping": "base", "TransformerPipeline": "base",
+        "ColumnAdder": "column_adder", "SCD2ColumnAdder": "column_adder", "SystemColumnAdder": "column_adder",
+        "ColumnProjector": "column_projector", "ColumnValueTransformer": "column_value_transformer",
+        "ColumnNameSanitizer": "column_name_sanitizer", "DataMasker": "data_masker",
+        "Deduplicator": "deduplicator", "HashColumnAdder": "hash_column_adder",
+        "PartitionHandler": "partition_handler", "SchemaConverter": "schema_converter", "RowFilter": "row_filter",
+    }
+    if name not in modules:
+        raise AttributeError(name)
+    return getattr(import_module(f"{__name__}.{modules[name]}"), name)
 
 __all__ = [
     "BaseTransformer",

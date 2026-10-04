@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 import sys
 
 import pytest
@@ -16,6 +17,7 @@ from datacoolie.logging.presentation.formatting import (
     DEFAULT_LOG_FORMAT,
     format_context_suffix,
 )
+from datacoolie.logging.runtime.capture import CaptureHandler
 
 
 def _record(level: int = logging.ERROR) -> logging.LogRecord:
@@ -65,6 +67,117 @@ def test_formatter_keeps_persisted_style_plain_when_disabled() -> None:
     )
     assert rendered == "WARNING plain message"
     assert "\x1b[" not in rendered
+
+
+def test_default_console_format_omits_run_id_but_keeps_context_prefix() -> None:
+    record = _record(logging.INFO)
+    record.dataflow_id = "orders"  # type: ignore[attr-defined]
+    record.dataflow_run_id = "run-1"  # type: ignore[attr-defined]
+    record.event_name = "dataflow.started"  # type: ignore[attr-defined]
+
+    rendered = ConsoleFormatter(DEFAULT_LOG_FORMAT, colorize=False).format(record)
+
+    assert re.search(
+        r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} "
+        r"\[INFO\] datacoolie\.console\.test \[orders\] "
+        r"\[dataflow\.started\] - plain message$",
+        rendered,
+    )
+    assert "run-1" not in rendered
+    assert record.dataflow_run_id == "run-1"  # type: ignore[attr-defined]
+
+
+def test_console_custom_run_id_placeholder_remains_available() -> None:
+    record = _record(logging.INFO)
+    record.dataflow_id = "orders"  # type: ignore[attr-defined]
+    record.dataflow_run_id = "run-1"  # type: ignore[attr-defined]
+    record.event_name = "dataflow.started"  # type: ignore[attr-defined]
+
+    rendered = ConsoleFormatter(
+        "%(dataflow_run_id)s|%(datacoolie_context)s|%(message)s",
+        colorize=False,
+    ).format(record)
+
+    assert rendered == "run-1| [orders] [dataflow.started]|plain message"
+
+
+def test_console_context_escapes_control_characters_without_mutating_record() -> None:
+    record = _record(logging.INFO)
+    record.dataflow_id = "orders\nnext"  # type: ignore[attr-defined]
+    record.dataflow_run_id = "run\t1"  # type: ignore[attr-defined]
+    record.event_name = "dataflow\x1bstarted"  # type: ignore[attr-defined]
+
+    rendered = ConsoleFormatter(DEFAULT_LOG_FORMAT, colorize=False).format(record)
+
+    assert "[orders\\nnext] [dataflow\\x1bstarted]" in rendered
+    assert "orders\nnext" not in rendered
+    assert "dataflow\x1bstarted" not in rendered
+    assert record.dataflow_id == "orders\nnext"  # type: ignore[attr-defined]
+    assert record.dataflow_run_id == "run\t1"  # type: ignore[attr-defined]
+    assert record.event_name == "dataflow\x1bstarted"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("console_first", [False, True])
+@pytest.mark.parametrize("colorize", [False, True])
+def test_console_and_capture_share_record_without_cross_handler_mutation(
+    console_first: bool,
+    colorize: bool,
+) -> None:
+    record = _record(logging.INFO)
+    record.dataflow_id = "orders"  # type: ignore[attr-defined]
+    record.dataflow_run_id = "run-1"  # type: ignore[attr-defined]
+    record.event_name = "dataflow.started"  # type: ignore[attr-defined]
+
+    capture = CaptureHandler(level=logging.DEBUG)
+    capture.setFormatter(ContextFormatter(DEFAULT_LOG_FORMAT))
+    stream = io.StringIO()
+    console = logging.StreamHandler(stream)
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(ConsoleFormatter(DEFAULT_LOG_FORMAT, colorize=colorize))
+
+    handlers = (console, capture) if console_first else (capture, console)
+    for handler in handlers:
+        handler.handle(record)
+
+    console_output = stream.getvalue().strip()
+    capture_output = capture.get_formatted_logs()
+    expected_level = "\x1b[36mINFO\x1b[0m" if colorize else "INFO"
+
+    assert expected_level in console_output
+    assert "datacoolie.console.test [orders] [dataflow.started]" in console_output
+    assert "run-1" not in console_output
+    assert "[orders] [run-1:dataflow.started]" in capture_output
+    assert capture.get_records()[0].dataflow_run_id == "run-1"
+    assert record.dataflow_id == "orders"  # type: ignore[attr-defined]
+    assert record.dataflow_run_id == "run-1"  # type: ignore[attr-defined]
+    assert record.event_name == "dataflow.started"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("console_first", [False, True])
+def test_console_and_capture_omit_missing_context_without_empty_segments(
+    console_first: bool,
+) -> None:
+    record = _record(logging.INFO)
+    capture = CaptureHandler(level=logging.DEBUG)
+    capture.setFormatter(ContextFormatter(DEFAULT_LOG_FORMAT))
+    stream = io.StringIO()
+    console = logging.StreamHandler(stream)
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(ConsoleFormatter(DEFAULT_LOG_FORMAT, colorize=False))
+
+    handlers = (console, capture) if console_first else (capture, console)
+    for handler in handlers:
+        handler.handle(record)
+
+    console_output = stream.getvalue().strip()
+    capture_output = capture.get_formatted_logs()
+
+    assert "datacoolie.console.test - plain message" in console_output
+    assert "[]" not in console_output
+    assert "[]" not in capture_output
+    assert capture.get_records()[0].dataflow_id is None
+    assert capture.get_records()[0].dataflow_run_id is None
+    assert capture.get_records()[0].event_name is None
 
 
 @pytest.mark.parametrize(

@@ -5,6 +5,11 @@ description: Python API reference for DataCoolie transformers, including value n
 
 # Transformers
 
+::: datacoolie.transformers.runtime
+    options:
+      members:
+        - TransformRuntimeInfo
+
 ::: datacoolie.transformers.base
     options:
       members:

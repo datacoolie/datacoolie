@@ -7,7 +7,13 @@ error context.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
+    from datacoolie.sources.runtime import SourceRuntimeInfo
+    from datacoolie.transformers.runtime import TransformRuntimeInfo
+    from datacoolie.destinations.runtime import DestinationRuntimeInfo
 
 
 class DataCoolieError(Exception):
@@ -45,13 +51,25 @@ class MetadataError(DataCoolieError):
 class SourceError(DataCoolieError):
     """Raised when reading from a data source fails."""
 
+    def __init__(self, message: str, details: dict[str, Any] | None = None, *, runtime_info: SourceRuntimeInfo | None = None) -> None:
+        super().__init__(message, details)
+        self.runtime_info = runtime_info
+
 
 class TransformError(DataCoolieError):
     """Raised when a transformation step fails."""
 
+    def __init__(self, message: str, details: dict[str, Any] | None = None, *, runtime_info: TransformRuntimeInfo | None = None) -> None:
+        super().__init__(message, details)
+        self.runtime_info = runtime_info
+
 
 class DestinationError(DataCoolieError):
     """Raised when writing to a destination fails."""
+
+    def __init__(self, message: str, details: dict[str, Any] | None = None, *, runtime_info: DestinationRuntimeInfo | None = None) -> None:
+        super().__init__(message, details)
+        self.runtime_info = runtime_info
 
 
 class WatermarkError(DataCoolieError):
@@ -70,17 +88,17 @@ class PipelineError(DataCoolieError):
     """Raised when a pipeline step fails, carrying partial runtime results.
 
     Attributes:
-        partial_result: The partial execution result collected before the failure.
+        attempt: The attempt observation collected before the failure.
     """
 
     def __init__(
         self,
         message: str,
-        partial_result: Any = None,
+        attempt: AttemptRuntimeInfo | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message, details)
-        self.partial_result = partial_result
+        self.attempt = attempt
 
 
 class DataFlowError(DataCoolieError):

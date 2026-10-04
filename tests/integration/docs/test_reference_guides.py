@@ -41,7 +41,7 @@ import json
 records = [json.loads(line) for path in Path('.').rglob('*.json')
            for line in path.read_text(encoding='utf-8').splitlines()]
 assert records, 'No persisted standalone logs'
-assert all(record['log_schema_version'] == 4 for record in records)
+assert all(record['log_schema_version'] == 6 for record in records)
 assert all(record['log_session_id'] for record in records)
 with SystemLogger(LogConfig(), platform):
     pass  # A second session must be able to acquire the process capture owner.

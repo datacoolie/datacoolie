@@ -96,5 +96,5 @@ DEFAULT_PARTITION_PATTERN = "__run_date={year}-{month}-{day}"
 # Removing the second, random logging identity is a persisted envelope change.
 # Consumers can therefore distinguish the job-owned identity contract from the
 # previous v2 files without a dual-write compatibility path.
-LOG_SCHEMA_VERSION = 4
+LOG_SCHEMA_VERSION = 6
 INTERNAL_LOGGER_NAME = "datacoolie.logging.internal"

@@ -15,7 +15,9 @@ from datacoolie.core.constants import (
 from datacoolie.core.exceptions import SourceError, WatermarkError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
-from datacoolie.sources.base import BaseSourceReader, SourceReadRange
+from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRange
+from datacoolie.watermark.contracts import WatermarkCandidate, WatermarkCandidateKind
 
 from tests.unit.sources.support import (
     ConcreteSourceReader,
@@ -24,6 +26,7 @@ from tests.unit.sources.support import (
     StatefulSourceReader,
     delta_source,
     engine,
+    read_request,
 )
 
 
@@ -56,10 +59,13 @@ class TestBaseSourceReader:
                 return self._typed_row_watermark_ordering_kinds(candidate)
 
         reader = TypedReader(engine)
-        reader.read(source)
+        reader.read(source, request=read_request())
         existing = {"value": values[1], "aux": "unchanged"}
         candidate = {"value": values[position]}
-        assert reader.merge_watermark(existing, candidate) == {
+        assert reader.merge_watermark(
+            existing,
+            WatermarkCandidate(candidate, WatermarkCandidateKind.OBSERVED_MAX),
+        ) == {
             "value": values[max(1, position)], "aux": "unchanged"
         }
         assert existing == {"value": values[1], "aux": "unchanged"}
@@ -71,13 +77,16 @@ class TestBaseSourceReader:
         self, engine: MockEngine, delta_source: Source, stored, candidate
     ) -> None:
         reader = ConcreteSourceReader(engine)
-        reader.read(delta_source)
+        reader.read(delta_source, request=read_request())
         existing = {"cursor": stored, "aux": "kept"}
         observation = {"cursor": candidate}
-        assert reader.merge_watermark(existing, observation) == {
+        assert reader.merge_watermark(
+            existing,
+            WatermarkCandidate(observation, WatermarkCandidateKind.OPAQUE),
+        ) == {
             "cursor": stored if candidate is None else candidate, "aux": "kept"
         }
-        assert reader.merge_watermark(existing, {}) == existing
+        assert reader.merge_watermark(existing, None) == existing
         assert existing == {"cursor": stored, "aux": "kept"}
         assert observation == {"cursor": candidate}
 
@@ -87,9 +96,9 @@ class TestBaseSourceReader:
 
     def test_read_succeeds(self, engine: MockEngine, delta_source: Source) -> None:
         reader = ConcreteSourceReader(engine)
-        result = reader.read(delta_source)
+        result = reader.read(delta_source, request=read_request())
         assert result is not None
-        info = reader.get_runtime_info()
+        info = result.runtime
         assert info.status == DataFlowStatus.SUCCEEDED.value
         assert info.start_time is not None
         assert info.end_time is not None
@@ -103,17 +112,17 @@ class TestBaseSourceReader:
             def _supports_read_range(self) -> bool:
                 return True
 
-            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+            def _read_internal(self, source, request):
                 captured["range"] = self._get_read_range()
-                return super()._read_internal(
-                    source, watermark_start, watermark_end=watermark_end
-                )
+                return super()._read_internal(source, request)
 
         reader = RangeReader(engine)
         result = reader.read(
             delta_source,
-            read_range=SourceReadRange(
-                "modified_at", "2025-01-01", "2025-02-01"
+            request=read_request(
+                read_range=SourceReadRange(
+                    "modified_at", "2025-01-01", "2025-02-01"
+                )
             ),
         )
 
@@ -121,6 +130,9 @@ class TestBaseSourceReader:
         assert captured["range"] == SourceReadRange(
             "modified_at", date(2025, 1, 1), date(2025, 2, 1)
         )
+        assert result.selection.lower == {"modified_at": date(2025, 1, 1)}
+        assert result.selection.upper == {"modified_at": date(2025, 2, 1)}
+        assert result.selection.upper_operator == "<"
 
     def test_reused_reader_clears_range_and_preserves_configuration(
         self, engine: MockEngine, delta_source: Source
@@ -131,16 +143,28 @@ class TestBaseSourceReader:
             def _supports_read_range(self):
                 return True
 
-            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
-                calls.append((self._get_read_range(), watermark_start, watermark_end))
-                return super()._read_internal(source, watermark_start, watermark_end=watermark_end)
+            def _read_internal(self, source, request):
+                calls.append(
+                    (
+                        self._get_read_range(),
+                        request.watermark_start,
+                        request.watermark_end,
+                    )
+                )
+                return super()._read_internal(source, request)
 
         source_before = delta_source.model_dump()
         reader = RangeReader(engine)
         selected_range = SourceReadRange("id", 1, 5)
-        reader.read(delta_source, read_range=selected_range)
-        reader.read(delta_source, watermark_start={"modified_at": 9})
-        reader.read(delta_source)
+        reader.read(
+            delta_source,
+            request=read_request(read_range=selected_range),
+        )
+        reader.read(
+            delta_source,
+            request=read_request(watermark_start={"modified_at": 9}),
+        )
+        reader.read(delta_source, request=read_request())
         assert calls == [(selected_range, None, None),
                          (None, {"modified_at": 9}, None), (None, None, None)]
         assert delta_source.model_dump() == source_before
@@ -158,87 +182,102 @@ class TestBaseSourceReader:
             def _read_internal(self, *args, **kwargs):
                 raise AssertionError("conflicting bounds must not read data")
 
-        with pytest.raises(SourceError, match="read_range"):
-            RangeReader(engine).read(delta_source, read_range=SourceReadRange("id", 1, 5), **bounds)
+        with pytest.raises(ValueError, match="cannot be combined"):
+            RangeReader(engine).read(
+                delta_source,
+                request=read_request(
+                    read_range=SourceReadRange("id", 1, 5),
+                    **bounds,
+                ),
+            )
 
     def test_read_returns_none(self, engine: MockEngine, delta_source: Source) -> None:
         reader = ConcreteSourceReader(engine, return_none=True)
-        result = reader.read(delta_source)
-        assert result is None
-        info = reader.get_runtime_info()
+        result = reader.read(delta_source, request=read_request())
+        assert result.frame is None
+        info = result.runtime
         assert info.status == DataFlowStatus.SUCCEEDED.value
 
-    def test_preserve_empty_keeps_typed_zero_row_frame(
+    def test_zero_row_source_returns_none_and_no_candidate(
         self, engine: MockEngine, delta_source: Source
     ) -> None:
         class EmptyReader(ConcreteSourceReader):
-            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+            def _read_internal(self, source, request):
                 return self._finalize_read(
                     {}, ["id"], type(self).__name__, "typed-empty test"
                 )
 
         engine.set_data({}, row_count=0)
         reader = EmptyReader(engine)
-        assert reader.read(delta_source) is None
-        assert reader.read(delta_source, preserve_empty=True) == {}
-        assert reader.get_runtime_info().rows_read == 0
+        result = reader.read(delta_source, request=read_request())
+        assert result.frame is None
+        assert result.rows_read == 0
+        assert result.candidate is not None
+        assert result.candidate.values == {"id": 0}
 
     def test_read_failure_wraps_exception(self, engine: MockEngine, delta_source: Source) -> None:
         reader = FailingSourceReader(engine)
-        with pytest.raises(SourceError, match="Failed to read source"):
-            reader.read(delta_source)
-        info = reader.get_runtime_info()
-        assert info.status == DataFlowStatus.FAILED.value
-        assert "Boom!" in (info.message or "")
+        with pytest.raises(SourceError, match="Failed to read source") as raised:
+            reader.read(delta_source, request=read_request())
+        assert raised.value.runtime_info is not None
+        assert raised.value.runtime_info.status == DataFlowStatus.FAILED.value
+        assert "Boom!" in (raised.value.runtime_info.message or "")
 
     def test_typed_read_failure_records_message(
         self, engine: MockEngine, delta_source: Source
     ) -> None:
         class TypedFailingReader(FailingSourceReader):
-            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+            def _read_internal(self, source, request):
                 raise SourceError("typed boom")
 
         reader = TypedFailingReader(engine)
-        with pytest.raises(SourceError, match="typed boom"):
-            reader.read(delta_source)
-        info = reader.get_runtime_info()
-        assert info.status == DataFlowStatus.FAILED.value
-        assert info.message == "typed boom"
+        with pytest.raises(SourceError, match="typed boom") as raised:
+            reader.read(delta_source, request=read_request())
+        assert raised.value.runtime_info is not None
+        assert raised.value.runtime_info.status == DataFlowStatus.FAILED.value
+        assert raised.value.runtime_info.message == "typed boom"
 
     def test_empty_typed_read_failure_uses_exception_type(
         self, engine: MockEngine, delta_source: Source
     ) -> None:
         class EmptyFailingReader(FailingSourceReader):
-            def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+            def _read_internal(self, source, request):
                 raise SourceError("")
 
         reader = EmptyFailingReader(engine)
-        with pytest.raises(SourceError):
-            reader.read(delta_source)
-        assert reader.get_runtime_info().message == "SourceError"
+        with pytest.raises(SourceError) as raised:
+            reader.read(delta_source, request=read_request())
+        assert raised.value.runtime_info is not None
+        assert raised.value.runtime_info.message == "SourceError"
 
     def test_reused_reader_does_not_retain_previous_watermark(
         self, engine: MockEngine, delta_source: Source
     ) -> None:
         engine.set_max_values({"id": 42})
         reader = StatefulSourceReader(engine)
-        assert reader.read(delta_source) is not None
-        assert reader.get_new_watermark() == {"id": 42}
+        first = reader.read(delta_source, request=read_request())
+        assert first.frame is not None
+        assert first.candidate is not None
+        assert first.candidate.values == {"id": 42}
 
-        assert reader.read(delta_source) is None
-        assert reader.get_new_watermark() == {}
-        assert reader.get_runtime_info().watermark_after is None
+        second = reader.read(delta_source, request=read_request())
+        assert second.frame is None
+        assert second.candidate is None
 
     def test_read_records_watermark_before(self, engine: MockEngine, delta_source: Source) -> None:
         reader = ConcreteSourceReader(engine)
         wm = {"modified_at": "2024-01-01"}
-        reader.read(delta_source, watermark_start=wm)
-        info = reader.get_runtime_info()
-        assert info.watermark_before == wm
+        upper = {"modified_at": "2024-02-01"}
+        result = reader.read(
+            delta_source,
+            request=read_request(watermark_start=wm, watermark_end=upper),
+        )
+        assert result.selection.lower == wm
+        assert result.selection.upper == upper
 
-    def test_get_new_watermark_initially_empty(self, engine: MockEngine) -> None:
+    def test_initial_read_has_no_candidate(self, engine: MockEngine) -> None:
         reader = ConcreteSourceReader(engine)
-        assert reader.get_new_watermark() == {}
+        assert reader._candidate is None
 
     def test_source_merge_orders_typed_values_but_replaces_opaque_cursor(self, engine: MockEngine) -> None:
         source = Source(
@@ -251,11 +290,14 @@ class TestBaseSourceReader:
                 return self._typed_row_watermark_ordering_kinds(candidate)
 
         reader = TypedReader(engine)
-        reader.read(source)
+        reader.read(source, request=read_request())
 
         merged = reader.merge_watermark(
             {"id": 3, "cursor": "old-token", "aux": "kept"},
-            {"id": 2, "cursor": "new-token"},
+            WatermarkCandidate(
+                {"id": 2, "cursor": "new-token"},
+                WatermarkCandidateKind.OBSERVED_MAX,
+            ),
         )
 
         assert merged == {"id": 3, "cursor": "new-token", "aux": "kept"}
@@ -278,11 +320,12 @@ class TestBaseSourceReader:
             watermark_columns=["cursor"],
         )
         reader = ConcreteSourceReader(engine)
-        reader.read(source)
+        reader.read(source, request=read_request())
 
-        assert reader.merge_watermark({"cursor": stored}, {"cursor": candidate}) == {
-            "cursor": candidate
-        }
+        assert reader.merge_watermark(
+            {"cursor": stored},
+            WatermarkCandidate({"cursor": candidate}, WatermarkCandidateKind.OPAQUE),
+        ) == {"cursor": candidate}
 
     @pytest.mark.parametrize("stored,candidate", [
         (datetime(2025, 4, 1), date(2025, 1, 1)),
@@ -301,12 +344,15 @@ class TestBaseSourceReader:
                 return self._typed_row_watermark_ordering_kinds(candidate)
 
         reader = TypedReader(engine)
-        reader.read(source)
+        reader.read(source, request=read_request())
 
         with pytest.raises(WatermarkError, match="Incompatible ordered temporal"):
             reader.merge_watermark(
                 {"updated_at": stored},
-                {"updated_at": candidate},
+                WatermarkCandidate(
+                    {"updated_at": candidate},
+                    WatermarkCandidateKind.OBSERVED_MAX,
+                ),
             )
 
 

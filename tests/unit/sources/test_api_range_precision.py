@@ -10,9 +10,10 @@ import pytest
 from datacoolie.core.exceptions import SourceError
 from datacoolie.sources._api.ranges import format_bound
 from datacoolie.sources.api_reader import APIReader
-from datacoolie.sources import SourceReadRange
+from datacoolie.sources.contracts import SourceReadRange
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
+from tests.unit.sources.support import read_request
 
 pytestmark = pytest.mark.unit
 
@@ -135,10 +136,16 @@ def test_api_range_compiler_rejects_lossy_precision_before_http(wire_format):
     with patch("datacoolie.sources.api_reader.httpx.Client") as client_factory:
         client_factory.return_value.__enter__.return_value = client
         with pytest.raises(SourceError, match="precision|loss|represent"):
-            APIReader(engine).read(source, read_range=SourceReadRange(
-                "updated_at", datetime(2026, 1, 1, 12, 30),
-                datetime(2026, 1, 1, 12, 30, 0, 123456),
-            ))
+            APIReader(engine).read(
+                source,
+                request=read_request(
+                    read_range=SourceReadRange(
+                        "updated_at",
+                        datetime(2026, 1, 1, 12, 30),
+                        datetime(2026, 1, 1, 12, 30, 0, 123456),
+                    )
+                ),
+            )
         client.request.assert_not_called()
 
 
@@ -187,7 +194,9 @@ def test_api_range_compiler_reports_lossy_bound_side_before_http(side):
         with pytest.raises(SourceError) as error:
             APIReader(engine).read(
                 source,
-                read_range=SourceReadRange("updated_at", start, end),
+                request=read_request(
+                    read_range=SourceReadRange("updated_at", start, end)
+                ),
             )
 
     assert error.value.details == {
@@ -235,7 +244,9 @@ def test_api_bounded_iso_fraction_precision_rejects_before_http(side):
         with pytest.raises(SourceError, match="microsecond|loss"):
             APIReader(engine).read(
                 source,
-                read_range=SourceReadRange("updated_at", start, end),
+                request=read_request(
+                    read_range=SourceReadRange("updated_at", start, end)
+                ),
             )
 
     client_factory.assert_not_called()

@@ -13,6 +13,7 @@ from datacoolie.logging.configuration.config import (
     normalize_storage_mode,
 )
 from datacoolie.logging.configuration.constants import INTERNAL_LOGGER_NAME, LogLevel, StorageMode
+from datacoolie.logging.persistence.diagnostics import DEFAULT_DIAGNOSTIC_MAX_BYTES
 from datacoolie.logging.runtime.context import DataflowContextFilter
 from datacoolie.logging.presentation.console import ConsoleFormatter, should_colorize
 from datacoolie.logging.presentation.formatting import ContextFormatter, DEFAULT_LOG_FORMAT
@@ -73,6 +74,7 @@ class LogManager:
         format_string: Optional[str] = None,
         console_color: str = "auto",
         max_buffer_bytes: Optional[int] = None,
+        diagnostic_max_bytes: Optional[int] = None,
         force: bool = False,
     ) -> None:
         """Validate and configure logging as one serialized state change."""
@@ -94,6 +96,12 @@ class LogManager:
                 or max_buffer_bytes <= 0
             ):
                 raise ValueError("max_buffer_bytes must be a positive integer")
+            if diagnostic_max_bytes is not None and (
+                isinstance(diagnostic_max_bytes, bool)
+                or not isinstance(diagnostic_max_bytes, int)
+                or diagnostic_max_bytes <= 0
+            ):
+                raise ValueError("diagnostic_max_bytes must be a positive integer")
             self._configure_locked(
                 level=requested_level,
                 file_level=requested_file_level,
@@ -103,6 +111,7 @@ class LogManager:
                 format_string=format_string,
                 console_color=requested_console_color,
                 max_buffer_bytes=max_buffer_bytes,
+                diagnostic_max_bytes=diagnostic_max_bytes,
                 force=force,
             )
 
@@ -115,6 +124,7 @@ class LogManager:
         storage_mode: str = StorageMode.MEMORY.value,
         console_color: str = "auto",
         max_buffer_bytes: Optional[int] = None,
+        diagnostic_max_bytes: Optional[int] = None,
     ) -> None:
         """Claim the global capture session for one active SystemLogger."""
         requested_level = normalize_log_level(level, field_name="level")
@@ -130,6 +140,12 @@ class LogManager:
             or max_buffer_bytes <= 0
         ):
             raise ValueError("max_buffer_bytes must be a positive integer")
+        if diagnostic_max_bytes is not None and (
+            isinstance(diagnostic_max_bytes, bool)
+            or not isinstance(diagnostic_max_bytes, int)
+            or diagnostic_max_bytes <= 0
+        ):
+            raise ValueError("diagnostic_max_bytes must be a positive integer")
         with self._state_lock:
             if self._capture_owner is not None and self._capture_owner is not owner:
                 raise RuntimeError("A system log capture session is already active")
@@ -146,6 +162,7 @@ class LogManager:
                 console_output=True,
                 console_color=requested_console_color,
                 max_buffer_bytes=max_buffer_bytes,
+                diagnostic_max_bytes=diagnostic_max_bytes,
                 force=True,
             )
             self._capture_owner = owner
@@ -189,6 +206,7 @@ class LogManager:
         format_string: Optional[str] = None,
         console_color: str = "auto",
         max_buffer_bytes: Optional[int] = None,
+        diagnostic_max_bytes: Optional[int] = None,
         force: bool = False,
     ) -> None:
         """Configure the global logging system.
@@ -236,6 +254,7 @@ class LogManager:
                     storage_mode=storage_mode,
                     formatter=formatter,
                     max_buffer_bytes=max_buffer_bytes,
+                    diagnostic_max_bytes=diagnostic_max_bytes,
                 )
             except Exception as exc:
                 file_int = self._capture_handler.level
@@ -249,6 +268,11 @@ class LogManager:
                 level=file_int,
                 storage_mode=storage_mode,
                 max_buffer_bytes=max_buffer_bytes or 512 * 1024 * 1024,
+                diagnostic_max_bytes=(
+                    diagnostic_max_bytes
+                    if diagnostic_max_bytes is not None
+                    else DEFAULT_DIAGNOSTIC_MAX_BYTES
+                ),
             )
             self._capture_handler.setFormatter(formatter)
             root.addHandler(self._capture_handler)

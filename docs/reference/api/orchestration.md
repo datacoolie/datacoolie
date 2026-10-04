@@ -18,6 +18,19 @@ documented below but is no longer exported from `datacoolie.orchestration`.
       members:
         - create_driver
 
+::: datacoolie.orchestration.execution.runtime
+    options:
+      members:
+        - ExecutionMetrics
+        - AttemptRuntimeInfo
+        - DataFlowRuntimeInfo
+        - ReplayRuntimeInfo
+
+::: datacoolie.orchestration.runtime
+    options:
+      members:
+        - JobRuntimeInfo
+
 ## Driver transformer hook
 
 Driver subclasses that need to alter the registered transformer pipeline can override the

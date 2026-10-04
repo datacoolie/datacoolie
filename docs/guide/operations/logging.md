@@ -38,10 +38,11 @@ that no detailed reason was provided instead of guessing. The correlated system
 log explains activation skips. An inactive dataflow excluded during normal
 metadata selection creates no execution row.
 
-Flattened phase details use the same naming rule: `source_message`,
-`transform_message`, and `destination_message`. The job snapshot uses `message`
-for its compact summary and `message_truncated` when that summary exceeds the
-configured UTF-8 bound.
+The v6 dataflow record keeps phase details inside native `attempts` objects;
+there are no duplicate root-level `source_message`, `transform_message`, or
+`destination_message` projections. The job snapshot uses `message` for its
+compact summary and `message_truncated` when that summary exceeds the configured
+UTF-8 bound.
 
 When execution-log persistence is configured, the job file is a single
 replace-one snapshot. The activated ExecutionLogger requires a platform,
@@ -65,10 +66,11 @@ Every newly written system, job, and dataflow record includes
 is automatic and cannot be configured through `LogConfig`. It follows the first
 two header fields, `log_schema_version` and `_type`, in both snapshot and batch
 output. Historical v3 records may lack this field; readers should tolerate its
-absence and ignore unknown fields. Current writers use schema version 4 because
-runtime diagnostics were consolidated into `message`.
+absence and ignore unknown fields. Current writers use schema version 6 with
+explicit nested runtime projections and nullable measurements. Historical v5
+payloads remain readable evidence and are not rewritten.
 
-Every current record carries `log_schema_version=4` followed immediately by `_type`:
+Every current record carries `log_schema_version=6` followed immediately by `_type`:
 `system_log`, `job_run_log`, or `dataflow_run_log`. Job/dataflow/system rows also carry the configured
 `job_id`, `job_num`, and `job_index`, plus `log_session_id`. The raw job id is retained in the row;
 only the filename token is sanitized. The same stem is used by the job and dataflow snapshot streams.
@@ -78,7 +80,23 @@ both loggers before activation. Use it to correlate system, job and dataflow
 rows within that session, including when a caller reuses `job_id` in a later
 session. `dataflow_id` identifies the configured flow; `dataflow_run_id`
 identifies a particular execution or replay chunk. `run_attributes` supplies
-caller correlation on the JobRuntime record.
+caller correlation on the JobRuntime record. A dataflow record's
+`read_request`, `attempts`, and `metrics` fields are native objects/arrays, not
+JSON strings; nullable metric values remain unavailable rather than becoming
+zero.
+
+Diagnostic values share a 65,536-byte encoded UTF-8 allowance per dataflow or system
+record, configured by `diagnostic_max_bytes`. Root, attempt and phase messages share
+this budget with optional phase details; system messages share it with exception text.
+Oversized strings retain a valid prefix; unsupported, cyclic, deep, or
+oversized containers are omitted. The optional bounded `diagnostic_issues`
+array records only a JSON-pointer field and one of `truncated`, `omitted`, or
+`invalid`, with at most 16 markers. `max_record_bytes` defaults to 1 MiB and
+limits the complete encoded JSON Lines record, including its newline; records
+that exceed it are rejected as a whole.
+Use the markers before assuming diagnostic text is complete. For marker overflow,
+scalar handling and authoritative fields that are never truncated, see
+[diagnostic limits and loss accounting](../../reference/concepts/logging.md#diagnostic-limits-and-loss-accounting).
 
 For a batch stream, the sequence is stable across retries. Date partitions for batch parts use sealing
 time; a retry never relocates a part. Snapshot paths are fixed at session activation and may remain in
@@ -99,8 +117,19 @@ new records are dropped and counted when capacity is exhausted rather than faili
 
 `SystemLogger` keeps global capture ownership and console/file level separation. `ExecutionLogger` updates
 aggregate counters when a terminal observation is received, even if the corresponding dataflow record
-is dropped. The job summary exposes `log_records_dropped`, `log_bytes_dropped`, and
-`message_truncated` so consumers can distinguish persistence loss from business metrics.
+is dropped. With dataflow-detail persistence enabled, job `log_records_dropped` counts
+terminal dataflow/maintenance records rejected during projection, encoding or writer admission,
+once per observation. It excludes omitted diagnostics in an admitted record, disabled detail
+persistence, repeated job-snapshot rejection and uploads awaiting retry. System capture/writer
+drop statistics are separate. `log_bytes_dropped` counts only full encoded sizes that are known;
+a rejection before encoding finishes can increase the record counter without increasing bytes.
+Neither counter is a complete measure of remote publication failures.
+
+The job's existing `message_truncated` flag applies to its compact message summary. A rejected
+latest job snapshot leaves that summary dirty and does not prevent retry of a prior immutable
+payload within the existing deadlines. An older snapshot's successful upload does not mean the
+latest counters were published. Protected capacity cannot admit an individually oversized job
+record; check logger health when the persisted summary is missing or stale.
 
 ## Driver setup
 

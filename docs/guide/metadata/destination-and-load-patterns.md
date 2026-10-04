@@ -235,16 +235,20 @@ Dataflow fragment for a complete source and destination combination:
   it is not required for a usable range replacement window.
 
 At runtime the pipeline builds an immutable, attempt-local window from the
-source watermark observations (or explicit replay bounds).  The
-`MergeOverwriteStrategy` passes that window to the engine's
-`replace_window(...)` operation.  The engine validates the final output
+typed `SourceReadResult` selection and watermark candidate, including explicit
+replay bounds. Runtime watermark observations are diagnostic and do not
+control replacement. The `MergeOverwriteStrategy` passes that window to the
+engine's `replace_window(...)` operation. The engine validates the final output
 columns before deleting the bounded target rows, then appends the fresh batch;
-the authored dataflow metadata is never mutated.  A normal empty incremental
-read skips the replacement, while a confirmed empty replay can replace its
-explicit scope without creating an unrelated destination.
+the authored dataflow metadata is never mutated. A source result with
+`frame is None` or `rows_read == 0` skips transformation, replacement, writing,
+and watermark save, even for a bounded replay, so it cannot delete the scope.
+If a non-empty source result becomes empty during transformation, no
+post-transform count stops the writer; replacement may delete the selected
+scope after receiving that empty frame.
 
 See the worked case, including first-run behavior and the distinction between
-normal empty reads and explicit empty replay, in
+source-empty reads and transformed-empty batches, in
 [Replace a complete watermark window](watermark-window-replacement.md).
 For the source-side look-back forms and connection/source precedence, see
 [Incremental windows and look-back](source-patterns.md#incremental-windows-and-look-back).

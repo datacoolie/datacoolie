@@ -1,4 +1,4 @@
-"""Validate the v4 execution/system log contract for one simulator job."""
+"""Validate the v6 execution/system log contract for one simulator job."""
 
 from __future__ import annotations
 
@@ -50,19 +50,61 @@ def validate(
     dataflow_path, dataflow = dataflows[0]
     job_path, job = jobs[0]
     for label, record in (("dataflow", dataflow), ("job", job)):
-        if record.get("log_schema_version") != 4:
-            raise AssertionError(f"{label} record is not schema v4: {record}")
+        if record.get("log_schema_version") != 6:
+            raise AssertionError(f"{label} record is not schema v6: {record}")
     if dataflow.get("dataflow_name") != dataflow_name:
         raise AssertionError(f"Unexpected dataflow name: {dataflow.get('dataflow_name')}")
     if dataflow.get("source_query") != source_query:
         raise AssertionError(
             f"Original source_query was not preserved: {dataflow.get('source_query')!r}"
         )
-    action = dataflow.get("source_action")
-    if not isinstance(action, str):
-        raise AssertionError("source_action must be a serialized JSON object")
-    action_value = json.loads(action)
-    executed_query = action_value.get("query") if isinstance(action_value, dict) else None
+    attempts = dataflow.get("attempts")
+    if not isinstance(attempts, list) or not attempts:
+        raise AssertionError(f"v6 dataflow attempts must be a non-empty native array: {attempts}")
+    if not isinstance(dataflow.get("metrics"), dict):
+        raise AssertionError(f"v6 dataflow metrics must be a native object: {dataflow}")
+    removed_root_fields = {
+        "source_start_time",
+        "source_end_time",
+        "source_duration_seconds",
+        "source_status",
+        "source_message",
+        "source_rows_read",
+        "source_action",
+        "source_watermark_effective",
+        "transform_start_time",
+        "transform_end_time",
+        "transform_duration_seconds",
+        "transform_status",
+        "transform_message",
+        "destination_start_time",
+        "destination_end_time",
+        "destination_duration_seconds",
+        "destination_status",
+        "destination_message",
+        "destination_rows_written",
+        "watermark_checkpoint_status",
+        "watermark_checkpoint_saved",
+    }
+    unexpected_root_fields = removed_root_fields.intersection(dataflow)
+    if unexpected_root_fields:
+        raise AssertionError(f"v6 dataflow retained removed root fields: {unexpected_root_fields}")
+
+    final_attempt = attempts[-1]
+    if not isinstance(final_attempt, dict):
+        raise AssertionError(f"v6 attempt must be a native object: {final_attempt}")
+    source = final_attempt.get("source")
+    if not isinstance(source, dict):
+        raise AssertionError(f"v6 source phase is missing from the final attempt: {final_attempt}")
+    selection = source.get("selection")
+    if not isinstance(selection, dict):
+        raise AssertionError(f"v6 source selection is missing or not native: {source}")
+    if "upper_origin" not in selection:
+        raise AssertionError(f"v6 source selection omitted upper_origin: {selection}")
+    action = source.get("source_action")
+    if not isinstance(action, dict):
+        raise AssertionError("v6 source_action must be a native object")
+    executed_query = action.get("query")
     if not isinstance(executed_query, str) or not executed_query.strip().lower().startswith("select"):
         raise AssertionError(f"Executed SQL was not recorded in source_action: {action}")
     if dataflow.get("status") != "succeeded" or job.get("status") != "succeeded":
@@ -88,8 +130,8 @@ def validate(
     system = list(records(log_root, job_id, "system_logs", log_session_id))
     if not system:
         raise AssertionError("No system log records were persisted for the job")
-    if not all(record.get("log_schema_version") == 4 for _, record in system):
-        raise AssertionError("System log records are not schema v4")
+    if not all(record.get("log_schema_version") == 6 for _, record in system):
+        raise AssertionError("System log records are not schema v6")
 
 
 def main() -> int:

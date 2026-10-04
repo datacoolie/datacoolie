@@ -149,10 +149,10 @@ sequenceDiagram
     loop per dataflow
       Drv->>WM: get_watermark(dataflow_id)
       WM-->>Drv: {last_value: "2026-04-19T…"}
-      Drv->>SR: read(source, watermark, operator=">")
+      Drv->>SR: read(source, request=SourceReadRequest(...))
       Note over SR: watermark filter → source.filter_expression
-      SR-->>Drv: DataFrame (native)
-      Drv->>TP: transform(df, dataflow)
+      SR-->>Drv: SourceReadResult(frame, selection, candidate)
+      Drv->>TP: transform(result.frame, dataflow)
       Note over TP: value rules → schema → hashes → dedup → computed columns → row filter → SCD2 → system → partitions → masking → projection → sanitize
       TP-->>Drv: DataFrame (reshaped)
       Drv->>DW: write(df, dataflow)

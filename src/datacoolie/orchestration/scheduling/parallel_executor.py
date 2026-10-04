@@ -18,7 +18,8 @@ from typing import Callable, Dict, List, Optional
 
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import ReplayRuntimeInfo
 from datacoolie.logging.configuration.constants import LogEvent
 from datacoolie.logging.runtime.diagnostics import emit_safely
 from datacoolie.logging.runtime.manager import get_logger
@@ -94,7 +95,7 @@ class ParallelExecutor:
         cpu_count = os.cpu_count() or 4
         return min(item_count, cpu_count)
 
-    def _update_counters(self, agg: ExecutionResult, item: DataFlowRuntimeInfo) -> None:
+    def _update_counters(self, agg: ExecutionResult, item: DataFlowRuntimeInfo | ReplayRuntimeInfo) -> None:
         status = item.status
         if status == DataFlowStatus.SUCCEEDED.value:
             agg.succeeded += 1
@@ -107,8 +108,8 @@ class ParallelExecutor:
 
     @staticmethod
     def _notify(
-        callback: Optional[Callable[[DataFlowRuntimeInfo], None]],
-        result: DataFlowRuntimeInfo,
+        callback: Optional[Callable[[DataFlowRuntimeInfo | ReplayRuntimeInfo], None]],
+        result: DataFlowRuntimeInfo | ReplayRuntimeInfo,
     ) -> None:
         """Invoke an observational callback without changing business status."""
         if callback is None:
@@ -134,8 +135,8 @@ class ParallelExecutor:
     def _execute_single(
         self,
         dataflow: DataFlow,
-        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo],
-        callback: Optional[Callable[[DataFlowRuntimeInfo], None]],
+        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo | ReplayRuntimeInfo],
+        callback: Optional[Callable[[DataFlowRuntimeInfo | ReplayRuntimeInfo], None]],
         *,
         operation_type: Optional[str],
     ) -> ExecutionResult:
@@ -162,7 +163,7 @@ class ParallelExecutor:
                     operation_type=operation_type,
                 )
         except Exception as exc:
-            future: Future[DataFlowRuntimeInfo] = Future()
+            future: Future[DataFlowRuntimeInfo | ReplayRuntimeInfo] = Future()
             future.set_exception(exc)
             result = self._future_result(task, future, operation_type)
         self._update_counters(aggregate, result)
@@ -182,8 +183,8 @@ class ParallelExecutor:
     def execute(
         self,
         dataflows: List[DataFlow],
-        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo],
-        callback: Optional[Callable[[DataFlowRuntimeInfo], None]] = None,
+        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo | ReplayRuntimeInfo],
+        callback: Optional[Callable[[DataFlowRuntimeInfo | ReplayRuntimeInfo], None]] = None,
         *,
         operation_type: Optional[str] = None,
     ) -> ExecutionResult:
@@ -204,8 +205,8 @@ class ParallelExecutor:
     def execute_sequential(
         self,
         dataflows: List[DataFlow],
-        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo],
-        callback: Optional[Callable[[DataFlowRuntimeInfo], None]] = None,
+        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo | ReplayRuntimeInfo],
+        callback: Optional[Callable[[DataFlowRuntimeInfo | ReplayRuntimeInfo], None]] = None,
         *,
         operation_type: Optional[str] = None,
     ) -> ExecutionResult:
@@ -245,8 +246,8 @@ class ParallelExecutor:
     def execute_with_groups(
         self,
         groups: Dict[Optional[int], List[DataFlow]],
-        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo],
-        callback: Optional[Callable[[DataFlowRuntimeInfo], None]] = None,
+        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo | ReplayRuntimeInfo],
+        callback: Optional[Callable[[DataFlowRuntimeInfo | ReplayRuntimeInfo], None]] = None,
         *,
         operation_type: Optional[str] = None,
     ) -> ExecutionResult:
@@ -280,8 +281,8 @@ class ParallelExecutor:
     def _execute_scheduled(
         self,
         groups: Dict[Optional[int], List[DataFlow]],
-        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo],
-        callback: Optional[Callable[[DataFlowRuntimeInfo], None]],
+        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo | ReplayRuntimeInfo],
+        callback: Optional[Callable[[DataFlowRuntimeInfo | ReplayRuntimeInfo], None]],
         operation_type: Optional[str] = None,
     ) -> ExecutionResult:
         """Run a ready-set scheduler with one global worker pool."""
@@ -310,7 +311,7 @@ class ParallelExecutor:
                 )
 
         max_workers = self._get_max_workers(total)
-        running: Dict[Future[DataFlowRuntimeInfo], _Task] = {}
+        running: Dict[Future[DataFlowRuntimeInfo | ReplayRuntimeInfo], _Task] = {}
         stop_admission = False
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             while ready or running:
@@ -380,9 +381,9 @@ class ParallelExecutor:
     @staticmethod
     def _future_result(
         task: _Task,
-        future: Future[DataFlowRuntimeInfo],
+        future: Future[DataFlowRuntimeInfo | ReplayRuntimeInfo],
         operation_type: Optional[str],
-    ) -> DataFlowRuntimeInfo:
+    ) -> DataFlowRuntimeInfo | ReplayRuntimeInfo:
         try:
             return future.result()
         except Exception as exc:
@@ -408,17 +409,17 @@ class ParallelExecutor:
     def _safe_execute(
         self,
         dataflow: DataFlow,
-        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo],
+        process_fn: Callable[[DataFlow], DataFlowRuntimeInfo | ReplayRuntimeInfo],
         *,
         operation_type: Optional[str] = None,
-    ) -> DataFlowRuntimeInfo:
+    ) -> DataFlowRuntimeInfo | ReplayRuntimeInfo:
         """Convert process exceptions into exactly one failed runtime."""
         started_at = utc_now()
         try:
             result = process_fn(dataflow)
-            if not isinstance(result, DataFlowRuntimeInfo):
+            if not isinstance(result, (DataFlowRuntimeInfo, ReplayRuntimeInfo)):
                 raise TypeError(
-                    "process_fn must return DataFlowRuntimeInfo, "
+                    "process_fn must return DataFlowRuntimeInfo or ReplayRuntimeInfo, "
                     f"got {type(result).__name__}"
                 )
             return result

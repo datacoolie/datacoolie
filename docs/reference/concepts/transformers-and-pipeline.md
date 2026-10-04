@@ -50,6 +50,17 @@ DEFAULT_TRANSFORMERS = [
 `order` attribute, so `ColumnAdder` (30) still runs before `RowFilter` (35)
 and `SCD2ColumnAdder` (60).)
 
+## Empty-result boundary
+
+The orchestration layer uses the typed source result's `frame` and
+`rows_read` as the source-stage gate. When the frame is `None` or
+`rows_read == 0`, it skips transformation, writing, and watermark saving,
+including for a bounded replay. There is no second row-count or empty-result
+gate after transformation: a transform that removes every row is passed to
+the writer, and a replacement writer may delete the selected scope. Put
+predicates on source-result columns in `source.filter_expression` when an
+earlier read-stage filter is appropriate; reader pushdown is not automatic.
+
 `HashColumnAdder` hashes only the explicitly declared ordered input columns. A
 hash target does not automatically become a merge or deduplication key, and
 hash inputs do not silently fall back to `transform.deduplicate_columns` or
@@ -73,7 +84,8 @@ is a validator at 50. See
 - no call → default: record `ClassName`
 
 The tracking label ends up in `TransformRuntimeInfo.transformers_applied` and
-is surfaced by `ExecutionLogger` as a column on every `dataflow_run_log` row.
+is serialized inside the attempt's `transform` object in the v6 dataflow
+record. It is not a second root-level phase projection.
 When `missing_column_policy="ignore"`, typed value and masking transformers
 count only rules that reference at least one existing column. If every rule is
 skipped, the transformer is not added to `transformers_applied`. Schema hints

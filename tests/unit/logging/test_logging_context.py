@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 
+import pytest
+
 from datacoolie.logging.runtime.context import (
+    DataflowContextFilter,
+    attempt_context,
     clear_dataflow_context,
     clear_dataflow_id,
     clear_dataflow_run_id,
     dataflow_context,
+    get_attempt_number,
     get_dataflow_id,
     get_dataflow_run_id,
     set_dataflow_context,
@@ -76,6 +82,56 @@ class TestSetGetClear:
             assert get_dataflow_id() == ""
         finally:
             clear_dataflow_run_id(token)
+
+    def test_attempt_context_restores_nested_values_and_errors(self):
+        assert get_attempt_number() is None
+
+        with attempt_context(1):
+            assert get_attempt_number() == 1
+            with attempt_context(2):
+                assert get_attempt_number() == 2
+            assert get_attempt_number() == 1
+
+            with pytest.raises(RuntimeError, match="expected"):
+                with attempt_context(3):
+                    assert get_attempt_number() == 3
+                    raise RuntimeError("expected")
+            assert get_attempt_number() == 1
+
+        assert get_attempt_number() is None
+
+    @pytest.mark.parametrize("number", [0, -1, True, "1"])
+    def test_attempt_context_rejects_invalid_numbers(self, number):
+        with pytest.raises(ValueError, match="positive integer"):
+            with attempt_context(number):
+                pass
+
+    def test_context_filter_attaches_active_attempt_number(self):
+        context_filter = DataflowContextFilter()
+        with attempt_context(4):
+            record = logging.LogRecord(
+                "datacoolie.test",
+                logging.INFO,
+                __file__,
+                1,
+                "message",
+                (),
+                None,
+            )
+            assert context_filter.filter(record)
+            assert record.attempt_number == 4
+
+        record = logging.LogRecord(
+            "datacoolie.test",
+            logging.INFO,
+            __file__,
+            1,
+            "message",
+            (),
+            None,
+        )
+        assert context_filter.filter(record)
+        assert record.attempt_number is None
 
 
 class TestThreadIsolation:

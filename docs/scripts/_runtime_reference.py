@@ -43,6 +43,8 @@ LOG_NOTES = {
     "spool_directory": "Optional non-empty local spool path; normalized when supplied.",
     "close_timeout_seconds": "Positive finite close timeout; booleans are rejected.",
     "console_color": "auto, always, or never; names normalize to lowercase. Auto respects NO_COLOR and TERM=dumb before terminal detection.",
+    "diagnostic_max_bytes": "Positive integer shared encoded UTF-8 diagnostic-value budget per persisted dataflow/system record; defaults to 65536 bytes. Root/attempt/phase messages and optional details share the budget.",
+    "max_record_bytes": "Positive integer upper bound for one encoded JSON Lines record, including its newline; defaults to 1048576 bytes.",
 }
 
 

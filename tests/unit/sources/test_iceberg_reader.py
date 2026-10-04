@@ -9,7 +9,7 @@ from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
 from datacoolie.sources.iceberg_reader import IcebergReader
 
-from tests.unit.sources.support import MockEngine, engine
+from tests.unit.sources.support import MockEngine, engine, read_request
 
 
 class TestIcebergReader:
@@ -28,9 +28,9 @@ class TestIcebergReader:
             watermark_columns=["modified_at"],
         )
         reader = IcebergReader(engine)
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
-        info = reader.get_runtime_info()
+        info = result.runtime
         assert info.rows_read == 3
 
     def test_read_with_query(self, engine: MockEngine) -> None:
@@ -42,7 +42,7 @@ class TestIcebergReader:
             watermark_columns=["modified_at"],
         )
         reader = IcebergReader(engine)
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_read_with_path_fallback(self, engine: MockEngine) -> None:
@@ -60,7 +60,7 @@ class TestIcebergReader:
             watermark_columns=["modified_at"],
         )
         reader = IcebergReader(engine)
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_read_zero_rows_returns_none(self, engine: MockEngine) -> None:
@@ -73,15 +73,15 @@ class TestIcebergReader:
         )
         src = Source(connection=conn, schema_name="sch", table="tbl")
         reader = IcebergReader(engine)
-        result = reader.read(src)
-        assert result is None
+        result = reader.read(src, request=read_request())
+        assert result.frame is None
 
     def test_read_no_path_no_query_no_catalog_raises(self, engine: MockEngine) -> None:
         conn = Connection(name="ice", connection_type="lakehouse", format="iceberg", configure={})
         src = Source(connection=conn)
         reader = IcebergReader(engine)
         with pytest.raises(SourceError, match="requires table_name or path"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_read_applies_watermark_filter_when_present(self, engine: MockEngine) -> None:
         engine.set_max_values({"modified_at": "2024-06-15"})
@@ -89,5 +89,8 @@ class TestIcebergReader:
         src = Source(connection=conn, table="t1", watermark_columns=["modified_at"])
         reader = IcebergReader(engine)
 
-        reader.read(src, watermark_start={"modified_at": "2024-06-01"})
+        reader.read(
+            src,
+            request=read_request(watermark_start={"modified_at": "2024-06-01"}),
+        )
         assert engine._filtered is True

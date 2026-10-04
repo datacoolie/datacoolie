@@ -8,10 +8,19 @@ Provides the top-level :class:`DataCoolieDriver` and its supporting components:
 * :func:`generate_chunk_boundaries` — replay chunk boundary generation (from :mod:`datacoolie.utils.chunking`).
 """
 
-from datacoolie.orchestration.driver import DataCoolieDriver
-from datacoolie.orchestration.factory import create_driver
-from datacoolie.orchestration.scheduling.job_distributor import JobDistributor
-from datacoolie.orchestration.scheduling.parallel_executor import ExecutionResult, ParallelExecutor
+from importlib import import_module
+
+
+def __getattr__(name):
+    modules = {
+        "DataCoolieDriver": "driver", "create_driver": "factory",
+        "JobDistributor": "scheduling.job_distributor",
+        "ExecutionResult": "scheduling.parallel_executor",
+        "ParallelExecutor": "scheduling.parallel_executor",
+    }
+    if name not in modules:
+        raise AttributeError(name)
+    return getattr(import_module(f"{__name__}.{modules[name]}"), name)
 
 __all__ = [
     "DataCoolieDriver",

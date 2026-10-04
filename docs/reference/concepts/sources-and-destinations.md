@@ -36,8 +36,22 @@ for the generated table):
 `BaseSourceReader[DF]` declares:
 
 - `__init__(engine)` — the reader is constructed with an engine
-- `read(source, watermark_start=None, *, watermark_start_operator=None, watermark_end=None, watermark_end_operator=None, read_range=None, preserve_empty=False) -> DF | None` — public entry point (Template Method)
-- Subclasses implement `_read_internal(source, watermark_start, *, watermark_end=None)` and optionally `_read_data(source, configure)`
+- `read(source, *, request: SourceReadRequest) -> SourceReadResult[DF]` — sole public Template Method
+- Subclasses implement `_read_internal(source, request)` and optionally `_read_data(source, configure)`
+
+`SourceReadRequest`, `SourceReadSelection`, and `SourceReadResult` are source
+contracts. A request contains the caller's original `watermark_start`,
+`watermark_end`, optional bound operators, optional `SourceReadRange`, and
+required `reference_time`. The selection records the source-resolved mode
+(`full`, `incremental`, or `range`), lower and upper values, their operators,
+the `combine_operator`, and `upper_origin` (`none`, `explicit`, or `generated`).
+
+The result keeps the returned frame and source-owned evidence together:
+`.frame`, `.rows_read`, `.selection`, an optional typed `.candidate`, and an
+optional detached `.runtime` projection. This result is the execution
+contract; runtime observations do not control the replacement window or
+source-empty gate. Direct callers consume `result.frame`; there is no separate
+frame-returning compatibility method or source runtime accessor.
 
 Read options follow the reader's format. File, lakehouse, and database readers
 consume `source.read_options`, which merges `source.connection.read_options`
@@ -50,49 +64,58 @@ user function; function-specific options remain in `source.configure`.
 
 `watermark_start` is the lower bound (previously named `watermark`).
 `watermark_start_operator` controls the comparison (`">"` for normal ETL,
-`">="` for replay's inclusive lower bound).  `watermark_end` provides an
-optional upper ceiling for replay chunks; `watermark_end_operator` defaults
-to `"<"` (exclusive).
+`">="` for replay's inclusive lower bound). `watermark_end` provides an
+optional upper ceiling for replay chunks; `watermark_end_operator` defaults to
+`"<"` (exclusive). The caller supplies one stable `reference_time` for the
+read; retries receive fresh requests with the same read intent.
 
 `read_range` is the source-owned `SourceReadRange` contract. It is mutually
 exclusive with explicit watermark bounds and is accepted only by a reader that
 opts in through `_supports_read_range()`. The reader must enforce the exact
-range on its returned frame before it counts rows or produces a watermark
+range on its returned frame before it counts rows or produces a typed
 candidate; returning `True` without that filter is not bounded-read support.
-`preserve_empty=True` is reserved for a confirmed bounded replacement where a
-typed zero-row frame represents a real window.
+A `None` frame or `SourceReadResult.rows_read == 0` skips transform, write, and
+watermark save, including for a bounded replay. Any candidate remains read
+evidence and the save status remains `not_attempted`.
 
-When watermark persistence is enabled after a successful read, the driver
-obtains the reader's candidate and calls its
-`merge_watermark(existing, candidate)` boundary before writing. It saves the
-merged value only after the destination write succeeds. Empty or all-null
-candidates do not advance state, and a source-qualified ordered candidate must
-not move an existing value backward. See [Writing a source](../../extensions/writing-a-source.md)
-for the custom-reader hooks.
+When watermark persistence is enabled after a successful, non-empty read, the
+driver uses `result.candidate` and calls
+`merge_watermark(existing, candidate: WatermarkCandidate | None) -> dict`
+before writing. It saves the merged value only after the destination write
+succeeds. Empty or all-null candidates do not advance state, and a
+source-qualified ordered candidate must not move an existing value backward.
+See [Writing a source](../../extensions/writing-a-source.md) for the
+custom-reader hooks.
 
-The source reader is responsible for watermark filtering. Database readers
-push a `WHERE` clause into SQL and API readers can map bounds into request
-parameters. File, Delta, Iceberg, and function readers apply the active
-engine's DataFrame filter after reading (file readers can additionally prune
-date folders or files by modification time).
+The source reader is responsible for watermark filtering. Built-in database
+readers render their watermark and source predicates in SQL, and API readers
+can map bounds into request parameters. File, Delta, Iceberg, and function
+readers apply the active engine's DataFrame filter after reading (file readers
+can additionally prune date folders or files by modification time). These are
+reader behaviors, not a portable guarantee for injected or custom readers.
 
-### `filter_expression` (post-read filter)
+### `filter_expression` (read-stage filter)
 
 All built-in readers combine or apply `source.filter_expression` after the
-logical watermark condition. Database readers push the expression into their
-generated SQL `WHERE` clause; file, Delta, Iceberg, API, and function readers
-apply it through the engine after reading. For in-process readers, the engine
-evaluates it as a SQL predicate against the returned DataFrame:
+logical watermark condition. The built-in database reader renders the
+expression in its generated SQL `WHERE` clause; file, Delta, Iceberg, API, and
+function readers apply it through the engine after reading. For in-process
+readers, the engine evaluates it as a SQL predicate against the returned
+DataFrame:
 
 ```
-watermark filter  →  source.filter_expression  →  count / new watermark
+watermark filter  →  source.filter_expression  →  count / candidate
 ```
 
 This excludes rows before the transformer pipeline runs. Reference columns
 available in the reader result: for database `source.query`, the reader wraps
 the SQL as a derived table, so the predicate uses its returned columns or
 aliases. Database readers combine it with the watermark condition in the
-generated `WHERE` clause.
+generated `WHERE` clause. Put predicates that use only source-result columns
+on `source.filter_expression` when an earlier read-stage filter is useful, but
+do not rely on automatic relocation or pushdown: the reader decides whether
+the predicate is pushed to the backend or evaluated after the read. DataCoolie
+does not rewrite `transform.filter_expression` into a source filter.
 
 ### Secret resolution
 

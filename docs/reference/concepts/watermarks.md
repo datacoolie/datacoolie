@@ -142,19 +142,49 @@ connection:
 Useful when upstream systems occasionally correct historical rows and you want
 to replay a window rather than just "> last watermark".
 
+### Runtime selection and watermark evidence
+
+The reader's `SourceReadResult.selection` is the source of control for one
+read. It records the effective mode (`full`, `incremental`, or `range`), lower
+and upper values, and the operators. `SourceReadResult.candidate` is the typed
+source observation produced by that read. `SourceRuntimeInfo` carries timing,
+status, message, nullable row-count, source-action, and selection diagnostics;
+it does not replace the typed result or control the replacement window. Range
+snapshots are not per-page API request traces, and API-generated split
+boundaries are not inferred into them.
+
+The canonical attempt watermark record is `WatermarkRuntimeInfo`. It keeps
+provider load state (`load_status` and `loaded_watermark`), the merge base
+(`merge_base`), the typed source candidate (`candidate`), the prepared
+payload (`watermark_to_save`), and the provider acknowledgement
+(`save_status` and `saved_watermark`) separate. `load_status` distinguishes
+`loaded` from `reused` (and can report `load_error`); save status is one of
+`not_requested`, `not_attempted`, `no_candidate`, `saved`, or `save_error`.
+Only `saved` includes `saved_watermark`, copied from the exact merged payload
+after the provider save returns successfully. `save_error` is ambiguous: the
+provider may have committed the value before raising. Existing source
+watermark fields retain their observation meanings and are not rewritten as
+save receipts.
+
 ## Write-side update
 
 When watermark persistence is enabled, before a destination write the pipeline
 validates the exact watermark payload that could be persisted. This catches
-unsupported or non-finite values before a destructive write. A reader produces
-a candidate from its source observation; the driver asks that reader to merge
-it with stored state, validates the merged value, writes the destination, and
-only then calls `WatermarkManager.save_watermark(...)`. An empty or all-null
-candidate is not a save request; a real zero remains valid. If the destination
-write fails, state is unchanged. If the later state save fails or the process
-stops after the write, the destination may already contain the committed rows
-while the old watermark remains. Rerun the complete requested range and use an
-idempotent destination strategy when that gap could deliver duplicates.
+unsupported or non-finite values before a destructive write. A non-empty reader
+result supplies a candidate; the driver asks that reader to merge it with
+stored state, validates the merged value, writes the destination, and only
+then calls `WatermarkManager.save_watermark(...)`. The manager is the storage
+and serialization boundary; source readers own the merge semantics. The
+driver invokes `source.merge_watermark(existing, result.candidate)`, where
+the candidate parameter is `WatermarkCandidate | None`. A source result with
+`frame is None` or `rows_read == 0` skips transform, write, and save, including
+for a bounded replay; its candidate remains attempt evidence and its save
+status stays `not_attempted`. An empty or all-null candidate is otherwise not a
+save request; a real zero remains valid. If the destination write fails, state
+is unchanged. If the later state save fails or the process stops after the
+write, the destination may already contain the committed rows while the old
+watermark remains. Rerun the complete requested range and use an idempotent
+destination strategy when that gap could deliver duplicates.
 
 File sources with `connection.configure.date_folder_partitions` are a special
 source-owned discovery case: they persist the internal folder frontier even
@@ -171,14 +201,14 @@ During `run_replay()`, watermark persistence is controlled by
 | `save_watermark` | Behaviour |
 |------------------|-----------|
 | `False` (default) | Production watermark is **never touched** — safe for backfill into new tables |
-| `True` | Reader-produced candidate (observed maximum or source-confirmed request end) is merged and saved after each successful chunk |
+| `True` | Reader-produced candidate (observed maximum or source-confirmed request end) is merged and saved after each successful, non-empty chunk |
 
 `save_watermark=True` requires a configured `watermark_manager`; replay fails
 during preparation before a reader or destination is created when persistence
 is requested without one. The default `False` mode does not require a
 watermark store.
 
-Replay never uses the stored watermark as a checkpoint. A later invocation
+Replay never uses the stored watermark as replay progress. A later invocation
 re-runs every requested chunk, even when `save_watermark=True`. Ordered
 watermark values merge monotonically per key; opaque cursor values replace
 their own key, while keys absent from a candidate remain stored.
@@ -186,12 +216,14 @@ their own key, while keys absent from a candidate remain stored.
 ### `watermark_window` (range-based replacement)
 
 After reading, the execution pipeline creates an immutable, attempt-local
-window. Explicit replay bounds take precedence and preserve the requested
-`[start, end)` operators. An ordinary incremental run uses the source's
-effective lower watermark and its observed upper value. The window is passed
-directly to the destination strategy and engine; it is not stored on authored
-`DataFlow`, `RunConfig`, logger context, or the watermark provider. A retry
-therefore cannot reuse a previous attempt's window.
+window from `SourceReadResult.selection` and
+`SourceReadResult.candidate`. Explicit replay bounds therefore remain
+the requested `[start, end)` operators, while an ordinary incremental run uses
+the reader's effective lower selection and source candidate. Mutable runtime
+fields do not control this window. The window is passed directly to the
+destination strategy and engine; it is not stored on authored `DataFlow`,
+`RunConfig`, logger context, or the watermark provider. Each retry receives a
+fresh result and window.
 
 `MergeOverwriteStrategy` calls the engine-owned `replace_window` operation.
 The engine validates the final transformed columns and owns the format-native
@@ -201,10 +233,9 @@ append and is not atomic.
 The window is only computed when:
 
 - `destination.replace_by_watermark` is `True`
-- Both bounds for the selected contract are available. Ordinary runs need
-  `source_runtime.watermark_effective` and `source_runtime.watermark_after`;
-  replay uses its explicit source range. `watermark_effective` includes any
-  configured source look-back.
+- Both bounds for the selected contract are available. Ordinary runs use the
+  result's lower selection and source candidate; replay uses its explicit
+  source range. The lower selection includes any configured source look-back.
 - The upper operator follows the state meaning: an observed row maximum is an
   inclusive replacement boundary, while an exclusive request-end observation
   remains exclusive. A date-folder discovery key is internal and does not
@@ -213,10 +244,12 @@ The window is only computed when:
   final destination schema. Dropped, ambiguous, or unknown mappings fail
   before a delete; ordinary incremental loads may still drop source watermark
   columns.
-- A confirmed empty replay window deletes the existing scope without appending
-  an empty batch. It never creates an absent destination. An ordinary empty
-  incremental read, or a function returning `None`, is skipped and cannot
-  infer a delete scope.
+- A source result with no rows is skipped before replacement, even when the
+  replay range is bounded, so it cannot infer a delete scope. If a non-empty
+  source result becomes empty during transformation, no post-transform count
+  changes the result; the writer receives the empty frame and a replacement
+  writer may delete the selected scope. It never creates an absent destination
+  solely from an empty transformed batch.
 
 See [Replace a complete watermark window](../../guide/metadata/watermark-window-replacement.md).
 

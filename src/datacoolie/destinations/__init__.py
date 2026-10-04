@@ -1,33 +1,62 @@
-"""Destination writer components.
+"""Destination components with lazy public exports.
 
-Provides :class:`BaseDestinationWriter`, :class:`BaseLoadStrategy`, and
-concrete writers: :class:`DeltaWriter`, :class:`IcebergWriter`.
-
-Load strategies are available via :func:`get_load_strategy` and the
-:data:`LOAD_STRATEGIES` registry.
+Importing the destination runtime model must not initialize writers, load
+strategies, logging, or optional engine integrations.  The public component
+exports remain available through lazy attribute resolution for callers that
+explicitly request them.
 """
 
-from datacoolie.destinations.base import BaseDestinationWriter, BaseLoadStrategy
-from datacoolie.destinations.delta_writer import DeltaWriter
-from datacoolie.destinations.file_writer import FileWriter
-from datacoolie.destinations.iceberg_writer import IcebergWriter
-from datacoolie.destinations.strategies.load import (
-    LOAD_STRATEGIES,
-    AppendStrategy,
-    MergeOverwriteStrategy,
-    MergeUpsertStrategy,
-    OverwriteStrategy,
-    SCD2Strategy,
-    get_load_strategy,
-)
-from datacoolie.destinations.resolution.target import (
-    ResolvedDestination,
-    resolve_destination_target,
-)
+from importlib import import_module
+from typing import Any
+
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
+
+
+_LAZY_EXPORTS = {
+    "BaseDestinationWriter": ("datacoolie.destinations.base", "BaseDestinationWriter"),
+    "BaseLoadStrategy": ("datacoolie.destinations.base", "BaseLoadStrategy"),
+    "DeltaWriter": ("datacoolie.destinations.delta_writer", "DeltaWriter"),
+    "FileWriter": ("datacoolie.destinations.file_writer", "FileWriter"),
+    "IcebergWriter": ("datacoolie.destinations.iceberg_writer", "IcebergWriter"),
+    "LOAD_STRATEGIES": ("datacoolie.destinations.strategies.load", "LOAD_STRATEGIES"),
+    "AppendStrategy": ("datacoolie.destinations.strategies.load", "AppendStrategy"),
+    "MergeOverwriteStrategy": (
+        "datacoolie.destinations.strategies.load",
+        "MergeOverwriteStrategy",
+    ),
+    "MergeUpsertStrategy": (
+        "datacoolie.destinations.strategies.load",
+        "MergeUpsertStrategy",
+    ),
+    "OverwriteStrategy": ("datacoolie.destinations.strategies.load", "OverwriteStrategy"),
+    "SCD2Strategy": ("datacoolie.destinations.strategies.load", "SCD2Strategy"),
+    "get_load_strategy": ("datacoolie.destinations.strategies.load", "get_load_strategy"),
+    "ResolvedDestination": (
+        "datacoolie.destinations.resolution.target",
+        "ResolvedDestination",
+    ),
+    "resolve_destination_target": (
+        "datacoolie.destinations.resolution.target",
+        "resolve_destination_target",
+    ),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Load a destination component only when it is explicitly requested."""
+
+    try:
+        module_name, attribute_name = _LAZY_EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "BaseDestinationWriter",
     "BaseLoadStrategy",
+    "DestinationRuntimeInfo",
     "DeltaWriter",
     "FileWriter",
     "IcebergWriter",

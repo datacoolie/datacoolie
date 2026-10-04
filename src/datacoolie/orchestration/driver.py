@@ -41,7 +41,10 @@ from datacoolie.core.constants import (
 from datacoolie.core.exceptions import ConfigurationError, DataCoolieError
 from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, PipelineAttemptResult
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import ReplayRuntimeInfo
+from datacoolie.orchestration.execution.read_baseline import ReadBaseline
+from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
 from datacoolie.engines.base import BaseEngine
 from datacoolie.metadata.base import BaseMetadataProvider
 from datacoolie.metadata.contracts.context import MetadataProviderStartupContext
@@ -1367,7 +1370,9 @@ class DataCoolieDriver:
         watermark_start_operator: Optional[str] = None,
         watermark_end_operator: Optional[str] = None,
         read_range: Optional[SourceReadRange] = None,
-    ) -> PipelineAttemptResult:
+        baseline: ReadBaseline,
+        attempt: AttemptRuntimeInfo,
+    ) -> AttemptRuntimeInfo:
         """Run read → transform → write for *dataflow*.
 
         Called by :meth:`RetryHandler.execute`; any exception triggers
@@ -1394,6 +1399,8 @@ class DataCoolieDriver:
         return execute_etl_pipeline(
             dataflow,
             dataflow_run_id,
+            baseline=baseline,
+            attempt=attempt,
             column_name_mode=column_name_mode,
             watermark_start=watermark_start,
             watermark_end=watermark_end,
@@ -1532,7 +1539,7 @@ class DataCoolieDriver:
         replay: ReplayConfig,
         *,
         column_name_mode: ColumnCaseMode = ColumnCaseMode.LOWER,
-    ) -> DataFlowRuntimeInfo:
+    ) -> ReplayRuntimeInfo:
         """Process a full replay for a single dataflow.
 
         Resolves chunk boundaries and runs sequential chunks via
@@ -1543,7 +1550,7 @@ class DataCoolieDriver:
             replay: Replay configuration (range, chunking, watermark policy).
 
         Returns:
-            Single :class:`DataFlowRuntimeInfo` summarising all chunks.
+            Single :class:`ReplayRuntimeInfo` summarising terminal chunks.
             Processing stops on the first failed chunk.
         """
         return process_replay(
@@ -1693,7 +1700,10 @@ class DataCoolieDriver:
         dataflow: DataFlow,
         do_compact: bool = True,
         do_cleanup: bool = True,
-    ) -> PipelineAttemptResult:
+        *,
+        baseline: ReadBaseline,
+        attempt: AttemptRuntimeInfo,
+    ) -> AttemptRuntimeInfo:
         """Run optimize + vacuum for *dataflow*.
 
         Called by :meth:`RetryHandler.execute`; any exception triggers
@@ -1709,6 +1719,8 @@ class DataCoolieDriver:
         """
         return execute_maintenance_pipeline(
             dataflow,
+            baseline=baseline,
+            attempt=attempt,
             create_destination_writer=self._create_destination_writer,
             retention_hours=self._config.retention_hours,
             do_compact=do_compact,
@@ -1860,7 +1872,7 @@ class DataCoolieDriver:
             operation_name="replay chunk",
         )
 
-    def _on_replay_complete(self, result: DataFlowRuntimeInfo) -> None:
+    def _on_replay_complete(self, result: ReplayRuntimeInfo) -> None:
         """Hook for the aggregate result of one replay dataflow.
 
         Per-chunk notifications use :meth:`_on_replay_chunk_complete`. Override
@@ -1868,8 +1880,21 @@ class DataCoolieDriver:
         """
         pass
 
-    def _record_replay_complete(self, result: DataFlowRuntimeInfo) -> None:
+    def _record_replay_complete(self, result: ReplayRuntimeInfo) -> None:
         """Notify the replay aggregate hook without affecting the result."""
+        if isinstance(result, DataFlowRuntimeInfo):
+            # Scheduler failures can happen before the replay coordinator runs.
+            # Finalize that one no-attempt observation, then expose the outer
+            # replay callback contract without manufacturing a chunk.
+            try:
+                self._log_missing_execution_observation(result)
+            except Exception as exc:
+                self._safe_diagnostic_log(None, "Replay completion observation failed: %s", exc)
+            result = ReplayRuntimeInfo(
+                dataflow_run_id=result.dataflow_run_id, dataflow_id=result.dataflow_id,
+                operation_type=result.operation_type, start_time=result.start_time,
+                end_time=result.end_time, status=result.status, message=result.message,
+            )
         self._notify_completion_hook(
             self._on_replay_complete,
             result,

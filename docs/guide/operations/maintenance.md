@@ -81,7 +81,8 @@ maintenance selection. The built-in maintenance writers call the engine's
 default compaction and cleanup actions; inspect the selected engine and catalog
 before requesting them.
 A successful aggregate does not establish that every requested backend action
-ran. Check warning logs and `destination_operation_details`, then inspect table
+ran. Check warning logs and the final attempt's
+`destination.operation_details`, then inspect table
 history, snapshots or files for the intended effect.
 
 ## How deduplication works

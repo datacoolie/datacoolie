@@ -1,96 +1,149 @@
-"""Pure structured projections for persisted logging streams.
+"""Pure structured projections for the v6 persisted logging streams.
 
-Projection has no writer, lock or lifecycle state.  Keeping this transformation
-separate makes the persisted contract testable without constructing a logger.
+Declarative metadata keeps its historical field names and encoding. Runtime
+observations use the explicit nested serializers from :mod:`serialization` so
+adding a Python model attribute cannot silently change the log schema.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import date, datetime, time
+from dataclasses import fields, is_dataclass
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from datacoolie import __version__
-from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, JobRuntimeInfo
-from datacoolie.logging.runtime.capture import LogRecord
 from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION, LogType
-from datacoolie.utils.converters import as_json as _as_json
+from datacoolie.logging.persistence.serialization import (
+    serialize_attempt,
+    serialize_metrics,
+    serialize_read_request,
+)
+from datacoolie.logging.runtime.capture import LogRecord
+from datacoolie.logging.persistence.bounded_encoder import (
+    BoundedEncodingError, bounded_json_dumps, bounded_json_size,
+)
+from datacoolie.logging.persistence.diagnostics import DiagnosticBudget, OMITTED
+
+if TYPE_CHECKING:
+    from datacoolie.core.models.dataflow import DataFlow
+    from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+    from datacoolie.orchestration.runtime import JobRuntimeInfo
 
 
-def flatten_dataflow_runtime(runtime: DataFlowRuntimeInfo) -> Dict[str, Any]:
-    src = runtime.source
-    trn = runtime.transform
-    dst = runtime.destination
-    return {
+def _timestamp(value: Any) -> Any:
+    """Return an ISO timestamp while preserving optional values."""
+
+    if isinstance(value, datetime):
+        return datetime.isoformat(value)
+    return value
+
+
+def flatten_dataflow_runtime(
+    runtime: "DataFlowRuntimeInfo", *, diagnostic_max_bytes: int = 65536,
+    max_record_bytes: int = 1048576,
+) -> Dict[str, Any]:
+    """Project the runtime root with one shared diagnostic budget."""
+
+    budget = DiagnosticBudget(max_bytes=diagnostic_max_bytes)
+    # Authoritative subtrees are screened before tagged codec round trips.
+    _screen_authoritative(runtime.read_request, max_record_bytes)
+    result = {
         "dataflow_run_id": runtime.dataflow_run_id,
         "operation_type": runtime.operation_type,
-        "start_time": runtime.start_time,
-        "end_time": runtime.end_time,
+        "start_time": _timestamp(runtime.start_time),
+        "end_time": _timestamp(runtime.end_time),
         "duration_seconds": runtime.duration_seconds,
-        "overhead_duration_seconds": (
-            round(
-                runtime.duration_seconds
-                - (src.duration_seconds or 0.0)
-                - (trn.duration_seconds or 0.0)
-                - (dst.duration_seconds or 0.0),
-                6,
-            )
-            if runtime.duration_seconds is not None else None
-        ),
         "status": runtime.status,
-        "message": runtime.message,
         "retry_attempts": runtime.retry_attempts,
-        "source_start_time": src.start_time,
-        "source_end_time": src.end_time,
-        "source_duration_seconds": src.duration_seconds,
-        "source_status": src.status,
-        "source_message": src.message,
-        "source_rows_read": src.rows_read,
-        "source_action": _as_json(src.source_action),
-        "source_watermark_before": _as_json(src.watermark_before),
-        "source_watermark_after": _as_json(src.watermark_after),
-        "source_watermark_effective": _as_json(src.watermark_effective),
-        "source_watermark_start_operator": src.watermark_start_operator,
-        "source_watermark_end_operator": src.watermark_end_operator,
-        "source_watermark_kind": src.watermark_kind,
-        "transform_start_time": trn.start_time,
-        "transform_end_time": trn.end_time,
-        "transform_duration_seconds": trn.duration_seconds,
-        "transform_status": trn.status,
-        "transform_message": trn.message,
-        "transformers_applied": _as_json(trn.transformers_applied),
-        "destination_start_time": dst.start_time,
-        "destination_end_time": dst.end_time,
-        "destination_duration_seconds": dst.duration_seconds,
-        "destination_status": dst.status,
-        "destination_message": dst.message,
-        "destination_operation_type": dst.operation_type,
-        "destination_rows_written": dst.rows_written,
-        "destination_rows_inserted": dst.rows_inserted,
-        "destination_rows_updated": dst.rows_updated,
-        "destination_rows_deleted": dst.rows_deleted,
-        "destination_files_added": dst.files_added,
-        "destination_files_removed": dst.files_removed,
-        "destination_bytes_added": dst.bytes_added,
-        "destination_bytes_removed": dst.bytes_removed,
-        "destination_bytes_saved": dst.bytes_saved,
-        "destination_operation_details": _as_json(dst.operation_details),
+        "read_request": serialize_read_request(runtime.read_request),
+        "metrics": serialize_metrics(runtime.metrics),
     }
+    message = budget.normalize(runtime.message, path="/message")
+    if message is not OMITTED:
+        result["message"] = message
+    result["attempts"] = []
+    remaining = max_record_bytes
+    for index, attempt in enumerate(runtime.attempts):
+        if attempt.source is not None:
+            _screen_authoritative(attempt.source.selection, remaining)
+        _screen_authoritative(attempt.watermark, remaining)
+        projected = serialize_attempt(attempt, budget=budget, path=f"/attempts/{index}")
+        size = bounded_json_size(projected, max_bytes=remaining, allow_nan=False)
+        remaining -= size + 1
+        if remaining <= 0:
+            raise ValueError("attempt history exceeds logging record limit")
+        result["attempts"].append(projected)
+    if budget.issues:
+        result["diagnostic_issues"] = budget.issues
+    return result
+
+
+def _screen_authoritative(value: Any, max_bytes: int) -> None:
+    # Dataclass fields are read lazily during the count pass, before model_dump
+    # copies authored dictionaries/lists. No public record is built by reflection.
+    def default(item: Any) -> Any:
+        if (
+            is_dataclass(item) and not isinstance(item, type)
+            and type(item).__module__.startswith("datacoolie.")
+        ):
+            return {field.name: getattr(item, field.name) for field in fields(item)}
+        if isinstance(item, datetime):
+            return datetime.isoformat(item)
+        if isinstance(item, date):
+            return date.isoformat(item)
+        if isinstance(item, time):
+            return time.isoformat(item)
+        if type(item).__name__ == "SecretStr":
+            return "***"
+        if isinstance(item, bytes):
+            if len(item) > max_bytes:
+                raise BoundedEncodingError("authoritative bytes exceed record limit")
+            return bytes.__str__(item)
+        if isinstance(item, Decimal):
+            if not Decimal.is_finite(item):
+                raise TypeError("non-finite authoritative decimal")
+            if Decimal.__sizeof__(item) > max_bytes:
+                raise BoundedEncodingError("authoritative decimal exceeds record limit")
+            # Decimal stores coefficient digits compactly; with storage bounded,
+            # scientific exponents do not create expanded fixed-point strings.
+            return Decimal.__str__(item)
+        raise TypeError("unsupported authoritative logging value")
+    bounded_json_size(value, max_bytes=max_bytes, default=default, allow_nan=False)
+
+
+def _metadata_json(value: Any, max_bytes: int) -> str | None:
+    if not value:
+        return None
+    def default(item: Any) -> Any:
+        if isinstance(item, (datetime, date, time, Decimal, bytes)) or type(item).__name__ == "SecretStr":
+            _screen_authoritative(item, max_bytes)
+            if isinstance(item, datetime):
+                return datetime.isoformat(item)
+            if isinstance(item, date):
+                return date.isoformat(item)
+            if isinstance(item, time):
+                return time.isoformat(item)
+            if isinstance(item, Decimal):
+                return Decimal.__str__(item)
+            if isinstance(item, bytes):
+                return bytes.__str__(item)
+            return "***"
+        raise TypeError("unsupported authored logging metadata value")
+    return bounded_json_dumps(value, max_bytes=max_bytes, default=default)
 
 
 def flatten_job_runtime(
-    runtime: JobRuntimeInfo,
+    runtime: "JobRuntimeInfo",
     *,
     observed_at: Optional[datetime] = None,
     log_session_id: Optional[str] = None,
+    max_record_bytes: int = 1048576,
 ) -> Dict[str, Any]:
-    """Project a complete job-runtime record.
+    """Project one complete job-runtime record."""
 
-    ``observed_at`` is supplied by the logger at the snapshot boundary so this
-    pure projection does not read the clock.  Omitting it keeps the helper
-    useful for callers that only need the current aggregate summary.
-    """
-
+    _screen_authoritative(runtime.stages, max_record_bytes)
+    _screen_authoritative(runtime.operation_types, max_record_bytes)
     entry: Dict[str, Any] = {
         "log_schema_version": LOG_SCHEMA_VERSION,
         "_type": LogType.JOB_RUN_LOG.value,
@@ -100,7 +153,9 @@ def flatten_job_runtime(
         "job_num": runtime.job_num,
         "job_index": runtime.job_index,
         "workspace_id": runtime.workspace_id,
-        "stages": _as_json(runtime.stages) if isinstance(runtime.stages, list) else runtime.stages,
+        "stages": _metadata_json(runtime.stages, max_record_bytes)
+        if isinstance(runtime.stages, list)
+        else runtime.stages,
         "engine_name": runtime.engine_name,
         "platform_name": runtime.platform_name,
         "metadata_provider_name": runtime.metadata_provider_name,
@@ -112,8 +167,8 @@ def flatten_job_runtime(
         "dry_run": runtime.dry_run,
         "retention_hours": runtime.retention_hours,
         "run_attributes": runtime.run_attributes,
-        "start_time": runtime.start_time,
-        "end_time": runtime.end_time,
+        "start_time": _timestamp(runtime.start_time),
+        "end_time": _timestamp(runtime.end_time),
         "duration_seconds": runtime.duration_seconds,
         "status": runtime.status,
         "message": runtime.message,
@@ -135,28 +190,32 @@ def flatten_job_runtime(
         "log_records_dropped": runtime.log_records_dropped,
         "log_bytes_dropped": runtime.log_bytes_dropped,
         "message_truncated": runtime.message_truncated,
-        "operation_types": (
-            _as_json(runtime.operation_types)
-            if isinstance(runtime.operation_types, list)
-            else runtime.operation_types
-        ),
+        "operation_types": _metadata_json(runtime.operation_types, max_record_bytes)
+        if isinstance(runtime.operation_types, list)
+        else runtime.operation_types,
     }
     if observed_at is not None:
-        entry["observed_at"] = observed_at
+        entry["observed_at"] = _timestamp(observed_at)
     return entry
 
 
 def build_dataflow_entry(
-    dataflow: DataFlow,
-    runtime: DataFlowRuntimeInfo,
+    dataflow: "DataFlow",
+    runtime: "DataFlowRuntimeInfo",
     *,
-    job_info: JobRuntimeInfo,
+    job_info: "JobRuntimeInfo",
     log_session_id: Optional[str] = None,
+    diagnostic_max_bytes: int = 65536,
+    max_record_bytes: int = 1048576,
 ) -> Dict[str, Any]:
-    """Project declarative dataflow metadata plus terminal runtime facts."""
+    """Project declarative dataflow metadata plus typed runtime facts."""
+
     src = dataflow.source
     dst = dataflow.destination
     trn = dataflow.transform
+    _screen_authoritative(dataflow, max_record_bytes)
+    def _as_json(value: Any) -> str | None:
+        return _metadata_json(value, max_record_bytes)
     entry: Dict[str, Any] = {
         "log_schema_version": LOG_SCHEMA_VERSION,
         "_type": LogType.DATAFLOW_RUN_LOG.value,
@@ -195,26 +254,31 @@ def build_dataflow_entry(
         "transform_filter_expression": trn.filter_expression,
         "transform_additional_columns": _as_json(
             [column.model_dump() for column in trn.additional_columns]
-            if trn.additional_columns else None
+            if trn.additional_columns
+            else None
         ),
         "transform_schema_hints": _as_json(
             {hint.column_name: hint.data_type for hint in trn.schema_hints}
-            if trn.schema_hints else None
+            if trn.schema_hints
+            else None
         ),
         "transform_select_columns": _as_json(trn.select_columns),
         "transform_drop_columns": _as_json(trn.drop_columns),
         "transform_rename_columns": _as_json(trn.rename_columns),
         "transform_value_rules": _as_json(
             [rule.model_dump() for rule in trn.value_rules]
-            if trn.value_rules else None
+            if trn.value_rules
+            else None
         ),
         "transform_hash_columns": _as_json(
             [column.model_dump() for column in trn.hash_columns]
-            if trn.hash_columns else None
+            if trn.hash_columns
+            else None
         ),
         "transform_masking_rules": _as_json(
             [rule.model_dump() for rule in trn.masking_rules]
-            if trn.masking_rules else None
+            if trn.masking_rules
+            else None
         ),
         "transform_configure": _as_json(trn.configure),
         "destination_id": dst.connection.connection_id,
@@ -232,7 +296,10 @@ def build_dataflow_entry(
         "destination_partition_columns": _as_json(dst.partition_column_names),
         "destination_configure": _as_json(dst.configure),
     }
-    entry.update(flatten_dataflow_runtime(runtime))
+    entry.update(flatten_dataflow_runtime(
+        runtime, diagnostic_max_bytes=diagnostic_max_bytes,
+        max_record_bytes=max_record_bytes,
+    ))
     return entry
 
 
@@ -246,6 +313,7 @@ def build_system_entry(
 ) -> Dict[str, Any]:
     """Project one captured Python log record into the system stream."""
 
+    record_entry = record.to_dict()
     return {
         "log_schema_version": LOG_SCHEMA_VERSION,
         "_type": LogType.SYSTEM_LOG.value,
@@ -254,5 +322,5 @@ def build_system_entry(
         "job_id": job_id,
         "job_num": job_num,
         "job_index": job_index,
-        **record.to_dict(),
+        **record_entry,
     }

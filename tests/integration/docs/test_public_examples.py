@@ -187,7 +187,7 @@ def test_downloaded_artifact_project_runs_outside_checkout(tmp_path: Path) -> No
     assert dataflow_logs
     dataflow_record = json.loads(dataflow_logs[0].read_text(encoding="utf-8").splitlines()[0])
     assert dataflow_record["source_query"] == "artifact:/queries/orders.sql"
-    source_action = json.loads(str(dataflow_record["source_action"]))
+    source_action = dataflow_record["attempts"][-1]["source"]["source_action"]
     assert "WHERE o.amount IS NOT NULL" in source_action["query"]
 
 
@@ -756,7 +756,7 @@ def test_local_runner_persists_snapshot_job_and_batch_dataflow_logs(tmp_path: Pa
     system_records = records(system_files)
     assert dataflow_records
     assert len(job_records) == 1
-    assert all(record["log_schema_version"] == 4 for record in dataflow_records + job_records + system_records)
+    assert all(record["log_schema_version"] == 6 for record in dataflow_records + job_records + system_records)
     assert all(record["_type"] in {"dataflow_run_log", "job_run_log"} for record in dataflow_records + job_records)
     assert all(record["_type"] == "system_log" for record in system_records)
     assert dataflow_records[0]["dataflow_run_id"]

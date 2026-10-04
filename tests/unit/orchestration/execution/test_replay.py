@@ -9,9 +9,65 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import ConfigurationError
+from datacoolie.core.models.connection import Connection
+from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.run_config import ReplayConfig
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+from datacoolie.core.models.source import Source
+from datacoolie.orchestration.execution.replay import process_replay
+from datacoolie.orchestration.preparation import PreparedDataFlow
 from datacoolie.utils.chunking import generate_chunk_boundaries, normalize_chunk_range
+
+
+def _replay_dataflow() -> DataFlow:
+    source_connection = Connection(
+        name="source",
+        format="delta",
+        catalog="sales",
+        database="public",
+    )
+    destination_connection = Connection(
+        name="destination",
+        format="delta",
+        catalog="lakehouse",
+        database="bronze",
+    )
+    return DataFlow(
+        dataflow_id="replay-id",
+        name="orders_replay",
+        source=Source(
+            connection=source_connection,
+            table="orders",
+            watermark_columns=["order_date"],
+        ),
+        destination=Destination(
+            connection=destination_connection,
+            table="orders",
+        ),
+    )
+
+
+def _run_replay_for_test(
+    dataflow: DataFlow,
+    *,
+    prepare_execution_dataflow,
+    run_single_pipeline,
+    on_chunk_complete=lambda _runtime: None,
+):
+    return process_replay(
+        dataflow,
+        ReplayConfig(start=1, end=3),
+        column_name_mode="lower",
+        prepare_execution_dataflow=prepare_execution_dataflow,
+        validate_watermark_storage=lambda *_args, **_kwargs: None,
+        watermark_manager=None,
+        run_single_pipeline=run_single_pipeline,
+        log_result=lambda _metadata, _runtime: None,
+        on_chunk_complete=on_chunk_complete,
+    )
 
 
 # ============================================================================
@@ -812,3 +868,145 @@ class TestCanonicalReplayBounds:
     ) -> None:
         with pytest.raises(ConfigurationError, match="timezone boundary"):
             generate_chunk_boundaries(start, end, interval)
+
+
+def test_replay_outer_messages_use_authored_route_and_keep_event_order(caplog):
+    dataflow = _replay_dataflow()
+    caplog.set_level("DEBUG", logger="datacoolie")
+
+    def prepare(flow: DataFlow, **_kwargs: object) -> PreparedDataFlow:
+        metadata = flow.model_copy(deep=True)
+        execution = metadata.model_copy(deep=True)
+        execution.name = "execution-clone"
+        execution.source.table = "resolved-orders"
+        return PreparedDataFlow(metadata=metadata, execution=execution)
+
+    def run_chunk(prepared: PreparedDataFlow, **_kwargs: object) -> DataFlowRuntimeInfo:
+        prepared.metadata.name = "chunk-clone"
+        return DataFlowRuntimeInfo(
+            dataflow_id=prepared.metadata.dataflow_id,
+            status=DataFlowStatus.SUCCEEDED.value,
+        )
+
+    runtime = _run_replay_for_test(
+        dataflow,
+        prepare_execution_dataflow=prepare,
+        run_single_pipeline=run_chunk,
+    )
+
+    route = "orders_replay | `sales`.`public`.`orders` → `lakehouse`.`bronze`.`orders` |"
+    records = [
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None)
+        in {"replay.started", "replay.finished"}
+    ]
+    assert runtime.status == DataFlowStatus.SUCCEEDED.value
+    assert [record.event_name for record in records] == [
+        "replay.started",
+        "replay.finished",
+    ]
+    assert all(route in record.getMessage() for record in records)
+    assert "operation=replay" in records[0].getMessage()
+    assert "status=succeeded, chunks=1" in records[-1].getMessage()
+
+
+def test_replay_preparation_error_has_authored_route_and_traceback(caplog):
+    dataflow = _replay_dataflow()
+    caplog.set_level("DEBUG", logger="datacoolie")
+
+    def fail_prepare(_flow: DataFlow, **_kwargs: object) -> PreparedDataFlow:
+        raise ValueError("invalid replay range")
+
+    runtime = _run_replay_for_test(
+        dataflow,
+        prepare_execution_dataflow=fail_prepare,
+        run_single_pipeline=lambda *_args, **_kwargs: pytest.fail(
+            "preparation failure must not execute a chunk"
+        ),
+    )
+
+    finished = [
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None) == "replay.finished"
+    ]
+    assert runtime.status == DataFlowStatus.FAILED.value
+    assert len(finished) == 1
+    assert "orders_replay | `sales`.`public`.`orders` → " in finished[0].getMessage()
+    assert "status=failed, reason=invalid replay range" in finished[0].getMessage()
+    assert finished[0].exc_info is not None
+
+
+def test_replay_chunk_exception_and_outer_finish_have_authored_route(caplog):
+    dataflow = _replay_dataflow()
+    caplog.set_level("DEBUG", logger="datacoolie")
+
+    def prepare(flow: DataFlow, **_kwargs: object) -> PreparedDataFlow:
+        return PreparedDataFlow(
+            metadata=flow.model_copy(deep=True),
+            execution=flow.model_copy(deep=True),
+        )
+
+    def fail_chunk(_prepared: PreparedDataFlow, **_kwargs: object) -> DataFlowRuntimeInfo:
+        raise RuntimeError("chunk execution failed")
+
+    runtime = _run_replay_for_test(
+        dataflow,
+        prepare_execution_dataflow=prepare,
+        run_single_pipeline=fail_chunk,
+    )
+
+    route = "orders_replay | `sales`.`public`.`orders` → `lakehouse`.`bronze`.`orders` |"
+    errors = [
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None) == "replay.finished"
+    ]
+    assert runtime.status == DataFlowStatus.FAILED.value
+    assert len(errors) == 2
+    assert all(route in record.getMessage() for record in errors)
+    assert any("chunk=1/1" in record.getMessage() for record in errors)
+    assert any("status=failed, chunks=1" in record.getMessage() for record in errors)
+    assert errors[0].exc_info is not None
+
+
+def test_replay_generic_orchestration_error_keeps_authored_route(monkeypatch, caplog):
+    dataflow = _replay_dataflow()
+    caplog.set_level("DEBUG", logger="datacoolie")
+
+    def prepare(flow: DataFlow, **_kwargs: object) -> PreparedDataFlow:
+        return PreparedDataFlow(
+            metadata=flow.model_copy(deep=True),
+            execution=flow.model_copy(deep=True),
+        )
+
+    def run_chunk(prepared: PreparedDataFlow, **_kwargs: object) -> DataFlowRuntimeInfo:
+        return DataFlowRuntimeInfo(
+            dataflow_id=prepared.metadata.dataflow_id,
+            status=DataFlowStatus.SUCCEEDED.value,
+        )
+
+    def fail_notify(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("callback boundary failed")
+
+    monkeypatch.setattr(
+        "datacoolie.orchestration.execution.replay._notify_chunk",
+        fail_notify,
+    )
+    runtime = _run_replay_for_test(
+        dataflow,
+        prepare_execution_dataflow=prepare,
+        run_single_pipeline=run_chunk,
+    )
+
+    failed = [
+        record
+        for record in caplog.records
+        if getattr(record, "event_name", None) == "replay.finished"
+    ]
+    assert runtime.status == DataFlowStatus.FAILED.value
+    assert len(failed) == 1
+    assert "orders_replay | `sales`.`public`.`orders` → " in failed[0].getMessage()
+    assert "reason=callback boundary failed" in failed[0].getMessage()
+    assert failed[0].exc_info is not None

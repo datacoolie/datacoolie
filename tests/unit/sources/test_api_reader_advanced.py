@@ -22,7 +22,7 @@ from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
 from datacoolie.sources.api_reader import APIReader
-from datacoolie.sources.base import SourceReadRange
+from datacoolie.sources.contracts import SourceReadRange
 from datacoolie.sources._api.ranges import compare_values, format_bound
 from datacoolie.sources._api.pagination import (
     fetch_offset_concurrent,
@@ -32,6 +32,8 @@ from datacoolie.sources._api.pagination import (
 from datacoolie.sources._api.records import extract_records
 from datacoolie.sources._api.transport import make_request
 from datacoolie.sources._api.watermark import build_watermark_ranges
+from datacoolie.watermark.contracts import WatermarkCandidate, WatermarkCandidateKind
+from tests.unit.sources.support import read_request
 
 
 class FakeEngine:
@@ -93,6 +95,12 @@ def _mock_response(
     resp.text = json.dumps(data) if isinstance(data, (dict, list)) else str(data)
     resp.headers = headers or {}
     return resp
+
+
+def _read(reader: APIReader, source: Source, **kwargs: Any):
+    """Call the canonical reader API with the shared deterministic clock."""
+
+    return reader.read(source, request=read_request(**kwargs))
 
 
 class _FrozenDateTime(datetime):
@@ -424,12 +432,11 @@ class TestAPIReaderRangeBindings:
             "datacoolie.sources.api_reader.get_http_auth"
         ) as get_http_auth:
             with pytest.raises(SourceError, match=removed_key):
-                reader.read(source)
+                _read(reader, source)
 
         client_factory.assert_not_called()
         apply_auth.assert_not_called()
         get_http_auth.assert_not_called()
-        assert reader.get_new_watermark() == {}
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
@@ -463,7 +470,7 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx.Client") as client_factory:
             with pytest.raises(SourceError, match="(unknown|wire_format|propert)"):
-                reader.read(source, read_range=SourceReadRange("event_id", 1, 3))
+                _read(reader, source, read_range=SourceReadRange("event_id", 1, 3))
 
         client_factory.assert_not_called()
 
@@ -490,7 +497,7 @@ class TestAPIReaderRangeBindings:
             "datacoolie.sources.api_reader.get_http_auth"
         ) as get_http_auth:
             with pytest.raises(SourceError, match="non-empty mapping"):
-                reader.read(source)
+                _read(reader, source)
 
         client_factory.assert_not_called()
         apply_auth.assert_not_called()
@@ -508,21 +515,12 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"id": 1}])
 
-            assert reader.read(source) == [{"id": 1}]
+            assert _read(reader, source).frame == [{"id": 1}]
 
         client.request.assert_called_once()
 
     @pytest.mark.unit
-    @pytest.mark.parametrize(
-        ("preserve_empty", "expected"),
-        [(False, None), (True, [])],
-        ids=["drop-filtered-empty", "preserve-filtered-empty"],
-    )
-    def test_unmapped_watermark_filtered_empty_respects_preserve_empty(
-        self,
-        preserve_empty: bool,
-        expected: Any,
-    ) -> None:
+    def test_unmapped_watermark_filtered_empty_returns_empty_source_result(self) -> None:
         reader = APIReader(FakeEngine())
         source = _make_source(watermark_columns=["updated_at"])
 
@@ -535,16 +533,17 @@ class TestAPIReaderRangeBindings:
                 [{"id": 1, "updated_at": 5}, {"id": 2, "updated_at": 7}]
             )
 
-            result = reader.read(
+            result = _read(
+                reader,
                 source,
                 watermark_start={"updated_at": 10},
                 watermark_end={"updated_at": 20},
-                preserve_empty=preserve_empty,
             )
 
-        assert result == expected
-        assert reader.get_new_watermark() == {}
-        assert reader.get_runtime_info().rows_read == 0
+        assert result.frame is None
+        assert result.candidate is None
+        assert result.runtime is not None
+        assert result.runtime.rows_read == 0
 
     @pytest.mark.unit
     def test_unmapped_watermark_filter_keeps_known_rows_and_observes_state(self) -> None:
@@ -560,11 +559,13 @@ class TestAPIReaderRangeBindings:
                 [{"id": 1, "updated_at": 5}, {"id": 2, "updated_at": 11}]
             )
 
-            result = reader.read(source, watermark_start={"updated_at": 10})
+            result = _read(reader, source, watermark_start={"updated_at": 10})
 
-        assert result == [{"id": 2, "updated_at": 11}]
-        assert reader.get_new_watermark() == {"updated_at": 11}
-        assert reader.get_runtime_info().rows_read == 1
+        assert result.frame == [{"id": 2, "updated_at": 11}]
+        assert result.candidate is not None
+        assert result.candidate.values == {"updated_at": 11}
+        assert result.runtime is not None
+        assert result.runtime.rows_read == 1
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
@@ -593,7 +594,7 @@ class TestAPIReaderRangeBindings:
             "datacoolie.sources.api_reader.apply_auth"
         ) as apply_auth:
             with pytest.raises(SourceError, match="(interval_unit|range_param_mapping)"):
-                reader.read(source)
+                _read(reader, source)
 
         client_factory.assert_not_called()
         apply_auth.assert_not_called()
@@ -639,7 +640,8 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx.Client", side_effect=build_client) as client_factory:
             with pytest.raises(SourceError, match="OR|represent"):
-                reader.read(
+                _read(
+                    reader,
                     source,
                     watermark_start={"updated_at": 5, "sequence_id": 10},
                 )
@@ -672,7 +674,8 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx.Client") as client_factory:
             with pytest.raises(SourceError, match="OR|represent"):
-                reader.read(
+                _read(
+                    reader,
                     source,
                     watermark_start={"updated_at": 5, "sequence_id": 10},
                 )
@@ -685,11 +688,20 @@ class TestAPIReaderRangeBindings:
         source = _make_source(watermark_columns=["id"])
         reader._active_source = source
 
-        assert reader.merge_watermark({"id": 5}, {"id": 3}) == {"id": 5}
-        assert reader.merge_watermark({"id": 5}, {"id": 7}) == {"id": 7}
+        assert reader.merge_watermark(
+            {"id": 5},
+            WatermarkCandidate({"id": 3}, WatermarkCandidateKind.OBSERVED_MAX),
+        ) == {"id": 5}
+        assert reader.merge_watermark(
+            {"id": 5},
+            WatermarkCandidate({"id": 7}, WatermarkCandidateKind.OBSERVED_MAX),
+        ) == {"id": 7}
         # A cursor-shaped string remains opaque even when it is authored as a
         # Unmapped watermark column.
-        assert reader.merge_watermark({"id": "token-5"}, {"id": "token-3"}) == {
+        assert reader.merge_watermark(
+            {"id": "token-5"},
+            WatermarkCandidate({"id": "token-3"}, WatermarkCandidateKind.OPAQUE),
+        ) == {
             "id": "token-3"
         }
 
@@ -738,9 +750,13 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.side_effect = [_mock_response(page1), _mock_response(page2)]
 
-            result = reader.read(source, read_range=SourceReadRange("source_id", 2, 5))
+            result = _read(
+                reader,
+                source,
+                read_range=SourceReadRange("source_id", 2, 5),
+            )
 
-        assert result == [{"id": 2}, {"id": 4}]
+        assert result.frame == [{"id": 2}, {"id": 4}]
         first = client.request.call_args_list[0].kwargs
         assert first["params"]["from_id"] == 2
         assert first["params"]["to_id"] == 5
@@ -782,20 +798,22 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response(rows)
 
-            result = reader.read(
+            result = _read(
+                reader,
                 source,
                 watermark_start={"updated_at": updated_at},
                 watermark_end={"updated_at": updated_until},
             )
 
-        assert result == rows
+        assert result.frame == rows
         request = client.request.call_args.kwargs
         assert request["params"] == {"tenant": "north", "from_time": updated_at.isoformat()}
         assert request["json"] == {
             "kind": "event",
             "to_time": updated_until.isoformat(),
         }
-        assert reader.get_new_watermark() == {
+        assert result.candidate is not None
+        assert result.candidate.values == {
             "updated_at": "2026-09-27T10:45:00+00:00",
         }
 
@@ -824,18 +842,20 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response(rows)
 
-            exclusive = APIReader(FakeEngine()).read(
+            exclusive = _read(
+                APIReader(FakeEngine()),
                 source,
                 watermark_start={"event_id": 5},
             )
-            inclusive = APIReader(FakeEngine()).read(
+            inclusive = _read(
+                APIReader(FakeEngine()),
                 source,
                 watermark_start={"event_id": 5},
                 watermark_start_operator=">=",
             )
 
-        assert exclusive == [{"event_id": 6}]
-        assert inclusive == rows
+        assert exclusive.frame == [{"event_id": 6}]
+        assert inclusive.frame == rows
 
     @pytest.mark.unit
     def test_request_end_explicit_exclusive_lower_is_rejected_before_http(self) -> None:
@@ -857,7 +877,8 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
             with pytest.raises(SourceError, match="incompatible with API request_end"):
-                reader.read(
+                _read(
+                    reader,
                     source,
                     watermark_start={"covered_at": 5},
                     watermark_start_operator=">",
@@ -897,7 +918,11 @@ class TestAPIReaderRangeBindings:
             error = None
             result = None
             try:
-                result = reader.read(source, read_range=SourceReadRange("cursor", 1, 3))
+                result = _read(
+                    reader,
+                    source,
+                    read_range=SourceReadRange("cursor", 1, 3),
+                )
             except Exception as exc:  # pragma: no cover - assertion below reports the contract
                 error = exc
 
@@ -937,14 +962,19 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"payload": "ok"}])
 
-            result = reader.read(source, read_range=SourceReadRange("covered_at", 1, 3))
+            result = _read(
+                reader,
+                source,
+                read_range=SourceReadRange("covered_at", 1, 3),
+            )
 
-        assert result == [{"payload": "ok"}]
+        assert result.frame == [{"payload": "ok"}]
         assert client.request.call_args.kwargs["params"] == {
             "covered_from": 1,
             "covered_to": 3,
         }
-        assert reader.get_new_watermark() == {"covered_at": 3}
+        assert result.candidate is not None
+        assert result.candidate.values == {"covered_at": 3}
 
     @pytest.mark.unit
     def test_missing_response_column_fails_without_advancing_state(self) -> None:
@@ -970,9 +1000,12 @@ class TestAPIReaderRangeBindings:
             client.request.return_value = _mock_response([{"payload": "missing"}])
 
             with pytest.raises(SourceError, match="missing residual range field"):
-                reader.read(source, read_range=SourceReadRange("cursor", 1, 3))
+                _read(
+                    reader,
+                    source,
+                    read_range=SourceReadRange("cursor", 1, 3),
+                )
 
-        assert reader.get_new_watermark() == {}
 
     @pytest.mark.unit
     def test_removed_mapping_key_fails_before_http(self) -> None:
@@ -992,7 +1025,11 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
             with pytest.raises(SourceError, match="removed API range keys"):
-                reader.read(source, read_range=SourceReadRange("event_id", 1, 3))
+                _read(
+                    reader,
+                    source,
+                    read_range=SourceReadRange("event_id", 1, 3),
+                )
 
         mock_httpx.Client.assert_not_called()
 
@@ -1014,7 +1051,11 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
             with pytest.raises(SourceError, match="conflicts with an authored"):
-                reader.read(source, read_range=SourceReadRange("event_id", 1, 3))
+                _read(
+                    reader,
+                    source,
+                    read_range=SourceReadRange("event_id", 1, 3),
+                )
 
         mock_httpx.Client.assert_not_called()
 
@@ -1042,9 +1083,14 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"covered_at": 3}])
 
-            reader.read(source, read_range=SourceReadRange("covered_at", 2, 5))
+            result = _read(
+                reader,
+                source,
+                read_range=SourceReadRange("covered_at", 2, 5),
+            )
 
-        assert reader.get_new_watermark() == {"covered_at": 5}
+        assert result.candidate is not None
+        assert result.candidate.values == {"covered_at": 5}
 
     @pytest.mark.unit
     def test_independent_selection_column_uses_response_column_for_residual_filter(self) -> None:
@@ -1070,9 +1116,13 @@ class TestAPIReaderRangeBindings:
                 [{"event_id": 9}, {"event_id": 10}, {"event_id": 12}]
             )
 
-            result = reader.read(source, read_range=SourceReadRange("source_cursor", 10, 12))
+            result = _read(
+                reader,
+                source,
+                read_range=SourceReadRange("source_cursor", 10, 12),
+            )
 
-        assert result == [{"event_id": 10}]
+        assert result.frame == [{"event_id": 10}]
         assert client.request.call_args.kwargs["params"] == {
             "cursor_from": 10,
             "cursor_to": 12,
@@ -1107,13 +1157,15 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response(rows)
 
-            result = reader.read(
+            result = _read(
+                reader,
                 source,
                 read_range=SourceReadRange("created_at", 10, 12),
             )
 
-        assert result == rows
-        assert reader.get_new_watermark() == {"updated_at": 109}
+        assert result.frame == rows
+        assert result.candidate is not None
+        assert result.candidate.values == {"updated_at": 109}
 
     @pytest.mark.unit
     def test_unmapped_watermark_with_mapped_field_rejects_or_before_http(self) -> None:
@@ -1134,7 +1186,8 @@ class TestAPIReaderRangeBindings:
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
             mock_httpx.HTTPError = Exception
             with pytest.raises(SourceError, match="OR|represent"):
-                reader.read(
+                _read(
+                    reader,
                     source,
                     watermark_start={"updated_at": 5, "sequence_id": 10},
                 )
@@ -1167,7 +1220,8 @@ class TestAPIReaderRangeBindings:
                 [{"created_at": "2026-09-27T00:00:00+00:00"}]
             )
 
-            reader.read(
+            _read(
+                reader,
                 source,
                 watermark_start={"created_at": datetime(2026, 9, 26, tzinfo=timezone.utc)},
                 watermark_end={"created_at": upper},
@@ -1243,11 +1297,19 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"payload": "ok"}])
 
-            result = reader.read(source, watermark_start={"covered_at": start})
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+                watermark_start={"covered_at": start},
+            )
 
-        assert result == [{"payload": "ok"}]
+        assert result.frame == [{"payload": "ok"}]
         assert client.request.call_args.kwargs["params"]["covered_to"] == expected_wire
-        assert reader.get_new_watermark() == {"covered_at": expected_state}
+        assert result.candidate is not None
+        assert result.candidate.values == {"covered_at": expected_state}
 
     @pytest.mark.parametrize(
         "wire_format,start,expected_wire,expected_state",
@@ -1302,16 +1364,24 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"payload": "ok"}])
 
-            result = reader.read(source, watermark_start={"covered_at": start})
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+                watermark_start={"covered_at": start},
+            )
 
         expected_rows = (
             [{"payload": "ok"}, {"payload": "ok"}]
             if wire_format == "datetime_ms"
             else [{"payload": "ok"}]
         )
-        assert result == expected_rows
+        assert result.frame == expected_rows
         assert client.request.call_args_list[-1].kwargs["params"]["covered_to"] == expected_wire
-        assert reader.get_new_watermark() == {"covered_at": expected_state}
+        assert result.candidate is not None
+        assert result.candidate.values == {"covered_at": expected_state}
 
     @pytest.mark.parametrize(
         "wire_format,expected_wire",
@@ -1356,9 +1426,15 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"payload": "ok"}])
 
-            result = reader.read(source)
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+            )
 
-        assert result == [{"payload": "ok"}]
+        assert result.frame == [{"payload": "ok"}]
         assert client.request.call_args.kwargs["params"] == {
             "covered_from": (
                 "2026-09-29T00:00:00+00:00"
@@ -1371,7 +1447,8 @@ class TestAPIReaderRangeBindings:
             ),
             "covered_to": expected_wire,
         }
-        assert reader.get_new_watermark() == {"covered_at": date(2026, 9, 30)}
+        assert result.candidate is not None
+        assert result.candidate.values == {"covered_at": date(2026, 9, 30)}
 
     def test_new_mapping_rejects_lossy_raw_iso_lower_before_lookback(self) -> None:
         reader = APIReader(FakeEngine())
@@ -1393,7 +1470,8 @@ class TestAPIReaderRangeBindings:
 
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx:
             with pytest.raises(SourceError, match="microsecond|loss"):
-                reader.read(
+                _read(
+                    reader,
                     source,
                     watermark_start={
                         "covered_at": "2026-09-29T00:00:00.1230001+00:00"
@@ -1454,14 +1532,21 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"payload": "ok"}])
 
-            result = reader.read(source)
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+            )
 
-        assert result == [{"payload": "ok"}]
+        assert result.frame == [{"payload": "ok"}]
         assert client.request.call_args.kwargs["params"] == {
             "covered_from": expected_lower,
             "covered_to": expected_upper,
         }
-        assert reader.get_new_watermark() == {"covered_at": date(2026, 9, 30)}
+        assert result.candidate is not None
+        assert result.candidate.values == {"covered_at": date(2026, 9, 30)}
 
     @pytest.mark.unit
     def test_request_end_kind_from_explicit_upper_uses_inclusive_continuation(self) -> None:
@@ -1488,9 +1573,13 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"covered_at": 20}])
 
-            reader.read(source, watermark_end={"covered_at": 25})
+            result = _read(
+                reader,
+                source,
+                watermark_end={"covered_at": 25},
+            )
 
-        assert reader.get_runtime_info().watermark_start_operator == ">="
+        assert result.selection.lower_operator == ">="
         assert client.request.call_args.kwargs["params"]["covered_to"] == 25
 
     @pytest.mark.unit
@@ -1521,7 +1610,8 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
 
             with pytest.raises(SourceError, match="cannot mix observed_max and request_end"):
-                reader.read(
+                _read(
+                    reader,
                     source,
                     watermark_start={"observed_at": 1, "covered_at": 1},
                 )
@@ -1549,7 +1639,7 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
 
             with pytest.raises(SourceError, match="requires an upper parameter binding"):
-                reader.read(source, watermark_start={"covered_at": 1})
+                _read(reader, source, watermark_start={"covered_at": 1})
 
         client.request.assert_not_called()
 
@@ -1577,9 +1667,9 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"covered_at": 11}])
 
-            reader.read(source)
+            result = _read(reader, source)
 
-        assert reader.get_new_watermark() == {}
+        assert result.candidate is None
 
     @pytest.mark.unit
     def test_empty_or_residual_filtered_request_end_does_not_advance(self) -> None:
@@ -1607,14 +1697,15 @@ class TestAPIReaderRangeBindings:
                 [{"covered_at": 2}, {"covered_at": 9}]
             )
 
-            result = reader.read(
+            result = _read(
+                reader,
                 source,
                 watermark_start={"covered_at": 10},
                 watermark_end={"covered_at": 20},
             )
 
-        assert result is None
-        assert reader.get_new_watermark() == {}
+        assert result.frame is None
+        assert result.candidate is None
 
     @pytest.mark.unit
     def test_removed_bounded_mapping_is_rejected_before_http(self) -> None:
@@ -1631,7 +1722,11 @@ class TestAPIReaderRangeBindings:
             mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
             mock_httpx.HTTPError = Exception
             with pytest.raises(SourceError, match="removed API range keys"):
-                reader.read(source, read_range=SourceReadRange("id", 1, 2))
+                _read(
+                    reader,
+                    source,
+                    read_range=SourceReadRange("id", 1, 2),
+                )
         client.request.assert_not_called()
 
     @pytest.mark.unit
@@ -1661,14 +1756,16 @@ class TestAPIReaderRangeBindings:
                 [{"created_at": "2026-09-27T00:00:00+00:00", "updated_at": "2026-09-27T00:00:00+00:00"}]
             )
 
-            reader.read(
+            result = _read(
+                reader,
                 source,
                 watermark_start={"created_at": datetime(2026, 9, 26, tzinfo=timezone.utc)},
                 watermark_end={"created_at": upper},
             )
 
         assert client.request.call_args.kwargs["params"]["created_to"] == upper.isoformat()
-        assert reader.get_new_watermark() == {
+        assert result.candidate is not None
+        assert result.candidate.values == {
             "created_at": "2026-09-27T00:00:00+00:00"
         }
 
@@ -1693,7 +1790,11 @@ class TestAPIReaderRangeBindings:
             mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
             mock_httpx.HTTPError = Exception
             with pytest.raises(SourceError, match="removed API range keys"):
-                reader.read(source, read_range=SourceReadRange("id", 1, 2))
+                _read(
+                    reader,
+                    source,
+                    read_range=SourceReadRange("id", 1, 2),
+                )
         client.request.assert_not_called()
 
     @pytest.mark.unit
@@ -1723,7 +1824,12 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([])
 
-            reader.read(source, watermark_start={"created_at": start}, watermark_end={"created_at": end})
+            _read(
+                reader,
+                source,
+                watermark_start={"created_at": start},
+                watermark_end={"created_at": end},
+            )
 
         assert client.request.call_args.kwargs["params"] == {
             "created_from": start.isoformat(),
@@ -1756,7 +1862,12 @@ class TestAPIReaderRangeBindings:
             mock_httpx.HTTPError = Exception
             client.request.side_effect = [_mock_response([]), _mock_response([])]
 
-            reader.read(source, watermark_start={"created_at": start}, watermark_end={"created_at": end})
+            _read(
+                reader,
+                source,
+                watermark_start={"created_at": start},
+                watermark_end={"created_at": end},
+            )
 
         assert client.request.call_count == 2
         sent = [call.kwargs["params"] for call in client.request.call_args_list]
@@ -1810,7 +1921,7 @@ class TestAPIReaderAdvancedRateLimiting:
             mock_httpx.HTTPError = Exception
             client.request.side_effect = [first, second]
 
-            df = reader.read(source)
+            df = _read(reader, source).frame
 
         assert df == [{"id": 1}]
         sleep_mock.assert_called_once_with(0.01)
@@ -1979,7 +2090,7 @@ class TestAPIReaderAdvancedResponseShapes:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response(body)
 
-            df = reader.read(source)
+            df = _read(reader, source).frame
 
         assert df is not None
         assert len(df) == 1
@@ -2035,9 +2146,17 @@ class TestCanonicalBoundsAndWatermarkTypes:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"id": 1}])
 
-            reader.read(source, watermark_start={"modified_at": start})
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+                watermark_start={"modified_at": start},
+            )
 
-        assert reader.get_new_watermark() == {"modified_at": expected}
+        assert result.candidate is not None
+        assert result.candidate.values == {"modified_at": expected}
         assert client.request.call_args.kwargs["params"]["modified_before"] == expected.isoformat()
 
     def test_request_end_watermark_preserves_date_type(self) -> None:
@@ -2067,9 +2186,17 @@ class TestCanonicalBoundsAndWatermarkTypes:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"id": 1}])
 
-            reader.read(source, {"event_date": date(2026, 9, 29)})
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+                watermark_start={"event_date": date(2026, 9, 29)},
+            )
 
-        assert reader.get_new_watermark() == {"event_date": date(2026, 9, 30)}
+        assert result.candidate is not None
+        assert result.candidate.values == {"event_date": date(2026, 9, 30)}
         assert client.request.call_args.kwargs["params"]["until"] == "2026-09-30"
 
     @pytest.mark.unit
@@ -2102,12 +2229,20 @@ class TestCanonicalBoundsAndWatermarkTypes:
             mock_httpx.HTTPError = Exception
             client.request.return_value = _mock_response([{"id": 1}])
 
-            reader.read(source, watermark_start={"modified_at": start})
+            result = _read(
+                reader,
+                source,
+                reference_time=datetime(
+                    2026, 9, 30, 10, 11, 12, 123456, tzinfo=timezone.utc
+                ),
+                watermark_start={"modified_at": start},
+            )
 
         assert client.request.call_args.kwargs["params"]["modified_before"] == (
             "2026-09-30T10:11:12.123"
         )
-        assert reader.get_new_watermark()["modified_at"] == expected
+        assert result.candidate is not None
+        assert result.candidate.values["modified_at"] == expected
 
 
 @pytest.mark.parametrize("amount", [0, -1, 1.5, True])

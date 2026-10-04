@@ -11,6 +11,7 @@ import pytest
 
 from datacoolie.logging.runtime.capture import CaptureHandler, LogRecord
 from datacoolie.logging.configuration.constants import StorageMode
+from datacoolie.logging.runtime.context import DataflowContextFilter, attempt_context
 
 
 class TestLogRecord:
@@ -116,6 +117,41 @@ class TestLogRecord:
         assert "line" not in d
         assert "exc_info" not in d
 
+    def test_attempt_number_round_trips_and_is_not_present_outside_attempts(self):
+        record = LogRecord(
+            timestamp=datetime.now(timezone.utc),
+            level="INFO",
+            logger_name="test",
+            message="message",
+            attempt_number=2,
+        )
+
+        payload = record.to_dict()
+        assert payload["attempt_number"] == 2
+        assert LogRecord.from_dict(payload).attempt_number == 2
+
+        assert "attempt_number" not in LogRecord(
+            timestamp=record.timestamp,
+            level=record.level,
+            logger_name=record.logger_name,
+            message=record.message,
+        ).to_dict()
+
+    @pytest.mark.parametrize("value", [0, -1, True, "2"])
+    def test_attempt_number_serialization_omits_invalid_values(self, value):
+        record = LogRecord(
+            timestamp=datetime.now(timezone.utc),
+            level="INFO",
+            logger_name="test",
+            message="message",
+            attempt_number=value,
+        )
+
+        assert "attempt_number" not in record.to_dict()
+        assert LogRecord.from_dict(
+            {**record.to_dict(), "attempt_number": value}
+        ).attempt_number is None
+
     def test_from_dict_round_trip(self):
         ts = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         original = LogRecord(
@@ -192,6 +228,27 @@ class TestCaptureHandler:
         assert records[0].level == "INFO"
 
         lgr.removeHandler(handler)
+
+    def test_emit_captures_active_attempt_number_without_changing_plain_logs(self):
+        handler = CaptureHandler(storage_mode=StorageMode.MEMORY.value)
+        handler.addFilter(DataflowContextFilter())
+        lgr = logging.getLogger("test.capture.attempt")
+        lgr.addHandler(handler)
+        lgr.setLevel(logging.DEBUG)
+
+        try:
+            lgr.info("outside")
+            with attempt_context(3):
+                lgr.info("inside")
+
+            records = handler.get_records()
+            assert [record.attempt_number for record in records] == [None, 3]
+            assert "attempt_number" not in records[0].to_dict()
+            assert records[1].to_dict()["attempt_number"] == 3
+            assert records[1].format().endswith(" - inside")
+        finally:
+            lgr.removeHandler(handler)
+            handler.cleanup()
 
     def test_formatted_logs(self):
         handler = CaptureHandler(storage_mode=StorageMode.MEMORY.value)

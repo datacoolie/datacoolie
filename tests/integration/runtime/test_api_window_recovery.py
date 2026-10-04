@@ -284,8 +284,8 @@ def test_api_observed_max_checkpoint_advances_across_restart(tmp_path):
 
 
 @pytest.mark.runtime_qualification
-def test_api_unmapped_filtered_empty_replaces_native_delta_window(tmp_path):
-    """A non-empty unmapped response can still qualify an empty replacement."""
+def test_api_unmapped_filtered_empty_preserves_native_delta_window(tmp_path):
+    """A response filtered empty at the source must preserve the native target."""
 
     pytest.importorskip("deltalake")
     state = {"mode": "seed", "queries": []}
@@ -371,10 +371,13 @@ def test_api_unmapped_filtered_empty_replaces_native_delta_window(tmp_path):
             watermark_end={"updated_at": 20},
         )
 
-        assert replaced.status == "succeeded", replaced.message
-        assert replaced.source is not None
-        assert replaced.source.rows_read == 0
-        assert replaced.source.watermark_after is None
+        assert replaced.status == "skipped", replaced.message
+        final_attempt = replaced.final_attempt
+        assert final_attempt is not None
+        assert final_attempt.source is not None
+        assert final_attempt.source.rows_read == 0
+        assert final_attempt.watermark is not None
+        assert final_attempt.watermark.candidate is None
         assert (
             PolarsEngine()
             .read_delta(str(target))
@@ -384,6 +387,7 @@ def test_api_unmapped_filtered_empty_replaces_native_delta_window(tmp_path):
             .to_dicts()
         ) == [
             {"id": 1, "updated_at": 1},
+            {"id": 2, "updated_at": 15},
             {"id": 3, "updated_at": 25},
         ]
         assert _read_checkpoint_values(state_root) == checkpoint_before

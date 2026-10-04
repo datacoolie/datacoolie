@@ -19,7 +19,7 @@ target-specific runners. Version: {{ datacoolie_version }}.
 - **Observable by default**: Structured ExecutionLogger/SystemLogger JSON Lines with bounded snapshots or batches
 - **Repeatable replay**: Bounded chunks run sequentially, and an optional
   `save_watermark=True` persists reader observations without turning the saved
-  watermark into a replay checkpoint
+  watermark into replay progress tracking
 - **Visual companion**: DataCoolie Studio explores projects, metadata, assets, lineage, sources, and ETL monitoring in a local-first web UI
 
 ## When to Use DataCoolie

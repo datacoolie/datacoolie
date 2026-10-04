@@ -7,6 +7,11 @@ description: Python API reference for DataCoolie destinations covering base writ
 
 ::: datacoolie.destinations.base
 
+::: datacoolie.destinations.runtime
+    options:
+      members:
+        - DestinationRuntimeInfo
+
 ## Destination target contract
 
 Destination writers and maintenance use the same pure target projection. A

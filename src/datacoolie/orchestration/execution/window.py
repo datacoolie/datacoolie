@@ -30,7 +30,7 @@ def build_watermark_window(
     broader delete scope.
     """
 
-    if not enabled:
+    if not enabled or (watermark_kind == "opaque" and explicit_end is None):
         return None
     lower = dict(explicit_start or watermark_effective or {})
     upper = dict(explicit_end or watermark_after or {})

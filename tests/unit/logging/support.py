@@ -10,13 +10,18 @@ from datacoolie.core.constants import DataFlowStatus, ExecutionType, Format, Loa
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.run_config import DataCoolieRunConfig
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, DestinationRuntimeInfo, SourceRuntimeInfo
 from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.transform import HashColumn, MaskingRule, Transform, ValueRule
 from datacoolie.core.models.source import Source
 from datacoolie.logging.configuration.config import LogConfig
 from datacoolie.logging.execution_logger import ExecutionLogger
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
+from datacoolie.orchestration.execution.runtime import (
+    AttemptRuntimeInfo,
+    DataFlowRuntimeInfo,
+)
 from datacoolie.platforms.local_platform import LocalPlatform
+from datacoolie.sources.runtime import SourceRuntimeInfo
 
 
 def make_connection() -> Connection:
@@ -80,8 +85,15 @@ def make_runtime(
     return DataFlowRuntimeInfo(
         dataflow_id=df_id,
         status=status,
-        source=SourceRuntimeInfo(rows_read=rows_read),
-        destination=DestinationRuntimeInfo(rows_written=rows_written),
+        attempts=[
+            AttemptRuntimeInfo(
+                status=status,
+                source=SourceRuntimeInfo(rows_read=rows_read),
+                destination=DestinationRuntimeInfo(rows_written=rows_written),
+                start_time=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, 10, 1, 0, tzinfo=timezone.utc),
+            )
+        ],
         start_time=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
         end_time=datetime(2024, 1, 15, 10, 1, 0, tzinfo=timezone.utc),
     )
@@ -95,14 +107,21 @@ def make_maintenance_runtime(
         dataflow_id=df_id,
         status=status,
         operation_type=ExecutionType.MAINTENANCE.value,
-        destination=DestinationRuntimeInfo(
-            status=status,
-            operation_type=ExecutionType.MAINTENANCE.value,
-            files_added=1,
-            files_removed=3,
-            bytes_added=100,
-            bytes_removed=500,
-        ),
+        attempts=[
+            AttemptRuntimeInfo(
+                status=status,
+                destination=DestinationRuntimeInfo(
+                    status=status,
+                    operation_type=ExecutionType.MAINTENANCE.value,
+                    files_added=1,
+                    files_removed=3,
+                    bytes_added=100,
+                    bytes_removed=500,
+                ),
+                start_time=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc),
+            )
+        ],
         start_time=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
         end_time=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc),
     )

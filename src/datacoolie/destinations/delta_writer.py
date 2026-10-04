@@ -17,7 +17,10 @@ from datacoolie.destinations._delta.aws_catalog import (
     AwsDeltaState,
     AwsDeltaCatalogCoordinator,
 )
-from datacoolie.destinations.base import BaseDestinationWriter
+from datacoolie.destinations.base import (
+    BaseDestinationWriter,
+    _parse_history_metric_fields,
+)
 from datacoolie.destinations.strategies.load import get_load_strategy
 from datacoolie.destinations.resolution.target import resolve_destination_target
 from datacoolie.engines.base import DF, BaseEngine
@@ -134,189 +137,132 @@ class DeltaWriter(BaseDestinationWriter[DF]):
     # Metrics parsers
     # ------------------------------------------------------------------
 
-    def _parse_write_metrics(self, history: List[Dict[str, Any]]) -> Dict[str, int]:
-        """Parse write metrics from Delta history entries."""
-        result = {
-            "rows_written": 0,
-            "rows_inserted": 0,
-            "rows_updated": 0,
-            "rows_deleted": 0,
-            "files_added": 0,
-            "files_removed": 0,
-            "bytes_added": 0,
-            "bytes_removed": 0,
-        }
-        for entry in history:
-            metrics = entry.get("operationMetrics", {})
-            rows_out = int(
-                metrics.get(
+    def _parse_write_metrics(self, history: List[Dict[str, Any]]) -> Dict[str, Optional[int]]:
+        """Parse sparse write metrics from Delta history entries."""
+
+        return _parse_history_metric_fields(
+            history,
+            container_key="operationMetrics",
+            aliases={
+                "rows_written": (
                     "numOutputRows",
-                    metrics.get(
-                        "num_output_rows",
-                        metrics.get("numAddedRows", metrics.get("num_added_rows", 0)),
-                    ),
-                )
-            )
-            result["rows_written"] += rows_out
-            result["rows_inserted"] += int(
-                metrics.get(
+                    "num_output_rows",
+                    "numAddedRows",
+                    "num_added_rows",
+                ),
+                "rows_inserted": (
                     "numTargetRowsInserted",
-                    metrics.get(
-                        "num_target_rows_inserted",
-                        metrics.get(
-                            "numOutputRows",
-                            metrics.get(
-                                "num_output_rows",
-                                metrics.get(
-                                    "numAddedRows",
-                                    metrics.get("num_added_rows", 0),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-            )
-            result["rows_updated"] += int(
-                metrics.get(
+                    "num_target_rows_inserted",
+                    "numOutputRows",
+                    "num_output_rows",
+                    "numAddedRows",
+                    "num_added_rows",
+                ),
+                "rows_updated": (
                     "numTargetRowsUpdated",
-                    metrics.get(
-                        "num_target_rows_updated",
-                        metrics.get("numUpdatedRows", metrics.get("num_updated_rows", 0)),
-                    ),
-                )
-            )
-            result["rows_deleted"] += int(
-                metrics.get(
+                    "num_target_rows_updated",
+                    "numUpdatedRows",
+                    "num_updated_rows",
+                ),
+                "rows_deleted": (
                     "numTargetRowsDeleted",
-                    metrics.get(
-                        "num_target_rows_deleted",
-                        metrics.get("numDeletedRows", metrics.get("num_deleted_rows", 0)),
-                    ),
-                )
-            )
-            result["files_added"] += int(
-                metrics.get(
+                    "num_target_rows_deleted",
+                    "numDeletedRows",
+                    "num_deleted_rows",
+                ),
+                "files_added": (
                     "numTargetFilesAdded",
-                    metrics.get(
-                        "num_target_files_added",
-                        metrics.get(
-                            "numFiles",
-                            metrics.get(
-                                "num_files",
-                                metrics.get(
-                                    "numAddedFiles",
-                                    metrics.get("num_added_files", 0),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-            )
-            result["files_removed"] += int(
-                metrics.get(
+                    "num_target_files_added",
+                    "numFiles",
+                    "num_files",
+                    "numAddedFiles",
+                    "num_added_files",
+                ),
+                "files_removed": (
                     "numTargetFilesRemoved",
-                    metrics.get(
-                        "num_target_files_removed",
-                        metrics.get(
-                            "numRemovedFiles",
-                            metrics.get(
-                                "num_removed_files",
-                                metrics.get(
-                                    "numDeletedFiles",
-                                    metrics.get("num_deleted_files", 0),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-            )
-            result["bytes_added"] += int(
-                metrics.get(
+                    "num_target_files_removed",
+                    "numRemovedFiles",
+                    "num_removed_files",
+                    "numDeletedFiles",
+                    "num_deleted_files",
+                ),
+                "bytes_added": (
                     "numTargetBytesAdded",
-                    metrics.get(
-                        "num_target_bytes_added",
-                        metrics.get(
-                            "numAddedBytes",
-                            metrics.get(
-                                "num_added_bytes",
-                                metrics.get(
-                                    "numOutputBytes",
-                                    metrics.get("num_output_bytes", 0),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-            )
-            result["bytes_removed"] += int(
-                metrics.get(
+                    "num_target_bytes_added",
+                    "numAddedBytes",
+                    "num_added_bytes",
+                    "numOutputBytes",
+                    "num_output_bytes",
+                ),
+                "bytes_removed": (
                     "numTargetBytesRemoved",
-                    metrics.get(
-                        "num_target_bytes_removed",
-                        metrics.get(
-                            "numRemovedBytes",
-                            metrics.get(
-                                "num_removed_bytes",
-                                metrics.get(
-                                    "numDeletedBytes",
-                                    metrics.get("num_deleted_bytes", 0),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-            )
-        return result
+                    "num_target_bytes_removed",
+                    "numRemovedBytes",
+                    "num_removed_bytes",
+                    "numDeletedBytes",
+                    "num_deleted_bytes",
+                ),
+            },
+        )
 
     def _parse_maintenance_metrics(
         self, history: List[Dict[str, Any]]
-    ) -> Dict[str, Dict[str, int]]:
-        """Parse maintenance metrics from Delta history entries."""
+    ) -> Dict[str, Dict[str, Optional[int]]]:
+        """Parse sparse compaction and cleanup metrics from Delta history."""
         op_map = {
             "optimize": MaintenanceType.COMPACT.value,
             "vacuum start": MaintenanceType.CLEANUP.value,
             "vacuum end": MaintenanceType.CLEANUP.value,
         }
-        result: Dict[str, Dict[str, int]] = {}
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
         for entry in history:
-            operation = entry.get("operation", "").lower()
-            if operation not in op_map:
-                continue
-            key = op_map[operation]
-            metrics = entry.get("operationMetrics", {})
-            result.setdefault(
-                key,
-                {
-                    "files_added": 0,
-                    "files_removed": 0,
-                    "bytes_added": 0,
-                    "bytes_removed": 0,
+            operation = str(entry.get("operation", "")).lower()
+            if operation in op_map:
+                grouped.setdefault(op_map[operation], []).append(entry)
+
+        result: Dict[str, Dict[str, Optional[int]]] = {}
+        for key, entries in grouped.items():
+            metrics = _parse_history_metric_fields(
+                entries,
+                container_key="operationMetrics",
+                aliases={
+                    "files_added": (
+                        "numAddedFiles",
+                        "num_added_files",
+                    ),
+                    "files_removed": (
+                        "numRemovedFiles",
+                        "num_removed_files",
+                        "numDeletedFiles",
+                        "num_deleted_files",
+                    ),
+                    "bytes_added": (
+                        "numAddedBytes",
+                        "num_added_bytes",
+                    ),
+                    "bytes_removed": (
+                        "numRemovedBytes",
+                        "num_removed_bytes",
+                        "sizeOfDataToDelete",
+                        "size_of_data_to_delete",
+                    ),
                 },
             )
-            result[key]["files_added"] += int(
-                metrics.get("numAddedFiles", metrics.get("num_added_files", 0))
+            # Compaction and cleanup cannot change logical row counts. Cleanup
+            # cannot add physical files or bytes, but its removals remain
+            # unknown unless history measures them.
+            metrics.update(
+                {
+                    "rows_written": 0,
+                    "rows_inserted": 0,
+                    "rows_updated": 0,
+                    "rows_deleted": 0,
+                }
             )
-            result[key]["files_removed"] += int(
-                metrics.get(
-                    "numRemovedFiles",
-                    metrics.get(
-                        "num_removed_files",
-                        metrics.get("numDeletedFiles", metrics.get("num_deleted_files", 0)),
-                    ),
-                )
-            )
-            result[key]["bytes_added"] += int(
-                metrics.get("numAddedBytes", metrics.get("num_added_bytes", 0))
-            )
-            result[key]["bytes_removed"] += int(
-                metrics.get(
-                    "numRemovedBytes",
-                    metrics.get(
-                        "num_removed_bytes",
-                        metrics.get("sizeOfDataToDelete", metrics.get("size_of_data_to_delete", 0)),
-                    ),
-                )
-            )
+            if key == MaintenanceType.CLEANUP.value:
+                metrics["files_added"] = 0
+                metrics["bytes_added"] = 0
+            result[key] = metrics
         return result
 
     # ------------------------------------------------------------------

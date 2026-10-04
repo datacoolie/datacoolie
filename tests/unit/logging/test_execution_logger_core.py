@@ -11,10 +11,15 @@ import pytest
 from datacoolie.core.constants import DataFlowStatus, ExecutionType
 from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models.run_config import DataCoolieRunConfig
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, DestinationRuntimeInfo
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
 from datacoolie.logging.configuration.config import LogConfig
 from datacoolie.logging.runtime.manager import LogManager
 from datacoolie.logging.execution_logger import ExecutionLogger, create_execution_logger
+from datacoolie.orchestration.execution.runtime import (
+    AttemptRuntimeInfo,
+    DataFlowRuntimeInfo,
+)
+from datacoolie.sources.runtime import SourceRuntimeInfo
 
 from tests.unit.logging.support import (
     make_dataflow,
@@ -26,6 +31,19 @@ from tests.unit.logging.support import (
 
 
 class TestExecutionLoggerProjection:
+    def test_projection_failure_does_not_suppress_terminal_accounting(self):
+        logger, _ = make_logger()
+        runtime = make_runtime("bad-detail")
+        logger._build_entry = MagicMock(side_effect=TypeError("bad optional timing"))
+        logger.activate()
+        try:
+            logger.log(make_dataflow("bad-detail"), runtime)
+            assert logger.job_runtime.total_dataflows == 1
+            assert logger.job_runtime.total_succeeded == 1
+            assert logger.job_runtime.log_records_dropped == 1
+        finally:
+            logger.close()
+
     def setup_method(self):
         LogManager.reset()
 
@@ -37,16 +55,18 @@ class TestExecutionLoggerProjection:
         dataflow = make_dataflow()
         dataflow.source.query = "sql/orders/incremental.sql"
         runtime = make_runtime()
-        runtime.source.source_action = {
+        runtime.attempts[0].source.source_action = {
             "query": "SELECT * FROM orders WHERE id > 10",
         }
 
         entry = logger._build_entry(dataflow, runtime)
 
         assert entry["source_query"] == "sql/orders/incremental.sql"
-        assert json.loads(entry["source_action"])["query"].startswith("SELECT")
-        assert entry["source_rows_read"] == 100
-        assert entry["destination_rows_written"] == 100
+        assert entry["attempts"][0]["source"]["source_action"]["query"].startswith(
+            "SELECT"
+        )
+        assert entry["attempts"][0]["source"]["rows_read"] == 100
+        assert entry["attempts"][0]["destination"]["rows_written"] == 100
         logger.close()
 
     def test_build_entry_projects_typed_transform_metadata(self):
@@ -127,6 +147,34 @@ class TestExecutionLoggerProjection:
         logger.finish_job(DataFlowStatus.SUCCEEDED.value)
         logger.close()
 
+    def test_unknown_optional_metrics_remain_null_in_job_aggregate(self):
+        logger, _ = make_logger(output_path=None)
+        logger.activate()
+        runtime = DataFlowRuntimeInfo(
+            dataflow_id="unknown-metrics",
+            status=DataFlowStatus.FAILED.value,
+            attempts=[
+                AttemptRuntimeInfo(
+                    status=DataFlowStatus.FAILED.value,
+                    source=SourceRuntimeInfo(
+                        status=DataFlowStatus.FAILED.value,
+                        rows_read=None,
+                    ),
+                    destination=DestinationRuntimeInfo(
+                        status=DataFlowStatus.FAILED.value,
+                        rows_written=None,
+                    ),
+                )
+            ],
+        )
+        logger.log(make_dataflow("unknown-metrics"), runtime)
+        summary = logger._build_job_summary()
+
+        assert summary["total_rows_read"] is None
+        assert summary["total_rows_written"] is None
+        assert summary["total_bytes_added"] is None
+        logger.close()
+
     def test_run_attributes_are_serialized_once_in_job_runtime(self):
         logger, _ = make_logger(output_path=None)
         logger.set_run_config(
@@ -170,12 +218,12 @@ class TestExecutionLoggerProjection:
         assert writer is not None
         writer.append = MagicMock(side_effect=RuntimeError("detail sink unavailable"))
 
-        with pytest.raises(RuntimeError, match="detail sink unavailable"):
-            logger.log(make_dataflow("accepted"), make_runtime("accepted"))
+        logger.log(make_dataflow("accepted"), make_runtime("accepted"))
 
         summary = logger._build_job_summary()
         assert summary["total_dataflows"] == 1
         assert summary["total_succeeded"] == 1
+        assert summary["log_records_dropped"] == 1
         assert logger._job_summary_dirty is True
         assert logger._job_summary_revision == 1
 
@@ -187,14 +235,21 @@ class TestExecutionLoggerProjection:
             dataflow_id="df-1",
             status=DataFlowStatus.SUCCEEDED.value,
             operation_type=ExecutionType.MAINTENANCE.value,
-            destination=DestinationRuntimeInfo(
-                status=DataFlowStatus.SUCCEEDED.value,
-                operation_type=ExecutionType.MAINTENANCE.value,
-                operation_details=[{"operation": "OPTIMIZE", "removed": 3}],
-            ),
+            attempts=[
+                AttemptRuntimeInfo(
+                    status=DataFlowStatus.SUCCEEDED.value,
+                    destination=DestinationRuntimeInfo(
+                        status=DataFlowStatus.SUCCEEDED.value,
+                        operation_type=ExecutionType.MAINTENANCE.value,
+                        operation_details=[{"operation": "OPTIMIZE", "removed": 3}],
+                    ),
+                )
+            ],
         )
         flat = ExecutionLogger._flatten_dataflow_runtime(runtime)
-        assert json.loads(flat["destination_operation_details"])[0]["removed"] == 3
+        assert flat["attempts"][0]["destination"]["operation_details"][0][
+            "removed"
+        ] == 3
 
 
 class TestExecutionLoggerLifecycle:

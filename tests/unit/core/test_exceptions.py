@@ -120,9 +120,12 @@ class TestDataFlowError:
 
 
 class TestPipelineError:
-    """Verify PipelineError preserves partial results on failure."""
-    def test_partial_result_is_preserved(self) -> None:
-        err = PipelineError("step failed", partial_result={"rows": 10}, details={"stage": "read"})
+    """Verify PipelineError preserves the lifecycle-owned attempt."""
+    def test_attempt_is_preserved(self) -> None:
+        from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
+
+        attempt = AttemptRuntimeInfo(status="failed")
+        err = PipelineError("step failed", attempt=attempt, details={"stage": "read"})
         assert err.message == "step failed"
-        assert err.partial_result == {"rows": 10}
+        assert err.attempt is attempt
         assert err.details == {"stage": "read"}

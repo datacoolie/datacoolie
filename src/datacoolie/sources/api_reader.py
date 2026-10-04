@@ -17,6 +17,7 @@ from datacoolie.core.secrets.provider import unwrap_configure
 from datacoolie.engines.base import DF
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
 from datacoolie.sources._api.auth import apply_auth, get_http_auth
 from datacoolie.sources._api.pagination import (
     fetch_single_range,
@@ -41,10 +42,14 @@ from datacoolie.sources._api.watermark import (
     resolve_timezone,
 )
 from datacoolie.utils.chunking import validate_iso_fraction_precision
+from datacoolie.watermark.contracts import WatermarkCandidateKind
 
 logger = get_logger(__name__)
 _DATETIME_TYPE = datetime
 _RANGE_INTERVAL_UNITS = frozenset({"hour", "day", "month", "year"})
+_TEMPORAL_RANGE_FORMATS = frozenset(
+    {"iso", "date", "timestamp", "timestamp_ms", "datetime", "datetime_ms"}
+)
 
 
 def validate_api_bounded_range(source: Source, column: str) -> None:
@@ -74,6 +79,7 @@ def validate_api_bounded_range(source: Source, column: str) -> None:
             "range_param_mapping bindings."
         )
 
+
 try:
     import httpx
 except ImportError:
@@ -83,145 +89,144 @@ except ImportError:
 class APIReader(BaseSourceReader[DF]):
     """Source reader for HTTP/REST APIs.
 
-        Fetches JSON data from paginated REST endpoints, converts the
-        collected records to a DataFrame via the engine, and supports
-        incremental reads through watermark filtering.
+    Fetches JSON data from paginated REST endpoints, converts the
+    collected records to a DataFrame via the engine, and supports
+    incremental reads through watermark filtering.
 
-        API configuration is supplied through ``source.connection.configure``
-        and ``source.configure``:
+    API configuration is supplied through ``source.connection.configure``
+    and ``source.configure``:
 
-        Connection-level (``source.connection.configure``):
-            - ``base_url`` (str): Base URL for the API (required).
-            - ``auth_type`` (str): ``"bearer"``, ``"basic"``, ``"api_key"``, or
-              ``"oauth2_client_credentials"``.
-            - ``auth_token`` (str): Bearer token value (for ``auth_type="bearer"``).
-            - ``username`` / ``password`` (str): Basic auth credentials.
-            - ``api_key_header`` (str): Header name for API key auth.
-            - ``api_key_value`` (str): API key value.
-            - ``token_url`` (str): OAuth2 token endpoint (for ``oauth2_client_credentials``).
-            - ``client_id`` (str): OAuth2 client ID.
-            - ``client_secret`` (str): OAuth2 client secret — use ``secrets_ref`` so
-              it is resolved from a secret store at runtime rather than stored in plain text.
-            - ``scope`` (str): Optional space-separated OAuth2 scopes.
-            - ``token_auth_method`` (str): How to send client credentials to the token
-              endpoint. ``"client_secret_post"`` (default) puts ``client_id`` and
-              ``client_secret`` in the POST body. ``"client_secret_basic"`` sends them
-              as HTTP Basic Auth (required by Okta, Ping Identity, and some others).
-            - ``token_request_body_format`` (str): ``"form"`` (default,
-              ``application/x-www-form-urlencoded``) or ``"json"``
-              (``application/json``) — some providers (e.g. GitHub Apps) expect JSON.
-            - ``token_request_extras`` (dict): Extra fields forwarded to the token POST body.
-            - ``watermark_to_param_timezone`` (str, optional): Default timezone for
-              generated request-end bounds and for advancing request-end watermarks.
-              Can be overridden per source via the source-level key of the same name
-              (source wins).
-              Accepts IANA names or UTC offset strings; defaults to ``"UTC"``.
+    Connection-level (``source.connection.configure``):
+        - ``base_url`` (str): Base URL for the API (required).
+        - ``auth_type`` (str): ``"bearer"``, ``"basic"``, ``"api_key"``, or
+          ``"oauth2_client_credentials"``.
+        - ``auth_token`` (str): Bearer token value (for ``auth_type="bearer"``).
+        - ``username`` / ``password`` (str): Basic auth credentials.
+        - ``api_key_header`` (str): Header name for API key auth.
+        - ``api_key_value`` (str): API key value.
+        - ``token_url`` (str): OAuth2 token endpoint (for ``oauth2_client_credentials``).
+        - ``client_id`` (str): OAuth2 client ID.
+        - ``client_secret`` (str): OAuth2 client secret — use ``secrets_ref`` so
+          it is resolved from a secret store at runtime rather than stored in plain text.
+        - ``scope`` (str): Optional space-separated OAuth2 scopes.
+        - ``token_auth_method`` (str): How to send client credentials to the token
+          endpoint. ``"client_secret_post"`` (default) puts ``client_id`` and
+          ``client_secret`` in the POST body. ``"client_secret_basic"`` sends them
+          as HTTP Basic Auth (required by Okta, Ping Identity, and some others).
+        - ``token_request_body_format`` (str): ``"form"`` (default,
+          ``application/x-www-form-urlencoded``) or ``"json"``
+          (``application/json``) — some providers (e.g. GitHub Apps) expect JSON.
+        - ``token_request_extras`` (dict): Extra fields forwarded to the token POST body.
+        - ``watermark_to_param_timezone`` (str, optional): Default timezone for
+          generated request-end bounds and for advancing request-end watermarks.
+          Can be overridden per source via the source-level key of the same name
+          (source wins).
+          Accepts IANA names or UTC offset strings; defaults to ``"UTC"``.
 
-        ``auth_type="aws_sigv4"`` (API Gateway IAM auth, direct AWS service endpoints):
-            Signs every request with AWS Signature Version 4 via ``botocore``.
-            When ``aws_access_key_id`` is omitted, the standard boto3 credential chain
-            is used (env vars, ``~/.aws/credentials``, EC2/ECS instance role, etc.).
-            - ``aws_region`` (str): AWS region, e.g. ``"us-east-1"``.
-            - ``aws_service`` (str): AWS service name (default ``"execute-api"`` for
-              API Gateway). Use ``"s3"``, ``"lambda"``, etc. for other endpoints.
-            - ``aws_access_key_id`` (str, optional): Override access key — use
-              ``secrets_ref`` rather than hard-coding.
-            - ``aws_secret_access_key`` (str, optional): Override secret — use
-              ``secrets_ref``.
-            - ``aws_session_token`` (str, optional): Temporary session token for
-              role-assumed or STS credentials.
-            - ``default_headers`` (dict): Headers applied to every request.
-            - ``timeout`` (int/float): Request timeout in seconds (default 30).
+    ``auth_type="aws_sigv4"`` (API Gateway IAM auth, direct AWS service endpoints):
+        Signs every request with AWS Signature Version 4 via ``botocore``.
+        When ``aws_access_key_id`` is omitted, the standard boto3 credential chain
+        is used (env vars, ``~/.aws/credentials``, EC2/ECS instance role, etc.).
+        - ``aws_region`` (str): AWS region, e.g. ``"us-east-1"``.
+        - ``aws_service`` (str): AWS service name (default ``"execute-api"`` for
+          API Gateway). Use ``"s3"``, ``"lambda"``, etc. for other endpoints.
+        - ``aws_access_key_id`` (str, optional): Override access key — use
+          ``secrets_ref`` rather than hard-coding.
+        - ``aws_secret_access_key`` (str, optional): Override secret — use
+          ``secrets_ref``.
+        - ``aws_session_token`` (str, optional): Temporary session token for
+          role-assumed or STS credentials.
+        - ``default_headers`` (dict): Headers applied to every request.
+        - ``timeout`` (int/float): Request timeout in seconds (default 30).
 
-        Source-level (``source.configure``):
-            - ``endpoint`` (str): API endpoint path appended to ``base_url``.
-            - ``method`` (str): HTTP method (default ``"GET"``).
-            - ``params`` (dict): Query parameters.
-            - ``body`` (dict): Request body (for POST/PUT).
-            - ``pagination_type`` (str): ``"offset"``, ``"cursor"``,
-              or ``"next_link"``.
-            - ``page_size`` (int): Number of records per page (default 100).
-            - ``max_pages`` (int): Safety limit on pages fetched (default 1000).
-            - ``data_path`` (str): Dot-separated path to records array in response
-              JSON (e.g. ``"data.items"``). Defaults to root-level list.
-            - ``next_link_path`` (str): Dot-separated path to the next-page URL.
-            - ``cursor_path`` (str): Dot-separated path to the cursor token.
-            - ``cursor_param`` (str): Query param name for cursor (default ``"cursor"``).
-            - ``offset_param`` (str): Query param for offset (default ``"offset"``).
-            - ``limit_param`` (str): Query param for page size (default ``"limit"``).
-            - ``rate_limit_delay`` (float): Seconds to wait between requests (default 0).
-            - ``max_retries`` (int): Maximum number of retries on HTTP 429 rate-limit
-              responses (default ``10``).  When the ``Retry-After`` response header is
-              present its value is used as the wait duration; otherwise exponential backoff
-              applies: ``min(2 ** attempt, 30)`` seconds per retry
-              (1 s, 2 s, 4 s, 8 s, 16 s, 30 s, 30 s, …), capped at 30 s.
-              Raises :class:`~datacoolie.core.exceptions.SourceError` once all
-              retries are exhausted.
-            - ``total_path`` (str, optional): Dot-separated path to the total record count
-              in the first-page response JSON (e.g. ``"meta.total"`` or
-              ``"pagination.count"``).  Only applies when ``pagination_type="offset"``.
-              When set, the reader fetches page 0 to discover the total, calculates the
-              number of remaining pages, and dispatches them **concurrently** via
-              :class:`~concurrent.futures.ThreadPoolExecutor`.  Without this key,
-              offset pagination falls back to sequential page-by-page fetching (stopping
-              when a page returns fewer records than ``page_size``).
-            - ``offset_max_workers`` (int): Maximum number of parallel workers used when
-              ``total_path`` is configured for concurrent offset fetching (default ``4``).
-              Has no effect when ``total_path`` is absent.
+    Source-level (``source.configure``):
+        - ``endpoint`` (str): API endpoint path appended to ``base_url``.
+        - ``method`` (str): HTTP method (default ``"GET"``).
+        - ``params`` (dict): Query parameters.
+        - ``body`` (dict): Request body (for POST/PUT).
+        - ``pagination_type`` (str): ``"offset"``, ``"cursor"``,
+          or ``"next_link"``.
+        - ``page_size`` (int): Number of records per page (default 100).
+        - ``max_pages`` (int): Safety limit on pages fetched (default 1000).
+        - ``data_path`` (str): Dot-separated path to records array in response
+          JSON (e.g. ``"data.items"``). Defaults to root-level list.
+        - ``next_link_path`` (str): Dot-separated path to the next-page URL.
+        - ``cursor_path`` (str): Dot-separated path to the cursor token.
+        - ``cursor_param`` (str): Query param name for cursor (default ``"cursor"``).
+        - ``offset_param`` (str): Query param for offset (default ``"offset"``).
+        - ``limit_param`` (str): Query param for page size (default ``"limit"``).
+        - ``rate_limit_delay`` (float): Seconds to wait between requests (default 0).
+        - ``max_retries`` (int): Maximum number of retries on HTTP 429 rate-limit
+          responses (default ``10``).  When the ``Retry-After`` response header is
+          present its value is used as the wait duration; otherwise exponential backoff
+          applies: ``min(2 ** attempt, 30)`` seconds per retry
+          (1 s, 2 s, 4 s, 8 s, 16 s, 30 s, 30 s, …), capped at 30 s.
+          Raises :class:`~datacoolie.core.exceptions.SourceError` once all
+          retries are exhausted.
+        - ``total_path`` (str, optional): Dot-separated path to the total record count
+          in the first-page response JSON (e.g. ``"meta.total"`` or
+          ``"pagination.count"``).  Only applies when ``pagination_type="offset"``.
+          When set, the reader fetches page 0 to discover the total, calculates the
+          number of remaining pages, and dispatches them **concurrently** via
+          :class:`~concurrent.futures.ThreadPoolExecutor`.  Without this key,
+          offset pagination falls back to sequential page-by-page fetching (stopping
+          when a page returns fewer records than ``page_size``).
+        - ``offset_max_workers`` (int): Maximum number of parallel workers used when
+          ``total_path`` is configured for concurrent offset fetching (default ``4``).
+          Has no effect when ``total_path`` is absent.
 
-        Canonical watermark and bounded range push-down
-        (``source.configure.range_param_mapping``):
-            Each mapped field declares separate lower and upper endpoint
-            parameters, their operators and locations, wire format, response
-            column, and watermark meaning (``"observed_max"`` or
-            ``"request_end"``).  Lower and upper bindings may use the shorthand
-            parameter names or the explicit ``{"name": ..., "location": ...,
-            "operator": ...}`` form.  Supported formats include ``"iso"``,
-            ``"date"``, ``"timestamp"``, ``"timestamp_ms"``, ``"datetime"``,
-            ``"datetime_ms"``, ``"integer"``, and ``"number"``.
+    Canonical watermark and bounded range push-down
+    (``source.configure.range_param_mapping``):
+        Each mapped field declares separate lower and upper endpoint
+        parameters, their operators and locations, wire format, response
+        column, and watermark meaning (``"observed_max"`` or
+        ``"request_end"``).  Lower and upper bindings may use the shorthand
+        parameter names or the explicit ``{"name": ..., "location": ...,
+        "operator": ...}`` form.  Supported formats include ``"iso"``,
+        ``"date"``, ``"timestamp"``, ``"timestamp_ms"``, ``"datetime"``,
+        ``"datetime_ms"``, ``"integer"``, and ``"number"``.
 
-            A bounded replay requires both lower and upper bindings and uses
-            the exact authored operators.  Replay may select a mapped field
-            even when it is not listed in ``source.watermark_columns``; the
-            mapping controls selection while only authored watermark columns
-            are eligible for persisted state.  Ordinary unmapped watermark
-            columns continue to use response-side filtering.
+        A bounded replay requires both lower and upper bindings and uses
+        the exact authored operators.  Replay may select a mapped field
+        even when it is not listed in ``source.watermark_columns``; the
+        mapping controls selection while only authored watermark columns
+        are eligible for persisted state.  Ordinary unmapped watermark
+        columns continue to use response-side filtering.
 
-            ``watermark_to_param_timezone`` (str, optional) selects the timezone
-            used for generated request-end bounds and date/datetime alignment.
-            It accepts IANA names or UTC offset strings and defaults to ``UTC``.
+        ``watermark_to_param_timezone`` (str, optional) selects the timezone
+        used for generated request-end bounds and date/datetime alignment.
+        It accepts IANA names or UTC offset strings and defaults to ``UTC``.
 
-        Range-split / parallel fetch (``source.configure``):
-            Splits a large watermark window into equal-sized intervals and calls
-            the API concurrently for each sub-range.  Requires one canonical
-            range mapping with lower and upper bindings.
+    Range-split / parallel fetch (``source.configure``):
+        Splits a large watermark window into equal-sized intervals and calls
+        the API concurrently for each sub-range.  Requires one canonical
+        range mapping with lower and upper bindings.
 
-            - ``watermark_range_interval_unit`` (str): Interval unit for each sub-range
-              — ``"hour"``, ``"day"``, ``"month"``, or ``"year"``.  When set, range
-              splitting is enabled; otherwise a single API call is made (default).
-            - ``watermark_range_interval_amount`` (int): Number of units per interval
-              (default ``1``).  E.g. ``unit="hour", amount=3`` → 3-hour windows.
-            - ``watermark_range_start`` (str): ISO-8601 datetime used as the initial
-              lower bound when no stored watermark exists yet (first run).  Required
-              when ``watermark_range_interval_unit`` is set and no watermark has been
-              saved.
-            - ``watermark_range_max_workers`` (int): Maximum parallel HTTP workers
-              (default ``4``).
-            Each split request receives the exact contiguous interval boundary.
+        - ``watermark_range_interval_unit`` (str): Interval unit for each sub-range
+          — ``"hour"``, ``"day"``, ``"month"``, or ``"year"``.  When set, range
+          splitting is enabled; otherwise a single API call is made (default).
+        - ``watermark_range_interval_amount`` (int): Number of units per interval
+          (default ``1``).  E.g. ``unit="hour", amount=3`` → 3-hour windows.
+        - ``watermark_range_start`` (str): ISO-8601 datetime used as the initial
+          lower bound when no stored watermark exists yet (first run).  Required
+          when ``watermark_range_interval_unit`` is set and no watermark has been
+          saved.
+        - ``watermark_range_max_workers`` (int): Maximum parallel HTTP workers
+          (default ``4``).
+        Each split request receives the exact contiguous interval boundary.
     """
 
     def _resolve_watermark_operators(
         self,
         source: Source,
-        start_operator: Optional[str],
-        end_operator: Optional[str],
+        request: SourceReadRequest,
     ) -> tuple[str, str]:
         """Resolve omitted lower semantics from API watermark state kind."""
 
-        resolved_end = end_operator if end_operator is not None else "<"
+        resolved_end = request.watermark_end_operator or "<"
         mapping = normalize_api_range_mapping(source.configure)
-        stored = self._pending_watermark_start
-        pending_end = self._pending_watermark_end
+        stored = request.watermark_start
+        pending_end = request.watermark_end
         active_kinds = {
             binding.watermark_value
             for field, binding in mapping.fields.items()
@@ -233,22 +238,28 @@ class APIReader(BaseSourceReader[DF]):
                 "API active range fields cannot mix observed_max and request_end "
                 "watermark semantics."
             )
-        if start_operator is not None:
-            if start_operator == ">" and active_kinds == {"request_end"}:
+        if request.watermark_start_operator is not None:
+            if (
+                request.watermark_start_operator == ">"
+                and active_kinds == {"request_end"}
+            ):
                 raise SourceError(
                     "Explicit '>' lower operator is incompatible with API "
                     "request_end watermark state; use '>=' or omit it."
                 )
-            return super()._resolve_watermark_operators(
-                source, start_operator, resolved_end
+            resolved_start = request.watermark_start_operator
+        else:
+            resolved_start = ">=" if active_kinds == {"request_end"} else ">"
+
+        if resolved_start not in {">", ">="}:
+            raise SourceError(
+                f"Unsupported watermark lower operator: {resolved_start!r}"
             )
+        if resolved_end not in {"<", "<="}:
+            raise SourceError(f"Unsupported watermark upper operator: {resolved_end!r}")
+        return resolved_start, resolved_end
 
-        resolved_start = ">=" if active_kinds == {"request_end"} else ">"
-        return super()._resolve_watermark_operators(
-            source, resolved_start, resolved_end
-        )
-
-    def _validate_watermark_comparison(
+    def validate_watermark(
         self,
         watermark: Optional[Dict[str, Any]],
         *,
@@ -263,7 +274,7 @@ class APIReader(BaseSourceReader[DF]):
         reader can coerce a stored ISO value and discard fractional digits.
         """
 
-        super()._validate_watermark_comparison(watermark, boundary=boundary)
+        super().validate_watermark(watermark, boundary=boundary)
         source = self._active_source
         if source is None or not watermark:
             return
@@ -324,29 +335,16 @@ class APIReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
-        read_range: Any = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         action: dict = {"reader": type(self).__name__}
         conn_cfg = source.connection.configure
         src_cfg = source.configure
+        watermark_start = self._get_effective_watermark_start()
+        watermark_end = request.watermark_end
 
-        # BaseSourceReader stores the per-instance range for the internal
-        # handoff; keep the accessor as the source of truth when the caller
-        # does not pass an explicit value.
-        if read_range is None:
-            read_range = self._get_read_range()
         normalized_mapping = normalize_api_range_mapping(src_cfg)
-        normalized_read_range = coerce_read_range(read_range)
-        self._set_runtime_watermark_kind(
-            normalized_mapping,
-            source=source,
-            watermark_start=watermark_start,
-            watermark_end=watermark_end,
-            read_range=normalized_read_range,
-        )
+        normalized_read_range = coerce_read_range(self._get_read_range())
         base_url = conn_cfg.get("base_url", "").rstrip("/")
         endpoint = src_cfg.get("endpoint", "")
         url = f"{base_url}/{endpoint.lstrip('/')}" if endpoint else base_url
@@ -376,13 +374,6 @@ class APIReader(BaseSourceReader[DF]):
         mapping: NormalizedAPIRangeMapping,
     ) -> Optional[DF]:
         """Read a new per-field range binding or an explicit source range."""
-        self._set_runtime_watermark_kind(
-            mapping,
-            source=source,
-            watermark_start=watermark_start,
-            watermark_end=watermark_end,
-            read_range=read_range,
-        )
         self._api_read_context = {}
         records = self._read_data(
             source,
@@ -392,7 +383,7 @@ class APIReader(BaseSourceReader[DF]):
         )
         if not records:
             self._set_rows_read(0)
-            self._set_new_watermark({})
+            self._set_candidate(None)
             return None
 
         df = self._records_to_dataframe(records)
@@ -432,57 +423,26 @@ class APIReader(BaseSourceReader[DF]):
             # A filtered or empty response does not prove request-end
             # coverage.  Leave the candidate empty even when a typed empty
             # frame is retained for replacement.
-            self._set_new_watermark({})
+            self._set_candidate(None)
             self._set_rows_read(0)
-            if self._preserve_empty:
-                return df
             return None
 
-        for column, value in self._api_read_context.get("watermark_updates", {}).items():
+        for column, value in self._api_read_context.get(
+            "watermark_updates", {}
+        ).items():
             if column in (source.watermark_columns or []):
                 new_wm[column] = value
 
-        self._set_new_watermark(new_wm)
+        watermark_updates = self._api_read_context.get("watermark_updates", {})
+        candidate_kind = (
+            WatermarkCandidateKind.REQUEST_END
+            if watermark_updates
+            else self._infer_candidate_kind(new_wm)
+        )
         self._set_rows_read(count)
+        self._set_candidate(new_wm, kind=candidate_kind)
         return df
 
-    def _set_runtime_watermark_kind(
-        self,
-        mapping: NormalizedAPIRangeMapping,
-        *,
-        source: Source,
-        watermark_start: Optional[Dict[str, Any]],
-        watermark_end: Optional[Dict[str, Any]],
-        read_range: Optional[ReadRangeSpec],
-    ) -> None:
-        """Expose the state interpretation used by replacement windows."""
-
-        if read_range is not None:
-            self._runtime_info.watermark_kind = None
-            return
-        active = [
-            binding.watermark_value
-            for field, binding in mapping.fields.items()
-            if (watermark_start or {}).get(field) is not None
-            or (watermark_end or {}).get(field) is not None
-        ]
-        # Columns tracked as ordinary watermarks but absent from the API
-        # mapping still use observed-max semantics after the response is
-        # materialized. Include them in the runtime meaning so a mapped
-        # request-end field cannot silently combine with an unmapped observed
-        # field under one shared continuation operator.
-        active.extend(
-            "observed_max"
-            for field in (source.watermark_columns or [])
-            if field not in mapping.fields
-            and (
-                (watermark_start or {}).get(field) is not None
-                or (watermark_end or {}).get(field) is not None
-            )
-        )
-        if not active:
-            active = [binding.watermark_value for binding in mapping.fields.values()]
-        self._runtime_info.watermark_kind = active[0] if len(set(active)) == 1 else None
     def _read_data(
         self,
         source: Source,
@@ -543,7 +503,10 @@ class APIReader(BaseSourceReader[DF]):
         interval_unit_configured = "watermark_range_interval_unit" in src_cfg
         interval_unit = src_cfg.get("watermark_range_interval_unit")
         if interval_unit_configured:
-            if not isinstance(interval_unit, str) or interval_unit not in _RANGE_INTERVAL_UNITS:
+            if (
+                not isinstance(interval_unit, str)
+                or interval_unit not in _RANGE_INTERVAL_UNITS
+            ):
                 raise SourceError(
                     "watermark_range_interval_unit must be one of 'hour', 'day', 'month', or 'year'."
                 )
@@ -565,9 +528,7 @@ class APIReader(BaseSourceReader[DF]):
                 "read_range is mutually exclusive with incremental watermark bounds."
             )
         if read_range is not None and interval_unit_configured:
-            raise SourceError(
-                "read_range cannot be combined with API range splitting."
-            )
+            raise SourceError("read_range cannot be combined with API range splitting.")
 
         effective_start_operator = self._watermark_start_operator
         effective_end_operator = self._watermark_end_operator
@@ -598,8 +559,7 @@ class APIReader(BaseSourceReader[DF]):
                 },
             )
         if not read_range and (
-            len(active_fields) > 1
-            or (active_fields and active_unmapped_fields)
+            len(active_fields) > 1 or (active_fields and active_unmapped_fields)
         ):
             raise SourceError(
                 "API active watermark OR predicate cannot be represented by one "
@@ -612,9 +572,7 @@ class APIReader(BaseSourceReader[DF]):
         )
         if interval_unit_configured:
             split_field = (
-                active_fields[0]
-                if active_fields
-                else next(iter(mapping.fields), None)
+                active_fields[0] if active_fields else next(iter(mapping.fields), None)
             )
             split_kind = (
                 mapping.fields[split_field].watermark_value
@@ -645,19 +603,21 @@ class APIReader(BaseSourceReader[DF]):
                 ),
                 end_operator=effective_end_operator,
             )
-        params, body, query_bounds, residual_filters, watermark_updates = self._compile_new_request(
-            mapping,
-            src_cfg,
-            params,
-            body,
-            watermark_start=watermark_start,
-            watermark_end=watermark_end,
-            read_range=read_range,
-            active_fields=active_fields,
-            start_operator=effective_start_operator,
-            end_operator=effective_end_operator,
-            wm_tz=wm_tz,
-            tracked_fields=set(source.watermark_columns or []),
+        params, body, query_bounds, residual_filters, watermark_updates = (
+            self._compile_new_request(
+                mapping,
+                src_cfg,
+                params,
+                body,
+                watermark_start=watermark_start,
+                watermark_end=watermark_end,
+                read_range=read_range,
+                active_fields=active_fields,
+                start_operator=effective_start_operator,
+                end_operator=effective_end_operator,
+                wm_tz=wm_tz,
+                tracked_fields=set(source.watermark_columns or []),
+            )
         )
 
         # Preserve the historical OR semantics for ordinary API watermark
@@ -791,7 +751,7 @@ class APIReader(BaseSourceReader[DF]):
         cap = (watermark_end or {}).get(field)
         generated_upper = cap is None
         if cap is None:
-            to_dt = datetime.now(tz=wm_tz)
+            to_dt = self._get_reference_time().astimezone(wm_tz)
         elif isinstance(cap, _DATETIME_TYPE):
             to_dt = cap
         elif type(cap) is date:
@@ -818,6 +778,7 @@ class APIReader(BaseSourceReader[DF]):
                 binding.format,
                 preserve_date=preserve_date,
             )
+            self._set_generated_upper({field: aligned_upper})
             # Range construction operates on datetimes even when a
             # date-only lower bound controls the logical state type.  Keep
             # midnight and the resolved wall-time timezone for generation;
@@ -887,7 +848,9 @@ class APIReader(BaseSourceReader[DF]):
             )
 
         def fetch_call(
-            call: tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], List[ResidualFilter]]
+            call: tuple[
+                Dict[str, Any], Dict[str, Any], Dict[str, Any], List[ResidualFilter]
+            ],
         ) -> List[Dict[str, Any]]:
             params, body, query_bounds, residual = call
             request_cfg = dict(src_cfg)
@@ -984,11 +947,6 @@ class APIReader(BaseSourceReader[DF]):
         upper_values: Dict[str, Any] = {}
         start = watermark_start or {}
         end = watermark_end or {}
-        active_kind = (
-            mapping.fields[active_fields[0]].watermark_value
-            if active_fields
-            else None
-        )
         now_value: Optional[datetime] = None
         for field in active_fields:
             binding = mapping.fields[field]
@@ -996,15 +954,21 @@ class APIReader(BaseSourceReader[DF]):
                 lower_values[field] = start[field]
             if end.get(field) is not None:
                 upper_values[field] = end[field]
-            elif active_kind == "request_end" and start.get(field) is not None and binding.upper is not None:
+            elif (
+                binding.watermark_value == "request_end"
+                and binding.format in _TEMPORAL_RANGE_FORMATS
+                and start.get(field) is not None
+                and binding.upper is not None
+            ):
                 if now_value is None:
-                    now_value = datetime.now(tz=wm_tz)
+                    now_value = self._get_reference_time().astimezone(wm_tz)
                 previous = start[field]
                 upper_values[field] = self._align_generated_upper(
                     now_value,
                     binding.format,
                     preserve_date=type(previous) is date,
                 )
+                self._set_generated_upper({field: upper_values[field]})
 
         residual: List[ResidualFilter] = []
         updates: Dict[str, Any] = {}
@@ -1024,7 +988,9 @@ class APIReader(BaseSourceReader[DF]):
             )
             if lower is not None:
                 if binding.lower is None:
-                    raise SourceError(f"API binding for active field {field!r} has no lower parameter.")
+                    raise SourceError(
+                        f"API binding for active field {field!r} has no lower parameter."
+                    )
                 validate_operator_coverage(
                     requested_lower=desired_lower,
                     actual_lower=binding.lower.operator,
@@ -1051,7 +1017,9 @@ class APIReader(BaseSourceReader[DF]):
                     query_bounds[binding.lower.name] = wire
             if upper is not None:
                 if binding.upper is None:
-                    raise SourceError(f"API binding for active field {field!r} has no upper parameter.")
+                    raise SourceError(
+                        f"API binding for active field {field!r} has no upper parameter."
+                    )
                 validate_operator_coverage(
                     requested_lower=None,
                     actual_lower=None,
@@ -1116,7 +1084,13 @@ class APIReader(BaseSourceReader[DF]):
         field: str,
         *,
         tracked_fields: Optional[set[str]] = None,
-    ) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], List[ResidualFilter], Dict[str, Any]]:
+    ) -> tuple[
+        Dict[str, Any],
+        Dict[str, Any],
+        Dict[str, Any],
+        List[ResidualFilter],
+        Dict[str, Any],
+    ]:
         binding = mapping.fields[field]
         if binding.lower is None or binding.upper is None:
             raise SourceError(
@@ -1147,8 +1121,24 @@ class APIReader(BaseSourceReader[DF]):
             field=field,
             side="upper",
         )
-        self._put_bound(params, body, binding.lower, lower_wire, field=field, side="lower", seen=seen_request)
-        self._put_bound(params, body, binding.upper, upper_wire, field=field, side="upper", seen=seen_request)
+        self._put_bound(
+            params,
+            body,
+            binding.lower,
+            lower_wire,
+            field=field,
+            side="lower",
+            seen=seen_request,
+        )
+        self._put_bound(
+            params,
+            body,
+            binding.upper,
+            upper_wire,
+            field=field,
+            side="upper",
+            seen=seen_request,
+        )
         query_bounds: Dict[str, Any] = {}
         if binding.lower.location == "params":
             query_bounds[binding.lower.name] = lower_wire
@@ -1156,7 +1146,10 @@ class APIReader(BaseSourceReader[DF]):
             query_bounds[binding.upper.name] = upper_wire
 
         if binding.response_column is None:
-            if binding.lower.operator != read_range.lower_operator or binding.upper.operator != read_range.upper_operator:
+            if (
+                binding.lower.operator != read_range.lower_operator
+                or binding.upper.operator != read_range.upper_operator
+            ):
                 raise SourceError(
                     f"Bounded API read for {field!r} needs response_column for residual filtering."
                 )
@@ -1171,9 +1164,7 @@ class APIReader(BaseSourceReader[DF]):
             )
         ]
         watermark_updates = (
-            {field: read_range.end}
-            if binding.watermark_value == "request_end"
-            else {}
+            {field: read_range.end} if binding.watermark_value == "request_end" else {}
         )
         return params, body, query_bounds, residual, watermark_updates
 
@@ -1206,7 +1197,11 @@ class APIReader(BaseSourceReader[DF]):
     ) -> None:
         """Require a response field when tracked state uses observed maxima."""
 
-        if tracked and binding.watermark_value == "observed_max" and binding.response_column is None:
+        if (
+            tracked
+            and binding.watermark_value == "observed_max"
+            and binding.response_column is None
+        ):
             raise SourceError(
                 f"Observed-max API binding for field {field!r} requires response_column.",
                 details={
@@ -1258,12 +1253,22 @@ class APIReader(BaseSourceReader[DF]):
         if previous is not None:
             raise SourceError(
                 "API range request contains duplicate active parameter bindings.",
-                details={"location": binding.location, "name": binding.name, "first": previous, "second": (field, side)},
+                details={
+                    "location": binding.location,
+                    "name": binding.name,
+                    "first": previous,
+                    "second": (field, side),
+                },
             )
         if binding.name in target and target[binding.name] != value:
             raise SourceError(
                 "API range bound conflicts with an authored request parameter.",
-                details={"location": binding.location, "name": binding.name, "field": field, "side": side},
+                details={
+                    "location": binding.location,
+                    "name": binding.name,
+                    "field": field,
+                    "side": side,
+                },
             )
         seen[key] = (field, side)
         target[binding.name] = value

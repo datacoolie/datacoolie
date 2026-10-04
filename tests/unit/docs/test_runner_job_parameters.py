@@ -16,7 +16,7 @@ from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.run_config import DataCoolieRunConfig
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
 from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.source import Source
 from datacoolie.orchestration import driver as driver_module

@@ -318,7 +318,7 @@ Full field-level reference: [scenarios/SCENARIOS.md](scenarios/SCENARIOS.md).
 | `local_polars_query_explicit_multiple_roots` | polars | exact file + SQL roots | repeated SQL root flags route a prefixed reference through explicit roots |
 | `local_polars_query_root_routing` | polars | exact file + SQL root | shorthand SQL resolved from an explicit `sql_base_path` (including its root prefix) |
 | `local_polars_state_base_path` | polars | exact file + SQL root | explicit logs and watermarks in independent runtime areas |
-| `local_polars_runtime_log_contract` | polars | static artifact | v4 runtime `message` plus metadata/runtime query fields and `run_attributes` |
+| `local_polars_runtime_log_contract` | polars | static artifact | v6 runtime `message` plus metadata/runtime query fields and `run_attributes` |
 | `local_polars_logging_batch` | polars | static artifact | immutable batch parts plus replace-one job snapshot |
 | `local_polars_dry_run_query_file` | polars | exact file + SQL root | preparation-only query-file validation without business I/O |
 | `local_polars_startup_failure` | polars | malformed exact file | provider startup failure diagnostics before dataflow execution |

@@ -64,13 +64,18 @@ replay, or maintenance with bespoke code merely because it appears shorter. The
 and `references/runner-contract.md` own the applicable project and runner routes.
 
 For a custom source, follow the public [source extension contract](https://datacoolie.github.io/datacoolie/extensions/writing-a-source/).
-The ETL boundary requires callable reader methods `read`, `get_runtime_info`,
-`get_new_watermark`, `_validate_watermark_comparison`, and `merge_watermark`;
-do not omit validation or merge hooks and rely on a generic orchestrator
-fallback. A supplied watermark manager must provide `get_watermark`,
-`save_watermark`, and `serialize`. The source owns watermark merge semantics,
-and serialization is checked before destination mutation. Use the public docs
-as the contract source of truth; this reference only routes the agent to it.
+The ETL boundary has one typed reader entry:
+`read(source, *, request=SourceReadRequest(reference_time, ...)) -> SourceReadResult`.
+Callers consume `.frame` and use the result's `.selection` and `.candidate` for
+execution evidence. A reader must also expose
+`merge_watermark(existing, candidate: WatermarkCandidate | None) -> dict` and
+`validate_watermark`; do not omit those required operations or rely on a
+generic orchestrator fallback. There is no separate source runtime accessor
+or legacy frame/result reader alias. A supplied watermark manager must provide
+`get_watermark`, `save_watermark`, and `serialize`. The source owns watermark
+merge semantics, and serialization is checked before destination mutation. Use
+the public docs as the contract source of truth; this reference only routes the
+agent to it.
 
 ## Source expression order
 

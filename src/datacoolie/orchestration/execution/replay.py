@@ -9,15 +9,18 @@ from typing import Callable, List, Optional
 from datacoolie.core.constants import ColumnCaseMode, DataFlowStatus, ExecutionType, Format
 from datacoolie.core.exceptions import DataCoolieError
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import ReplayRuntimeInfo, ExecutionMetrics
 from datacoolie.core.models.run_config import ReplayConfig
 from datacoolie.logging.configuration.constants import LogEvent
 from datacoolie.logging.runtime.context import dataflow_context
 from datacoolie.logging.runtime.diagnostics import emit_safely
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.orchestration.execution.lifecycle import (
+    format_dataflow_message,
     finish_inactive_execution,
     log_result_safely,
+    execution_observation_attempted,
 )
 from datacoolie.orchestration.preparation import PreparedDataFlow
 from datacoolie.sources import SourceReadRange
@@ -27,6 +30,22 @@ from datacoolie.utils.time import utc_now
 from datacoolie.watermark.base import BaseWatermarkManager
 
 logger = get_logger(__name__)
+
+
+def _outer_observation(runtime: ReplayRuntimeInfo) -> DataFlowRuntimeInfo:
+    """An early exit is one no-attempt observation with the outer identity."""
+    return DataFlowRuntimeInfo(
+        dataflow_run_id=runtime.dataflow_run_id, dataflow_id=runtime.dataflow_id,
+        operation_type=runtime.operation_type, start_time=runtime.start_time,
+        end_time=runtime.end_time, status=runtime.status, message=runtime.message,
+    )
+
+
+def _runtime_duration(runtime: ReplayRuntimeInfo) -> object:
+    try:
+        return runtime.duration_seconds or 0.0
+    except BaseException:
+        return 0.0
 
 
 def validate_replay_chunk_column(dataflow: DataFlow, column: str) -> None:
@@ -47,6 +66,7 @@ def validate_replay_chunk_column(dataflow: DataFlow, column: str) -> None:
 
 def _notify_chunk(
     callback: Callable[[DataFlowRuntimeInfo], None],
+    metadata: DataFlow,
     runtime: DataFlowRuntimeInfo,
 ) -> None:
     try:
@@ -55,8 +75,12 @@ def _notify_chunk(
         emit_safely(
             logger,
             logging.WARNING,
-            "Replay chunk callback failed for %s",
-            runtime.dataflow_id,
+            format_dataflow_message(
+                metadata,
+                "chunk callback failed: dataflow_id={}, cause={}",
+                runtime.dataflow_id,
+                exc,
+            ),
             exc_info=(type(exc), exc, exc.__traceback__),
             catch_base=True,
         )
@@ -73,10 +97,10 @@ def process_replay(
     run_single_pipeline: Callable[..., DataFlowRuntimeInfo],
     log_result: Callable[[DataFlow, DataFlowRuntimeInfo], None],
     on_chunk_complete: Callable[[DataFlowRuntimeInfo], None],
-) -> DataFlowRuntimeInfo:
+) -> ReplayRuntimeInfo:
     """Prepare and execute one replay dataflow, stopping on first bad chunk."""
     started = utc_now()
-    runtime = DataFlowRuntimeInfo(
+    runtime = ReplayRuntimeInfo(
         dataflow_id=dataflow.dataflow_id,
         operation_type=ExecutionType.REPLAY.value,
         start_time=started,
@@ -88,17 +112,28 @@ def process_replay(
         emit_safely(
             logger,
             logging.INFO,
-            "Replay started",
+            format_dataflow_message(dataflow, "operation=replay"),
             extra={"event_name": LogEvent.REPLAY_STARTED.value},
             catch_base=True,
         )
-        if finish_inactive_execution(dataflow, runtime, log_result=log_result):
+        observation = _outer_observation(runtime)
+        if finish_inactive_execution(
+            dataflow,
+            observation,
+            log_result=log_result,
+        ):
+            runtime.end_time = observation.end_time
+            runtime.status = observation.status
+            runtime.message = observation.message
             emit_safely(
                 logger,
                 logging.INFO,
-                "Replay finished: status=%s, reason=%s",
-                runtime.status,
-                runtime.message,
+                format_dataflow_message(
+                    dataflow,
+                    "status={}, reason={}",
+                    runtime.status,
+                    runtime.message,
+                ),
                 extra={"event_name": LogEvent.REPLAY_FINISHED.value},
                 catch_base=True,
             )
@@ -107,6 +142,7 @@ def process_replay(
             dataflow,
             replay,
             runtime=runtime,
+            authored_metadata=dataflow,
             column_name_mode=column_name_mode,
             prepare_execution_dataflow=prepare_execution_dataflow,
             validate_watermark_storage=validate_watermark_storage,
@@ -121,7 +157,8 @@ def _process_replay_body(
     dataflow: DataFlow,
     replay: ReplayConfig,
     *,
-    runtime: DataFlowRuntimeInfo,
+    runtime: ReplayRuntimeInfo,
+    authored_metadata: DataFlow,
     column_name_mode: ColumnCaseMode,
     prepare_execution_dataflow: Callable[..., PreparedDataFlow],
     validate_watermark_storage: Callable[..., None],
@@ -129,11 +166,13 @@ def _process_replay_body(
     run_single_pipeline: Callable[..., DataFlowRuntimeInfo],
     log_result: Callable[[DataFlow, DataFlowRuntimeInfo], None],
     on_chunk_complete: Callable[[DataFlowRuntimeInfo], None],
-) -> DataFlowRuntimeInfo:
+) -> ReplayRuntimeInfo:
     """Execute the body while the caller owns the outer replay context."""
     metadata_snapshot: Optional[DataFlow] = None
+    metadata = authored_metadata
     try:
         metadata_snapshot = dataflow.model_copy(deep=True)
+        metadata = metadata_snapshot
         prepared = prepare_execution_dataflow(
             dataflow,
             operation_type=ExecutionType.REPLAY.value,
@@ -179,13 +218,16 @@ def _process_replay_body(
         emit_safely(
             logger,
             logging.ERROR,
-            "Replay preparation/resume failed",
+            format_dataflow_message(
+                metadata,
+                "status=failed, reason={}",
+                runtime.message,
+            ),
             extra={"event_name": LogEvent.REPLAY_FINISHED.value},
             exc_info=(type(exc), exc, exc.__traceback__),
             catch_base=True,
         )
-        if metadata_snapshot is not None:
-            log_result_safely(log_result, metadata_snapshot, runtime)
+        log_result_safely(log_result, metadata_snapshot or dataflow, _outer_observation(runtime))
         return runtime
 
     emit_safely(
@@ -220,28 +262,15 @@ def _process_replay_body(
             try:
                 chunk_dataflow: DataFlow = execution_baseline.model_copy(deep=True)
 
-                # Keep legacy orchestration fields populated for callers that
-                # inspect retry metadata when the chunk column is already a
-                # declared watermark. The pipeline gives SourceReadRange
-                # precedence at the actual reader boundary.
-                legacy_start = (
-                    {column: lower}
-                    if column in (dataflow.source.watermark_columns or [])
-                    and dataflow.source.connection.format != Format.API.value
-                    else None
-                )
-                legacy_end = {column: upper} if legacy_start is not None else None
-
                 chunk_runtime = run_single_pipeline(
                     PreparedDataFlow(
                         metadata=metadata_snapshot.model_copy(deep=True),
                         execution=chunk_dataflow,
                     ),
                     column_name_mode=column_name_mode,
-                    watermark_start=legacy_start,
-                    watermark_end=legacy_end,
+                    watermark_start=None,
+                    watermark_end=None,
                     save_watermark=replay.save_watermark,
-                    watermark_start_operator=(">=" if legacy_start is not None else None),
                     read_range=SourceReadRange(
                         column=column,
                         start=lower,
@@ -251,6 +280,13 @@ def _process_replay_body(
                     ),
                     operation_type=ExecutionType.REPLAY.value,
                 )
+                if not isinstance(chunk_runtime, DataFlowRuntimeInfo):
+                    raise TypeError("replay chunk must return DataFlowRuntimeInfo")
+                if chunk_runtime.status not in {
+                    DataFlowStatus.SUCCEEDED.value, DataFlowStatus.FAILED.value,
+                    DataFlowStatus.SKIPPED.value,
+                }:
+                    raise ValueError("replay chunk must return a terminal status")
             except Exception as exc:
                 chunk_runtime = DataFlowRuntimeInfo(
                     dataflow_id=dataflow.dataflow_id,
@@ -263,10 +299,13 @@ def _process_replay_body(
                 emit_safely(
                     logger,
                     logging.ERROR,
-                    "Replay chunk execution failed: dataflow_id=%s, chunk=%d/%d",
-                    dataflow.dataflow_id,
-                    index,
-                    len(chunks),
+                    format_dataflow_message(
+                        metadata,
+                        "status=failed, dataflow_id={}, chunk={}/{}",
+                        dataflow.dataflow_id,
+                        index,
+                        len(chunks),
+                    ),
                     extra={
                         "event_name": LogEvent.REPLAY_FINISHED.value,
                     },
@@ -274,8 +313,10 @@ def _process_replay_body(
                     catch_base=True,
                 )
             chunk_results.append(chunk_runtime)
-            runtime.source.rows_read += chunk_runtime.source.rows_read
-            runtime.destination.rows_written += chunk_runtime.destination.rows_written
+            if not execution_observation_attempted(chunk_runtime):
+                log_result_safely(log_result, metadata_snapshot or dataflow, chunk_runtime)
+            runtime.chunk_run_ids.append(chunk_runtime.dataflow_run_id)
+            runtime.metrics = ExecutionMetrics.sum(result.metrics for result in chunk_results)
             runtime.retry_attempts += chunk_runtime.retry_attempts
             # The callback belongs to the chunk completion boundary.  Keep
             # its existing chunk identity visible even though the outer
@@ -284,7 +325,7 @@ def _process_replay_body(
                 chunk_runtime.dataflow_id,
                 chunk_runtime.dataflow_run_id,
             ):
-                _notify_chunk(on_chunk_complete, chunk_runtime)
+                _notify_chunk(on_chunk_complete, metadata, chunk_runtime)
 
             if chunk_runtime.status == DataFlowStatus.FAILED.value:
                 emit_safely(
@@ -307,7 +348,11 @@ def _process_replay_body(
         emit_safely(
             logger,
             logging.ERROR,
-            "Replay execution failed",
+            format_dataflow_message(
+                metadata,
+                "status=failed, reason={}",
+                runtime.message,
+            ),
             extra={"event_name": LogEvent.REPLAY_FINISHED.value},
             exc_info=(type(exc), exc, exc.__traceback__),
             catch_base=True,
@@ -332,15 +377,18 @@ def _process_replay_body(
     runtime.message = failed.message if failed else None
     if all_skipped:
         runtime.message = "All replay chunks were skipped"
-    finish_message = "Replay finished: status=%s, chunks=%d, duration=%.3fs"
+    finish_message = format_dataflow_message(
+        metadata,
+        "status={}, chunks={}, duration={:.3f}s",
+        runtime.status,
+        len(chunk_results),
+        _runtime_duration(runtime),
+    )
     if runtime.status == DataFlowStatus.FAILED.value:
         emit_safely(
             logger,
             logging.ERROR,
             finish_message,
-            runtime.status,
-            len(chunk_results),
-            runtime.duration_seconds or 0.0,
             extra={"event_name": LogEvent.REPLAY_FINISHED.value},
             catch_base=True,
         )
@@ -349,9 +397,6 @@ def _process_replay_body(
             logger,
             logging.INFO,
             finish_message,
-            runtime.status,
-            len(chunk_results),
-            runtime.duration_seconds or 0.0,
             extra={"event_name": LogEvent.REPLAY_FINISHED.value},
             catch_base=True,
         )

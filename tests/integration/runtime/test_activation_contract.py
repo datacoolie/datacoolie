@@ -103,7 +103,8 @@ def test_inactive_metadata_remains_visible_and_only_active_flow_writes(tmp_path)
         for line in path.read_text(encoding="utf-8").splitlines()
     ]
     assert any(
-        "Dataflow skipped: source connection" in row["msg"]
+        "source_blocked | `orders` → `source_blocked` | reason=" in row["msg"]
+        and "source connection 'inactive_source' is inactive" in row["msg"]
         and row["dataflow_id"] is not None
         and row["dataflow_run_id"] is not None
         for row in system_records

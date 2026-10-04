@@ -101,6 +101,6 @@ def test_troubleshooting_routes_runtime_failures_without_simulator_commands() ->
     assert "usecase-sim/" not in text
     assert "watermark_range_start" in text
     assert "`log_session_id`" in text
-    assert "destination_operation_details" in text
+    assert "destination.operation_details" in text
     assert "format: \"jsonl\"" in text
     assert "platforms/index.md" in text

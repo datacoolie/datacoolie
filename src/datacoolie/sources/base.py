@@ -13,8 +13,9 @@ The reader delegates all DataFrame operations to a :class:`BaseEngine`.
 from __future__ import annotations
 
 import calendar
+import copy
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from numbers import Number
@@ -23,51 +24,23 @@ from typing import Any, Dict, Generic, List, Optional, Tuple
 from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY, DataFlowStatus
 from datacoolie.core.exceptions import ConfigurationError, SourceError
 from datacoolie.core.models.source import Source
-from datacoolie.core.models.runtime import SourceRuntimeInfo
+from datacoolie.sources.contracts import (
+    SourceReadMode,
+    SourceReadRange as _SourceReadRange,
+    SourceReadRequest,
+    SourceReadResult,
+    SourceReadSelection,
+    SourceReadUpperOrigin,
+)
+from datacoolie.sources.runtime import SourceRuntimeInfo
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.utils.time import utc_now
 from datacoolie.utils.chunking import normalize_chunk_range
 from datacoolie.watermark.base import merge_watermark_values
+from datacoolie.watermark.contracts import WatermarkCandidate, WatermarkCandidateKind
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class SourceReadRange:
-    """Exact source-owned range for one bounded read."""
-
-    column: str
-    start: Any
-    end: Any
-    lower_operator: str = ">="
-    upper_operator: str = "<"
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.column, str) or not self.column.strip():
-            raise ValueError("SourceReadRange.column must be a non-empty string")
-        if self.start is None or self.end is None:
-            raise ValueError("SourceReadRange.start and end must not be None")
-        if self.lower_operator not in {">", ">="}:
-            raise ValueError(
-                f"Unsupported SourceReadRange.lower_operator: {self.lower_operator!r}"
-            )
-        if self.upper_operator not in {"<", "<="}:
-            raise ValueError(
-                f"Unsupported SourceReadRange.upper_operator: {self.upper_operator!r}"
-            )
-
-    @property
-    def start_operator(self) -> str:
-        """Compatibility alias used by older source adapters."""
-
-        return self.lower_operator
-
-    @property
-    def end_operator(self) -> str:
-        """Compatibility alias used by older source adapters."""
-
-        return self.upper_operator
 
 
 class BaseSourceReader(ABC, Generic[DF]):
@@ -81,15 +54,17 @@ class BaseSourceReader(ABC, Generic[DF]):
 
     def __init__(self, engine: BaseEngine[DF]) -> None:
         self._engine = engine
-        self._new_watermark: Dict[str, Any] = {}
-        self._runtime_info = SourceRuntimeInfo()
+        self._candidate: Optional[WatermarkCandidate] = None
+        self._source_action: Dict[str, Any] = {}
         self._watermark_start_operator: str = ">"
         self._watermark_end_operator: str = "<"
-        self._preserve_empty: bool = False
-        self._read_range: Optional[SourceReadRange] = None
-        self._pending_watermark_start: Optional[Dict[str, Any]] = None
-        self._pending_watermark_end: Optional[Dict[str, Any]] = None
+        self._read_range: Optional[_SourceReadRange] = None
+        self._effective_watermark_start: Optional[Dict[str, Any]] = None
         self._active_source: Optional[Source] = None
+        self._rows_read: Optional[int] = None
+        self._selection = SourceReadSelection()
+        self._runtime_start: Optional[datetime] = None
+        self._active_reference_time: Optional[datetime] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -98,184 +73,181 @@ class BaseSourceReader(ABC, Generic[DF]):
     def read(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
         *,
-        watermark_start_operator: Optional[str] = None,
-        watermark_end: Optional[Dict[str, Any]] = None,
-        watermark_end_operator: Optional[str] = None,
-        read_range: Optional[SourceReadRange] = None,
-        preserve_empty: bool = False,
-    ) -> Optional[DF]:
-        """Read data from a source (Template Method).
-
-        1. Initialise runtime info.
-        2. Delegate to :meth:`_read_internal`.
-        3. Record timing and watermark data.
-
-        Args:
-            source: Pipeline source configuration.
-            watermark_start: Previous watermark values (``None`` = first run).
-                Acts as the lower bound for incremental reads.
-            watermark_start_operator: Comparison operator for the lower-bound
-                WHERE clause.  ``">"`` (default) for exclusive lower bound,
-                ``">=``" for inclusive lower bound (used by replay).
-            watermark_end: Upper watermark bound (``None`` = no ceiling).
-                When provided, rows are filtered to ``col < end`` for
-                each column.  Used by replay to cap reads at chunk
-                boundaries.
-            watermark_end_operator: Comparison operator for the upper-bound
-                WHERE clause.  ``"<"`` (default) for exclusive upper bound.
-            read_range: Source-owned exact range.  This is independent from
-                persisted watermark columns and is mutually exclusive with
-                explicit ``watermark_start``/``watermark_end`` bounds.
-            preserve_empty: Keep a typed zero-row frame instead of returning
-                ``None``.  Used only for confirmed bounded replacement reads.
-
-        Returns:
-            DataFrame with source data, or ``None`` when there is
-            no data to process.
-
-        Raises:
-            SourceError: On any failure during reading.
-        """
-        if read_range is not None and (
-            watermark_start is not None or watermark_end is not None
-        ):
-            raise SourceError(
-                "read_range cannot be combined with explicit watermark bounds"
-            )
-        if read_range is not None and not self._supports_read_range():
-            raise SourceError(
-                f"{type(self).__name__} does not support source-owned read_range"
-            )
-        if read_range is not None:
-            try:
-                normalized_start, normalized_end, _ = normalize_chunk_range(
-                    read_range.start, read_range.end
-                )
-            except ConfigurationError as exc:
-                raise SourceError(str(exc)) from exc
-            read_range = SourceReadRange(
-                column=read_range.column,
-                start=normalized_start,
-                end=normalized_end,
-                lower_operator=read_range.lower_operator,
-                upper_operator=read_range.upper_operator,
-            )
-            self._validate_read_range(read_range)
-            self._validate_watermark_comparison(
-                {read_range.column: read_range.start}, boundary="range lower bound"
-            )
-            self._validate_watermark_comparison(
-                {read_range.column: read_range.end}, boundary="range upper bound"
-            )
-        self._read_range = read_range
+        request: SourceReadRequest,
+    ) -> SourceReadResult[DF]:
+        """Read data and return the sole typed source contract."""
         self._active_source = source
-        self._pending_watermark_start = watermark_start
-        self._pending_watermark_end = watermark_end
-        if read_range is not None:
-            self._watermark_start_operator = read_range.lower_operator
-            self._watermark_end_operator = read_range.upper_operator
-        else:
-            self._watermark_start_operator, self._watermark_end_operator = (
-                self._resolve_watermark_operators(
-                    source,
-                    watermark_start_operator,
-                    watermark_end_operator,
-                )
-            )
-        self._preserve_empty = bool(preserve_empty)
-        self._runtime_info = SourceRuntimeInfo(
-            start_time=utc_now(),
-            status=DataFlowStatus.RUNNING.value,
-            watermark_before=dict(watermark_start) if watermark_start else None,
-            watermark_start_operator=self._watermark_start_operator,
-            watermark_end_operator=self._watermark_end_operator,
-        )
-        # This is a result of this read, not persisted checkpoint state.  A
-        # reader instance may be reused by callers, so never expose the
-        # previous read's value on an empty result or a failed attempt.
-        self._new_watermark = {}
-
+        self._runtime_start = utc_now()
+        self._candidate = None
+        self._source_action = {}
+        self._rows_read = None
+        self._read_range = None
+        self._effective_watermark_start = None
+        self._selection = SourceReadSelection()
         try:
-            self._validate_watermark_comparison(
-                watermark_start, boundary="lower bound"
-            )
-            self._validate_watermark_comparison(
-                watermark_end, boundary="upper bound"
-            )
-            # Apply backward offset to datetime watermark columns so
-            # late-arriving data is not missed.  First-run
-            # (watermark_start=None) is left untouched.  The upper bound is
-            # never adjusted: replay boundaries must remain exact.
-            watermark_effective = (
+            if not isinstance(request, SourceReadRequest):
+                raise SourceError("source read requires a SourceReadRequest")
+            self._active_reference_time = request.reference_time
+            read_range = request.read_range
+            if read_range is not None and (
+                request.watermark_start is not None
+                or request.watermark_end is not None
+                or request.watermark_start_operator is not None
+                or request.watermark_end_operator is not None
+            ):
+                raise SourceError(
+                    "read_range cannot be combined with explicit watermark bounds"
+                )
+            if read_range is not None and not self._supports_read_range():
+                raise SourceError(
+                    f"{type(self).__name__} does not support source-owned read_range"
+                )
+            if read_range is not None:
+                try:
+                    normalized_start, normalized_end, _ = normalize_chunk_range(
+                        read_range.start, read_range.end
+                    )
+                except ConfigurationError as exc:
+                    raise SourceError(str(exc)) from exc
+                read_range = _SourceReadRange(
+                    column=read_range.column,
+                    start=normalized_start,
+                    end=normalized_end,
+                    lower_operator=read_range.lower_operator,
+                    upper_operator=read_range.upper_operator,
+                )
+                self._validate_read_range(read_range)
+                self.validate_watermark(
+                    {read_range.column: read_range.start},
+                    boundary="range lower bound",
+                )
+                self.validate_watermark(
+                    {read_range.column: read_range.end},
+                    boundary="range upper bound",
+                )
+            self._read_range = read_range
+            if read_range is not None:
+                self._watermark_start_operator = read_range.lower_operator
+                self._watermark_end_operator = read_range.upper_operator
+            else:
+                self._watermark_start_operator, self._watermark_end_operator = (
+                    self._resolve_watermark_operators(source, request)
+                )
+            self.validate_watermark(request.watermark_start, boundary="lower bound")
+            self.validate_watermark(request.watermark_end, boundary="upper bound")
+            self._effective_watermark_start = (
                 None
                 if read_range is not None
-                else self._build_watermark_effective(source, watermark_start)
+                else self._build_watermark_effective(
+                    source,
+                    request.watermark_start,
+                    reference_time=request.reference_time,
+                )
             )
-            self._runtime_info.watermark_effective = (
-                dict(watermark_effective) if watermark_effective else None
+            self._selection = SourceReadSelection(
+                mode=(
+                    SourceReadMode.RANGE
+                    if read_range is not None
+                    else (
+                        SourceReadMode.INCREMENTAL
+                        if request.watermark_start is not None
+                        or request.watermark_end is not None
+                        else SourceReadMode.FULL
+                    )
+                ),
+                lower=copy.deepcopy(
+                    {read_range.column: read_range.start}
+                    if read_range is not None
+                    else self._effective_watermark_start
+                ),
+                upper=copy.deepcopy(
+                    {read_range.column: read_range.end}
+                    if read_range is not None
+                    else request.watermark_end
+                ),
+                lower_operator=self._watermark_start_operator,
+                upper_operator=self._watermark_end_operator,
+                upper_origin=(
+                    SourceReadUpperOrigin.EXPLICIT
+                    if read_range is not None or request.watermark_end is not None
+                    else SourceReadUpperOrigin.NONE
+                ),
             )
-            df = self._read_internal(source, watermark_effective, watermark_end=watermark_end)
-
-            self._runtime_info.end_time = utc_now()
-
-            if df is None:
-                self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
-                self._runtime_info.watermark_after = dict(self._new_watermark) if self._new_watermark else None
-                self._preserve_empty = False
-                self._pending_watermark_start = None
-                self._pending_watermark_end = None
-                return None
-
-            self._runtime_info.status = DataFlowStatus.SUCCEEDED.value
-            self._runtime_info.watermark_after = dict(self._new_watermark) if self._new_watermark else None
-            self._preserve_empty = False
-            self._pending_watermark_start = None
-            self._pending_watermark_end = None
-            return df
-
+            frame = self._read_internal(source, request)
+            if self._rows_read is None:
+                raise SourceError(
+                    f"{type(self).__name__} did not record rows_read for its read"
+                )
+            if frame is None and self._rows_read != 0:
+                raise SourceError("A source read returning None must report rows_read=0")
+            runtime = self._build_runtime(
+                status=DataFlowStatus.SUCCEEDED.value,
+                message=None,
+                rows_read=self._rows_read,
+            )
+            return SourceReadResult(
+                frame=frame,
+                rows_read=self._rows_read,
+                selection=copy.deepcopy(self._selection),
+                candidate=copy.deepcopy(self._candidate),
+                runtime=runtime,
+            )
         except SourceError as exc:
-            self._runtime_info.end_time = utc_now()
-            self._runtime_info.status = DataFlowStatus.FAILED.value
-            self._runtime_info.message = str(exc) or type(exc).__name__
+            runtime = self._build_runtime(
+                status=DataFlowStatus.FAILED.value,
+                message=str(exc) or type(exc).__name__,
+                rows_read=self._rows_read,
+            )
+            if getattr(exc, "runtime_info", None) is None:
+                exc.runtime_info = runtime
             logger.debug("Source read failed: %s", exc)
-            self._preserve_empty = False
-            self._pending_watermark_start = None
-            self._pending_watermark_end = None
             raise
         except Exception as exc:
-            self._runtime_info.end_time = utc_now()
-            self._runtime_info.status = DataFlowStatus.FAILED.value
-            self._runtime_info.message = str(exc) or type(exc).__name__
+            runtime = self._build_runtime(
+                status=DataFlowStatus.FAILED.value,
+                message=str(exc) or type(exc).__name__,
+                rows_read=self._rows_read,
+            )
             logger.debug("Source read failed: %s", exc)
-            self._preserve_empty = False
-            self._pending_watermark_start = None
-            self._pending_watermark_end = None
             raise SourceError(
                 f"Failed to read source: {exc}",
-                details={"source_table": source.full_table_name, "source_path": source.path},
+                details={
+                    "source_table": source.full_table_name,
+                    "source_path": source.path,
+                },
+                runtime_info=runtime,
             ) from exc
+        finally:
+            self._runtime_start = None
+            self._active_reference_time = None
+            self._read_range = None
+            self._effective_watermark_start = None
 
     def _resolve_watermark_operators(
         self,
         source: Source,
-        start_operator: Optional[str],
-        end_operator: Optional[str],
+        request: SourceReadRequest,
     ) -> Tuple[str, str]:
         """Resolve omitted operators at the source boundary."""
 
         del source
-        resolved_start = start_operator if start_operator is not None else ">"
-        resolved_end = end_operator if end_operator is not None else "<"
+        resolved_start = (
+            request.watermark_start_operator
+            if request.watermark_start_operator is not None
+            else ">"
+        )
+        resolved_end = (
+            request.watermark_end_operator
+            if request.watermark_end_operator is not None
+            else "<"
+        )
         if resolved_start not in {">", ">="}:
             raise SourceError(
                 f"Unsupported watermark lower operator: {resolved_start!r}"
             )
         if resolved_end not in {"<", "<="}:
-            raise SourceError(
-                f"Unsupported watermark upper operator: {resolved_end!r}"
-            )
+            raise SourceError(f"Unsupported watermark upper operator: {resolved_end!r}")
         return resolved_start, resolved_end
 
     def _supports_read_range(self) -> bool:
@@ -284,14 +256,14 @@ class BaseSourceReader(ABC, Generic[DF]):
         return False
 
     @staticmethod
-    def _validate_read_range(read_range: SourceReadRange) -> None:
+    def _validate_read_range(read_range: _SourceReadRange) -> None:
         """Reject empty or reversed ranges before source I/O."""
         try:
             normalize_chunk_range(read_range.start, read_range.end)
         except ConfigurationError as exc:
             raise SourceError(str(exc)) from exc
 
-    def _get_read_range(self) -> Optional[SourceReadRange]:
+    def _get_read_range(self) -> Optional[_SourceReadRange]:
         """Return the exact range active for the current read."""
 
         return self._read_range
@@ -317,18 +289,43 @@ class BaseSourceReader(ABC, Generic[DF]):
             self._watermark_start_operator = previous_start
             self._watermark_end_operator = previous_end
 
-    def get_runtime_info(self) -> SourceRuntimeInfo:
-        """Return runtime information for the most recent read."""
-        return self._runtime_info
+    def _get_reference_time(self) -> datetime:
+        """Return the required reference time for the active read."""
 
-    def get_new_watermark(self) -> Dict[str, Any]:
-        """Return the new watermark values computed during the last read."""
-        return self._new_watermark
+        if self._runtime_start is None:
+            raise SourceError("No source read is active")
+        if self._active_reference_time is None:
+            raise SourceError("No source reference time is active")
+        return self._active_reference_time
+
+    def _get_effective_watermark_start(self) -> Optional[Dict[str, Any]]:
+        """Return the source-adjusted lower bound for the active read."""
+
+        return copy.deepcopy(self._effective_watermark_start)
+
+    def _build_runtime(
+        self,
+        *,
+        status: str,
+        message: Optional[str],
+        rows_read: Optional[int],
+    ) -> SourceRuntimeInfo:
+        """Build a detached runtime projection for the current invocation."""
+
+        return SourceRuntimeInfo(
+            start_time=self._runtime_start or utc_now(),
+            end_time=utc_now(),
+            status=status,
+            message=message,
+            rows_read=rows_read,
+            source_action=copy.deepcopy(self._source_action),
+            selection=copy.deepcopy(self._selection),
+        )
 
     def merge_watermark(
         self,
         existing: Optional[Dict[str, Any]],
-        candidate: Optional[Dict[str, Any]],
+        candidate: Optional[WatermarkCandidate],
     ) -> Dict[str, Any]:
         """Merge a source observation using this reader's semantics.
 
@@ -339,10 +336,17 @@ class BaseSourceReader(ABC, Generic[DF]):
         :meth:`_watermark_ordering_kinds` for source-specific typed fields.
         """
 
+        if candidate is None:
+            return copy.deepcopy(existing or {})
+        if not isinstance(candidate, WatermarkCandidate):
+            raise SourceError(
+                "merge_watermark requires a WatermarkCandidate or None"
+            )
+        self.validate_watermark(candidate.values, boundary="candidate")
         return merge_watermark_values(
             existing,
-            candidate,
-            ordered_keys=self._watermark_ordering_kinds(candidate or {}),
+            candidate.values,
+            ordered_keys=self._watermark_ordering_kinds(candidate.values),
         )
 
     def _watermark_ordering_kinds(
@@ -390,9 +394,7 @@ class BaseSourceReader(ABC, Generic[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         """Read data from the source (subclass implementation).
 
@@ -401,9 +403,7 @@ class BaseSourceReader(ABC, Generic[DF]):
 
         Args:
             source: Pipeline source configuration.
-            watermark_start: Previous watermark values (lower bound).
-            watermark_end: Upper watermark bound.  When provided, rows
-                should be filtered to ``col < end`` for each column.
+            request: The complete caller-owned read request.
 
         Returns:
             DataFrame or ``None`` if no data available.
@@ -456,22 +456,34 @@ class BaseSourceReader(ABC, Generic[DF]):
 
         # Filter out DATE_FOLDER_PARTITION_KEY and columns with no values at all
         filtered_columns = [
-            col for col in watermark_columns
+            col
+            for col in watermark_columns
             if col != DATE_FOLDER_PARTITION_KEY
-            and ((watermark_start or {}).get(col) is not None or (watermark_end or {}).get(col) is not None)
+            and (
+                (watermark_start or {}).get(col) is not None
+                or (watermark_end or {}).get(col) is not None
+            )
         ]
 
         if not filtered_columns:
             return df
 
-        filtered_watermark = {col: (watermark_start or {}).get(col) for col in filtered_columns}
+        filtered_watermark = {
+            col: (watermark_start or {}).get(col) for col in filtered_columns
+        }
         # Remove None entries from lower watermark (columns with only upper bound)
-        filtered_watermark = {k: v for k, v in filtered_watermark.items() if v is not None}
+        filtered_watermark = {
+            k: v for k, v in filtered_watermark.items() if v is not None
+        }
 
         # Build upper bound dict if provided
         filtered_end: Optional[Dict[str, Any]] = None
         if watermark_end:
-            filtered_end = {col: watermark_end[col] for col in filtered_columns if watermark_end.get(col) is not None}
+            filtered_end = {
+                col: watermark_end[col]
+                for col in filtered_columns
+                if watermark_end.get(col) is not None
+            }
             if not filtered_end:
                 filtered_end = None
 
@@ -484,7 +496,9 @@ class BaseSourceReader(ABC, Generic[DF]):
             self._watermark_end_operator,
         )
         return self._engine.apply_watermark_filter(
-            df, filtered_columns, filtered_watermark,
+            df,
+            filtered_columns,
+            filtered_watermark,
             start_operator=self._watermark_start_operator,
             watermark_end=filtered_end,
             end_operator=self._watermark_end_operator,
@@ -526,17 +540,63 @@ class BaseSourceReader(ABC, Generic[DF]):
 
     def _set_rows_read(self, rows_read: int) -> None:
         """Record the number of rows read."""
-        self._runtime_info.rows_read = rows_read
+        if isinstance(rows_read, bool) or not isinstance(rows_read, int) or rows_read < 0:
+            raise SourceError("rows_read must be a non-negative integer")
+        self._rows_read = rows_read
 
     def _set_source_action(self, source_action: Dict[str, Any]) -> None:
         """Record the actual source action performed (path, query, function, etc.)."""
-        self._runtime_info.source_action = source_action
+        self._source_action = copy.deepcopy(source_action)
 
-    def _set_new_watermark(self, watermark: Optional[Dict[str, Any]]) -> None:
-        """Store the computed new watermark values."""
-        self._new_watermark = watermark or {}
+    def _set_candidate(
+        self,
+        watermark: Optional[Dict[str, Any]],
+        *,
+        kind: Optional[WatermarkCandidateKind | str] = None,
+    ) -> None:
+        """Store the source-owned candidate for the active read."""
 
-    def _validate_watermark_comparison(
+        if not watermark:
+            self._candidate = None
+            return
+        self.validate_watermark(watermark, boundary="candidate")
+        from datacoolie.watermark.base import WatermarkSerializer
+
+        WatermarkSerializer.serialize(watermark)
+        resolved_kind = (
+            WatermarkCandidateKind(kind)
+            if kind is not None
+            else self._infer_candidate_kind(watermark)
+        )
+        self._candidate = WatermarkCandidate(
+            values=copy.deepcopy(dict(watermark)),
+            kind=resolved_kind,
+        )
+
+    def _infer_candidate_kind(
+        self,
+        candidate: Dict[str, Any],
+    ) -> WatermarkCandidateKind:
+        """Infer the safest built-in meaning for a source observation."""
+
+        if self._watermark_ordering_kinds(candidate):
+            return WatermarkCandidateKind.OBSERVED_MAX
+        return WatermarkCandidateKind.OPAQUE
+
+    def _set_generated_upper(self, upper: Dict[str, Any]) -> None:
+        """Record a source-generated ceiling without losing observed scopes."""
+
+        if not upper or self._selection.upper_origin is SourceReadUpperOrigin.EXPLICIT:
+            return
+        current = dict(self._selection.upper or {})
+        current.update(copy.deepcopy(upper))
+        self._selection = replace(
+            self._selection,
+            upper=current,
+            upper_origin=SourceReadUpperOrigin.GENERATED,
+        )
+
+    def validate_watermark(
         self,
         watermark: Optional[Dict[str, Any]],
         *,
@@ -564,6 +624,18 @@ class BaseSourceReader(ABC, Generic[DF]):
                     if found is not None:
                         return found
             return None
+
+        if watermark is not None:
+            if not isinstance(watermark, dict):
+                raise SourceError(
+                    f"{boundary} must be a mapping",
+                    details={"boundary": boundary},
+                )
+            if any(not isinstance(key, str) for key in watermark):
+                raise SourceError(
+                    f"{boundary} keys must be strings",
+                    details={"boundary": boundary},
+                )
 
         found = _find_binary(watermark or {}, "")
         if found is not None:
@@ -601,21 +673,17 @@ class BaseSourceReader(ABC, Generic[DF]):
             *df* when rows exist, ``None`` otherwise.
         """
         count, new_wm = self._calculate_count_and_new_watermark(
-            df, watermark_columns,
+            df,
+            watermark_columns,
         )
 
-        self._set_new_watermark(new_wm)
         self._set_rows_read(count)
+        self._set_candidate(new_wm)
 
         if count == 0:
-            if self._preserve_empty:
-                logger.debug(
-                    "%s: 0 rows after filtering — preserving typed empty frame. %s",
-                    reader_name,
-                    context,
-                )
-                return df
-            logger.debug("%s: 0 rows after filtering — skipping. %s", reader_name, context)
+            logger.debug(
+                "%s: 0 rows after filtering — skipping. %s", reader_name, context
+            )
             return None
 
         logger.debug("%s: read %d rows from %s", reader_name, count, context)
@@ -629,6 +697,8 @@ class BaseSourceReader(ABC, Generic[DF]):
     def _build_watermark_effective(
         source: Source,
         watermark: Optional[Dict[str, Any]],
+        *,
+        reference_time: Optional[datetime] = None,
     ) -> Optional[Dict[str, Any]]:
         """Return a watermark adjusted by the source's backward offset.
 
@@ -661,7 +731,7 @@ class BaseSourceReader(ABC, Generic[DF]):
         def _offset(dt: datetime) -> datetime:
             if closing_day is not None:
                 return BaseSourceReader._apply_closing_day_backward(
-                    utc_now(),
+                    reference_time or utc_now(),
                     int(closing_day),
                     months=int(backward.get("months", 0)),
                     years=int(backward.get("years", 0)),
@@ -690,7 +760,9 @@ class BaseSourceReader(ABC, Generic[DF]):
         for col, val in watermark.items():
             if isinstance(val, datetime):
                 adjusted[col] = _offset(val)
-            elif type(val) is date:  # exact check — datetime IS-A date, must come after datetime
+            elif (
+                type(val) is date
+            ):  # exact check — datetime IS-A date, must come after datetime
                 dt_mid = datetime(val.year, val.month, val.day, tzinfo=timezone.utc)
                 adjusted[col] = _offset(dt_mid).date()
             elif isinstance(val, str):

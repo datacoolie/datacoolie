@@ -21,6 +21,8 @@ from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.platforms.base import FileInfo
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
+from datacoolie.watermark.contracts import WatermarkCandidateKind
 
 logger = get_logger(__name__)
 
@@ -52,6 +54,14 @@ class FileReader(BaseSourceReader[DF]):
             kinds[FileInfoColumn.FILE_MODIFICATION_TIME] = "temporal"
         return kinds
 
+    def _infer_candidate_kind(
+        self,
+        candidate: Dict[str, Any],
+    ) -> WatermarkCandidateKind:
+        if candidate and set(candidate) == {DATE_FOLDER_PARTITION_KEY}:
+            return WatermarkCandidateKind.METADATA
+        return super()._infer_candidate_kind(candidate)
+
     # ------------------------------------------------------------------
     # Core reading
     # ------------------------------------------------------------------
@@ -59,9 +69,7 @@ class FileReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         """Read files with optional date-folder pruning and watermark filter.
 
@@ -74,6 +82,8 @@ class FileReader(BaseSourceReader[DF]):
             6. Apply watermark filter (lower + optional upper end).
             7. Calculate count and new watermark.
         """
+        watermark_start = self._get_effective_watermark_start()
+        watermark_end = request.watermark_end
         if not source.path:
             raise SourceError("FileReader requires source.path")
 
@@ -159,7 +169,10 @@ class FileReader(BaseSourceReader[DF]):
         if not paths:
             logger.debug("%s: no paths found — skipping. Table: %s (format: %s), Source path: %s", type(self).__name__, source.full_table_name, source.connection.format, source.path)
             self._set_rows_read(0)
-            self._set_new_watermark(watermark_start or {})
+            # No discovered path is not a new source observation.  Returning
+            # the previous lower bound here made runtime ``watermark_after``
+            # look like a fresh candidate on an empty file read.
+            self._set_candidate(None)
             return None
 
         # Read and enrich
@@ -222,19 +235,10 @@ class FileReader(BaseSourceReader[DF]):
             if max_date_dt is not None:
                 new_wm[DATE_FOLDER_PARTITION_KEY] = max_date_dt.isoformat()
 
-        self._set_new_watermark(new_wm)
         self._set_rows_read(count)
+        self._set_candidate(new_wm)
 
         if count == 0:
-            if self._preserve_empty:
-                logger.debug(
-                    "%s: 0 rows after filtering — preserving typed empty frame. "
-                    "Table: %s (format: %s), Source path: %s",
-                    type(self).__name__,
-                    source.full_table_name,
-                    source.path,
-                )
-                return df
             logger.debug("%s: 0 rows after filtering — skipping. Table: %s (format: %s), Source path: %s", type(self).__name__, source.full_table_name, source.connection.format, source.path)
             return None
 

@@ -76,8 +76,8 @@ def test_inactive_etl_skips_before_preparation_and_retry(blocked_role):
     assert runtime.status == DataFlowStatus.SKIPPED.value
     assert runtime.message
     assert runtime.retry_attempts == 0
-    assert runtime.source.status == DataFlowStatus.PENDING.value
-    assert runtime.destination.status == DataFlowStatus.PENDING.value
+    assert runtime.final_attempt is None
+    assert runtime.attempts == []
     prepare.assert_not_called()
     attempt.assert_not_called()
     logged.assert_called_once()

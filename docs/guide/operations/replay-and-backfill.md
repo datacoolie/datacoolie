@@ -11,9 +11,11 @@ description: Re-process a bounded historical range in sequential chunks using Da
 `driver.run_replay()` re-processes a bounded window of historical data in
 sequential chunks. By default it leaves the production watermark untouched;
 `save_watermark=True` persists the reader-produced candidate after each
-successful destination write. The candidate can represent an observed maximum
-or a source-confirmed request end. Every invocation still re-runs the
-requested range; a saved watermark is not a replay checkpoint. Use it to:
+successful, non-empty chunk destination write. The candidate can represent an
+observed maximum or a source-confirmed request end. Every invocation still
+re-runs the requested range; a saved watermark is not a replay progress marker.
+Use
+it to:
 
 - **Backfill** a new destination table from historical source data.
 - **Repair** a corrupt range after a source system issue.
@@ -54,6 +56,17 @@ no chunks or watermark operations start for it.
 This replays January, February, and March 2025 as three independent chunks:
 `[Jan 1, Feb 1)`, `[Feb 1, Mar 1)`, `[Mar 1, Apr 1)`.
 
+### Empty source chunks
+
+If a chunk's source returns `None` or reports `rows_read == 0`, the chunk is
+skipped before transformation. The writer and watermark save are not called,
+even when the chunk is bounded and `save_watermark=True`; a reader-provided
+`SourceReadResult.candidate` remains attempt evidence and its save status is
+`not_attempted`. A non-empty source result that becomes empty during
+transformation is different: the transformed frame is passed to the writer
+without a second emptiness count. With window replacement, that writer call
+may delete the selected destination scope.
+
 ---
 
 ## `ReplayConfig` fields
@@ -63,7 +76,7 @@ This replays January, February, and March 2025 as three independent chunks:
 | `start` | `str`, `date`, `datetime`, or `int` | — | **Inclusive** lower bound of the replay range |
 | `end` | `str`, `date`, `datetime`, or `int` | — | **Exclusive** upper bound of the replay range |
 | `chunk_interval` | `Dict[str, int]` or `None` | `None` | Chunking interval (see below). `None` = single-shot replay |
-| `save_watermark` | `bool` | `False` | When `True`, saves the reader-produced watermark candidate after each successful chunk. It does not skip chunks on a later invocation |
+| `save_watermark` | `bool` | `False` | When `True`, saves the reader-produced watermark candidate after each successful non-empty chunk. It does not skip chunks on a later invocation |
 | `chunk_column` | `str` or `None` | `None` | Column used to select chunks. It may be independent of `source.watermark_columns` when the source reader supports bounded reads |
 
 ### Range convention: `[start, end)`
@@ -168,11 +181,12 @@ By default (`save_watermark=False`), the production watermark is never touched
 during replay.  This is safe for backfill into a new table.
 
 When `save_watermark=True`, DataCoolie saves the reader's candidate after each
-successful destination write. For an observed-max binding, the candidate is the
+successful non-empty source read and destination write. For an observed-max binding, the candidate is the
 maximum non-null source value; for a request-end binding, it is the exclusive
 end that the source contract confirms. The requested chunk upper bound is never
-substituted for a missing observation. An empty read or an all-null candidate
-does not save state, while a legitimate zero remains a valid observation. The
+substituted for a missing observation. An empty source read does not enter the
+transform, write, or save stages; an all-null candidate does not save state,
+while a legitimate zero remains a valid observation. The
 driver merges that candidate with stored state using the reader's
 source-qualified ordering semantics before it saves. On a later invocation the
 same `[start, end)` range is read again:
@@ -196,7 +210,7 @@ ReplayConfig(
     earlier record has been loaded. Complete the intended historical coverage
     before relying on that state for normal incremental selection.
 
-!!! note "No chunk checkpoint"
+!!! note "No replay progress marker"
     Chunks run sequentially and later chunks stop after the first failure.
     A restart intentionally runs every requested chunk again. Use an idempotent
     destination strategy such as `merge_upsert` when repeated replay writes
@@ -215,9 +229,11 @@ ReplayConfig(
 ## Combining with `source.filter_expression`
 
 If your source dataflow already has a `source.filter_expression`, the source
-reader keeps it as a separate post-read or pushdown filter. A replay range is
-owned by the source reader and is applied independently; your original filter
-is preserved:
+reader keeps it as a separate read-stage predicate. A replay range is owned by
+the source reader and is applied independently; the original filter is
+preserved. The reader may push the predicate down or evaluate it after the
+read; DataCoolie does not promise pushdown or move a transform filter into the
+source:
 
 ```json
 "source": {
@@ -259,16 +275,22 @@ must decode to an object. Saving state is an explicit opt-in: pass both
 - With `stop_on_error=True`, no new replay dataflow is admitted after a terminal
   failure; already-admitted dataflows finish and withheld dataflows remain pending.
 - Each chunk records a separate `DataFlowRuntimeInfo` in the execution log with
-  `operation_type = "replay"`.
+  `operation_type = "replay"`; the outer scheduler callback receives a
+  `ReplayRuntimeInfo` aggregate.
+- Retries are scoped to the admitted chunk: retries within one chunk reuse that
+  chunk's `dataflow_run_id` and append fresh attempt snapshots, while separate
+  chunks have separate run IDs. The outer replay aggregate has no synthetic
+  attempt history.
 - Rows written by a chunk receive that chunk's `__dataflow_run_id`; they do not
   receive the outer replay aggregate ID.
-- Each chunk produces a separate execution log row.
+- Each chunk produces a separate execution log row. The outer aggregate has
+  `chunk_run_ids`, aggregate `metrics`, and aggregate `retry_attempts`, but no
+  synthetic `attempts` history.
 - Chunk observers use the chunk completion hook; the dataflow completion hook
   receives one aggregate result. Observer errors are logged and do not change
   pipeline status.
 - `ExecutionResult.total` / `succeeded` / `failed` count the outer
-  **dataflows**, because `_process_replay` aggregates its chunks into one
-  `DataFlowRuntimeInfo` before returning to `ParallelExecutor`.
+  **dataflows**, while chunk observations retain their own run IDs and metrics.
 
 ---
 

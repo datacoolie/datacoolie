@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import copy
-import json
+import logging
 import threading
+from dataclasses import fields
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence
 
 from datacoolie.core.constants import DataFlowStatus, ExecutionType
 from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, DestinationRuntimeInfo, JobRuntimeInfo, SourceRuntimeInfo, TransformRuntimeInfo
+from datacoolie.orchestration.execution.runtime import (
+    DataFlowRuntimeInfo,
+    ExecutionMetrics,
+)
+from datacoolie.orchestration.runtime import JobRuntimeInfo
 from datacoolie.logging.base import (
     BaseLogger,
     _FlushOperation,
 )
 from datacoolie.logging.configuration.config import LogConfig
 from datacoolie.logging.configuration.constants import FlushResult, LogType
+from datacoolie.logging.configuration.constants import INTERNAL_LOGGER_NAME
 from datacoolie.logging.persistence.layout import build_job_stem, format_partition_path
 from datacoolie.logging.persistence.writer import (
     JsonLogWriter,
@@ -29,6 +35,7 @@ from datacoolie.logging.persistence.projection import (
     flatten_dataflow_runtime,
     flatten_job_runtime,
 )
+from datacoolie.logging.persistence.bounded_encoder import bounded_json_dumps
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.utils.time import utc_now
 
@@ -41,6 +48,20 @@ _TERMINAL_STATUSES = {
     DataFlowStatus.SKIPPED.value,
 }
 _JOB_TERMINAL_STATUSES = _TERMINAL_STATUSES
+_diagnostic_logger = logging.getLogger(INTERNAL_LOGGER_NAME)
+
+_METRIC_TO_TOTAL = {
+    "rows_read": "total_rows_read",
+    "rows_written": "total_rows_written",
+    "rows_inserted": "total_rows_inserted",
+    "rows_updated": "total_rows_updated",
+    "rows_deleted": "total_rows_deleted",
+    "files_added": "total_files_added",
+    "files_removed": "total_files_removed",
+    "bytes_added": "total_bytes_added",
+    "bytes_removed": "total_bytes_removed",
+}
+_JOB_METRIC_EXCLUSIONS = {"bytes_saved"}
 
 
 class ExecutionLogger(BaseLogger):
@@ -75,6 +96,8 @@ class ExecutionLogger(BaseLogger):
         self._job_finalized = False
         self._log_records_dropped = 0
         self._log_bytes_dropped = 0
+        self._job_metrics: Optional[ExecutionMetrics] = None
+        self._run_attributes_rejected = False
 
     # ------------------------------------------------------------------
     # Configuration and lifecycle
@@ -183,22 +206,13 @@ class ExecutionLogger(BaseLogger):
             raise ConfigurationError(
                 "ExecutionLogger.log requires DataFlow and DataFlowRuntimeInfo instances"
             )
-        if not all(
-            isinstance(value, expected)
-            for value, expected in (
-                (runtime_info.source, SourceRuntimeInfo),
-                (runtime_info.transform, TransformRuntimeInfo),
-                (runtime_info.destination, DestinationRuntimeInfo),
-            )
-        ):
-            raise ConfigurationError(
-                "ExecutionLogger.log requires source, transform and destination runtime details"
-            )
         if runtime_info.status not in _TERMINAL_STATUSES:
             raise ConfigurationError(
                 "ExecutionLogger.log accepts only terminal dataflow statuses: "
                 f"{sorted(_TERMINAL_STATUSES)}"
             )
+        if not isinstance(runtime_info.dataflow_run_id, str) or not runtime_info.dataflow_run_id:
+            raise ConfigurationError("ExecutionLogger.log requires a nonempty dataflow_run_id")
         with self._close_lock:
             if self._is_closed or self._is_closing:
                 raise ConfigurationError("ExecutionLogger.log is not available while closing")
@@ -214,10 +228,12 @@ class ExecutionLogger(BaseLogger):
                 # Project and aggregate under the same lifecycle/state
                 # boundary so cleanup cannot reset the job snapshot while a
                 # terminal record is being built.
-                entry = self._build_entry(dataflow, runtime_info)
+                metrics = self._metrics_for_job(runtime_info)
+                self._validate_metrics(metrics)
                 self._update_job_runtime(
                     runtime_info,
                     dataflow.name or dataflow.dataflow_id,
+                    metrics,
                 )
                 stage = dataflow.stage
                 if stage and stage not in self._stages:
@@ -231,9 +247,16 @@ class ExecutionLogger(BaseLogger):
                 # a later checkpoint can still publish those counters.
                 self._job_summary_dirty = True
                 self._job_summary_revision += 1
+                # Projection is observational: even malformed optional detail
+                # must not suppress terminal business accounting.
                 if self._dataflow_writer is not None:
                     dropped_before = self._dataflow_writer.stats.dropped_bytes
-                    admitted = self._dataflow_writer.append(entry)
+                    try:
+                        entry = self._build_entry(dataflow, runtime_info)
+                        admitted = self._dataflow_writer.append(entry)
+                    except Exception:  # projection/encoding is observational
+                        admitted = False
+                        self._warn_rejection("terminal observation projection or encoding rejected")
                     if not admitted:
                         stats = self._dataflow_writer.stats
                         self._log_records_dropped += 1
@@ -244,6 +267,24 @@ class ExecutionLogger(BaseLogger):
                         self._job_info.log_bytes_dropped = self._log_bytes_dropped
                     elif self._dataflow_writer.should_flush:
                         self._request_periodic_flush()
+
+    @staticmethod
+    def _warn_rejection(message: str) -> None:
+        # Never format the rejected payload or exception, or enter the system sink.
+        try:
+            _diagnostic_logger.warning("ExecutionLogger: %s", message)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _validate_metrics(metrics: ExecutionMetrics) -> None:
+        names = {item.name for item in fields(ExecutionMetrics)}
+        if names != set(_METRIC_TO_TOTAL) | _JOB_METRIC_EXCLUSIONS:
+            raise ConfigurationError("Execution metric inventory has no explicit job mapping")
+        for name in names:
+            value = getattr(metrics, name)
+            if value is not None and (type(value) is not int or value < 0):
+                raise ConfigurationError("Execution metrics must be nonnegative integers or None")
 
     def finish_job(
         self,
@@ -442,19 +483,17 @@ class ExecutionLogger(BaseLogger):
         with self._state_lock:
             if not self._job_summary_dirty and not force:
                 return FlushResult.NO_WORK
-            record = self._job_record()
             revision = self._job_summary_revision
-            dropped_before = writer.stats.dropped_bytes
-            admitted = writer.replace(record)
+            try:
+                record = self._job_record()
+                admitted = writer.replace(record)
+            except Exception:
+                admitted = False
+                self._warn_rejection("job snapshot projection or encoding rejected")
             if not admitted:
-                self._log_records_dropped += 1
-                self._log_bytes_dropped += max(
-                    0,
-                    writer.stats.dropped_bytes - dropped_before,
-                )
-                self._job_info.log_records_dropped = self._log_records_dropped
-                self._job_info.log_bytes_dropped = self._log_bytes_dropped
-                return FlushResult.NO_WORK
+                self._job_summary_dirty = True
+        # Pending immutable upload retries must progress even when the latest
+        # projection is rejected. Uploads never run while the state lock is held.
         result = writer.flush(force=True)
         with self._state_lock:
             # A concurrent replacement can be coalesced behind an immutable
@@ -463,7 +502,8 @@ class ExecutionLogger(BaseLogger):
             # record instead of silently losing the update.
             flush_succeeded = result is FlushResult.WRITTEN
             self._job_summary_dirty = (
-                self._job_summary_revision != revision
+                not admitted
+                or self._job_summary_revision != revision
                 or not flush_succeeded
                 # A successful retry may promote a queued replacement into
                 # the writer's active snapshot.  The queued marker is then
@@ -494,6 +534,8 @@ class ExecutionLogger(BaseLogger):
             runtime,
             job_info=self._job_info,
             log_session_id=self.log_session_id,
+            diagnostic_max_bytes=self._config.diagnostic_max_bytes,
+            max_record_bytes=self._config.max_record_bytes,
         )
 
     @staticmethod
@@ -519,21 +561,37 @@ class ExecutionLogger(BaseLogger):
             self._job_info.retry_delay = rc.retry_delay
             self._job_info.dry_run = rc.dry_run
             self._job_info.retention_hours = rc.retention_hours
-            self._job_info.run_attributes = (
-                json.dumps(
-                    rc.run_attributes,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    allow_nan=False,
+            try:
+                self._job_info.run_attributes = (
+                    bounded_json_dumps(
+                        rc.run_attributes,
+                        max_bytes=self._config.max_record_bytes,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    ) if rc.run_attributes is not None else None
                 )
-                if rc.run_attributes is not None else None
-            )
+                self._run_attributes_rejected = False
+            except Exception:
+                # Keep business configuration usable, but never publish a summary
+                # with missing/truncated authoritative caller attributes.
+                self._run_attributes_rejected = True
 
     def _apply_component_names(self) -> None:
         for key, value in self._component_names.items():
             setattr(self._job_info, key, value)
 
-    def _update_job_runtime(self, runtime: DataFlowRuntimeInfo, label: Optional[str]) -> None:
+    def _update_job_runtime(
+        self, runtime: DataFlowRuntimeInfo, label: Optional[str],
+        metrics: Optional[ExecutionMetrics] = None,
+    ) -> None:
+        if metrics is None:
+            metrics = self._metrics_for_job(runtime)
+        self._validate_metrics(metrics)
+        aggregate = (
+            copy.deepcopy(metrics) if self._job_metrics is None
+            else ExecutionMetrics.sum((self._job_metrics, metrics))
+        )
         ji = self._job_info
         ji.total_dataflows += 1
         if runtime.status == DataFlowStatus.SUCCEEDED.value:
@@ -551,21 +609,57 @@ class ExecutionLogger(BaseLogger):
         elif runtime.status == DataFlowStatus.SKIPPED.value:
             ji.total_skipped += 1
 
-        if runtime.operation_type != ExecutionType.MAINTENANCE.value:
-            ji.total_rows_read += runtime.rows_read
-            ji.total_rows_written += runtime.rows_written
-            ji.total_rows_inserted += runtime.rows_inserted
-            ji.total_rows_updated += runtime.rows_updated
-            ji.total_rows_deleted += runtime.rows_deleted
-        ji.total_files_added += runtime.destination.files_added
-        ji.total_files_removed += runtime.destination.files_removed
-        ji.total_bytes_added += runtime.destination.bytes_added
-        ji.total_bytes_removed += runtime.destination.bytes_removed
+        self._job_metrics = aggregate
+        self._apply_job_metrics()
         ji.log_records_dropped = self._log_records_dropped
         ji.log_bytes_dropped = self._log_bytes_dropped
 
+    def _metrics_for_job(self, runtime: DataFlowRuntimeInfo) -> ExecutionMetrics:
+        """Return one observation's metrics at job grain.
+
+        Maintenance rows describe file/byte housekeeping, not ingestion.  Their
+        row metrics therefore contribute known zero while file and byte
+        uncertainty remains untouched.
+        """
+
+        metrics = runtime.metrics
+        if metrics is None:
+            # ``None`` here means the producer could not expose a final
+            # metric object.  Keep that uncertainty visible; an empty sum is
+            # the separate case that is allowed to produce measured zeros.
+            return ExecutionMetrics(
+                **{item.name: None for item in fields(ExecutionMetrics)}
+            )
+        if runtime.operation_type != ExecutionType.MAINTENANCE.value:
+            return metrics
+
+        row_fields = {
+            "rows_read",
+            "rows_written",
+            "rows_inserted",
+            "rows_updated",
+            "rows_deleted",
+        }
+        values = {
+            item.name: 0 if item.name in row_fields else getattr(metrics, item.name)
+            for item in fields(ExecutionMetrics)
+        }
+        return ExecutionMetrics(**values)
+
+    def _apply_job_metrics(self) -> None:
+        """Copy the reducer result into the nullable JobRuntimeInfo totals."""
+
+        if self._job_metrics is None:
+            return
+        for metric_name, total_name in _METRIC_TO_TOTAL.items():
+            setattr(self._job_info, total_name, getattr(self._job_metrics, metric_name))
+
     def _set_message(self, message: str) -> None:
         existing = self._job_info.message or ""
+        # Slice before encoding; a rejected detail may also have a huge identity.
+        if len(message) > self._max_message_bytes:
+            message = message[:self._max_message_bytes]
+            self._job_info.message_truncated = True
         candidate = f"{existing}; {message}" if existing else message
         encoded = candidate.encode("utf-8")
         if len(encoded) > self._max_message_bytes:
@@ -580,7 +674,10 @@ class ExecutionLogger(BaseLogger):
         observed_at: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         with self._state_lock:
+            if self._run_attributes_rejected:
+                raise ValueError("job run attributes exceed the logging record contract")
             ji = self._job_info
+            self._apply_job_metrics()
             ji.stages = self._stages[0] if len(self._stages) == 1 else (list(self._stages) or None)
             ji.operation_types = (
                 self._operation_types[0]
@@ -593,6 +690,7 @@ class ExecutionLogger(BaseLogger):
                 ji,
                 observed_at=observed_at,
                 log_session_id=self.log_session_id,
+                max_record_bytes=self._config.max_record_bytes,
             )
 
     def _build_job_stem(self, started_at: datetime) -> str:

@@ -663,6 +663,74 @@ def _pre_clean_job_logs(scenario: dict) -> None:
         logger.info("  [pre-clean] removed %d log file(s) for job_id=%s", removed, token)
 
 
+def _fresh_standalone_replay_scenario(
+    scenario: dict, *, use_docker: bool
+) -> dict:
+    """Give the native replay validator a fresh, contained fixture root.
+
+    The registry keeps stable root prefixes for discoverability, while the
+    validator owns every fixture and receipt below the selected suffix. Old
+    roots are intentionally left in place so their native receipts remain
+    auditable and cannot be overwritten on a rerun.
+    """
+    validation = scenario.get("validation") or {}
+    validator = str(validation.get("script") or "").replace("\\", "/")
+    if not validator.endswith("/validate_replay_window_safety.py"):
+        return scenario
+
+    args = [str(arg) for arg in validation.get("args", [])]
+    try:
+        root_index = args.index("--root")
+        configured_root = args[root_index + 1]
+    except (ValueError, IndexError) as exc:
+        raise ValueError(
+            "standalone replay validation must declare --root"
+        ) from exc
+
+    requested = Path(configured_root)
+    requested = (
+        requested if requested.is_absolute() else DATACOOLIE_ROOT / requested
+    ).resolve()
+    data_base = DATA_DIR.resolve()
+    if requested == data_base or not requested.is_relative_to(data_base):
+        raise ValueError(
+            "standalone replay validation root must stay strictly below "
+            f"{data_base}: {requested}"
+        )
+
+    relative_parent = requested.relative_to(data_base).parent
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    for sequence in range(1, 1000):
+        candidate = requested.with_name(
+            f"{requested.name}_{stamp}_{sequence:02d}"
+        )
+        relative = relative_parent / candidate.name
+        mapped_log = (LOG_DIR / relative).resolve()
+        mapped_watermark = (WATERMARKS_DIR / relative).resolve()
+        if candidate.exists() or mapped_log.exists() or mapped_watermark.exists():
+            continue
+
+        if use_docker:
+            rendered = _to_container_path(candidate)
+        else:
+            try:
+                rendered = candidate.relative_to(DATACOOLIE_ROOT).as_posix()
+            except ValueError:
+                rendered = str(candidate)
+        copied = dict(scenario)
+        copied_validation = dict(validation)
+        copied_args = list(args)
+        copied_args[root_index + 1] = rendered
+        copied_validation["args"] = copied_args
+        copied["validation"] = copied_validation
+        logger.info("  [fresh-root] standalone replay root: %s", candidate)
+        return copied
+
+    raise ValueError(
+        "could not allocate a fresh standalone replay root after 999 attempts"
+    )
+
+
 def _run_scenario_setup(name: str, scenario: dict) -> tuple[int, str]:
     """Run an optional repository-local setup script before the ETL child."""
 
@@ -1036,13 +1104,20 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             combined_console = SCENARIO_LOG_DIR / f"{name}.console.log"
             combined_console.write_text("", encoding="utf-8")
             logger.info("▸ Running standalone validation: %s", name)
-            final_rc, status = _validate_scenario_result(
-                scenario,
-                0,
-                combined_console,
-                use_docker=use_docker,
-                spark_container=spark_container,
-            )
+            try:
+                validation_scenario = _fresh_standalone_replay_scenario(
+                    scenario, use_docker=use_docker
+                )
+            except ValueError as exc:
+                final_rc, status = 1, f"FAIL (fresh root: {exc})"
+            else:
+                final_rc, status = _validate_scenario_result(
+                    validation_scenario,
+                    0,
+                    combined_console,
+                    use_docker=use_docker,
+                    spark_container=spark_container,
+                )
             results[name] = final_rc
             logger.info("  Result: %s", status)
             continue

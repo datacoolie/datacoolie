@@ -6,10 +6,11 @@ operations, retry handling, and parallel execution.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, List
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import DEFAULT, MagicMock, call, patch
 
 import pytest
 
@@ -18,7 +19,11 @@ from datacoolie.core.exceptions import ConfigurationError, DataCoolieError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, DestinationRuntimeInfo, PipelineAttemptResult, SourceRuntimeInfo, TransformRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo, ReplayRuntimeInfo
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
+from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
+from datacoolie.sources.runtime import SourceRuntimeInfo
+from datacoolie.transformers.runtime import TransformRuntimeInfo
 from datacoolie.core.models.destination import Destination
 from datacoolie.core.models.source import Source
 from datacoolie.core.secrets.provider import BaseSecretProvider, SecretStr
@@ -26,6 +31,9 @@ from datacoolie.orchestration import create_driver
 from datacoolie.core.exceptions import PipelineError
 from datacoolie.orchestration.driver import DataCoolieDriver
 from datacoolie.orchestration.scheduling.parallel_executor import ExecutionResult
+from datacoolie.sources.contracts import SourceReadResult, SourceReadSelection
+from datacoolie.watermark.contracts import WatermarkCandidate
+from datacoolie.orchestration.execution.read_baseline import ReadBaseline
 
 
 @pytest.fixture(autouse=True)
@@ -50,6 +58,15 @@ def _reset_log_manager():
 # ============================================================================
 # Helpers
 # ============================================================================
+
+
+def _complete_owned_attempt(template):
+    """Test runners obey lifecycle ownership, without replacing the attempt."""
+    def run(*args, attempt, **kwargs):
+        for field in ("status", "message", "source", "transform", "destination", "watermark"):
+            setattr(attempt, field, deepcopy(getattr(template, field)))
+        return attempt
+    return run
 
 
 def _conn(
@@ -128,6 +145,90 @@ def _mock_watermark():
     wm.get_watermark.return_value = {}
     wm.save_watermark.return_value = None
     return wm
+
+
+def _attach_typed_reader_result(
+    reader: MagicMock,
+    *,
+    selection: SourceReadSelection | None = None,
+    watermark_candidate: Any = DEFAULT,
+    watermark_kind: Any = DEFAULT,
+) -> MagicMock:
+    """Adapt the legacy read spy to the explicit source execution contract."""
+
+    def _configured_runtime() -> SourceRuntimeInfo:
+        getter = reader.get_runtime_info
+        runtime = getter() if getter.side_effect is not None else getter.return_value
+        if not isinstance(runtime, SourceRuntimeInfo):
+            raise AssertionError(
+                "reader fixture must configure get_runtime_info() with SourceRuntimeInfo"
+            )
+        return runtime
+
+    def _configured_candidate() -> dict[str, Any] | None:
+        getter = reader.get_new_watermark
+        if getter.side_effect is not None:
+            return getter()
+        if getter._mock_return_value is DEFAULT:
+            return None
+        return getter()
+
+    raw_read = reader.read
+
+    def typed_read(source, *, request):
+        watermark_start = request.watermark_start
+        kwargs = {"watermark_end": request.watermark_end, "read_range": request.read_range}
+        # Keep the old read mock as the observable/failable source action.
+        frame = raw_read(source, watermark_start, **kwargs)
+        runtime = _configured_runtime()
+        read_range = kwargs.get("read_range")
+        read_selection = selection
+        if read_selection is None:
+            if read_range is not None:
+                read_selection = SourceReadSelection(
+                    mode="range",
+                    lower={read_range.column: read_range.start},
+                    upper={read_range.column: read_range.end},
+                    lower_operator=read_range.lower_operator,
+                    upper_operator=read_range.upper_operator,
+                    combine_operator="OR",
+                    upper_origin="explicit",
+                )
+            else:
+                watermark_end = kwargs.get("watermark_end")
+                read_selection = SourceReadSelection(
+                    mode=(
+                        "incremental"
+                        if watermark_start is not None or watermark_end is not None
+                        else "full"
+                    ),
+                    lower=deepcopy(watermark_start),
+                    upper=deepcopy(watermark_end),
+                    lower_operator=request.watermark_start_operator or ">",
+                    upper_operator=request.watermark_end_operator or "<",
+                    combine_operator="OR",
+                    upper_origin="explicit" if watermark_end is not None else "none",
+                )
+        candidate = (
+            _configured_candidate()
+            if watermark_candidate is DEFAULT
+            else deepcopy(watermark_candidate)
+        )
+        kind = (
+            "observed_max"
+            if watermark_kind is DEFAULT
+            else watermark_kind
+        )
+        return SourceReadResult(
+            frame=frame,
+            rows_read=runtime.rows_read,
+            selection=deepcopy(read_selection),
+            candidate=WatermarkCandidate(deepcopy(candidate), kind or "observed_max") if candidate else None,
+            runtime=runtime,
+        )
+
+    reader.read = MagicMock(side_effect=typed_read)
+    return reader
 
 
 def _make_driver(
@@ -915,6 +1016,7 @@ class TestProcessDataflow:
         reader = MagicMock()
         reader.read.return_value = "source_df"
         reader.get_runtime_info.return_value = source
+        _attach_typed_reader_result(reader)
         pipeline = MagicMock()
         pipeline.transform.return_value = "transformed_df"
         pipeline.get_runtime_info.return_value = transform
@@ -928,13 +1030,15 @@ class TestProcessDataflow:
                 df,
                 "run-1",
                 save_watermark=False,
+                baseline=ReadBaseline(),
+                attempt=AttemptRuntimeInfo(),
             )
 
-        assert isinstance(result, PipelineAttemptResult)
+        assert isinstance(result, AttemptRuntimeInfo)
         assert result.status == DataFlowStatus.SUCCEEDED.value
-        assert result.source is source
-        assert result.transform is transform
-        assert result.destination is destination
+        assert result.source.rows_read == source.rows_read
+        assert result.transform.status == transform.status
+        assert result.destination.rows_written == destination.rows_written
 
     def test_success_flow(self):
         d, engine, _, wm = _make_driver()
@@ -949,11 +1053,12 @@ class TestProcessDataflow:
         )
         mock_reader.get_new_watermark.return_value = {"col": "val"}
         mock_reader.merge_watermark.side_effect = (
-            lambda _existing, candidate: dict(candidate)
+            lambda _existing, candidate: dict(candidate.values)
         )
-        mock_reader._validate_watermark_comparison.side_effect = (
+        mock_reader.validate_watermark.side_effect = (
             lambda _watermark, *, boundary: None
         )
+        _attach_typed_reader_result(mock_reader)
         from datacoolie.watermark.base import WatermarkSerializer
 
         wm.serialize.side_effect = WatermarkSerializer.serialize
@@ -1003,7 +1108,9 @@ class TestProcessDataflow:
         wm.save_watermark.assert_called_once()
 
     def test_runtime_exists_before_retry_execution(self):
-        d, *_ = _make_driver()
+        d, *_ = _make_driver(
+            config=DataCoolieRunConfig(retry_count=0, retry_delay=0)
+        )
         df = _dataflow()
         real_runtime_type = DataFlowRuntimeInfo
         events: list[tuple[str, str]] = []
@@ -1016,7 +1123,7 @@ class TestProcessDataflow:
         def execute(_fn, _dataflow, **kwargs):
             events.append(("execute", kwargs["dataflow_run_id"]))
             return (
-                PipelineAttemptResult(
+                AttemptRuntimeInfo(
                     status=DataFlowStatus.SKIPPED.value,
                     source=SourceRuntimeInfo(rows_read=0),
                 ),
@@ -1048,6 +1155,7 @@ class TestProcessDataflow:
             rows_read=0, status=DataFlowStatus.SUCCEEDED.value
         )
         mock_reader.get_new_watermark.return_value = {}
+        _attach_typed_reader_result(mock_reader)
 
         with patch.object(d, "_create_source_reader", return_value=mock_reader):
             result = d._process_dataflow(df)
@@ -1062,6 +1170,7 @@ class TestProcessDataflow:
 
         mock_reader = MagicMock()
         mock_reader.read.side_effect = RuntimeError("read error")
+        _attach_typed_reader_result(mock_reader)
 
         with patch.object(d, "_create_source_reader", return_value=mock_reader):
             result = d._process_dataflow(df)
@@ -1079,6 +1188,7 @@ class TestProcessDataflow:
         mock_reader.get_runtime_info.return_value = SourceRuntimeInfo(
             rows_read=42, status=DataFlowStatus.SUCCEEDED.value
         )
+        _attach_typed_reader_result(mock_reader)
 
         mock_pipeline = MagicMock()
         mock_pipeline.transform.side_effect = RuntimeError("transform boom")
@@ -1089,8 +1199,8 @@ class TestProcessDataflow:
 
         assert result.status == DataFlowStatus.FAILED.value
         assert "transform boom" in result.message
-        assert result.source.rows_read == 42
-        assert result.source.status == DataFlowStatus.SUCCEEDED.value
+        assert result.final_attempt.source.rows_read == 42
+        assert result.final_attempt.source.status == DataFlowStatus.SUCCEEDED.value
 
     def test_failure_preserves_partial_transform_runtime(self):
         """When write fails, source and transform runtimes are preserved."""
@@ -1102,6 +1212,7 @@ class TestProcessDataflow:
         mock_reader.get_runtime_info.return_value = SourceRuntimeInfo(
             rows_read=10, status=DataFlowStatus.SUCCEEDED.value
         )
+        _attach_typed_reader_result(mock_reader)
 
         mock_pipeline = MagicMock()
         mock_pipeline.transform.return_value = "transformed_df"
@@ -1120,8 +1231,8 @@ class TestProcessDataflow:
 
         assert result.status == DataFlowStatus.FAILED.value
         assert "write boom" in result.message
-        assert result.source.rows_read == 10
-        assert result.transform.transformers_applied == ["SchemaConverter"]
+        assert result.final_attempt.source.rows_read == 10
+        assert result.final_attempt.transform.transformers_applied == ["SchemaConverter"]
 
     @patch("datacoolie.utils.retry.time.sleep")
     def test_retry_on_exception(self, mock_sleep):
@@ -1140,10 +1251,16 @@ class TestProcessDataflow:
 
         mock_reader = MagicMock()
         mock_reader.read.side_effect = fake_read
-        mock_reader.get_runtime_info.return_value = SourceRuntimeInfo(
-            rows_read=5, status=DataFlowStatus.SUCCEEDED.value
-        )
+        def get_runtime_info():
+            if mock_reader.read.call_count <= 2:
+                raise RuntimeError("runtime capture unavailable after failed read")
+            return SourceRuntimeInfo(
+                rows_read=5, status=DataFlowStatus.SUCCEEDED.value
+            )
+
+        mock_reader.get_runtime_info.side_effect = get_runtime_info
         mock_reader.get_new_watermark.return_value = {}
+        _attach_typed_reader_result(mock_reader)
 
         mock_pipeline = MagicMock()
         mock_pipeline.transform.return_value = "df"
@@ -1182,10 +1299,16 @@ class TestProcessDataflow:
 
         mock_reader = MagicMock()
         mock_reader.read.side_effect = [RuntimeError("transient"), None]
-        mock_reader.get_runtime_info.return_value = SourceRuntimeInfo(
-            rows_read=0,
-            status=DataFlowStatus.SUCCEEDED.value,
-        )
+        def get_runtime_info():
+            if mock_reader.read.call_count == 1:
+                raise RuntimeError("runtime capture unavailable after failed read")
+            return SourceRuntimeInfo(
+                rows_read=0,
+                status=DataFlowStatus.SUCCEEDED.value,
+            )
+
+        mock_reader.get_runtime_info.side_effect = get_runtime_info
+        _attach_typed_reader_result(mock_reader)
 
         with patch.object(d, "_create_source_reader", return_value=mock_reader):
             result = d._process_dataflow(df)
@@ -1219,6 +1342,7 @@ class TestProcessDataflow:
         mock_reader.read.return_value = None
         mock_reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=0)
         mock_reader.get_new_watermark.return_value = {}
+        _attach_typed_reader_result(mock_reader)
 
         with patch.object(d, "_create_source_reader", return_value=mock_reader):
             d._process_dataflow(df)
@@ -1239,6 +1363,7 @@ class TestProcessDataflow:
             rows_read=0,
             source_action={"reader": "DatabaseReader", "query": "SELECT 1;"},
         )
+        _attach_typed_reader_result(reader)
 
         with patch.object(driver, "_create_source_reader", return_value=reader):
             result = driver._process_dataflow(dataflow)
@@ -1248,7 +1373,7 @@ class TestProcessDataflow:
         assert prepared_source.query == "SELECT 1;"
         logged_dataflow, logged_runtime = execution_logger.log.call_args.kwargs["dataflow"], execution_logger.log.call_args.kwargs["runtime_info"]
         assert logged_dataflow.source.query == "orders.sql"
-        assert logged_runtime.source.source_action["query"] == "SELECT 1;"
+        assert logged_runtime.final_attempt.source.source_action["query"] == "SELECT 1;"
 
 
 # ============================================================================
@@ -1268,13 +1393,13 @@ class TestProcessMaintenance:
         writer.run_maintenance.return_value = destination
 
         with patch.object(d, "_create_destination_writer", return_value=writer):
-            result = d._execute_maintenance_pipeline(df)
+            result = d._execute_maintenance_pipeline(df, baseline=ReadBaseline(), attempt=AttemptRuntimeInfo())
 
-        assert isinstance(result, PipelineAttemptResult)
+        assert isinstance(result, AttemptRuntimeInfo)
         assert result.status == DataFlowStatus.SUCCEEDED.value
         assert result.source is None
         assert result.transform is None
-        assert result.destination is destination
+        assert result.destination.status == destination.status
 
     def test_success(self):
         d, engine, _, _ = _make_driver()
@@ -1292,7 +1417,7 @@ class TestProcessMaintenance:
             result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.SUCCEEDED.value
-        assert result.destination.files_added == 1
+        assert result.final_attempt.destination.files_added == 1
         mock_writer.run_maintenance.assert_called_once()
         call_kwargs = mock_writer.run_maintenance.call_args
         assert call_kwargs.kwargs["do_compact"] is True
@@ -1309,22 +1434,19 @@ class TestProcessMaintenance:
             events.append(("runtime", runtime.dataflow_run_id))
             return runtime
 
-        def execute(_fn, _dataflow, **_kwargs):
+        def run_attempt(_dataflow, **_kwargs):
             events.append(("execute", events[0][1]))
-            return (
-                PipelineAttemptResult(
+            return AttemptRuntimeInfo(
+                status=DataFlowStatus.SUCCEEDED.value,
+                destination=DestinationRuntimeInfo(
                     status=DataFlowStatus.SUCCEEDED.value,
-                    destination=DestinationRuntimeInfo(
-                        status=DataFlowStatus.SUCCEEDED.value,
-                    ),
                 ),
-                1,
             )
 
         with patch(
             "datacoolie.orchestration.execution.lifecycle.DataFlowRuntimeInfo",
             side_effect=create_runtime,
-        ), patch.object(d._retry_handler, "execute", side_effect=execute):
+        ), patch.object(d, "_execute_maintenance_pipeline", side_effect=run_attempt):
             result = d._process_maintenance(df)
 
         assert events == [
@@ -1382,8 +1504,8 @@ class TestProcessMaintenance:
 
         assert result.status == DataFlowStatus.FAILED.value
         assert "maint err" in result.message
-        assert result.destination.status == DataFlowStatus.PENDING.value
-        assert result.destination.operation_type is None
+        assert result.final_attempt.destination.status == DataFlowStatus.FAILED.value
+        assert result.final_attempt.destination.operation_type == ExecutionType.MAINTENANCE.value
 
     def test_setup_failure_does_not_create_destination_failure(self):
         d, *_ = _make_driver()
@@ -1398,9 +1520,7 @@ class TestProcessMaintenance:
 
         assert result.status == DataFlowStatus.FAILED.value
         assert result.message == "factory failed"
-        assert result.destination.status == DataFlowStatus.PENDING.value
-        assert result.destination.message is None
-        assert result.destination.operation_type is None
+        assert result.final_attempt.destination is None
 
     def test_secret_resolution_failure_does_not_start_destination(self):
         d, *_ = _make_driver()
@@ -1415,8 +1535,7 @@ class TestProcessMaintenance:
 
         assert result.status == DataFlowStatus.FAILED.value
         assert result.message == "secret resolution failed"
-        assert result.destination.status == DataFlowStatus.PENDING.value
-        assert result.destination.operation_type is None
+        assert result.final_attempt is None
         writer_factory.assert_not_called()
 
     def test_writer_exception_recovers_started_maintenance_runtime(self):
@@ -1434,11 +1553,16 @@ class TestProcessMaintenance:
             result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.FAILED.value
-        assert result.destination is partial
+        assert result.final_attempt.destination.operation_type == partial.operation_type
+        assert result.final_attempt.destination is not partial
+        assert result.final_attempt.destination is result.attempts[-1].destination
         assert result.message == "maintenance crashed"
-        assert partial.status == DataFlowStatus.FAILED.value
-        assert partial.message == "maintenance crashed"
-        assert partial.end_time is not None
+        assert partial.status == DataFlowStatus.RUNNING.value
+        assert partial.message is None
+        assert partial.end_time is None
+        assert result.final_attempt.destination.status == DataFlowStatus.FAILED.value
+        assert result.final_attempt.destination.message == "maintenance crashed"
+        assert result.final_attempt.destination.end_time is not None
 
     def test_component_pipeline_error_is_normalized_to_attempt_result(self):
         d, *_ = _make_driver()
@@ -1448,20 +1572,21 @@ class TestProcessMaintenance:
             message="writer partial",
             operation_type=ExecutionType.MAINTENANCE.value,
         )
-        original = PipelineError("writer pipeline error", partial_result=partial)
+        original = PipelineError("writer pipeline error", attempt=partial)
         mock_writer = MagicMock()
         mock_writer.run_maintenance.side_effect = original
         mock_writer.get_runtime_info.return_value = partial
 
         with patch.object(d, "_create_destination_writer", return_value=mock_writer):
             with pytest.raises(PipelineError) as caught:
-                d._execute_maintenance_pipeline(df)
+                d._execute_maintenance_pipeline(df, baseline=ReadBaseline(), attempt=AttemptRuntimeInfo())
 
         assert caught.value is not original
         assert caught.value.__cause__ is original
-        assert isinstance(caught.value.partial_result, PipelineAttemptResult)
-        assert caught.value.partial_result.status == DataFlowStatus.FAILED.value
-        assert caught.value.partial_result.destination is partial
+        assert isinstance(caught.value.attempt, AttemptRuntimeInfo)
+        assert caught.value.attempt.status == DataFlowStatus.FAILED.value
+        assert caught.value.attempt.destination is not partial
+        assert caught.value.attempt.destination.status == DataFlowStatus.FAILED.value
 
     def test_returned_failure_retries_whole_maintenance_function(self):
         config = DataCoolieRunConfig(retry_count=1, retry_delay=0)
@@ -1489,7 +1614,9 @@ class TestProcessMaintenance:
             result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.SUCCEEDED.value
-        assert result.destination is succeeded
+        assert result.final_attempt.destination == succeeded
+        assert result.final_attempt.destination is not succeeded
+        assert result.final_attempt.destination is result.attempts[-1].destination
         assert result.retry_attempts == 1
         assert writer_factory.call_count == 2
         assert writer_factory.call_args_list == [
@@ -1523,7 +1650,12 @@ class TestProcessMaintenance:
             result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.FAILED.value
-        assert result.destination is last
+        assert result.final_attempt.destination.status == last.status
+        assert result.final_attempt.destination.message == last.message
+        assert result.final_attempt.destination.end_time is not None
+        assert last.end_time is None
+        assert result.final_attempt.destination is not last
+        assert result.final_attempt.destination is result.attempts[-1].destination
         assert result.message == "last failure"
 
     def test_skipped_maintenance_does_not_retry(self):
@@ -1546,7 +1678,9 @@ class TestProcessMaintenance:
 
         assert result.status == DataFlowStatus.SKIPPED.value
         assert result.message == "Maintenance performed no operations"
-        assert result.destination is skipped
+        assert result.final_attempt.destination == skipped
+        assert result.final_attempt.destination is not skipped
+        assert result.final_attempt.destination is result.attempts[-1].destination
         writer_factory.assert_called_once_with(df.destination.connection.format)
 
     def test_execution_logger_not_failing(self):
@@ -1863,6 +1997,7 @@ class TestRunReplay:
         reader = MagicMock()
         reader.read.return_value = "frame"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        _attach_typed_reader_result(reader)
         pipeline = MagicMock()
         pipeline.transform.return_value = "transformed"
         pipeline.get_runtime_info.return_value = TransformRuntimeInfo()
@@ -1876,11 +2011,11 @@ class TestRunReplay:
             result = driver.run_replay(flow, ReplayConfig(start=start, end=end, chunk_interval=interval))
         assert result.succeeded == 1, result.errors
         calls = reader.read.call_args_list
-        assert [(item.kwargs["read_range"].start, item.kwargs["read_range"].end)
+        assert [(item.kwargs["request"].read_range.start, item.kwargs["request"].read_range.end)
                 for item in calls] == expected
-        assert all(item.args[1] is None and item.kwargs["watermark_end"] is None for item in calls)
-        assert all(item.kwargs["read_range"].lower_operator == ">=" and
-                   item.kwargs["read_range"].upper_operator == "<" for item in calls)
+        assert all(item.kwargs["request"].watermark_start is None and item.kwargs["request"].watermark_end is None for item in calls)
+        assert all(item.kwargs["request"].read_range.lower_operator == ">=" and
+                   item.kwargs["request"].read_range.upper_operator == "<" for item in calls)
         watermark.get_watermark.assert_not_called()
         watermark.save_watermark.assert_not_called()
         assert flow.model_dump() == before
@@ -1892,12 +2027,14 @@ class TestRunReplay:
         chunk_runtime = DataFlowRuntimeInfo(
             dataflow_id=dataflow.dataflow_id,
             operation_type=ExecutionType.REPLAY.value,
-            source=SourceRuntimeInfo(rows_read=7),
-            destination=DestinationRuntimeInfo(rows_written=5),
+            attempts=[AttemptRuntimeInfo(status="failed"), AttemptRuntimeInfo(
+                source=SourceRuntimeInfo(rows_read=7),
+                destination=DestinationRuntimeInfo(rows_written=5),
+                status=DataFlowStatus.SUCCEEDED.value,
+            )],
             status=DataFlowStatus.SUCCEEDED.value,
-            retry_attempts=1,
         )
-        real_runtime_type = DataFlowRuntimeInfo
+        real_runtime_type = ReplayRuntimeInfo
         events: list[str] = []
         created: list[DataFlowRuntimeInfo] = []
 
@@ -1912,7 +2049,7 @@ class TestRunReplay:
             return chunk_runtime
 
         with patch(
-            "datacoolie.orchestration.execution.replay.DataFlowRuntimeInfo",
+            "datacoolie.orchestration.execution.replay.ReplayRuntimeInfo",
             side_effect=create_runtime,
         ), patch.object(driver, "_run_single_pipeline", side_effect=run_chunk):
             result = driver._process_replay(dataflow, replay)
@@ -1920,8 +2057,8 @@ class TestRunReplay:
         assert events == ["runtime", "chunk"]
         assert result is created[0]
         assert result.dataflow_run_id != chunk_runtime.dataflow_run_id
-        assert result.source.rows_read == 7
-        assert result.destination.rows_written == 5
+        assert result.metrics.rows_read == 7
+        assert result.metrics.rows_written == 5
         assert result.retry_attempts == 1
 
     def test_replay_chunk_callback_cannot_mutate_aggregate(self):
@@ -1956,6 +2093,7 @@ class TestRunReplay:
         reader.read.return_value = "fake_df"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
         reader.get_new_watermark.return_value = {"order_date": "2025-04-01"}
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         # Setup pipeline
@@ -1995,6 +2133,7 @@ class TestRunReplay:
         reader.read.return_value = "fake_df"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
         reader.get_new_watermark.return_value = {}
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         pipeline = MagicMock()
@@ -2028,7 +2167,13 @@ class TestRunReplay:
 
         reader = MagicMock()
         reader.read.side_effect = [RuntimeError("transient read failure"), "fake_df"]
-        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        def get_runtime_info():
+            if reader.read.call_count == 1:
+                raise RuntimeError("runtime capture unavailable after failed read")
+            return SourceRuntimeInfo(rows_read=10)
+
+        reader.get_runtime_info.side_effect = get_runtime_info
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         pipeline = MagicMock()
@@ -2068,6 +2213,7 @@ class TestRunReplay:
         reader = MagicMock()
         reader.read.return_value = "fake_df"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         pipeline = MagicMock()
@@ -2112,11 +2258,12 @@ class TestRunReplay:
             {"order_date": date(2025, 3, 31)},
         ]
         reader.get_new_watermark.side_effect = observations
-        reader.merge_watermark.side_effect = lambda existing, candidate: dict(candidate)
-        reader._validate_watermark_comparison.side_effect = (
+        reader.merge_watermark.side_effect = lambda existing, candidate: dict(candidate.values)
+        reader.validate_watermark.side_effect = (
             lambda _watermark, *, boundary: None
         )
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         pipeline = MagicMock()
@@ -2154,6 +2301,7 @@ class TestRunReplay:
         reader = MagicMock()
         reader.read.return_value = "fake_df"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         dataflow = _dataflow_with_watermark()
@@ -2177,7 +2325,7 @@ class TestRunReplay:
         assert result.succeeded == 1
         assert result.skipped == 0
         assert reader.read.call_count == 3
-        ranges = [call.kwargs["read_range"] for call in reader.read.call_args_list]
+        ranges = [call.kwargs["request"].read_range for call in reader.read.call_args_list]
         assert [(item.start, item.end) for item in ranges] == [
             (date(2025, 1, 1), date(2025, 2, 1)),
             (date(2025, 2, 1), date(2025, 3, 1)),
@@ -2199,11 +2347,12 @@ class TestRunReplay:
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
         reader.get_new_watermark.return_value = {"order_date": date(2025, 4, 1)}
         reader.merge_watermark.side_effect = (
-            lambda _existing, candidate: dict(candidate)
+            lambda _existing, candidate: dict(candidate.values)
         )
-        reader._validate_watermark_comparison.side_effect = (
+        reader.validate_watermark.side_effect = (
             lambda _watermark, *, boundary: None
         )
+        _attach_typed_reader_result(reader)
         from datacoolie.watermark.base import WatermarkSerializer
 
         watermark.serialize.side_effect = WatermarkSerializer.serialize
@@ -2238,6 +2387,7 @@ class TestRunReplay:
         reader = MagicMock()
         reader.read.return_value = None
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=0)
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         dataflow = _dataflow_with_watermark()
@@ -2257,7 +2407,10 @@ class TestRunReplay:
 
         reader = MagicMock()
         reader.read.side_effect = RuntimeError("connection lost")
-        reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=0)
+        reader.get_runtime_info.side_effect = RuntimeError(
+            "runtime capture unavailable after failed read"
+        )
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         dataflow = _dataflow_with_watermark()
@@ -2280,6 +2433,7 @@ class TestRunReplay:
         reader = MagicMock()
         reader.read.return_value = "fake_df"
         reader.get_runtime_info.return_value = SourceRuntimeInfo(rows_read=10)
+        _attach_typed_reader_result(reader)
         mock_reader_fn.return_value = reader
 
         pipeline = MagicMock()
@@ -2321,23 +2475,23 @@ class TestRunReplay:
         )
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = PipelineAttemptResult(
+            mock_pipeline.side_effect = _complete_owned_attempt(AttemptRuntimeInfo(
                 status=DataFlowStatus.SUCCEEDED.value,
                 source=SourceRuntimeInfo(rows_read=5),
                 transform=TransformRuntimeInfo(),
                 destination=DestinationRuntimeInfo(rows_written=5),
-            )
+            ))
             driver.run_replay(dataflow, replay)
 
         # watermark_start is the raw inclusive lower bound
         call_kwargs = mock_pipeline.call_args[1]
-        assert call_kwargs["watermark_start"] == {"order_date": date(2025, 1, 1)}
+        assert call_kwargs["read_range"].start == date(2025, 1, 1)
 
         # watermark_start_operator passed as proper parameter (not via source.configure)
-        assert call_kwargs["watermark_start_operator"] == ">="
+        assert call_kwargs["read_range"].lower_operator == ">="
 
         # Upper bound passed as watermark_end (not via filter_expression)
-        assert call_kwargs["watermark_end"] == {"order_date": date(2025, 2, 1)}
+        assert call_kwargs["read_range"].end == date(2025, 2, 1)
 
     def test_auto_resolve_column_from_watermark_columns(self):
         """chunk_column auto-resolved from dataflow.source.watermark_columns[0]."""
@@ -2347,18 +2501,18 @@ class TestRunReplay:
         replay = ReplayConfig(start="2025-01-01", end="2025-02-01")
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = PipelineAttemptResult(
+            mock_pipeline.side_effect = _complete_owned_attempt(AttemptRuntimeInfo(
                 status=DataFlowStatus.SUCCEEDED.value,
                 source=SourceRuntimeInfo(rows_read=10),
                 transform=TransformRuntimeInfo(),
                 destination=DestinationRuntimeInfo(rows_written=10),
-            )
+            ))
             result = driver.run_replay(dataflow, replay)
 
         assert result.total == 1
         # Verify the override watermark uses auto-resolved column "shipped_at"
         call_kwargs = mock_pipeline.call_args[1]
-        assert "shipped_at" in call_kwargs["watermark_start"]
+        assert call_kwargs["read_range"].column == "shipped_at"
 
     def test_no_watermark_columns_raises(self):
         """Error when no watermark_columns and no chunk_column override."""
@@ -2382,17 +2536,17 @@ class TestRunReplay:
         )
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = PipelineAttemptResult(
+            mock_pipeline.side_effect = _complete_owned_attempt(AttemptRuntimeInfo(
                 status=DataFlowStatus.SUCCEEDED.value,
                 source=SourceRuntimeInfo(rows_read=10),
                 transform=TransformRuntimeInfo(),
                 destination=DestinationRuntimeInfo(rows_written=10),
-            )
+            ))
             driver.run_replay(dataflow, replay)
 
         assert mock_pipeline.call_count == 2
         call_kwargs = mock_pipeline.call_args_list[0][1]
-        assert "region_id" in call_kwargs["watermark_start"]
+        assert call_kwargs["read_range"].column == "region_id"
 
     def test_api_allows_independent_chunk_column_with_range_mapping(self):
         """API selection may be separate from persisted watermark columns."""
@@ -2430,12 +2584,12 @@ class TestRunReplay:
         )
 
         with patch.object(driver, "_execute_etl_pipeline") as mock_pipeline:
-            mock_pipeline.return_value = PipelineAttemptResult(
+            mock_pipeline.side_effect = _complete_owned_attempt(AttemptRuntimeInfo(
                 status=DataFlowStatus.SUCCEEDED.value,
                 source=SourceRuntimeInfo(rows_read=1),
                 transform=TransformRuntimeInfo(),
                 destination=DestinationRuntimeInfo(rows_written=1),
-            )
+            ))
             result = driver.run_replay(dataflow, replay)
 
         assert result.succeeded == 1
@@ -2788,8 +2942,9 @@ class TestDriverProcessingEdgeCases:
 
         assert result.failed == 1
         assert result.errors[dataflow.dataflow_id] == "replay scheduler failed"
-        assert "replay scheduler failed" in driver._session_error_message
-        execution_logger.log.assert_not_called()
+        assert driver._session_error_message is None
+        execution_logger.log.assert_called_once()
+        assert execution_logger.log.call_args.kwargs["runtime_info"].attempts == []
 
     def test_replay_chunk_boundary_logs_one_failed_chunk(self):
         execution_logger = _execution_logger_spy()
@@ -2879,7 +3034,7 @@ class TestDriverProcessingEdgeCases:
     def test_process_dataflow_pipeline_error_without_partial(self):
         d, *_ = _make_driver(execution_logger=None)
         df = _dataflow()
-        d._retry_handler.execute = MagicMock(side_effect=PipelineError("boom", partial_result=None))
+        d._retry_handler.execute = MagicMock(side_effect=PipelineError("boom", attempt=None))
 
         result = d._process_dataflow(df)
         assert result.status == DataFlowStatus.FAILED.value
@@ -2905,7 +3060,7 @@ class TestDriverProcessingEdgeCases:
         dst = DestinationRuntimeInfo(rows_written=1, status=DataFlowStatus.SUCCEEDED.value)
         d._retry_handler.execute = MagicMock(
             return_value=(
-                PipelineAttemptResult(
+                AttemptRuntimeInfo(
                     status=DataFlowStatus.SUCCEEDED.value,
                     source=src,
                     transform=trn,
@@ -2919,34 +3074,47 @@ class TestDriverProcessingEdgeCases:
         assert result.status == DataFlowStatus.SUCCEEDED.value
 
     def test_process_maintenance_pipeline_error_with_partial(self):
-        d, *_ = _make_driver(execution_logger=None)
+        d, *_ = _make_driver(
+            config=DataCoolieRunConfig(retry_count=0, retry_delay=0),
+            execution_logger=None,
+        )
         df = _dataflow()
         destination = DestinationRuntimeInfo(
             status=DataFlowStatus.FAILED.value,
             message="partial",
         )
-        partial = PipelineAttemptResult(
+        partial = AttemptRuntimeInfo(
             status=DataFlowStatus.FAILED.value,
             destination=destination,
         )
-        d._retry_handler.execute = MagicMock(side_effect=PipelineError("x", partial_result=partial))
 
-        result = d._process_maintenance(df)
-        assert result.destination is destination
+        with patch.object(
+            d,
+            "_execute_maintenance_pipeline",
+            side_effect=PipelineError("x", attempt=partial),
+        ) as run_attempt:
+            result = d._process_maintenance(df)
+
+        run_attempt.assert_called_once()
         assert result.status == DataFlowStatus.FAILED.value
+        assert result.message == "x"
+        assert result.final_attempt.destination == destination
+        assert result.final_attempt.destination is not destination
+        assert result.final_attempt.destination is result.attempts[-1].destination
+        assert result.final_attempt.destination.message == "partial"
 
     def test_process_maintenance_ignores_foreign_partial_result(self):
         d, *_ = _make_driver(execution_logger=None)
         df = _dataflow()
         foreign = DestinationRuntimeInfo(status=DataFlowStatus.FAILED.value)
         d._retry_handler.execute = MagicMock(
-            side_effect=PipelineError("x", partial_result=foreign)
+            side_effect=PipelineError("x", attempt=foreign)
         )
 
         result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.FAILED.value
-        assert result.destination.status == DataFlowStatus.PENDING.value
+        assert result.final_attempt is None
 
     def test_process_maintenance_generic_exception_branch(self):
         d, *_ = _make_driver(execution_logger=None)
@@ -2968,8 +3136,7 @@ class TestDriverHelperBranches:
             dataflow_id=dataflow.dataflow_id,
             status=DataFlowStatus.FAILED.value,
             message="database unavailable",
-            source=SourceRuntimeInfo(),
-            destination=DestinationRuntimeInfo(),
+            attempts=[AttemptRuntimeInfo(source=SourceRuntimeInfo(), destination=DestinationRuntimeInfo())],
         )
 
         from datacoolie.orchestration.execution.lifecycle import log_result_safely
@@ -3195,6 +3362,7 @@ class TestDeepCopyDataFlow:
             rows_read=0, status=DataFlowStatus.SUCCEEDED.value
         )
         mock_reader.get_new_watermark.return_value = {}
+        _attach_typed_reader_result(mock_reader)
 
         with patch.object(d, "_create_source_reader", return_value=mock_reader):
             d._process_dataflow(df)
@@ -3224,6 +3392,7 @@ class TestWatermarkAtomicSave:
             rows_read=10, status=DataFlowStatus.SUCCEEDED.value
         )
         mock_reader.get_new_watermark.return_value = {"col": "2024-01-01"}
+        _attach_typed_reader_result(mock_reader)
 
         mock_pipeline = MagicMock()
         mock_pipeline.transform.return_value = "transformed_df"
@@ -3294,12 +3463,12 @@ class TestDriverCoverageGaps:
         )
 
         with patch.object(driver, '_execute_etl_pipeline') as mock_pipeline:
-            mock_pipeline.return_value = PipelineAttemptResult(
+            mock_pipeline.side_effect = _complete_owned_attempt(AttemptRuntimeInfo(
                 status=DataFlowStatus.SUCCEEDED.value,
                 source=SourceRuntimeInfo(rows_read=5),
                 transform=TransformRuntimeInfo(),
                 destination=DestinationRuntimeInfo(rows_written=5),
-            )
+            ))
             result = driver.run_replay(dataflow, replay)
 
         assert result.total >= 1

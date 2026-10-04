@@ -12,7 +12,10 @@ from typing import Any, Dict, List, Optional
 from datacoolie.core.constants import Format, MaintenanceType
 from datacoolie.core.exceptions import DestinationError
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.destinations.base import BaseDestinationWriter
+from datacoolie.destinations.base import (
+    BaseDestinationWriter,
+    _parse_history_metric_fields,
+)
 from datacoolie.destinations.strategies.load import get_load_strategy
 from datacoolie.destinations.resolution.target import resolve_destination_target
 from datacoolie.engines.base import DF, BaseEngine
@@ -137,29 +140,28 @@ class IcebergWriter(BaseDestinationWriter[DF]):
     # Metrics parsers
     # ------------------------------------------------------------------
 
-    def _parse_write_metrics(self, history: List[Dict[str, Any]]) -> Dict[str, int]:
-        """Parse write metrics from Iceberg history entries."""
-        result = {
-            "rows_written": 0, "rows_inserted": 0, "rows_updated": 0,
-            "rows_deleted": 0, "files_added": 0, "files_removed": 0,
-            "bytes_added": 0, "bytes_removed": 0,
-        }
-        for entry in history:
-            m = entry.get("summary", {})
-            result["rows_written"] += int(m.get("added-records", 0))
-            result["rows_inserted"] += int(m.get("added-records", 0))
-            result["rows_updated"] += 0
-            result["rows_deleted"] += int(m.get("deleted-records", 0))
-            result["files_added"] += int(m.get("added-data-files", 0))
-            result["files_removed"] += int(m.get("deleted-data-files", 0))
-            result["bytes_added"] += int(m.get("added-files-size", 0))
-            result["bytes_removed"] += int(m.get("removed-files-size", 0))
-        return result
+    def _parse_write_metrics(self, history: List[Dict[str, Any]]) -> Dict[str, Optional[int]]:
+        """Parse sparse write metrics from Iceberg history entries."""
+
+        return _parse_history_metric_fields(
+            history,
+            container_key="summary",
+            aliases={
+                "rows_written": ("added-records",),
+                "rows_inserted": ("added-records",),
+                "rows_updated": ("updated-records",),
+                "rows_deleted": ("deleted-records",),
+                "files_added": ("added-data-files",),
+                "files_removed": ("deleted-data-files",),
+                "bytes_added": ("added-files-size",),
+                "bytes_removed": ("removed-files-size",),
+            },
+        )
 
     def _parse_maintenance_metrics(
         self, history: List[Dict[str, Any]]
-    ) -> Dict[str, Dict[str, int]]:
-        """Parse maintenance metrics from Iceberg history entries."""
+    ) -> Dict[str, Dict[str, Optional[int]]]:
+        """Parse sparse compaction and cleanup metrics from Iceberg history."""
         op_map = {
             "replace": MaintenanceType.COMPACT.value,
             "overwrite": MaintenanceType.COMPACT.value,
@@ -167,19 +169,34 @@ class IcebergWriter(BaseDestinationWriter[DF]):
             "expire_snapshots": MaintenanceType.CLEANUP.value,
             "remove_orphan_files": MaintenanceType.CLEANUP.value,
         }
-        result: Dict[str, Dict[str, int]] = {}
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
         for entry in history:
-            op = entry.get("operation", "").lower()
+            op = str(entry.get("operation", "")).lower()
             if op in op_map:
-                m = entry.get("summary", {})
-                key = op_map[op]
-                existing = result.get(key, {
-                    "files_added": 0, "files_removed": 0,
-                    "bytes_added": 0, "bytes_removed": 0,
-                })
-                existing["files_added"] += int(m.get("added-data-files", 0))
-                existing["files_removed"] += int(m.get("deleted-data-files", 0))
-                existing["bytes_added"] += int(m.get("added-files-size", 0))
-                existing["bytes_removed"] += int(m.get("removed-files-size", 0))
-                result[key] = existing
+                grouped.setdefault(op_map[op], []).append(entry)
+
+        result: Dict[str, Dict[str, Optional[int]]] = {}
+        for key, entries in grouped.items():
+            metrics = _parse_history_metric_fields(
+                entries,
+                container_key="summary",
+                aliases={
+                    "files_added": ("added-data-files",),
+                    "files_removed": ("deleted-data-files",),
+                    "bytes_added": ("added-files-size",),
+                    "bytes_removed": ("removed-files-size",),
+                },
+            )
+            metrics.update(
+                {
+                    "rows_written": 0,
+                    "rows_inserted": 0,
+                    "rows_updated": 0,
+                    "rows_deleted": 0,
+                }
+            )
+            if key == MaintenanceType.CLEANUP.value:
+                metrics["files_added"] = 0
+                metrics["bytes_added"] = 0
+            result[key] = metrics
         return result

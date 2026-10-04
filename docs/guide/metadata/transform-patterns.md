@@ -702,9 +702,12 @@ added by `additional_columns`:
     | `source.filter_expression` | Read time (combined with or after the logical watermark condition) | Reader output columns, including aliases returned by `source.query`; not columns added by transforms |
     | `transform.filter_expression` | Order 35 (post-ColumnAdder) | Source columns + computed columns |
 
-    Use `source.filter_expression` when you want the filter pushed as close to
-    the source as possible. Use `transform.filter_expression` when you need
-    to filter on a column that is added by `additional_columns`.
+    Prefer `source.filter_expression` for predicates that use only reader-output
+    columns when an earlier read-stage filter is useful. The selected reader may
+    push that predicate to its backend or evaluate it after reading; pushdown is
+    not guaranteed, and DataCoolie does not automatically relocate a transform
+    filter. Use `transform.filter_expression` when you need to filter on a
+    column added by `additional_columns` or otherwise need the transform stage.
 
 ### Null conditions and skipping the filter
 

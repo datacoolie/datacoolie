@@ -18,6 +18,7 @@ from datacoolie.core.secrets.provider import unwrap_secret
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
 
 logger = get_logger(__name__)
 
@@ -53,9 +54,7 @@ class DatabaseReader(BaseSourceReader[DF]):
     def _read_internal(
         self,
         source: Source,
-        watermark_start: Optional[Dict[str, Any]] = None,
-        *,
-        watermark_end: Optional[Dict[str, Any]] = None,
+        request: SourceReadRequest,
     ) -> Optional[DF]:
         """Read data from a database.
 
@@ -65,6 +64,8 @@ class DatabaseReader(BaseSourceReader[DF]):
             3. Calculate count and new watermark.
             4. Return ``None`` if zero rows.
         """
+        watermark_start = self._get_effective_watermark_start()
+        watermark_end = request.watermark_end
         df = self._read_data(source, watermark_start=watermark_start, watermark_end=watermark_end)
 
         context = f"Table: {source.full_table_name or 'query'} (type: {source.connection.database_type})"

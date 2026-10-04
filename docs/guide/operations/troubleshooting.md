@@ -117,7 +117,8 @@ watermark state to hide a storage failure. See
 
 ## Maintenance succeeded but compaction or cleanup had no effect
 
-**Check:** read warning logs and `destination_operation_details`, then inspect
+**Check:** read warning logs and the final attempt's
+`destination.operation_details`, then inspect
 the selected table's history, snapshots and files. A requested backend action
 can be unavailable, skipped or have no eligible work. Polars Iceberg warns
 about unsupported compaction/orphan removal and can warn on snapshot-expiry
@@ -132,8 +133,8 @@ retention policy and target identity before any cleanup retry.
 Replay writes the destination before saving the reader-produced watermark
 candidate. A process interruption or provider failure in that gap can leave
 committed rows with the previous watermark. The next invocation still reads
-every requested `[start, end)` chunk; the saved value is never a replay
-checkpoint. Rerun the complete range with a keyed or otherwise idempotent
+every requested `[start, end)` chunk; the saved value is never replay progress.
+Rerun the complete range with a keyed or otherwise idempotent
 destination strategy when repeated delivery would create duplicates. An empty
 or all-null observation does not advance state, while a real zero is a valid
 watermark value.

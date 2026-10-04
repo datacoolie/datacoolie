@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
@@ -15,6 +16,17 @@ from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
 from datacoolie.engines.base import BaseEngine
 from datacoolie.sources.base import BaseSourceReader
+from datacoolie.sources.contracts import SourceReadRequest
+
+
+REFERENCE_TIME = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def read_request(**kwargs: Any) -> SourceReadRequest:
+    """Build the explicit-clock request used by source tests."""
+
+    kwargs.setdefault("reference_time", REFERENCE_TIME)
+    return SourceReadRequest(**kwargs)
 
 
 # ============================================================================
@@ -403,10 +415,16 @@ class ConcreteSourceReader(BaseSourceReader[dict]):
         super().__init__(engine)
         self._return_none = return_none
 
-    def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+    def _read_internal(self, source, request):
         if self._return_none:
+            self._set_rows_read(0)
             return None
-        return self._engine.read_delta(source.path or "")
+        return self._finalize_read(
+            self._engine.read_delta(source.path or ""),
+            source.watermark_columns or [],
+            type(self).__name__,
+            "concrete test source",
+        )
 
     def _read_data(self, source, configure=None):
         return self._engine.read_delta(source.path or "")
@@ -415,7 +433,7 @@ class ConcreteSourceReader(BaseSourceReader[dict]):
 class FailingSourceReader(BaseSourceReader[dict]):
     """Reader that always raises an exception."""
 
-    def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+    def _read_internal(self, source, request):
         raise RuntimeError("Boom!")
 
     def _read_data(self, source, configure=None):
@@ -429,9 +447,14 @@ class StatefulSourceReader(BaseSourceReader[dict]):
         super().__init__(engine)
         self._calls = 0
 
-    def _read_internal(self, source, watermark_start=None, *, watermark_end=None):
+    def _watermark_ordering_kinds(self, candidate):
+        return self._typed_row_watermark_ordering_kinds(candidate)
+
+    def _read_internal(self, source, request):
         self._calls += 1
         if self._calls > 1:
+            self._set_rows_read(0)
+            self._set_candidate(None)
             return None
         return self._finalize_read(
             self._engine.read_delta(source.path or ""),

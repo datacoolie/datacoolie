@@ -68,7 +68,7 @@ class WatermarkSerializer:
             BINARY_PATTERN,
         }
 
-        def _validate(value: Any, path: str) -> None:
+        def _validate(value: Any, path: str, depth: int) -> None:
             if isinstance(value, float) and not math.isfinite(value):
                 raise TypeError(
                     f"Watermark value at {path or '<root>'} must be finite"
@@ -85,8 +85,11 @@ class WatermarkSerializer:
                             f"Watermark mapping key at {path or '<root>'} "
                             "must be a string"
                         )
+                    # ``path`` is only diagnostic context.  An empty user key
+                    # can make a nested path empty, so use structural depth to
+                    # decide whether root-only metadata is allowed.
                     is_internal_date_folder_key = (
-                        not path and key == DATE_FOLDER_PARTITION_KEY
+                        depth == 0 and key == DATE_FOLDER_PARTITION_KEY
                     )
                     if key in tagged_names or (
                         key.startswith("__")
@@ -97,12 +100,16 @@ class WatermarkSerializer:
                             f"Reserved watermark tag key at "
                             f"{path + '.' if path else ''}{key!r}"
                         )
-                    _validate(nested, f"{path}.{key}" if path else key)
+                    _validate(
+                        nested,
+                        f"{path}.{key}" if path else key,
+                        depth + 1,
+                    )
             elif isinstance(value, list):
                 for index, nested in enumerate(value):
-                    _validate(nested, f"{path}[{index}]")
+                    _validate(nested, f"{path}[{index}]", depth + 1)
 
-        _validate(watermark, "")
+        _validate(watermark, "", 0)
 
         def _encode(obj: Any) -> Any:
             if isinstance(obj, datetime):  # must precede date — datetime subclasses date
@@ -414,12 +421,3 @@ class BaseWatermarkManager(ABC):
     def deserialize(self, json_str: str) -> Dict[str, Any]:
         """Deserialize a JSON string to a watermark dict."""
         return WatermarkSerializer.deserialize(json_str)
-
-    def merge_watermark(
-        self,
-        dataflow_id: str,
-        candidate: Optional[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """Return a monotonic per-key merge with the stored watermark."""
-
-        return merge_watermark_values(self.get_watermark(dataflow_id), candidate)

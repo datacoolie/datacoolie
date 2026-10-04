@@ -53,6 +53,7 @@ class SystemLogger(BaseLogger):
             storage_mode=self._config.storage_mode,
             console_color=self._config.console_color,
             max_buffer_bytes=self._config.spool_max_bytes,
+            diagnostic_max_bytes=self._config.diagnostic_max_bytes,
         )
         self._capture_claimed = True
         self._job_id = (

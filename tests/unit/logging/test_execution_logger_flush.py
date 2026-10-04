@@ -44,7 +44,7 @@ class TestExecutionLoggerFlush:
         job_rows = [json.loads(line) for line in job_file.read_text().splitlines()]
         assert len(dataflow_rows) == 1
         assert len(job_rows) == 1
-        assert dataflow_rows[0]["log_schema_version"] == 4
+        assert dataflow_rows[0]["log_schema_version"] == 6
         assert dataflow_rows[0]["job_id"] == "job-1"
         assert dataflow_rows[0]["log_session_id"]
         assert job_rows[0]["status"] == DataFlowStatus.SUCCEEDED.value

@@ -1,564 +1,332 @@
-"""Single-attempt ETL and maintenance pipeline bodies.
-
-The functions here consume already-prepared dataflow copies.  They own backend
-I/O sequencing and partial runtime capture, but not preparation, retry policy,
-outer scheduling or final execution logging.
-"""
+"""Single-attempt sequencing; operational results drive execution, runtimes observe."""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, TypeVar
+import copy
+import logging
+from dataclasses import fields
+from datetime import datetime
+from typing import Any, Callable, Dict, Optional
 
 from datacoolie.core.constants import DataFlowStatus, ExecutionType, Format
 from datacoolie.core.exceptions import PipelineError
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DestinationRuntimeInfo, PipelineAttemptResult, SourceRuntimeInfo, TransformRuntimeInfo
-from datacoolie.destinations import BaseDestinationWriter
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
 from datacoolie.engines.base import BaseEngine
-from datacoolie.watermark.base import BaseWatermarkManager
+from datacoolie.logging.runtime.diagnostics import emit_safely
 from datacoolie.logging.runtime.manager import get_logger
-from datacoolie.sources import BaseSourceReader, SourceReadRange
-from datacoolie.transformers import TransformerPipeline
-from datacoolie.orchestration.execution.window import (
-    build_watermark_window,
-    map_watermark_window,
-)
+from datacoolie.orchestration.execution.read_baseline import ReadBaseline
+from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
+from datacoolie.orchestration.execution.window import build_watermark_window, map_watermark_window
+from datacoolie.sources.contracts import SourceReadRequest, SourceReadRange, SourceReadResult
+from datacoolie.sources.runtime import SourceRuntimeInfo
+from datacoolie.transformers.base import TransformerPipeline
+from datacoolie.transformers.runtime import TransformRuntimeInfo
 from datacoolie.utils.time import utc_now
+from datacoolie.watermark.base import BaseWatermarkManager, WatermarkSerializer
+from datacoolie.watermark.contracts import WatermarkLoadStatus, WatermarkSaveStatus
+from datacoolie.watermark.runtime import WatermarkRuntimeInfo
 
 logger = get_logger(__name__)
 
-
-_RuntimeT = TypeVar("_RuntimeT", SourceRuntimeInfo, TransformRuntimeInfo, DestinationRuntimeInfo)
-
-
-DEFAULT_TRANSFORMERS: list[str] = [
-    "column_value_transformer",
-    "schema_converter",
-    "hash_column_adder",
-    "deduplicator",
-    "column_adder",
-    "row_filter",
-    "scd2_column_adder",
-    "system_column_adder",
-    "partition_handler",
-    "data_masker",
-    "column_projector",
+DEFAULT_TRANSFORMERS = [
+    "column_value_transformer", "schema_converter", "hash_column_adder",
+    "deduplicator", "column_adder", "row_filter", "scd2_column_adder",
+    "system_column_adder", "partition_handler", "data_masker", "column_projector",
     "column_name_sanitizer",
 ]
 
 
-def _validate_watermark_boundary(
-    reader: Any,
-    watermark: Optional[Dict[str, Any]],
-    *,
-    boundary: str,
-) -> None:
-    """Validate a lower/upper/candidate watermark before side effects."""
-
-    if not watermark:
-        return
-
-    reader._validate_watermark_comparison(watermark, boundary=boundary)
+def _require_callable_contract(component, component_name, method_names):
+    for name in method_names:
+        if not callable(getattr(component, name, None)):
+            raise PipelineError(f"{component_name} ({type(component).__name__}) must expose callable {name}()")
 
 
-def _require_callable_contract(
-    component: Any,
-    component_name: str,
-    method_names: tuple[str, ...],
-) -> None:
-    """Reject incomplete structural test/plugin doubles before side effects.
-
-    The lookup is intentionally confined to this injection boundary.  Once a
-    component passes the contract check, the pipeline uses direct method calls
-    so required framework hooks remain visible and fail loudly if a component
-    violates the contract later.
-    """
-
-    type_name = type(component).__name__
-    for method_name in method_names:
-        try:
-            method = getattr(component, method_name)
-        except Exception as exc:  # noqa: BLE001
-            raise PipelineError(
-                f"{component_name} ({type_name}) must expose callable "
-                f"{method_name}()"
-            ) from exc
-        if not callable(method):
-            raise PipelineError(
-                f"{component_name} ({type_name}) must expose callable "
-                f"{method_name}()"
-            )
-
-
-def _runtime_info(
-    component: Any,
-    expected_type: type[_RuntimeT],
-    component_name: str,
-) -> _RuntimeT:
-    """Read and validate one phase runtime object."""
-
-    value = component.get_runtime_info()
-    if not isinstance(value, expected_type):
-        raise PipelineError(
-            f"{component_name}.get_runtime_info() must return "
-            f"{expected_type.__name__}"
-        )
-    return value
-
-
-def _safe_runtime_capture(
-    component: Any,
-    expected_type: type[_RuntimeT],
-    *,
-    phase_started: bool,
-    runtime_attempted: bool,
-) -> Optional[_RuntimeT]:
-    """Capture only a valid runtime without masking the primary exception."""
-
-    if component is None or not phase_started or runtime_attempted:
-        return None
+def _observe_runtime(component, expected_type, component_name, *, fallback=None, runtime_value=None):
     try:
-        value = component.get_runtime_info()
-    except Exception:  # noqa: BLE001
+        value = runtime_value if runtime_value is not None else component.get_runtime_info()
+        if not isinstance(value, expected_type):
+            raise TypeError(f"{component_name}.get_runtime_info() must return {expected_type.__name__}")
+        try:
+            snapshot = copy.deepcopy(value)
+        except Exception:
+            snapshot = expected_type()
+            for item in fields(snapshot):
+                try:
+                    setattr(snapshot, item.name, copy.deepcopy(getattr(value, item.name)))
+                except Exception:
+                    continue
+        for item in fields(snapshot):
+            if item.name.startswith(("rows_", "files_", "bytes_")):
+                measured = getattr(snapshot, item.name)
+                if measured is not None and (type(measured) is not int or measured < 0):
+                    setattr(snapshot, item.name, None)
+                    emit_safely(logger, logging.WARNING, "%s invalid metric %s omitted",
+                                component_name, item.name, catch_base=True)
+        return _sanitize_timing(snapshot, fallback)
+    except BaseException:
+        emit_safely(logger, logging.WARNING, "%s runtime capture unavailable", component_name,
+                    exc_info=True, catch_base=True)
         return None
-    return value if isinstance(value, expected_type) else None
 
 
-def build_source_reader(
-    engine: BaseEngine,
-    fmt: str,
-    *,
-    allowed_prefixes: Optional[list[str]] = None,
-) -> BaseSourceReader:
-    """Build a registered reader without exposing registry mechanics to Driver."""
+def _sanitize_timing(snapshot, fallback):
+    """Optional diagnostics cannot replace valid phase timing with bad values."""
+    fallback = fallback if fallback is not None else type(snapshot)()
+    for name in ("start_time", "end_time"):
+        value = getattr(snapshot, name)
+        if value is not None and (
+            not isinstance(value, datetime)
+            or value.tzinfo is None or value.utcoffset() is None
+        ):
+            setattr(snapshot, name, getattr(fallback, name))
+    try:
+        duration = snapshot.duration_seconds
+        if duration is not None and duration < 0:
+            raise ValueError("negative diagnostic duration")
+    except (TypeError, ValueError, OverflowError):
+        snapshot.start_time = fallback.start_time
+        snapshot.end_time = fallback.end_time
+    return snapshot
+
+
+def _finish_phase(phase, *, status, error=None):
+    phase.status = status
+    try:
+        phase.end_time = utc_now()
+    except Exception:
+        emit_safely(logger, logging.WARNING, "Phase end-time capture unavailable",
+                    exc_info=True, catch_base=True)
+    if error is not None:
+        phase.message = str(error) or type(error).__name__
+
+
+def build_source_reader(engine: BaseEngine, fmt: str, *, allowed_prefixes=None):
     from datacoolie import source_registry
-
-    kwargs: Dict[str, Any] = {"engine": engine}
+    kwargs = {"engine": engine}
     if fmt == Format.FUNCTION.value and allowed_prefixes:
         kwargs["allowed_prefixes"] = allowed_prefixes
     return source_registry.get(fmt, **kwargs)
 
 
-def build_transformer_pipeline(
-    engine: BaseEngine,
-    *,
-    dataflow_run_id: Optional[str] = None,
-    column_name_mode: Any,
-) -> TransformerPipeline:
-    """Build the default registered transformer sequence."""
+def build_transformer_pipeline(engine: BaseEngine, *, dataflow_run_id=None, column_name_mode):
     from datacoolie import transformer_registry
-
     pipeline = TransformerPipeline(engine)
-    extra_kwargs: dict[str, dict[str, object]] = {
-        "column_name_sanitizer": {"mode": column_name_mode},
-        "system_column_adder": {"dataflow_run_id": dataflow_run_id},
-    }
+    kwargs = {"column_name_sanitizer": {"mode": column_name_mode},
+              "system_column_adder": {"dataflow_run_id": dataflow_run_id}}
     for name in DEFAULT_TRANSFORMERS:
         if transformer_registry.is_available(name):
-            pipeline.add_transformer(
-                transformer_registry.get(
-                    name,
-                    engine=engine,
-                    **extra_kwargs.get(name, {}),
-                )
-            )
+            pipeline.add_transformer(transformer_registry.get(name, engine=engine, **kwargs.get(name, {})))
     return pipeline
 
 
-def build_destination_writer(
-    engine: BaseEngine,
-    fmt: str,
-) -> BaseDestinationWriter:
-    """Build a registered destination writer."""
+def build_destination_writer(engine: BaseEngine, fmt: str):
     from datacoolie import destination_registry
-
     return destination_registry.get(fmt, engine=engine)
 
 
 def execute_etl_pipeline(
-    dataflow: DataFlow,
-    dataflow_run_id: str,
-    *,
-    column_name_mode: Any,
-    watermark_start: Optional[Dict[str, Any]],
-    watermark_end: Optional[Dict[str, Any]],
-    save_watermark: bool,
-    watermark_start_operator: Optional[str] = None,
-    watermark_end_operator: Optional[str] = None,
+    dataflow: DataFlow, dataflow_run_id: str, *,
+    baseline: ReadBaseline, attempt: AttemptRuntimeInfo,
+    column_name_mode: Any, watermark_start: Optional[Dict[str, Any]],
+    watermark_end: Optional[Dict[str, Any]], save_watermark: bool,
+    watermark_start_operator=None, watermark_end_operator=None,
     read_range: Optional[SourceReadRange] = None,
-    watermark_manager: BaseWatermarkManager | None,
-    job_id: str,
-    create_source_reader: Callable[[str], BaseSourceReader],
-    create_transformer_pipeline: Callable[..., TransformerPipeline],
-    create_destination_writer: Callable[[str], BaseDestinationWriter],
-    validate_watermark_storage: Callable[..., None],
-) -> PipelineAttemptResult:
-    """Run one read-transform-write attempt and return partial phase state."""
-    logger.debug(
-        "Starting %s: %s → %s",
-        dataflow.name,
-        dataflow.source.full_table_name or dataflow.source.path,
-        dataflow.destination.full_table_name or dataflow.destination.path,
+    watermark_manager: BaseWatermarkManager | None, job_id: str,
+    create_source_reader: Callable, create_transformer_pipeline: Callable,
+    create_destination_writer: Callable, validate_watermark_storage: Callable,
+) -> AttemptRuntimeInfo:
+    """Populate the lifecycle-owned attempt and return that same observation."""
+    state = WatermarkRuntimeInfo(
+        save_status=WatermarkSaveStatus.NOT_ATTEMPTED if save_watermark and watermark_manager
+        else WatermarkSaveStatus.NOT_REQUESTED,
     )
-
-    # Replay adapters may retain legacy bound fields for observability while
-    # carrying an authoritative SourceReadRange. Never forward both to the
-    # public reader contract.
-    requested_watermark_start = None if read_range is not None else watermark_start
-    requested_watermark_end = None if read_range is not None else watermark_end
-    watermark = requested_watermark_start
-
-    source_runtime: Optional[SourceRuntimeInfo] = None
-    transform_runtime: Optional[TransformRuntimeInfo] = None
-    destination_runtime: Optional[DestinationRuntimeInfo] = None
-    reader: Optional[BaseSourceReader] = None
-    pipeline: Optional[TransformerPipeline] = None
-    writer: Optional[BaseDestinationWriter] = None
-    watermark_to_save: Optional[Dict[str, Any]] = None
-    source_phase_started = False
-    source_runtime_attempted = False
-    transform_phase_started = False
-    transform_runtime_attempted = False
-    destination_phase_started = False
-    destination_runtime_attempted = False
-
+    attempt.watermark = state
+    active = None
+    component = None
+    prepared = None
     try:
         reader = create_source_reader(dataflow.source.connection.format)
-        _require_callable_contract(
-            reader,
-            "source reader",
-            (
-                "read",
-                "get_runtime_info",
-                "get_new_watermark",
-                "_validate_watermark_comparison",
-                "merge_watermark",
-            ),
-        )
+        _require_callable_contract(reader, "source reader", ("read", "validate_watermark", "merge_watermark"))
+        if read_range is not None and any(value is not None for value in (
+            watermark_start, watermark_end, watermark_start_operator, watermark_end_operator,
+        )):
+            raise PipelineError("read_range cannot be combined with explicit watermark bounds")
         if watermark_manager is not None:
-            _require_callable_contract(
-                watermark_manager,
-                "watermark manager",
-                ("get_watermark", "save_watermark", "serialize"),
-            )
-
-        # Capability validation must precede checkpoint I/O.  A partially
-        # implemented reader/manager is a configuration error, not a reason
-        # to touch persisted state before failing.
-        if (
-            watermark is None
-            and watermark_manager is not None
-            and dataflow.source.has_watermark_state
-            and read_range is None
-        ):
-            watermark = watermark_manager.get_watermark(
-                dataflow_id=dataflow.dataflow_id
-            )
-
-        _validate_watermark_boundary(reader, watermark, boundary="lower bound")
-        _validate_watermark_boundary(
-            reader, requested_watermark_end, boundary="upper bound"
+            _require_callable_contract(watermark_manager, "watermark manager", ("get_watermark", "save_watermark", "serialize"))
+        lower = watermark_start
+        upper = watermark_end
+        if lower is None and watermark_manager is not None and dataflow.source.has_watermark_state and read_range is None:
+            reused = baseline.loaded
+            try:
+                lower = baseline.resolve(lambda: watermark_manager.get_watermark(dataflow_id=dataflow.dataflow_id))
+            except Exception:
+                state.load_status = WatermarkLoadStatus.LOAD_ERROR
+                raise
+            state.load_status = WatermarkLoadStatus.REUSED if reused else WatermarkLoadStatus.LOADED
+            state.loaded_watermark = copy.deepcopy(lower)
+        for value, boundary in ((lower, "lower bound"), (upper, "upper bound")):
+            if value:
+                reader.validate_watermark(value, boundary=boundary)
+        request = SourceReadRequest(
+            reference_time=baseline.reference_time, watermark_start=lower, watermark_end=upper,
+            watermark_start_operator=watermark_start_operator,
+            watermark_end_operator=watermark_end_operator, read_range=read_range,
         )
-        read_kwargs: Dict[str, Any] = {"watermark_end": requested_watermark_end}
-        if watermark_start_operator is not None:
-            read_kwargs["watermark_start_operator"] = watermark_start_operator
-        if watermark_end_operator is not None:
-            read_kwargs["watermark_end_operator"] = watermark_end_operator
-        if read_range is not None:
-            read_kwargs["read_range"] = read_range
-        if dataflow.destination.replace_by_watermark and (
-            requested_watermark_end is not None or read_range is not None
-        ):
-            read_kwargs["preserve_empty"] = True
-        source_phase_started = True
-        frame = reader.read(
-            dataflow.source,
-            watermark,
-            **read_kwargs,
-        )
-        source_runtime_attempted = True
-        source_runtime = _runtime_info(
-            reader,
-            SourceRuntimeInfo,
-            "source reader",
-        )
+        active = "source"
+        component = reader
+        attempt.source = SourceRuntimeInfo(status=DataFlowStatus.RUNNING.value)
+        result = reader.read(dataflow.source, request=request)
+        if not isinstance(result, SourceReadResult):
+            raise PipelineError("source reader.read() must return SourceReadResult")
+        if isinstance(result.rows_read, bool) or not isinstance(result.rows_read, int) or result.rows_read < 0:
+            raise PipelineError("successful source rows_read must be a nonnegative integer")
+        if result.frame is None and result.rows_read != 0:
+            raise PipelineError("source frame=None requires rows_read=0")
+        # Operational result supplies authoritative counts even when its optional
+        # diagnostic projection is malformed or cannot be detached.
+        if isinstance(result.runtime, SourceRuntimeInfo):
+            try:
+                attempt.source = _sanitize_timing(copy.deepcopy(result.runtime), attempt.source)
+            except Exception:
+                pass
+        attempt.source.rows_read = result.rows_read
+        attempt.source.selection = copy.deepcopy(result.selection)
+        if result.candidate is not None:
+            # Candidate validity is a control contract, even when persistence
+            # is disabled. A log-only codec failure must not follow a write.
+            WatermarkSerializer.serialize(result.candidate.values)
+        _finish_phase(attempt.source, status=DataFlowStatus.SUCCEEDED.value)
+        active = None
+        state.candidate = copy.deepcopy(result.candidate)
+        if result.frame is None or result.rows_read == 0:
+            attempt.status = DataFlowStatus.SKIPPED.value
+            attempt.message = "Source returned no data to process"
+            return attempt
 
-        # The replacement scope belongs to this execution attempt.  Keep it
-        # out of ``DataFlow`` so metadata remains immutable and a retry cannot
-        # accidentally reuse a prior read's bounds.
-        watermark_window = build_watermark_window(
+        selection = result.selection
+        if dataflow.destination.replace_by_watermark and selection.combine_operator != "OR":
+            raise PipelineError("Watermark replacement supports only combine_operator='OR'")
+        candidate = result.candidate
+        values = candidate.values if candidate else None
+        kind = candidate.kind if candidate else None
+        # Explicit bounds authorize their exact interval. Generated ceilings
+        # constrain candidates but cannot widen observed maxima replacement.
+        explicit_upper = selection.upper if selection.upper_origin == "explicit" else None
+        window = build_watermark_window(
             enabled=dataflow.destination.replace_by_watermark,
-            watermark_effective=source_runtime.watermark_effective,
-            watermark_after=source_runtime.watermark_after,
-            explicit_start=(
-                {read_range.column: read_range.start}
-                if read_range is not None
-                else requested_watermark_start
-            ),
-            explicit_end=(
-                {read_range.column: read_range.end}
-                if read_range is not None
-                else requested_watermark_end
-            ),
-            start_operator=(
-                read_range.lower_operator
-                if read_range is not None
-                else (
-                    watermark_start_operator
-                    if watermark_start_operator is not None
-                    else source_runtime.watermark_start_operator
-                )
-            ),
-            end_operator=(
-                read_range.upper_operator
-                if read_range is not None
-                else (
-                    watermark_end_operator
-                    if watermark_end_operator is not None
-                    else source_runtime.watermark_end_operator
-                )
-            ),
-            watermark_kind=source_runtime.watermark_kind,
+            watermark_effective=selection.lower, watermark_after=values,
+            explicit_start=None, explicit_end=explicit_upper,
+            start_operator=selection.lower_operator, end_operator=selection.upper_operator,
+            watermark_kind=kind,
         )
-
-        # A normal empty read is a no-op.  An explicitly bounded replay is
-        # different: an empty source window can still mean that rows removed
-        # from the source must be removed from the destination window.
-        confirmed_empty_replay = (
-            frame is not None
-            and source_runtime.rows_read == 0
-            and (requested_watermark_end is not None or read_range is not None)
-        )
-
-        if frame is None or (source_runtime.rows_read == 0 and not confirmed_empty_replay):
-            logger.debug("No data to process")
-            return PipelineAttemptResult(
-                status=DataFlowStatus.SKIPPED.value,
-                source=source_runtime,
-                message="Source returned no data to process",
-            )
-
         if save_watermark and watermark_manager:
-            # Persist the source observation, never the requested upper bound.
-            # A replay range can be independent of the source watermark, and
-            # the bound may not represent the maximum value actually read.
-            watermark_to_save = reader.get_new_watermark()
-            # A nonempty dict of null maxima is not a source observation.
-            # Decide before merging so existing state cannot authorize a save.
-            if watermark_to_save and not any(
-                value is not None for value in watermark_to_save.values()
-            ):
-                watermark_to_save = None
-            if watermark_to_save:
-                existing_watermark = watermark_manager.get_watermark(
-                    dataflow_id=dataflow.dataflow_id
-                )
-                # Ordering and opaque-token semantics belong to the reader
-                # that produced the observation. The manager never performs a
-                # second, generic merge.
-                watermark_to_save = reader.merge_watermark(
-                    existing_watermark,
-                    watermark_to_save,
-                )
-                _validate_watermark_boundary(
-                    reader, watermark_to_save, boundary="new watermark"
-                )
-                # Prepare the exact checkpoint representation before any
-                # destination mutation.  Storage validation alone cannot
-                # catch unsupported scalar values such as a non-finite
-                # Decimal, which would otherwise fail after a successful
-                # write and make a retry duplicate data.
-                watermark_manager.serialize(watermark_to_save)
-                validate_watermark_storage(
-                    dataflow,
-                    operation_type=ExecutionType.ETL.value,
-                    watermark_start=requested_watermark_start,
-                    watermark_end=watermark_to_save,
-                    save_watermark=save_watermark,
-                )
+            prepared = copy.deepcopy(values)
+            if prepared and not any(value is not None for value in prepared.values()):
+                prepared = None
+            if prepared:
+                existing = watermark_manager.get_watermark(dataflow_id=dataflow.dataflow_id)
+                state.merge_base = copy.deepcopy(existing)
+                prepared = reader.merge_watermark(existing, candidate)
+                state.watermark_to_save = copy.deepcopy(prepared)
+                reader.validate_watermark(prepared, boundary="new watermark")
+                watermark_manager.serialize(prepared)
+                validate_watermark_storage(dataflow, operation_type=ExecutionType.ETL.value,
+                                           watermark_start=watermark_start,
+                                           watermark_end=prepared, save_watermark=save_watermark)
+            else:
+                state.save_status = WatermarkSaveStatus.NO_CANDIDATE
 
-        pipeline = create_transformer_pipeline(
-            dataflow_run_id=dataflow_run_id,
-            column_name_mode=column_name_mode,
-        )
-        transform_phase_started = True
-        frame = pipeline.transform(frame, dataflow)
-        transform_runtime_attempted = True
-        transform_runtime = _runtime_info(
-            pipeline,
-            TransformRuntimeInfo,
-            "transformer pipeline",
-        )
-        watermark_window = map_watermark_window(
-            watermark_window,
-            column_mapping=pipeline.get_column_mapping(),
-            output_columns=pipeline.get_output_columns(),
-        )
-
+        pipeline = create_transformer_pipeline(dataflow_run_id=dataflow_run_id, column_name_mode=column_name_mode)
+        active, component = "transform", pipeline
+        attempt.transform = TransformRuntimeInfo(status=DataFlowStatus.RUNNING.value)
+        frame = pipeline.transform(result.frame, dataflow)
+        enriched = _observe_runtime(pipeline, TransformRuntimeInfo, "transformer pipeline", fallback=attempt.transform)
+        if enriched:
+            attempt.transform = enriched
+        _finish_phase(attempt.transform, status=DataFlowStatus.SUCCEEDED.value)
+        active = None
+        window = map_watermark_window(window, column_mapping=pipeline.get_column_mapping(),
+                                      output_columns=pipeline.get_output_columns())
         writer = create_destination_writer(dataflow.destination.connection.format)
-        _require_callable_contract(
-            writer,
-            "destination writer",
-            ("write", "get_runtime_info"),
-        )
-        destination_phase_started = True
-        writer.write(frame, dataflow, watermark_window=watermark_window)
-        destination_runtime_attempted = True
-        destination_runtime = _runtime_info(
-            writer,
-            DestinationRuntimeInfo,
-            "destination writer",
-        )
-
-        if watermark_to_save and watermark_manager:
-            watermark_manager.save_watermark(
-                dataflow_id=dataflow.dataflow_id,
-                watermark=watermark_to_save,
-                job_id=job_id,
-                dataflow_run_id=dataflow_run_id,
-            )
+        _require_callable_contract(writer, "destination writer", ("write",))
+        active, component = "destination", writer
+        attempt.destination = DestinationRuntimeInfo(status=DataFlowStatus.RUNNING.value)
+        writer.write(frame, dataflow, watermark_window=window)
+        # Return acknowledges business work. Diagnostic enrichment is isolated.
+        active = None
+        _finish_phase(attempt.destination, status=DataFlowStatus.SUCCEEDED.value)
+        enriched = _observe_runtime(writer, DestinationRuntimeInfo, "destination writer", fallback=attempt.destination)
+        if enriched:
+            attempt.destination = enriched
+            _finish_phase(attempt.destination, status=DataFlowStatus.SUCCEEDED.value)
+        if prepared and watermark_manager:
+            try:
+                watermark_manager.save_watermark(dataflow_id=dataflow.dataflow_id, watermark=prepared,
+                                                 job_id=job_id, dataflow_run_id=dataflow_run_id)
+            except Exception:
+                state.save_status = WatermarkSaveStatus.SAVE_ERROR
+                raise
+            state.save_status = WatermarkSaveStatus.SAVED
+            state.saved_watermark = copy.deepcopy(prepared)
+        attempt.status = DataFlowStatus.SUCCEEDED.value
+        return attempt
     except Exception as exc:
-        if source_runtime is None:
-            source_runtime = _safe_runtime_capture(
-                reader,
-                SourceRuntimeInfo,
-                phase_started=source_phase_started,
-                runtime_attempted=source_runtime_attempted,
-            )
-        if transform_runtime is None:
-            transform_runtime = _safe_runtime_capture(
-                pipeline,
-                TransformRuntimeInfo,
-                phase_started=transform_phase_started,
-                runtime_attempted=transform_runtime_attempted,
-            )
-        if destination_runtime is None:
-            destination_runtime = _safe_runtime_capture(
-                writer,
-                DestinationRuntimeInfo,
-                phase_started=destination_phase_started,
-                runtime_attempted=destination_runtime_attempted,
-            )
-        raise PipelineError(
-            str(exc) or type(exc).__name__,
-            partial_result=PipelineAttemptResult(
-                status=DataFlowStatus.FAILED.value,
-                source=source_runtime,
-                transform=transform_runtime,
-                destination=destination_runtime,
-            ),
-        ) from exc
-
-    logger.debug(
-        "Complete — Read: %d, Written: %d",
-        source_runtime.rows_read if source_runtime else 0,
-        destination_runtime.rows_written if destination_runtime else 0,
-    )
-    return PipelineAttemptResult(
-        status=DataFlowStatus.SUCCEEDED.value,
-        source=source_runtime,
-        transform=transform_runtime,
-        destination=destination_runtime,
-    )
+        if active is not None:
+            phase = getattr(attempt, active)
+            evidence = getattr(exc, "runtime_info", None)
+            if isinstance(evidence, type(phase)):
+                try:
+                    phase = _sanitize_timing(copy.deepcopy(evidence), phase)
+                except Exception:
+                    pass
+            elif active != "source":
+                enriched = _observe_runtime(component, type(phase), active, fallback=phase)
+                if enriched:
+                    phase = enriched
+            _finish_phase(phase, status=DataFlowStatus.FAILED.value, error=exc)
+            setattr(attempt, active, phase)
+        attempt.status = DataFlowStatus.FAILED.value
+        attempt.message = str(exc) or type(exc).__name__
+        raise PipelineError(attempt.message, attempt=attempt) from exc
 
 
 def execute_maintenance_pipeline(
-    dataflow: DataFlow,
-    *,
-    create_destination_writer: Callable[[str], BaseDestinationWriter],
-    retention_hours: int,
-    do_compact: bool,
-    do_cleanup: bool,
-) -> PipelineAttemptResult:
-    """Run one maintenance attempt and preserve destination partial state."""
-    logger.debug(
-        "Starting maintenance: %s",
-        dataflow.destination.full_table_name or dataflow.destination.path,
-    )
-    destination_runtime: Optional[DestinationRuntimeInfo] = None
-    writer: Optional[BaseDestinationWriter] = None
-    destination_phase_started = False
-    destination_runtime_attempted = False
+    dataflow: DataFlow, *, baseline: ReadBaseline, attempt: AttemptRuntimeInfo,
+    create_destination_writer: Callable, retention_hours: int,
+    do_compact: bool, do_cleanup: bool,
+) -> AttemptRuntimeInfo:
+    writer = None
     try:
         writer = create_destination_writer(dataflow.destination.connection.format)
-        _require_callable_contract(
-            writer,
-            "destination writer",
-            ("run_maintenance", "get_runtime_info"),
+        _require_callable_contract(writer, "destination writer", ("run_maintenance",))
+        attempt.destination = DestinationRuntimeInfo(
+            status=DataFlowStatus.RUNNING.value, operation_type=ExecutionType.MAINTENANCE.value,
         )
-        destination_phase_started = True
-        candidate = writer.run_maintenance(
-            dataflow=dataflow,
-            do_compact=do_compact,
-            do_cleanup=do_cleanup,
-            retention_hours=retention_hours,
-        )
-        destination_runtime_attempted = True
-        if not isinstance(candidate, DestinationRuntimeInfo):
-            raise PipelineError(
-                "destination writer.run_maintenance() must return "
-                "DestinationRuntimeInfo"
-            )
-        destination_runtime = candidate
+        returned = writer.run_maintenance(dataflow=dataflow, do_compact=do_compact,
+                                          do_cleanup=do_cleanup, retention_hours=retention_hours)
+        # A successful work return must not become a retry because observation
+        # is absent/malformed. An explicitly returned failed status is business failure.
+        if isinstance(returned, DestinationRuntimeInfo):
+            observed = _observe_runtime(writer, DestinationRuntimeInfo, "maintenance",
+                fallback=attempt.destination, runtime_value=returned)
+            if observed is not None:
+                attempt.destination = observed
+        else:
+            _finish_phase(attempt.destination, status=DataFlowStatus.SUCCEEDED.value)
+        if attempt.destination.status == DataFlowStatus.FAILED.value:
+            raise PipelineError(attempt.destination.message or "Maintenance failed")
+        attempt.status = attempt.destination.status
+        if attempt.status == DataFlowStatus.SKIPPED.value:
+            attempt.message = "Maintenance performed no operations"
+        return attempt
     except Exception as exc:
-        if destination_runtime is None:
-            candidate = _safe_runtime_capture(
-                writer,
-                DestinationRuntimeInfo,
-                phase_started=destination_phase_started,
-                runtime_attempted=destination_runtime_attempted,
-            )
-        else:
-            candidate = destination_runtime
-        if candidate is not None:
-            if candidate.operation_type == ExecutionType.MAINTENANCE.value:
-                if candidate.status == DataFlowStatus.RUNNING.value:
-                    candidate.end_time = utc_now()
-                    candidate.status = DataFlowStatus.FAILED.value
-                    candidate.message = str(exc) or type(exc).__name__
-                destination_runtime = candidate
-        raise PipelineError(
-            str(exc) or type(exc).__name__,
-            partial_result=PipelineAttemptResult(
-                status=DataFlowStatus.FAILED.value,
-                destination=destination_runtime,
-            ),
-        ) from exc
-
-    message = None
-    if destination_runtime.status == DataFlowStatus.SKIPPED.value:
-        if not do_compact and not do_cleanup:
-            message = "No maintenance operations enabled"
-        else:
-            skip_messages = [
-                entry["message"]
-                for entry in destination_runtime.operation_details
-                if entry.get("status") == DataFlowStatus.SKIPPED.value
-                and entry.get("message")
-            ]
-            message = (
-                "; ".join(dict.fromkeys(skip_messages))
-                or "Maintenance performed no operations"
-            )
-
-    attempt_result = PipelineAttemptResult(
-        status=destination_runtime.status,
-        destination=destination_runtime,
-        message=message,
-    )
-    if attempt_result.status == DataFlowStatus.FAILED.value:
-        raise PipelineError(
-            destination_runtime.message or "Maintenance failed",
-            partial_result=attempt_result,
-        )
-
-    logger.debug(
-        "Maintenance %s — files_added=%d, files_removed=%d, bytes_added=%d, bytes_removed=%d, duration=%.1fs",
-        destination_runtime.status,
-        destination_runtime.files_added,
-        destination_runtime.files_removed,
-        destination_runtime.bytes_added,
-        destination_runtime.bytes_removed,
-        destination_runtime.duration_seconds,
-    )
-    return attempt_result
+        if attempt.destination is not None:
+            if writer is not None:
+                evidence = _observe_runtime(writer, DestinationRuntimeInfo, "destination writer", fallback=attempt.destination)
+                if evidence:
+                    attempt.destination = evidence
+            _finish_phase(attempt.destination, status=DataFlowStatus.FAILED.value, error=exc)
+        attempt.status = DataFlowStatus.FAILED.value
+        raise PipelineError(str(exc) or type(exc).__name__, attempt=attempt) from exc

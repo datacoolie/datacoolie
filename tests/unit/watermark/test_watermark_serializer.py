@@ -108,6 +108,23 @@ class TestWatermarkSerializerSerialize:
             DATE_FOLDER_PARTITION_KEY: value
         }
 
+    def test_empty_keys_remain_valid_at_root_and_nested_levels(self) -> None:
+        value = {"": {"": 1}}
+
+        assert json.loads(WatermarkSerializer.serialize(value)) == value
+
+    def test_root_only_date_folder_key_is_not_granted_by_empty_parent_key(self) -> None:
+        with pytest.raises(TypeError, match="Reserved watermark tag"):
+            WatermarkSerializer.serialize(
+                {"": {DATE_FOLDER_PARTITION_KEY: "2026-01-02"}}
+            )
+
+    def test_root_only_date_folder_key_is_not_granted_by_scalar_wrapper(self) -> None:
+        with pytest.raises(TypeError, match="Reserved watermark tag"):
+            WatermarkSerializer.serialize(
+                {"value": {DATE_FOLDER_PARTITION_KEY: "2026-01-02"}}
+            )
+
 
 # ===========================================================================
 # WatermarkSerializer.deserialize

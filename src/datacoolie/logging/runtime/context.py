@@ -27,6 +27,16 @@ _dataflow_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
 _dataflow_run_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
     "dataflow_run_id", default=""
 )
+_attempt_number_var: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar(
+    "attempt_number", default=None
+)
+
+
+def _validate_attempt_number(number: object) -> int:
+    """Validate an attempt correlation number before binding it to a context."""
+    if isinstance(number, bool) or not isinstance(number, int) or number <= 0:
+        raise ValueError("attempt number must be a positive integer")
+    return number
 
 
 def set_dataflow_id(dataflow_id: str) -> contextvars.Token[str]:
@@ -57,6 +67,21 @@ def get_dataflow_run_id() -> str:
 def clear_dataflow_run_id(token: contextvars.Token[str]) -> None:
     """Restore the previous execution-instance identifier."""
     _dataflow_run_id_var.reset(token)
+
+
+def get_attempt_number() -> Optional[int]:
+    """Return the current attempt number, if an attempt is active."""
+    return _attempt_number_var.get()
+
+
+@contextmanager
+def attempt_context(number: int) -> Iterator[None]:
+    """Temporarily bind a positive attempt number with parent restoration."""
+    token = _attempt_number_var.set(_validate_attempt_number(number))
+    try:
+        yield
+    finally:
+        _attempt_number_var.reset(token)
 
 
 def set_dataflow_context(
@@ -93,9 +118,10 @@ def dataflow_context(
 
 
 class DataflowContextFilter(logging.Filter):
-    """Attach current dataflow execution identifiers to a Python log record."""
+    """Attach current execution identifiers to a Python log record."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         record.dataflow_id = get_dataflow_id()
         record.dataflow_run_id = get_dataflow_run_id()
+        record.attempt_number = get_attempt_number()
         return True

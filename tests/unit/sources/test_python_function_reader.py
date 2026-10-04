@@ -15,10 +15,10 @@ from datacoolie.core.constants import DataFlowStatus, Format
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
-from datacoolie.sources import SourceReadRange
+from datacoolie.sources.contracts import SourceReadRange
 from datacoolie.sources.python_function_reader import PythonFunctionReader
 
-from tests.unit.sources.support import MockEngine, engine
+from tests.unit.sources.support import MockEngine, engine, read_request
 
 
 # ============================================================================
@@ -78,9 +78,9 @@ class TestPythonFunctionReader:
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._sample_loader",
         )
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
-        info = reader.get_runtime_info()
+        info = result.runtime
         assert info.rows_read == 3
         assert info.status == DataFlowStatus.SUCCEEDED.value
 
@@ -90,8 +90,8 @@ class TestPythonFunctionReader:
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._none_loader",
         )
-        result = reader.read(src)
-        assert result is None
+        result = reader.read(src, request=read_request())
+        assert result.frame is None
 
     def test_read_zero_rows(self, engine: MockEngine) -> None:
         """Engine returns zero rows after reading."""
@@ -100,8 +100,8 @@ class TestPythonFunctionReader:
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._sample_loader",
         )
-        result = reader.read(src)
-        assert result is None
+        result = reader.read(src, request=read_request())
+        assert result.frame is None
 
     def test_read_with_watermark_columns(self, engine: MockEngine) -> None:
         """Watermark filtering is applied after function returns data."""
@@ -111,10 +111,13 @@ class TestPythonFunctionReader:
             "tests.unit.sources.test_python_function_reader._sample_loader",
             watermark_columns=["modified_at"],
         )
-        result = reader.read(src, watermark_start={"modified_at": "2024-01-01"})
+        result = reader.read(
+            src,
+            request=read_request(watermark_start={"modified_at": "2024-01-01"}),
+        )
         assert result is not None
-        wm = reader.get_new_watermark()
-        assert wm == {"modified_at": "2024-12-01"}
+        assert result.candidate is not None
+        assert result.candidate.values == {"modified_at": "2024-12-01"}
         # Post-function watermark filter should have been applied
         assert engine._filtered is True
 
@@ -135,7 +138,10 @@ class TestPythonFunctionReader:
         with patch.object(
             PythonFunctionReader, "_resolve_function", return_value=_capture_loader,
         ):
-            reader.read(src, watermark_start={"modified_at": "2024-01-01"})
+            reader.read(
+                src,
+                request=read_request(watermark_start={"modified_at": "2024-01-01"}),
+            )
         assert captured["watermark_start"] == {"modified_at": "2024-01-01"}
 
     def test_bounded_read_forwards_range_and_null_incremental_bounds(
@@ -169,7 +175,7 @@ class TestPythonFunctionReader:
             "_resolve_function",
             return_value=_capture_bounded_loader,
         ):
-            result = reader.read(src, read_range=bounded)
+            result = reader.read(src, request=read_request(read_range=bounded))
 
         assert result is not None
         assert captured == {
@@ -177,8 +183,8 @@ class TestPythonFunctionReader:
             "watermark_end": None,
             "read_range": bounded,
         }
-        assert reader.get_runtime_info().watermark_start_operator == ">="
-        assert reader.get_runtime_info().watermark_end_operator == "<"
+        assert result.selection.lower_operator == ">="
+        assert result.selection.upper_operator == "<"
 
     def test_bounded_read_rejects_legacy_function_before_invocation(
         self, engine: MockEngine
@@ -200,7 +206,12 @@ class TestPythonFunctionReader:
             return_value=_legacy_loader,
         ):
             with pytest.raises(SourceError, match="must accept a read_range keyword"):
-                reader.read(src, read_range=SourceReadRange("id", 1, 3))
+                reader.read(
+                    src,
+                    request=read_request(
+                        read_range=SourceReadRange("id", 1, 3)
+                    ),
+                )
 
         assert invoked is False
 
@@ -217,7 +228,10 @@ class TestPythonFunctionReader:
         )
         with patch.object(PythonFunctionReader, "_resolve_function", return_value=loader):
             with pytest.raises(SourceError, match="bounded loader failed"):
-                PythonFunctionReader(engine).read(source, read_range=bounded)
+                PythonFunctionReader(engine).read(
+                    source,
+                    request=read_request(read_range=bounded),
+                )
         assert len(calls) == 1
         assert calls[0]["read_range"] == bounded
         assert calls[0]["watermark_start"] is None
@@ -231,7 +245,7 @@ class TestPythonFunctionReader:
             "tests.unit.sources.test_python_function_reader._sample_loader",
             watermark_columns=["modified_at"],
         )
-        reader.read(src)  # no watermark
+        reader.read(src, request=read_request())  # no watermark
         assert engine._filtered is False
 
     def test_source_action_recorded(self, engine: MockEngine) -> None:
@@ -239,8 +253,8 @@ class TestPythonFunctionReader:
         reader = PythonFunctionReader(engine)
         func_path = "tests.unit.sources.test_python_function_reader._sample_loader"
         src = _make_python_function_source(func_path)
-        reader.read(src)
-        info = reader.get_runtime_info()
+        result = reader.read(src, request=read_request())
+        info = result.runtime
         assert info.source_action == {"reader": "PythonFunctionReader", "function": func_path}
 
     def test_missing_python_function_raises(self, engine: MockEngine) -> None:
@@ -251,35 +265,35 @@ class TestPythonFunctionReader:
         src = Source(connection=conn)  # no python_function
         reader = PythonFunctionReader(engine)
         with pytest.raises(SourceError, match="requires source.python_function"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_invalid_dotted_path_raises(self, engine: MockEngine) -> None:
         """Function path without dot raises error."""
         reader = PythonFunctionReader(engine)
         src = _make_python_function_source("no_dot_here")
         with pytest.raises(SourceError, match="dotted path"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_import_failure_raises(self, engine: MockEngine) -> None:
         """Module import failure raises wrappedSourceError."""
         reader = PythonFunctionReader(engine)
         src = _make_python_function_source("nonexistent_pkg.func")
         with pytest.raises(SourceError, match="Cannot import module"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_missing_attribute_raises(self, engine: MockEngine) -> None:
         """Missing function attribute raises SourceError."""
         reader = PythonFunctionReader(engine)
         src = _make_python_function_source("os.path.no_such_attr_xyz")
         with pytest.raises(SourceError, match="has no attribute"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_non_callable_raises(self, engine: MockEngine) -> None:
         """Non-callable attribute raises SourceError."""
         reader = PythonFunctionReader(engine)
         src = _make_python_function_source("os.sep")
         with pytest.raises(SourceError, match="not callable"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_function_exception_raises_source_error(self, engine: MockEngine) -> None:
         """Exception in user function is wrapped in SourceError."""
@@ -288,7 +302,7 @@ class TestPythonFunctionReader:
             "tests.unit.sources.test_python_function_reader._failing_loader",
         )
         with pytest.raises(SourceError, match="raised an error"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
 
 class TestPythonFunctionReaderRegistry:
@@ -317,14 +331,14 @@ class TestAllowedPrefixes:
         reader = PythonFunctionReader(engine, allowed_prefixes=["safe_pkg."])
         src = _make_python_function_source("evil_pkg.steal_data")
         with pytest.raises(SourceError, match="not allowed"):
-            reader.read(src)
+            reader.read(src, request=read_request())
 
     def test_allowed_prefix_passes(self, engine: MockEngine) -> None:
         reader = PythonFunctionReader(engine, allowed_prefixes=["tests.unit.sources."])
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._sample_loader",
         )
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_empty_prefixes_allows_all(self, engine: MockEngine) -> None:
@@ -332,7 +346,7 @@ class TestAllowedPrefixes:
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._sample_loader",
         )
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_none_prefixes_allows_all(self, engine: MockEngine) -> None:
@@ -340,7 +354,7 @@ class TestAllowedPrefixes:
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._sample_loader",
         )
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None
 
     def test_multiple_prefixes_any_match(self, engine: MockEngine) -> None:
@@ -348,5 +362,5 @@ class TestAllowedPrefixes:
         src = _make_python_function_source(
             "tests.unit.sources.test_python_function_reader._sample_loader",
         )
-        result = reader.read(src)
+        result = reader.read(src, request=read_request())
         assert result is not None

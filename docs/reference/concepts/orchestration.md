@@ -150,9 +150,32 @@ Already-admitted dataflows finish and are counted; withheld work remains `pendin
 dataflow remains one scheduler item, while its own chunks stop at the first failed chunk.
 Check execution results and required quality evidence before advancing stages.
 
-Retry is **dataflow-scoped**. Retrying reads the source again using the watermark. Idempotency
-still depends on the load strategy and keys, particularly if output succeeded before watermark
+Retry is **dataflow-scoped**. An admitted ETL execution keeps one
+`dataflow_run_id` across its initial attempt and retries; each retry receives a
+fresh execution copy and re-reads using the same read intent. `retry_attempts`
+counts retries after the initial attempt. Idempotency still depends on the load
+strategy and keys, particularly if output succeeded before watermark
 persistence failed.
+
+The runtime's `attempts` history contains only admitted pipeline attempts. An
+inactive execution, preparation failure, preflight failure, or dry run has no
+attempt snapshots (`[]`). A replay outer aggregate is represented by
+`ReplayRuntimeInfo` and has no synthetic attempt: each admitted replay chunk
+owns its own `dataflow_run_id`, and only retries within that chunk appear in
+that chunk's history.
+
+`DataFlowRuntimeInfo.metrics` projects the final attempt, not the sum of retry
+work. `ExecutionMetrics` fields remain nullable: an entered phase with an
+unavailable measurement is `null`, while a known zero remains `0`. Job and
+replay aggregation sums each metric independently and propagates `null` when
+any contributing observation is unknown. `JobRuntimeInfo` owns the job-level
+status counters and nullable ingestion totals.
+
+Component diagnostic hooks, where a component exposes them, are enrichment
+only. A malformed or failing diagnostic capture cannot retry an acknowledged
+read, transform, write, or watermark save. Operational return contracts remain
+strict, including the source `SourceReadResult`, replacement column mapping,
+and `DestinationRuntimeInfo` returned by maintenance.
 
 SQL-file reads and connection-secret hydration happen once during preparation
 before this retry boundary. A preparation failure is terminal for that
@@ -222,8 +245,9 @@ query reference.
 `driver.run_replay(dataflows, replay: ReplayConfig)` re-processes a bounded
 historical range in sequential, calendar-aligned chunks. By default,
 `save_watermark=False` leaves production state unchanged. With
-`save_watermark=True`, successful chunks save source-derived candidates through
-the reader's merge policy; saved state never skips a later replay invocation.
+`save_watermark=True`, successful non-empty chunks save source-derived
+candidates through the reader's merge policy; saved state never skips a later
+replay invocation.
 
 Each dataflow is processed concurrently (bounded by `max_workers`); chunks
 within a single dataflow always run sequentially. Group/order does not sequence replay dataflows.
@@ -238,7 +262,8 @@ retry, and a mutated attempt copy is never reused.
 - `start` / `end` — inclusive/exclusive bounds (timestamps, dates, or integers).
 - `chunk_interval` — chunking unit such as `{"months": 1}` or `{"days": 7}`.
 - `save_watermark` — when `True`, saves the reader-produced watermark after
-  each successful chunk. It does not create a replay checkpoint or skip the
+  each successful, non-empty chunk. A source-empty chunk skips transformation,
+  writing, and saving; this does not create replay progress or skip the
   requested range on a later invocation.
 - `chunk_column` — overrides the auto-resolved column (defaults to
   `watermark_columns[0]`). Database, lakehouse, file, and function readers

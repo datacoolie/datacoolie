@@ -12,7 +12,13 @@ from datacoolie.core.models.transform import AdditionalColumn, Transform
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.run_config import DataCoolieRunConfig
 from datacoolie.core.models.dataflow import DataFlow
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo, DestinationRuntimeInfo, JobRuntimeInfo, PipelineAttemptResult, RuntimeInfo, SourceRuntimeInfo, TransformRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
+from datacoolie.orchestration.runtime import JobRuntimeInfo
+from datacoolie.orchestration.execution.runtime import AttemptRuntimeInfo
+from datacoolie.core.models.runtime import RuntimeInfo
+from datacoolie.sources.runtime import SourceRuntimeInfo
+from datacoolie.transformers.runtime import TransformRuntimeInfo
 from datacoolie.core.models.destination import Destination, PartitionColumn
 from datacoolie.core.models.transform import SchemaHint
 from datacoolie.core.models.source import Source
@@ -501,12 +507,12 @@ class TestRuntimeInfo:
 
 
 class TestSourceRuntimeInfo:
-    """Verify SourceRuntimeInfo tracking row counts and watermarks."""
+    """Verify source-owned runtime fields and nullable measurements."""
     def test_defaults(self) -> None:
         sri = SourceRuntimeInfo()
-        assert sri.rows_read == 0
+        assert sri.rows_read is None
         assert sri.source_action == {}
-        assert sri.watermark_before is None
+        assert sri.selection is None
 
 
 class TestTransformRuntimeInfo:
@@ -517,18 +523,18 @@ class TestTransformRuntimeInfo:
 
 
 class TestDestinationRuntimeInfo:
-    """Verify DestinationRuntimeInfo tracking rows written/inserted/updated."""
+    """Verify destination metrics preserve unavailable measurements."""
     def test_defaults(self) -> None:
         dri = DestinationRuntimeInfo()
-        assert dri.rows_written == 0
-        assert dri.rows_inserted == 0
-        assert dri.rows_updated == 0
-        assert dri.rows_deleted == 0
+        assert dri.rows_written is None
+        assert dri.rows_inserted is None
+        assert dri.rows_updated is None
+        assert dri.rows_deleted is None
 
 
-class TestPipelineAttemptResult:
+class TestAttemptRuntimeInfo:
     def test_requires_status_and_defaults_phases_to_none(self) -> None:
-        result = PipelineAttemptResult(status=DataFlowStatus.SKIPPED.value)
+        result = AttemptRuntimeInfo(status=DataFlowStatus.SKIPPED.value)
 
         assert result.status == DataFlowStatus.SKIPPED.value
         assert result.source is None
@@ -540,7 +546,7 @@ class TestPipelineAttemptResult:
         transform = TransformRuntimeInfo(transformers_applied=["schema"])
         destination = DestinationRuntimeInfo(rows_written=3)
 
-        result = PipelineAttemptResult(
+        result = AttemptRuntimeInfo(
             status=DataFlowStatus.SUCCEEDED.value,
             source=source,
             transform=transform,
@@ -553,18 +559,40 @@ class TestPipelineAttemptResult:
 
 
 class TestDataFlowRuntimeInfo:
-    """Verify DataFlowRuntimeInfo aggregating source, transform, destination info."""
-    def test_proxy_properties(self) -> None:
-        info = DataFlowRuntimeInfo(
+    """Verify attempts are the only phase owner and metrics projection."""
+    def test_final_attempt_and_metrics_projection(self) -> None:
+        attempt = AttemptRuntimeInfo(
+            status=DataFlowStatus.SUCCEEDED.value,
             source=SourceRuntimeInfo(rows_read=100),
             destination=DestinationRuntimeInfo(
                 rows_written=90, rows_inserted=80, rows_updated=10
             ),
         )
-        assert info.rows_read == 100
-        assert info.rows_written == 90
-        assert info.rows_inserted == 80
-        assert info.rows_updated == 10
+        info = DataFlowRuntimeInfo(
+            attempts=[attempt],
+        )
+        assert info.final_attempt is attempt
+        assert info.metrics.rows_read == 100
+        assert info.metrics.rows_written == 90
+        assert info.metrics.rows_inserted == 80
+        assert info.metrics.rows_updated == 10
+        assert not hasattr(info, "source")
+        assert not hasattr(info, "destination")
+
+    def test_retry_metrics_use_final_attempt_without_fake_phases(self) -> None:
+        first = AttemptRuntimeInfo(
+            status=DataFlowStatus.FAILED.value,
+            source=SourceRuntimeInfo(rows_read=100),
+            destination=DestinationRuntimeInfo(rows_written=90),
+        )
+        final = AttemptRuntimeInfo(status=DataFlowStatus.FAILED.value)
+        info = DataFlowRuntimeInfo(
+            attempts=[first, final],
+        )
+        assert info.final_attempt is final
+        assert info.retry_attempts == 1
+        assert info.metrics.rows_read == 0
+        assert info.metrics.rows_written == 0
 
     def test_success_state(self) -> None:
         info = DataFlowRuntimeInfo(status=DataFlowStatus.SUCCEEDED.value)
@@ -831,8 +859,15 @@ class TestDataCoolieRunConfigExtended:
 class TestRuntimeInfoExtended:
     """Verify RuntimeInfo edge cases."""
     def test_dataflow_rows_deleted_proxy(self) -> None:
-        info = DataFlowRuntimeInfo(destination=DestinationRuntimeInfo(rows_deleted=3))
-        assert info.rows_deleted == 3
+        info = DataFlowRuntimeInfo(
+            attempts=[
+                AttemptRuntimeInfo(
+                    status=DataFlowStatus.SUCCEEDED.value,
+                    destination=DestinationRuntimeInfo(rows_deleted=3),
+                )
+            ]
+        )
+        assert info.metrics.rows_deleted == 3
 
 
 # ============================================================================

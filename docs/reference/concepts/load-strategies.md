@@ -61,9 +61,14 @@ bounded mode. Without a usable window, the strategy calls
 `destination.write_options` path for the key-based operation.
 
 The engine owns the native predicate and replacement ordering. The default
-portable implementation is delete then append (not atomic). A confirmed empty
-replay removes the existing scope without creating an absent target; an
-ordinary empty incremental read is skipped.
+portable implementation is delete then append (not atomic). A source result
+with `frame is None` or `rows_read == 0` skips transformation, writing,
+replacement, and watermark save, including for a bounded replay; it cannot
+delete the selected scope. If a non-empty source result becomes empty during
+transformation, there is no post-transform count to stop the write: the
+replacement writer may receive the empty frame and delete the selected scope.
+Replacement control comes from the typed `SourceReadResult` selection and
+candidate, not mutable runtime observations.
 
 Example: nightly snapshot of "last 7 days" — everything older is already final;
 everything inside the window is delivered fresh.

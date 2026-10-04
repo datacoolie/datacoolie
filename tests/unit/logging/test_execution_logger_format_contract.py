@@ -64,8 +64,10 @@ class TestExecutionLoggerJsonFormat:
         row = json.loads(path.read_text(encoding="utf-8"))
         assert row["source_schema"] is None
         assert row["destination_schema"] is None
-        assert row["source_rows_read"] == 7
-        assert row["destination_rows_written"] == 3
+        assert row["attempts"][0]["source"]["rows_read"] == 7
+        assert row["attempts"][0]["destination"]["rows_written"] == 3
+        assert row["metrics"]["rows_read"] == 7
+        assert row["metrics"]["rows_written"] == 3
 
     def test_every_persisted_line_is_one_compact_json_object(self, tmp_path):
         platform = LocalPlatform(base_path=str(tmp_path))

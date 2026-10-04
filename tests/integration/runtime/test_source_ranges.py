@@ -30,6 +30,8 @@ from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.watermark.watermark_manager import WatermarkManager
 from datacoolie.platforms.local_platform import LocalPlatform
 from datacoolie.sources import SourceReadRange
+from datacoolie.sources.contracts import SourceReadRequest
+from datacoolie.utils.time import utc_now
 from datacoolie.watermark.base import BaseWatermarkManager
 from datacoolie.sources.database_reader import DatabaseReader
 from datacoolie.sources.delta_reader import DeltaReader
@@ -225,7 +227,7 @@ def test_parquet_source_range_matches_driver(tmp_path: Path, persisted_manager: 
     read_range = SourceReadRange("id", 1, 4)
     manager = persisted_manager
 
-    direct = FileReader(engine).read(source, read_range=read_range)
+    direct = FileReader(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
     assert direct is not None
     expected = _selected_rows(direct, ["id", "updated_seq", "value"])
     actual = _driver_rows(
@@ -280,7 +282,7 @@ def test_delta_source_range_matches_driver(tmp_path: Path, persisted_manager: Wa
     read_range = SourceReadRange("id", 1, 4)
     manager = persisted_manager
 
-    direct = DeltaReader(engine).read(source, read_range=read_range)
+    direct = DeltaReader(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
     assert direct is not None
     expected = _selected_rows(direct, ["id", "updated_seq", "value"])
     actual = _driver_rows(
@@ -369,7 +371,7 @@ def test_temporal_native_iso_bounds_match_direct_and_driver(
     )
     read_range = SourceReadRange("event_time", start, end)
 
-    direct = reader_type(engine).read(source, read_range=read_range)
+    direct = reader_type(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
     assert direct is not None
     expected = _selected_rows(direct, ["id", "event_time", "value"])
     assert expected == [
@@ -435,7 +437,7 @@ def test_sqlite_source_range_matches_driver(
         )
     read_range = SourceReadRange("id", 1, 4)
 
-    direct = DatabaseReader(engine).read(source, read_range=read_range)
+    direct = DatabaseReader(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
     assert direct is not None
     expected = _selected_rows(direct, ["id", "value"])
     actual = _driver_rows(
@@ -486,8 +488,8 @@ def test_sqlite_incremental_filter_excludes_inactive_watermark_branch(
     )
     result = DatabaseReader(engine).read(
         source,
-        watermark_start={"id": 1, "updated_at": "2024-01-01"},
-    )
+        request=SourceReadRequest(reference_time=utc_now(), watermark_start={"id": 1, "updated_at": "2024-01-01"}),
+    ).frame
 
     assert result is not None
     assert result.collect().sort("id").select("id").to_series().to_list() == [0, 2]
@@ -509,7 +511,7 @@ def test_python_function_source_range_matches_driver(tmp_path: Path) -> None:
     read_range = SourceReadRange("id", 1, 4)
 
     _FUNCTION_CALLS.clear()
-    direct = PythonFunctionReader(engine).read(source, read_range=read_range)
+    direct = PythonFunctionReader(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
     assert direct is not None
     expected = _selected_rows(direct, ["id", "value"])
     assert _FUNCTION_CALLS[-1] == {
@@ -572,7 +574,7 @@ def test_decimal_delta_source_range_preserves_precision_through_driver(
         "amount", Decimal("1.234567"), Decimal("3.456789")
     )
 
-    direct = DeltaReader(engine).read(source, read_range=read_range)
+    direct = DeltaReader(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
     assert direct is not None
     direct_frame = direct.collect().sort("amount")
     assert direct_frame.schema["amount"] == pl.Decimal(18, 6)
@@ -636,7 +638,7 @@ def test_local_pyiceberg_sql_catalog_source_range_matches_driver(tmp_path: Path,
         read_range = SourceReadRange("id", 1, 3)
         manager = persisted_manager
 
-        direct = IcebergReader(engine).read(source, read_range=read_range)
+        direct = IcebergReader(engine).read(source, request=SourceReadRequest(reference_time=utc_now(), read_range=read_range)).frame
         assert direct is not None
         expected = _selected_rows(direct, ["id", "updated_seq", "value"])
         actual = _driver_rows(

@@ -24,10 +24,11 @@ from datacoolie.core.models.source import Source
 from datacoolie.core.constants import FileInfoColumn
 from datacoolie.orchestration.driver import DataCoolieDriver
 from datacoolie.platforms.local_platform import LocalPlatform
-from datacoolie.sources import SourceReadRange
+from datacoolie.sources import SourceReadRange, SourceReadRequest
 from datacoolie.sources.delta_reader import DeltaReader
 from datacoolie.sources.file_reader import FileReader
 from datacoolie.sources.iceberg_reader import IcebergReader
+from datacoolie.watermark.base import BaseWatermarkManager
 
 
 pytestmark = [
@@ -267,6 +268,32 @@ def _delta_rows(spark, path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def _delta_log_entries(path: Path) -> tuple[str, ...]:
+    return tuple(sorted(entry.name for entry in (path / "_delta_log").glob("*.json")))
+
+
+class _MemoryWatermarkManager(BaseWatermarkManager):
+    """Small in-memory checkpoint store for the Spark lookback qualification."""
+
+    def __init__(self, watermark: dict[str, object]) -> None:
+        self.current = dict(watermark)
+        self.saved: list[dict[str, object]] = []
+
+    def get_watermark(self, dataflow_id: str) -> dict[str, object]:
+        return dict(self.current)
+
+    def save_watermark(
+        self,
+        dataflow_id: str,
+        watermark: dict[str, object],
+        *,
+        job_id: str | None = None,
+        dataflow_run_id: str | None = None,
+    ) -> None:
+        self.current = dict(watermark)
+        self.saved.append(dict(watermark))
+
+
 def test_spark_delta_source_range_matches_direct_and_driver(
     spark, tmp_path: Path
 ) -> None:
@@ -294,7 +321,13 @@ def test_spark_delta_source_range_matches_direct_and_driver(
     )
     read_range = SourceReadRange("id", 1, 4)
 
-    direct = DeltaReader(engine).read(source, read_range=read_range)
+    direct = DeltaReader(engine).read(
+        source,
+        request=SourceReadRequest(
+            reference_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            read_range=read_range,
+        ),
+    ).frame
     assert direct is not None
     expected = [
         (row["id"], row["value"])
@@ -343,7 +376,13 @@ def test_spark_delta_temporal_source_range_selects_exact_rows(
     )
     read_range = SourceReadRange("event_time", lower, upper)
 
-    direct = DeltaReader(engine).read(source, read_range=read_range)
+    direct = DeltaReader(engine).read(
+        source,
+        request=SourceReadRequest(
+            reference_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            read_range=read_range,
+        ),
+    ).frame
     assert direct is not None
     expected = [
         row["id"] for row in direct.select("id").orderBy("id").collect()
@@ -399,7 +438,13 @@ def test_spark_parquet_mtime_range_uses_exact_file_boundaries(
         datetime.fromtimestamp(stamps[0], tz=timezone.utc),
         datetime.fromtimestamp(stamps[2], tz=timezone.utc),
     )
-    direct = FileReader(engine).read(source, read_range=read_range)
+    direct = FileReader(engine).read(
+        source,
+        request=SourceReadRequest(
+            reference_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            read_range=read_range,
+        ),
+    ).frame
     assert direct is not None
     assert [row["id"] for row in direct.select("id").orderBy("id").collect()] == [0, 1]
     assert platform.list_files(str(table_root), extension=".parquet")
@@ -442,8 +487,11 @@ def test_spark_iceberg_source_range_when_native_runtime_is_available(
     engine = _engine(spark)
     direct = IcebergReader(engine).read(
         source,
-        read_range=SourceReadRange("id", 1, 3),
-    )
+        request=SourceReadRequest(
+            reference_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            read_range=SourceReadRange("id", 1, 3),
+        ),
+    ).frame
     assert direct is not None
     assert [row["id"] for row in direct.select("id").orderBy("id").collect()] == [1, 2]
 
@@ -520,9 +568,104 @@ def test_spark_driver_delta_replace_preserves_requested_tail_and_rerun(
     assert _delta_rows(spark, target_path) == expected
 
 
+def test_spark_driver_delta_replace_uses_effective_lower_for_normal_lookback(
+    spark, tmp_path: Path
+) -> None:
+    """Normal Spark ETL replaces the actual temporal lookback read scope."""
+
+    from pyspark.sql.types import LongType, StringType, StructField, StructType, TimestampType
+    from datacoolie.engines.spark_engine import SparkEngine
+
+    day_5 = datetime(2026, 1, 5)
+    day_10 = datetime(2026, 1, 10)
+    day_12 = datetime(2026, 1, 12)
+    day_20 = datetime(2026, 1, 20)
+    input_root = tmp_path / "input-lookback"
+    output_root = tmp_path / "output-lookback"
+    source_path = input_root / "events"
+    target_path = output_root / "events"
+    engine = _engine(spark)
+    schema = StructType(
+        [
+            StructField("id", LongType(), nullable=False),
+            StructField("modified_at", TimestampType(), nullable=False),
+            StructField("value", StringType(), nullable=False),
+        ]
+    )
+    _write_delta(
+        engine,
+        source_path,
+        [(1, day_5, "new-5"), (2, day_12, "new-12")],
+        schema,
+    )
+    _write_delta(
+        engine,
+        target_path,
+        [(100, day_5, "stale-5"), (101, day_12, "stale-12"), (102, day_20, "keep")],
+        schema,
+    )
+    source_connection = _connection("source-lookback", "lakehouse", "delta", input_root)
+    destination_connection = _connection(
+        "destination-lookback", "lakehouse", "delta", output_root
+    )
+    dataflow = DataFlow(
+        dataflow_id="spark-lookback-replace",
+        stage="spark-source-ranges",
+        source=Source(
+            connection=source_connection,
+            table="events",
+            watermark_columns=["modified_at"],
+            configure={"backward_days": 7},
+        ),
+        destination=Destination(
+            connection=destination_connection,
+            table="events",
+            load_type="merge_overwrite",
+            configure={"replace_by_watermark": True},
+        ),
+    )
+    manager = _MemoryWatermarkManager({"modified_at": day_10})
+    platform = LocalPlatform()
+
+    with DataCoolieDriver(
+        engine=SparkEngine(spark_session=spark, platform=platform),
+        platform=platform,
+        watermark_manager=manager,
+        state_base_path=str(tmp_path / "state-lookback"),
+        log_base_path=str(tmp_path / "logs-lookback"),
+        config=DataCoolieRunConfig(
+            job_id="spark-lookback-replace",
+            max_workers=1,
+            retry_count=0,
+            retry_delay=0,
+        ),
+    ) as driver:
+        first = driver.run(dataflows=[dataflow])
+        second = driver.run(dataflows=[dataflow])
+
+    assert (first.total, first.succeeded, first.failed) == (1, 1, 0), first.errors
+    assert (second.total, second.succeeded, second.failed) == (1, 1, 0), second.errors
+    rows = [
+        row.asDict()
+        for row in spark.read.format("delta")
+        .load(str(target_path))
+        .select("id", "modified_at", "value")
+        .orderBy("modified_at")
+        .collect()
+    ]
+    assert rows == [
+        {"id": 1, "modified_at": day_5, "value": "new-5"},
+        {"id": 2, "modified_at": day_12, "value": "new-12"},
+        {"id": 102, "modified_at": day_20, "value": "keep"},
+    ]
+    assert manager.saved == [{"modified_at": day_12}, {"modified_at": day_12}]
+
+
 def test_spark_driver_delta_typed_empty_replaces_requested_window(
     spark, tmp_path: Path
 ) -> None:
+    """A bounded source-empty replay skips without replacing its target window."""
+
     from pyspark.sql.types import LongType, StringType, StructField, StructType
 
     input_root = tmp_path / "input"
@@ -560,6 +703,7 @@ def test_spark_driver_delta_typed_empty_replaces_requested_window(
     _write_metadata(metadata_path, input_root, output_root)
     state_root = tmp_path / "state"
     log_root = tmp_path / "logs"
+    initial_delta_log = _delta_log_entries(target_path)
 
     first = _run_replay(
         spark=spark,
@@ -568,12 +712,15 @@ def test_spark_driver_delta_typed_empty_replaces_requested_window(
         log_root=log_root,
         job_id="spark-empty-first",
     )
-    assert (first.total, first.succeeded, first.failed) == (1, 1, 0), first.errors
+    assert (first.total, first.succeeded, first.failed, first.skipped) == (1, 0, 0, 1), first.errors
     expected = [
         {"id": 100, "window_start": 0, "value": "before"},
+        {"id": 101, "window_start": 2, "value": "stale-2"},
+        {"id": 102, "window_start": 8, "value": "stale-8"},
         {"id": 103, "window_start": 10, "value": "after"},
     ]
     assert _delta_rows(spark, target_path) == expected
+    assert _delta_log_entries(target_path) == initial_delta_log
     state_files = list(state_root.rglob("watermark_value.json"))
     assert not state_files, [
         (path.as_posix(), path.read_text(encoding="utf-8")) for path in state_files
@@ -586,5 +733,7 @@ def test_spark_driver_delta_typed_empty_replaces_requested_window(
         log_root=log_root,
         job_id="spark-empty-rerun",
     )
-    assert (second.total, second.succeeded, second.failed) == (1, 1, 0), second.errors
+    assert (second.total, second.succeeded, second.failed, second.skipped) == (1, 0, 0, 1), second.errors
     assert _delta_rows(spark, target_path) == expected
+    assert _delta_log_entries(target_path) == initial_delta_log
+    assert not list(state_root.rglob("watermark_value.json"))

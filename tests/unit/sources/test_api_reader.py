@@ -15,6 +15,7 @@ from datacoolie.sources.api_reader import APIReader
 from datacoolie.sources._api.auth import apply_auth, fetch_oauth2_token
 from datacoolie.sources._api.records import extract_records, resolve_path
 from datacoolie.sources._api.transport import make_request, safe_url
+from tests.unit.sources.support import read_request
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +105,7 @@ class TestAPIReaderBasicRead:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         assert len(df) == 2
@@ -131,7 +132,7 @@ class TestAPIReaderBasicRead:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(response_data)
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         assert len(df) == 3
@@ -166,13 +167,13 @@ class TestAPIReaderBasicRead:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            result = reader.read(source)
+            result = reader.read(source, request=read_request())
 
         assert engine.created == records
         assert engine.filtered is not None
         assert engine.filtered[0] == records
         assert engine.filtered[1] == "status = 'open'"
-        assert result == [{"id": 1, "status": "open"}]
+        assert result.frame == [{"id": 1, "status": "open"}]
         request_kwargs = mock_client.request.call_args.kwargs
         assert request_kwargs.get("params") in (None, {})
         assert request_kwargs.get("json") in (None, {})
@@ -197,10 +198,10 @@ class TestAPIReaderBasicRead:
                 ]
             )
 
-            result = reader.read(source)
+            result = reader.read(source, request=read_request())
 
         assert result is not None
-        assert result.collect().to_dicts() == [{"id": 1, "status": "open"}]
+        assert result.frame.collect().to_dicts() == [{"id": 1, "status": "open"}]
         request_kwargs = mock_client.request.call_args.kwargs
         assert request_kwargs.get("params") in (None, {})
         assert request_kwargs.get("json") in (None, {})
@@ -218,7 +219,7 @@ class TestAPIReaderBasicRead:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([])
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is None
 
@@ -229,7 +230,7 @@ class TestAPIReaderBasicRead:
         source = _make_source(conn_cfg={"something": "else"})
 
         with pytest.raises(SourceError, match="base_url"):
-            reader.read(source)
+            reader.read(source, request=read_request())
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +258,7 @@ class TestAPIReaderAuth:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([{"id": 1}])
 
-            reader.read(source)
+            reader.read(source, request=read_request())
 
         # Check that headers passed to Client include auth
         call_kwargs = mock_httpx.Client.call_args
@@ -286,7 +287,7 @@ class TestAPIReaderAuth:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([{"id": 1}])
 
-            reader.read(source)
+            reader.read(source, request=read_request())
 
         expected = base64.b64encode(b"user:pass").decode()
         call_kwargs = mock_httpx.Client.call_args
@@ -313,7 +314,7 @@ class TestAPIReaderAuth:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([{"id": 1}])
 
-            reader.read(source)
+            reader.read(source, request=read_request())
 
         call_kwargs = mock_httpx.Client.call_args
         headers = call_kwargs[1].get("headers", {}) if call_kwargs[1] else {}
@@ -357,7 +358,7 @@ class TestAPIReaderPagination:
             mock_httpx.HTTPError = Exception
             mock_client.request.side_effect = side_effect
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         assert len(df) == 3
@@ -396,7 +397,7 @@ class TestAPIReaderPagination:
             mock_httpx.HTTPError = Exception
             mock_client.request.side_effect = side_effect
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         assert len(df) == 2
@@ -440,7 +441,7 @@ class TestAPIReaderPagination:
             mock_httpx.HTTPError = Exception
             mock_client.request.side_effect = side_effect
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         assert len(df) == 2
@@ -467,7 +468,7 @@ class TestAPIReaderPagination:
             mock_client.request.return_value = _mock_response([{"id": 1}])
 
             with pytest.raises(SourceError, match="end of the result was not confirmed"):
-                reader.read(source)
+                reader.read(source, request=read_request())
 
 
     def test_unknown_pagination_type_fails_before_request(self):
@@ -490,7 +491,7 @@ class TestAPIReaderPagination:
         with patch("datacoolie.sources.api_reader.httpx") as mock_httpx, \
              patch("datacoolie.sources.api_reader.apply_auth") as apply_auth:
             with pytest.raises(SourceError, match="Unsupported API pagination_type"):
-                reader.read(source)
+                reader.read(source, request=read_request())
 
         mock_httpx.Client.assert_not_called()
         apply_auth.assert_not_called()
@@ -518,7 +519,7 @@ class TestAPIReaderErrorHandling:
             )
 
             with pytest.raises(SourceError, match="HTTP 500"):
-                reader.read(source)
+                reader.read(source, request=read_request())
 
     def test_rate_limit_retry(self):
         """429 response with Retry-After triggers a retry."""
@@ -545,7 +546,7 @@ class TestAPIReaderErrorHandling:
             mock_httpx.HTTPError = Exception
             mock_client.request.side_effect = side_effect
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         assert call_count == 2
@@ -558,7 +559,7 @@ class TestAPIReaderErrorHandling:
 
         with patch("datacoolie.sources.api_reader.httpx", None):
             with pytest.raises(SourceError, match="httpx"):
-                reader.read(source)
+                reader.read(source, request=read_request())
 
     def test_http_error_before_retry_raises_source_error(self):
         """HTTP client errors are wrapped as SourceError on first request."""
@@ -629,9 +630,10 @@ class TestAPIReaderErrorHandling:
             mock_httpx.Client.return_value.__exit__ = MagicMock(return_value=False)
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([])
-            reader.read(source)
+            result = reader.read(source, request=read_request())
 
-        action_url = reader.get_runtime_info().source_action["url"]
+        assert result.runtime is not None
+        action_url = result.runtime.source_action["url"]
         assert sentinel not in action_url
         assert "user" not in action_url
         assert "password" not in action_url
@@ -725,7 +727,10 @@ class TestAPIReaderWatermark:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            df = reader.read(source, watermark_start={"event_id": 2})
+            df = reader.read(
+                source,
+                request=read_request(watermark_start={"event_id": 2}),
+            ).frame
 
         assert df is not None
         assert len(df) == 1
@@ -749,9 +754,10 @@ class TestAPIReaderWatermark:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            reader.read(source)
+            result = reader.read(source, request=read_request())
 
-        wm = reader.get_new_watermark()
+        assert result.candidate is not None
+        wm = result.candidate.values
         assert wm["event_id"] == 20
 
     def test_watermark_filters_everything_returns_none(self):
@@ -772,11 +778,15 @@ class TestAPIReaderWatermark:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response(records)
 
-            df = reader.read(source, watermark_start={"event_id": 999})
+            result = reader.read(
+                source,
+                request=read_request(watermark_start={"event_id": 999}),
+            )
 
-        assert df is None
-        assert reader.get_runtime_info().rows_read == 0
-        assert reader.get_new_watermark() == {}
+        assert result.frame is None
+        assert result.runtime is not None
+        assert result.runtime.rows_read == 0
+        assert result.candidate is None
 
 
 # ---------------------------------------------------------------------------
@@ -890,7 +900,7 @@ class TestAPIReaderHelpers:
             mock_httpx.HTTPError = Exception
             mock_client.request.side_effect = [_mock_response(page1), _mock_response(page2)]
 
-            df = reader.read(source)
+            df = reader.read(source, request=read_request()).frame
 
         assert df is not None
         mock_sleep.assert_called()
@@ -955,9 +965,10 @@ class TestAPIReaderRuntimeInfo:
             mock_httpx.HTTPError = Exception
             mock_client.request.return_value = _mock_response([{"id": 1}, {"id": 2}])
 
-            reader.read(source)
+            result = reader.read(source, request=read_request())
 
-        info = reader.get_runtime_info()
+        assert result.runtime is not None
+        info = result.runtime
         assert info.rows_read == 2
         assert info.source_action["url"] == "https://api.example.com/data"
         assert info.status == "succeeded"

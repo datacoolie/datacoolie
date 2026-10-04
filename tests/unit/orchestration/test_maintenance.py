@@ -10,7 +10,7 @@ from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.run_config import DataCoolieRunConfig
 from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.core.models.destination import Destination
-from datacoolie.core.models.runtime import DestinationRuntimeInfo
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
 from datacoolie.core.models.source import Source
 from datacoolie.orchestration.driver import DataCoolieDriver
 from datacoolie.orchestration.maintenance import dedupe_by_destination

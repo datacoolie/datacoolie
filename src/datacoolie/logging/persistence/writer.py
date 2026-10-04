@@ -7,7 +7,6 @@ which records are admitted and which remote path represents a stream.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import shutil
@@ -16,6 +15,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from datetime import date, datetime, time as datetime_time
 from pathlib import Path
 from typing import Callable, Deque, Dict, Optional
 
@@ -25,8 +25,11 @@ from datacoolie.logging.configuration.constants import (
     FlushResult,
     PersistenceMode,
 )
+from datacoolie.logging.persistence.bounded_encoder import (
+    BoundedEncodingError,
+    bounded_json_encode,
+)
 from datacoolie.platforms.base import BasePlatform
-from datacoolie.utils.converters import custom_json_encoder
 
 
 _diagnostic_logger = logging.getLogger(INTERNAL_LOGGER_NAME)
@@ -36,25 +39,47 @@ _diagnostic_logger = logging.getLogger(INTERNAL_LOGGER_NAME)
 # admission prevents an accepted record becoming unflushable when the writer
 # later needs to create that second copy.
 _MATERIALIZATION_RESERVATION_MULTIPLIER = 2
+_DEFAULT_MAX_RECORD_BYTES = 1024 * 1024
 
 
 def _reservation_bytes(encoded_bytes: int) -> int:
     return encoded_bytes * _MATERIALIZATION_RESERVATION_MULTIPLIER
 
 
-def encode_json_line(record: Dict[str, object]) -> bytes:
-    """Encode one compact UTF-8 JSON Lines record with a final newline."""
+def encode_json_line(
+    record: Dict[str, object],
+    *,
+    max_bytes: Optional[int] = None,
+    max_record_bytes: Optional[int] = None,
+) -> bytes:
+    """Encode one compact UTF-8 JSON Lines record with a final newline.
 
-    return (
-        json.dumps(
-            record,
-            default=custom_json_encoder,
-            ensure_ascii=False,
-            allow_nan=False,
-            separators=(",", ":"),
-        )
-        + "\n"
-    ).encode("utf-8")
+    The optional limit includes that final newline.  Keeping the limit off by
+    default preserves the historical helper contract for callers that only
+    need an encoded line; writers always pass their configured record limit.
+    """
+
+    if max_record_bytes is not None:
+        if max_bytes is not None:
+            raise TypeError("pass max_bytes or max_record_bytes, not both")
+        max_bytes = max_record_bytes
+    def temporal_default(value: object) -> str:
+        if isinstance(value, datetime):
+            return datetime.isoformat(value)
+        if isinstance(value, date):
+            return date.isoformat(value)
+        if isinstance(value, datetime_time):
+            return datetime_time.isoformat(value)
+        raise TypeError("unsupported logging JSON value")
+    return bounded_json_encode(
+        record,
+        max_bytes=max_bytes,
+        default=temporal_default,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        newline=True,
+    )
 
 
 @dataclass(frozen=True)
@@ -145,6 +170,7 @@ class JsonLogWriter:
         name: str = "json",
         capacity_budget: Optional[SharedByteBudget] = None,
         protected_budget: bool = False,
+        max_record_bytes: Optional[int] = None,
     ) -> None:
         self._platform = platform
         self._target_path = target_path
@@ -153,6 +179,22 @@ class JsonLogWriter:
         self._name = name
         self._capacity_budget = capacity_budget
         self._protected_budget = protected_budget
+        configured_max_record_bytes = getattr(
+            config,
+            "max_record_bytes",
+            _DEFAULT_MAX_RECORD_BYTES,
+        )
+        self._max_record_bytes = (
+            configured_max_record_bytes
+            if max_record_bytes is None
+            else max_record_bytes
+        )
+        if (
+            isinstance(self._max_record_bytes, bool)
+            or not isinstance(self._max_record_bytes, int)
+            or self._max_record_bytes <= 0
+        ):
+            raise ValueError("max_record_bytes must be a positive integer")
         self._lock = threading.RLock()
         self._memory: Deque[bytes] = deque()
         self._memory_bytes = 0
@@ -187,6 +229,12 @@ class JsonLogWriter:
     @property
     def target_path(self) -> str:
         return self._target_path
+
+    @property
+    def max_record_bytes(self) -> int:
+        """Configured encoded JSONL record limit, including its newline."""
+
+        return self._max_record_bytes
 
     @property
     def pending(self) -> bool:
@@ -245,7 +293,14 @@ class JsonLogWriter:
     def append(self, record: Dict[str, object]) -> bool:
         """Admit one record, returning ``False`` when capacity is exhausted."""
 
-        payload = encode_json_line(record)
+        try:
+            payload = encode_json_line(record, max_bytes=self._max_record_bytes)
+        except BoundedEncodingError as exc:
+            with self._lock:
+                if self._closed:
+                    return False
+                self._record_drop_locked(exc.known_size or 0, "record size")
+            return False
         with self._lock:
             if self._closed:
                 return False
@@ -290,7 +345,14 @@ class JsonLogWriter:
     def replace(self, record: Dict[str, object]) -> bool:
         """Replace the single retained record used by job-runtime snapshots."""
 
-        payload = encode_json_line(record)
+        try:
+            payload = encode_json_line(record, max_bytes=self._max_record_bytes)
+        except BoundedEncodingError as exc:
+            with self._lock:
+                if self._closed:
+                    return False
+                self._record_drop_locked(exc.known_size or 0, "record size")
+            return False
         with self._lock:
             if self._closed:
                 return False
