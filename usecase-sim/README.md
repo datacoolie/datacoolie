@@ -91,16 +91,19 @@ minutes cold but has no "is service X up?" guesswork.
 ```powershell
 # From the repository root
 
-# 1. Start all 11 services and wait for exposed ports (≈ 60 s cold, 10 s warm)
+# 1. Start all services and wait for healthchecks and exposed ports
 python usecase-sim/scripts/bootstrap/setup_platform.py
+if ($LASTEXITCODE -ne 0) { throw "Platform setup failed" }
 
 # 2. Seed metadata into file + every DB dialect + api-db
 python usecase-sim/scripts/bootstrap/setup_metadata.py `
     --targets file,db:sqlite,db:postgresql,db:mysql,db:mssql,db:oracle `
     --truncate
+if ($LASTEXITCODE -ne 0) { throw "Metadata setup failed" }
 
 # 3. Generate the 30-row sample set plus focused transformer fixture
 python usecase-sim/scripts/bootstrap/generate_data.py
+if ($LASTEXITCODE -ne 0) { throw "Data generation failed" }
 
 # 4. Run every scenario
 python usecase-sim/runner/run_scenario.py --all
@@ -532,7 +535,7 @@ remain in `scripts/_common.py`; canonical roots live in `runtime_paths.py`.
 ### `setup_platform.py` — start / stop Docker stack
 
 ```powershell
-python usecase-sim/scripts/bootstrap/setup_platform.py                         # up all, wait for ports
+python usecase-sim/scripts/bootstrap/setup_platform.py                         # up all, wait for health and ports
 python usecase-sim/scripts/bootstrap/setup_platform.py --services postgres minio
 python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes        # tear down + wipe data
 ```
@@ -542,8 +545,12 @@ python usecase-sim/scripts/bootstrap/setup_platform.py --down --volumes        #
 | `--down` | off | Stop the stack (`docker compose down`) |
 | `--volumes` | off | With `--down`, also remove named volumes |
 | `--services s1 s2 …` | all | Bring up/down a subset |
-| `--timeout SECONDS` | `180` | Port-readiness poll timeout |
-| `--no-wait` | off | Skip readiness polling |
+| `--timeout SECONDS` | `180` | Timeout for Compose health waiting and exposed-port polling |
+| `--no-wait` | off | Skip health waiting and exposed-port polling |
+
+Requires Docker Compose with `up --wait --wait-timeout` support. Services with
+healthchecks must become healthy before port polling begins; an open Oracle
+listener alone does not mean its PDB and application user are ready.
 
 ### `setup_metadata.py` — fan-out use-cases to targets
 

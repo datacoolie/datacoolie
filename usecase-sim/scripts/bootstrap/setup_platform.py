@@ -104,7 +104,7 @@ def main() -> int:
     parser.add_argument("--services", nargs="+", default=None,
                         help="Subset of services (default: all)")
     parser.add_argument("--timeout", type=int, default=180,
-                        help="Seconds to wait for each service port to open")
+                        help="Seconds to wait for service health and exposed ports")
     parser.add_argument("--no-wait", action="store_true", help="Skip readiness polling")
     args = parser.parse_args()
 
@@ -117,6 +117,10 @@ def main() -> int:
         return _compose(*compose_args)
 
     up_args = ["up", "-d"]
+    if not args.no_wait:
+        # An open listener is not database readiness: Oracle can accept TCP
+        # before its PDB/app user exists. Honor the Compose healthchecks first.
+        up_args.extend(["--wait", "--wait-timeout", str(args.timeout)])
     if args.services:
         up_args.extend(args.services)
     rc = _compose(*up_args)
