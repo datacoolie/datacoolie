@@ -10,7 +10,11 @@ from datacoolie.core.exceptions import EngineError
 from datacoolie.engines._polars.file_io import (
     add_file_info_columns,
     make_file_name,
+    read_avro_files,
+    read_json_files,
     scan_csv,
+    scan_jsonl,
+    scan_parquet,
     write_flat_eager,
     write_flat_sink,
 )
@@ -162,6 +166,151 @@ def test_file_info_columns_join_metadata_by_normalized_path() -> None:
     ]
 
 
+def _historical_file_info_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "id": [1, 2],
+            "payload": ["a", "b"],
+            "__file_path": ["historical/a", "historical/b"],
+            "__file_name": ["old-a", "old-b"],
+            "__file_modification_time": ["2020-01-01", "2020-01-02"],
+            "__created_at": ["created-a", "created-b"],
+        }
+    )
+
+
+def _assert_current_file_info(
+    frame: pl.LazyFrame,
+    path: str,
+    name: str,
+    modified: datetime,
+    expected_ids: tuple[object, object] = (1, 2),
+) -> None:
+    rows = add_file_info_columns(
+        frame,
+        [FileInfo(name=name, path=path, modification_time=modified)],
+    ).collect()
+    assert rows.select("id", "payload", "__created_at").to_dicts() == [
+        {"id": expected_ids[0], "payload": "a", "__created_at": "created-a"},
+        {"id": expected_ids[1], "payload": "b", "__created_at": "created-b"},
+    ]
+    assert rows["__file_path"].to_list() == [path.replace("\\", "/")] * 2
+    assert rows["__file_name"].to_list() == [name] * 2
+    assert rows["__file_modification_time"].to_list() == [modified] * 2
+    assert len(rows.columns) == len(set(rows.columns))
+    assert not any(column.endswith("_right") for column in rows.columns)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "writer", "reader"),
+    [
+        ("csv", lambda frame, path: frame.write_csv(path), lambda path: scan_csv(str(path), {}, {})),
+        (
+            "parquet",
+            lambda frame, path: frame.write_parquet(path),
+            lambda path: scan_parquet(str(path), {}, {}),
+        ),
+        (
+            "jsonl",
+            lambda frame, path: frame.write_ndjson(path),
+            lambda path: scan_jsonl(str(path), {}, {}),
+        ),
+    ],
+)
+def test_lazy_file_read_replaces_historical_file_info_columns(
+    tmp_path, suffix, writer, reader
+) -> None:
+    path = tmp_path / f"input.{suffix}"
+    writer(_historical_file_info_frame(), path)
+    modified = datetime(2026, 8, 20, tzinfo=timezone.utc)
+
+    _assert_current_file_info(
+        reader(path),
+        str(path),
+        path.name,
+        modified,
+        expected_ids=["1", "2"] if suffix == "csv" else [1, 2],
+    )
+
+
+@pytest.mark.parametrize("suffix", ["json", "avro"])
+def test_eager_file_read_replaces_historical_file_info_columns(tmp_path, suffix) -> None:
+    path = tmp_path / f"input.{suffix}"
+    frame = _historical_file_info_frame()
+    if suffix == "json":
+        frame.write_json(path)
+        result = read_json_files([str(path)], LocalPlatform(), {})
+    else:
+        frame.write_avro(path)
+        result = read_avro_files([str(path)], LocalPlatform(), {})
+
+    modified = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    _assert_current_file_info(result, str(path), path.name, modified)
+
+
+def test_file_info_replacement_supports_multiple_paths_and_preserves_system_columns(
+    tmp_path,
+) -> None:
+    first = tmp_path / "first.parquet"
+    second = tmp_path / "second.parquet"
+    _historical_file_info_frame().head(1).write_parquet(first)
+    _historical_file_info_frame().tail(1).write_parquet(second)
+    first_modified = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    second_modified = datetime(2026, 8, 21, tzinfo=timezone.utc)
+
+    result = add_file_info_columns(
+        scan_parquet([str(first), str(second)], {}, {}),
+        [
+            FileInfo(name=first.name, path=str(first), modification_time=first_modified),
+            FileInfo(name=second.name, path=str(second), modification_time=second_modified),
+        ],
+    ).collect()
+
+    assert result.select("id", "payload", "__created_at").to_dicts() == [
+        {"id": 1, "payload": "a", "__created_at": "created-a"},
+        {"id": 2, "payload": "b", "__created_at": "created-b"},
+    ]
+    assert result["__file_name"].to_list() == [first.name, second.name]
+    assert result["__file_modification_time"].to_list() == [
+        first_modified,
+        second_modified,
+    ]
+
+
+def test_csv_options_and_schema_hints_survive_file_info_replacement(tmp_path) -> None:
+    path = tmp_path / "input.csv"
+    path.write_text(
+        "id;payload;__file_path;__file_name;__file_modification_time;__created_at\n"
+        "1;a;historical/a;old-a;2020-01-01;created-a\n",
+        encoding="utf-8",
+    )
+
+    result = add_file_info_columns(
+        scan_csv(
+            str(path),
+            {
+                "header": True,
+                "sep": ";",
+                "inferSchema": True,
+                "schema_overrides": {"id": pl.Int64},
+            },
+            {},
+        ),
+        [
+            FileInfo(
+                name=path.name,
+                path=str(path),
+                modification_time=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            )
+        ],
+    ).collect()
+
+    assert result.schema["id"] == pl.Int64
+    assert result.select("id", "payload", "__created_at").to_dicts() == [
+        {"id": 1, "payload": "a", "__created_at": "created-a"}
+    ]
+
+
 def test_csv_read_maps_canonical_options_without_mutating_input() -> None:
     options = {
         "header": "false",
@@ -169,8 +318,16 @@ def test_csv_read_maps_canonical_options_without_mutating_input() -> None:
         "quote": "|",
         "inferSchema": "true",
     }
-    with patch("datacoolie.engines._polars.file_io.pl.scan_csv") as scan:
-        scan.return_value = pl.DataFrame({"id": [1]}).lazy()
+    with (
+        patch("datacoolie.engines._polars.file_io.pl.scan_csv") as scan,
+        patch(
+            "datacoolie.engines._polars.file_io._scan_file_path_column",
+            return_value="__scan_path",
+        ),
+    ):
+        scan.return_value = pl.DataFrame(
+            {"id": [1], "__scan_path": ["/tmp/input.csv"]}
+        ).lazy()
         scan_csv("/tmp/input.csv", options, {})
 
     assert options == {
@@ -180,6 +337,7 @@ def test_csv_read_maps_canonical_options_without_mutating_input() -> None:
         "inferSchema": "true",
     }
     kwargs = scan.call_args.kwargs
+    assert kwargs["include_file_paths"] == "__scan_path"
     assert kwargs["has_header"] is False
     assert kwargs["separator"] == ";"
     assert kwargs["quote_char"] == "|"

@@ -1,0 +1,72 @@
+{
+  "connections": [
+    {
+      "name": "schema_evolution_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {"base_path": "__CASE_ROOT__/input"}
+    },
+    {
+      "name": "schema_evolution_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {"base_path": "__CASE_ROOT__/output"}
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "schema-evolution-seed",
+      "stage": "schema_seed",
+      "source": {
+        "connection_name": "schema_evolution_source",
+        "table": "old_schema"
+      },
+      "destination": {
+        "connection_name": "schema_evolution_destination",
+        "table": "events",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {"column_name": "event_date", "data_type": "DATE"}
+        ]
+      }
+    },
+    {
+      "name": "schema-evolution-new-columns",
+      "stage": "schema_new",
+      "source": {
+        "connection_name": "schema_evolution_source",
+        "table": "new_schema"
+      },
+      "destination": {
+        "connection_name": "schema_evolution_destination",
+        "table": "events",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {"column_name": "event_date", "data_type": "DATE"}
+        ]
+      }
+    },
+    {
+      "name": "schema-evolution-fewer-columns",
+      "stage": "schema_fewer",
+      "source": {
+        "connection_name": "schema_evolution_source",
+        "table": "fewer_schema"
+      },
+      "destination": {
+        "connection_name": "schema_evolution_destination",
+        "table": "events",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {"column_name": "event_date", "data_type": "DATE"}
+        ]
+      }
+    }
+  ]
+}

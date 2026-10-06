@@ -1,0 +1,42 @@
+{
+  "connections": [
+    {
+      "name": "ntz_timezone_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "ntz_timezone_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "ntz-timezone-conversion",
+      "stage": "ntz_timezone",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "ntz_timezone_source",
+        "table": "rows"
+      },
+      "transform": {
+        "configure": {
+          "convert_timestamp_ntz": true,
+          "timestamp_timezone": "Asia/Ho_Chi_Minh"
+        }
+      },
+      "destination": {
+        "connection_name": "ntz_timezone_destination",
+        "table": "timestamps",
+        "load_type": "overwrite"
+      }
+    }
+  ]
+}

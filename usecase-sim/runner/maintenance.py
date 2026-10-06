@@ -6,7 +6,7 @@ Replaces:
 
 Usage:
     python usecase-sim/runner/maintenance.py --engine polars \
-        --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json \
+        --metadata-path usecase-sim/metadata/file/workflows/local_use_cases.json \
         --connection local_delta_dest
 
     python usecase-sim/runner/maintenance.py --engine spark \
@@ -36,7 +36,8 @@ from _runner_utils import (
     install_graceful_shutdown,
     setup_platform,
 )
-from runtime_paths import DATACOOLIE_ROOT, apply_runtime_defaults
+from runner.metadata_composition import materialize_metadata_path
+from runner.runtime_paths import DATACOOLIE_ROOT, apply_runtime_defaults
 
 logging.basicConfig(
     level=logging.INFO,
@@ -151,6 +152,11 @@ def main() -> None:
     # root regardless of the shell directory used to invoke this script.
     os.chdir(DATACOOLIE_ROOT)
     args = parse_args()
+
+    # Materialize composed simulator metadata before any platform or engine
+    # setup.  Provider construction below receives one plain runtime document.
+    if args.metadata_path:
+        args.metadata_path = materialize_metadata_path(args.metadata_path)
 
     is_aws = args.platform == "aws"
     is_spark = args.engine == "spark"

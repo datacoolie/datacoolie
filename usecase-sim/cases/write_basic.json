@@ -1,0 +1,1525 @@
+{
+  "group": "write_basic",
+  "behaviors": [
+    {
+      "id": "write_basic.overwrite_append_persisted_rows",
+      "intent": "overwrite append persisted rows",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_write_basic.py::validate",
+        "tests/unit/destinations/test_file_writer.py::TestFileWriter::test_write_full_load_maps_to_overwrite",
+        "tests/unit/destinations/test_file_writer.py::TestFileWriter::test_write_unsupported_load_type_raises",
+        "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate",
+        "tests/unit/project/test_usecase_sim_supported_features.py::test_destination_options_override_same_key_without_mutating_inputs",
+        "usecase-sim/scripts/features/write_basic/validate_a9_csv_options.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.overwrite_replaces",
+          "acceptance": "After overwrite of an existing target, removed IDs disappear, retained IDs change and new IDs appear exactly once.",
+          "preconditions": [
+            "Seed target with old rows, then overwrite with changed/new IDs."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__full_load",
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__overwrite",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__full_load",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__overwrite",
+            "metadata/file/baseline/local_use_cases::load_delta__full_load",
+            "metadata/file/baseline/local_use_cases::load_delta__overwrite",
+            "metadata/file/baseline/local_use_cases::load_iceberg__full_load",
+            "metadata/file/baseline/local_use_cases::load_iceberg__overwrite",
+            "local_polars_write_basic_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_write_basic.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.append_preserves",
+          "acceptance": "Appending a later source file preserves previous target rows and adds the later rows exactly.",
+          "preconditions": [
+            "Write initial data, persist file-mtime watermark, then append a file with later mtime."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__append",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__append",
+            "metadata/file/baseline/local_use_cases::load_delta__append",
+            "metadata/file/baseline/local_use_cases::load_iceberg__append",
+            "local_polars_write_basic_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_write_basic.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.source_empty_rerun",
+          "acceptance": "Rerun with no source files newer than the watermark skips writing and leaves persisted rows unchanged.",
+          "preconditions": [
+            "Complete append once and rerun without changing source mtime."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__append",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__append",
+            "metadata/file/baseline/local_use_cases::load_delta__append",
+            "metadata/file/baseline/local_use_cases::load_iceberg__append",
+            "local_polars_write_basic_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_write_basic.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.full_load_dispatch",
+          "acceptance": "File full_load selects overwrite mode instead of append.",
+          "preconditions": [
+            "Use FileWriter with load_type full_load."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_write__csv",
+            "metadata/file/baseline/aws_use_cases::aws_write__json",
+            "metadata/file/baseline/aws_use_cases::aws_write__jsonl",
+            "metadata/file/baseline/aws_use_cases::aws_write__avro",
+            "metadata/file/baseline/aws_use_cases::aws_write__parquet",
+            "metadata/file/baseline/aws_use_cases::aws_write__json_to_jsonl",
+            "metadata/file/baseline/local_use_cases::write__csv",
+            "metadata/file/baseline/local_use_cases::write__json",
+            "metadata/file/baseline/local_use_cases::write__jsonl",
+            "metadata/file/baseline/local_use_cases::write__avro",
+            "metadata/file/baseline/local_use_cases::write__parquet",
+            "metadata/file/baseline/local_use_cases::write__json_to_jsonl"
+          ],
+          "assertion_owners": [
+            "tests/unit/destinations/test_file_writer.py::TestFileWriter::test_write_full_load_maps_to_overwrite"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.unsupported_load_rejected",
+          "acceptance": "An unsupported file load_type raises DestinationError with the supported-load diagnostic.",
+          "preconditions": [
+            "Select a file destination and unsupported load_type."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_file_writer.py::TestFileWriter::test_write_unsupported_load_type_raises"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.flat_append_csv",
+          "acceptance": "Append CSV through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_flat_append_csv"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local csv.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.flat_append_json",
+          "acceptance": "Append JSON through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_flat_append_json"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local json.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.flat_append_jsonl",
+          "acceptance": "Append JSONL through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_flat_append_jsonl"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local jsonl.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.flat_append_avro",
+          "acceptance": "Append AVRO through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_flat_append_avro"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local avro.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.writer_option_overrides",
+          "acceptance": "Destination write_options overrides a same-named connection default and retains unrelated defaults without mutating input configuration.",
+          "preconditions": [
+            "Set same option at connection and destination plus an unrelated connection default."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/project/test_usecase_sim_supported_features.py::test_destination_options_override_same_key_without_mutating_inputs"
+          ],
+          "coverage": "asserted",
+          "gap": "Model-level option merge is exact; destination persisted writer effect requires separate profile evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "write_basic.overwrite_append_persisted_rows.writer_option_persisted_effect",
+          "acceptance": "A supported destination writer option override changes persisted files exactly as declared, retaining other defaults.",
+          "preconditions": [
+            "Choose one supported output-format option whose connection and destination values yield distinguishable persisted output."
+          ],
+          "case_ids": [
+            "local_polars_write_basic_a9_csv_options"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/write_basic/validate_a9_csv_options.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    },
+    {
+      "id": "write_basic.partitioned_output",
+      "intent": "partitioned output",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/unit/destinations/test_file_writer.py::TestFileWriter::test_write_with_partition_columns",
+        "tests/unit/destinations/test_file_writer.py::TestResolveDateFolderPath::test_resolve_year_month_day",
+        "usecase-sim/scripts/features/read/validate_existing_local.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "write_basic.partitioned_output.partition_dispatch",
+          "acceptance": "Destination partition columns are forwarded to the engine write.",
+          "preconditions": [
+            "Configure a region partition column on a file destination."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_partition__single",
+            "metadata/file/baseline/aws_use_cases::aws_partition__multi",
+            "metadata/file/baseline/local_use_cases::partition__single",
+            "metadata/file/baseline/local_use_cases::partition__multi"
+          ],
+          "assertion_owners": [
+            "tests/unit/destinations/test_file_writer.py::TestFileWriter::test_write_with_partition_columns"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.partitioned_output.date_folder_resolution",
+          "acceptance": "UTC write time expands year/month/day tokens into the configured destination folder.",
+          "preconditions": [
+            "Use a fixed UTC timestamp and a date_folder_partitions pattern."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_date_folder__dest_partition",
+            "metadata/file/baseline/local_use_cases::date_folder__dest_partition"
+          ],
+          "assertion_owners": [
+            "tests/unit/destinations/test_file_writer.py::TestResolveDateFolderPath::test_resolve_year_month_day"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "write_basic.partitioned_output.persisted_partition_values",
+          "acceptance": "Partitioned output readback preserves every source ID/value and places rows under the declared partition values.",
+          "preconditions": [
+            "Prepare rows spanning multiple partition values and inspect persisted folders plus reconstructed values."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_partition__single",
+            "metadata/file/baseline/aws_use_cases::aws_partition__multi",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__append_partitioned",
+            "metadata/file/baseline/local_use_cases::partition__single",
+            "metadata/file/baseline/local_use_cases::partition__multi",
+            "metadata/file/baseline/local_use_cases::load_iceberg__append_partitioned"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/read/validate_existing_local.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Local Delta partition folders/metadata and exact business reconciliation; Iceberg spec/other profiles remain separate required evidence.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_write__csv",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_write__csv: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_write__csv",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_csv_dest/orders_write_csv.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_write__csv: full_load replaces target aws_csv_dest/orders_write_csv; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_write__json",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_write__json: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_write__json",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_json_dest/orders_write_json.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_write__json: full_load replaces target aws_json_dest/orders_write_json; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_write__jsonl",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_write__jsonl: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_write__jsonl",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_jsonl_dest/orders_write_jsonl.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_write__jsonl: full_load replaces target aws_jsonl_dest/orders_write_jsonl; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_write__avro",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_write__avro: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_write__avro",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_avro_dest/orders_write_avro.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_write__avro: full_load replaces target aws_avro_dest/orders_write_avro; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_write__parquet",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_write__parquet: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_write__parquet",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_write_parquet.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_write__parquet: full_load replaces target aws_parquet_dest/orders_write_parquet; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__full_load",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_load_delta__full_load: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_delta__full_load",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_full_load.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_load_delta__full_load: full_load replaces target aws_delta_dest/orders_full_load; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__overwrite",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_load_delta__overwrite: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_delta__overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_overwritten.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_load_delta__overwrite: overwrite replaces target aws_delta_dest/orders_overwritten; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__append",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_load_delta__append: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_delta__append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_appended.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_delta__append: append at aws_delta_dest/orders_appended preserves prior rows and adds exactly the incoming transformed batch. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__full_load",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_load_iceberg__full_load: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_iceberg__full_load",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_json_source/sample and configure its connection and the destination aws_iceberg_dest/orders_from_json.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_load_iceberg__full_load: full_load replaces target aws_iceberg_dest/orders_from_json; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__overwrite",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_load_iceberg__overwrite: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_iceberg__overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_overwritten.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_load_iceberg__overwrite: overwrite replaces target aws_iceberg_dest/orders_overwritten; old-only rows disappear and readback equals the transformed input rows. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}, {\"column\": \"order_month\", \"expression\": \"EXTRACT(MONTH FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__append",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_load_iceberg__append: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_iceberg__append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_appended.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_iceberg__append: append at aws_iceberg_dest/orders_appended preserves prior rows and adds exactly the incoming transformed batch. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_partition__single",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "aws_partition__single: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_partition__single",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_delta_dest/orders_partition_single.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_partition__single: overwrite replaces target aws_delta_dest/orders_partition_single; old-only rows disappear and readback equals the transformed input rows. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_partition__multi",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "aws_partition__multi: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_partition__multi",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_delta_dest/orders_partition_multi.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_partition__multi: overwrite replaces target aws_delta_dest/orders_partition_multi; old-only rows disappear and readback equals the transformed input rows. Reconcile partition directories and values for [{\"column\": \"region_part\", \"expression\": \"region\"}, {\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_date_folder__dest_partition",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "aws_date_folder__dest_partition: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_date_folder__dest_partition",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_parquet_date_folder_dest/orders_dated_dest.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_date_folder__dest_partition: append at aws_parquet_date_folder_dest/orders_dated_dest preserves prior rows and adds exactly the incoming transformed batch. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_write__json_to_jsonl",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "aws_write__json_to_jsonl: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_write__json_to_jsonl",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_json_source/sample and configure its connection and the destination aws_jsonl_dest/orders_json_to_jsonl.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_write__json_to_jsonl: full_load replaces target aws_jsonl_dest/orders_json_to_jsonl; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__append_partitioned",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "aws_load_iceberg__append_partitioned: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "flow": "aws_load_iceberg__append_partitioned",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_appended_part.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_iceberg__append_partitioned: append at aws_iceberg_dest/orders_appended_part preserves prior rows and adds exactly the incoming transformed batch. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::write__csv",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "write__csv: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__csv",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_csv_dest/orders_write_csv.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "write__csv: full_load replaces target local_csv_dest/orders_write_csv; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::write__json",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "write__json: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_json_dest/orders_write_json.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "write__json: full_load replaces target local_json_dest/orders_write_json; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::write__jsonl",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "write__jsonl: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__jsonl",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_jsonl_dest/orders_write_jsonl.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "write__jsonl: full_load replaces target local_jsonl_dest/orders_write_jsonl; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::write__avro",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "write__avro: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__avro",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_avro_dest/orders_write_avro.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "write__avro: full_load replaces target local_avro_dest/orders_write_avro; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::write__parquet",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "write__parquet: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__parquet",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_write_parquet.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "write__parquet: full_load replaces target local_parquet_dest/orders_write_parquet; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__full_load",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "load_delta__full_load: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__full_load",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_full_load.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "load_delta__full_load: full_load replaces target local_delta_dest/orders_full_load; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__overwrite",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "load_delta__overwrite: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_overwritten.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "load_delta__overwrite: overwrite replaces target local_delta_dest/orders_overwritten; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__append",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "load_delta__append: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_appended.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_delta__append: append at local_delta_dest/orders_appended preserves prior rows and adds exactly the incoming transformed batch. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__full_load",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "load_iceberg__full_load: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__full_load",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_json_source/sample and configure its connection and the destination local_iceberg_dest/orders_from_json.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "load_iceberg__full_load: full_load replaces target local_iceberg_dest/orders_from_json; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__overwrite",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "load_iceberg__overwrite: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_overwritten.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "load_iceberg__overwrite: overwrite replaces target local_iceberg_dest/orders_overwritten; old-only rows disappear and readback equals the transformed input rows. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}, {\"column\": \"order_month\", \"expression\": \"EXTRACT(MONTH FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__append",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "load_iceberg__append: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_appended.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_iceberg__append: append at local_iceberg_dest/orders_appended preserves prior rows and adds exactly the incoming transformed batch. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::partition__single",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "partition__single: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__single",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_write_basic_a9_existing_partition_single"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_write_basic_a9_existing_partition_single"
+      ],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_delta_dest/orders_partition_single.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "partition__single: overwrite replaces target local_delta_dest/orders_partition_single; old-only rows disappear and readback equals the transformed input rows. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/read/validate_existing_local.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::partition__multi",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "partition__multi: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__multi",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_write_basic_a9_existing_partition_multi"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_write_basic_a9_existing_partition_multi"
+      ],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_delta_dest/orders_partition_multi.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "partition__multi: overwrite replaces target local_delta_dest/orders_partition_multi; old-only rows disappear and readback equals the transformed input rows. Reconcile partition directories and values for [{\"column\": \"region_part\", \"expression\": \"region\"}, {\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/read/validate_existing_local.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::date_folder__dest_partition",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "date_folder__dest_partition: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "date_folder__dest_partition",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_parquet_date_folder_dest/orders_dated_dest.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "date_folder__dest_partition: append at local_parquet_date_folder_dest/orders_dated_dest preserves prior rows and adds exactly the incoming transformed batch. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::write__json_to_jsonl",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "write__json_to_jsonl: full_load using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json_to_jsonl",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_json_source/sample and configure its connection and the destination local_jsonl_dest/orders_json_to_jsonl.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "write__json_to_jsonl: full_load replaces target local_jsonl_dest/orders_json_to_jsonl; old-only rows disappear and readback equals the transformed input rows. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__append_partitioned",
+      "behavior": "write_basic.partitioned_output",
+      "intent": "load_iceberg__append_partitioned: append using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append_partitioned",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_appended_part.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_iceberg__append_partitioned: append at local_iceberg_dest/orders_appended_part preserves prior rows and adds exactly the incoming transformed batch. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_write_basic_stateful",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "Focused native Delta write_basic state sequence",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/write_basic.json",
+          "flow": "write-basic-overwrite",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/write_basic.json",
+          "flow": "write-basic-append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_write_basic_stateful"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_write_basic_stateful"
+      ],
+      "preconditions": [
+        "Local Polars/Delta-rs installed. Validator allocates fresh case-owned data, state and receipt roots; shared framework logs selected by current job/session.",
+        "Fixture placeholder __CASE_ROOT__ is materialized only by the declared validator; do not dispatch authored template directly."
+      ],
+      "expected": "Exact overwrite replacement after changed input, incremental append retains earlier IDs, watermark-empty rerun preserves rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_write_basic.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Representative host-local native Delta profile only. Additional engines/backends need independent qualification if behavior differs.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_flat_append_csv",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "Focused flat_append_csv through normal host-local Driver",
+      "contract": "src/datacoolie/engines/_polars/file_io.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/append_csv.json",
+          "flow": "flat-append-csv",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_flat_append_csv"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_flat_append_csv"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Append CSV through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local csv; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_flat_append_json",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "Focused flat_append_json through normal host-local Driver",
+      "contract": "src/datacoolie/engines/_polars/file_io.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/append_json.json",
+          "flow": "flat-append-json",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_flat_append_json"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_flat_append_json"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Append JSON through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local json; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_flat_append_jsonl",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "Focused flat_append_jsonl through normal host-local Driver",
+      "contract": "src/datacoolie/engines/_polars/file_io.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/append_jsonl.json",
+          "flow": "flat-append-jsonl",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_flat_append_jsonl"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_flat_append_jsonl"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Append JSONL through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local jsonl; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_flat_append_avro",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "Focused flat_append_avro through normal host-local Driver",
+      "contract": "src/datacoolie/engines/_polars/file_io.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/append_avro.json",
+          "flow": "flat-append-avro",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_flat_append_avro"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_flat_append_avro"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Append AVRO through two successful invocations of the same primary flow; persist exact A then A+B string rows/schema, preserve every batch-A file hash and add new output files.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_flat_append.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local avro; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_write_basic_a9_csv_options",
+      "behavior": "write_basic.overwrite_append_persisted_rows",
+      "intent": "A supported destination writer option override changes persisted files exactly as declared, retaining other defaults.",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/a9_csv_options.json",
+          "flow": "a9-write-csv-options",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_write_basic_a9_csv_options"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_write_basic_a9_csv_options"
+      ],
+      "preconditions": [
+        "Use fresh case-owned runtime roots; activate the declared source/target preconditions.",
+        "All positive phases require the expected current flow succeeded=1, failed=0, skipped=0."
+      ],
+      "expected": "A supported destination writer option override changes persisted files exactly as declared, retaining other defaults.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/write_basic/validate_a9_csv_options.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact local/native or service oracle; independently versioned runtime qualification required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

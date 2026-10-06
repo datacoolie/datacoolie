@@ -4,7 +4,7 @@ Compares connections, dataflows, and schema hints field by field.
 
 Usage (from the datacoolie/ directory):
     python usecase-sim/metadata/database/verify_metadata.py \\
-        --json-path usecase-sim/metadata/file/baseline/local_use_cases.json \\
+        --json-path usecase-sim/metadata/file/workflows/local_use_cases.json \\
         --connection-string "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie" \\
         --workspace-id local-workspace
 """
@@ -21,7 +21,8 @@ from typing import Any, Dict, List
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from runtime_paths import DATACOOLIE_ROOT
+from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.metadata_composition import load_metadata
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -343,7 +344,7 @@ def _expected_hints(meta: dict) -> Dict[str, dict]:
     return out
 
 
-def _actual_hints(engine) -> Dict[str, dict]:
+def _actual_hints(engine, workspace_id: str) -> Dict[str, dict]:
     d = engine.dialect.name
     q = lambda c: quote_col(c, d)  # noqa: E731
     # MSSQL and Oracle don't support/tolerate USING(); use ON for all dialects.
@@ -357,8 +358,9 @@ def _actual_hints(engine) -> Dict[str, dict]:
                 f"sh.schema_name, sh.table_name, sh.column_name, sh.data_type, "
                 f"sh.{q('format')}, sh.{q('precision')}, sh.scale, sh.is_active "
                 f"FROM dc_framework_schema_hints sh "
-                f"{join_clause}"
-            )
+                f"{join_clause} WHERE c.workspace_id = :ws"
+            ),
+            {"ws": workspace_id},
         ).mappings().all()
     out = {}
     for r in rows:
@@ -378,10 +380,10 @@ def _actual_hints(engine) -> Dict[str, dict]:
     return out
 
 
-def verify_hints(meta: dict, engine) -> Report:
+def verify_hints(meta: dict, engine, workspace_id: str) -> Report:
     report = Report()
     expected = _expected_hints(meta)
-    actual   = _actual_hints(engine)
+    actual   = _actual_hints(engine, workspace_id)
 
     _FIELDS = [
         "schema_hint_id", "connection_id", "schema_name", "table_name",
@@ -434,7 +436,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--json-path",
-        default="usecase-sim/metadata/file/baseline/local_use_cases.json",
+        default="usecase-sim/metadata/file/workflows/local_use_cases.json",
         help="Path to the use-cases JSON file",
     )
     parser.add_argument(
@@ -449,8 +451,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    with open(args.json_path, "r", encoding="utf-8") as f:
-        meta = json.load(f)
+    source_path = Path(args.json_path)
+    if not source_path.is_absolute() and source_path.is_file():
+        source_path = source_path.resolve()
+    meta = load_metadata(source_path, root=SIM_ROOT)
 
     engine = create_engine(args.connection_string)
 
@@ -463,7 +467,7 @@ def main() -> None:
     df_report = verify_dataflows(meta, engine, args.workspace_id)
     failed += _print_report("dataflows", df_report)
 
-    hint_report = verify_hints(meta, engine)
+    hint_report = verify_hints(meta, engine, args.workspace_id)
     failed += _print_report("schema_hints", hint_report)
 
     if failed == 0:

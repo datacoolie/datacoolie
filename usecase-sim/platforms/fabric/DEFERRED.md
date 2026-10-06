@@ -1,25 +1,11 @@
-# Fabric — Deferred
+# Fabric smoke qualification
 
-Fabric runner integration is still deferred in usecase-sim.
+Status: deferred for live-cloud execution.
 
-Prepared assets are available in this folder:
+Scope: `fabric_use_cases.json`, the representative file/Delta
+chain described in [README.md](README.md). Full feature matrices are tested locally.
 
-- `fabric_use_cases.json` (file + delta focused metadata for OneLake paths)
-- `sample_fabric_spark.ipynb` (primary notebook sample)
-- `sample_fabric_polars.ipynb` (secondary notebook sample)
-- `README.md` (usage notes and prerequisites)
-
-## Planned Scope
-- Runner scripts using `FabricPlatform` and engine runners
-- Metadata: `fabric_use_cases.json`
-- Auth: Azure AD / Entra ID service principal or managed identity
-- Secret source: Azure Key Vault via Fabric workspace identity
-
-## Prerequisites
-- [ ] Access credentials configured
-- [ ] Environment-specific connectors verified (OneLake, Lakehouse)
-- [ ] Cloud resources provisioned (Fabric workspace, lakehouse, warehouse)
-
-## Status
-Execution integration deferred. Use prepared assets directly in Fabric notebooks
-until `run.py` / `run_scenario.py` add `--platform fabric` support.
+Qualification requires configured storage/catalog/credentials, compatible engine
+dependencies, complete smoke execution, and persisted row/value reconciliation.
+Record platform, engine/runtime versions, metadata revision and results. Local
+tests, Docker compute and metadata validation do not establish real-cloud parity.

@@ -1,26 +1,11 @@
-# Databricks — Deferred Scope
+# Databricks smoke qualification
 
-Databricks notebook assets for file metadata are now available in this folder:
+Status: deferred for live-cloud execution.
 
-- `databricks_use_cases.json` (file + delta subset)
-- `sample_databricks_spark.ipynb`
-- `sample_databricks_polars.ipynb`
-- `sample_databricks_secrets.ipynb`
-- `README.md`
+Scope: `databricks_use_cases.json`, the representative file/Delta
+chain described in [README.md](README.md). Full feature matrices are tested locally.
 
-## What is still deferred
-
-- usecase-sim runner integration (`run.py`, `run_scenario.py`) for Databricks
-- Scenario catalog/profile integration for Databricks in `scenarios.json`
-- Advanced Databricks automation and CI coverage for these notebooks
-
-## Prerequisites for deferred work
-
-- [ ] Databricks execution profile design in runner layer
-- [ ] Databricks credential strategy for non-notebook runner flows
-- [ ] End-to-end validation matrix for Spark + Polars in Databricks CI
-
-## Status
-
-Partially implemented: notebook-first Databricks assets are in place.
-Runner-level integration remains deferred.
+Qualification requires configured storage/catalog/credentials, compatible engine
+dependencies, complete smoke execution, and persisted row/value reconciliation.
+Record platform, engine/runtime versions, metadata revision and results. Local
+tests, Docker compute and metadata validation do not establish real-cloud parity.

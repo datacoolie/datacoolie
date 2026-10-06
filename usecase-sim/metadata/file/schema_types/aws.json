@@ -1,0 +1,535 @@
+{
+  "shared_metadata": "metadata/file/shared/aws.json",
+  "dataflows": [
+    {
+      "name": "aws_schema__date_format",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_date",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__timestamp",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_timestamp",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__decimal",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_decimal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__numeric_types",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_numeric",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "FLOAT"
+          },
+          {
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__global_hint",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_global",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers merge schema",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_delta__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_read_delta_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_read_delta_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_schema__string_cast",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_string",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "STRING"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__hint_inactive",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_hint_inactive",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "INTEGER",
+            "is_active": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__no_ntz_convert",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_no_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "convert_timestamp_ntz": false
+        },
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__skip_hints",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_no_hint",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_skip",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__boolean",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_boolean",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "BOOLEAN"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__bigint",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_bigint",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "BIGINT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__timestamp_ntz",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "timestamp_ntz"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers evolve",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_iceberg__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_read_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_read_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

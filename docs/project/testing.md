@@ -114,7 +114,7 @@ authored contract and has the following bounded qualification cells:
   contract for Parquet, Delta, and Iceberg. This is source-convention and
   engine/output qualification; it does not replace live database extraction
   cells.
-- `usecase-sim/metadata/file/datatypes/datatype_qualification.json` is the checked-in
+- `usecase-sim/metadata/file/schema_types/datatype_qualification.json` is the checked-in
   logical contract. Qualification setup materializes disposable execution
   metadata under `.runtime/data/datatype_qualification/`; the integration test
   uses an additional run-scoped `<run-id>/metadata/` directory so engine and
@@ -363,3 +363,44 @@ Separately, `usecase-sim/` provides coarse-grained execution scenarios and
 runner hooks for end-to-end execution. Datatype persisted-output assertions are
 owned by the opt-in integration tests; no pytest suite is maintained inside the
 separate simulator testbed.
+
+The bounded Spark 3.5 Delta path regression runs from the product directory:
+
+```powershell
+../.venv/Scripts/python.exe -m pytest tests/integration/runtime/test_spark_delta_path_probe.py --runtime-qualification -o addopts= -q
+```
+
+Host pytest checks the running `datacoolie-spark` prerequisite and launches
+`tests/support/spark_delta_path_probe_worker.py` with container `python3`; container
+pytest is unnecessary. The worker uses the existing simulator Spark builder and
+a new case-owned root. On one table it proves relative SQL rejection
+(`TABLE_OR_VIEW_NOT_FOUND` or `DELTA_MISSING_DELTA_TABLE`), absolute SQL success and
+native relative/absolute path success, checks missing/empty/occupied/corrupt paths,
+and verifies unchanged table hashes and exact rows. It starts no services and
+deletes no existing tables.
+
+Metadata recovery tooling is `usecase-sim/metadata/database/refresh_metadata.py`.
+Set `DATACOOLIE_METADATA_REFRESH_URL` privately, then run `snapshot --snapshot
+<new-file>` below simulator `.runtime`. Protect the snapshot's configuration and
+checkpoint contents with private access. Version 2 snapshots guard **all global
+watermark rows**, including unrelated workspaces, retired flows and preexisting
+orphans. Version 1 backups are rejected: take a fresh snapshot at a new path;
+never overwrite or convert earlier backups.
+
+`refresh --snapshot <file> --apply` replaces only `local-workspace` connections,
+dataflows and hints and reconciles authored metadata. `restore --snapshot <file>
+--apply` restores only those declarative rows; failed refresh attempts the same
+recovery. Neither action deletes, updates or inserts watermark rows. Every
+checkpoint remains verbatim even when its flow is retired. Refresh rejects stale
+declarative metadata or global checkpoint state before deletion. Restore checks
+global checkpoint state before deletion and refuses if any row was added,
+removed or changed since the snapshot; it never overwrites later legitimate
+checkpoint updates. Such refusal leaves current metadata in place and requires
+coordinator review, including partial metadata left by a failed refresh. A new
+snapshot records current metadata; it does not reconstruct the earlier state.
+
+Stop concurrent metadata and checkpoint writers before either action. Endpoint,
+schema, checksum, workspace and cross-workspace reference guards remain enforced;
+unrelated declarative workspaces and source tables are preserved. Isolated SQLite
+regressions exercise recovery; live vendor recovery and the bounded reset gate
+remain unqualified. Installation does not authorize live mutation.

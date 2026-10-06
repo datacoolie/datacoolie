@@ -1,126 +1,41 @@
-# Databricks Assets for usecase-sim
+# Databricks platform smoke
 
-## Before using these larger scenarios
+This folder checks representative execution on the real databricks platform.
+Full feature/format/merge/schema/replay matrices belong to local simulation.
+Passing local tests does not qualify cloud storage, catalog, credentials or runtime.
 
-For a small first run, use the public [platform smoke guide](../../../docs/examples/runners.md#platform-smoke) and its complete download. These simulator assets are a separate, broader scenario set. Prepare the generated input described in [the simulator README](../../README.md), then upload it to each source connection's configured path.
+[databricks_use_cases.json](databricks_use_cases.json) is the only metadata source
+for this platform smoke. It is ordinary framework JSON: upload it directly;
+no composition, shared documents or generation step is needed.
 
-Replace the complete set of values before executing: runner metadata/log/watermark roots **and** every metadata connection's input/output `base_path`, catalog/database namespace, region and optional secret references. A runner root variable does not rewrite business metadata. Choose sandbox destinations: overwrite/maintenance stages can alter existing data. Install a matching DataCoolie release or checkout wheel and the selected engine/format dependencies. The public platform guide owns current host bootstrap/session configuration.
+The smoke runs this ordered chain:
 
+1. `read__csv`: read sample CSV and write Parquet.
+2. `load_delta__overwrite`: overwrite a dedicated Delta smoke table.
+3. `read__delta`: read that table back to Parquet.
 
-Prepared Databricks assets for file + delta scenarios.
+All target tables start with `platform_smoke_`. Configure their destinations
+before running; repeated runs overwrite only those configured smoke targets.
+Keep `STAGE = ""` to run the complete chain including readback. Individual stage
+selection requires the upstream target to have been created first.
 
-This folder mirrors the Fabric notebook workflow, but targets Databricks
-(Unity Catalog Volumes as primary path style) and uses file metadata.
+## Run
 
-Database metadata is intentionally out of scope for this asset set.
+Use the [public platform setup guide](../../../docs/examples/runners.md#platform-smoke)
+for compatible runtime/bootstrap instructions. Set VOLUME_ROOT to an accessible Unity Catalog Volume, configure the workspace/catalog permissions and choose the Spark or Polars notebook. The secrets notebook is an optional credentials example, separate from the storage smoke.
 
-## What is in this folder
+1. Update every connection input/output path in `databricks_use_cases.json`.
+2. Upload the generated sample CSV (`.runtime/data/input/csv/sample`) to the CSV
+   connection's configured `base_path`, retaining the `sample` table path.
+3. Upload `databricks_use_cases.json` to the metadata path configured by the runner.
+4. Execute the complete smoke chain with the selected engine.
+5. Confirm no failed flows, inspect Parquet outputs and reconcile row IDs/values
+   against the CSV. A successful exit alone is smoke evidence, not feature coverage.
 
-- `databricks_use_cases.json`:
-  - Derived from `metadata/file/baseline/local_use_cases.json`.
-  - Constrained to file + delta scenarios only.
-  - Includes stages: `read_file`, `write_file`, `read_lakehouse`, `load_delta`.
-  - Paths rewritten to Databricks UC Volume style.
-- `sample_databricks_spark.ipynb`:
-  - Primary sample for Databricks using `SparkEngine`.
-  - Uses `DataCoolieRunConfig(max_workers=8)`.
-- `sample_databricks_polars.ipynb`:
-  - Secondary sample using `PolarsEngine`.
-  - Uses `DataCoolieRunConfig(max_workers=4)`.
-- `sample_databricks_secrets.ipynb`:
-  - Separate secret-scope validation notebook.
-  - Tests `DatabricksPlatform` + `secrets_ref` resolution without printing raw secret values.
+Entrypoints:
 
-## Path convention used
+- [sample_databricks_spark.ipynb](sample_databricks_spark.ipynb)
+- [sample_databricks_polars.ipynb](sample_databricks_polars.ipynb)
+- [sample_databricks_secrets.ipynb](sample_databricks_secrets.ipynb)
 
-Default root in notebooks:
-
-- `/Volumes/workspace/default/datacoolie_sim`
-
-Subfolders expected by metadata:
-
-- Input files:
-  - `/Volumes/workspace/default/datacoolie_sim/input/csv`
-  - `/Volumes/workspace/default/datacoolie_sim/input/json`
-  - `/Volumes/workspace/default/datacoolie_sim/input/jsonl`
-  - `/Volumes/workspace/default/datacoolie_sim/input/parquet`
-  - `/Volumes/workspace/default/datacoolie_sim/input/avro`
-  - `/Volumes/workspace/default/datacoolie_sim/input/excel`
-  - `/Volumes/workspace/default/datacoolie_sim/input/parquet_dated`
-  - `/Volumes/workspace/default/datacoolie_sim/input/parquet_hive`
-- File outputs:
-  - `/Volumes/workspace/default/datacoolie_sim/output/...`
-- Delta tables (Unity Catalog):
-  - ``workspace.default.<table>`` (no schema)
-- Metadata file:
-  - `/Volumes/workspace/default/datacoolie_sim/metadata/databricks_use_cases.json`
-- Logs:
-  - `/Volumes/workspace/default/datacoolie_sim/logs/datacoolie`
-
-## Prerequisites
-
-1. Databricks workspace with a running cluster.
-2. Databricks Runtime compatible with your DataCoolie version.
-3. `datacoolie` installed (the notebooks include `%pip install`).
-4. UC Volume write/read permissions for your notebook principal.
-5. Input files uploaded from local repo folder:
-   - `usecase-sim/.runtime/data/input/*`
-6. `databricks_use_cases.json` uploaded to the metadata path above.
-
-## Quick start (Spark notebook, recommended)
-
-1. Upload input folders from `usecase-sim/.runtime/data/input/` into the UC Volume paths.
-2. Upload `databricks_use_cases.json` to `/Volumes/workspace/default/datacoolie_sim/metadata/`.
-3. Open `sample_databricks_spark.ipynb`.
-4. Update `VOLUME_ROOT` if your volume path is different.
-5. Run with `STAGE = "read_file,load_delta"` first.
-6. Then set `STAGE = ""` to run all file + delta scenarios in this metadata file.
-
-Expected outcome:
-
-- File inputs are read from `/Volumes/.../input/...`.
-- File outputs are written under `/Volumes/.../output/...`.
-- Delta outputs are written as Unity Catalog tables under ``workspace.default``.
-
-## Polars sample
-
-Run `sample_databricks_polars.ipynb` after Spark succeeds.
-
-This notebook uses the same metadata and path structure.
-
-> **Known limitations for PolarsEngine on Databricks:**
->
-> - The Polars notebook currently works with **file-format connections only**
->   (both source and destination). File stages (`read_file`, `write_file`,
->   `read_file`, `write_file`) operate correctly against UC Volume paths.
-> - **Delta format is not supported** via `/Volumes` paths or Unity Catalog
->   table references with PolarsEngine. Polars reads/writes delta via a
->   direct cloud storage URI (e.g. `abfss://container@account.dfs.core.windows.net/...`
->   or `s3://bucket/...`). Mounting a UC Volume path through Polars delta
->   is not equivalent and will fail.
-> - To test delta scenarios with Polars, replace `base_path` in the delta
->   connections inside `databricks_use_cases.json` with the underlying
->   cloud storage URI of the volume location.
-
-## Secret scope validation
-
-Use `sample_databricks_secrets.ipynb` to validate Databricks scope-based
-secret retrieval independently of file/delta ETL.
-
-Suggested setup:
-
-1. Create scope: `datacoolie-scope`
-2. Add key: `sample-db-password`
-3. Grant notebook identity read permission to that scope
-4. Run the notebook and confirm success output
-
-## Scope boundary
-
-- Implemented here:
-  - Databricks file metadata + notebook execution assets
-  - Spark and Polars notebook samples
-  - Separate Databricks secret-scope validation notebook
-- Still deferred:
-  - usecase-sim runner wiring (`run.py`, `run_scenario.py`) for Databricks
-  - scenario catalog integration for Databricks profile
-
+Live platform qualification remains deferred until the declared engine/runtime and persisted outputs are verified. See [DEFERRED.md](DEFERRED.md).

@@ -34,7 +34,7 @@ DATACOOLIE_ROOT = USECASE_SIM_DIR.parent
 # loaded directly by Python or by the unit-test loader.
 if str(USECASE_SIM_DIR) not in sys.path:
     sys.path.insert(0, str(USECASE_SIM_DIR))
-from runtime_paths import (  # noqa: E402
+from runner.runtime_paths import (  # noqa: E402
     DATA_DIR,
     LOG_DIR,
     AWS_LOG_PATH,
@@ -46,7 +46,14 @@ from runtime_paths import (  # noqa: E402
     spark_profile,
     runtime_child,
 )
-from runtime_logs import job_sessions  # noqa: E402
+from runner.runtime_logs import job_sessions  # noqa: E402
+from cases.catalog import (  # noqa: E402
+    CatalogError,
+    list_groups,
+    runtime_identity,
+    select_group_scenarios,
+    worktree_fingerprint,
+)
 
 # Keep the path aliases derived from the canonical module.  The dispatcher
 # tests monkeypatch these module attributes to isolate their receipts.
@@ -1019,7 +1026,112 @@ def _print_summary(results: dict[str, int]) -> int:
     return 0 if failed == 0 else 1
 
 
+def _validation_command(scenario: dict) -> list[str]:
+    """Render the declared validator command without executing it."""
+
+    validation = scenario.get("validation") or {}
+    script = validation.get("script")
+    if not script:
+        return []
+    validator_path = (DATACOOLIE_ROOT / str(script)).resolve()
+    return [
+        sys.executable,
+        str(validator_path),
+        *(str(arg) for arg in validation.get("args", [])),
+    ]
+
+
+def _setup_command(scenario: dict) -> list[str]:
+    """Render the declared setup command for a qualification receipt."""
+
+    setup = scenario.get("setup") or {}
+    script = setup.get("script")
+    if not script:
+        return []
+    script_path = (DATACOOLIE_ROOT / str(script)).resolve()
+    return [
+        sys.executable,
+        str(script_path),
+        *(str(arg) for arg in setup.get("args", [])),
+    ]
+
+
+def _write_qualification_receipt(
+    name: str,
+    scenario: dict,
+    *,
+    invocation_receipts: list[dict] | None = None,
+    final_exit_code: int,
+    final_status: str,
+    validation_scenario: dict | None = None,
+    setup_command: list[str] | None = None,
+    runtime_verified: bool = True,
+    execution_mode: str = "host",
+    container: str | None = None,
+) -> None:
+    """Persist an explicit current-worktree qualification identity.
+
+    The older ``.invocations.json`` format remains untouched for existing
+    tooling.  This final receipt is written only after validation so an exit
+    code alone cannot be mistaken for qualification evidence.
+    """
+
+    invocations = invocation_receipts or []
+    commands = [
+        item.get("command")
+        for item in invocations
+        if isinstance(item, dict) and item.get("command")
+    ]
+    command: object = commands[0] if len(commands) == 1 else commands
+    if not command:
+        command = setup_command or _validation_command(validation_scenario or scenario) or ["scenario", name]
+    status = (
+        "passed"
+        if final_status.startswith("PASS") and final_exit_code == 0
+        else "blocked"
+        if "blocked" in final_status.lower() or final_exit_code == 124
+        else "failed"
+    )
+    if not runtime_verified:
+        status = "blocked"
+    payload = {
+        "schema_version": 1,
+        "scenario": name,
+        "revision": worktree_fingerprint(USECASE_SIM_DIR),
+        "profile": {
+            "engine": scenario.get("engine"),
+            "platform": scenario.get("platform", "local"),
+            "execution_mode": execution_mode,
+            "container": container,
+        },
+        "runtime": runtime_identity(),
+        "runtime_verified": runtime_verified,
+        "execution_mode": execution_mode,
+        "container": container,
+        "command": command,
+        "commands": commands,
+        "invocation_outcomes": invocations,
+        "validation_command": _validation_command(validation_scenario or scenario),
+        "actual_exit_code": final_exit_code,
+        "expected_exit_code": 0,
+        "status": status,
+        "result": final_status,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    receipt_path = SCENARIO_LOG_DIR / f"{name}.receipt.json"
+    receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def run_scenarios(names: list[str], scenarios: dict) -> int:
+    # Validate the complete dispatch set before creating log directories,
+    # starting services, or cleaning any scenario state.  Group selection
+    # already performs this check, but keeping the guard here protects direct
+    # callers of the runner as well.
+    unknown = [name for name in names if name not in scenarios]
+    if unknown:
+        for name in unknown:
+            logger.error("Unknown scenario: %s", name)
+        return 1
     _setup_log_dirs()
 
     results: dict[str, int] = {}
@@ -1092,6 +1204,16 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
         setup_rc, setup_status = _run_scenario_setup(name, scenario)
         if setup_rc != 0:
             results[name] = setup_rc
+            _write_qualification_receipt(
+                name,
+                scenario,
+                final_exit_code=setup_rc,
+                final_status=setup_status,
+                setup_command=_setup_command(scenario),
+                runtime_verified=not use_docker,
+                execution_mode="docker" if use_docker else "host",
+                container=spark_container if use_docker else None,
+            )
             logger.info("  Result: %s", setup_status)
             continue
 
@@ -1104,6 +1226,7 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             combined_console = SCENARIO_LOG_DIR / f"{name}.console.log"
             combined_console.write_text("", encoding="utf-8")
             logger.info("▸ Running standalone validation: %s", name)
+            validation_for_receipt = scenario
             try:
                 validation_scenario = _fresh_standalone_replay_scenario(
                     scenario, use_docker=use_docker
@@ -1111,6 +1234,7 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             except ValueError as exc:
                 final_rc, status = 1, f"FAIL (fresh root: {exc})"
             else:
+                validation_for_receipt = validation_scenario
                 final_rc, status = _validate_scenario_result(
                     validation_scenario,
                     0,
@@ -1119,6 +1243,17 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
                     spark_container=spark_container,
                 )
             results[name] = final_rc
+            _write_qualification_receipt(
+                name,
+                scenario,
+                final_exit_code=final_rc,
+                final_status=status,
+                validation_scenario=validation_for_receipt,
+                setup_command=_setup_command(scenario),
+                runtime_verified=not use_docker,
+                execution_mode="docker" if use_docker else "host",
+                container=spark_container if use_docker else None,
+            )
             logger.info("  Result: %s", status)
             continue
 
@@ -1127,6 +1262,16 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
         except ValueError as exc:
             logger.error("Scenario %s: %s", name, exc)
             results[name] = 1
+            _write_qualification_receipt(
+                name,
+                scenario,
+                final_exit_code=1,
+                final_status=f"FAIL (invocations: {exc})",
+                setup_command=_setup_command(scenario),
+                runtime_verified=not use_docker,
+                execution_mode="docker" if use_docker else "host",
+                container=spark_container if use_docker else None,
+            )
             continue
 
         # Each invocation gets its own console receipt.  The combined file is
@@ -1225,6 +1370,17 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             encoding="utf-8",
         )
         if invocation_failed:
+            _write_qualification_receipt(
+                name,
+                scenario,
+                invocation_receipts=invocation_receipts,
+                final_exit_code=results.get(name, 1),
+                final_status="FAIL (invocation)",
+                setup_command=_setup_command(scenario),
+                runtime_verified=not use_docker,
+                execution_mode="docker" if use_docker else "host",
+                container=spark_container if use_docker else None,
+            )
             continue
 
         final_rc, status = _validate_scenario_result(
@@ -1236,6 +1392,17 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
             log_session_id=log_session_id,
         )
         results[name] = final_rc
+        _write_qualification_receipt(
+            name,
+            scenario,
+            invocation_receipts=invocation_receipts,
+            final_exit_code=final_rc,
+            final_status=status,
+            setup_command=_setup_command(scenario),
+            runtime_verified=not use_docker,
+            execution_mode="docker" if use_docker else "host",
+            container=spark_container if use_docker else None,
+        )
         logger.info("  Result: %s", status)
 
     return _print_summary(results)
@@ -1247,6 +1414,8 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
 def _select_names(scenarios: dict, args: argparse.Namespace) -> list[str]:
     if args.scenario:
         return [args.scenario]
+    if args.group:
+        return select_group_scenarios(USECASE_SIM_DIR, args.group, scenarios)
     if args.all:
         return list(scenarios.keys())
     names = [n for n, s in scenarios.items() if s.get("priority") == args.priority]
@@ -1259,11 +1428,17 @@ def _select_names(scenarios: dict, args: argparse.Namespace) -> list[str]:
 def main() -> None:
     os.chdir(DATACOOLIE_ROOT)
     parser = argparse.ArgumentParser(description="Run named scenarios")
-    group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--scenario", help="Name of a single scenario to run")
     group.add_argument("--all", action="store_true", help="Run all scenarios")
     group.add_argument(
         "--priority", help="Run all scenarios with this priority (P0, P1, P2)"
+    )
+    group.add_argument("--group", help="Run the group's dedicated scenarios")
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List catalog groups and cases without dispatching scenarios",
     )
     parser.add_argument(
         "--scenarios-path", default=str(SCENARIOS_PATH), help="Path to scenarios.json"
@@ -1271,7 +1446,41 @@ def main() -> None:
     args = parser.parse_args()
 
     scenarios = load_scenarios(Path(args.scenarios_path))
-    names = _select_names(scenarios, args)
+    if args.list:
+        rows = list_groups(USECASE_SIM_DIR)
+        if args.group:
+            rows = [row for row in rows if row["group"] == args.group]
+            if not rows:
+                logger.error("Unknown group: %s", args.group)
+                sys.exit(1)
+        for row in rows:
+            marker = "runnable" if row["runnable"] else "empty"
+            print(f"{row['group']} ({marker})")
+            print(f"  catalog cases: {len(row['case_ids'])}")
+            if not row["runnable"]:
+                print("  execution scenarios: 0")
+                continue
+            try:
+                execution_names = select_group_scenarios(
+                    USECASE_SIM_DIR, row["group"], scenarios
+                )
+            except CatalogError as exc:
+                logger.error("%s", exc)
+                if args.group:
+                    sys.exit(1)
+                print(f"  execution selection error: {exc}")
+                continue
+            print(f"  execution scenarios ({len(execution_names)}):")
+            for index, name in enumerate(execution_names, start=1):
+                print(f"    {index}. {name}")
+        return
+    if not any((args.scenario, args.all, args.priority, args.group)):
+        parser.error("one of --scenario, --all, --priority, or --group is required")
+    try:
+        names = _select_names(scenarios, args)
+    except CatalogError as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
     sys.exit(run_scenarios(names, scenarios))
 
 

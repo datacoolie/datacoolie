@@ -56,10 +56,28 @@ def test_table_exists_by_path_classifies_spark_non_delta_error() -> None:
     platform.list_folders.return_value = ["/table/_delta_log"]
     error = RuntimeError("not a Delta table")
     error.getErrorClass = lambda: "DELTA_MISSING_DELTA_TABLE"
-    spark.sql.side_effect = error
+    with patch.object(delta, "delta_table") as table:
+        table.return_value.forPath.side_effect = error
+        with pytest.raises(EngineError, match="not a Delta table"):
+            delta.table_exists_by_path(spark, platform, "/table")
 
-    with pytest.raises(EngineError, match="not a Delta table"):
-        delta.table_exists_by_path(spark, platform, "/table")
+
+@pytest.mark.parametrize("path", ["relative/table", "/absolute/table", "s3a://bucket/table", "abfss://container@account/table"])
+def test_table_exists_uses_native_detail_without_resolving_uri(path):
+    spark = MagicMock()
+    with patch.object(delta.file_io, "path_is_absent_or_empty", return_value=False), patch.object(delta, "delta_table") as table:
+        assert delta.table_exists_by_path(spark, None, path)
+        table.return_value.forPath.assert_called_once_with(spark, path)
+        table.return_value.forPath.return_value.detail.assert_called_once_with()
+    spark.sql.assert_not_called()
+
+
+@pytest.mark.parametrize("error", [PermissionError("access denied"), RuntimeError("corrupt delta log")])
+def test_native_detail_errors_propagate(error):
+    with patch.object(delta.file_io, "path_is_absent_or_empty", return_value=False), patch.object(delta, "delta_table") as table:
+        table.return_value.forPath.return_value.detail.side_effect = error
+        with pytest.raises(type(error), match=str(error)):
+            delta.table_exists_by_path(MagicMock(), None, "relative/table")
 
 
 def test_delta_compound_write_uses_shared_option_validation() -> None:

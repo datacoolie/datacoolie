@@ -12,7 +12,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from runtime_paths import (
+from runner.runtime_paths import (
     DATACOOLIE_ROOT as DATACOOLIE,  # noqa: F401 - exported shared path
     USECASE_SIM_DIR as USECASE_SIM,
     RUNTIME_DIR, DATA_DIR, LOG_DIR, WATERMARKS_DIR,  # noqa: F401 - exported shared paths
@@ -41,12 +41,13 @@ METADATA_DB_DIR = METADATA_DIR / "database"
 METADATA_API_DIR = METADATA_DIR / "api"
 FILE_WATERMARKS_DIR = WATERMARKS_DIR
 API_WATERMARKS_DIR = WATERMARKS_DIR / "api"
+COMPILED_METADATA_DIR = DATA_DIR / "metadata"
 
 DOCKER_DIR = USECASE_SIM / "docker"
 COMPOSE_FILE = DOCKER_DIR / "docker-compose.yml"
 
-LOCAL_USE_CASES_JSON = METADATA_FILE_DIR / "baseline" / "local_use_cases.json"
-AWS_USE_CASES_JSON = METADATA_FILE_DIR / "baseline" / "aws_use_cases.json"
+LOCAL_USE_CASES_JSON = METADATA_FILE_DIR / "workflows" / "local_use_cases.json"
+AWS_USE_CASES_JSON = METADATA_FILE_DIR / "workflows" / "aws_use_cases.json"
 PERF_USE_CASES_JSON = METADATA_FILE_DIR / "performance" / "perf_test.json"
 
 # ---------------------------------------------------------------------------

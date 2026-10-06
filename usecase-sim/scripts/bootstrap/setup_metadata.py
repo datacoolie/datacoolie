@@ -11,7 +11,7 @@ Examples:
         # → default: file + db:sqlite + db:postgresql (local workspace)
 
     python usecase-sim/scripts/bootstrap/setup_metadata.py \
-        --json usecase-sim/metadata/file/baseline/aws_use_cases.json \
+        --json usecase-sim/metadata/file/workflows/aws_use_cases.json \
         --workspace-id aws-workspace --targets db:postgresql --truncate
 
     python usecase-sim/scripts/bootstrap/setup_metadata.py \
@@ -29,12 +29,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.metadata_composition import load_metadata, write_composed_metadata
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
 from _common import (  # noqa: E402
     DB_URLS,
+    COMPILED_METADATA_DIR,
     LOCAL_USE_CASES_JSON,
     METADATA_DB_DIR,
     setup_logging,
@@ -602,13 +604,26 @@ def main() -> int:
             return 2
         db_urls[k] = v
 
-    json_path = (DATACOOLIE_ROOT / args.json).resolve()
-    if not json_path.exists():
-        logger.error("JSON not found: %s", json_path)
+    source_path = Path(args.json)
+    if not source_path.is_absolute():
+        source_path = (DATACOOLIE_ROOT / source_path).resolve()
+    if not source_path.exists():
+        logger.error("JSON not found: %s", source_path)
         return 2
 
-    with json_path.open("r", encoding="utf-8") as f:
-        meta = json.load(f)
+    # Workflow manifests are authored simulator metadata.  Compile them into
+    # the stable runtime artifact first so every target (YAML/XLSX/database)
+    # receives the same fully composed document.
+    try:
+        json_path = write_composed_metadata(
+            source_path,
+            COMPILED_METADATA_DIR / source_path.name,
+            root=SIM_ROOT,
+        )
+        meta = load_metadata(json_path, root=SIM_ROOT)
+    except (OSError, ValueError) as exc:
+        logger.error("Cannot compose metadata %s: %s", source_path, exc)
+        return 2
 
     rc = 0
     for target in targets:

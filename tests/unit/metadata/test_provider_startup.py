@@ -47,12 +47,21 @@ def test_folder_mode_discovers_sorted_section_shards(tmp_path: Path) -> None:
     (nested / "connections.json").write_text(
         json.dumps({"connections": [_connection("source", "c-1")]}), encoding="utf-8"
     )
+    (metadata / "a-connections.json").write_text(
+        json.dumps({"connections": [_connection("first", "c-0")]}), encoding="utf-8"
+    )
+    (nested / "z-connections.json").write_text(
+        json.dumps({"connections": [_connection("last", "c-2")]}), encoding="utf-8"
+    )
 
     provider = FileProvider(platform=LocalPlatform(), metadata_base_path=str(metadata))
     provider.initialize()
 
     assert provider.is_initialized
-    assert [item.name for item in provider.get_connections(active_only=False)] == ["source"]
+    assert [
+        (item.connection_id, item.name)
+        for item in provider.get_connections(active_only=False)
+    ] == [("c-0", "first"), ("c-1", "source"), ("c-2", "last")]
 
 
 def test_folder_mode_respects_local_platform_sandbox(tmp_path: Path) -> None:

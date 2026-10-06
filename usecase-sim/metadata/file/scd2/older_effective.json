@@ -1,0 +1,44 @@
+{
+  "connections": [
+    {
+      "name": "scd2_older_effective_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "scd2_older_effective_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "scd2-older-effective-late",
+      "stage": "scd2_older_effective",
+      "source": {
+        "connection_name": "scd2_older_effective_source",
+        "table": "records",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "scd2_older_effective_destination",
+        "table": "customers",
+        "load_type": "scd2",
+        "merge_keys": [
+          "id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      }
+    }
+  ]
+}

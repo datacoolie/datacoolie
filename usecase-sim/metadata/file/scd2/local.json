@@ -1,0 +1,55 @@
+{
+  "shared_metadata": "metadata/file/shared/local.json",
+  "dataflows": [
+    {
+      "name": "load_delta__scd2",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      }
+    },
+    {
+      "name": "load_iceberg__scd2",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "connections": [
+    {
+      "name": "a9_file_info_flat_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input/flat"
+      }
+    },
+    {
+      "name": "a9_file_info_roundtrip_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output/delta"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "a9-file-info-roundtrip-read",
+      "stage": "a9_file_info_roundtrip_read",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_file_info_flat_source",
+        "table": "own_output"
+      },
+      "destination": {
+        "connection_name": "a9_file_info_roundtrip_destination",
+        "table": "roundtrip",
+        "load_type": "overwrite"
+      }
+    }
+  ]
+}

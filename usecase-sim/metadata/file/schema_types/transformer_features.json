@@ -1,0 +1,85 @@
+{
+  "shared_metadata": "metadata/file/shared/transformer_features.json",
+  "dataflows": [
+    {
+      "name": "transform_value__before_schema_cast",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "transform_features_source",
+        "table": "sample"
+      },
+      "transform": {
+        "value_rules": [
+          {
+            "operation": "regex_replace",
+            "columns": [
+              "formatted_phone"
+            ],
+            "pattern": "[^0-9]",
+            "replacement": ""
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "formatted_phone",
+            "data_type": "BIGINT"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_before_cast",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_schema__cast",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "transform_features_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "customer_id",
+            "data_type": "STRING"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_schema_cast",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_schema__missing_warning",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "transform_features_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "missing_schema_one",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "missing_schema_two",
+            "data_type": "DATE"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_schema_missing_warning",
+        "load_type": "overwrite"
+      }
+    }
+  ]
+}

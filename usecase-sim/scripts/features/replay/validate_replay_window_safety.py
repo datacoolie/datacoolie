@@ -18,8 +18,8 @@ SCRIPT = Path(__file__).resolve()
 USECASE_SIM_DIR = SCRIPT.parents[3]
 if str(USECASE_SIM_DIR) not in sys.path:
     sys.path.insert(0, str(USECASE_SIM_DIR))
-from runtime_paths import DATA_DIR, LOG_DIR, WATERMARKS_DIR, DATACOOLIE_ROOT  # noqa: E402
-from runtime_logs import job_sessions, records  # noqa: E402
+from runner.runtime_paths import DATA_DIR, LOG_DIR, WATERMARKS_DIR, DATACOOLIE_ROOT  # noqa: E402
+from runner.runtime_logs import job_sessions, records  # noqa: E402
 
 from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY  # noqa: E402
 from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig  # noqa: E402
@@ -180,6 +180,8 @@ def validate_history(job_id: str, session_id: str, case: str) -> dict:
             == last["source"]["selection"]
         )
         assert first["watermark"]["candidate"] == last["watermark"]["candidate"]
+        assert last["watermark"]["saved_watermark"] == last["watermark"]["watermark_to_save"], last
+        assert last["watermark"]["saved_watermark"]["seq"] == 2, last
         retry_logs = [value for _, value in system_logs if value.get("event_name") == "retry.scheduled"]
         assert len(retry_logs) == 1, retry_logs
         assert retry_logs[0]["attempt_number"] == 1

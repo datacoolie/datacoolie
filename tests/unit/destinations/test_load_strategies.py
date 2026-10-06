@@ -119,6 +119,10 @@ class TestMergeUpsertStrategy:
         strategy = MergeUpsertStrategy()
         strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
         assert len(engine._written) == 1  # fallback to overwrite
+        assert engine._written[0]["mode"] == "overwrite"
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._deleted_windows == []
 
     def test_execute_existing_table(self, engine: MockEngine) -> None:
         engine.set_table_exists(True)
@@ -135,6 +139,11 @@ class TestMergeUpsertStrategy:
         strategy = MergeUpsertStrategy()
         with pytest.raises(DestinationError, match="requires merge_keys"):
             strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+        assert engine._written == []
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._scd2 == []
+        assert engine._deleted_windows == []
 
 
 @pytest.mark.parametrize(
@@ -189,6 +198,10 @@ class TestMergeOverwriteStrategy:
         strategy = MergeOverwriteStrategy()
         strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
         assert len(engine._written) == 1
+        assert engine._written[0]["mode"] == "overwrite"
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._deleted_windows == []
 
     def test_execute_existing_table(self, engine: MockEngine) -> None:
         engine.set_table_exists(True)
@@ -224,6 +237,11 @@ class TestMergeOverwriteStrategy:
         strategy = MergeOverwriteStrategy()
         with pytest.raises(DestinationError, match="requires merge_keys"):
             strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+        assert engine._written == []
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._scd2 == []
+        assert engine._deleted_windows == []
 
 
 class TestSCD2Strategy:
@@ -242,6 +260,10 @@ class TestSCD2Strategy:
         strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
         assert len(engine._written) == 1
         assert engine._written[0]["mode"] == "overwrite"
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._scd2 == []
+        assert engine._deleted_windows == []
 
     def test_execute_existing_table(self, engine: MockEngine) -> None:
         engine.set_table_exists(True)
@@ -263,6 +285,11 @@ class TestSCD2Strategy:
         strategy = SCD2Strategy()
         with pytest.raises(DestinationError, match="requires merge_keys"):
             strategy.execute({"data": 1}, df.destination.full_table_name, df, engine)
+        assert engine._written == []
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._scd2 == []
+        assert engine._deleted_windows == []
 
     def test_no_scd2_effective_column_raises(self, engine: MockEngine) -> None:
         df = _make_dataflow(
@@ -415,6 +442,11 @@ class TestDestinationErrorHandling:
         
         with pytest.raises(DestinationError, match="requires merge_keys"):
             writer.write({"data": 1}, df)
+        assert engine._written == []
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._scd2 == []
+        assert engine._deleted_windows == []
 
     def test_iceberg_writer_merge_requires_keys(self, engine: MockEngine) -> None:
         """IcebergWriter with MERGE but no merge_keys raises error.
@@ -435,6 +467,11 @@ class TestDestinationErrorHandling:
         
         with pytest.raises(DestinationError, match="requires merge_keys"):
             writer.write({"data": 1}, df)
+        assert engine._written == []
+        assert engine._merged == []
+        assert engine._merge_overwritten == []
+        assert engine._scd2 == []
+        assert engine._deleted_windows == []
 
     def test_delta_writer_scd2_no_effective_column(self, engine: MockEngine) -> None:
         """DeltaWriter with SCD2 but missing scd2_effective_column raises error.

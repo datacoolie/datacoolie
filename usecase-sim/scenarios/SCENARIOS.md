@@ -89,7 +89,8 @@ value-rule ordering case with two ordered rules.
 
 ### `local_polars_transform_features` / `local_spark_transform_features`
 
-Runs the dedicated `transformer_features.json` metadata fixture. Both variants
+Runs the ordered `metadata/file/workflows/transformer_features.json` manifest,
+composed from canonical `transform` and `schema_types` fixtures. Both variants
 assert the aggregate missing-schema-hint warning and then validate persisted
 Parquet schemas and values across 25 independent, single-case outputs covering
 normalization, literal replacement, mapping, rule order, value-rule/schema-cast
@@ -153,7 +154,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | stage | `""` (all) |
 | column_name_mode | lower |
 | priority | P0 |
@@ -166,7 +167,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | priority | P0 |
@@ -179,7 +180,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | priority | P0 |
@@ -192,7 +193,7 @@ never mutate those fixtures during a run.
 | engine | spark |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | skip_api_sources | `true` |
@@ -213,7 +214,7 @@ by local regression tests and are not claimed by this pair.
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/baseline/local_use_cases.json` |
+| metadata | `metadata/file/workflows/local_use_cases.json` |
 | stage | `replay_test` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
@@ -344,7 +345,7 @@ python usecase-sim/runner/run_scenario.py --scenario local_spark_api_continuatio
 
 | Field | Value |
 |---|---|
-| metadata | Polars uses `metadata/file/api_incremental/api_incremental_recovery_fail.json` / `api_incremental_continuation.json` plus `api_incremental_recovery.json`; Spark uses the corresponding `_spark` metadata files to isolate its output base |
+| metadata | Polars uses `metadata/file/incremental/api_incremental_recovery_fail.json` / `api_incremental_continuation.json` plus `api_incremental_recovery.json`; Spark uses the corresponding `_spark` metadata files to isolate its output base |
 | source | `mock-api` `/api/orders/next-link` with `modified_since` pushdown |
 | pagination | opaque same-origin `next_link`, `limit=5`; failure uses `max_pages=1` |
 | destination | Delta `api_incremental_recovery_validation` |
@@ -399,11 +400,11 @@ persisted schema/value assertions and cross-engine comparison.
 
 | Field | Value |
 |---|---|
-| canonical metadata | `metadata/file/datatypes/datatype_qualification.json` |
+| canonical metadata | `metadata/file/schema_types/datatype_qualification.json` |
 | generated metadata | `.runtime/data/datatype_qualification/metadata/{engine}_{format}.json` |
 | stage | `datatype_qualification` |
 | priority | P1 |
-| setup | `scripts/features/datatypes/prepare_datatype_qualification.py` |
+| setup | `scripts/features/schema_types/prepare_datatype_qualification.py` |
 | assertions | `tests/integration/data_types/test_usecase_sim_cross_engine.py` |
 | output roots | `.runtime/data/datatype_qualification/output/{format}/{polars,spark}` |
 
@@ -513,7 +514,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | connection | `local_delta_dest` |
 | priority | P1 |
 
@@ -524,7 +525,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |
@@ -536,7 +537,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | connection | `local_delta_dest` |
 | priority | P1 |
 
@@ -547,7 +548,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/baseline/local_use_cases.json` |
+| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |

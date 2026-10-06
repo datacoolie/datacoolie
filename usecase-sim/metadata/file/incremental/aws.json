@@ -1,0 +1,229 @@
+{
+  "shared_metadata": "metadata/file/shared/aws.json",
+  "dataflows": [
+    {
+      "name": "aws_watermark__file_mtime",
+      "stage": "aws_watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_file_mtime",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark__file_mtime_multi_col",
+      "stage": "aws_watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time",
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_file_multi",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark__data_col",
+      "stage": "aws_watermark_file",
+      "group_number": 2,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_db__postgres",
+      "stage": "aws_watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_postgres_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_postgres",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_db__sqlite",
+      "stage": "aws_watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_sqlite",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__days",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_days",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__months_closing_day",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "months": 1,
+            "closing_day": 10
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_months",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_date_folder__src_partition",
+      "stage": "aws_date_folder_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_date_folder_src",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_dated_src",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__hours",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "hours": 12
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_hours",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__years",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "years": 1
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_years",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_iceberg__data_col",
+      "stage": "aws_watermark_file",
+      "group_number": 3,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_iceberg_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    }
+  ]
+}

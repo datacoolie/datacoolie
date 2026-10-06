@@ -202,7 +202,7 @@ def test_job_log_cleanup_preserves_other_jobs_and_receipts(tmp_path, monkeypatch
 
 def test_shared_log_validation_rejects_stale_session(tmp_path) -> None:
     module = _load_dispatcher()
-    from runtime_logs import job_sessions, require_job_logs
+    from runner.runtime_logs import job_sessions, require_job_logs
 
     job_root = tmp_path / "execution_logs/job_run_log"
     job_root.mkdir(parents=True)

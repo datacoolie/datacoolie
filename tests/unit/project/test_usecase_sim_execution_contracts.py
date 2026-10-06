@@ -170,3 +170,17 @@ def test_empty_history_oracle_rejects_destination_participation(validator, monke
     attach_records(monkeypatch, validator, run, job, system)
     with pytest.raises(AssertionError):
         validator.validate_history("job", "session", "typed-empty")
+
+
+@pytest.mark.parametrize("mutation", ["status", "selection", "saved_state"])
+def test_post_write_retry_oracle_rejects_erased_failure_or_changed_boundary(validator, monkeypatch, mutation):
+    run, job, system = history_records("retry-after-write")
+    if mutation == "status":
+        run["attempts"][0]["status"] = "succeeded"
+    elif mutation == "selection":
+        run["attempts"][1]["source"]["selection"]["upper"] = {"seq": 11}
+    else:
+        run["attempts"][1]["watermark"]["saved_watermark"] = {"seq": 99}
+    attach_records(monkeypatch, validator, run, job, system)
+    with pytest.raises(AssertionError):
+        validator.validate_history("job", "session", "retry-after-write")

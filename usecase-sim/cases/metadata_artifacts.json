@@ -1,0 +1,772 @@
+{
+  "group": "metadata_artifacts",
+  "behaviors": [
+    {
+      "id": "metadata_artifacts.provider_hydration_binding",
+      "intent": "provider hydration binding",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/unit/metadata/test_provider_startup.py::test_folder_mode_discovers_sorted_section_shards",
+        "tests/unit/metadata/test_provider_startup.py::test_file_provider_constructor_does_not_read_metadata",
+        "tests/unit/metadata/test_provider_startup.py::test_driver_binds_platform_to_unbound_file_provider",
+        "tests/unit/metadata/test_provider_startup.py::test_explicit_metadata_path_overrides_artifact_default",
+        "tests/unit/metadata/test_provider_startup.py::test_file_provider_metadata_conflict_does_not_bind_partial_context",
+        "tests/unit/metadata/test_provider_startup.py::test_startup_rejects_unknown_schema_hint_connection"
+      ],
+      "checks": [
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.folder_order",
+          "acceptance": "Directory-mode FileProvider discovers a nested connection shard plus an empty dataflow shard and hydrates the declared connection.",
+          "preconditions": [
+            "Use separate connection/dataflow/schema-hint files under a metadata directory."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_folder_mode_discovers_sorted_section_shards"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.lazy_constructor",
+          "acceptance": "Constructing FileProvider performs no metadata read before initialization.",
+          "preconditions": [
+            "Instantiate a provider with a file source but do not initialize it."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_file_provider_constructor_does_not_read_metadata"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.platform_binding",
+          "acceptance": "Driver binds the execution platform to an unbound file provider before metadata I/O.",
+          "preconditions": [
+            "Inject an unbound provider and initialize through Driver."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_driver_binds_platform_to_unbound_file_provider"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.explicit_path_overrides_artifact",
+          "acceptance": "An explicit metadata path overrides the artifact metadata default.",
+          "preconditions": [
+            "Supply an artifact root and an explicit metadata file path."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_explicit_metadata_path_overrides_artifact_default"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.binding_conflict",
+          "acceptance": "Conflicting provider metadata context fails before binding partial startup state.",
+          "preconditions": [
+            "Inject a file provider and a conflicting metadata context."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_file_provider_metadata_conflict_does_not_bind_partial_context"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.unknown_hint_connection",
+          "acceptance": "Schema hints referring to an unknown connection fail during startup.",
+          "preconditions": [
+            "Supply hints whose connection reference has no connection definition."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_startup_rejects_unknown_schema_hint_connection"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.provider_hydration_binding.sorted_multishard_definitions",
+          "acceptance": "FileProvider hydrates exactly the ordered IDs/names from three same-section connection shards including nested paths.",
+          "preconditions": [
+            "Create a-connections, nested/connections and nested/z-connections with distinguishable connection IDs/names; initialize folder provider and inspect exact hydration order."
+          ],
+          "case_ids": [
+            "local_polars_state_base_path"
+          ],
+          "assertion_owners": [
+            "tests/unit/metadata/test_provider_startup.py::test_folder_mode_discovers_sorted_section_shards"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact same-section connection hydration/order is unit-owned; this does not qualify every metadata section or promote the related runtime fixture.",
+          "next_action": "none"
+        }
+      ]
+    },
+    {
+      "id": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "sql and artifact root resolution",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_inline_query_does_not_read_platform",
+        "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_sql_root_takes_precedence_for_shorthand",
+        "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_explicit_artifact_reference_does_not_fallback_to_sql_root",
+        "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_empty_sql_file_fails",
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py::validate",
+        "usecase-sim/scripts/features/metadata_artifacts/validate_sql_root_precedence.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "metadata_artifacts.sql_and_artifact_root_resolution.inline_without_io",
+          "acceptance": "Inline query preparation preserves SQL and performs no file I/O.",
+          "preconditions": [
+            "Provide an inline SQL query instead of a file reference."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_inline_query_does_not_read_platform"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.sql_and_artifact_root_resolution.explicit_sql_root",
+          "acceptance": "SQL shorthand is read under the declared SQL root rather than artifact fallback.",
+          "preconditions": [
+            "Supply both explicit SQL and artifact roots with a shorthand SQL filename."
+          ],
+          "case_ids": [
+            "artifacts/custom-metadata/config/metadata/nested/orders_dataflow::custom_metadata_query",
+            "artifacts/default/metadata/metadata::artifact_query",
+            "artifacts/multi-sql-roots/metadata/metadata::query_artifact_relative_nested",
+            "artifacts/query-fallback/metadata/metadata::query_artifact_relative",
+            "metadata/file/metadata_artifacts/multi_sql_root_contract::query_explicit_multiple_roots",
+            "metadata/file/metadata_artifacts/query_contract::query_root_routing",
+            "local_polars_artifact_default_metadata",
+            "local_polars_artifact_custom_metadata",
+            "local_polars_query_artifact_relative_nested",
+            "local_polars_query_explicit_multiple_roots",
+            "local_polars_query_root_routing",
+            "local_polars_query_artifact_relative"
+          ],
+          "assertion_owners": [
+            "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_sql_root_takes_precedence_for_shorthand"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.sql_and_artifact_root_resolution.explicit_artifact_no_fallback",
+          "acceptance": "Explicit artifact references never fall back to a SQL root when missing.",
+          "preconditions": [
+            "Make an artifact-relative query missing while a SQL root is configured."
+          ],
+          "case_ids": [
+            "artifacts/multi-sql-roots/metadata/metadata::query_artifact_relative_nested",
+            "artifacts/query-fallback/metadata/metadata::query_artifact_relative",
+            "local_polars_query_artifact_relative_nested",
+            "local_polars_query_artifact_relative"
+          ],
+          "assertion_owners": [
+            "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_explicit_artifact_reference_does_not_fallback_to_sql_root"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.sql_and_artifact_root_resolution.empty_sql_rejected",
+          "acceptance": "An empty SQL file fails query preparation explicitly.",
+          "preconditions": [
+            "Place only whitespace in the referenced local SQL file."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/preparation/test_query.py::TestResolveQuery::test_empty_sql_file_fails"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.sql_and_artifact_root_resolution.exact_query_values",
+          "acceptance": "Artifact-backed query outputs reconcile exact ordered IDs, amounts and categories.",
+          "preconditions": [
+            "Prepare the three-row artifact orders fixture and run its query."
+          ],
+          "case_ids": [
+            "artifacts/custom-metadata/config/metadata/nested/orders_dataflow::custom_metadata_query",
+            "artifacts/default/metadata/metadata::artifact_query",
+            "artifacts/multi-sql-roots/metadata/metadata::query_artifact_relative_nested",
+            "artifacts/query-fallback/metadata/metadata::query_artifact_relative",
+            "metadata/file/metadata_artifacts/multi_sql_root_contract::query_explicit_multiple_roots",
+            "metadata/file/metadata_artifacts/query_contract::query_root_routing",
+            "metadata/file/metadata_artifacts/state_contract::state_base_path",
+            "local_polars_artifact_default_metadata",
+            "local_polars_artifact_custom_metadata",
+            "local_polars_query_artifact_relative_nested",
+            "local_polars_query_explicit_multiple_roots",
+            "local_polars_query_root_routing",
+            "local_polars_query_artifact_relative"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "metadata_artifacts.sql_and_artifact_root_resolution.persisted_root_precedence",
+          "acceptance": "When the same shorthand SQL filename exists under explicit SQL and artifact roots with different contents, normal Driver persisted IDs/values/marker prove selection of the explicit SQL root.",
+          "preconditions": [
+            "Prepare two test-owned roots containing distinct orders.sql queries and configure both sql_base_path and artifact_base_path; execute the shorthand query through a registered native source."
+          ],
+          "case_ids": [
+            "local_polars_sql_root_precedence"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/metadata_artifacts/validate_sql_root_precedence.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Goal-specific native oracle exists; actual runtime profile evidence remains separate.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "artifacts/custom-metadata/config/metadata/nested/orders_dataflow::custom_metadata_query",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "custom_metadata_query: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/custom-metadata/config/metadata/nested/orders_dataflow.json",
+          "flow": "custom_metadata_query",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at custom_delta_source/declared SQL/function and configure its connection and the destination custom_parquet_destination/orders_custom_metadata.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "custom_metadata_query: overwrite replaces target custom_parquet_destination/orders_custom_metadata; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "artifacts/default/metadata/metadata::artifact_query",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "artifact_query: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/default/metadata/metadata.json",
+          "flow": "artifact_query",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at artifact_delta_source/declared SQL/function and configure its connection and the destination artifact_parquet_destination/orders_artifact.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "artifact_query: overwrite replaces target artifact_parquet_destination/orders_artifact; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "artifacts/multi-sql-roots/metadata/metadata::query_artifact_relative_nested",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "query_artifact_relative_nested: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/multi-sql-roots/metadata/metadata.json",
+          "flow": "query_artifact_relative_nested",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at multi_sql_source/declared SQL/function and configure its connection and the destination multi_sql_destination/customers_artifact_relative.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "query_artifact_relative_nested: overwrite replaces target multi_sql_destination/customers_artifact_relative; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "artifacts/query-fallback/metadata/metadata::query_artifact_relative",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "query_artifact_relative: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/query-fallback/metadata/metadata.json",
+          "flow": "query_artifact_relative",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at query_fallback_source/declared SQL/function and configure its connection and the destination query_fallback_destination/orders_query_artifact_relative.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "query_artifact_relative: overwrite replaces target query_fallback_destination/orders_query_artifact_relative; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/metadata_artifacts/multi_sql_root_contract::query_explicit_multiple_roots",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "query_explicit_multiple_roots: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/multi_sql_root_contract.json",
+          "flow": "query_explicit_multiple_roots",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at explicit_multi_sql_source/declared SQL/function and configure its connection and the destination explicit_multi_sql_destination/customers_explicit_multiple_roots.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "query_explicit_multiple_roots: overwrite replaces target explicit_multi_sql_destination/customers_explicit_multiple_roots; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/metadata_artifacts/query_contract::query_root_routing",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "query_root_routing: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+          "flow": "query_root_routing",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at query_contract_source/declared SQL/function and configure its connection and the destination query_contract_destination/orders_query_root.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "query_root_routing: overwrite replaces target query_contract_destination/orders_query_root; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/metadata_artifacts/state_contract::state_base_path",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "state_base_path: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/state_contract.json",
+          "flow": "state_base_path",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at state_contract_source/declared SQL/function and configure its connection and the destination state_contract_destination/orders_state.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input.",
+        "Prepare the referenced metadata/SQL roots and inspect the resolved source query and output location."
+      ],
+      "expected": "state_base_path: overwrite replaces target state_contract_destination/orders_state; old-only rows disappear and readback equals the transformed input rows. Validate resolved metadata/query root identity separately from row equality. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_artifact_default_metadata",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Static deployed artifact consumed through Driver-inferred FileProvider",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/default/metadata/metadata.json",
+          "flow": "artifact_query",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_artifact_default_metadata"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_artifact_default_metadata"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_artifact_custom_metadata",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Arbitrary section-wrapped shard names loaded from an explicit artifact metadata root",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/custom-metadata/config/metadata/nested/orders_dataflow.json",
+          "flow": "custom_metadata_query",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_artifact_custom_metadata"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_artifact_custom_metadata"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_query_artifact_relative_nested",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Artifact-only execution joins a nested SQL reference directly below the artifact root",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/multi-sql-roots/metadata/metadata.json",
+          "flow": "query_artifact_relative_nested",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_query_artifact_relative_nested"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_query_artifact_relative_nested"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_query_explicit_multiple_roots",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Repeated --sql-base-path flags route a prefixed SQL reference through explicit roots",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/multi_sql_root_contract.json",
+          "flow": "query_explicit_multiple_roots",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_query_explicit_multiple_roots"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_query_explicit_multiple_roots"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_query_root_routing",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Shorthand SQL reference resolved only through the explicit sql_base_path",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+          "flow": "query_root_routing",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_query_root_routing"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_query_root_routing"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_query_artifact_relative",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Shorthand SQL reference resolves directly below the artifact root when sql_base_path is absent",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/query-fallback/metadata/metadata.json",
+          "flow": "query_artifact_relative",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_query_artifact_relative"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_query_artifact_relative"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_state_base_path",
+      "behavior": "metadata_artifacts.provider_hydration_binding",
+      "intent": "Explicit log and FileProvider watermark roots remain in separate simulator areas",
+      "contract": "src/datacoolie/metadata/file_provider.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/state_contract.json",
+          "flow": "state_base_path",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_state_base_path"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_state_base_path"
+      ],
+      "preconditions": [
+        "Prepare the declared artifact orders input and exact artifact/SQL roots; run the recipe with its current output path and validator."
+      ],
+      "expected": "Query output contains exactly ordered IDs 101/102/103 with amounts 10/20/30 and categories alpha/beta/gamma.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_state_paths.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The exact query-value validator is available; competing-root precedence with different query results remains a separate missing checklist item. Current profile evidence requires a matching receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_sql_root_precedence",
+      "behavior": "metadata_artifacts.sql_and_artifact_root_resolution",
+      "intent": "Resolve the same logical orders.sql under distinct explicit SQL and artifact roots; normal Driver output must be the two SQL-root rows with exact IDs, amount, marker_id and root_marker.",
+      "contract": "src/datacoolie/orchestration/preparation/query.py::resolve_query",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/sql_root_precedence.json",
+          "flow": "sql-root-precedence",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_sql_root_precedence"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_sql_root_precedence"
+      ],
+      "preconditions": [
+        "Install host-local Polars/native Delta dependencies. Declared validator materializes __CASE_ROOT__ into a fresh simulator-owned data/state/receipt root and selects its current framework job/session.",
+        "Seed support data through the validator; do not run the metadata template directly or reuse an existing root."
+      ],
+      "expected": "Resolve the same logical orders.sql under distinct explicit SQL and artifact roots; normal Driver output must be the two SQL-root rows with exact IDs, amount, marker_id and root_marker.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/metadata_artifacts/validate_sql_root_precedence.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Representative host-local Polars/native Delta oracle only; actual qualification requires a matching final receipt. Spark/Iceberg/service/real-cloud qualification remains separate.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

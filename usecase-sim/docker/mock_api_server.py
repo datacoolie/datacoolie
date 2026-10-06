@@ -41,14 +41,16 @@ from __future__ import annotations
 
 import argparse
 import base64
-import threading
+import hashlib
 import os
-from datetime import datetime, timezone
+import threading
+from datetime import date, datetime, timezone
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode
 
 try:
-    from flask import Flask, jsonify, request
+    from flask import Flask, g, jsonify, request
 except ImportError:
     raise SystemExit("Flask is required: pip install flask")
 
@@ -99,14 +101,127 @@ ROWS: List[Dict[str, Any]] = [
 
 app = Flask(__name__)
 
+# A deterministic date-only source, independent of shared timestamp fixtures.
+DATE_ONLY_ROWS = [
+    {"order_id": 101, "event_date": "2024-01-01", "category": "alpha"},
+    {"order_id": 102, "event_date": "2024-01-02", "category": "beta"},
+    {"order_id": 103, "event_date": "2024-01-03", "category": "gamma"},
+]
+_DATE_TRACE_LOCK = threading.Lock()
+_DATE_TRACE = OrderedDict()
+
+
+@app.route("/api/orders/date-only")
+def orders_date_only():
+    token = request.headers.get("X-Sim-Case-Token")
+    case_id = _safe_case_id(token)
+    if not case_id:
+        return jsonify({"error": "case token required"}), 400
+    if set(request.args) - {"modified_since", "include_late", "offset", "limit"}:
+        return jsonify({"error": "unsupported date-only query key"}), 400
+    query = dict(request.args)
+    if any(len(value) > 32 for value in query.values()):
+        return jsonify({"error": "date-only query value too long"}), 400
+    # Trace is bounded per case and in total; control reads do not add entries.
+    with _DATE_TRACE_LOCK:
+        if case_id not in _DATE_TRACE and len(_DATE_TRACE) >= 256:
+            _DATE_TRACE.popitem(last=False)
+        entries = _DATE_TRACE.setdefault(case_id, [])
+        if len(entries) >= 64:
+            return jsonify({"error": "case trace limit exceeded"}), 429
+        entries.append(query)
+    lower = request.args.get("modified_since")
+    if lower is not None:
+        try:
+            if len(lower) != 10 or date.fromisoformat(lower).isoformat() != lower:
+                raise ValueError("noncanonical date")
+        except ValueError:
+            return jsonify({"error": "canonical date required"}), 400
+    rows = DATE_ONLY_ROWS if request.args.get("include_late") == "true" else DATE_ONLY_ROWS[:2]
+    rows = [row for row in rows if lower is None or row["event_date"] > lower]
+    try:
+        offset, limit = int(request.args.get("offset", 0)), int(request.args.get("limit", 5))
+        if offset < 0 or not 1 <= limit <= 30:
+            raise ValueError("unbounded page")
+    except ValueError:
+        return jsonify({"error": "invalid date-only page"}), 400
+    return jsonify({"data": rows[offset:offset + limit], "total": len(rows)})
+
+
+@app.route("/__sim/date-only/trace")
+def date_only_trace():
+    case_id = request.args.get("case_id")
+    if not case_id:
+        return jsonify({"error": "case_id required"}), 400
+    with _DATE_TRACE_LOCK:
+        return jsonify({"requests": list(_DATE_TRACE.get(case_id, []))})
+
 # The simulator keeps a short-lived, in-memory trace for the active run.  The
 # setup/validation helpers reset and read it through the private simulator
-# endpoints below.  Only method/path/query are recorded; request headers and
-# bodies are deliberately excluded so auth and signed payloads cannot leak
-# into receipts.
+# endpoints below.  Request headers and bodies are deliberately excluded so
+# auth and signed payloads cannot leak into receipts.
 _TRACE_LOCK = threading.Lock()
 _REQUEST_TRACE: list[dict[str, Any]] = []
 _TRACE_RUN_ID = "uninitialised"
+
+_SENSITIVE_QUERY_KEYS = {
+    "access_token",
+    "api_key",
+    "apikey",
+    "authorization",
+    "case_token",
+    "client_secret",
+    "password",
+    "secret",
+    "signature",
+}
+
+
+def _safe_case_id(token: Optional[str]) -> Optional[str]:
+    """Return a stable, non-reversible identifier for a simulator case token."""
+    if not token:
+        return None
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+
+
+def _sanitized_query() -> str:
+    """Preserve query shape while removing values that may contain secrets."""
+    values = []
+    for key, value in parse_qsl(
+        request.query_string.decode("utf-8", errors="replace"),
+        keep_blank_values=True,
+    ):
+        if key.lower() in _SENSITIVE_QUERY_KEYS:
+            value = "<redacted>"
+        values.append((key, value))
+    return urlencode(values, doseq=True)
+
+
+def _request_case_token() -> Optional[str]:
+    return request.headers.get("X-Sim-Case-Token") or request.args.get("case_token")
+
+
+def _request_trace_id() -> Optional[str]:
+    """Return a stable opaque ID for a validator-owned request stream."""
+    return _safe_case_id(request.headers.get("X-Sim-Trace-Run"))
+
+
+def _safe_request_body() -> Optional[dict[str, Any]]:
+    """Expose JSON shape/value fixtures without copying arbitrary payloads."""
+    if not request.is_json:
+        return None
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return {"value": "<present>"}
+    safe: dict[str, Any] = {}
+    for key, value in body.items():
+        if key.lower() in _SENSITIVE_QUERY_KEYS:
+            safe[key] = "<redacted>"
+        elif key == "status" and isinstance(value, str):
+            safe[key] = value
+        else:
+            safe[key] = "<present>"
+    return safe
 
 
 @app.before_request
@@ -119,9 +234,27 @@ def _capture_simulator_request() -> None:
                 "ordinal": len(_REQUEST_TRACE) + 1,
                 "method": request.method,
                 "path": request.path,
-                "query": request.query_string.decode("utf-8", errors="replace"),
+                "query": _sanitized_query(),
+                "status": None,
+                "retry_after": None,
+                "case_id": _safe_case_id(_request_case_token()),
+                "trace_id": _request_trace_id(),
+                "content_type": request.headers.get("Content-Type", "").split(";", 1)[0],
+                "body": _safe_request_body(),
             }
         )
+        g._sim_trace_ordinal = len(_REQUEST_TRACE)
+
+
+@app.after_request
+def _finish_simulator_request(response):
+    ordinal = getattr(g, "_sim_trace_ordinal", None)
+    if ordinal is not None:
+        with _TRACE_LOCK:
+            if 0 < ordinal <= len(_REQUEST_TRACE):
+                _REQUEST_TRACE[ordinal - 1]["status"] = response.status_code
+                _REQUEST_TRACE[ordinal - 1]["retry_after"] = response.headers.get("Retry-After")
+    return response
 
 
 @app.route("/__sim/health")
@@ -141,8 +274,82 @@ def reset_simulator_trace():
 
 @app.route("/__sim/trace")
 def simulator_trace():
+    case_id = request.args.get("case_id")
+    trace_id = request.args.get("trace_id")
     with _TRACE_LOCK:
-        return jsonify({"run_id": _TRACE_RUN_ID, "requests": list(_REQUEST_TRACE)})
+        requests = [
+            item
+            for item in _REQUEST_TRACE
+            if (case_id is None or item.get("case_id") == case_id)
+            and (trace_id is None or item.get("trace_id") == trace_id)
+        ]
+        return jsonify({"run_id": _TRACE_RUN_ID, "requests": requests})
+
+
+_OAUTH_TRACE_LOCK = threading.Lock()
+_OAUTH_TRACE: list[dict[str, Any]] = []
+
+
+def _record_oauth_trace(
+    *,
+    auth_method: str,
+    body_format: str,
+    body: Dict[str, Any],
+) -> None:
+    """Record OAuth request shape without credentials or token values."""
+    safe_body: Dict[str, Any] = {}
+    for key, value in body.items():
+        if key in {"client_id", "client_secret", "access_token", "password", "secret"}:
+            continue
+        if key == "scope":
+            safe_body[key] = value
+        else:
+            safe_body[key] = "<present>"
+    with _OAUTH_TRACE_LOCK:
+        trace_id = _request_trace_id() or request.args.get("trace_id")
+        _OAUTH_TRACE.append(
+            {
+                "ordinal": len(_OAUTH_TRACE) + 1,
+                "method": request.method,
+                "path": request.path,
+                "content_type": request.headers.get("Content-Type", "").split(";", 1)[0],
+                "auth_method": auth_method,
+                "body_format": body_format,
+                "body": safe_body,
+                "scope": body.get("scope", ""),
+                "status": None,
+                "trace_id": trace_id,
+            }
+        )
+        g._oauth_trace_ordinal = len(_OAUTH_TRACE)
+
+
+@app.after_request
+def _finish_oauth_trace(response):
+    if request.path == "/oauth/token" and request.method == "POST":
+        ordinal = getattr(g, "_oauth_trace_ordinal", None)
+        with _OAUTH_TRACE_LOCK:
+            if ordinal is not None and 0 < ordinal <= len(_OAUTH_TRACE):
+                _OAUTH_TRACE[ordinal - 1]["status"] = response.status_code
+    return response
+
+
+@app.route("/__sim/oauth/trace/reset", methods=["POST"])
+def reset_oauth_trace():
+    with _OAUTH_TRACE_LOCK:
+        _OAUTH_TRACE.clear()
+    return jsonify({"requests": 0})
+
+
+@app.route("/__sim/oauth/trace")
+def oauth_trace():
+    trace_id = request.args.get("trace_id")
+    with _OAUTH_TRACE_LOCK:
+        requests = [
+            item for item in _OAUTH_TRACE
+            if trace_id is None or item.get("trace_id") == trace_id
+        ]
+        return jsonify({"requests": requests})
 
 MOCK_BEARER_TOKEN = os.environ.get("MOCK_BEARER_TOKEN", "test-bearer-token-123")
 MOCK_API_KEY      = os.environ.get("MOCK_API_KEY",      "test-api-key-456")
@@ -250,6 +457,66 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
 # ---------------------------------------------------------------------------
 
 _rate_limit_triggered = False
+_RATE_LIMIT_LOCK = threading.Lock()
+_RATE_LIMIT_CASES: dict[str, dict[str, Any]] = {}
+
+
+def _rate_limit_case_token() -> Optional[str]:
+    """Read a case token without making it part of response or trace output."""
+    return _request_case_token()
+
+
+@app.route("/__sim/rate-limit/config", methods=["POST"])
+def configure_rate_limit_case():
+    payload = request.get_json(silent=True) or {}
+    case_token = payload.get("case_token")
+    sequence = payload.get("sequence", [429, 200])
+    retry_after = payload.get("retry_after", "0")
+    if not isinstance(case_token, str) or not case_token:
+        return jsonify({"error": "case_token is required"}), 400
+    if (
+        not isinstance(sequence, list)
+        or not sequence
+        or any(status not in {200, 429} for status in sequence)
+    ):
+        return jsonify({"error": "sequence must contain only 200 or 429 statuses"}), 400
+    if not isinstance(retry_after, (int, float, str)):
+        return jsonify({"error": "retry_after must be scalar"}), 400
+    with _RATE_LIMIT_LOCK:
+        _RATE_LIMIT_CASES[case_token] = {
+            "sequence": list(sequence),
+            "attempt": 0,
+            "retry_after": str(retry_after),
+        }
+    return jsonify(
+        {
+            "case_id": _safe_case_id(case_token),
+            "sequence": list(sequence),
+            "attempts": 0,
+        }
+    )
+
+
+@app.route("/__sim/rate-limit/reset", methods=["POST"])
+def reset_rate_limit_cases():
+    with _RATE_LIMIT_LOCK:
+        _RATE_LIMIT_CASES.clear()
+    return jsonify({"cases": 0})
+
+
+@app.route("/__sim/rate-limit/trace")
+def rate_limit_trace():
+    case_id = request.args.get("case_id")
+    with _RATE_LIMIT_LOCK:
+        cases = {
+            _safe_case_id(token): {
+                "sequence": list(state["sequence"]),
+                "attempts": state["attempt"],
+            }
+            for token, state in _RATE_LIMIT_CASES.items()
+            if case_id is None or _safe_case_id(token) == case_id
+        }
+    return jsonify({"cases": cases})
 
 
 # ---------------------------------------------------------------------------
@@ -266,19 +533,33 @@ MOCK_OAUTH2_ACCESS_TOKEN  = "mock-oauth2-access-token-xyz"
 
 @app.route("/oauth/token", methods=["POST"])
 def oauth_token():
-    grant_type    = request.form.get("grant_type", "")
-    client_id     = request.form.get("client_id",  "")
-    client_secret = request.form.get("client_secret", "")
+    if request.is_json:
+        body = request.get_json(silent=True) or {}
+        body_format = "json"
+    else:
+        body = request.form.to_dict(flat=True)
+        body_format = "form"
+    grant_type = body.get("grant_type", "")
+    client_id = body.get("client_id", "")
+    client_secret = body.get("client_secret", "")
+    auth_method = "client_secret_post"
 
     # client_secret_basic: credentials arrive in Authorization: Basic header
     if not client_id:
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Basic "):
+            auth_method = "client_secret_basic"
             try:
                 decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
                 client_id, _, client_secret = decoded.partition(":")
             except Exception:
                 pass
+
+    _record_oauth_trace(
+        auth_method=auth_method,
+        body_format=body_format,
+        body=body,
+    )
 
     if grant_type != "client_credentials":
         return jsonify({"error": "unsupported_grant_type"}), 400
@@ -616,6 +897,23 @@ def secure_oauth2():
 @app.route("/api/orders/rate-limited")
 def orders_rate_limited():
     global _rate_limit_triggered
+    case_token = _rate_limit_case_token()
+    if case_token:
+        with _RATE_LIMIT_LOCK:
+            state = _RATE_LIMIT_CASES.get(case_token)
+            if state is None:
+                return jsonify({"error": "unknown rate-limit case"}), 400
+            attempt = state["attempt"]
+            sequence = state["sequence"]
+            status = sequence[min(attempt, len(sequence) - 1)]
+            state["attempt"] += 1
+            retry_after = state["retry_after"]
+        if status == 429:
+            resp = jsonify({"error": "Rate limit exceeded. Please retry."})
+            resp.headers["Retry-After"] = retry_after
+            return resp, 429
+        offset, limit = _offset_params()
+        return jsonify({"data": _page_slice(ROWS, offset, limit), "total": len(ROWS)})
     if not _rate_limit_triggered:
         _rate_limit_triggered = True
         resp = jsonify({"error": "Rate limit exceeded. Please retry."})
@@ -742,14 +1040,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8082, help="Listening port (default 8082)")
     args = parser.parse_args()
 
-    print(f"Mock API server starting on http://localhost:{args.port}")
-    print(f"  MOCK_BEARER_TOKEN         = {MOCK_BEARER_TOKEN}")
-    print(f"  MOCK_API_KEY              = {MOCK_API_KEY}")
-    print(f"  MOCK_BASIC_USER           = {MOCK_BASIC_USER}")
-    print(f"  MOCK_BASIC_PASS           = {MOCK_BASIC_PASS}")
-    print(f"  MOCK_OAUTH2_CLIENT_ID     = {MOCK_OAUTH2_CLIENT_ID}")
-    print(f"  MOCK_OAUTH2_CLIENT_SECRET = {MOCK_OAUTH2_CLIENT_SECRET}")
-    print(f"  MOCK_OAUTH2_ACCESS_TOKEN  = {MOCK_OAUTH2_ACCESS_TOKEN}")
-    print()
+    print(f"Mock API server listening on http://127.0.0.1:{args.port}")
 
     app.run(host="0.0.0.0", port=args.port, debug=False)

@@ -1,0 +1,306 @@
+{
+  "group": "execution",
+  "behaviors": [
+    {
+      "id": "execution.activation_retry_stop_on_error",
+      "intent": "activation retry stop on error",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "coverage": "fixture_only",
+      "gap": "1 of 6 checklist branches remains without an exact goal-specific owner; mapped source/scheduler branches retain their owners.",
+      "assertion_owners": [
+        "tests/integration/runtime/test_activation_contract.py::test_inactive_metadata_remains_visible_and_only_active_flow_writes",
+        "tests/unit/orchestration/scheduling/test_contract.py::test_stop_on_error_withholds_unadmitted_independent_and_group_work",
+        "tests/unit/orchestration/scheduling/test_contract.py::test_numbered_group_failure_only_stops_its_later_orders",
+        "tests/unit/orchestration/test_driver.py::TestProcessDataflow::test_retry_on_exception",
+        "tests/unit/orchestration/test_driver.py::TestProcessDataflow::test_exhausted_retries_report_all_attempts",
+        "tests/unit/orchestration/test_driver.py::TestDataCoolieDriverInit::test_startup_events_surround_provider_initialization",
+        "tests/unit/orchestration/test_driver.py::TestDataCoolieDriverInit::test_provider_startup_failure_persists_failure_without_ready"
+      ],
+      "checks": [
+        {
+          "id": "execution.activation_retry_stop_on_error.active_and_inactive_visibility",
+          "acceptance": "Inactive metadata remains visible and records a skip while only the active flow writes its output.",
+          "preconditions": [
+            "Load metadata containing one inactive and one active flow.",
+            "Run activation and inspect writes and skip records."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::streaming__append"
+          ],
+          "assertion_owners": [
+            "tests/integration/runtime/test_activation_contract.py::test_inactive_metadata_remains_visible_and_only_active_flow_writes"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.activation_retry_stop_on_error.stop_on_error",
+          "acceptance": "A failed admitted unit with stop-on-error withholds unadmitted independent and group work.",
+          "preconditions": [
+            "Schedule ordered units with independent and same-group successors.",
+            "Inject the first failure and inspect admitted/completed work."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/scheduling/test_contract.py::test_stop_on_error_withholds_unadmitted_independent_and_group_work"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.activation_retry_stop_on_error.group_ordering",
+          "acceptance": "A numbered group failure prevents only its later orders while unrelated groups follow the scheduler contract.",
+          "preconditions": [
+            "Schedule multiple numbered groups with later orders.",
+            "Inject one group failure and inspect each group/order outcome."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/scheduling/test_contract.py::test_numbered_group_failure_only_stops_its_later_orders"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.activation_retry_stop_on_error.retry_attempts",
+          "acceptance": "A retryable exception records each attempt and exhaustion reports all attempts before terminal failure.",
+          "preconditions": [
+            "Configure a callable that fails through the retry limit.",
+            "Inspect attempt count, terminal status, and error history."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/test_driver.py::TestProcessDataflow::test_retry_on_exception",
+            "tests/unit/orchestration/test_driver.py::TestProcessDataflow::test_exhausted_retries_report_all_attempts"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.activation_retry_stop_on_error.startup_lifecycle",
+          "acceptance": "Startup emits lifecycle events around provider initialization and a provider startup failure persists failure without ready.",
+          "preconditions": [
+            "Configure a provider that succeeds and one that fails during startup.",
+            "Inspect ordered lifecycle events and persisted startup status."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/test_driver.py::TestDataCoolieDriverInit::test_startup_events_surround_provider_initialization",
+            "tests/unit/orchestration/test_driver.py::TestDataCoolieDriverInit::test_provider_startup_failure_persists_failure_without_ready"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.activation_retry_stop_on_error.streaming_recipe_gap",
+          "acceptance": "A supported streaming append runtime processes the declared source changes and records retry/stop outcomes for its ordered sequence.",
+          "preconditions": [
+            "Provide an implemented streaming runtime and executable sequence before attempting its activation/retry/stop qualification."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::streaming__append"
+          ],
+          "assertion_owners": [],
+          "coverage": "deferred",
+          "gap": "The streaming fixture has no supported execution recipe for its required platform; its activation outcome remains deferred.",
+          "next_action": "defer"
+        }
+      ]
+    },
+    {
+      "id": "execution.dry_run_startup_failure",
+      "intent": "dry run startup failure",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "coverage": "asserted",
+      "gap": "All 4 checklist branches have exact source-backed owners; case/profile qualification remains separate receipt evidence.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/execution/validate_dry_run.py",
+        "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_no_processing",
+        "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_validates_file_query_without_reader_or_secrets",
+        "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_missing_query_root_is_failed_validation",
+        "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py",
+        "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_validates_required_watermark_storage_without_state_io"
+      ],
+      "checks": [
+        {
+          "id": "execution.dry_run_startup_failure.dry_run_no_business_io",
+          "acceptance": "Dry-run validation emits the expected result while creating no business output or watermark state.",
+          "preconditions": [
+            "Invoke the local dry-run scenario with isolated output/state roots.",
+            "Inspect roots and the dry-run validator result."
+          ],
+          "case_ids": [
+            "local_polars_dry_run_query_file"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/execution/validate_dry_run.py",
+            "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_no_processing"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.dry_run_startup_failure.dry_run_preparation",
+          "acceptance": "Dry-run validates a file query without reader/secrets access and reports a missing query root as failed validation.",
+          "preconditions": [
+            "Invoke query-file dry-run with a valid and missing query root.",
+            "Inspect validation status and confirm source/secret I/O did not occur."
+          ],
+          "case_ids": [
+            "local_polars_dry_run_query_file"
+          ],
+          "assertion_owners": [
+            "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_validates_file_query_without_reader_or_secrets",
+            "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_missing_query_root_is_failed_validation"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.dry_run_startup_failure.startup_failure_logs",
+          "acceptance": "A startup failure emits session.starting and session.startup_failed, exactly one failed job snapshot, and no dataflow record.",
+          "preconditions": [
+            "Invoke the startup-failure scenario with isolated log roots.",
+            "Run the startup validator against session/job records."
+          ],
+          "case_ids": [
+            "local_polars_startup_failure"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "execution.dry_run_startup_failure.dry_run_state_validation",
+          "acceptance": "Dry-run validates required watermark storage without touching state or writers.",
+          "preconditions": [
+            "Configure a dry-run route requiring watermark storage.",
+            "Inspect validator result and unchanged state/writer roots."
+          ],
+          "case_ids": [
+            "local_polars_dry_run_query_file"
+          ],
+          "assertion_owners": [
+            "tests/unit/orchestration/test_driver.py::TestRunDataflowDryRun::test_dry_run_validates_required_watermark_storage_without_state_io"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/local_use_cases::streaming__append",
+      "behavior": "execution.activation_retry_stop_on_error",
+      "intent": "streaming__append: append using declared source/transform and destination",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/execution/local.json",
+          "flow": "streaming__append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `streaming__append` (stage `streaming_deferred`, mode `streaming`, is_active=False): source connection `local_csv_source`; table `sample`; destination connection `local_delta_dest`; table `orders_streaming`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "Flow(s) `streaming__append` have `is_active=false`; activation should record the skip and leave the declared destination unchanged.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "deferred",
+      "gap": "The declared route has no supported execution recipe for its required profile, so its observable outcome remains deferred.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "local_polars_startup_failure",
+      "behavior": "execution.dry_run_startup_failure",
+      "intent": "Malformed provider document fails at Driver startup before any dataflow runtime",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_startup_failure"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_startup_failure"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_startup_failure`; stage=`startup_failure`; metadata_path=`./usecase-sim/metadata/file/execution/startup_failure.json`; validator `usecase-sim/scripts/features/execution/validate_startup_failure_logs.py`; Malformed provider document fails at Driver startup before any dataflow runtime.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_startup_failure`, validator `usecase-sim/scripts/features/execution/validate_startup_failure_logs.py`."
+      ],
+      "expected": "Scenario `local_polars_startup_failure` fails during startup before any dataflow runtime and emits the declared session/job failure records.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_dry_run_query_file",
+      "behavior": "execution.dry_run_startup_failure",
+      "intent": "Dry-run resolves the SQL file and validates paths without reader/writer/watermark I/O",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+          "flow": "query_root_routing",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_dry_run_query_file"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_dry_run_query_file"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `query_root_routing` (stage `query_root_routing`, mode `unspecified`): source connection `query_contract_source`; query `queries/orders.sql`; destination connection `query_contract_destination`; table `orders_query_root`; load_type `overwrite`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_dry_run_query_file`, validator `usecase-sim/scripts/features/execution/validate_dry_run.py`, dry_run=true."
+      ],
+      "expected": "Scenario `local_polars_dry_run_query_file` resolves `queries/orders.sql` with `dry_run=true`; validation should emit the declared lifecycle records without business output, watermark writes, reader I/O, or writer I/O.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/execution/validate_dry_run.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

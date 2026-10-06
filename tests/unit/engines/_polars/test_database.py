@@ -16,6 +16,39 @@ from datacoolie.engines._polars.database import (
     read_database_oracle,
 )
 from datacoolie.engines.polars_engine import PolarsEngine
+from unittest.mock import MagicMock
+
+
+@pytest.mark.parametrize("setting", [False, "false", "FALSE", "FaLsE", None])
+def test_native_mssql_false_mapping_and_omitted_default(monkeypatch, setting):
+    connect = MagicMock()
+    cursor = connect.return_value.cursor.return_value
+    cursor.description = [("id",)]
+    cursor.fetchall.return_value = [(1,)]
+    monkeypatch.setitem(sys.modules, "pymssql", types.SimpleNamespace(connect=connect))
+    options = {"database_type": "mssql", "url": "mssql://user:password@localhost:1433/db"}
+    if setting is not None:
+        options["encrypt"] = setting
+    original = dict(options)
+    assert read_database(table="orders", query=None, options=options,
+                         driver_connection_keys={"encrypt"}).collect()["id"].to_list() == [1]
+    expected = dict(server="localhost", port=1433, user="user", password="password", database="db")
+    if setting is not None:
+        expected["encryption"] = "off"
+    connect.assert_called_once_with(**expected)
+    assert options == original
+
+
+@pytest.mark.parametrize("options", [{"encrypt": True}, {"encrypt": "true"}, {"encrypt": "strict"},
+    {"encrypt": 0}, {"encrypt": None}, {"encrypt": " false "}, {"encryption": "off"},
+    {"encrypt": False, "encryption": "require"}, {"encrypt": False, "trustServerCertificate": True}])
+def test_native_mssql_rejects_unsupported_before_connect(monkeypatch, options):
+    connect = MagicMock()
+    monkeypatch.setitem(sys.modules, "pymssql", types.SimpleNamespace(connect=connect))
+    with pytest.raises(EngineError, match="does not support"):
+        read_database_native("SELECT 1", db_type="mssql",
+                             connection_uri="mssql://user:password@localhost/db", **options)
+    connect.assert_not_called()
 
 
 @pytest.mark.parametrize(

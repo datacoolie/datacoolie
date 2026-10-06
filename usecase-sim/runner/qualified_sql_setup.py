@@ -11,7 +11,7 @@ from typing import Any, Callable
 USECASE_SIM_DIR = Path(__file__).resolve().parents[1]
 if str(USECASE_SIM_DIR) not in sys.path:
     sys.path.insert(0, str(USECASE_SIM_DIR))
-from runtime_paths import DATA_DIR  # noqa: E402
+from runner.runtime_paths import DATA_DIR  # noqa: E402
 
 
 DELTA_FIXTURE_ROOT = (

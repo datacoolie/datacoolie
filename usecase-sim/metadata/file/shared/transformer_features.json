@@ -1,0 +1,24 @@
+{
+  "connections": [
+    {
+      "name": "transform_features_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/transform_features"
+      }
+    },
+    {
+      "name": "transform_features_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    }
+  ],
+  "schema_hints": []
+}

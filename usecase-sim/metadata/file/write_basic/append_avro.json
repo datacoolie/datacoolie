@@ -1,0 +1,36 @@
+{
+  "connections": [
+    {
+      "name": "flat_append_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "flat_append_avro_destination",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "flat-append-avro",
+      "stage": "flat_append_avro",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "flat_append_source",
+        "table": "source"
+      },
+      "destination": {
+        "connection_name": "flat_append_avro_destination",
+        "table": "target",
+        "load_type": "append"
+      }
+    }
+  ]
+}

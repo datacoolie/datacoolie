@@ -1,0 +1,295 @@
+{
+  "shared_metadata": "metadata/file/shared/aws.json",
+  "dataflows": [
+    {
+      "name": "aws_read__csv",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_csv",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__json",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_json",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__jsonl",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_jsonl_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__parquet",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_parquet",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__avro",
+      "stage": "aws_read_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_avro_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_avro",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__delta",
+      "stage": "aws_read_lakehouse",
+      "group_number": 2,
+      "execution_order": 100,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_delta",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read__iceberg",
+      "stage": "aws_read_lakehouse",
+      "group_number": 3,
+      "execution_order": 101,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_from_json"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_iceberg",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_db__sqlite",
+      "stage": "aws_read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "table": "orders"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_sqlite",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_db__postgres",
+      "stage": "aws_read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_postgres_source",
+        "table": "source_orders"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_postgres",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_python_fn__delta_sql",
+      "stage": "aws_source_python_fn",
+      "group_number": 2,
+      "execution_order": 102,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "table": "orders_appended",
+        "python_function": "functions.sources.sql_query_orders"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_sql_result",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_python_fn__iceberg_sql",
+      "stage": "aws_source_python_fn",
+      "group_number": 3,
+      "execution_order": 103,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "table": "orders_overwritten",
+        "python_function": "functions.sources.sql_query_orders_iceberg"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_sql_result_iceberg",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_python_fn__custom_load",
+      "stage": "aws_source_python_fn",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "table": "sample",
+        "python_function": "functions.sources.load_orders_custom"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_function",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_hive_partition__source",
+      "stage": "aws_hive_partition_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_hive_src",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_hive",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_db__sqlite_query",
+      "stage": "aws_read_database",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "query": "SELECT order_id, order_date, amount FROM orders WHERE amount > 100"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_sqlite_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_delta__query",
+      "stage": "aws_read_lakehouse",
+      "group_number": 2,
+      "execution_order": 105,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended",
+        "query": "SELECT order_id, amount, region FROM orders_appended WHERE region = 'US-East'"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_delta_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_delta__scd2",
+      "stage": "aws_read_lakehouse",
+      "group_number": 2,
+      "execution_order": 106,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_scd2"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_delta_scd2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_iceberg__query",
+      "stage": "aws_read_lakehouse",
+      "group_number": 3,
+      "execution_order": 108,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_function_src",
+        "python_function": "functions.sources.read_iceberg_orders_query"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_iceberg_query",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_read_iceberg__scd2",
+      "stage": "aws_read_lakehouse",
+      "group_number": 3,
+      "execution_order": 109,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_scd2"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_read_iceberg_scd2",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

@@ -1,0 +1,856 @@
+{
+  "group": "merge",
+  "behaviors": [
+    {
+      "id": "merge.existing_new_keys_rerun",
+      "intent": "existing new keys rerun",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_merge.py::validate",
+        "tests/unit/destinations/test_load_strategies.py::TestMergeUpsertStrategy::test_execute_new_table",
+        "tests/unit/destinations/test_load_strategies.py::TestMergeUpsertStrategy::test_no_merge_keys_raises",
+        "tests/unit/destinations/test_load_strategies.py::test_probe_error_aborts_without_downstream_mutation",
+        "usecase-sim/scripts/features/merge/validate_composite_keys.py::validate",
+        "usecase-sim/scripts/features/merge/validate_custom_predicate.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "merge.existing_new_keys_rerun.upsert_insert_update_tail",
+          "acceptance": "Upsert updates an existing key, inserts a new key, and preserves an unrelated target row with exact values.",
+          "preconditions": [
+            "Seed old and untouched keys; supply one changed and one new key."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert",
+            "metadata/file/baseline/local_use_cases::load_delta__merge_upsert",
+            "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert",
+            "local_polars_merge_stateful",
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert_no_watermark",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert_no_watermark",
+            "metadata/file/baseline/local_use_cases::load_delta__merge_upsert_no_watermark",
+            "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert_no_watermark"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/merge/validate_merge.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.existing_new_keys_rerun.upsert_rerun",
+          "acceptance": "Replaying identical incoming rows leaves one row per merge key and preserves the untouched tail.",
+          "preconditions": [
+            "Run the same key-based native Delta upsert twice."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert",
+            "metadata/file/baseline/local_use_cases::load_delta__merge_upsert",
+            "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert",
+            "local_polars_merge_stateful",
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert_no_watermark",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert_no_watermark",
+            "metadata/file/baseline/local_use_cases::load_delta__merge_upsert_no_watermark",
+            "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert_no_watermark"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/merge/validate_merge.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.existing_new_keys_rerun.bootstrap_target",
+          "acceptance": "Upsert on an absent target invokes exactly one fallback write and zero existing-table merge calls.",
+          "preconditions": [
+            "Probe target as absent and provide merge keys."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert",
+            "metadata/file/baseline/local_use_cases::load_delta__merge_upsert",
+            "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert",
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert_no_watermark",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert_no_watermark",
+            "metadata/file/baseline/local_use_cases::load_delta__merge_upsert_no_watermark",
+            "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert_no_watermark"
+          ],
+          "assertion_owners": [
+            "tests/unit/destinations/test_load_strategies.py::TestMergeUpsertStrategy::test_execute_new_table"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.existing_new_keys_rerun.required_keys",
+          "acceptance": "Upsert with missing merge keys raises and invokes no write, merge or delete mutation.",
+          "preconditions": [
+            "Declare merge_upsert with an empty merge_keys list."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_load_strategies.py::TestMergeUpsertStrategy::test_no_merge_keys_raises"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.existing_new_keys_rerun.probe_failure",
+          "acceptance": "A target existence probe error aborts without merge/delete/write mutation.",
+          "preconditions": [
+            "Make the target existence probe raise instead of returning present/absent."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_load_strategies.py::test_probe_error_aborts_without_downstream_mutation"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.existing_new_keys_rerun.composite_business_keys",
+          "acceptance": "Bootstrap, merge and rerun the same configured [id,tenant] flow; update only 1/A, retain 1/B and tail, insert 2/A and retain exactly one row per composite key.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_merge_composite_keys"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/merge/validate_composite_keys.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local delta.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.existing_new_keys_rerun.custom_match_predicate",
+          "acceptance": "Bootstrap, merge and rerun the same flow with aliases s/t and predicate t.id = s.id AND t.scope = s.scope; exact output distinguishes scope-specific matching from default id-only.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_merge_custom_predicate"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/merge/validate_custom_predicate.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local delta.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    },
+    {
+      "id": "merge.replacement_window_preserves_tail",
+      "intent": "replacement window preserves tail",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/integration/runtime/test_native_window_replace.py::test_polars_delta_replace_window_preserves_out_of_window_rows",
+        "tests/integration/runtime/test_native_window_replace.py::test_driver_delta_replace_keeps_requested_upper_and_is_stable_on_rerun",
+        "tests/integration/runtime/test_native_window_replace.py::test_driver_delta_typed_empty_replaces_requested_window_without_observed_max",
+        "tests/unit/destinations/test_load_strategies.py::TestMergeOverwriteReplaceByWatermark::test_falls_back_to_key_based_when_no_window"
+      ],
+      "checks": [
+        {
+          "id": "merge.replacement_window_preserves_tail.window_replace_preserves_tail",
+          "acceptance": "Replacing a bounded target window removes replaced rows and keeps out-of-window rows exactly.",
+          "preconditions": [
+            "Seed rows inside and outside a typed replay window."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/integration/runtime/test_native_window_replace.py::test_polars_delta_replace_window_preserves_out_of_window_rows"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.replacement_window_preserves_tail.requested_bounds_rerun",
+          "acceptance": "Normal Driver replacement uses the requested upper bound and remains stable on rerun.",
+          "preconditions": [
+            "Run native Delta window replacement twice with explicit request bounds."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/integration/runtime/test_native_window_replace.py::test_driver_delta_replace_keeps_requested_upper_and_is_stable_on_rerun"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.replacement_window_preserves_tail.typed_empty_window",
+          "acceptance": "A bounded typed-empty source skips writing and preserves target rows, Delta commit files and watermark state without an observed maximum.",
+          "preconditions": [
+            "Seed target and state, request a valid bounded window, and return a typed-empty frame; capture target/log/state before and after."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/integration/runtime/test_native_window_replace.py::test_driver_delta_typed_empty_replaces_requested_window_without_observed_max"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "merge.replacement_window_preserves_tail.key_fallback",
+          "acceptance": "When no watermark window is present, merge-overwrite dispatches its key-based replacement path.",
+          "preconditions": [
+            "Declare merge_overwrite with merge keys and no SourceWindow."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_load_strategies.py::TestMergeOverwriteReplaceByWatermark::test_falls_back_to_key_based_when_no_window"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "aws_load_delta__merge_upsert: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "flow": "aws_load_delta__merge_upsert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_merge_upsert.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "aws_load_delta__merge_upsert: upsert at aws_delta_dest/orders_merge_upsert updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_overwrite",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "aws_load_delta__merge_overwrite: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "flow": "aws_load_delta__merge_overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_merge_overwrite.",
+        "Seed rows inside and outside the configured replacement keys/window; supply valid typed bounds for a watermark-driven branch."
+      ],
+      "expected": "aws_load_delta__merge_overwrite: replacement at aws_delta_dest/orders_merge_overwrite replaces the configured key/window scope and preserves its outside rows; check merge_keys=['order_date'] and requested bounds. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "aws_load_iceberg__merge_upsert: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "flow": "aws_load_iceberg__merge_upsert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_merge_upsert.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "aws_load_iceberg__merge_upsert: upsert at aws_iceberg_dest/orders_merge_upsert updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_overwrite",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "aws_load_iceberg__merge_overwrite: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "flow": "aws_load_iceberg__merge_overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_merge_overwrite.",
+        "Seed rows inside and outside the configured replacement keys/window; supply valid typed bounds for a watermark-driven branch."
+      ],
+      "expected": "aws_load_iceberg__merge_overwrite: replacement at aws_iceberg_dest/orders_merge_overwrite replaces the configured key/window scope and preserves its outside rows; check merge_keys=['order_date'] and requested bounds. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}, {\"column\": \"order_month\", \"expression\": \"EXTRACT(MONTH FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__merge_upsert",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_delta__merge_upsert: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_merge_upsert.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "load_delta__merge_upsert: upsert at local_delta_dest/orders_merge_upsert updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__merge_overwrite",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_delta__merge_overwrite: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_merge_overwrite.",
+        "Seed rows inside and outside the configured replacement keys/window; supply valid typed bounds for a watermark-driven branch."
+      ],
+      "expected": "load_delta__merge_overwrite: replacement at local_delta_dest/orders_merge_overwrite replaces the configured key/window scope and preserves its outside rows; check merge_keys=['order_date'] and requested bounds. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_iceberg__merge_upsert: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_merge_a9_iceberg_baseline"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_merge_a9_iceberg_baseline"
+      ],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_merge_upsert.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "load_iceberg__merge_upsert: upsert at local_iceberg_dest/orders_merge_upsert updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_iceberg_baseline.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Required native Polars REST exact branch/history oracle; Spark/Iceberg optional profile remains unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__merge_overwrite",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_iceberg__merge_overwrite: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_merge_overwrite.",
+        "Seed rows inside and outside the configured replacement keys/window; supply valid typed bounds for a watermark-driven branch."
+      ],
+      "expected": "load_iceberg__merge_overwrite: replacement at local_iceberg_dest/orders_merge_overwrite replaces the configured key/window scope and preserves its outside rows; check merge_keys=['order_date'] and requested bounds. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}, {\"column\": \"order_month\", \"expression\": \"EXTRACT(MONTH FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__merge_overwrite_rbw",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_delta__merge_overwrite_rbw: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite_rbw",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_merge_overwrite_rbw.",
+        "Seed rows inside and outside the configured replacement keys/window; supply valid typed bounds for a watermark-driven branch."
+      ],
+      "expected": "load_delta__merge_overwrite_rbw: replacement at local_delta_dest/orders_merge_overwrite_rbw replaces the configured key/window scope and preserves its outside rows; check merge_keys=['order_date'] and requested bounds. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__merge_overwrite_rbw",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_iceberg__merge_overwrite_rbw: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite_rbw",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_merge_overwrite_rbw.",
+        "Seed rows inside and outside the configured replacement keys/window; supply valid typed bounds for a watermark-driven branch."
+      ],
+      "expected": "load_iceberg__merge_overwrite_rbw: replacement at local_iceberg_dest/orders_merge_overwrite_rbw replaces the configured key/window scope and preserves its outside rows; check merge_keys=['order_date'] and requested bounds. Reconcile partition directories and values for [{\"column\": \"order_year\", \"expression\": \"EXTRACT(YEAR FROM order_date)\"}, {\"column\": \"order_month\", \"expression\": \"EXTRACT(MONTH FROM order_date)\"}]. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_merge_stateful",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "Focused native Delta merge state sequence",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/merge.json",
+          "flow": "merge-seed",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/merge.json",
+          "flow": "merge-upsert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_merge_stateful"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_merge_stateful"
+      ],
+      "preconditions": [
+        "Local Polars/Delta-rs installed. Validator allocates fresh case-owned data, state and receipt roots; shared framework logs selected by current job/session.",
+        "Fixture placeholder __CASE_ROOT__ is materialized only by the declared validator; do not dispatch authored template directly."
+      ],
+      "expected": "Seed old key and untouched tail, upsert changed/new keys, repeated merge keeps exact rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_merge.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Representative host-local native Delta profile only. Additional engines/backends need independent qualification if behavior differs.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__merge_upsert_no_watermark",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "aws_load_delta__merge_upsert_no_watermark: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "flow": "aws_load_delta__merge_upsert_no_watermark",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_delta_dest/orders_merged_nwm.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "aws_load_delta__merge_upsert_no_watermark: upsert at aws_delta_dest/orders_merged_nwm updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__merge_upsert_no_watermark",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "aws_load_iceberg__merge_upsert_no_watermark: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "flow": "aws_load_iceberg__merge_upsert_no_watermark",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_merged_nwm.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "aws_load_iceberg__merge_upsert_no_watermark: upsert at aws_iceberg_dest/orders_merged_nwm updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__merge_upsert_no_watermark",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_delta__merge_upsert_no_watermark: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert_no_watermark",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_delta_dest/orders_merged_nwm.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "load_delta__merge_upsert_no_watermark: upsert at local_delta_dest/orders_merged_nwm updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__merge_upsert_no_watermark",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "load_iceberg__merge_upsert_no_watermark: merge_upsert using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert_no_watermark",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_merged_nwm.",
+        "Seed existing and untouched keys; supply changed and new keys under the configured merge key."
+      ],
+      "expected": "load_iceberg__merge_upsert_no_watermark: upsert at local_iceberg_dest/orders_merged_nwm updates existing keys, inserts new keys and preserves unrelated rows under merge_keys=['order_id']. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "local_polars_merge_composite_keys",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "Focused composite_business_keys through normal host-local Driver",
+      "contract": "src/datacoolie/engines/_polars/delta.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/composite_keys.json",
+          "flow": "merge-composite-keys",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_merge_composite_keys"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_merge_composite_keys"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Bootstrap, merge and rerun the same configured [id,tenant] flow; update only 1/A, retain 1/B and tail, insert 2/A and retain exactly one row per composite key.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_composite_keys.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local delta; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_merge_custom_predicate",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "Focused custom_match_predicate through normal host-local Driver",
+      "contract": "src/datacoolie/engines/_polars/delta.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/custom_predicate.json",
+          "flow": "merge-custom-predicate",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_merge_custom_predicate"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_merge_custom_predicate"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Bootstrap, merge and rerun the same flow with aliases s/t and predicate t.id = s.id AND t.scope = s.scope; exact output distinguishes scope-specific matching from default id-only.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_custom_predicate.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local delta; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_merge_a9_iceberg_schema",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "Seed lacks new field; normal Driver transactional merge persists exact union schema field IDs/types, old null, new values and untouched tail.",
+      "contract": "src/datacoolie/engines/_polars/iceberg/operations.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/a9_iceberg_schema_merge.json",
+          "flow": "a9-iceberg-schema-merge",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_merge_a9_iceberg_schema"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_merge_a9_iceberg_schema"
+      ],
+      "preconditions": [
+        "Local Docker PostgreSQL/MinIO/Iceberg REST reachable; installed PyIceberg/native Arrow.",
+        "Create fresh namespace/table with declared old schema/spec; normal Driver owns feature write."
+      ],
+      "expected": "Seed lacks new field; normal Driver transactional merge persists exact union schema field IDs/types, old null, new values and untouched tail.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_iceberg_schema_merge.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Native REST Polars profile; runtime qualification separate and Spark optional.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_merge_a9_iceberg_partition",
+      "behavior": "merge.existing_new_keys_rerun",
+      "intent": "Existing field configured as partition triggers spec change without simultaneous business-column evolution; exact rows/tail and native spec reload/rerun.",
+      "contract": "src/datacoolie/engines/_polars/iceberg/operations.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/merge/a9_iceberg_partition_change.json",
+          "flow": "a9-iceberg-partition-change",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_merge_a9_iceberg_partition"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_merge_a9_iceberg_partition"
+      ],
+      "preconditions": [
+        "Local Docker PostgreSQL/MinIO/Iceberg REST reachable; installed PyIceberg/native Arrow.",
+        "Create fresh namespace/table with declared old schema/spec; normal Driver owns feature write."
+      ],
+      "expected": "Existing field configured as partition triggers spec change without simultaneous business-column evolution; exact rows/tail and native spec reload/rerun.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/merge/validate_iceberg_partition_change.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Native REST Polars profile; runtime qualification separate and Spark optional.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

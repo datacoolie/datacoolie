@@ -1,0 +1,57 @@
+{
+  "connections": [
+    {
+      "name": "maintenance_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {"base_path": "__CASE_ROOT__/input"}
+    },
+    {
+      "name": "maintenance_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {"base_path": "__CASE_ROOT__/output"}
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "maintenance-eligible",
+      "stage": "maintenance_eligible",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_destination",
+        "table": "eligible",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "maintenance-protected",
+      "stage": "maintenance_protected",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_destination",
+        "table": "protected",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "maintenance-missing",
+      "stage": "maintenance_missing",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_destination",
+        "table": "missing",
+        "load_type": "append"
+      }
+    }
+  ]
+}

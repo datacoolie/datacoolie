@@ -286,6 +286,17 @@ def read_database_native(
     if batch_size is None:
         batch_size = kwargs.pop("fetchsize", None)
     infer_schema_length = kwargs.pop("infer_schema_length", None)
+    native_connection_options: Dict[str, Any] = {}
+    if db_type in (DatabaseType.MSSQL, "mssql") and "encrypt" in kwargs:
+        encrypt = kwargs.pop("encrypt")
+        if encrypt is not False and not (
+            isinstance(encrypt, str) and encrypt.lower() == "false"
+        ):
+            raise EngineError(
+                "Native Polars database reading does not support encrypt values other than false"
+            )
+        # Native aliases remain in kwargs and reject before connect.
+        native_connection_options["encryption"] = "off"
     if kwargs:
         raise EngineError(
             "Native Polars database reading does not support these options",
@@ -311,6 +322,7 @@ def read_database_native(
                 user=user,
                 password=password,
                 database=database,
+                **native_connection_options,
             )
         elif db_type in (DatabaseType.POSTGRESQL, "postgresql"):
             import psycopg2  # noqa: PLC0415

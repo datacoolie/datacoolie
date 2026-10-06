@@ -6,12 +6,15 @@ import re as re_mod
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import polars as pl
 import pytest
 
 from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY, Format
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
+from datacoolie.engines.polars_engine import PolarsEngine
+from datacoolie.platforms.local_platform import LocalPlatform
 from datacoolie.sources.file_reader import FileReader, FileInfo, FileInfoColumn
 from datacoolie.sources.contracts import SourceReadRange
 
@@ -36,7 +39,57 @@ class TestFileReader:
     def test_read_csv(self, engine: MockEngine, file_source_csv: Source) -> None:
         reader = FileReader(engine)
         result = reader.read(file_source_csv, request=read_request())
-        assert result is not None
+        assert result.frame is not None
+        assert result.rows_read == 3
+        assert result.frame["id"] == [1, 2, 3]
+        assert result.frame["value"] == [10, 20, 30]
+
+    def test_read_existing_flat_output_replaces_historical_file_info(
+        self, tmp_path
+    ) -> None:
+        source_dir = tmp_path / "roundtrip"
+        source_dir.mkdir()
+        source_file = source_dir / "output.csv"
+        pl.DataFrame(
+            {
+                "id": [1, 2],
+                "payload": ["a", "b"],
+                "__file_path": ["historical/a", "historical/b"],
+                "__file_name": ["old-a", "old-b"],
+                "__file_modification_time": ["2020-01-01", "2020-01-02"],
+                "__created_at": ["created-a", "created-b"],
+            }
+        ).write_csv(source_file)
+
+        platform = LocalPlatform()
+        source = Source(
+            connection=Connection(
+                name="roundtrip_csv",
+                connection_type="file",
+                format=Format.CSV.value,
+                configure={"base_path": str(tmp_path)},
+            ),
+            table="roundtrip",
+        )
+        result = FileReader(PolarsEngine(platform=platform)).read(
+            source,
+            request=read_request(),
+        )
+
+        assert result.frame is not None
+        frame = result.frame.collect()
+        assert frame.select("id", "payload", "__created_at").to_dicts() == [
+            {"id": "1", "payload": "a", "__created_at": "created-a"},
+            {"id": "2", "payload": "b", "__created_at": "created-b"},
+        ]
+        file_info = platform.list_files(str(source_dir), extension=".csv")[0]
+        assert frame["__file_path"].to_list() == [file_info.path, file_info.path]
+        assert frame["__file_name"].to_list() == [file_info.name, file_info.name]
+        assert frame["__file_modification_time"].to_list() == [
+            file_info.modification_time,
+            file_info.modification_time,
+        ]
+        assert "__file_path_right" not in frame.columns
 
     def test_read_no_path_raises(self, engine: MockEngine) -> None:
         conn = Connection(name="bad", connection_type="file", format="parquet", configure={})
@@ -72,7 +125,10 @@ class TestFileReader:
         src = Source(connection=conn, schema_name="events", table="logs")
         reader = FileReader(engine)
         result = reader.read(src, request=read_request())
-        assert result is not None
+        assert result.frame is not None
+        assert result.rows_read == 3
+        assert result.frame["id"] == [1, 2, 3]
+        assert result.frame["value"] == [10, 20, 30]
 
     def test_read_excel(self, engine: MockEngine) -> None:
         conn = Connection(
@@ -298,6 +354,58 @@ class TestFileReaderDateFolders:
         assert "/data/base/2024/03" in paths
         assert "/data/base/2024/01" not in paths
 
+    def test_get_date_folder_paths_keeps_each_inclusive_boundary_and_interior(
+        self, engine: MockEngine
+    ) -> None:
+        platform = MagicMock()
+        platform.list_folders.side_effect = [
+            ["/data/base/2023", "/data/base/2024", "/data/base/2025"],
+            ["/data/base/2024/01", "/data/base/2024/02"],
+            [
+                "/data/base/2024/01/14",
+                "/data/base/2024/01/15",
+                "/data/base/2024/01/16",
+                "/data/base/2024/01/17",
+                "/data/base/2024/01/18",
+            ],
+        ]
+        engine.set_platform(platform)
+        reader = FileReader(engine)
+
+        paths = reader._get_date_folder_paths(
+            "/data/base",
+            "{year}/{month}/{day}",
+            watermark_start=datetime(2024, 1, 15, tzinfo=timezone.utc),
+            watermark_end=datetime(2024, 1, 17, tzinfo=timezone.utc),
+        )
+
+        assert paths == [
+            "/data/base/2024/01/15",
+            "/data/base/2024/01/16",
+            "/data/base/2024/01/17",
+        ]
+
+    def test_get_date_folder_paths_returns_empty_when_matching_folders_are_outside_bounds(
+        self, engine: MockEngine
+    ) -> None:
+        platform = MagicMock()
+        platform.list_folders.side_effect = [
+            ["/data/base/2024"],
+            ["/data/base/2024/01"],
+            ["/data/base/2024/01/14", "/data/base/2024/01/18"],
+        ]
+        engine.set_platform(platform)
+        reader = FileReader(engine)
+
+        paths = reader._get_date_folder_paths(
+            "/data/base",
+            "{year}/{month}/{day}",
+            watermark_start=datetime(2024, 1, 15, tzinfo=timezone.utc),
+            watermark_end=datetime(2024, 1, 17, tzinfo=timezone.utc),
+        )
+
+        assert paths == []
+
     def test_get_date_folder_paths_skips_non_matching_folder_names(self, engine: MockEngine) -> None:
         platform = MagicMock()
         platform.list_folders.side_effect = [
@@ -390,6 +498,12 @@ class TestFileReaderMtimeFilter:
                 size=100,
             ),
             FileInfo(
+                name="lower.parquet",
+                path="/data/events/lower.parquet",
+                modification_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                size=150,
+            ),
+            FileInfo(
                 name="selected.parquet",
                 path="/data/events/selected.parquet",
                 modification_time=datetime(2024, 1, 15, tzinfo=timezone.utc),
@@ -421,12 +535,48 @@ class TestFileReaderMtimeFilter:
         )
 
         assert result is not None
-        assert engine.read.call_args.kwargs["path"] == "/data/events/selected.parquet"
+        assert engine.read.call_args.kwargs["path"] == [
+            "/data/events/lower.parquet", "/data/events/selected.parquet"
+        ]
         assert platform.list_files.call_args.kwargs["extension"] == ".parquet"
         assert (
             result.candidate is None
             or FileInfoColumn.FILE_MODIFICATION_TIME not in result.candidate.values
         )
+
+    def test_bounded_mtime_range_returns_empty_when_all_files_are_outside_bounds(self) -> None:
+        files = [
+            FileInfo(
+                name="before.parquet",
+                path="/data/events/before.parquet",
+                modification_time=datetime(2023, 12, 31, tzinfo=timezone.utc),
+                size=100,
+            ),
+            FileInfo(
+                name="after.parquet",
+                path="/data/events/after.parquet",
+                modification_time=datetime(2024, 2, 1, tzinfo=timezone.utc),
+                size=300,
+            ),
+        ]
+        platform = _make_mock_platform(files)
+        engine = self._engine_with_platform(platform)
+        engine.read = MagicMock(return_value=engine._data)
+
+        result = FileReader(engine).read(
+            _make_file_source(),
+            request=read_request(
+                read_range=SourceReadRange(
+                    FileInfoColumn.FILE_MODIFICATION_TIME,
+                    datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    datetime(2024, 2, 1, tzinfo=timezone.utc),
+                )
+            ),
+        )
+
+        assert result.frame is None
+        assert result.rows_read == 0
+        engine.read.assert_not_called()
 
     def test_read_no_mtime_watermark_column_skips_filtering(self) -> None:
         """For non-Spark engines, list_files is always called (needed for add_file_info_columns).

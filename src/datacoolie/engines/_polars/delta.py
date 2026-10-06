@@ -424,5 +424,7 @@ def cleanup(
 ) -> None:
     table = delta_table_cls(path, storage_options=storage_options or None)
     table.vacuum(
-        retention_hours=retention_hours, enforce_retention_duration=False
+        retention_hours=retention_hours,
+        dry_run=False,
+        enforce_retention_duration=False,
     )

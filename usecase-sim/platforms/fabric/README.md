@@ -1,82 +1,41 @@
-# Fabric Assets for usecase-sim
+# Fabric platform smoke
 
-## Before using these larger scenarios
+This folder checks representative execution on the real fabric platform.
+Full feature/format/merge/schema/replay matrices belong to local simulation.
+Passing local tests does not qualify cloud storage, catalog, credentials or runtime.
 
-For a small first run, use the public [platform smoke guide](../../../docs/examples/runners.md#platform-smoke) and its complete download. These simulator assets are a separate, broader scenario set. Prepare the generated input described in [the simulator README](../../README.md), then upload it to each source connection's configured path.
+[fabric_use_cases.json](fabric_use_cases.json) is the only metadata source
+for this platform smoke. It is ordinary framework JSON: upload it directly;
+no composition, shared documents or generation step is needed.
 
-Replace the complete set of values before executing: runner metadata/log/watermark roots **and** every metadata connection's input/output `base_path`, catalog/database namespace, region and optional secret references. A runner root variable does not rewrite business metadata. Choose sandbox destinations: overwrite/maintenance stages can alter existing data. Install a matching DataCoolie release or checkout wheel and the selected engine/format dependencies. The public platform guide owns current host bootstrap/session configuration.
+The smoke runs this ordered chain:
 
+1. `read__csv`: read sample CSV and write Parquet.
+2. `load_delta__overwrite`: overwrite a dedicated Delta smoke table.
+3. `read__delta`: read that table back to Parquet.
 
-Prepared Fabric assets for file + delta scenarios.
+All target tables start with `platform_smoke_`. Configure their destinations
+before running; repeated runs overwrite only those configured smoke targets.
+Keep `STAGE = ""` to run the complete chain including readback. Individual stage
+selection requires the upstream target to have been created first.
 
-This folder provides metadata and notebook code samples you can use in a
-Microsoft Fabric environment. Full usecase-sim runner integration is still
-deferred, so these assets are intended for direct notebook execution.
+## Run
 
-## What is in this folder
+Use the [public platform setup guide](../../../docs/examples/runners.md#platform-smoke)
+for compatible runtime/bootstrap instructions. Attach an accessible Lakehouse, configure ROOT_PATH and run the Spark or Polars notebook. The database SQL notebook is an optional provider example, separate from the file-metadata smoke.
 
-- `fabric_use_cases.json`:
-  - Near-full clone of `metadata/file/baseline/local_use_cases.json`.
-  - Constrained to file + delta flows only.
-  - Rewritten to OneLake ABFSS paths.
-- `sample_fabric_spark.ipynb`:
-  - Primary sample for Fabric notebooks using `SparkEngine`.
-- `sample_fabric_polars.ipynb`:
-  - Secondary sample using `PolarsEngine` with `FabricPlatform`.
+1. Update every connection input/output path in `fabric_use_cases.json`.
+2. Upload the generated sample CSV (`.runtime/data/input/csv/sample`) to the CSV
+   connection's configured `base_path`, retaining the `sample` table path.
+3. Upload `fabric_use_cases.json` to the metadata path configured by the runner.
+4. Execute the complete smoke chain with the selected engine.
+5. Confirm no failed flows, inspect Parquet outputs and reconcile row IDs/values
+   against the CSV. A successful exit alone is smoke evidence, not feature coverage.
 
-## OneLake path convention used
+Entrypoints:
 
-- Files root:
-  - `abfss://DataCoolie_DEV_WS@onelake.dfs.fabric.microsoft.com/lh_bronze.Lakehouse/Files`
-- Delta tables root:
-  - `abfss://DataCoolie_DEV_WS@onelake.dfs.fabric.microsoft.com/lh_bronze.Lakehouse/Tables`
+- [sample_fabric_spark.ipynb](sample_fabric_spark.ipynb)
+- [sample_fabric_polars.ipynb](sample_fabric_polars.ipynb)
+- [sample_fabric_database_sql.ipynb](sample_fabric_database_sql.ipynb)
 
-The metadata sets delta `schema_name` to `demo`, so table paths resolve as:
-
-- `.../Tables/demo/<table>`
-
-## Prerequisites
-
-1. Fabric workspace + lakehouse available.
-2. Notebook kernel has DataCoolie installed (`datacoolie` is preferred in native Fabric).
-3. Input files uploaded under the lakehouse Files input folders used in the
-   metadata (for example `Files/input/csv`, `Files/input/parquet`, etc.).
-4. Metadata file available to the notebook path you configure.
-
-## Quick start (Spark sample, recommended)
-
-1. Open a Fabric notebook.
-2. Upload or copy `fabric_use_cases.json` to a notebook-accessible path.
-3. Open `sample_fabric_spark.ipynb`.
-4. Attach a Lakehouse to the notebook.
-5. Set `METADATA_PATH` in the script.
-6. Run with `STAGE = "read_file,load_delta"` first.
-
-Expected outcome:
-
-- File inputs are read from `Files/input/...`.
-- Delta outputs are written under `Tables/demo/...`.
-
-## Polars sample note
-
-The Polars sample is provided for parity. Spark is the primary path in Fabric
-notebooks. Depending on workspace packaging and ABFSS credential behavior,
-Polars delta operations may require extra `storage_options`.
-
-## Scope boundary
-
-- Prepared here:
-  - Fabric metadata and notebook samples.
-- Still deferred in usecase-sim runner stack:
-  - `run.py` / `run_scenario.py` `--platform fabric` wiring.
-
-## Running platform I/O outside Fabric
-
-Install `datacoolie[fabric-external]` and keep the qualified OneLake ABFSS paths shown
-above. `FabricPlatform()` automatically uses Azure SDK clients and
-`DefaultAzureCredential` when NotebookUtils is unavailable. The checked-in
-notebooks continue to prefer NotebookUtils when they run inside Fabric.
-
-This portability applies to `FabricPlatform` file and Key Vault operations.
-Engine-specific Spark or Polars storage authentication is configured by the
-engine, not by the platform.
+Live platform qualification remains deferred until the declared engine/runtime and persisted outputs are verified. See [DEFERRED.md](DEFERRED.md).

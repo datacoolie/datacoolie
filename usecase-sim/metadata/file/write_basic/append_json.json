@@ -1,0 +1,36 @@
+{
+  "connections": [
+    {
+      "name": "flat_append_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "flat_append_json_destination",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "flat-append-json",
+      "stage": "flat_append_json",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "flat_append_source",
+        "table": "source"
+      },
+      "destination": {
+        "connection_name": "flat_append_json_destination",
+        "table": "target",
+        "load_type": "append"
+      }
+    }
+  ]
+}

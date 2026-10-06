@@ -1,0 +1,334 @@
+{
+  "group": "logging",
+  "behaviors": [
+    {
+      "id": "logging.snapshot_batch_records",
+      "intent": "snapshot batch records",
+      "contract": "src/datacoolie/logging/execution_logger.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+        "tests/unit/logging/test_logging_v6.py::test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_run_attributes_are_strict_and_detached",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_execution_snapshot_writes_job_and_dataflow_json",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_activation_writes_running_job_snapshot_before_work",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_execution_batch_uses_part_files_and_upload_only",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_system_logger_uses_shared_json_writer"
+      ],
+      "checks": [
+        {
+          "id": "logging.snapshot_batch_records.v6_identity_terminal",
+          "acceptance": "Each terminal v6 dataflow/job record carries required identity and terminal status and validates against the schema.",
+          "preconditions": [
+            "Run the local runtime log scenario through terminal success.",
+            "Validate every emitted v6 record against schema and identity."
+          ],
+          "case_ids": [
+            "local_polars_runtime_log_contract",
+            "local_polars_logging_batch"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+            "tests/unit/logging/test_logging_v6.py::test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.snapshot_batch_records.source_query_attributes",
+          "acceptance": "Runtime records preserve source selection/action, source query, run attributes, and identity without leaking removed root fields.",
+          "preconditions": [
+            "Run the artifact query route with deterministic source selection.",
+            "Inspect dataflow/job snapshots and compare source/run attributes."
+          ],
+          "case_ids": [
+            "local_polars_runtime_log_contract"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_run_attributes_are_strict_and_detached"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.snapshot_batch_records.attempts_and_metrics",
+          "acceptance": "The terminal dataflow includes attempt history and metrics with the declared v6 nested structure.",
+          "preconditions": [
+            "Run a route that emits one terminal attempt and metrics.",
+            "Validate attempt/status/metric fields in persisted records."
+          ],
+          "case_ids": [
+            "local_polars_runtime_log_contract",
+            "local_polars_logging_batch"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+            "tests/unit/logging/test_logging_v6.py::test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.snapshot_batch_records.snapshot_persistence",
+          "acceptance": "Snapshot mode writes expected job and dataflow JSON records and activation writes a running job snapshot before work.",
+          "preconditions": [
+            "Run the snapshot-mode logging route.",
+            "Inspect job/dataflow files and creation order."
+          ],
+          "case_ids": [
+            "local_polars_runtime_log_contract"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_execution_snapshot_writes_job_and_dataflow_json",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_activation_writes_running_job_snapshot_before_work"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.snapshot_batch_records.batch_persistence",
+          "acceptance": "Batch-mode logging persists immutable part files with the expected line count and declared record layout.",
+          "preconditions": [
+            "Run the batch logging route with multiple records.",
+            "Inspect part files, upload count, and decoded payloads."
+          ],
+          "case_ids": [
+            "local_polars_logging_batch"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_execution_batch_uses_part_files_and_upload_only"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.snapshot_batch_records.system_records",
+          "acceptance": "System logs use the shared JSON writer and remain present alongside job/dataflow records.",
+          "preconditions": [
+            "Run the logging route with system events enabled.",
+            "Inspect system JSON records and writer output."
+          ],
+          "case_ids": [
+            "local_polars_runtime_log_contract",
+            "local_polars_logging_batch"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_execution_logs.py",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_system_logger_uses_shared_json_writer"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        }
+      ]
+    },
+    {
+      "id": "logging.bounds_loss_persistence_failure",
+      "intent": "bounds loss persistence failure",
+      "contract": "src/datacoolie/logging/execution_logger.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/logging/validate_logging_bounds.py",
+        "tests/unit/logging/test_observation_loss.py::test_metric_inventory_maps_every_counter_or_explicitly_excludes_it",
+        "tests/unit/logging/test_observation_loss.py::test_metric_producer_ownership_matches_inventory",
+        "tests/unit/logging/test_observation_loss.py::test_detail_rejection_counts_once_and_keeps_business_totals",
+        "tests/unit/logging/test_observation_loss.py::test_sink_disabled_does_not_project_or_count_loss",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_batch_retry_reuses_the_same_destination",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_batch_retry_keeps_payload_immutable_when_new_records_arrive",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_writer_drops_new_records_at_capacity_without_raising",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_shared_budget_limits_two_streams_as_one_capacity_pool",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_late_failed_worker_does_not_recreate_spool_after_close",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_shared_budget_keeps_protected_headroom_for_job_stream",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_initial_job_checkpoint_failure_does_not_reject_activation",
+        "tests/unit/logging/test_logging_persistence_v4.py::test_execution_rejects_nonterminal_runtime"
+      ],
+      "checks": [
+        {
+          "id": "logging.bounds_loss_persistence_failure.diagnostic_bounds",
+          "acceptance": "Constrained snapshot/batch logging emits a source_action diagnostic issue, preserves output IDs 1 and 2, and reports no dropped records.",
+          "preconditions": [
+            "Run bounded snapshot and batch logging routes.",
+            "Validate diagnostic issue count, output rows, and no dropped log records."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/logging/validate_logging_bounds.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.bounds_loss_persistence_failure.metric_inventory",
+          "acceptance": "Every emitted counter has an inventory owner or explicit exclusion, and producer ownership matches the inventory.",
+          "preconditions": [
+            "Load the metric inventory and producer map.",
+            "Inspect unmatched counters and producer mappings."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/logging/test_observation_loss.py::test_metric_inventory_maps_every_counter_or_explicitly_excludes_it",
+            "tests/unit/logging/test_observation_loss.py::test_metric_producer_ownership_matches_inventory"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.bounds_loss_persistence_failure.loss_totals",
+          "acceptance": "Detail rejection increments observation loss once, preserves business totals, and disabled sinks do not project or count loss.",
+          "preconditions": [
+            "Inject detail rejection and disabled-sink configurations.",
+            "Compare loss counters, business totals, and summary mutation."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/logging/test_observation_loss.py::test_detail_rejection_counts_once_and_keeps_business_totals",
+            "tests/unit/logging/test_observation_loss.py::test_sink_disabled_does_not_project_or_count_loss"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.bounds_loss_persistence_failure.retry_immutable_payload",
+          "acceptance": "Batch retry reuses one destination and keeps the payload immutable when new records arrive during retry.",
+          "preconditions": [
+            "Configure a batch upload that fails once and receives new records.",
+            "Inspect destination identity and payload bytes across retries."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/logging/test_logging_persistence_v4.py::test_batch_retry_reuses_the_same_destination",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_batch_retry_keeps_payload_immutable_when_new_records_arrive"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.bounds_loss_persistence_failure.capacity_and_close",
+          "acceptance": "Capacity rejection preserves protected headroom and a late worker failure does not recreate spool state after close.",
+          "preconditions": [
+            "Configure shared capacity and close while a worker is late.",
+            "Inspect rejected records, reservations, spool paths, and terminal state."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/logging/test_logging_persistence_v4.py::test_writer_drops_new_records_at_capacity_without_raising",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_shared_budget_limits_two_streams_as_one_capacity_pool",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_late_failed_worker_does_not_recreate_spool_after_close",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_shared_budget_keeps_protected_headroom_for_job_stream"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "logging.bounds_loss_persistence_failure.checkpoint_failure",
+          "acceptance": "An initial job checkpoint failure does not reject activation, while nonterminal execution status is rejected before persistence.",
+          "preconditions": [
+            "Inject checkpoint failure and a nonterminal execution record.",
+            "Inspect activation result and validation error."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/logging/test_logging_persistence_v4.py::test_initial_job_checkpoint_failure_does_not_reject_activation",
+            "tests/unit/logging/test_logging_persistence_v4.py::test_execution_rejects_nonterminal_runtime"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "local_polars_runtime_log_contract",
+      "behavior": "logging.snapshot_batch_records",
+      "intent": "v6 runtime message contract, metadata/runtime query representations, and external run_attributes",
+      "contract": "src/datacoolie/logging/execution_logger.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/default/metadata/metadata.json",
+          "flow": "artifact_query",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_runtime_log_contract"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_runtime_log_contract"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `artifact_query` (stage `artifact_query`, mode `unspecified`): source connection `artifact_delta_source`; query `artifact:/queries/orders.sql`; destination connection `artifact_parquet_destination`; table `orders_artifact`; load_type `overwrite`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_runtime_log_contract`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`, validator `usecase-sim/scripts/features/logging/validate_execution_logs.py`, log_persistence_mode=snapshot."
+      ],
+      "expected": "Scenario `local_polars_runtime_log_contract` runs `artifact_query` against `artifact:/queries/orders.sql` with `snapshot` persistence; validation should find the declared terminal v6 job/dataflow/system records.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/logging/validate_execution_logs.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_logging_batch",
+      "behavior": "logging.snapshot_batch_records",
+      "intent": "Immutable terminal dataflow batch part plus one replace-one JobRuntime snapshot",
+      "contract": "src/datacoolie/logging/execution_logger.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/artifacts/default/metadata/metadata.json",
+          "flow": "artifact_query",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_logging_batch"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_logging_batch"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `artifact_query` (stage `artifact_query`, mode `unspecified`): source connection `artifact_delta_source`; query `artifact:/queries/orders.sql`; destination connection `artifact_parquet_destination`; table `orders_artifact`; load_type `overwrite`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_logging_batch`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`, validator `usecase-sim/scripts/features/logging/validate_execution_logs.py`, log_persistence_mode=batch."
+      ],
+      "expected": "Scenario `local_polars_logging_batch` runs `artifact_query` against `artifact:/queries/orders.sql` with `batch` persistence; validation should find the declared terminal v6 job/dataflow/system records.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/logging/validate_execution_logs.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

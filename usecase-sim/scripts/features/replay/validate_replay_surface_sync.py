@@ -20,7 +20,7 @@ SCRIPT = Path(__file__).resolve()
 USECASE_SIM = SCRIPT.parents[3]
 if str(USECASE_SIM) not in sys.path:
     sys.path.insert(0, str(USECASE_SIM))
-from runtime_paths import DATA_DIR, LOG_DIR  # noqa: E402
+from runner.runtime_paths import DATA_DIR, LOG_DIR  # noqa: E402
 
 
 BASE = DATA_DIR / "replay_surface_sync"

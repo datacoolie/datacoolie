@@ -55,7 +55,7 @@ _USECASE_SIM_DIR = _RUNNER_DIR.parent
 _DATACOOLIE_DIR = _USECASE_SIM_DIR.parent
 if str(_USECASE_SIM_DIR) not in sys.path:
     sys.path.insert(0, str(_USECASE_SIM_DIR))
-from runtime_paths import (  # noqa: E402
+from runner.runtime_paths import (  # noqa: E402
     DATACOOLIE_ROOT,
     LOG_DIR,
     WATERMARKS_DIR,

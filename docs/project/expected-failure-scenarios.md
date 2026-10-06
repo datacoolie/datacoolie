@@ -36,7 +36,7 @@ block:
   "validation": {
     "expected_exit_code": 0,
     "required_console_text": ["DataCoolie session startup failed"],
-    "script": "usecase-sim/scripts/features/runtime/validate_startup_failure_logs.py",
+    "script": "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py",
     "args": ["--job-id", "usecase-startup-failure"]
   }
 }
@@ -53,7 +53,7 @@ structured evidence that cannot be established from console text alone.
 
 `local_polars_startup_failure` is a no-service negative test. It reads the
 checked-in malformed input
-[`startup_failure.json`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/metadata/file/runtime/startup_failure.json),
+[`startup_failure.json`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/metadata/file/execution/startup_failure.json),
 whose `dataflows` value is deliberately a string, and uses the local Polars
 engine. A Poetry development environment with the `polars` profile is enough;
 Docker, cloud credentials, generated data, and metadata seeding are not
@@ -69,7 +69,7 @@ poetry run python usecase-sim/runner/run_scenario.py `
 
 The child `run.py` is expected to exit `1` after startup validation. The
 scenario dispatcher then runs
-[`validate_startup_failure_logs.py`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/scripts/features/runtime/validate_startup_failure_logs.py)
+[`validate_startup_failure_logs.py`](https://github.com/datacoolie/datacoolie/blob/main/usecase-sim/scripts/features/execution/validate_startup_failure_logs.py)
 and returns `0` only when that validation succeeds. The dispatcher captures
 these receipts:
 
@@ -96,3 +96,7 @@ logs before hard-killing it.
 The current logging pipeline does not mark a failure as "expected"
 automatically, so downstream dashboards need a separate convention if you want
 to suppress alerts for negative tests.
+
+The focused `local_polars_api_max_pages_negative` recipe retains the two-page, five-row cap against 30 API rows. Its outer success requires child exit 2, the exact pagination source error, the expected failed flow in a new session and byte-identical output/checkpoint snapshots. It is excluded from the successful broad workflow.
+
+`local_{polars,spark}_api_date_positive` uses a date-only source and exclusive lower bounds across initial, advancing and stable runs. `local_{polars,spark}_api_date_precision_negative` seeds a non-midnight datetime checkpoint, rejects its date encoding before HTTP, and preserves occupied output/state. Both allocate fresh roots; old shared timestamp checkpoints remain untouched. The date endpoint is copied into the mock-api image and needs a service-specific rebuild before live qualification.

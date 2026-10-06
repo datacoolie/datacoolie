@@ -1,0 +1,1095 @@
+{
+  "group": "replay",
+  "behaviors": [
+    {
+      "id": "replay.bounds_chunks_save_no_save",
+      "intent": "bounds chunks save no save",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "coverage": "fixture_only",
+      "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py",
+        "tests/unit/orchestration/test_driver.py::TestRunReplay::test_replay_reruns_all_chunks_when_stored_watermark_is_mid_range",
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py::_validate_c1",
+        "usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py",
+        "usecase-sim/scripts/features/replay/validate_s3_replay_output.py",
+        "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py",
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+        "tests/unit/project/test_usecase_sim_replay_surfaces.py"
+      ],
+      "checks": [
+        {
+          "id": "replay.bounds_chunks_save_no_save.bounded_chunks",
+          "acceptance": "Replay output has six rows, required columns, IDs 1001 through 1006 and modified_at within requested half-open bounds; source requests use the exact Jan/Feb/Mar monthly endpoints regardless of stored watermark position.",
+          "preconditions": [
+            "Prepare the seeded replay target and source rows.",
+            "Run local Polars and Spark with explicit bounds/chunks."
+          ],
+          "case_ids": [
+            "local_polars_replay",
+            "local_spark_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_output.py",
+            "tests/unit/orchestration/test_driver.py::TestRunReplay::test_replay_reruns_all_chunks_when_stored_watermark_is_mid_range"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.save_and_no_save",
+          "acceptance": "C1 no-save replay preserves the prior state hash; save replay retains the source-authorized monotonic high event_time watermark, and the final keyed output has no duplicate IDs.",
+          "preconditions": [
+            "Run the existing C1 initial, replay_no_save and replay_save sequence with explicit replay bounds and its invocation state snapshots."
+          ],
+          "case_ids": [
+            "local_polars_replay_surface_sync_c1",
+            "local_spark_replay_surface_sync_c1"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py::_validate_c1"
+          ],
+          "coverage": "asserted",
+          "gap": "C1 verifies source-authorized monotonic watermark merging, not unconditional saving of the replay upper bound. Runtime qualification and exact broad-fixture mapping remain separate.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.date_mtime",
+          "acceptance": "Date/mtime replay selects bounded files and persists the resulting file mtime watermark.",
+          "preconditions": [
+            "Prepare files with distinct modification times.",
+            "Run date/mtime replay and inspect rows and saved mtime state."
+          ],
+          "case_ids": [
+            "local_polars_date_mtime_replay",
+            "local_spark_date_mtime_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.api_window",
+          "acceptance": "API replay persisted output has six rows, the required columns, IDs 1001 through 1006 and modified_at within the requested half-open bounds, with a saved watermark present.",
+          "preconditions": [
+            "Prepare the API replay response and seeded checkpoint.",
+            "Run local API replay and reconcile IDs, bounds, and state."
+          ],
+          "case_ids": [
+            "local_polars_api_replay",
+            "local_spark_api_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_output.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.sql_window",
+          "acceptance": "SQL replay persisted output has six rows, the required columns, IDs 1001 through 1006 and modified_at within the requested half-open bounds, with a saved watermark present.",
+          "preconditions": [
+            "Prepare the SQL replay source and query root.",
+            "Run local SQL replay and inspect output rows and state."
+          ],
+          "case_ids": [
+            "local_polars_sql_replay",
+            "local_spark_sql_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_output.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.aws_window",
+          "acceptance": "S3-compatible MinIO replay output has six rows with IDs 1001 through 1006 within the requested half-open modified_at bounds, and saved order_date watermark 2024-01-17.",
+          "preconditions": [
+            "Provide the AWS/MinIO-compatible replay fixture and state root.",
+            "Run both AWS routes and reconcile IDs, bounds, and checkpoint."
+          ],
+          "case_ids": [
+            "aws_polars_replay",
+            "aws_spark_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_s3_replay_output.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.iceberg_replacement",
+          "acceptance": "Iceberg replay creates the expected replacement snapshot, rows, and order-date state.",
+          "preconditions": [
+            "Provide the local Iceberg catalog and seeded table.",
+            "Run both Iceberg routes and inspect snapshot and state."
+          ],
+          "case_ids": [
+            "aws_polars_iceberg_replay",
+            "aws_spark_iceberg_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.surface_boundaries",
+          "acceptance": "Surface-sync C1/C3/C4 routes reconcile save/no-save history, request-end recovery, chunk wire bounds, and rejected precision/observed-bound inputs.",
+          "preconditions": [
+            "Prepare isolated replay surface-sync fixtures.",
+            "Run C1, C3, and C4 and inspect IDs, history, state, and rejection assertions."
+          ],
+          "case_ids": [
+            "local_polars_replay_surface_sync_c1",
+            "local_spark_replay_surface_sync_c1",
+            "local_polars_replay_surface_sync_c3",
+            "local_spark_replay_surface_sync_c3",
+            "local_polars_replay_surface_sync_c4"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.bounds_chunks_save_no_save.full_values_and_request_trace",
+          "acceptance": "Replay readback reconciles complete row values and ordering, and API/SQL source traces prove page requests and query-root resolution for the configured replay route.",
+          "preconditions": [
+            "Prepare distinguishable row values and competing query/request traces, run the existing API/SQL replay fixture, and compare full output plus recorded source requests."
+          ],
+          "case_ids": [
+            "metadata/file/replay/replay_api_validation::api_replay_validation",
+            "metadata/file/replay/replay_sql_validation::sql_replay_validation",
+            "local_polars_api_replay",
+            "local_spark_api_replay",
+            "local_polars_sql_replay",
+            "local_spark_sql_replay"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py",
+            "tests/unit/project/test_usecase_sim_replay_surfaces.py"
+          ],
+          "coverage": "fixture_only",
+          "gap": "C1-C5 strong owners prove exact keyed IDs, effective ranges, continuation trace and save/no-save transitions for their matching inputs. Existing broad API/SQL fixtures still lack full business-value/order and SQL-root trace reconciliation; retained fixture_only, not promoted by related tests.",
+          "next_action": "strengthen_oracle"
+        }
+      ]
+    },
+    {
+      "id": "replay.empty_window_and_recovery",
+      "intent": "empty window and recovery",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_window_safety.py",
+        "usecase-sim/scripts/features/replay/validate_replay_window_safety.py::run_case",
+        "usecase-sim/scripts/features/replay/validate_replay_window_safety.py::validate_history",
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py::_validate_c5"
+      ],
+      "checks": [
+        {
+          "id": "replay.empty_window_and_recovery.empty_noop",
+          "acceptance": "Source-empty bounded replay skips and preserves existing target rows, Delta commit bytes/mtime and watermark bytes/mtime. Folder-only selection fails closed when no usable destination replacement window is available.",
+          "preconditions": [
+            "Seed target/state and select an empty window.",
+            "Run empty and failed/retry routes and inspect files, state, and history."
+          ],
+          "case_ids": [
+            "local_polars_replay_surface_window_safety",
+            "local_spark_replay_surface_window_safety"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_window_safety.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.empty_window_and_recovery.retry_after_write",
+          "acceptance": "A post-write acknowledgement failure may leave the first physical write visible. Retry retains failed/succeeded attempts under one run ID and yields exact final rows and source-authorized state.",
+          "preconditions": [
+            "Configure the route to fail after write.",
+            "Run retry and reconcile output files, checkpoint, and attempt history."
+          ],
+          "case_ids": [
+            "local_polars_replay_surface_window_safety",
+            "local_spark_replay_surface_window_safety"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_window_safety.py::run_case",
+            "usecase-sim/scripts/features/replay/validate_replay_window_safety.py::validate_history"
+          ],
+          "coverage": "asserted",
+          "gap": "The contract permits visible effects before failed acknowledgement; no rollback or removal of failed-attempt writes is promised. Final output/history/state assertions and actual profile receipts remain separate.",
+          "next_action": "none"
+        },
+        {
+          "id": "replay.empty_window_and_recovery.surface_rejection",
+          "acceptance": "C5 opaque/matching/missing continuations succeed with exact page queries and IDs 2101/2102; conflict/duplicate links reject the offending continuation before dispatch and create no target/state.",
+          "preconditions": [
+            "Prepare C5 continuation-link variants.",
+            "Inspect request count, diagnostics, and unchanged roots."
+          ],
+          "case_ids": [
+            "local_polars_replay_surface_sync_c5"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py::_validate_c5"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/local_use_cases::replay__orders",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "replay__orders: append using declared source/transform and destination",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `replay__orders` (stage `replay_test`, mode `batch`, schema hints=order_date,modified_at,order_id): source connection `local_parquet_source`; table `sample`; watermark columns `modified_at`; destination connection `local_delta_dest`; table `orders_replay`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`replay__orders` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/replay/replay_api_validation::api_replay_validation",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "api_replay_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_api_validation.json",
+          "flow": "api_replay_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_replay_validation` (stage `replay_api_validation`, mode `batch`): source connection `replay_api_source`; table `orders`; watermark columns `order_date`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `replay_delta_dest`; table `api_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/replay/replay_aws_validation::aws_replay_validation",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "aws_replay_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_aws_validation.json",
+          "flow": "aws_replay_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_replay_validation` (stage `aws_replay_validation`, mode `batch`, schema hints=order_date,modified_at,order_id): source connection `replay_aws_parquet_source`; table `sample`; watermark columns `order_date`; destination connection `replay_aws_delta_dest`; table `aws_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/replay/replay_iceberg_validation::iceberg_replay_validation",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "iceberg_replay_validation: merge_overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_iceberg_validation.json",
+          "flow": "iceberg_replay_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `iceberg_replay_validation` (stage `iceberg_replay_validation`, mode `batch`): source connection `replay_iceberg_source`; table `replay_iceberg_source`; watermark columns `order_date`; destination connection `replay_iceberg_dest`; table `iceberg_replay_validation`; load_type `merge_overwrite`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`iceberg_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/replay/replay_sql_validation::sql_replay_validation",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "sql_replay_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_sql_validation.json",
+          "flow": "sql_replay_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `sql_replay_validation` (stage `replay_sql_validation`, mode `batch`): source connection `sqlite_replay_source`; table `orders`; watermark columns `order_date`; destination connection `replay_delta_dest`; table `sql_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`sql_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "Bounded Polars replay: three sequential half-open chunks, persisted source observation, and output/state validation",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_replay"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `replay__orders` (stage `replay_test`, mode `batch`, schema hints=order_date,modified_at,order_id): source connection `local_parquet_source`; table `sample`; watermark columns `modified_at`; destination connection `local_delta_dest`; table `orders_replay`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_replay`, validator `usecase-sim/scripts/features/replay/validate_replay_output.py`."
+      ],
+      "expected": "`replay__orders` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "Bounded Spark replay: three sequential half-open chunks, persisted source observation, and output/state validation",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_replay"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `replay__orders` (stage `replay_test`, mode `batch`, schema hints=order_date,modified_at,order_id): source connection `local_parquet_source`; table `sample`; watermark columns `modified_at`; destination connection `local_delta_dest`; table `orders_replay`; load_type `append`.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_spark_replay`, validator `usecase-sim/scripts/features/replay/validate_replay_output.py`."
+      ],
+      "expected": "`replay__orders` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_date_mtime_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "Date-folder discovery is bounded conservatively; exact file selection uses the source-owned mtime column with inclusive start and exclusive end",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_date_mtime_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_date_mtime_replay"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_date_mtime_replay`; stage=`date_mtime_replay_validation`; metadata_path=`usecase-sim/.runtime/data/replay_date_mtime_validation_polars.json`; replay_start=`2024-01-15T00:00:00+00:00`; replay_end=`2024-01-17T00:00:00+00:00`; replay_chunk_column=`__file_modification_time`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py`; Date-folder discovery is bounded conservatively; exact file selection uses the source-owned mtime column with inclusive start and exclusive end.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_date_mtime_replay`, setup `usecase-sim/scripts/features/replay/prepare_date_mtime_replay.py`, validator `usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py`."
+      ],
+      "expected": "Scenario `local_polars_date_mtime_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce Date-folder discovery is bounded conservatively; exact file selection uses the source-owned mtime column with inclusive start and exclusive end.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_date_mtime_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "Docker Spark qualification of date-folder discovery plus exact file mtime replay boundaries",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_date_mtime_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_date_mtime_replay"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_spark_date_mtime_replay`; stage=`date_mtime_replay_validation`; metadata_path=`usecase-sim/.runtime/data/replay_date_mtime_validation_spark.json`; replay_start=`2024-01-15T00:00:00+00:00`; replay_end=`2024-01-17T00:00:00+00:00`; replay_chunk_column=`__file_modification_time`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py`; Docker Spark qualification of date-folder discovery plus exact file mtime replay boundaries.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_spark_date_mtime_replay`, setup `usecase-sim/scripts/features/replay/prepare_date_mtime_replay.py`, validator `usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py`."
+      ],
+      "expected": "Scenario `local_spark_date_mtime_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce Docker Spark qualification of date-folder discovery plus exact file mtime replay boundaries.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_date_mtime_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_api_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "Canonical API range mapping with modified_at as an independent replay column and order_date as the persisted source watermark",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_api_validation.json",
+          "flow": "api_replay_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_api_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_api_replay"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_replay_validation` (stage `replay_api_validation`, mode `batch`): source connection `replay_api_source`; table `orders`; watermark columns `order_date`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `replay_delta_dest`; table `api_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_api_replay`, validator `usecase-sim/scripts/features/replay/validate_replay_output.py`."
+      ],
+      "expected": "`api_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_api_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "Canonical API range mapping on Spark with modified_at as an independent replay column and order_date as the persisted source watermark",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_api_validation.json",
+          "flow": "api_replay_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_api_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_api_replay"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_replay_validation` (stage `replay_api_validation`, mode `batch`): source connection `replay_api_source`; table `orders`; watermark columns `order_date`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `replay_delta_dest`; table `api_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_spark_api_replay`, validator `usecase-sim/scripts/features/replay/validate_replay_output.py`."
+      ],
+      "expected": "`api_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_sql_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "SQLite SQL pushdown with modified_at as an independent replay column and order_date as the persisted source watermark",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_sql_validation.json",
+          "flow": "sql_replay_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_sql_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_sql_replay"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `sql_replay_validation` (stage `replay_sql_validation`, mode `batch`): source connection `sqlite_replay_source`; table `orders`; watermark columns `order_date`; destination connection `replay_delta_dest`; table `sql_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_sql_replay`, setup `usecase-sim/scripts/bootstrap/generate_data.py`, validator `usecase-sim/scripts/features/replay/validate_replay_output.py`."
+      ],
+      "expected": "`sql_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_sql_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "SQLite SQL pushdown on Spark with modified_at as an independent replay column and order_date as the persisted source watermark",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/replay/replay_sql_validation.json",
+          "flow": "sql_replay_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_sql_replay"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_sql_replay"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `sql_replay_validation` (stage `replay_sql_validation`, mode `batch`): source connection `sqlite_replay_source`; table `orders`; watermark columns `order_date`; destination connection `replay_delta_dest`; table `sql_replay_validation`; load_type `append`.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_spark_sql_replay`, setup `usecase-sim/scripts/bootstrap/generate_data.py`, validator `usecase-sim/scripts/features/replay/validate_replay_output.py`."
+      ],
+      "expected": "`sql_replay_validation` reads the declared source input(s) and writes the declared destination(s). The route should process the declared replay window/chunks and apply save/no-save state semantics without duplicate rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "aws_polars_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "aws_polars_replay"
+      ],
+      "dedicated_scenarios": [
+        "aws_polars_replay"
+      ],
+      "preconditions": [
+        "Invoke scenario `aws_polars_replay`; stage=`aws_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_aws_validation_polars.json`; replay_start=`2024-01-15T00:00:00`; replay_end=`2024-01-18T00:00:00`; replay_chunk_column=`modified_at`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`; AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `aws_polars_replay`, setup `usecase-sim/scripts/features/replay/prepare_aws_replay.py`, validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`."
+      ],
+      "expected": "Scenario `aws_polars_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_s3_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "aws_spark_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "aws_spark_replay"
+      ],
+      "dedicated_scenarios": [
+        "aws_spark_replay"
+      ],
+      "preconditions": [
+        "Invoke scenario `aws_spark_replay`; stage=`aws_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_aws_validation_spark.json`; replay_start=`2024-01-15T00:00:00`; replay_end=`2024-01-18T00:00:00`; replay_chunk_column=`modified_at`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`; AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+        "Provide required profile(s) `spark/aws` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `aws_spark_replay`, setup `usecase-sim/scripts/features/replay/prepare_aws_replay.py`, validator `usecase-sim/scripts/features/replay/validate_s3_replay_output.py`."
+      ],
+      "expected": "Scenario `aws_spark_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_s3_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "aws_polars_iceberg_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "aws_polars_iceberg_replay"
+      ],
+      "dedicated_scenarios": [
+        "aws_polars_iceberg_replay"
+      ],
+      "preconditions": [
+        "Invoke scenario `aws_polars_iceberg_replay`; stage=`iceberg_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_iceberg_validation_polars.json`; replay_start=`2024-01-15`; replay_end=`2024-01-18`; replay_chunk_column=`order_date`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`; AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `aws_polars_iceberg_replay`, setup `usecase-sim/scripts/features/replay/prepare_iceberg_replay.py`, validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`."
+      ],
+      "expected": "Scenario `aws_polars_iceberg_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "aws_spark_iceberg_replay",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "aws_spark_iceberg_replay"
+      ],
+      "dedicated_scenarios": [
+        "aws_spark_iceberg_replay"
+      ],
+      "preconditions": [
+        "Invoke scenario `aws_spark_iceberg_replay`; stage=`iceberg_replay_validation`; metadata_path=`s3://datacoolie-test/metadata/replay_iceberg_validation_spark.json`; replay_start=`2024-01-15`; replay_end=`2024-01-18`; replay_chunk_column=`order_date`; replay_save_watermark=`True`; validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`; AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+        "Provide required profile(s) `spark/aws` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `aws_spark_iceberg_replay`, setup `usecase-sim/scripts/features/replay/prepare_iceberg_replay.py`, validator `usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py`."
+      ],
+      "expected": "Scenario `aws_spark_iceberg_replay` executes the declared replay bounds/chunks and save-watermark sequence; validation should enforce AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_iceberg_replay_output.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_replay_surface_sync_c1",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "C1 multi-invocation keyed file replay: high stored watermark, save=False state preservation, and monotonic save=True",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_replay_surface_sync_c1"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_replay_surface_sync_c1"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_replay_surface_sync_c1`; stage=`surface_sync_c1`; metadata_path=`./usecase-sim/.runtime/data/replay_surface_sync/c1/polars/metadata/c1_initial_polars.json`; validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`; C1 multi-invocation keyed file replay: high stored watermark, save=False state preservation, and monotonic save=True.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_replay_surface_sync_c1`, setup `usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py`, validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`."
+      ],
+      "expected": "Initial plus no-save/save replay commits are present; no-save state hashes match; saved event_time retains 2024-02-01T10:00:00Z and IDs 1 through 5 remain unique.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_replay_surface_sync_c1",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "C1 multi-invocation keyed file replay on Spark",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_replay_surface_sync_c1"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_replay_surface_sync_c1"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_spark_replay_surface_sync_c1`; stage=`surface_sync_c1`; metadata_path=`./usecase-sim/.runtime/data/replay_surface_sync/c1/spark/metadata/c1_initial_spark.json`; validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`; C1 multi-invocation keyed file replay on Spark.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_spark_replay_surface_sync_c1`, setup `usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py`, validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`."
+      ],
+      "expected": "Initial plus no-save/save replay commits are present; no-save state hashes match; saved event_time retains 2024-02-01T10:00:00Z and IDs 1 through 5 remain unique.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_replay_surface_sync_c3",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "C3 ordinary request-end continuation and incomplete-page no-save oracle",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_replay_surface_sync_c3"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_replay_surface_sync_c3"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_replay_surface_sync_c3`; stage=`surface_sync_c3`; metadata_path=`./usecase-sim/.runtime/data/replay_surface_sync/c3/polars/metadata/c3_polars.json`; validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`; C3 ordinary request-end continuation and incomplete-page no-save oracle.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_replay_surface_sync_c3`, setup `usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py`, validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`."
+      ],
+      "expected": "Scenario `local_polars_replay_surface_sync_c3` executes the declared surface-sync sequence; validation should enforce C3 ordinary request-end continuation and incomplete-page no-save oracle.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_replay_surface_sync_c3",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "C3 request-end continuation on Spark",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_replay_surface_sync_c3"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_replay_surface_sync_c3"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_spark_replay_surface_sync_c3`; stage=`surface_sync_c3`; metadata_path=`./usecase-sim/.runtime/data/replay_surface_sync/c3/spark/metadata/c3_spark.json`; validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`; C3 request-end continuation on Spark.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_spark_replay_surface_sync_c3`, setup `usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py`, validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`."
+      ],
+      "expected": "Scenario `local_spark_replay_surface_sync_c3` executes the declared surface-sync sequence; validation should enforce C3 request-end continuation on Spark.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_replay_surface_sync_c4",
+      "behavior": "replay.bounds_chunks_save_no_save",
+      "intent": "C4 aligned timestamp-ms and ISO requests plus precision and observed-max pre-HTTP failures",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_replay_surface_sync_c4"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_replay_surface_sync_c4"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_replay_surface_sync_c4`; stage=`surface_sync_c4`; metadata_path=`./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_ms_polars.json`; validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`; C4 aligned timestamp-ms and ISO requests plus precision and observed-max pre-HTTP failures.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_replay_surface_sync_c4`, setup `usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py`, validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`."
+      ],
+      "expected": "Scenario `local_polars_replay_surface_sync_c4` executes the declared surface-sync sequence; validation should enforce C4 aligned timestamp-ms and ISO requests plus precision and observed-max pre-HTTP failures.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_replay_surface_sync_c5",
+      "behavior": "replay.empty_window_and_recovery",
+      "intent": "C5 opaque and repeat-query next-link continuation with missing, matching, conflict, and duplicate bound variants",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_replay_surface_sync_c5"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_replay_surface_sync_c5"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_replay_surface_sync_c5`; stage=`surface_sync_c5`; metadata_path=`./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_opaque_polars.json`; validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`; C5 opaque and repeat-query next-link continuation with missing, matching, conflict, and duplicate bound variants.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_replay_surface_sync_c5`, setup `usecase-sim/scripts/features/replay/prepare_replay_surface_sync.py`, validator `usecase-sim/scripts/features/replay/validate_replay_surface_sync.py`."
+      ],
+      "expected": "Opaque, matching and missing-bound continuation modes return IDs 2101/2102 with exact expected page queries; conflict/duplicate modes stop after page one, reject offending continuation and create no target or watermark.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_surface_sync.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_replay_surface_window_safety",
+      "behavior": "replay.empty_window_and_recovery",
+      "intent": "Standalone C2/C6 native Delta window-safety validator: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-folder-row succeeds; retry-after-write injects one post-write native acknowledgement error and checks same-ID attempts 1/2, deduplicated rows, native-array attempt history, and one job-grain outcome. Validator owns the fixture and assertions",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_replay_surface_window_safety"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_replay_surface_window_safety"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_polars_replay_surface_window_safety`; validator `usecase-sim/scripts/features/replay/validate_replay_window_safety.py`; Standalone C2/C6 native Delta window-safety validator: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-folder-row succeeds; retry-after-write inje....",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_polars_replay_surface_window_safety`, validator `usecase-sim/scripts/features/replay/validate_replay_window_safety.py`."
+      ],
+      "expected": "Typed-empty skips preserving rows/log/state; folder-only fails before mutation; mixed folder/row writes exact expected rows; post-write retry keeps failed/succeeded history under one run ID and exact final rows/state without promising rollback.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_window_safety.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_replay_surface_window_safety",
+      "behavior": "replay.empty_window_and_recovery",
+      "intent": "Standalone C2/C6 native Delta window-safety validator through the existing Docker Spark profile: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-folder-row succeeds; retry-after-write injects one post-write native acknowledgement error and checks same-ID attempts 1/2, deduplicated rows, native-array attempt history, and one job-grain outcome. Validator owns the fixture and assertions",
+      "contract": "src/datacoolie/orchestration/driver.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_replay_surface_window_safety"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_replay_surface_window_safety"
+      ],
+      "preconditions": [
+        "Invoke scenario `local_spark_replay_surface_window_safety`; validator `usecase-sim/scripts/features/replay/validate_replay_window_safety.py`; Standalone C2/C6 native Delta window-safety validator through the existing Docker Spark profile: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-f....",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots and run the registered validation command.",
+        "Run registered scenario `local_spark_replay_surface_window_safety`, validator `usecase-sim/scripts/features/replay/validate_replay_window_safety.py`."
+      ],
+      "expected": "Typed-empty skips preserving rows/log/state; folder-only fails before mutation; mixed folder/row writes exact expected rows; post-write retry keeps failed/succeeded history under one run ID and exact final rows/state without promising rollback.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/replay/validate_replay_window_safety.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

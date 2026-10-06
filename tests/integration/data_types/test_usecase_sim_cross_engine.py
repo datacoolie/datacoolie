@@ -50,7 +50,7 @@ CANONICAL_METADATA = json.loads(
         / "usecase-sim"
         / "metadata"
         / "file"
-        / "datatypes"
+        / "schema_types"
         / "datatype_qualification.json"
     ).read_text(encoding="utf-8")
 )

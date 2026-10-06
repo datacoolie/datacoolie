@@ -1,0 +1,1747 @@
+{
+  "group": "performance",
+  "behaviors": [
+    {
+      "id": "performance.volume_runtime_measurements",
+      "intent": "volume runtime measurements",
+      "contract": "usecase-sim/runner/run_perf_benchmark.py",
+      "coverage": "fixture_only",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [],
+      "checks": [
+        {
+          "id": "performance.volume_runtime_measurements.declared_volume_measurement",
+          "acceptance": "Benchmark results identify engine, size, format, command and elapsed duration for the selected input volume.",
+          "preconditions": [
+            "Prepare the requested volume and run the dedicated benchmark with isolated output targets."
+          ],
+          "case_ids": [
+            "metadata/file/performance/perf_test::perf_jsonl_parquet__10k",
+            "metadata/file/performance/perf_test::perf_jsonl_parquet__50k",
+            "metadata/file/performance/perf_test::perf_jsonl_parquet__100k",
+            "metadata/file/performance/perf_test::perf_jsonl_parquet__500k",
+            "metadata/file/performance/perf_test::perf_jsonl_parquet__1m",
+            "metadata/file/performance/perf_test::perf_jsonl_delta__10k",
+            "metadata/file/performance/perf_test::perf_jsonl_delta__50k",
+            "metadata/file/performance/perf_test::perf_jsonl_delta__100k",
+            "metadata/file/performance/perf_test::perf_jsonl_delta__500k",
+            "metadata/file/performance/perf_test::perf_jsonl_delta__1m",
+            "metadata/file/performance/perf_test::perf_jsonl_iceberg__10k",
+            "metadata/file/performance/perf_test::perf_jsonl_iceberg__50k",
+            "metadata/file/performance/perf_test::perf_jsonl_iceberg__100k",
+            "metadata/file/performance/perf_test::perf_jsonl_iceberg__500k",
+            "metadata/file/performance/perf_test::perf_jsonl_iceberg__1m",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__10k",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__50k",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__100k",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__500k",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__1m",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__5m",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__10m",
+            "metadata/file/performance/perf_test::perf_parquet_parquet__50m",
+            "metadata/file/performance/perf_test::perf_parquet_delta__10k",
+            "metadata/file/performance/perf_test::perf_parquet_delta__50k",
+            "metadata/file/performance/perf_test::perf_parquet_delta__100k",
+            "metadata/file/performance/perf_test::perf_parquet_delta__500k",
+            "metadata/file/performance/perf_test::perf_parquet_delta__1m",
+            "metadata/file/performance/perf_test::perf_parquet_delta__5m",
+            "metadata/file/performance/perf_test::perf_parquet_delta__10m",
+            "metadata/file/performance/perf_test::perf_parquet_delta__50m",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__10k",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__50k",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__100k",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__500k",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__1m",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__5m",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__10m",
+            "metadata/file/performance/perf_test::perf_parquet_iceberg__50m",
+            "metadata/file/performance/perf_test::perf_delta_delta__10k",
+            "metadata/file/performance/perf_test::perf_delta_delta__50k",
+            "metadata/file/performance/perf_test::perf_delta_delta__100k",
+            "metadata/file/performance/perf_test::perf_delta_delta__500k",
+            "metadata/file/performance/perf_test::perf_delta_delta__1m",
+            "metadata/file/performance/perf_test::perf_delta_delta__5m",
+            "metadata/file/performance/perf_test::perf_delta_delta__10m",
+            "metadata/file/performance/perf_test::perf_delta_delta__50m",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__10k",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__50k",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__100k",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__500k",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__1m",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__5m",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__10m",
+            "metadata/file/performance/perf_test::perf_iceberg_iceberg__50m"
+          ],
+          "assertion_owners": [],
+          "coverage": "fixture_only",
+          "gap": "Benchmark fixtures and runner exist; the measurement result schema has no independent assertion owner mapped. Deferred outside the functional gap-case backlog until measurement qualification is selected.",
+          "next_action": "defer"
+        },
+        {
+          "id": "performance.volume_runtime_measurements.measurement_reproducibility",
+          "acceptance": "Repeated measurements report consistent input volume and runtime coordinates so engine comparisons are interpretable.",
+          "preconditions": [
+            "Run repeat measurements with matching data volume and declared dependencies."
+          ],
+          "case_ids": [],
+          "assertion_owners": [],
+          "coverage": "missing",
+          "gap": "No independent repeatability/reconciliation gate has been mapped for benchmark outputs; this is measurement coverage separate from functional correctness. Deferred outside the functional gap-case backlog until measurement qualification is selected.",
+          "next_action": "defer"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_parquet__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_parquet__10k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_parquet__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_parquet__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_parquet__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_parquet__50k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_parquet__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_parquet__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_parquet__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_parquet__100k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_parquet__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_parquet__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_parquet__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_parquet__500k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_parquet__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_parquet__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_parquet__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_parquet__1m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_parquet__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_parquet__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_delta__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_delta__10k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_delta__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_delta__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_delta__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_delta__50k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_delta__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_delta__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_delta__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_delta__100k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_delta__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_delta__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_delta__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_delta__500k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_delta__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_delta__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_delta__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_delta__1m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_delta__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_delta__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_iceberg__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_iceberg__10k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_iceberg__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_iceberg__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_iceberg__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_iceberg__50k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_iceberg__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_iceberg__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_iceberg__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_iceberg__100k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_iceberg__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_iceberg__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_iceberg__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_iceberg__500k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_iceberg__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_iceberg__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_jsonl_iceberg__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_jsonl_iceberg__1m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_jsonl_iceberg__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_jsonl_iceberg__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__10k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__50k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__100k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__500k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__1m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__5m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__5m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__5m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__5m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__10m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__10m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__10m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__10m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_parquet__50m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_parquet__50m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_parquet__50m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_parquet__50m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__10k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__50k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__100k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__500k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__1m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__5m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__5m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__5m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__5m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__10m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__10m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__10m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__10m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_delta__50m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_delta__50m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_delta__50m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_delta__50m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__10k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__50k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__100k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__500k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__1m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__5m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__5m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__5m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__5m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__10m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__10m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__10m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__10m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_parquet_iceberg__50m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_parquet_iceberg__50m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_parquet_iceberg__50m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_parquet_iceberg__50m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__10k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__50k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__100k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__500k: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__1m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__5m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__5m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__5m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__5m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__10m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__10m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__10m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__10m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_delta_delta__50m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_delta_delta__50m: overwrite using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_delta_delta__50m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_delta_delta__50m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__10k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__10k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__10k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__10k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__50k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__50k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__50k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__50k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__100k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__100k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__100k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__100k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__500k",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__500k: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__500k",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__500k and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__1m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__1m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__1m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__1m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__5m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__5m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__5m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__5m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__10m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__10m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__10m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__10m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    },
+    {
+      "id": "metadata/file/performance/perf_test::perf_iceberg_iceberg__50m",
+      "behavior": "performance.volume_runtime_measurements",
+      "intent": "perf_iceberg_iceberg__50m: merge_upsert using declared source/transform and destination",
+      "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "flow": "perf_iceberg_iceberg__50m",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Generate the input volume named in metadata/file/performance/perf_test::perf_iceberg_iceberg__50m and record engine/dependency versions; select matching input format and isolated benchmark output."
+      ],
+      "expected": "Measure the declared volume/format route; report input row count, command, engine/version and elapsed duration for comparable repetitions.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Measurement fixtures are retained outside functional correctness. Defer benchmark qualification until a measurement acceptance gate and comparable runtime prerequisites are selected; no new focused correctness test is implied.",
+      "dependencies": [],
+      "next_action": "defer"
+    }
+  ]
+}

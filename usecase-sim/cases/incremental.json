@@ -1,0 +1,2123 @@
+{
+  "group": "incremental",
+  "behaviors": [
+    {
+      "id": "incremental.normal_watermark_lookback",
+      "intent": "normal watermark lookback",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/unit/sources/test_file_reader.py::TestFileReaderMtimeFilter::test_read_filters_by_mtime_watermark",
+        "tests/unit/sources/test_file_reader.py::TestFileReaderMtimeFilter::test_bounded_mtime_range_is_independent_from_watermark_columns",
+        "tests/unit/sources/test_file_reader.py::TestFileReaderDateFolders::test_get_date_folder_paths_keeps_each_inclusive_boundary_and_interior",
+        "tests/unit/sources/test_file_reader.py::TestFileReaderDateFolders::test_get_date_folder_paths_returns_empty_when_matching_folders_are_outside_bounds",
+        "tests/unit/sources/test_api_reader.py::TestAPIReaderWatermark::test_watermark_filtering",
+        "tests/unit/sources/test_api_reader.py::TestAPIReaderWatermark::test_new_watermark_computed",
+        "tests/unit/sources/test_api_reader.py::TestAPIReaderWatermark::test_watermark_filters_everything_returns_none",
+        "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_iso",
+        "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_date_fmt",
+        "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_timestamp",
+        "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_timestamp_ms",
+        "tests/unit/sources/test_api_range_precision.py::test_api_range_compiler_rejects_lossy_precision_before_http",
+        "tests/unit/sources/test_api_range_precision.py::test_api_range_compiler_reports_lossy_bound_side_before_http",
+        "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_request_end_explicit_exclusive_lower_is_rejected_before_http",
+        "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_request_end_without_response_column_accepts_exact_endpoint",
+        "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_observed_max_explicit_inclusive_lower_keeps_boundary",
+        "tests/integration/runtime/test_api_window_recovery.py::test_api_observed_max_checkpoint_advances_across_restart",
+        "tests/integration/runtime/test_api_window_recovery.py::test_api_observed_max_equality_restart_respects_lower_operator",
+        "tests/integration/runtime/test_api_window_recovery.py::test_api_request_end_equality_is_inclusive_and_saves_covered_end",
+        "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_canonical_request_and_checkpoint_share_one_upper_bound",
+        "tests/integration/runtime/test_api_window_recovery.py::test_api_unmapped_filtered_empty_preserves_native_delta_window",
+        "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_empty_or_residual_filtered_request_end_does_not_advance",
+        "tests/unit/sources/test_database_reader.py::TestDatabaseReader::test_read_with_watermark_table_mode",
+        "tests/unit/sources/test_base.py::TestApplyBackward",
+        "tests/unit/sources/test_base.py::TestApplyClosingDayBackward",
+        "tests/unit/sources/test_base.py::TestBuildEffectiveWatermark",
+        "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate",
+        "usecase-sim/scripts/features/read/validate_database_profiles.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "incremental.normal_watermark_lookback.file_mtime_watermark",
+          "acceptance": "The explicit half-open mtime range selects the expected file path independently of watermark columns; the incremental mtime-watermark path remains covered only for metadata listing and nonempty read.",
+          "preconditions": [
+            "Provide file metadata with old and new modification times.",
+            "Run the file source with the mtime watermark and reconcile selected paths."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::watermark__file_mtime"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_file_reader.py::TestFileReaderMtimeFilter::test_read_filters_by_mtime_watermark",
+            "tests/unit/sources/test_file_reader.py::TestFileReaderMtimeFilter::test_bounded_mtime_range_is_independent_from_watermark_columns"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.date_folder_watermark",
+          "acceptance": "Date-folder discovery includes exactly the matching lower-bound, interior and upper-bound paths under inclusive discovery bounds, and selects no paths when every matching folder is outside those bounds.",
+          "preconditions": [
+            "List matching folders before, at and within both configured date bounds; compare exact discovery paths and an outside-range empty selection."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::date_folder__src_partition"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_file_reader.py::TestFileReaderDateFolders::test_get_date_folder_paths_keeps_each_inclusive_boundary_and_interior",
+            "tests/unit/sources/test_file_reader.py::TestFileReaderDateFolders::test_get_date_folder_paths_returns_empty_when_matching_folders_are_outside_bounds"
+          ],
+          "coverage": "asserted",
+          "gap": "These unit predicates prove folder discovery scope; saved checkpoint and runtime profile qualification remain separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.api_filter_and_observe",
+          "acceptance": "API rows at or before the current watermark are filtered and the maximum accepted response value becomes the next watermark.",
+          "preconditions": [
+            "Provide response rows spanning the current watermark.",
+            "Inspect returned rows and persisted observation."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_wm__iso",
+            "metadata/file/baseline/local_use_cases::api_wm__timestamp"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_api_reader.py::TestAPIReaderWatermark::test_watermark_filtering",
+            "tests/unit/sources/test_api_reader.py::TestAPIReaderWatermark::test_new_watermark_computed"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.api_empty_watermark",
+          "acceptance": "When watermark filtering removes every API row, the source returns the empty result and does not invent a new observation.",
+          "preconditions": [
+            "Provide a response entirely at or below the watermark.",
+            "Inspect the result and watermark state."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_wm__iso"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_api_reader.py::TestAPIReaderWatermark::test_watermark_filters_everything_returns_none"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.typed_temporal_formatting",
+          "acceptance": "ISO date, formatted date, timestamp, and millisecond timestamp bounds retain their declared wire/type precision.",
+          "preconditions": [
+            "Provide each temporal bound format in source configuration.",
+            "Inspect encoded request bounds and decoded checkpoint types."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_wm__iso",
+            "metadata/file/baseline/local_use_cases::api_wm__date_fmt",
+            "metadata/file/baseline/local_use_cases::api_wm__timestamp_ms"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_iso",
+            "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_date_fmt",
+            "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_timestamp",
+            "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_format_date_timestamp_ms",
+            "usecase-sim/scripts/features/incremental/validate_api_date.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.precision_rejection",
+          "acceptance": "Lossy temporal precision is rejected before HTTP and identifies the offending bound side.",
+          "preconditions": [
+            "Configure a bound with unsupported precision.",
+            "Verify the compiler raises before creating or dispatching HTTP."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_range__day_interval",
+            "metadata/file/baseline/local_use_cases::api_range__month_interval",
+            "metadata/file/baseline/local_use_cases::api_range__year_interval",
+            "incremental.api_date_precision_negative"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_api_range_precision.py::test_api_range_compiler_rejects_lossy_precision_before_http",
+            "tests/unit/sources/test_api_range_precision.py::test_api_range_compiler_reports_lossy_bound_side_before_http",
+            "usecase-sim/scripts/features/incremental/validate_api_date.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.range_operators",
+          "acceptance": "Explicit exclusive lower bounds are rejected when unsupported, while an exact request-end endpoint uses documented inclusive continuation.",
+          "preconditions": [
+            "Configure day, month, and year interval bounds.",
+            "Inspect generated operators and pre-HTTP validation errors."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_range__day_interval",
+            "metadata/file/baseline/local_use_cases::api_range__month_interval",
+            "metadata/file/baseline/local_use_cases::api_range__year_interval"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_request_end_explicit_exclusive_lower_is_rejected_before_http",
+            "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_request_end_without_response_column_accepts_exact_endpoint",
+            "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_observed_max_explicit_inclusive_lower_keeps_boundary"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.observed_max_restart",
+          "acceptance": "A restart after an observed maximum resumes after the persisted value and an equality boundary obeys its configured lower operator.",
+          "preconditions": [
+            "Run two API windows against a persisted checkpoint.",
+            "Restart with an equality boundary and reconcile rows/checkpoint."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_wm__timestamp",
+            "metadata/file/baseline/local_use_cases::api_wm__datetime"
+          ],
+          "assertion_owners": [
+            "tests/integration/runtime/test_api_window_recovery.py::test_api_observed_max_checkpoint_advances_across_restart",
+            "tests/integration/runtime/test_api_window_recovery.py::test_api_observed_max_equality_restart_respects_lower_operator"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.request_end_checkpoint",
+          "acceptance": "A request-end window persists one covered upper bound and an equality restart includes the endpoint exactly once.",
+          "preconditions": [
+            "Run a bounded API request-end window.",
+            "Restart from its checkpoint and reconcile endpoint rows and state."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_wm__datetime",
+            "metadata/file/baseline/local_use_cases::api_wm__timestamp"
+          ],
+          "assertion_owners": [
+            "tests/integration/runtime/test_api_window_recovery.py::test_api_request_end_equality_is_inclusive_and_saves_covered_end",
+            "tests/unit/sources/test_api_reader_advanced.py::TestCanonicalBoundsAndWatermarkTypes::test_canonical_request_and_checkpoint_share_one_upper_bound"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.empty_does_not_advance",
+          "acceptance": "An unmapped or residual-filtered empty request preserves the existing native window and does not advance checkpoint state.",
+          "preconditions": [
+            "Seed a native window and configure a response filtered to empty.",
+            "Inspect target rows and checkpoint before and after the empty attempt."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::api_wm__iso"
+          ],
+          "assertion_owners": [
+            "tests/integration/runtime/test_api_window_recovery.py::test_api_unmapped_filtered_empty_preserves_native_delta_window",
+            "tests/unit/sources/test_api_reader_advanced.py::TestAPIReaderRangeBindings::test_empty_or_residual_filtered_request_end_does_not_advance"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.database_watermark",
+          "acceptance": "Database table watermark mode returns a result and generates the configured watermark predicate in SQL.",
+          "preconditions": [
+            "Seed a database table with rows before and after the watermark.",
+            "Run table mode and reconcile predicate and rows."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::watermark_db__sqlite"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_database_reader.py::TestDatabaseReader::test_read_with_watermark_table_mode"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.lookback_intervals_gap",
+          "acceptance": "Lookback computes exact day/hour/month/year offsets, clamps month-end/leap-day and combines configured offsets without changing input watermark types.",
+          "preconditions": [
+            "Use fixed UTC temporal watermark values with days/hours/months/years/combined offsets and closing-day cases."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::backward__days",
+            "metadata/file/baseline/local_use_cases::backward__months_closing_day",
+            "metadata/file/baseline/local_use_cases::backward__hours",
+            "metadata/file/baseline/local_use_cases::backward__years"
+          ],
+          "assertion_owners": [
+            "tests/unit/sources/test_base.py::TestApplyBackward",
+            "tests/unit/sources/test_base.py::TestApplyClosingDayBackward",
+            "tests/unit/sources/test_base.py::TestBuildEffectiveWatermark"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact lookback helper/effective-watermark predicates are unit-owned; persisted source selection and checkpoint qualification for broad authored fixtures remain separate.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.mtime_selected_files_and_database_rows",
+          "acceptance": "File mtime watermark selects only eligible newer files and database watermark query readback contains only the expected newer business rows.",
+          "preconditions": [
+            "Seed old/equal/new file modification times and database watermark rows; inspect selected file paths and returned business IDs."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_watermark__file_mtime",
+            "metadata/file/baseline/aws_use_cases::aws_watermark__file_mtime_multi_col",
+            "metadata/file/baseline/aws_use_cases::aws_watermark_db__postgres",
+            "metadata/file/baseline/aws_use_cases::aws_watermark_db__sqlite",
+            "metadata/file/baseline/local_use_cases::watermark__file_mtime",
+            "metadata/file/baseline/local_use_cases::watermark__file_mtime_multi_col",
+            "metadata/file/baseline/local_use_cases::watermark_db__postgres",
+            "metadata/file/baseline/local_use_cases::watermark_db__oracle",
+            "metadata/file/baseline/local_use_cases::watermark_db__mysql",
+            "metadata/file/baseline/local_use_cases::watermark_db__mssql",
+            "metadata/file/baseline/local_use_cases::watermark_db__sqlite"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate",
+            "usecase-sim/scripts/features/read/validate_database_profiles.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Local file listing mtime and four dialect native password profiles have selected-row/checkpoint oracles; AWS file/profile is not inferred.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "incremental.normal_watermark_lookback.lookback_persisted_selection",
+          "acceptance": "Lookback runs persist exactly the eligible rows and source-authorized checkpoint for the declared interval.",
+          "preconditions": [
+            "Seed a checkpoint and rows inside/outside the lookback interval; inspect selected rows and persisted next state."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::backward__days",
+            "metadata/file/baseline/local_use_cases::backward__months_closing_day",
+            "metadata/file/baseline/local_use_cases::backward__hours",
+            "metadata/file/baseline/local_use_cases::backward__years"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    },
+    {
+      "id": "incremental.pagination_failure_recovery_continuation",
+      "intent": "pagination failure recovery continuation",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py",
+        "tests/integration/runtime/test_pagination_recovery.py::test_pagination_page2_failure_preserves_seeded_target_and_state",
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py"
+      ],
+      "checks": [
+        {
+          "id": "incremental.pagination_failure_recovery_continuation.failed_page_no_commit",
+          "acceptance": "A later-page pagination failure exits without partial output files or an advanced watermark.",
+          "preconditions": [
+            "Seed the target and checkpoint before a forced page failure.",
+            "Run the failing route and inspect output/state roots."
+          ],
+          "case_ids": [
+            "local_polars_api_recovery_fail",
+            "local_spark_api_recovery_fail"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py",
+            "tests/integration/runtime/test_pagination_recovery.py::test_pagination_page2_failure_preserves_seeded_target_and_state"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        },
+        {
+          "id": "incremental.pagination_failure_recovery_continuation.recovery_and_continuation",
+          "acceptance": "A successful recovery writes expected rows and checkpoint, and a continuation appends the next row exactly once without duplicating prior rows.",
+          "preconditions": [
+            "Run recovery after the failed attempt with isolated target/state roots.",
+            "Run continuation and reconcile IDs, row count, and persisted watermark."
+          ],
+          "case_ids": [
+            "local_polars_api_recovery",
+            "local_spark_api_recovery",
+            "local_polars_api_continuation",
+            "local_spark_api_continuation"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
+          "next_action": "none"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_watermark__file_mtime",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_watermark__file_mtime: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_watermark__file_mtime",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_watermark__file_mtime` (stage `aws_watermark_file`, mode `batch`): source connection `aws_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `aws_parquet_dest`; table `orders_wm_file_mtime`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_watermark__file_mtime` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_watermark__file_mtime_multi_col",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_watermark__file_mtime_multi_col: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_watermark__file_mtime_multi_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_watermark__file_mtime_multi_col` (stage `aws_watermark_file`, mode `batch`): source connection `aws_csv_source`; table `sample`; watermark columns `__file_modification_time`, `MODIFIED_AT`; destination connection `aws_parquet_dest`; table `orders_wm_file_multi`; load_type `overwrite`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_watermark__file_mtime_multi_col` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_watermark__data_col",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_watermark__data_col: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_watermark__data_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_watermark__data_col` (stage `aws_watermark_file`, mode `batch`): source connection `aws_delta_source`; table `orders_appended`; watermark columns `modified_at`; destination connection `aws_parquet_dest`; table `orders_wm_data_col`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_watermark__data_col` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_watermark_db__postgres",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_watermark_db__postgres: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_watermark_db__postgres",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_watermark_db__postgres` (stage `aws_watermark_db`, mode `batch`): source connection `aws_postgres_source`; table `source_orders`; watermark columns `MODIFIED_AT`; destination connection `aws_parquet_dest`; table `orders_wm_postgres`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_watermark_db__postgres` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_watermark_db__sqlite",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_watermark_db__sqlite: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_watermark_db__sqlite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_watermark_db__sqlite` (stage `aws_watermark_db`, mode `batch`): source connection `aws_sqlite_source`; table `orders`; watermark columns `modified_at`; destination connection `aws_parquet_dest`; table `orders_wm_sqlite`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_watermark_db__sqlite` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_backward__days",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_backward__days: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_backward__days",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_backward__days` (stage `aws_source_backward`, mode `batch`): source connection `aws_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `aws_parquet_dest`; table `orders_backward_days`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_backward__days` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_backward__months_closing_day",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_backward__months_closing_day: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_backward__months_closing_day",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_backward__months_closing_day` (stage `aws_source_backward`, mode `batch`): source connection `aws_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `aws_parquet_dest`; table `orders_backward_months`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_backward__months_closing_day` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_date_folder__src_partition",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_date_folder__src_partition: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_date_folder__src_partition",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_date_folder__src_partition` (stage `aws_date_folder_src`, mode `batch`): source connection `aws_parquet_date_folder_src`; table `sample`; watermark columns `__file_modification_time`; destination connection `aws_parquet_dest`; table `orders_from_dated_src`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_date_folder__src_partition` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_backward__hours",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_backward__hours: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_backward__hours",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_backward__hours` (stage `aws_source_backward`, mode `batch`): source connection `aws_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `aws_parquet_dest`; table `orders_backward_hours`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_backward__hours` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_backward__years",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_backward__years: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_backward__years",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_backward__years` (stage `aws_source_backward`, mode `batch`): source connection `aws_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `aws_parquet_dest`; table `orders_backward_years`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_backward__years` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_watermark_iceberg__data_col",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "aws_watermark_iceberg__data_col: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "flow": "aws_watermark_iceberg__data_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `aws_watermark_iceberg__data_col` (stage `aws_watermark_file`, mode `batch`): source connection `aws_iceberg_source`; table `orders_appended`; watermark columns `modified_at`; destination connection `aws_parquet_dest`; table `orders_wm_iceberg_data_col`; load_type `append`.",
+        "Provide required profile(s) `polars/aws` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`aws_watermark_iceberg__data_col` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but its required profile is unqualified and has no exact route oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark__file_mtime",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark__file_mtime: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_incremental_a9_mtime"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_incremental_a9_mtime"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark__file_mtime` (stage `watermark_file`, mode `batch`): source connection `local_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `local_parquet_dest`; table `orders_wm_file_mtime`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark__file_mtime` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark__file_mtime_multi_col",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark__file_mtime_multi_col: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime_multi_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark__file_mtime_multi_col` (stage `watermark_file`, mode `batch`): source connection `local_csv_source`; table `sample`; watermark columns `__file_modification_time`, `MODIFIED_AT`; destination connection `local_parquet_dest`; table `orders_wm_file_multi`; load_type `overwrite`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark__file_mtime_multi_col` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark__data_col",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark__data_col: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__data_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark__data_col` (stage `watermark_file`, mode `batch`): source connection `local_delta_source`; table `orders_appended`; watermark columns `modified_at`; destination connection `local_parquet_dest`; table `orders_wm_data_col`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark__data_col` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark_db__postgres",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark_db__postgres: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__postgres",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark_db__postgres` (stage `watermark_db`, mode `batch`): source connection `local_postgres_source`; table `source_orders`; watermark columns `MODIFIED_AT`; destination connection `local_parquet_dest`; table `orders_wm_postgres`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark_db__postgres` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark_db__oracle",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark_db__oracle: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__oracle",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark_db__oracle` (stage `watermark_db`, mode `batch`): source connection `local_oracle_source`; table `source_orders`; watermark columns `modified_at`; destination connection `local_parquet_dest`; table `orders_wm_oracle`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark_db__oracle` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark_db__mysql",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark_db__mysql: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mysql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark_db__mysql` (stage `watermark_db`, mode `batch`): source connection `local_mysql_source`; table `source_orders`; watermark columns `modified_at`; destination connection `local_parquet_dest`; table `orders_wm_mysql`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark_db__mysql` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark_db__mssql",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark_db__mssql: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mssql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark_db__mssql` (stage `watermark_db`, mode `batch`): source connection `local_mssql_source`; table `source_orders`; watermark columns `modified_at`; destination connection `local_parquet_dest`; table `orders_wm_mssql`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark_db__mssql` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark_db__sqlite",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark_db__sqlite: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__sqlite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark_db__sqlite` (stage `watermark_db`, mode `batch`): source connection `local_sqlite_source`; table `orders`; watermark columns `modified_at`; destination connection `local_parquet_dest`; table `orders_wm_sqlite`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark_db__sqlite` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::backward__days",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "backward__days: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__days",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_incremental_a9_days"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_incremental_a9_days"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `backward__days` (stage `source_backward`, mode `batch`): source connection `local_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `local_parquet_dest`; table `orders_backward_days`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`backward__days` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::backward__months_closing_day",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "backward__months_closing_day: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__months_closing_day",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_incremental_a9_months_closing_day"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_incremental_a9_months_closing_day"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `backward__months_closing_day` (stage `source_backward`, mode `batch`): source connection `local_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `local_parquet_dest`; table `orders_backward_months`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`backward__months_closing_day` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__iso",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__iso: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__iso",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__iso` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_iso`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__iso` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__date_fmt",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "Date-only initial, advancing incremental and stable rerun without duplicates",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_date_positive.json",
+          "flow": "api_wm__date_fmt",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_api_date_positive",
+        "local_spark_api_date_positive"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_api_date_positive",
+        "local_spark_api_date_positive"
+      ],
+      "preconditions": [
+        "Fresh case-owned roots; preserve shared output and checkpoints.",
+        "Existing mock-api service; date-only recipes require the reviewed service-specific image rebuild."
+      ],
+      "expected": "Exactly IDs 101/102 then 101/102/103; DATE values and checkpoints 2024-01-02 then 2024-01-03; canonical exclusive lower requests; unchanged stable rerun bytes. Persisted event_date values are DATE; observed_max checkpoints preserve the canonical API date strings under the existing scalar contract.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_date.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        },
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Live qualification requires current mock-api image; separate runtime receipts per engine.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__timestamp_ms",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__timestamp_ms: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp_ms",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__timestamp_ms` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_ts_ms`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__timestamp_ms` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__body",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__body: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__body",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__body` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/wm-body, method=POST, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `local_parquet_dest`; table `orders_api_wm_body`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__body` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__tz_conn",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__tz_conn: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_conn",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__tz_conn` (stage `api_watermark`, mode `batch`): source connection `local_api_tz`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_tz_conn`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__tz_conn` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__tz_src_override",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__tz_src_override: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_src_override",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__tz_src_override` (stage `api_watermark`, mode `batch`): source connection `local_api_tz`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_tz_src`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__tz_src_override` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__exclusive_offset",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__exclusive_offset: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__exclusive_offset",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__exclusive_offset` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/ranged-inclusive, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<=); destination connection `local_parquet_dest`; table `orders_api_wm_excl`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__exclusive_offset` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_range__day_interval",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_range__day_interval: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__day_interval",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_range__day_interval` (stage `api_range`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `local_parquet_dest`; table `orders_api_range_day`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_range__day_interval` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_range__month_interval",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_range__month_interval: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__month_interval",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_range__month_interval` (stage `api_range`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `local_parquet_dest`; table `orders_api_range_month`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_range__month_interval` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_range__year_interval",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_range__year_interval: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__year_interval",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_range__year_interval` (stage `api_range`, mode `batch`): source connection `local_api_tz`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `local_parquet_dest`; table `orders_api_range_year`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_range__year_interval` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_range__multi_worker",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_range__multi_worker: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__multi_worker",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_range__multi_worker` (stage `api_range`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `local_parquet_dest`; table `orders_api_range_multi`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_range__multi_worker` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_range__with_bearer",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_range__with_bearer: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__with_bearer",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_range__with_bearer` (stage `api_range`, mode `batch`): source connection `local_api_bearer`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/secure/bearer-ranged, data_path=data, range mapping=modified_at(lower:modified_since>=,upper:modified_until<); destination connection `local_parquet_dest`; table `orders_api_range_bearer`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_range__with_bearer` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::date_folder__src_partition",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "date_folder__src_partition: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "date_folder__src_partition",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `date_folder__src_partition` (stage `date_folder_src`, mode `batch`): source connection `local_parquet_date_folder_src`; table `sample`; watermark columns `__file_modification_time`; destination connection `local_parquet_dest`; table `orders_from_dated_src`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`date_folder__src_partition` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__timestamp",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__timestamp: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__timestamp` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_timestamp`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__timestamp` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__datetime",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__datetime: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__datetime` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_datetime`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__datetime` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::api_wm__datetime_ms",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "api_wm__datetime_ms: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime_ms",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_wm__datetime_ms` (stage `api_watermark`, mode `batch`): source connection `local_api_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/incremental, pagination_type=offset, page_size=10, data_path=data, range mapping=modified_at(lower:modified_since>=); destination connection `local_parquet_dest`; table `orders_api_wm_datetime_ms`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_wm__datetime_ms` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::backward__hours",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "backward__hours: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__hours",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_incremental_a9_hours"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_incremental_a9_hours"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `backward__hours` (stage `source_backward`, mode `batch`): source connection `local_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `local_parquet_dest`; table `orders_backward_hours`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`backward__hours` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::backward__years",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "backward__years: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__years",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_incremental_a9_years"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_incremental_a9_years"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `backward__years` (stage `source_backward`, mode `batch`): source connection `local_csv_source`; table `sample`; watermark columns `__file_modification_time`; destination connection `local_parquet_dest`; table `orders_backward_years`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`backward__years` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_existing_lookback.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::watermark_iceberg__data_col",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "watermark_iceberg__data_col: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_iceberg__data_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `watermark_iceberg__data_col` (stage `watermark_file`, mode `batch`): source connection `local_iceberg_source`; table `orders_appended`; watermark columns `modified_at`; destination connection `local_parquet_dest`; table `orders_wm_iceberg_data_col`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`watermark_iceberg__data_col` reads the declared source input(s) and writes the declared destination(s). The route should select rows after the declared watermark/range and persist the expected next observation without duplicates.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/incremental/api_incremental_continuation::api_incremental_recovery_validation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "api_incremental_recovery_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=include_late,limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/incremental/api_incremental_continuation_spark::api_incremental_recovery_validation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "api_incremental_recovery_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation_spark.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=include_late,limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/incremental/api_incremental_recovery::api_incremental_recovery_validation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "api_incremental_recovery_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/incremental/api_incremental_recovery_fail::api_incremental_recovery_validation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "api_incremental_recovery_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_fail.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=1, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/incremental/api_incremental_recovery_spark::api_incremental_recovery_validation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "api_incremental_recovery_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/incremental/api_incremental_recovery_spark_fail::api_incremental_recovery_validation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "api_incremental_recovery_validation: append using declared source/transform and destination",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark_fail.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=1, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "The authored route declares concrete inputs and outputs, but no exact goal-specific oracle checks them; strengthen the existing fixture oracle.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_api_recovery_fail",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "Expected failure: the first API page is read but an unconsumed next_link prevents destination and watermark commit",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_fail.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_api_recovery_fail"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_api_recovery_fail"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=1, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_api_recovery_fail`, validator `usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py`."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_api_recovery",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "Recovery after a failed paginated API read; all pages commit rows and the observed modified_at watermark",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_api_recovery"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_api_recovery"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_api_recovery`, validator `usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py`."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [
+        "local_polars_api_recovery_fail"
+      ],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_api_continuation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "Second incremental run uses the saved modified_at lower bound and appends only the inclusive continuation row",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_api_continuation"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_api_continuation"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=include_late,limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_polars_api_continuation`, validator `usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py`."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [
+        "local_polars_api_recovery"
+      ],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_api_recovery_fail",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "Expected Docker Spark failure: incomplete pagination must not commit a destination or watermark",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark_fail.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_api_recovery_fail"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_api_recovery_fail"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=1, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_spark_api_recovery_fail`, validator `usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py`."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_api_recovery",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "Docker Spark recovery after failed API pagination; the source commits only after every next_link page succeeds",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_api_recovery"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_api_recovery"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_spark_api_recovery`, validator `usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py`."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [
+        "local_spark_api_recovery_fail"
+      ],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_api_continuation",
+      "behavior": "incremental.pagination_failure_recovery_continuation",
+      "intent": "Docker Spark second incremental run uses the persisted modified_at bound and appends the continuation row",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation_spark.json",
+          "flow": "api_incremental_recovery_validation",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_api_continuation"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_api_continuation"
+      ],
+      "preconditions": [
+        "Load the product fixture(s) and activate flow `api_incremental_recovery_validation` (stage `api_incremental_recovery_validation`, mode `batch`): source connection `api_recovery_source`; table `orders`; watermark columns `modified_at`; controls endpoint=/api/orders/next-link, pagination_type=next_link, page_size=5, data_path=records, max_pages=10, params keys=include_late,limit, range mapping=modified_at(lower:modified_since>=); destination connection `api_recovery_dest`; table `api_incremental_recovery_validation`; load_type `append`.",
+        "Provide required profile(s) `spark/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
+        "Run registered scenario `local_spark_api_continuation`, validator `usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py`."
+      ],
+      "expected": "`api_incremental_recovery_validation` reads the declared source input(s) and writes the declared destination(s). The route should leave no partial target/checkpoint on page failure, then resume with expected rows and checkpoint exactly once.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "The mapped owner checks the declared route outcome; a current identified receipt is still required for profile qualification.",
+      "dependencies": [
+        "local_spark_api_recovery"
+      ],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "incremental.api_date_precision_negative",
+      "behavior": "incremental.normal_watermark_lookback",
+      "intent": "Reject non-midnight date checkpoint before HTTP",
+      "contract": "src/datacoolie/sources/runtime.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/api_date_precision_negative.json",
+          "flow": "api_wm__date_precision_negative",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_api_date_precision_negative",
+        "local_spark_api_date_precision_negative"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_api_date_precision_negative",
+        "local_spark_api_date_precision_negative"
+      ],
+      "preconditions": [
+        "Fresh case-owned roots; preserve shared output and checkpoints.",
+        "Existing mock-api service; date-only recipes require the reviewed service-specific image rebuild."
+      ],
+      "expected": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Persisted event_date values are DATE; observed_max checkpoints preserve the canonical API date strings under the existing scalar contract.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/incremental/validate_api_date.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        },
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Live qualification requires current mock-api image; separate runtime receipts per engine.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

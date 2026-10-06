@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from runtime_paths import DATACOOLIE_ROOT
+from runner.runtime_paths import DATACOOLIE_ROOT
 
 import boto3
 from botocore.config import Config

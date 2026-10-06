@@ -1,0 +1,152 @@
+{
+  "shared_metadata": "metadata/file/shared/aws.json",
+  "dataflows": [
+    {
+      "name": "aws_dedup__row_number",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_row_number",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "aws_dedup__rank",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_rank",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "deduplicate_by_rank": true
+        },
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    },
+    {
+      "name": "aws_dedup__no_order_col",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_no_order",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "aws_addcols__literal",
+      "stage": "aws_transform_addcols",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_addcols_literal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "ingested_at",
+            "expression": "'batch_ingest'"
+          },
+          {
+            "column": "etl_source",
+            "expression": "'usecase_sim'"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_addcols__expression",
+      "stage": "aws_transform_addcols",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_addcols_expr",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_double",
+            "expression": "CAST(amount AS DOUBLE) * 2"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_dedup__composite_key",
+      "stage": "aws_transform_dedup",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_dedup_composite",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id",
+          "region"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ]
+      }
+    }
+  ]
+}

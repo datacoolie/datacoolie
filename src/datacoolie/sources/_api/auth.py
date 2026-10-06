@@ -55,13 +55,19 @@ class _SigV4Auth(httpx.Auth if httpx else object):  # type: ignore[misc]
         self._region = region
 
     def auth_flow(self, request: "httpx.Request"):  # type: ignore[override]
+        credentials = self._credentials.get_frozen_credentials()
         aws_req = botocore.awsrequest.AWSRequest(
             method=request.method,
             url=str(request.url),
             data=request.content,
             headers=dict(request.headers),
         )
-        signer = botocore.auth.SigV4Auth(self._credentials, self._service, self._region)
+        signer_cls = (
+            botocore.auth.S3SigV4Auth
+            if self._service == "s3"
+            else botocore.auth.SigV4Auth
+        )
+        signer = signer_cls(credentials, self._service, self._region)
         signer.add_auth(aws_req)
         for key, value in aws_req.headers.items():
             request.headers[key] = value
@@ -111,12 +117,6 @@ def get_http_auth(conn_cfg: Dict[str, Any]) -> Optional[Any]:
     region = conn_cfg.get("aws_region", "us-east-1")
     service = conn_cfg.get("aws_service", "execute-api")
 
-    # Build a botocore session so the standard credential chain is honoured.
-    # Explicit key overrides (e.g. from secrets_ref) take priority.
-    session = _boto_session.Session()
-    resolver = session.get_component("credential_provider")
-    creds = resolver.load()
-
     key_id = conn_cfg.get("aws_access_key_id")
     secret = conn_cfg.get("aws_secret_access_key")
     token = conn_cfg.get("aws_session_token")
@@ -127,12 +127,16 @@ def get_http_auth(conn_cfg: Dict[str, Any]) -> Optional[Any]:
             secret_key=secret,
             token=token or None,
         )
-    elif creds is None:
-        raise SourceError(
-            "auth_type='aws_sigv4': no AWS credentials found. "
-            "Set aws_access_key_id/aws_secret_access_key in connection.configure or "
-            "configure the environment (AWS_ACCESS_KEY_ID, instance profile, etc.)."
-        )
+    else:
+        # Session.get_credentials() preserves the provider object, including
+        # refreshable credentials, for a fresh frozen snapshot per request.
+        creds = _boto_session.Session().get_credentials()
+        if creds is None:
+            raise SourceError(
+                "auth_type='aws_sigv4': no AWS credentials found. "
+                "Set aws_access_key_id/aws_secret_access_key in connection.configure or "
+                "configure the environment (AWS_ACCESS_KEY_ID, instance profile, etc.)."
+            )
 
     return _SigV4Auth(creds, service, region)
 

@@ -1,0 +1,36 @@
+{
+  "connections": [
+    {
+      "name": "sql_root_precedence_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/registered"
+      }
+    },
+    {
+      "name": "sql_root_precedence_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "sql-root-precedence",
+      "stage": "sql_root_precedence",
+      "source": {
+        "connection_name": "sql_root_precedence_source",
+        "query": "orders.sql"
+      },
+      "destination": {
+        "connection_name": "sql_root_precedence_destination",
+        "table": "orders",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    }
+  ]
+}

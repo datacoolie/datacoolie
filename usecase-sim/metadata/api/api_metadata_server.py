@@ -4,7 +4,7 @@ Reads a JSON metadata file and serves it via REST endpoints
 compatible with the datacoolie.metadata.api_provider.APIProvider.
 
 Usage:
-    python api_metadata_server.py --json-path ../file/baseline/local_use_cases.json --port 8000
+    python api_metadata_server.py --json-path ../file/workflows/local_use_cases.json --port 8000
 
 Endpoints (all scoped under /workspaces/{workspace_id}):
     GET  /workspaces/{ws}/connections                  — paginated list
@@ -19,8 +19,14 @@ Endpoints (all scoped under /workspaces/{workspace_id}):
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+SIM_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(SIM_ROOT))
+
+from runner.metadata_composition import load_metadata
 
 try:
     from flask import Flask, jsonify, request
@@ -35,8 +41,10 @@ from datacoolie.utils.identity import name_to_uuid as _name_to_uuid
 # ---------------------------------------------------------------------------
 
 def _load_metadata(json_path: str) -> Dict[str, Any]:
-    with open(json_path, "r", encoding="utf-8") as f:
-        raw = json.load(f)
+    candidate = Path(json_path)
+    if not candidate.is_absolute() and candidate.is_file():
+        json_path = str(candidate.resolve())
+    raw = load_metadata(json_path, root=SIM_ROOT)
 
     connections: List[Dict[str, Any]] = []
     conn_map: Dict[str, Dict[str, Any]] = {}
@@ -243,7 +251,7 @@ def main():
     parser = argparse.ArgumentParser(description="DataCoolie simulated metadata API server")
     parser.add_argument(
         "--json-path",
-        default=str(Path(__file__).resolve().parent.parent / "file" / "baseline" / "local_use_cases.json"),
+        default=str(SIM_ROOT / "metadata" / "file" / "workflows" / "local_use_cases.json"),
         help="Path to source JSON metadata file",
     )
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")

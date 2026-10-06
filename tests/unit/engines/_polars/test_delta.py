@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from datacoolie.core.exceptions import EngineError
 from datacoolie.engines._polars.delta import (
     build_merge_options,
+    cleanup,
     merge_overwrite_path,
     raise_if_target_missing,
     table_exists,
@@ -75,6 +76,25 @@ def test_table_exists_propagates_platform_probe_errors() -> None:
             storage_options={},
             delta_table_cls=MagicMock(),
         )
+
+
+def test_cleanup_vacuums_files_and_preserves_retention_controls() -> None:
+    delta_table_cls = MagicMock()
+    table = delta_table_cls.return_value
+
+    cleanup(
+        "/tmp/events",
+        retention_hours=48,
+        storage_options={},
+        delta_table_cls=delta_table_cls,
+    )
+
+    delta_table_cls.assert_called_once_with("/tmp/events", storage_options=None)
+    table.vacuum.assert_called_once_with(
+        retention_hours=48,
+        dry_run=False,
+        enforce_retention_duration=False,
+    )
 
 
 def test_merge_overwrite_keeps_merge_and_append_options_separate() -> None:

@@ -1,0 +1,41 @@
+{
+  "connections": [
+    {
+      "name": "a9_merge_schema_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_merge_schema_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "a9-schema-merge-schema-append",
+      "stage": "a9_schema_merge_schema_append",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_merge_schema_source",
+        "table": "new_schema"
+      },
+      "destination": {
+        "connection_name": "a9_merge_schema_destination",
+        "table": "events",
+        "load_type": "append",
+        "configure": {
+          "write_options": {
+            "mergeSchema": true
+          }
+        }
+      }
+    }
+  ]
+}

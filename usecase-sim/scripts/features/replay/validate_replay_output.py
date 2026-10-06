@@ -17,7 +17,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 from typing import Any

@@ -1,0 +1,46 @@
+{
+  "connections": [
+    {
+      "name": "merge_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {"base_path": "__CASE_ROOT__/input"}
+    },
+    {
+      "name": "merge_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {"base_path": "__CASE_ROOT__/output"}
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "merge-seed",
+      "stage": "merge_seed",
+      "source": {
+        "connection_name": "merge_source",
+        "table": "seed"
+      },
+      "destination": {
+        "connection_name": "merge_destination",
+        "table": "orders",
+        "load_type": "overwrite",
+        "merge_keys": ["id"]
+      }
+    },
+    {
+      "name": "merge-upsert",
+      "stage": "merge_upsert",
+      "source": {
+        "connection_name": "merge_source",
+        "table": "incoming"
+      },
+      "destination": {
+        "connection_name": "merge_destination",
+        "table": "orders",
+        "load_type": "merge_upsert",
+        "merge_keys": ["id"]
+      }
+    }
+  ]
+}

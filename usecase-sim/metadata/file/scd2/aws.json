@@ -1,0 +1,57 @@
+{
+  "shared_metadata": "metadata/file/shared/aws.json",
+  "dataflows": [
+    {
+      "name": "aws_load_delta__scd2",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__scd2",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_scd2",
+        "load_type": "scd2",
+        "merge_keys": [
+          "order_id"
+        ],
+        "configure": {
+          "scd2_effective_column": "modified_at"
+        }
+      },
+      "transform": {}
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "metadata_documents": [
+    "metadata/file/schema_types/transformer_features.json",
+    "metadata/file/transform/transformer_features.json"
+  ],
+  "flow_order": [
+    "transform_value__trim",
+    "transform_value__case",
+    "transform_value__regex_replace",
+    "transform_value__regex_literal_replacement",
+    "transform_value__empty_to_null",
+    "transform_value__fill_null",
+    "transform_value__map",
+    "transform_value__stable_rule_order",
+    "transform_value__before_schema_cast",
+    "transform_schema__cast",
+    "transform_schema__missing_warning",
+    "transform_hash__sha256",
+    "transform_hash__xxhash64",
+    "transform_mask__redact",
+    "transform_mask__nullify",
+    "transform_mask__partial",
+    "transform_mask__numeric_bucket",
+    "transform_mask__date_truncate",
+    "transform_projection__select",
+    "transform_projection__drop",
+    "transform_projection__batch_rename",
+    "transform_missing_policy__value_rule",
+    "transform_missing_policy__hash",
+    "transform_missing_policy__masking",
+    "transform_missing_policy__projection",
+    "transform_value__invalid_typed_fill",
+    "transform_mask__invalid_typed_redact",
+    "transform_sanitizer__collision",
+    "transform_dedup__missing_is_strict"
+  ]
+}

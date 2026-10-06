@@ -95,7 +95,8 @@ class MockEngine(BaseEngine[dict]):
 
     # --- Write ---
     def write_to_path(self, df, path, mode, fmt, partition_columns=None, options=None):
-        self._written.append({"path": path, "mode": mode, "fmt": fmt, "options": options})
+        self._written.append({"path": path, "mode": mode, "fmt": fmt, "options": options,
+                              "partition_columns": partition_columns})
 
     def merge_to_path(
         self, df, path, merge_keys, fmt="delta", partition_columns=None, options=None

@@ -6,7 +6,7 @@ Replaces:
 
 Usage:
     python usecase-sim/runner/run.py --engine polars --metadata-source file \
-        --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json --stage read__csv
+        --metadata-path usecase-sim/metadata/file/workflows/local_use_cases.json --stage read__csv
 
     python usecase-sim/runner/run.py --engine spark --metadata-source database \
         --metadata-db-connection-string "sqlite:///..." \
@@ -42,7 +42,8 @@ from _runner_utils import (
     run_and_report,
     setup_platform,
 )
-from runtime_paths import (
+from runner.metadata_composition import materialize_metadata_path
+from runner.runtime_paths import (
     DATACOOLIE_ROOT, LOG_DIR as LOG_DIR, USECASE_SIM_DIR, WATERMARKS_DIR,
     AWS_WATERMARK_PATH, runtime_child, apply_runtime_defaults,
 )
@@ -391,6 +392,13 @@ def main() -> None:
     # convention, independent of the shell directory used to invoke the CLI.
     os.chdir(DATACOOLIE_ROOT)
     args = parse_args()
+
+    # Compose simulator workflow metadata before constructing a platform,
+    # engine, or service-backed provider.  Plain JSON/YAML/XLSX and storage
+    # URIs pass through unchanged; _build_metadata remains provider assembly
+    # only.
+    if args.metadata_source == "file" and args.metadata_path:
+        args.metadata_path = materialize_metadata_path(args.metadata_path)
 
     is_aws = args.platform == "aws"
     is_spark = args.engine == "spark"

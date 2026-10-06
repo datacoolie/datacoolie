@@ -1,0 +1,347 @@
+{
+  "group": "scd2",
+  "behaviors": [
+    {
+      "id": "scd2.changed_unchanged_versions_rerun",
+      "intent": "changed unchanged versions rerun",
+      "contract": "docs/reference/concepts/load-strategies.md",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/scd2/validate_scd2.py::validate",
+        "tests/unit/destinations/test_load_strategies.py::TestSCD2Strategy::test_no_merge_keys_raises",
+        "tests/unit/destinations/test_load_strategies.py::TestSCD2Strategy::test_no_scd2_effective_column_raises",
+        "usecase-sim/scripts/features/scd2/validate_scd2_older_effective.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.initial_history",
+          "acceptance": "Initial target has open current versions with valid_from equal to each effective timestamp.",
+          "preconditions": [
+            "Create initial native Delta SCD2 rows with an effective-time column."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__scd2",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__scd2",
+            "metadata/file/baseline/local_use_cases::load_delta__scd2",
+            "metadata/file/baseline/local_use_cases::load_iceberg__scd2",
+            "local_polars_scd2_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/scd2/validate_scd2.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.close_open_and_untouched",
+          "acceptance": "Changed key closes its old version at the incoming effective time, opens a new current version, and leaves other keys unchanged.",
+          "preconditions": [
+            "Seed two keys and change only one at a later effective timestamp."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__scd2",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__scd2",
+            "metadata/file/baseline/local_use_cases::load_delta__scd2",
+            "metadata/file/baseline/local_use_cases::load_iceberg__scd2",
+            "local_polars_scd2_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/scd2/validate_scd2.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.watermark_empty_rerun",
+          "acceptance": "A Driver rerun whose file-mtime filter produces no input skips and preserves exact version rows.",
+          "preconditions": [
+            "Persist watermark after the changed input, then rerun without a later input file."
+          ],
+          "case_ids": [
+            "local_polars_scd2_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/scd2/validate_scd2.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.equal_timestamp_append",
+          "acceptance": "A direct native engine SCD2 call appends equal-effective incoming rows according to the append-all contract, with exact history multiplicity.",
+          "preconditions": [
+            "Call native SCD2 twice with equal-effective incoming rows and inspect exact history multiplicity."
+          ],
+          "case_ids": [
+            "local_polars_scd2_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/scd2/validate_scd2.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.missing_keys_rejected",
+          "acceptance": "SCD2 without merge keys fails explicitly before write.",
+          "preconditions": [
+            "Use SCD2Strategy with no merge keys."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_load_strategies.py::TestSCD2Strategy::test_no_merge_keys_raises"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.missing_effective_rejected",
+          "acceptance": "SCD2 without an effective column fails explicitly.",
+          "preconditions": [
+            "Declare merge keys but omit scd2_effective_column."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_load_strategies.py::TestSCD2Strategy::test_no_scd2_effective_column_raises"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "scd2.changed_unchanged_versions_rerun.older_effective_history",
+          "acceptance": "Older-effective incoming versions follow the documented append-all behavior with exact current flags and version boundaries.",
+          "preconditions": [
+            "Seed a later-effective version and supply an older-effective incoming version."
+          ],
+          "case_ids": [
+            "local_polars_scd2_older_effective_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/scd2/validate_scd2_older_effective.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Goal-specific native oracle exists; actual runtime profile evidence remains separate.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__scd2",
+      "behavior": "scd2.changed_unchanged_versions_rerun",
+      "intent": "aws_load_delta__scd2: scd2 using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/aws.json",
+          "flow": "aws_load_delta__scd2",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_scd2.",
+        "Seed later/equal/changed effective-time versions according to the SCD2 contract; inspect history and current flags after the incoming batch."
+      ],
+      "expected": "aws_load_delta__scd2: SCD2 at aws_delta_dest/orders_scd2 has exact key/version boundaries and current flags for merge_keys=['order_id'], effective_column=declared effective column. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__scd2",
+      "behavior": "scd2.changed_unchanged_versions_rerun",
+      "intent": "aws_load_iceberg__scd2: scd2 using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/aws.json",
+          "flow": "aws_load_iceberg__scd2",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_scd2.",
+        "Seed later/equal/changed effective-time versions according to the SCD2 contract; inspect history and current flags after the incoming batch."
+      ],
+      "expected": "aws_load_iceberg__scd2: SCD2 at aws_iceberg_dest/orders_scd2 has exact key/version boundaries and current flags for merge_keys=['order_id'], effective_column=declared effective column. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__scd2",
+      "behavior": "scd2.changed_unchanged_versions_rerun",
+      "intent": "load_delta__scd2: scd2 using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_delta__scd2",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_scd2.",
+        "Seed later/equal/changed effective-time versions according to the SCD2 contract; inspect history and current flags after the incoming batch."
+      ],
+      "expected": "load_delta__scd2: SCD2 at local_delta_dest/orders_scd2 has exact key/version boundaries and current flags for merge_keys=['order_id'], effective_column=declared effective column. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__scd2",
+      "behavior": "scd2.changed_unchanged_versions_rerun",
+      "intent": "load_iceberg__scd2: scd2 using declared source/transform and destination",
+      "contract": "src/datacoolie/destinations/strategies/load.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_iceberg__scd2",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_scd2_a9_iceberg_history"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_scd2_a9_iceberg_history"
+      ],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_scd2.",
+        "Seed later/equal/changed effective-time versions according to the SCD2 contract; inspect history and current flags after the incoming batch."
+      ],
+      "expected": "load_iceberg__scd2: SCD2 at local_iceberg_dest/orders_scd2 has exact key/version boundaries and current flags for merge_keys=['order_id'], effective_column=declared effective column. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/scd2/validate_iceberg_scd2.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Required native Polars REST exact branch/history oracle; Spark/Iceberg optional profile remains unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_scd2_stateful",
+      "behavior": "scd2.changed_unchanged_versions_rerun",
+      "intent": "Focused native Delta scd2 state sequence",
+      "contract": "docs/reference/concepts/load-strategies.md",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/scd2.json",
+          "flow": "scd2-seed",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/scd2.json",
+          "flow": "scd2-change",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_scd2_stateful"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_scd2_stateful"
+      ],
+      "preconditions": [
+        "Local Polars/Delta-rs installed. Validator allocates fresh case-owned data, state and receipt roots; shared framework logs selected by current job/session.",
+        "Fixture placeholder __CASE_ROOT__ is materialized only by the declared validator; do not dispatch authored template directly."
+      ],
+      "expected": "Seed history; close/open advancing effective versions; equal-effective incoming is appended per contract, while upstream-filtered watermark-empty rerun preserves history.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/scd2/validate_scd2.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Representative host-local native Delta profile only. Spark/Iceberg/real cloud remain unqualified. SCD2 has no automatic unchanged suppression.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_scd2_older_effective_stateful",
+      "behavior": "scd2.changed_unchanged_versions_rerun",
+      "intent": "Seed a newer-effective version and untouched control, then ingest an older-effective same-key version from a later-mtime file. Native append-all history has two open/current id=1 versions plus the unchanged id=2 control.",
+      "contract": "src/datacoolie/engines/_polars/delta.py::scd2_path",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/older_effective.json",
+          "flow": "scd2-older-effective-late",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_scd2_older_effective_stateful"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_scd2_older_effective_stateful"
+      ],
+      "preconditions": [
+        "Install host-local Polars/native Delta dependencies. Declared validator materializes __CASE_ROOT__ into a fresh simulator-owned data/state/receipt root and selects its current framework job/session.",
+        "Seed support data through the validator; do not run the metadata template directly or reuse an existing root."
+      ],
+      "expected": "Seed a newer-effective version and untouched control, then ingest an older-effective same-key version from a later-mtime file. Native append-all history has two open/current id=1 versions plus the unchanged id=2 control.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/scd2/validate_scd2_older_effective.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Representative host-local Polars/native Delta oracle only; actual qualification requires a matching final receipt. Spark/Iceberg/service/real-cloud qualification remains separate.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

@@ -345,6 +345,16 @@ resolve them through a secret source. See the
 [API connection settings](../../reference/metadata-schema.md#connection-settings-by-endpoint-type)
 for the exact fields.
 
+A complete access-key/secret-key pair takes precedence over the credential chain;
+the reader does not discover another identity before using that pair. Incomplete
+explicit pairs retain the chain fallback. An invalid complete pair fails against
+the backend rather than falling back to another identity.
+
+The reader takes a fresh credential snapshot for each signed request, including
+parallel requests, so refreshable credentials remain consistent within a signature.
+Service `s3` uses botocore's S3 signer, which preserves object paths; other services
+use the generic SigV4 signer. Region and service come from configuration.
+
 ## Keep credentials out of metadata
 
 Put the *secret name*, not its value, in `configure`. Then map the corresponding
@@ -528,3 +538,5 @@ For a prepared per-environment document, use the [environment overlay
 workflow](../cli/project.md#environment-overlays) owned by the Project and CLI
 guide. An overlay changes the prepared metadata snapshot; it is not a
 connection property.
+
+Native Polars MSSQL reads support only explicit `encrypt=false` (boolean false or a case-insensitive `"false"` string), mapped to pymssql `encryption="off"`. Omitting `encrypt` retains the driver default. Other values, native aliases such as `encryption`, conflicting settings and unsupported driver keys reject before connecting. This bounded mapping makes no certificate-validation or TLS-equivalence guarantee; it does not apply to ODBC authentication routes. pymssql >=2.3 is declared (the encryption argument was added in 2.2.8).

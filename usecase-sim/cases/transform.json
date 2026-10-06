@@ -1,0 +1,2405 @@
+{
+  "group": "transform",
+  "behaviors": [
+    {
+      "id": "transform.value_rules_projection_masks_hashes",
+      "intent": "value rules projection masks hashes",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_value_rules",
+        "tests/unit/transformers/test_metadata_transformers.py::test_value_rules_use_stable_order_before_schema_cast",
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_masking",
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_schema_and_hash",
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_projection",
+        "tests/unit/transformers/test_metadata_transformers.py::test_value_rules_track_all_missing_rules_as_skipped",
+        "tests/unit/transformers/test_deduplicator.py::TestDeduplicator::test_row_number_dedup_for_merge_upsert",
+        "tests/unit/transformers/test_deduplicator.py::TestDeduplicator::test_rank_dedup_for_merge_overwrite",
+        "usecase-sim/scripts/features/read/validate_existing_local.py::validate",
+        "tests/unit/transformers/test_column_name_sanitizer.py::TestColumnNameSanitizer::test_rejects_case_insensitive_final_name_collision",
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_uppercase_output",
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_map_null_output",
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_partial_keep_start_output",
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_timestamp_truncate_output"
+      ],
+      "checks": [
+        {
+          "id": "transform.value_rules_projection_masks_hashes.value_rules_persisted",
+          "acceptance": "Trim/case/regex/empty-to-null/fill/map rules produce the exact expected persisted values.",
+          "preconditions": [
+            "Run the three-row positive transformer fixture including null, empty and formatted strings."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_value__trim",
+            "metadata/file/transform/transformer_features::transform_value__case",
+            "metadata/file/transform/transformer_features::transform_value__regex_replace",
+            "metadata/file/transform/transformer_features::transform_value__regex_literal_replacement",
+            "metadata/file/transform/transformer_features::transform_value__empty_to_null",
+            "metadata/file/transform/transformer_features::transform_value__fill_null",
+            "metadata/file/transform/transformer_features::transform_value__map",
+            "metadata/file/transform/transformer_features::transform_value__stable_rule_order",
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_value_rules"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.stable_rule_order",
+          "acceptance": "Value rules are applied in their configured order, with the later rule observing the prior rule result.",
+          "preconditions": [
+            "Apply ordered regex/value rules followed by a typed schema hint."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_value__stable_rule_order",
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_metadata_transformers.py::test_value_rules_use_stable_order_before_schema_cast"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.masking_persisted",
+          "acceptance": "Redact/nullify/partial/numeric/date masks produce exact persisted values for the declared fixture.",
+          "preconditions": [
+            "Run the positive transformer mask inputs and reconcile output values."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_mask__redact",
+            "metadata/file/transform/transformer_features::transform_mask__nullify",
+            "metadata/file/transform/transformer_features::transform_mask__partial",
+            "metadata/file/transform/transformer_features::transform_mask__numeric_bucket",
+            "metadata/file/transform/transformer_features::transform_mask__date_truncate",
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_masking"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.hashes_persisted",
+          "acceptance": "SHA256 and xxhash64 outputs match the declared deterministic contract vectors.",
+          "preconditions": [
+            "Hash positive fixture values with the configured algorithms."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_hash__sha256",
+            "metadata/file/transform/transformer_features::transform_hash__xxhash64",
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_schema_and_hash"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.projection_and_rename",
+          "acceptance": "Projection selects, drops and renames the expected columns with exact persisted data.",
+          "preconditions": [
+            "Run the positive projection fixture and inspect business columns plus values."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_projection__select",
+            "metadata/file/transform/transformer_features::transform_projection__drop",
+            "metadata/file/transform/transformer_features::transform_projection__batch_rename",
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_projection"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.ignored_missing_rules",
+          "acceptance": "All-missing ignored value rules are marked skipped with no applied label.",
+          "preconditions": [
+            "Apply rules to absent columns under ignore policy."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_missing_policy__value_rule",
+            "metadata/file/transform/transformer_features::transform_missing_policy__hash",
+            "metadata/file/transform/transformer_features::transform_missing_policy__masking",
+            "metadata/file/transform/transformer_features::transform_missing_policy__projection",
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_metadata_transformers.py::test_value_rules_track_all_missing_rules_as_skipped"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.dedup_row_number",
+          "acceptance": "Merge-upsert dedup selects the row_number dedup engine path.",
+          "preconditions": [
+            "Provide merge keys and a latest-data ordering column."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_dedup__row_number",
+            "metadata/file/baseline/local_use_cases::dedup__row_number"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_deduplicator.py::TestDeduplicator::test_row_number_dedup_for_merge_upsert"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.dedup_rank",
+          "acceptance": "Configured merge-overwrite dedup selects the rank dedup engine path.",
+          "preconditions": [
+            "Provide merge-overwrite partition keys and latest-data ordering columns."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_dedup__rank",
+            "metadata/file/baseline/local_use_cases::dedup__rank"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_deduplicator.py::TestDeduplicator::test_rank_dedup_for_merge_overwrite"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.row_filter",
+          "acceptance": "Filtering a computed column occurs after that column is added and persists the expected retained rows.",
+          "preconditions": [
+            "Create a computed field and use it in a row filter."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/local_use_cases::row_filter__on_computed_col"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/read/validate_existing_local.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.sanitized_names",
+          "acceptance": "Case-insensitive final-name collisions are rejected before ambiguous renames.",
+          "preconditions": [
+            "Supply source columns that sanitize to the same final name."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/transformers/test_column_name_sanitizer.py::TestColumnNameSanitizer::test_rejects_case_insensitive_final_name_collision"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.value_rules_before_schema_cast",
+          "acceptance": "Value rules execute before SchemaConverter, allowing normalized text to cast to the exact persisted typed values.",
+          "preconditions": [
+            "Apply configured value normalization to formatted numbers followed by integer schema hints."
+          ],
+          "case_ids": [
+            "local_polars_transform_features",
+            "local_spark_transform_features"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_transformer_features.py::_validate_value_rules"
+          ],
+          "coverage": "asserted",
+          "gap": "Positive persisted tf_value_before_cast output reconciles int64 schema and exact normalized values; profile evidence remains separate.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.uppercase_values",
+          "acceptance": "Uppercase rule produces exact uppercase Unicode/string values and preserves nulls.",
+          "preconditions": [
+            "Set a case value rule to upper with mixed/lowercase strings and null."
+          ],
+          "case_ids": [
+            "local_polars_transform_a9_uppercase"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_uppercase_output"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.map_unmapped_null",
+          "acceptance": "Mapped values resolve exactly while unmapped values become null under on_unmapped=null.",
+          "preconditions": [
+            "Set map.on_unmapped=null with mapped, unmapped and null input values."
+          ],
+          "case_ids": [
+            "local_polars_transform_a9_map_null"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_map_null_output"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.partial_mask_keep_start",
+          "acceptance": "Partial masking retains the configured prefix and masks only the middle with short-string/null behavior asserted.",
+          "preconditions": [
+            "Configure partial masking with keep_start>0, keep_end and distinguishable long/short/null strings."
+          ],
+          "case_ids": [
+            "local_polars_transform_a9_partial_keep_start"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_partial_keep_start_output"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.value_rules_projection_masks_hashes.timestamp_hour_truncate",
+          "acceptance": "Hour masking truncates timestamp minute/second/microseconds with exact timestamp type and null preservation.",
+          "preconditions": [
+            "Use timestamp input, configure date_truncate unit=hour; a Date input cannot qualify this positive branch."
+          ],
+          "case_ids": [
+            "local_polars_transform_a9_timestamp_hour"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_timestamp_truncate_output"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    },
+    {
+      "id": "transform.strict_rejection",
+      "intent": "strict rejection",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/unit/transformers/test_metadata_transformers.py::test_transform_rejects_select_and_drop",
+        "tests/unit/transformers/test_metadata_transformers.py::test_transform_rejects_rename_chain",
+        "tests/unit/transformers/test_metadata_transformers.py::test_value_rule_rejects_nonportable_or_risky_regex",
+        "tests/unit/transformers/test_metadata_transformers.py::test_masker_rejects_merge_key",
+        "tests/unit/transformers/test_deduplicator.py::TestDeduplicator::test_missing_column_always_raises_even_with_ignore_policy"
+      ],
+      "checks": [
+        {
+          "id": "transform.strict_rejection.projection_conflicts",
+          "acceptance": "Simultaneous select/drop and rename chains fail validation before transformation.",
+          "preconditions": [
+            "Construct conflicting projection declarations."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/transformers/test_metadata_transformers.py::test_transform_rejects_select_and_drop",
+            "tests/unit/transformers/test_metadata_transformers.py::test_transform_rejects_rename_chain"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.strict_rejection.unsupported_regex",
+          "acceptance": "Nonportable or risky regex forms fail with the indexed metadata field path.",
+          "preconditions": [
+            "Use a regex outside the supported portable subset."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/transformers/test_metadata_transformers.py::test_value_rule_rejects_nonportable_or_risky_regex"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.strict_rejection.mask_merge_key_rejected",
+          "acceptance": "Masking a merge key raises instead of changing key identity.",
+          "preconditions": [
+            "Declare a masking rule on a configured merge key."
+          ],
+          "case_ids": [
+            "local_polars_transform_invalid_redact",
+            "local_spark_transform_invalid_redact"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_metadata_transformers.py::test_masker_rejects_merge_key"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "transform.strict_rejection.dedup_missing_key",
+          "acceptance": "Missing dedup partition/latest-data columns raise even when generic missing-column policy ignores other rules.",
+          "preconditions": [
+            "Declare a dedup key absent from the input schema."
+          ],
+          "case_ids": [
+            "local_polars_transform_dedup_strict",
+            "local_spark_transform_dedup_strict"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_deduplicator.py::TestDeduplicator::test_missing_column_always_raises_even_with_ignore_policy"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_dedup__row_number",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "aws_dedup__row_number: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "flow": "aws_dedup__row_number",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_dedup_row_number.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_dedup__row_number: overwrite replaces target aws_parquet_dest/orders_dedup_row_number; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\"],\"latest_data_columns\":[\"modified_at\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_dedup__rank",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "aws_dedup__rank: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "flow": "aws_dedup__rank",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_dedup_rank.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_dedup__rank: overwrite replaces target aws_parquet_dest/orders_dedup_rank; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"configure\":{\"deduplicate_by_rank\":true},\"deduplicate_columns\":[\"order_id\"],\"latest_data_columns\":[\"modified_at\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_dedup__no_order_col",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "aws_dedup__no_order_col: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "flow": "aws_dedup__no_order_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_dedup_no_order.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_dedup__no_order_col: overwrite replaces target aws_parquet_dest/orders_dedup_no_order; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_addcols__literal",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "aws_addcols__literal: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "flow": "aws_addcols__literal",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_addcols_literal.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_addcols__literal: overwrite replaces target aws_parquet_dest/orders_addcols_literal; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"additional_columns\":[{\"column\":\"ingested_at\",\"expression\":\"'batch_ingest'\"},{\"column\":\"etl_source\",\"expression\":\"'usecase_sim'\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_addcols__expression",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "aws_addcols__expression: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "flow": "aws_addcols__expression",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_addcols_expr.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_addcols__expression: overwrite replaces target aws_parquet_dest/orders_addcols_expr; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"additional_columns\":[{\"column\":\"order_year\",\"expression\":\"EXTRACT(YEAR FROM order_date)\"},{\"column\":\"amount_double\",\"expression\":\"CAST(amount AS DOUBLE) * 2\"}],\"schema_hints\":[{\"column_name\":\"order_date\",\"data_type\":\"DATE\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_dedup__composite_key",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "aws_dedup__composite_key: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "flow": "aws_dedup__composite_key",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_dedup_composite.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_dedup__composite_key: overwrite replaces target aws_parquet_dest/orders_dedup_composite; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\",\"region\"],\"latest_data_columns\":[\"modified_at\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::dedup__row_number",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "dedup__row_number: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__row_number",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_dedup_row_number.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "dedup__row_number: overwrite replaces target local_parquet_dest/orders_dedup_row_number; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\"],\"latest_data_columns\":[\"modified_at\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::dedup__rank",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "dedup__rank: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__rank",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_dedup_rank.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "dedup__rank: overwrite replaces target local_parquet_dest/orders_dedup_rank; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\"],\"latest_data_columns\":[\"modified_at\"],\"configure\":{\"deduplicate_by_rank\":true}}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::dedup__no_order_col",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "dedup__no_order_col: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__no_order_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_dedup_no_order.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "dedup__no_order_col: overwrite replaces target local_parquet_dest/orders_dedup_no_order; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::addcols__literal",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "addcols__literal: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__literal",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_addcols_literal.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "addcols__literal: overwrite replaces target local_parquet_dest/orders_addcols_literal; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"additional_columns\":[{\"column\":\"ingested_at\",\"expression\":\"'batch_ingest'\"},{\"column\":\"etl_source\",\"expression\":\"'usecase_sim'\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::addcols__expression",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "addcols__expression: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__expression",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_addcols_expr.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "addcols__expression: overwrite replaces target local_parquet_dest/orders_addcols_expr; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"additional_columns\":[{\"column\":\"order_year\",\"expression\":\"EXTRACT(YEAR FROM order_date)\"},{\"column\":\"amount_double\",\"expression\":\"CAST(amount AS DOUBLE) * 2\"}],\"schema_hints\":[{\"column_name\":\"order_date\",\"data_type\":\"DATE\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::row_filter__on_computed_col",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "row_filter__on_computed_col: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__on_computed_col",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_a9_existing_row_filter"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_a9_existing_row_filter"
+      ],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_row_filter_computed.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "row_filter__on_computed_col: overwrite replaces target local_parquet_dest/orders_row_filter_computed; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"filter_expression\":\"amount_double > 100.0\",\"additional_columns\":[{\"column\":\"amount_double\",\"expression\":\"CAST(amount AS DOUBLE)\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/read/validate_existing_local.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Case-owned runtime variation and native exact business rows/schema oracle; optional backend variants remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::row_filter__simple",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "row_filter__simple: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__simple",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_row_filter_simple.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "row_filter__simple: overwrite replaces target local_parquet_dest/orders_row_filter_simple; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"filter_expression\":\"region = 'North' AND quantity > 1\"}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::dedup__composite_key",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "dedup__composite_key: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__composite_key",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_dedup_composite.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "dedup__composite_key: overwrite replaces target local_parquet_dest/orders_dedup_composite; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"order_id\",\"region\"],\"latest_data_columns\":[\"modified_at\"]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__trim",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__trim: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__trim",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__trim in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__case",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__case: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__case",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__case in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__regex_replace",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__regex_replace: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__regex_replace",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__regex_replace in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__regex_literal_replacement",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__regex_literal_replacement: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__regex_literal_replacement",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__regex_literal_replacement in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__empty_to_null",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__empty_to_null: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__empty_to_null",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__empty_to_null in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__fill_null",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__fill_null: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__fill_null",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__fill_null in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__map",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__map: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__map",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__map in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__stable_rule_order",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_value__stable_rule_order: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__stable_rule_order",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__stable_rule_order in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_hash__sha256",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_hash__sha256: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_hash__sha256",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_hash__sha256 in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_hash__xxhash64",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_hash__xxhash64: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_hash__xxhash64",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_hash__xxhash64 in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_mask__redact",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_mask__redact: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__redact",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_mask__redact in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_mask__nullify",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_mask__nullify: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__nullify",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_mask__nullify in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_mask__partial",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_mask__partial: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__partial",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_mask__partial in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_mask__numeric_bucket",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_mask__numeric_bucket: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__numeric_bucket",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_mask__numeric_bucket in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_mask__date_truncate",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_mask__date_truncate: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__date_truncate",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_mask__date_truncate in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_projection__select",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_projection__select: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__select",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_projection__select in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_projection__drop",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_projection__drop: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__drop",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_projection__drop in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_projection__batch_rename",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_projection__batch_rename: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__batch_rename",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_projection__batch_rename in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_missing_policy__value_rule",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_missing_policy__value_rule: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__value_rule",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_missing_policy__value_rule in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_missing_policy__hash",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_missing_policy__hash: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__hash",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_missing_policy__hash in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_missing_policy__masking",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_missing_policy__masking: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__masking",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_missing_policy__masking in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_missing_policy__projection",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "transform_missing_policy__projection: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__projection",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_missing_policy__projection in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__invalid_typed_fill",
+      "behavior": "transform.strict_rejection",
+      "intent": "transform_value__invalid_typed_fill: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__invalid_typed_fill",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at transform_features_source/sample and configure its connection and the destination transform_features_destination/tf_invalid_typed_fill.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "transform_value__invalid_typed_fill: overwrite replaces target transform_features_destination/tf_invalid_typed_fill; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"value_rules\":[{\"operation\":\"fill_null\",\"columns\":[\"age\"],\"value\":\"invalid\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_mask__invalid_typed_redact",
+      "behavior": "transform.strict_rejection",
+      "intent": "transform_mask__invalid_typed_redact: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__invalid_typed_redact",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at transform_features_source/sample and configure its connection and the destination transform_features_destination/tf_invalid_typed_redact.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "transform_mask__invalid_typed_redact: overwrite replaces target transform_features_destination/tf_invalid_typed_redact; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"masking_rules\":[{\"method\":\"redact\",\"columns\":[\"age\"],\"value\":\"invalid\"}]}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_sanitizer__collision",
+      "behavior": "transform.strict_rejection",
+      "intent": "transform_sanitizer__collision: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_sanitizer__collision",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at transform_features_source/collision and configure its connection and the destination transform_features_destination/tf_sanitizer_collision.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "transform_sanitizer__collision: overwrite replaces target transform_features_destination/tf_sanitizer_collision; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_dedup__missing_is_strict",
+      "behavior": "transform.strict_rejection",
+      "intent": "transform_dedup__missing_is_strict: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_dedup__missing_is_strict",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at transform_features_source/sample and configure its connection and the destination transform_features_destination/tf_dedup_strict.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "transform_dedup__missing_is_strict: overwrite replaces target transform_features_destination/tf_dedup_strict; old-only rows disappear and readback equals the transformed input rows. Verify configured transformation results: {\"deduplicate_columns\":[\"record_id\"],\"latest_data_columns\":[\"missing_order\"],\"configure\":{\"missing_column_policy\":\"ignore\"}}. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_transform_features",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "Polars transformer metadata regression with output reconciliation",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__trim",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__case",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__regex_replace",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__regex_literal_replacement",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__empty_to_null",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__fill_null",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__map",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__stable_rule_order",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_value__before_schema_cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_schema__cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_schema__missing_warning",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_hash__sha256",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_hash__xxhash64",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__redact",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__nullify",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__partial",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__numeric_bucket",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__date_truncate",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__select",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__drop",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__batch_rename",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__value_rule",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__hash",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__masking",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__projection",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_features"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_features"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_transform_features",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "Spark transformer metadata regression with output reconciliation",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__trim",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__case",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__regex_replace",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__regex_literal_replacement",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__empty_to_null",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__fill_null",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__map",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__stable_rule_order",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_value__before_schema_cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_schema__cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_schema__missing_warning",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_hash__sha256",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_hash__xxhash64",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__redact",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__nullify",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__partial",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__numeric_bucket",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__date_truncate",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__select",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__drop",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_projection__batch_rename",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__value_rule",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__hash",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__masking",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_missing_policy__projection",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_transform_features"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_transform_features"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_dedup_strict",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: configured dedup remains strict when missing-column policy is ignore",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_dedup__missing_is_strict",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_dedup_strict"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_dedup_strict"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_transform_dedup_strict",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: configured dedup remains strict when missing-column policy is ignore",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_dedup__missing_is_strict",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_transform_dedup_strict"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_transform_dedup_strict"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_invalid_fill",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: fill_null rejects a string literal for an integer column",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__invalid_typed_fill",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_invalid_fill"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_invalid_fill"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_transform_invalid_fill",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: fill_null rejects a string literal for an integer column",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_value__invalid_typed_fill",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_transform_invalid_fill"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_transform_invalid_fill"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_invalid_redact",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: redact rejects a string literal for an integer column",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__invalid_typed_redact",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_invalid_redact"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_invalid_redact"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_transform_invalid_redact",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: redact rejects a string literal for an integer column",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_mask__invalid_typed_redact",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_transform_invalid_redact"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_transform_invalid_redact"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_sanitizer_collision",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: distinct source names cannot collapse to one sanitized name",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_sanitizer__collision",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_sanitizer_collision"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_sanitizer_collision"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_transform_sanitizer_collision",
+      "behavior": "transform.strict_rejection",
+      "intent": "Expected failure: distinct source names cannot collapse to one sanitized name",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "flow": "transform_sanitizer__collision",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_transform_sanitizer_collision"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_transform_sanitizer_collision"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Expected nonzero child exit plus exact rejection console text; final recipe validation succeeds.",
+      "assertion_owners": [
+        "usecase-sim/runner/run_scenario.py::_invocation_expected_exit",
+        "usecase-sim/runner/run_scenario.py::_validate_scenario_result"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Negative rejection oracle; does not qualify corresponding positive data behavior.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_a9_uppercase",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "Uppercase rule produces exact uppercase Unicode/string values and preserves nulls.",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "flow": "a9-transform-uppercase",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_a9_uppercase"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_a9_uppercase"
+      ],
+      "preconditions": [
+        "Use fresh case-owned runtime roots; activate the declared source/target preconditions.",
+        "All positive phases require the expected current flow succeeded=1, failed=0, skipped=0."
+      ],
+      "expected": "Uppercase rule produces exact uppercase Unicode/string values and preserves nulls.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_uppercase_output"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact local/native or service oracle; independently versioned runtime qualification required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_a9_map_null",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "Mapped values resolve exactly while unmapped values become null under on_unmapped=null.",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "flow": "a9-transform-map-null",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_a9_map_null"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_a9_map_null"
+      ],
+      "preconditions": [
+        "Use fresh case-owned runtime roots; activate the declared source/target preconditions.",
+        "All positive phases require the expected current flow succeeded=1, failed=0, skipped=0."
+      ],
+      "expected": "Mapped values resolve exactly while unmapped values become null under on_unmapped=null.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_map_null_output"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact local/native or service oracle; independently versioned runtime qualification required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_a9_partial_keep_start",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "Partial masking retains the configured prefix and masks only the middle with short-string/null behavior asserted.",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "flow": "a9-transform-partial-keep-start",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_a9_partial_keep_start"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_a9_partial_keep_start"
+      ],
+      "preconditions": [
+        "Use fresh case-owned runtime roots; activate the declared source/target preconditions.",
+        "All positive phases require the expected current flow succeeded=1, failed=0, skipped=0."
+      ],
+      "expected": "Partial masking retains the configured prefix and masks only the middle with short-string/null behavior asserted.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_partial_keep_start_output"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact local/native or service oracle; independently versioned runtime qualification required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_transform_a9_timestamp_hour",
+      "behavior": "transform.value_rules_projection_masks_hashes",
+      "intent": "Hour masking truncates timestamp minute/second/microseconds with exact timestamp type and null preservation.",
+      "contract": "src/datacoolie/core/models/transform.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "flow": "a9-transform-timestamp-truncate-hour",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_transform_a9_timestamp_hour"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_transform_a9_timestamp_hour"
+      ],
+      "preconditions": [
+        "Use fresh case-owned runtime roots; activate the declared source/target preconditions.",
+        "All positive phases require the expected current flow succeeded=1, failed=0, skipped=0."
+      ],
+      "expected": "Hour masking truncates timestamp minute/second/microseconds with exact timestamp type and null preservation.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_a9_local.py::assert_timestamp_truncate_output"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact local/native or service oracle; independently versioned runtime qualification required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

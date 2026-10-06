@@ -1,0 +1,3018 @@
+{
+  "group": "maintenance",
+  "behaviors": [
+    {
+      "id": "maintenance.eligible_protected_data",
+      "intent": "eligible protected data",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/maintenance/validate_maintenance.py::validate",
+        "tests/unit/engines/_polars/test_delta.py::test_cleanup_vacuums_files_and_preserves_retention_controls"
+      ],
+      "checks": [
+        {
+          "id": "maintenance.eligible_protected_data.physical_compaction",
+          "acceptance": "Compacting a fragmented Delta target tombstones old active files and preserves exact rows.",
+          "preconditions": [
+            "Seed two active data files then compact through a normal Driver maintenance call."
+          ],
+          "case_ids": [
+            "local_polars_maintenance_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/maintenance/validate_maintenance.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "maintenance.eligible_protected_data.eligible_file_deletion",
+          "acceptance": "Cleanup with zero retention physically deletes obsolete eligible files while retaining active files and rows.",
+          "preconditions": [
+            "Compact aged eligible files, wait past tombstone time boundary, then cleanup."
+          ],
+          "case_ids": [
+            "local_polars_maintenance_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/maintenance/validate_maintenance.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "maintenance.eligible_protected_data.recent_file_protection",
+          "acceptance": "Cleanup at 168 hours preserves a recent obsolete file and all active files.",
+          "preconditions": [
+            "Overwrite a protected target to create a recent tombstone and use 168-hour retention."
+          ],
+          "case_ids": [
+            "local_polars_maintenance_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/maintenance/validate_maintenance.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "maintenance.eligible_protected_data.retention_forwarding",
+          "acceptance": "Native cleanup explicitly vacuums with dry_run=False and preserves the requested retention controls.",
+          "preconditions": [
+            "Invoke cleanup with a supplied retention duration."
+          ],
+          "case_ids": [
+            "local_polars_delta_maintenance",
+            "local_polars_iceberg_maintenance",
+            "local_spark_delta_maintenance",
+            "local_spark_iceberg_maintenance",
+            "aws_polars_delta_maintenance",
+            "aws_polars_iceberg_maintenance",
+            "aws_spark_delta_maintenance",
+            "aws_spark_iceberg_maintenance",
+            "local_polars_maintenance_stateful"
+          ],
+          "assertion_owners": [
+            "tests/unit/engines/_polars/test_delta.py::test_cleanup_vacuums_files_and_preserves_retention_controls"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    },
+    {
+      "id": "maintenance.missing_target_capability",
+      "intent": "missing target capability",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/maintenance/validate_maintenance.py::validate",
+        "tests/unit/orchestration/test_maintenance.py::TestMaintenanceDedup::test_run_maintenance_dedupes_caller_supplied_dataflows",
+        "tests/unit/orchestration/test_maintenance.py::TestMaintenanceDedup::test_all_inactive_maintenance_never_creates_writer",
+        "tests/unit/destinations/test_file_writer.py::TestFileWriterMaintenance::test_run_maintenance_fails"
+      ],
+      "checks": [
+        {
+          "id": "maintenance.missing_target_capability.missing_target_skip",
+          "acceptance": "Missing targets skip compact and cleanup with persisted per-operation statuses.",
+          "preconditions": [
+            "Use a destination that has never been created."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/maintenance/validate_maintenance.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "maintenance.missing_target_capability.unique_destination_once",
+          "acceptance": "Caller-supplied duplicate dataflows sharing a destination cause one writer maintenance call.",
+          "preconditions": [
+            "Select multiple active dataflows with the same qualified target."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/test_maintenance.py::TestMaintenanceDedup::test_run_maintenance_dedupes_caller_supplied_dataflows"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "maintenance.missing_target_capability.inactive_target",
+          "acceptance": "An all-inactive maintenance selection never creates a writer.",
+          "preconditions": [
+            "Select inactive dataflows only."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/orchestration/test_maintenance.py::TestMaintenanceDedup::test_all_inactive_maintenance_never_creates_writer"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "maintenance.missing_target_capability.unsupported_file_maintenance",
+          "acceptance": "File destinations report failed unsupported maintenance instead of silently succeeding.",
+          "preconditions": [
+            "Request maintenance for a plain file destination."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/destinations/test_file_writer.py::TestFileWriterMaintenance::test_run_maintenance_fails"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "local_polars_delta_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on delta via Polars",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__excel",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__delta",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__iceberg",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__date_format",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__decimal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__numeric_types",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__global_hint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__row_number",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__rank",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__no_order_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__literal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__expression",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__compound",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_date",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__on_computed_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__single",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__multi",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime_multi_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__days",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__months_closing_day",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__delta_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__iceberg_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__custom_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__api_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__basic",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2_basic_method",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__cursor",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__next_link",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__post_body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__static_params",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__nested_data_path",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__server_filter",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__rate_limit",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__iso",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_conn",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_src_override",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__exclusive_offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__day_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__month_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__year_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__multi_worker",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__with_bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "date_folder__dest_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "date_folder__src_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "hive_partition__source",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset_concurrent",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite_query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/workflows/local.json",
+          "flow": "combined__dedup_schema_addcols_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__string_cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__composite_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__hint_inactive",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__no_ntz_convert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__skip_hints",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__boolean",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__bigint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp_ntz",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__hours",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__years",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json_to_jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append_partitioned",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_iceberg__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/execution/local.json",
+          "flow": "streaming__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_delta_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_delta_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_iceberg_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on iceberg via Polars",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__excel",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__delta",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__iceberg",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__date_format",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__decimal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__numeric_types",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__global_hint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__row_number",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__rank",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__no_order_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__literal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__expression",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__compound",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_date",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__on_computed_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__single",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__multi",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime_multi_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__days",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__months_closing_day",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__delta_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__iceberg_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__custom_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__api_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__basic",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2_basic_method",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__cursor",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__next_link",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__post_body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__static_params",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__nested_data_path",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__server_filter",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__rate_limit",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__iso",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_conn",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_src_override",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__exclusive_offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__day_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__month_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__year_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__multi_worker",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__with_bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "date_folder__dest_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "date_folder__src_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "hive_partition__source",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset_concurrent",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite_query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/workflows/local.json",
+          "flow": "combined__dedup_schema_addcols_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__string_cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__composite_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__hint_inactive",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__no_ntz_convert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__skip_hints",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__boolean",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__bigint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp_ntz",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__hours",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__years",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json_to_jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append_partitioned",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_iceberg__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/execution/local.json",
+          "flow": "streaming__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_polars_iceberg_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_iceberg_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_spark_delta_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on delta via Spark",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__excel",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__delta",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__iceberg",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__date_format",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__decimal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__numeric_types",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__global_hint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__row_number",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__rank",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__no_order_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__literal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__expression",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__compound",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_date",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__on_computed_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__single",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__multi",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime_multi_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__days",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__months_closing_day",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__delta_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__iceberg_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__custom_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__api_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__basic",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2_basic_method",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__cursor",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__next_link",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__post_body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__static_params",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__nested_data_path",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__server_filter",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__rate_limit",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__iso",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_conn",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_src_override",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__exclusive_offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__day_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__month_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__year_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__multi_worker",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__with_bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "date_folder__dest_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "date_folder__src_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "hive_partition__source",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset_concurrent",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite_query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/workflows/local.json",
+          "flow": "combined__dedup_schema_addcols_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__string_cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__composite_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__hint_inactive",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__no_ntz_convert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__skip_hints",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__boolean",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__bigint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp_ntz",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__hours",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__years",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json_to_jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append_partitioned",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_iceberg__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/execution/local.json",
+          "flow": "streaming__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_delta_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_delta_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_spark_iceberg_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on iceberg via Spark",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__excel",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__delta",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read__iceberg",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__csv",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__avro",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__parquet",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_delta__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__full_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__date_format",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__decimal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__numeric_types",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__global_hint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__row_number",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__rank",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__no_order_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__literal",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "addcols__expression",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__compound",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "filter__transform_date",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__on_computed_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "row_filter__simple",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__single",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "partition__multi",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__file_mtime_multi_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__postgres",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__oracle",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mysql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__mssql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_db__sqlite",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__days",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__months_closing_day",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__delta_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__iceberg_sql",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "python_fn__custom_load",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__api_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__basic",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_auth__oauth2_basic_method",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__none",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__cursor",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__next_link",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__post_body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__static_params",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__nested_data_path",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__server_filter",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_request__rate_limit",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__iso",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__body",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_conn",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__tz_src_override",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__exclusive_offset",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__day_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__month_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__year_interval",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__multi_worker",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_range__with_bearer",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "date_folder__dest_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "date_folder__src_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "hive_partition__source",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__timestamp",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "api_wm__datetime_ms",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "api_page__offset_concurrent",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_delta__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "flow": "load_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_overwrite_rbw",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_db__sqlite_query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_delta__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__query",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "flow": "read_iceberg__scd2",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/workflows/local.json",
+          "flow": "combined__dedup_schema_addcols_partition",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__string_cast",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "flow": "dedup__composite_key",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__hint_inactive",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__no_ntz_convert",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__skip_hints",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__boolean",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__bigint",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp_ntz",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__hours",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "backward__years",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "write__json_to_jsonl",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "flow": "load_iceberg__append_partitioned",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "flow": "load_iceberg__merge_upsert_no_watermark",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_base",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_new_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve_fewer_cols",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "flow": "watermark_iceberg__data_col",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/execution/local.json",
+          "flow": "streaming__append",
+          "role": "support"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "flow": "replay__orders",
+          "role": "support"
+        }
+      ],
+      "scenarios": [
+        "local_spark_iceberg_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_iceberg_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "aws_polars_delta_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on AWS delta via Polars (requires MinIO)",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [],
+      "scenarios": [
+        "aws_polars_delta_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "aws_polars_delta_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "aws_polars_iceberg_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on AWS iceberg via Polars (requires MinIO + iceberg-rest)",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [],
+      "scenarios": [
+        "aws_polars_iceberg_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "aws_polars_iceberg_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "aws_spark_delta_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on AWS delta via Spark (requires MinIO)",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [],
+      "scenarios": [
+        "aws_spark_delta_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "aws_spark_delta_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "aws_spark_iceberg_maintenance",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Maintenance compact + cleanup on AWS iceberg via Spark (requires MinIO + iceberg-rest)",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [],
+      "scenarios": [
+        "aws_spark_iceberg_maintenance"
+      ],
+      "dedicated_scenarios": [
+        "aws_spark_iceberg_maintenance"
+      ],
+      "preconditions": [
+        "Create the selected lakehouse targets first; compact needs fragmented active files, cleanup needs obsolete eligible/protected files, and configured backend/catalog services must be available."
+      ],
+      "expected": "Selected compact/cleanup operations report their actual status; reconcile target rows and physical eligible/protected files. Existing exit-only recipe does not prove deletion or retention.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This broad maintenance recipe has no exact persisted deletion/retention oracle. The native stateful case supplies local Delta evidence only; selected engine/backend qualification remains separate.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "local_polars_maintenance_stateful",
+      "behavior": "maintenance.eligible_protected_data",
+      "intent": "Focused native Delta maintenance state sequence",
+      "contract": "src/datacoolie/orchestration/maintenance.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/maintenance/maintenance.json",
+          "flow": "maintenance-eligible",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/maintenance/maintenance.json",
+          "flow": "maintenance-protected",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/maintenance/maintenance.json",
+          "flow": "maintenance-missing",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_maintenance_stateful"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_maintenance_stateful"
+      ],
+      "preconditions": [
+        "Local Polars/Delta-rs installed. Validator allocates fresh case-owned data, state and receipt roots; shared framework logs selected by current job/session.",
+        "Fixture placeholder __CASE_ROOT__ is materialized only by the declared validator; do not dispatch authored template directly."
+      ],
+      "expected": "Compact real fragmented target, delete eligible obsolete files at zero retention; preserve recent obsolete and active files at 168h; missing target explicitly skipped.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/maintenance/validate_maintenance.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local Polars/Delta-rs cleanup fixed and qualified: obsolete eligible files deleted, recent obsolete/active files protected, missing target skipped. Additional Spark/Iceberg/cloud profiles remain unqualified.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

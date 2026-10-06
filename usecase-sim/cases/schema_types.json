@@ -1,0 +1,2687 @@
+{
+  "group": "schema_types",
+  "behaviors": [
+    {
+      "id": "schema_types.persisted_types_precision_null",
+      "intent": "persisted types precision null",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_polars_persisted_formats.py::test_polars_persisted_schema_and_values",
+        "tests/integration/data_types/test_engine_casts.py::test_polars_matches_shared_decimal_and_ntz_contract",
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py::test_shared_metadata_contract_matches_between_polars_and_spark",
+        "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_noop_when_schema_hint_disabled",
+        "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_skips_inactive_hints",
+        "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_missing_column_warns_and_skips",
+        "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_case_insensitive_column_match",
+        "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_real_polars_canonical_narrow_cast_rejects_out_of_range_value",
+        "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_no_timestamp_ntz_conversion_when_disabled",
+        "tests/unit/metadata/test_schema_hints.py::test_none_schema_rejects_ambiguous_groups",
+        "usecase-sim/scripts/features/schema_types/validate_ntz_timezone.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "schema_types.persisted_types_precision_null.persisted_decimal_null_timezone",
+          "acceptance": "Persisted readback retains decimal precision/scale, integer values, nulls, UTC instants and timezone-naive wall clock values.",
+          "preconditions": [
+            "Write and read a typed fixture through Parquet/Delta persisted formats."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_schema__timestamp",
+            "metadata/file/baseline/aws_use_cases::aws_schema__decimal",
+            "metadata/file/baseline/aws_use_cases::aws_schema__numeric_types",
+            "metadata/file/baseline/aws_use_cases::aws_schema__timestamp_ntz",
+            "metadata/file/baseline/local_use_cases::schema__timestamp",
+            "metadata/file/baseline/local_use_cases::schema__decimal",
+            "metadata/file/baseline/local_use_cases::schema__numeric_types",
+            "metadata/file/baseline/local_use_cases::schema__timestamp_ntz",
+            "metadata/file/schema_types/datatype_qualification::datatype_decimal_and_date",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_csv",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_parquet",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_json",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_jsonl",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_postgresql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_mysql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_mssql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_oracle",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_sqlite",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_spark_sql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_postgresql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_mysql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_sqlite",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_mssql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_oracle",
+            "local_polars_datatype_qualification",
+            "local_spark_datatype_qualification",
+            "local_polars_datatype_qualification_delta",
+            "local_spark_datatype_qualification_delta",
+            "local_polars_datatype_qualification_iceberg",
+            "local_spark_datatype_qualification_iceberg"
+          ],
+          "assertion_owners": [
+            "tests/integration/data_types/test_polars_persisted_formats.py::test_polars_persisted_schema_and_values"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.shared_engine_cast_contract",
+          "acceptance": "Native Polars casts match the shared decimal and timestamp-NTZ contract.",
+          "preconditions": [
+            "Cast decimal and NTZ values with the shared independent type fixtures."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_schema__decimal",
+            "metadata/file/baseline/aws_use_cases::aws_schema__timestamp_ntz",
+            "metadata/file/baseline/local_use_cases::schema__decimal",
+            "metadata/file/baseline/local_use_cases::schema__timestamp_ntz",
+            "metadata/file/schema_types/datatype_qualification::datatype_decimal_and_date",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_csv",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_parquet",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_json",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_jsonl",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_postgresql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_mysql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_mssql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_oracle",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_sqlite",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_spark_sql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_postgresql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_mysql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_sqlite",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_mssql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_oracle",
+            "local_polars_datatype_qualification",
+            "local_spark_datatype_qualification",
+            "local_polars_datatype_qualification_delta",
+            "local_spark_datatype_qualification_delta",
+            "local_polars_datatype_qualification_iceberg",
+            "local_spark_datatype_qualification_iceberg"
+          ],
+          "assertion_owners": [
+            "tests/integration/data_types/test_engine_casts.py::test_polars_matches_shared_decimal_and_ntz_contract"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.cross_engine_fixture_parity",
+          "acceptance": "Independent expected schema and values are reconciled across Polars and Spark for the canonical datatype suite.",
+          "preconditions": [
+            "Opt in to container/service-backed datatype qualification and preserve identical input for both engines."
+          ],
+          "case_ids": [
+            "metadata/file/schema_types/datatype_qualification::datatype_decimal_and_date",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_csv",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_parquet",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_json",
+            "metadata/file/schema_types/datatype_qualification::datatype_unhinted_jsonl",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_postgresql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_mysql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_mssql",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_oracle",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_sqlite",
+            "metadata/file/schema_types/datatype_qualification::datatype_matrix_spark_sql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_postgresql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_mysql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_sqlite",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_mssql",
+            "metadata/file/schema_types/datatype_qualification::datatype_database_oracle",
+            "local_polars_datatype_qualification",
+            "local_spark_datatype_qualification",
+            "local_polars_datatype_qualification_delta",
+            "local_spark_datatype_qualification_delta",
+            "local_polars_datatype_qualification_iceberg",
+            "local_spark_datatype_qualification_iceberg"
+          ],
+          "assertion_owners": [
+            "tests/integration/data_types/test_usecase_sim_cross_engine.py::test_shared_metadata_contract_matches_between_polars_and_spark"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.disabled_hints_noop",
+          "acceptance": "Disabling schema-hint conversion causes no engine casts and marks the transformer skipped.",
+          "preconditions": [
+            "Set schema-hint conversion disabled while hints are present."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_schema__skip_hints",
+            "metadata/file/baseline/local_use_cases::schema__skip_hints"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_noop_when_schema_hint_disabled"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.inactive_hints_ignored",
+          "acceptance": "Inactive hints do not cast their columns.",
+          "preconditions": [
+            "Supply an inactive schema hint alongside active hints."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_schema__hint_inactive",
+            "metadata/file/baseline/local_use_cases::schema__hint_inactive"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_skips_inactive_hints"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.missing_column_warns",
+          "acceptance": "Hints naming missing columns warn and skip without inventing columns.",
+          "preconditions": [
+            "Apply a hint to a column absent from the input schema."
+          ],
+          "case_ids": [
+            "metadata/file/transform/transformer_features::transform_schema__missing_warning"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_missing_column_warns_and_skips"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.case_insensitive_column",
+          "acceptance": "Hint column matching resolves case-insensitively to the actual input column.",
+          "preconditions": [
+            "Use mixed-case input names and differently cased hints."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_case_insensitive_column_match"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.integer_overflow",
+          "acceptance": "Real Polars narrow integer casts reject an out-of-range value instead of silently truncating it.",
+          "preconditions": [
+            "Cast a value beyond the declared narrow integer range."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_real_polars_canonical_narrow_cast_rejects_out_of_range_value"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.ntz_conversion_disabled",
+          "acceptance": "Disabling NTZ conversion causes no call to the NTZ conversion helper.",
+          "preconditions": [
+            "Use timestamp-NTZ input with conversion explicitly disabled."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_schema__no_ntz_convert",
+            "metadata/file/baseline/local_use_cases::schema__no_ntz_convert"
+          ],
+          "assertion_owners": [
+            "tests/unit/transformers/test_schema_converter.py::TestSchemaConverter::test_no_timestamp_ntz_conversion_when_disabled"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.hint_scope_ambiguity",
+          "acceptance": "Unqualified hints reject ambiguous schema groups and never pick an arbitrary group.",
+          "preconditions": [
+            "Configure two schema-qualified hint groups for one connection/table and omit schema selection."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/metadata/test_schema_hints.py::test_none_schema_rejects_ambiguous_groups"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.persisted_types_precision_null.explicit_ntz_timezone",
+          "acceptance": "Typed naive Parquet wall_clock converts Asia/Ho_Chi_Minh to exact UTC instant 2024-01-15T03:30:45.123456+00:00 with Datetime(us,UTC), null and aware control preserved; overwrite rerun executes successfully with stable result.",
+          "preconditions": [
+            "Fresh case-owned source/output/state; authored configuration activates this branch through normal Driver and current successful expected-flow sessions."
+          ],
+          "case_ids": [
+            "local_polars_ntz_timezone"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/schema_types/validate_ntz_timezone.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact persisted data/schema and current expected-flow evidence oracle; qualification is independently versioned for host-local delta.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    },
+    {
+      "id": "schema_types.additive_fewer_columns",
+      "intent": "additive fewer columns",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "coverage": "asserted",
+      "gap": "Check-level acceptance, residual gaps and next actions are authoritative; family assertion does not qualify every referenced fixture or runtime profile.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/schema_types/validate_schema_evolution.py::validate",
+        "tests/unit/engines/_polars/test_delta.py::test_validate_write_options_rejects_conflicting_schema_controls",
+        "tests/unit/engines/_polars/test_delta.py::test_validate_write_options_maps_canonical_schema_controls",
+        "tests/unit/engines/_polars/test_delta.py::test_validate_write_options_rejects_overwrite_schema_for_append",
+        "usecase-sim/scripts/features/schema_types/validate_a9_merge_schema.py::validate",
+        "usecase-sim/scripts/features/merge/validate_iceberg_schema_merge.py::validate",
+        "usecase-sim/scripts/features/merge/validate_iceberg_partition_change.py::validate"
+      ],
+      "checks": [
+        {
+          "id": "schema_types.additive_fewer_columns.add_new_columns",
+          "acceptance": "Appending a new column preserves old rows and fills the new column with null on those rows.",
+          "preconditions": [
+            "Seed target with the old schema, then append a row with an additional integer column."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__schema_evolve_new_cols",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__schema_evolve_new_cols",
+            "metadata/file/baseline/local_use_cases::load_delta__schema_evolve_new_cols",
+            "metadata/file/baseline/local_use_cases::load_iceberg__schema_evolve_new_cols",
+            "local_polars_schema_types_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/schema_types/validate_schema_evolution.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.additive_fewer_columns.append_fewer_columns",
+          "acceptance": "Appending fewer columns preserves the target schema and fills omitted columns with null.",
+          "preconditions": [
+            "After adding a column, append a row omitting that column."
+          ],
+          "case_ids": [
+            "metadata/file/baseline/aws_use_cases::aws_load_delta__schema_evolve_fewer_cols",
+            "metadata/file/baseline/aws_use_cases::aws_read_delta__schema_evolve_fewer_cols",
+            "metadata/file/baseline/aws_use_cases::aws_load_iceberg__schema_evolve_fewer_cols",
+            "metadata/file/baseline/aws_use_cases::aws_read_iceberg__schema_evolve_fewer_cols",
+            "metadata/file/baseline/local_use_cases::load_delta__schema_evolve_fewer_cols",
+            "metadata/file/baseline/local_use_cases::read_delta__schema_evolve_fewer_cols",
+            "metadata/file/baseline/local_use_cases::load_iceberg__schema_evolve_fewer_cols",
+            "metadata/file/baseline/local_use_cases::read_iceberg__schema_evolve_fewer_cols",
+            "local_polars_schema_types_stateful"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/schema_types/validate_schema_evolution.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.additive_fewer_columns.conflicting_schema_options",
+          "acceptance": "Conflicting native schema controls fail before mutation.",
+          "preconditions": [
+            "Set incompatible schema evolution/write options."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/engines/_polars/test_delta.py::test_validate_write_options_rejects_conflicting_schema_controls"
+          ],
+          "coverage": "asserted",
+          "gap": "Assertion covers the declared branch; execution qualification is reported separately by profile and receipt.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.additive_fewer_columns.explicit_schema_policy_mapping",
+          "acceptance": "Explicit mergeSchema/overwriteSchema true/false values map to the exact native schema_mode and invalid append overwrite is rejected.",
+          "preconditions": [
+            "Invoke canonical schema controls for the corresponding write modes."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "tests/unit/engines/_polars/test_delta.py::test_validate_write_options_maps_canonical_schema_controls",
+            "tests/unit/engines/_polars/test_delta.py::test_validate_write_options_rejects_overwrite_schema_for_append"
+          ],
+          "coverage": "asserted",
+          "gap": "This establishes option mapping/rejection; explicit-policy persisted schema outcomes remain a separate gap.",
+          "next_action": "none"
+        },
+        {
+          "id": "schema_types.additive_fewer_columns.explicit_schema_policy_persisted",
+          "acceptance": "Explicit schema policy controls the exact persisted target schema and rows under a distinguishable old/new schema.",
+          "preconditions": [
+            "Seed an old target and explicitly declare schema policy; compare persisted schema and rows with the documented policy."
+          ],
+          "case_ids": [
+            "local_polars_schema_types_a9_merge_schema"
+          ],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/schema_types/validate_a9_merge_schema.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact branch-specific oracle exists; runtime qualification is independently versioned. Other profiles remain unqualified.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.additive_fewer_columns.iceberg_merge_added_column",
+          "acceptance": "Keyed Iceberg merge evolves the added column, updates/inserts exact rows and retains untouched tail.",
+          "preconditions": [
+            "Existing Iceberg table with old schema and changed/new keyed rows containing an added column.",
+            "Qualify a declared PyIceberg/catalog profile independently; append schema evolution does not prove compound merge."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/merge/validate_iceberg_schema_merge.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact native Iceberg schema/spec branch oracle exists; primary case local_polars_merge_a9_iceberg_schema belongs to merge. Required REST Polars qualification is separately versioned.",
+          "next_action": "qualify_profile"
+        },
+        {
+          "id": "schema_types.additive_fewer_columns.iceberg_merge_partition_change",
+          "acceptance": "Keyed Iceberg merge commits the required partition spec change with exact rows and unchanged tail.",
+          "preconditions": [
+            "Existing Iceberg table with old partition spec, incoming merge keys and a newly configured partition column.",
+            "Qualify a declared PyIceberg/catalog profile independently; append schema evolution does not prove compound merge."
+          ],
+          "case_ids": [],
+          "assertion_owners": [
+            "usecase-sim/scripts/features/merge/validate_iceberg_partition_change.py::validate"
+          ],
+          "coverage": "asserted",
+          "gap": "Exact native Iceberg schema/spec branch oracle exists; primary case local_polars_merge_a9_iceberg_partition belongs to merge. Required REST Polars qualification is separately versioned.",
+          "next_action": "qualify_profile"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__date_format",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__date_format: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__date_format",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_date.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__date_format: overwrite replaces target aws_parquet_dest/orders_schema_date; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__timestamp",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__timestamp: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__timestamp",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_timestamp.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__timestamp: overwrite replaces target aws_parquet_dest/orders_schema_timestamp; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__decimal",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__decimal: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__decimal",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_decimal.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__decimal: overwrite replaces target aws_parquet_dest/orders_schema_decimal; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__numeric_types",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__numeric_types: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__numeric_types",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_numeric.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__numeric_types: overwrite replaces target aws_parquet_dest/orders_schema_numeric; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__global_hint",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__global_hint: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__global_hint",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_json_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_global.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__global_hint: overwrite replaces target aws_parquet_dest/orders_schema_global; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__schema_evolve_base",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_load_delta__schema_evolve_base: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_load_delta__schema_evolve_base",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_load_delta__schema_evolve_base: overwrite replaces target aws_delta_dest/orders_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__schema_evolve_new_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_load_delta__schema_evolve_new_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_load_delta__schema_evolve_new_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_delta__schema_evolve_new_cols: append at aws_delta_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_read_delta__schema_evolve",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_read_delta__schema_evolve: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_read_delta__schema_evolve",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_delta_source/orders_schema_evolve and configure its connection and the destination aws_delta_dest/orders_read_delta_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_read_delta__schema_evolve: overwrite replaces target aws_delta_dest/orders_read_delta_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_delta__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_load_delta__schema_evolve_fewer_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_load_delta__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_delta_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_delta__schema_evolve_fewer_cols: append at aws_delta_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_read_delta__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_read_delta__schema_evolve_fewer_cols: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_read_delta__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_delta_source/orders_schema_evolve and configure its connection and the destination aws_delta_dest/orders_read_delta_schema_evolve_fewer.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_read_delta__schema_evolve_fewer_cols: overwrite replaces target aws_delta_dest/orders_read_delta_schema_evolve_fewer; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__string_cast",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__string_cast: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__string_cast",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_string.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__string_cast: overwrite replaces target aws_parquet_dest/orders_schema_string; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__hint_inactive",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__hint_inactive: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__hint_inactive",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_hint_inactive.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__hint_inactive: overwrite replaces target aws_parquet_dest/orders_schema_hint_inactive; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__no_ntz_convert",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__no_ntz_convert: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__no_ntz_convert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_no_ntz.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__no_ntz_convert: overwrite replaces target aws_parquet_dest/orders_schema_no_ntz; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__skip_hints",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__skip_hints: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__skip_hints",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_no_hint/sample and configure its connection and the destination aws_parquet_dest/orders_schema_skip.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__skip_hints: overwrite replaces target aws_parquet_dest/orders_schema_skip; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__boolean",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__boolean: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__boolean",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_boolean.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__boolean: overwrite replaces target aws_parquet_dest/orders_schema_boolean; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__bigint",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__bigint: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__bigint",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_bigint.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__bigint: overwrite replaces target aws_parquet_dest/orders_schema_bigint; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_schema__timestamp_ntz",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "aws_schema__timestamp_ntz: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_schema__timestamp_ntz",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_csv_source/sample and configure its connection and the destination aws_parquet_dest/orders_schema_ntz.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_schema__timestamp_ntz: overwrite replaces target aws_parquet_dest/orders_schema_ntz; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__schema_evolve_base",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_load_iceberg__schema_evolve_base: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_load_iceberg__schema_evolve_base",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_load_iceberg__schema_evolve_base: overwrite replaces target aws_iceberg_dest/orders_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__schema_evolve_new_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_load_iceberg__schema_evolve_new_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_load_iceberg__schema_evolve_new_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_iceberg__schema_evolve_new_cols: append at aws_iceberg_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_read_iceberg__schema_evolve",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_read_iceberg__schema_evolve: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_read_iceberg__schema_evolve",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_iceberg_source/orders_schema_evolve and configure its connection and the destination aws_iceberg_dest/orders_read_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_read_iceberg__schema_evolve: overwrite replaces target aws_iceberg_dest/orders_read_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_load_iceberg__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_load_iceberg__schema_evolve_fewer_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_load_iceberg__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_parquet_source/sample and configure its connection and the destination aws_iceberg_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "aws_load_iceberg__schema_evolve_fewer_cols: append at aws_iceberg_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/aws_use_cases::aws_read_iceberg__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "aws_read_iceberg__schema_evolve_fewer_cols: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "flow": "aws_read_iceberg__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at aws_iceberg_source/orders_schema_evolve and configure its connection and the destination aws_iceberg_dest/orders_read_schema_evolve_fewer.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "aws_read_iceberg__schema_evolve_fewer_cols: overwrite replaces target aws_iceberg_dest/orders_read_schema_evolve_fewer; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "aws"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__date_format",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__date_format: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__date_format",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_date.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__date_format: overwrite replaces target local_parquet_dest/orders_schema_date; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__timestamp",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__timestamp: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_timestamp.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__timestamp: overwrite replaces target local_parquet_dest/orders_schema_timestamp; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__decimal",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__decimal: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__decimal",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_decimal.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__decimal: overwrite replaces target local_parquet_dest/orders_schema_decimal; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__numeric_types",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__numeric_types: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__numeric_types",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_numeric.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__numeric_types: overwrite replaces target local_parquet_dest/orders_schema_numeric; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__global_hint",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__global_hint: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__global_hint",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_json_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_global.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__global_hint: overwrite replaces target local_parquet_dest/orders_schema_global; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__schema_evolve_base",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "load_delta__schema_evolve_base: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_base",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "load_delta__schema_evolve_base: overwrite replaces target local_delta_dest/orders_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__schema_evolve_new_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "load_delta__schema_evolve_new_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_new_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_delta__schema_evolve_new_cols: append at local_delta_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::read_delta__schema_evolve",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "read_delta__schema_evolve: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_delta_source/orders_schema_evolve and configure its connection and the destination local_delta_dest/orders_read_delta_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "read_delta__schema_evolve: overwrite replaces target local_delta_dest/orders_read_delta_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_delta__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "load_delta__schema_evolve_fewer_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_delta__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_delta_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_delta__schema_evolve_fewer_cols: append at local_delta_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::read_delta__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "read_delta__schema_evolve_fewer_cols: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_delta__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_delta_source/orders_schema_evolve and configure its connection and the destination local_delta_dest/orders_read_delta_schema_evolve_fewer.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "read_delta__schema_evolve_fewer_cols: overwrite replaces target local_delta_dest/orders_read_delta_schema_evolve_fewer; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__string_cast",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__string_cast: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__string_cast",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_string.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__string_cast: overwrite replaces target local_parquet_dest/orders_schema_string; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__hint_inactive",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__hint_inactive: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__hint_inactive",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_hint_inactive.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__hint_inactive: overwrite replaces target local_parquet_dest/orders_schema_hint_inactive; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__no_ntz_convert",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__no_ntz_convert: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__no_ntz_convert",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_no_ntz.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__no_ntz_convert: overwrite replaces target local_parquet_dest/orders_schema_no_ntz; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__skip_hints",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__skip_hints: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__skip_hints",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_no_hint/sample and configure its connection and the destination local_parquet_dest/orders_schema_skip.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__skip_hints: overwrite replaces target local_parquet_dest/orders_schema_skip; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__boolean",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__boolean: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__boolean",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_boolean.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__boolean: overwrite replaces target local_parquet_dest/orders_schema_boolean; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__bigint",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__bigint: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__bigint",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_bigint.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__bigint: overwrite replaces target local_parquet_dest/orders_schema_bigint; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::schema__timestamp_ntz",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "schema__timestamp_ntz: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "schema__timestamp_ntz",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_csv_source/sample and configure its connection and the destination local_parquet_dest/orders_schema_ntz.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "schema__timestamp_ntz: overwrite replaces target local_parquet_dest/orders_schema_ntz; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__schema_evolve_base",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "load_iceberg__schema_evolve_base: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_base",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "load_iceberg__schema_evolve_base: overwrite replaces target local_iceberg_dest/orders_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__schema_evolve_new_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "load_iceberg__schema_evolve_new_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_new_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_iceberg__schema_evolve_new_cols: append at local_iceberg_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::read_iceberg__schema_evolve",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "read_iceberg__schema_evolve: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_iceberg_source/orders_schema_evolve and configure its connection and the destination local_iceberg_dest/orders_read_schema_evolve.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "read_iceberg__schema_evolve: overwrite replaces target local_iceberg_dest/orders_read_schema_evolve; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "This fixture lacks a goal-specific output/state oracle; strengthen the owning validation with exact rows, state or expected rejection.",
+      "dependencies": [],
+      "next_action": "strengthen_oracle"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::load_iceberg__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "load_iceberg__schema_evolve_fewer_cols: append using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "load_iceberg__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_parquet_source/sample and configure its connection and the destination local_iceberg_dest/orders_schema_evolve.",
+        "Seed prior target rows and a distinct incoming batch; supply later input timestamps if source watermark filtering is active."
+      ],
+      "expected": "load_iceberg__schema_evolve_fewer_cols: append at local_iceberg_dest/orders_schema_evolve preserves prior rows and adds exactly the incoming transformed batch. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/baseline/local_use_cases::read_iceberg__schema_evolve_fewer_cols",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "read_iceberg__schema_evolve_fewer_cols: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "flow": "read_iceberg__schema_evolve_fewer_cols",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Prepare declared input at local_iceberg_source/orders_schema_evolve and configure its connection and the destination local_iceberg_dest/orders_read_schema_evolve_fewer.",
+        "Seed a distinguishable old target row when checking replacement; compare readback with transformed input."
+      ],
+      "expected": "read_iceberg__schema_evolve_fewer_cols: overwrite replaces target local_iceberg_dest/orders_read_schema_evolve_fewer; old-only rows disappear and readback equals the transformed input rows. Reconcile persisted types, null positions, decimal precision/scale and timestamp semantics under the selected hint group. Exact fixture oracle remains required before promotion from smoke.",
+      "assertion_owners": [],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "fixture_only",
+      "gap": "Related checklist pytest/validator owners exist; confirm their acceptance covers this exact fixture before changing fixture coverage.",
+      "dependencies": [],
+      "next_action": "map_existing_owner"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_decimal_and_date",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_decimal_and_date: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_decimal_and_date",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_unhinted_csv",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_unhinted_csv: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_unhinted_csv",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_unhinted_parquet",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_unhinted_parquet: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_unhinted_parquet",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_unhinted_json",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_unhinted_json: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_unhinted_json",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_unhinted_jsonl",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_unhinted_jsonl: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_unhinted_jsonl",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_matrix_postgresql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_matrix_postgresql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_matrix_postgresql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_matrix_mysql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_matrix_mysql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_matrix_mysql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_matrix_mssql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_matrix_mssql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_matrix_mssql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_matrix_oracle",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_matrix_oracle: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_matrix_oracle",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_matrix_sqlite",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_matrix_sqlite: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_matrix_sqlite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_matrix_spark_sql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_matrix_spark_sql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_matrix_spark_sql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Persisted values and types reconcile across declared engines/formats",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_database_postgresql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_database_postgresql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_database_postgresql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_postgresql_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_database_mysql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_database_mysql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_database_mysql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_database_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_database_sqlite",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_database_sqlite: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_database_sqlite",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_database_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_database_mssql",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_database_mssql: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_database_mssql",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_database_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/schema_types/datatype_qualification::datatype_database_oracle",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "datatype_database_oracle: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "flow": "datatype_database_oracle",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_database_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Use pytest owner; standalone exit-only recipe is smoke.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_value__before_schema_cast",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "transform_value__before_schema_cast: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_value__before_schema_cast",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_value__before_schema_cast in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_schema__cast",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "transform_schema__cast: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_schema__cast",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_schema__cast in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "metadata/file/transform/transformer_features::transform_schema__missing_warning",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "transform_schema__missing_warning: overwrite using declared source/transform and destination",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "flow": "transform_schema__missing_warning",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [],
+      "dedicated_scenarios": [],
+      "preconditions": [
+        "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
+      ],
+      "expected": "Exact three-row values/business columns for transform_schema__missing_warning in transformer validator",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/transform/validate_transformer_features.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Local engines have independent recipes; execution receipt required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_datatype_qualification",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "Eight dataflows: the legacy decimal/CSV checks plus one full scalar matrix per Spark SQL, PostgreSQL, MySQL, SQL Server, Oracle, and SQLite source convention",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_datatype_qualification"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_datatype_qualification"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_datatype_qualification",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "The same eight source-convention matrix dataflows run with Spark against the independent persisted contract",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_datatype_qualification"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_datatype_qualification"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_datatype_qualification_delta",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "Same canonical datatype contract persisted through Polars Delta",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_datatype_qualification_delta"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_datatype_qualification_delta"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_datatype_qualification_delta",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "Same canonical datatype contract persisted through Spark Delta",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_datatype_qualification_delta"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_datatype_qualification_delta"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_datatype_qualification_iceberg",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "Same canonical datatype contract persisted through Polars Iceberg",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [],
+      "scenarios": [
+        "local_polars_datatype_qualification_iceberg"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_datatype_qualification_iceberg"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_spark_datatype_qualification_iceberg",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "Same canonical datatype contract persisted through Spark Iceberg",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [],
+      "scenarios": [
+        "local_spark_datatype_qualification_iceberg"
+      ],
+      "dedicated_scenarios": [
+        "local_spark_datatype_qualification_iceberg"
+      ],
+      "preconditions": [
+        "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
+      ],
+      "expected": "Declared expected child exit and final validation, including persisted state where oracle assigned.",
+      "assertion_owners": [
+        "tests/integration/data_types/test_usecase_sim_cross_engine.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "spark",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Assertion owner exists; current profile qualification still requires receipt.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_schema_types_stateful",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "Focused native Delta schema_types state sequence",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/schema_evolution.json",
+          "flow": "schema-evolution-seed",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/schema_evolution.json",
+          "flow": "schema-evolution-new-columns",
+          "role": "primary"
+        },
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/schema_evolution.json",
+          "flow": "schema-evolution-fewer-columns",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_schema_types_stateful"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_schema_types_stateful"
+      ],
+      "preconditions": [
+        "Local Polars/Delta-rs installed. Validator allocates fresh case-owned data, state and receipt roots; shared framework logs selected by current job/session.",
+        "Fixture placeholder __CASE_ROOT__ is materialized only by the declared validator; do not dispatch authored template directly."
+      ],
+      "expected": "Seed old schema, append new then fewer columns, exact persisted values/nulls and types.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/schema_types/validate_schema_evolution.py"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Representative host-local native Delta profile only. Additional engines/backends need independent qualification if behavior differs.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_ntz_timezone",
+      "behavior": "schema_types.persisted_types_precision_null",
+      "intent": "Focused explicit_ntz_timezone through normal host-local Driver",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/ntz_timezone.json",
+          "flow": "ntz-timezone-conversion",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_ntz_timezone"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_ntz_timezone"
+      ],
+      "preconditions": [
+        "Local Polars and destination reader/writer installed; allocate fresh canonical data/state/receipt roots.",
+        "Materialize __CASE_ROOT__ template with declared validator; input/write/readback phases use the same primary flow and successful expected-flow sessions."
+      ],
+      "expected": "Typed naive Parquet wall_clock converts Asia/Ho_Chi_Minh to exact UTC instant 2024-01-15T03:30:45.123456+00:00 with Datetime(us,UTC), null and aware control preserved; overwrite rerun executes successfully with stable result.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/schema_types/validate_ntz_timezone.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact output/evidence oracle for host-local delta; other engine/backend profiles need independent receipts.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    },
+    {
+      "id": "local_polars_schema_types_a9_merge_schema",
+      "behavior": "schema_types.additive_fewer_columns",
+      "intent": "Explicit schema policy controls the exact persisted target schema and rows under a distinguishable old/new schema.",
+      "contract": "src/datacoolie/transformers/schema_converter.py",
+      "flows": [
+        {
+          "fixture": "usecase-sim/metadata/file/schema_types/a9_merge_schema.json",
+          "flow": "a9-schema-merge-schema-append",
+          "role": "primary"
+        }
+      ],
+      "scenarios": [
+        "local_polars_schema_types_a9_merge_schema"
+      ],
+      "dedicated_scenarios": [
+        "local_polars_schema_types_a9_merge_schema"
+      ],
+      "preconditions": [
+        "Use fresh case-owned runtime roots; activate the declared source/target preconditions.",
+        "All positive phases require the expected current flow succeeded=1, failed=0, skipped=0."
+      ],
+      "expected": "Explicit schema policy controls the exact persisted target schema and rows under a distinguishable old/new schema.",
+      "assertion_owners": [
+        "usecase-sim/scripts/features/schema_types/validate_a9_merge_schema.py::validate"
+      ],
+      "required_profiles": [
+        {
+          "engine": "polars",
+          "platform": "local"
+        }
+      ],
+      "coverage": "asserted",
+      "gap": "Exact local/native or service oracle; independently versioned runtime qualification required.",
+      "dependencies": [],
+      "next_action": "qualify_profile"
+    }
+  ]
+}

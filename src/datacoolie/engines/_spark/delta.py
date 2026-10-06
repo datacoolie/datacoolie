@@ -212,7 +212,7 @@ def table_exists_by_path(spark: SparkSession, platform: Any, path: str) -> bool:
     if file_io.path_is_absent_or_empty(spark, platform, path):
         return False
     try:
-        spark.sql(f"DESCRIBE DETAIL delta.`{path}`")
+        delta_table().forPath(spark, path).detail()
     except Exception as exc:  # noqa: BLE001
         error_class = getattr(exc, "getErrorClass", lambda: None)()
         if error_class == "DELTA_MISSING_DELTA_TABLE":

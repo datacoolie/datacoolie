@@ -1,0 +1,46 @@
+{
+  "connections": [
+    {
+      "name": "a9_csv_options_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_csv_options_destination",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output",
+        "write_options": {
+          "header": false,
+          "sep": ";"
+        }
+      }
+    }
+  ],
+  "dataflows": [
+    {
+      "name": "a9-write-csv-options",
+      "stage": "a9_write_csv_options",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_csv_options_source",
+        "table": "rows"
+      },
+      "destination": {
+        "connection_name": "a9_csv_options_destination",
+        "table": "records",
+        "load_type": "overwrite",
+        "configure": {
+          "write_options": {
+            "header": true,
+            "sep": "|"
+          }
+        }
+      }
+    }
+  ]
+}

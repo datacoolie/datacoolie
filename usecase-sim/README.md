@@ -14,6 +14,13 @@ API, and a metadata REST API).
 
 ---
 
+For behavior ownership, gaps and focused execution, start with the
+[behavior catalog](cases/README.md). Audit/list does not start services.
+Its focused host-local recipes include flat CSV/JSON/JSONL/Avro append, composite
+business-key and custom-predicate Delta merge, and explicit NTZ timezone
+conversion. Each recipe has exact persisted oracles and current-session execution
+evidence; platform qualification remains separate from assertion coverage.
+
 ## 1. What is usecase-sim?
 
 - **Library under test:** the `datacoolie` package in `src/datacoolie/`.
@@ -56,20 +63,23 @@ usecase-sim/
 ├── runner/        # ETL runners (run.py, maintenance.py) + dispatcher (run_scenario.py)
 ├── scenarios/     # scenarios.json (multi entries) + SCENARIOS.md (field reference)
 ├── metadata/
-│   ├── file/      # baseline, api_incremental, datatypes, replay, sql,
-│   │              # runtime, transformers, performance
+│                  # Local, Docker and AWS-MinIO simulation metadata
+│   ├── file/      # workflows, incremental, schema_types, replay, read,
+│   │              # execution, metadata_artifacts, transform, performance
+│   │   └── shared/ # Profile-owned connections/schema hints referenced by groups
 │   ├── database/  # DDL per dialect + verify_metadata.py
 │   └── api/       # Standalone dev metadata server (reads JSON)
 ├── docker/        # docker-compose.yml, mock_api_server.py, pg_api_metadata_server.py
 ├── functions/     # Custom Python source functions (sources.py)
 ├── artifacts/     # Checked-in deployed-artifact fixtures used by artifact scenarios
-├── runtime_paths.py # Canonical simulator roots
+├── cases/        # Behavior catalog and read-only catalog helpers
 ├── .runtime/      # Generated artifacts (gitignored)
 │   ├── data/      # Inputs, outputs, generated metadata, databases, Spark state
 │   ├── logs/      # Framework logs, scenario receipts, console and Derby logs
 │   ├── watermarks/ # Source state, separated by topic/case/engine
 │   └── dependencies/spark/ # Ivy cache, isolated spark35 and spark4 profiles
 └── platforms/
+                   # Real-cloud smoke assets, one representative JSON per platform
     ├── aws/          # Glue/local AWS samples; dispatcher integration remains separate
     ├── databricks/  # Prepared metadata + notebook samples
     └── fabric/      # Prepared metadata + notebook samples
@@ -186,7 +196,7 @@ python usecase-sim/runner/run_scenario.py --priority P0
 python usecase-sim/runner/run_scenario.py --all
 ```
 
-The MinIO target also publishes `metadata/file/baseline/aws_use_cases.json` to
+The MinIO target composes `metadata/file/workflows/aws_use_cases.json` and publishes its plain JSON to
 `s3://datacoolie-test/metadata/aws_use_cases.json`, which is the metadata URI
 used by the AWS-platform scenarios.
 
@@ -245,7 +255,7 @@ These paths have different ownership and lifecycles:
 
 | Path | Role | Used by |
 |---|---|---|
-| `metadata/file/datatypes/datatype_qualification.json` | Checked-in canonical logical metadata contract | Fixture preparation and contract-coverage checks |
+| `metadata/file/schema_types/datatype_qualification.json` | Checked-in canonical logical metadata contract | Fixture preparation and contract-coverage checks |
 | `.runtime/data/datatype_qualification/metadata/{engine}_{format}.json` | Generated execution metadata for manually invoked named scenarios | `run_scenario.py --scenario local_*_datatype_qualification*` |
 | `.runtime/data/datatype_qualification/runs/<run-id>/metadata/{engine}_{format}.json` | Run-isolated execution metadata with unique output/table bindings | `tests/integration/data_types/test_usecase_sim_cross_engine.py` |
 
@@ -279,7 +289,7 @@ directly — all flags documented in section 7.
 ```powershell
 python usecase-sim/runner/run.py `
     --engine polars --metadata-source file --platform local `
-    --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json `
+    --metadata-path usecase-sim/metadata/file/workflows/local_use_cases.json `
     --stage local_csv2parquet
 ```
 
@@ -530,7 +540,7 @@ forms:
 
 Scripts live in [`scripts/bootstrap/`](scripts/bootstrap/) and
 [`scripts/features/`](scripts/features/). Shared service and fixture helpers
-remain in `scripts/_common.py`; canonical roots live in `runtime_paths.py`.
+remain in `scripts/_common.py`; canonical roots live in `runner/runtime_paths.py`.
 
 ### `setup_platform.py` — start / stop Docker stack
 
@@ -564,7 +574,7 @@ python usecase-sim/scripts/bootstrap/setup_metadata.py `
 
 # AWS workspace into postgres
 python usecase-sim/scripts/bootstrap/setup_metadata.py `
-    --json usecase-sim/metadata/file/baseline/aws_use_cases.json `
+    --json usecase-sim/metadata/file/workflows/aws_use_cases.json `
     --workspace-id aws-workspace --targets db:postgresql --truncate
 ```
 
@@ -709,13 +719,13 @@ python usecase-sim/scripts/bootstrap/generate_data.py --targets local
 # Single stage
 docker exec datacoolie-spark python usecase-sim/runner/run.py `
   --engine spark --metadata-source file --platform local `
-  --metadata-path ./usecase-sim/metadata/file/baseline/local_use_cases.json `
+  --metadata-path ./usecase-sim/metadata/file/workflows/local_use_cases.json `
   --stage load_delta --column-name-mode lower --skip-api-sources
 
 # All stages
 docker exec datacoolie-spark python usecase-sim/runner/run.py `
   --engine spark --metadata-source file --platform local `
-  --metadata-path ./usecase-sim/metadata/file/baseline/local_use_cases.json `
+  --metadata-path ./usecase-sim/metadata/file/workflows/local_use_cases.json `
   --stage "" --column-name-mode lower --skip-api-sources
 
 # Interactive shell for debugging
@@ -759,10 +769,11 @@ hint definitions.
 
 ### File
 
-Primary sources: [local_use_cases.json](metadata/file/baseline/local_use_cases.json),
-[aws_use_cases.json](metadata/file/baseline/aws_use_cases.json),
+Primary sources: [local_use_cases.json](metadata/file/workflows/local_use_cases.json),
+[aws_use_cases.json](metadata/file/workflows/aws_use_cases.json),
 [perf_test.json](metadata/file/performance/perf_test.json). Running
-`setup_metadata.py --targets file` emits YAML and XLSX siblings used by the
+`setup_metadata.py --targets file` emits compiled JSON, YAML and XLSX under
+`.runtime/data/metadata/`, used by the
 `*_yaml` / `*_excel` scenarios.
 
 ### Database
@@ -791,7 +802,7 @@ Verify DB matches JSON source:
 
 ```powershell
 python usecase-sim/metadata/database/verify_metadata.py `
-    --json-path usecase-sim/metadata/file/baseline/local_use_cases.json `
+    --json-path usecase-sim/metadata/file/workflows/local_use_cases.json `
     --connection-string "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie" `
     --workspace-id local-workspace
 ```
@@ -817,7 +828,7 @@ function:
   registers tables for Polars, queries the metastore for Spark. Supports Local,
   AWS, Fabric, and Databricks platforms via `base_path` lookups.
 
-[`metadata/file/sql/polars_qualified_sql.json`](metadata/file/sql/polars_qualified_sql.json)
+[`metadata/file/read/polars_qualified_sql.json`](metadata/file/read/polars_qualified_sql.json)
 contains only normal Delta/Iceberg sources with portable SQL declared as
 `source.query`. It has no Python-function source or test-only source
 configuration. The scenario's same-process engine setup registers the fixture
@@ -867,7 +878,7 @@ Or directly:
 ```powershell
 python usecase-sim/runner/maintenance.py `
     --engine polars --platform local `
-    --metadata-path usecase-sim/metadata/file/baseline/local_use_cases.json `
+    --metadata-path usecase-sim/metadata/file/workflows/local_use_cases.json `
     --connection local_delta_dest `
     --retention-hours 168
 ```

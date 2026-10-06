@@ -3,7 +3,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -39,7 +39,7 @@
       "required_console_text": [
         "active schema-hint column(s) not found and skipped: ['missing_schema_one', 'missing_schema_two']"
       ],
-      "script": "usecase-sim/scripts/features/transformers/validate_transformer_features.py"
+      "script": "usecase-sim/scripts/features/transform/validate_transformer_features.py"
     },
     "notes": "Polars transformer metadata regression with output reconciliation"
   },
@@ -47,7 +47,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -86,7 +86,7 @@
       "required_console_text": [
         "active schema-hint column(s) not found and skipped: ['missing_schema_one', 'missing_schema_two']"
       ],
-      "script": "usecase-sim/scripts/features/transformers/validate_transformer_features.py"
+      "script": "usecase-sim/scripts/features/transform/validate_transformer_features.py"
     },
     "notes": "Spark transformer metadata regression with output reconciliation"
   },
@@ -94,7 +94,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_dedup_strict",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -119,7 +119,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_dedup_strict",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -147,7 +147,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_invalid_fill",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -172,7 +172,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_invalid_fill",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -200,7 +200,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_invalid_redact",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -225,7 +225,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_invalid_redact",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -253,7 +253,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_sanitizer_collision",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -278,7 +278,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/transformers/transformer_features.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
     "stage": "transform_features_sanitizer_collision",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -306,7 +306,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -316,7 +316,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/polars",
     "stage": "replay_test",
     "column_name_mode": "lower",
@@ -360,7 +360,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/spark",
     "stage": "replay_test",
     "column_name_mode": "lower",
@@ -590,7 +590,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery_fail.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery_fail.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -613,7 +613,7 @@
       "required_console_text": [
         "API pagination reached max_pages=1"
       ],
-      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_failure.py",
+      "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
@@ -627,7 +627,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -638,9 +638,9 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result — total: 1, succeeded: 1, failed: 0"
+        "Result \u2014 total: 1, succeeded: 1, failed: 0"
       ],
-      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
+      "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
@@ -656,7 +656,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_continuation.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_continuation.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -667,9 +667,9 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result — total: 1, succeeded: 1, failed: 0"
+        "Result \u2014 total: 1, succeeded: 1, failed: 0"
       ],
-      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
+      "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/delta/api_incremental_recovery_validation",
@@ -686,7 +686,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery_spark_fail.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery_spark_fail.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -709,7 +709,7 @@
       "required_console_text": [
         "API pagination reached max_pages=1"
       ],
-      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_failure.py",
+      "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_failure.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
@@ -723,7 +723,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_recovery_spark.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery_spark.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -734,9 +734,9 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result — total: 1, succeeded: 1, failed: 0"
+        "Result \u2014 total: 1, succeeded: 1, failed: 0"
       ],
-      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
+      "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
@@ -752,7 +752,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/api_incremental/api_incremental_continuation_spark.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_continuation_spark.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -763,9 +763,9 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result — total: 1, succeeded: 1, failed: 0"
+        "Result \u2014 total: 1, succeeded: 1, failed: 0"
       ],
-      "script": "usecase-sim/scripts/features/api_incremental/validate_api_incremental_recovery.py",
+      "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/delta/api_recovery_spark/api_incremental_recovery_validation",
@@ -1066,7 +1066,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.yaml",
+    "metadata_path": "./usecase-sim/.runtime/data/metadata/local_use_cases.yaml",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1076,7 +1076,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.xlsx",
+    "metadata_path": "./usecase-sim/.runtime/data/metadata/local_use_cases.xlsx",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1087,7 +1087,7 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1211,7 +1211,7 @@
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "connection": "local_delta_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on delta via Polars"
@@ -1220,7 +1220,7 @@
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "connection": "local_iceberg_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on iceberg via Polars"
@@ -1229,7 +1229,7 @@
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "connection": "local_delta_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on delta via Spark"
@@ -1238,7 +1238,7 @@
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/baseline/local_use_cases.json",
+    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
     "connection": "local_iceberg_dest",
     "priority": "P1",
     "notes": "Maintenance compact + cleanup on iceberg via Spark"
@@ -1304,7 +1304,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_delta",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1319,7 +1319,7 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/delta_lazy_reuse"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1335,7 +1335,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/sql/validate_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/validate_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta"
@@ -1347,7 +1347,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_delta_ambiguity",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1356,7 +1356,7 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/delta_ambiguity"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-ambiguity"
@@ -1390,7 +1390,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_iceberg",
     "column_name_mode": "lower",
     "priority": "P1",
@@ -1409,7 +1409,7 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_lazy_reuse"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "iceberg-positive"
@@ -1425,7 +1425,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/sql/validate_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/validate_polars_qualified_sql.py",
       "args": [
         "--suite",
         "iceberg"
@@ -1437,7 +1437,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
     "stage": "polars_qualified_sql_iceberg_ambiguity",
     "column_name_mode": "lower",
     "priority": "P1",
@@ -1451,7 +1451,7 @@
       "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_ambiguity"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "iceberg-ambiguity"
@@ -1495,7 +1495,7 @@
       "usecase-sim/.runtime/data/output/artifact/orders_artifact"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1511,7 +1511,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/artifact/orders_artifact",
@@ -1536,7 +1536,7 @@
       "usecase-sim/.runtime/data/output/custom_metadata/orders_custom_metadata"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1552,7 +1552,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/custom_metadata/orders_custom_metadata",
@@ -1576,7 +1576,7 @@
       "usecase-sim/.runtime/data/output/multi_sql_roots/customers_artifact_relative"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1592,7 +1592,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/multi_sql_roots/customers_artifact_relative",
@@ -1606,7 +1606,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/multi_sql_root_contract.json",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/multi_sql_root_contract.json",
     "sql_base_path": [
       "usecase-sim/artifacts/multi-sql-roots/sql1",
       "usecase-sim/artifacts/multi-sql-roots/shared/sql2"
@@ -1620,7 +1620,7 @@
       "usecase-sim/.runtime/data/output/explicit_multi_sql/customers_explicit_multiple_roots"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1636,7 +1636,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/explicit_multi_sql/customers_explicit_multiple_roots",
@@ -1650,8 +1650,8 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/query_contract.json",
-    "sql_base_path": "./usecase-sim/metadata/file/sql/queries",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+    "sql_base_path": "./usecase-sim/metadata/file/metadata_artifacts/queries",
     "state_base_path": "usecase-sim/.runtime",
     "stage": "query_root_routing",
     "column_name_mode": "lower",
@@ -1661,7 +1661,7 @@
       "usecase-sim/.runtime/data/output/query_contract/orders_query_root"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1677,7 +1677,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/query_contract/orders_query_root",
@@ -1706,7 +1706,7 @@
       "usecase-sim/.runtime/data/output/artifact/orders_artifact"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1722,7 +1722,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/runtime/validate_execution_logs.py",
+      "script": "usecase-sim/scripts/features/logging/validate_execution_logs.py",
       "args": [
         "--job-id",
         "usecase-runtime-log-contract",
@@ -1756,7 +1756,7 @@
       "usecase-sim/.runtime/data/output/artifact/orders_artifact"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1772,7 +1772,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/runtime/validate_execution_logs.py",
+      "script": "usecase-sim/scripts/features/logging/validate_execution_logs.py",
       "args": [
         "--job-id",
         "usecase-logging-batch",
@@ -1791,7 +1791,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/runtime/startup_failure.json",
+    "metadata_path": "./usecase-sim/metadata/file/execution/startup_failure.json",
     "state_base_path": "usecase-sim/.runtime",
     "stage": "startup_failure",
     "job_id": "usecase-startup-failure",
@@ -1807,7 +1807,7 @@
       "required_console_text": [
         "DataCoolie session startup failed"
       ],
-      "script": "usecase-sim/scripts/features/runtime/validate_startup_failure_logs.py",
+      "script": "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py",
       "args": [
         "--job-id",
         "usecase-startup-failure"
@@ -1831,7 +1831,7 @@
       "usecase-sim/.runtime/data/output/query_fallback/orders_query_artifact_relative"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/sql/prepare_polars_qualified_sql.py",
+      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
       "args": [
         "--suite",
         "delta-positive"
@@ -1847,7 +1847,7 @@
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/artifacts/validate_artifact_output.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_artifact_output.py",
       "args": [
         "--output",
         "usecase-sim/.runtime/data/output/query_fallback/orders_query_artifact_relative",
@@ -1861,8 +1861,8 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/runtime/state_contract.json",
-    "sql_base_path": "./usecase-sim/metadata/file/sql/queries",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/state_contract.json",
+    "sql_base_path": "./usecase-sim/metadata/file/metadata_artifacts/queries",
     "state_base_path": "usecase-sim/.runtime/watermarks/state_contract",
     "stage": "state_base_path",
     "column_name_mode": "lower",
@@ -1872,27 +1872,22 @@
       "usecase-sim/.runtime/data/output/state_contract/orders_state"
     ],
     "setup": {
-      "script": "usecase-sim/scripts/features/runtime/prepare_state_contract.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/prepare_state_contract.py",
       "args": [],
       "timeout_seconds": 120
     },
     "engine_setup": {
-      "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": [
-        "--suite",
-        "delta-positive"
-      ]
+      "python_function": "scripts.features.metadata_artifacts.prepare_state_contract.register_tables",
+      "args": []
     },
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/runtime/validate_state_paths.py",
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_state_paths.py",
       "args": [
         "--state-root",
         "usecase-sim/.runtime/watermarks/state_contract",
         "--output",
         "usecase-sim/.runtime/data/output/state_contract/orders_state",
-        "--minimum-rows",
-        "1",
         "--log-root",
         "usecase-sim/.runtime/logs"
       ],
@@ -1904,8 +1899,8 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/sql/query_contract.json",
-    "sql_base_path": "./usecase-sim/metadata/file/sql/queries",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+    "sql_base_path": "./usecase-sim/metadata/file/metadata_artifacts/queries",
     "state_base_path": "usecase-sim/.runtime/watermarks/dry_run_query",
     "stage": "query_root_routing",
     "column_name_mode": "lower",
@@ -1917,7 +1912,7 @@
     ],
     "validation": {
       "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/runtime/validate_dry_run.py",
+      "script": "usecase-sim/scripts/features/execution/validate_dry_run.py",
       "args": [
         "--state-root",
         "usecase-sim/.runtime/watermarks/dry_run_query",
@@ -1939,7 +1934,7 @@
     "column_name_mode": "lower",
     "priority": "P1",
     "setup": {
-      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "script": "usecase-sim/scripts/features/schema_types/prepare_datatype_qualification.py",
       "args": [
         "--run-root",
         "usecase-sim/.runtime/data/datatype_qualification"
@@ -1965,7 +1960,7 @@
     "max_workers": 1,
     "timeout_seconds": 300,
     "setup": {
-      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "script": "usecase-sim/scripts/features/schema_types/prepare_datatype_qualification.py",
       "args": [
         "--run-root",
         "usecase-sim/.runtime/data/datatype_qualification"
@@ -1988,7 +1983,7 @@
     "column_name_mode": "lower",
     "priority": "P2",
     "setup": {
-      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "script": "usecase-sim/scripts/features/schema_types/prepare_datatype_qualification.py",
       "args": [
         "--run-root",
         "usecase-sim/.runtime/data/datatype_qualification",
@@ -2016,7 +2011,7 @@
     "max_workers": 1,
     "timeout_seconds": 300,
     "setup": {
-      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "script": "usecase-sim/scripts/features/schema_types/prepare_datatype_qualification.py",
       "args": [
         "--run-root",
         "usecase-sim/.runtime/data/datatype_qualification",
@@ -2042,7 +2037,7 @@
     "priority": "P2",
     "needs_iceberg": true,
     "setup": {
-      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "script": "usecase-sim/scripts/features/schema_types/prepare_datatype_qualification.py",
       "args": [
         "--run-root",
         "usecase-sim/.runtime/data/datatype_qualification",
@@ -2068,7 +2063,7 @@
     "max_workers": 1,
     "timeout_seconds": 450,
     "setup": {
-      "script": "usecase-sim/scripts/features/datatypes/prepare_datatype_qualification.py",
+      "script": "usecase-sim/scripts/features/schema_types/prepare_datatype_qualification.py",
       "args": [
         "--run-root",
         "usecase-sim/.runtime/data/datatype_qualification",
@@ -2562,5 +2557,1034 @@
       "timeout_seconds": 1200
     },
     "notes": "Standalone C2/C6 native Delta window-safety validator through the existing Docker Spark profile: typed-empty skips with target/state unchanged; folder-only fails closed; mixed-folder-row succeeds; retry-after-write injects one post-write native acknowledgement error and checks same-ID attempts 1/2, deduplicated rows, native-array attempt history, and one job-grain outcome. Validator owns the fixture and assertions"
+  },
+  "local_polars_write_basic_stateful": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/write_basic/validate_write_basic.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Exact overwrite replacement after changed input, incremental append retains earlier IDs, watermark-empty rerun preserves rows."
+  },
+  "local_polars_merge_stateful": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/merge/validate_merge.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Seed old key and untouched tail, upsert changed/new keys, repeated merge keeps exact rows."
+  },
+  "local_polars_scd2_stateful": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/scd2/validate_scd2.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Seed history; close/open advancing effective versions; equal-effective incoming is appended per contract, while upstream-filtered watermark-empty rerun preserves history."
+  },
+  "local_polars_schema_types_stateful": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/schema_types/validate_schema_evolution.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Seed old schema, append new then fewer columns, exact persisted values/nulls and types."
+  },
+  "local_polars_maintenance_stateful": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/maintenance/validate_maintenance.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Compact real fragmented target, delete eligible obsolete files at zero retention; preserve recent obsolete and active files at 168h; missing target explicitly skipped."
+  },
+  "local_polars_scd2_older_effective_stateful": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/scd2/validate_scd2_older_effective.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Seed a newer-effective version and untouched control, then ingest an older-effective same-key version from a later-mtime file. Native append-all history has two open/current id=1 versions plus the unchanged id=2 control. Validator allocates fresh test-owned roots; no shared reset."
+  },
+  "local_polars_sql_root_precedence": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/metadata_artifacts/validate_sql_root_precedence.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Resolve the same logical orders.sql under distinct explicit SQL and artifact roots; normal Driver output must be the two SQL-root rows with exact IDs, amount, marker_id and root_marker. Validator allocates fresh test-owned roots; no shared reset."
+  },
+  "local_polars_flat_append_csv": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/write_basic/validate_flat_append.py",
+      "timeout_seconds": 180,
+      "args": [
+        "--format",
+        "csv"
+      ]
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_csv result/schema and successful current-session evidence. Host-local Polars csv only."
+  },
+  "local_polars_flat_append_json": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/write_basic/validate_flat_append.py",
+      "timeout_seconds": 180,
+      "args": [
+        "--format",
+        "json"
+      ]
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_json result/schema and successful current-session evidence. Host-local Polars json only."
+  },
+  "local_polars_flat_append_jsonl": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/write_basic/validate_flat_append.py",
+      "timeout_seconds": 180,
+      "args": [
+        "--format",
+        "jsonl"
+      ]
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_jsonl result/schema and successful current-session evidence. Host-local Polars jsonl only."
+  },
+  "local_polars_flat_append_avro": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/write_basic/validate_flat_append.py",
+      "timeout_seconds": 180,
+      "args": [
+        "--format",
+        "avro"
+      ]
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_avro result/schema and successful current-session evidence. Host-local Polars avro only."
+  },
+  "local_polars_merge_composite_keys": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/merge/validate_composite_keys.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted composite_business_keys result/schema and successful current-session evidence. Host-local Polars delta only."
+  },
+  "local_polars_merge_custom_predicate": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/merge/validate_custom_predicate.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted custom_match_predicate result/schema and successful current-session evidence. Host-local Polars delta only."
+  },
+  "local_polars_ntz_timezone": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/schema_types/validate_ntz_timezone.py",
+      "timeout_seconds": 180
+    },
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted explicit_ntz_timezone result/schema and successful current-session evidence. Host-local Polars delta only."
+  },
+  "local_polars_transform_a9_uppercase": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/transform/validate_a9_local.py",
+      "args": [
+        "--behavior",
+        "uppercase"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_transform_a9_map_null": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/transform/validate_a9_local.py",
+      "args": [
+        "--behavior",
+        "map_null"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_transform_a9_partial_keep_start": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/transform/validate_a9_local.py",
+      "args": [
+        "--behavior",
+        "partial_keep_start"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_transform_a9_timestamp_hour": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/transform/validate_a9_local.py",
+      "args": [
+        "--behavior",
+        "timestamp_hour"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_write_basic_a9_csv_options": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/write_basic/validate_a9_csv_options.py",
+      "args": [],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_schema_types_a9_merge_schema": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/schema_types/validate_a9_merge_schema.py",
+      "args": [],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_existing_csv": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "csv"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_existing_json": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "json"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_existing_jsonl": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "jsonl"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_existing_parquet": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "parquet"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_existing_avro": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "avro"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_existing_delta": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "delta"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_transform_a9_existing_row_filter": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "row_filter"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_write_basic_a9_existing_partition_single": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "partition_single"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_write_basic_a9_existing_partition_multi": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "partition_multi"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_workflows_a9_existing_combined": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_existing_local.py",
+      "args": [
+        "--mode",
+        "combined"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_incremental_a9_mtime": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_existing_lookback.py",
+      "args": [
+        "--mode",
+        "mtime"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_incremental_a9_days": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_existing_lookback.py",
+      "args": [
+        "--mode",
+        "days"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_incremental_a9_months_closing_day": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_existing_lookback.py",
+      "args": [
+        "--mode",
+        "months_closing_day"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_incremental_a9_hours": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_existing_lookback.py",
+      "args": [
+        "--mode",
+        "hours"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_incremental_a9_years": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_existing_lookback.py",
+      "args": [
+        "--mode",
+        "years"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_postgres": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_database_profiles.py",
+      "args": [
+        "--profile",
+        "postgres"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_mysql": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_database_profiles.py",
+      "args": [
+        "--profile",
+        "mysql"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_mssql": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_database_profiles.py",
+      "args": [
+        "--profile",
+        "mssql"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_oracle": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_database_profiles.py",
+      "args": [
+        "--profile",
+        "oracle"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_workflows_a9_api_watermark": {
+    "engine": "polars",
+    "metadata_type": "api",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/workflows/validate_api_watermark_lifecycle.py",
+      "args": [],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_minio_sigv4": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_minio_sigv4.py",
+      "args": [],
+      "timeout_seconds": 240
+    },
+    "notes": "General SigV4 framework signer; fresh private MinIO case namespace; normal Driver exact rows/schema, actual unsigned/wrong-secret403traces, denied output/checkpoint guards. Static local profile; real IAM/STS/cloud requires separate qualification."
+  },
+  "local_polars_read_a9_file_info_roundtrip": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_a9_file_info_roundtrip.py",
+      "args": [],
+      "timeout_seconds": 240
+    },
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+  },
+  "local_polars_read_a9_api_auth_bearer": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "auth_bearer"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_auth_apikey": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "auth_apikey"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_auth_basic": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "auth_basic"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_oauth_form": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "oauth_form"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_oauth_basic": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "oauth_basic"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_requestpost": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "requestpost"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_pagination_offset": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "pagination_offset"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_pagination_cursor": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "pagination_cursor"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_pagination_next_link": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "pagination_next_link"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_staticparams": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "staticparams"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "One existing authored primary flow compiled to fresh identities/paths; exact native output and case-correlated sanitized request trace."
+  },
+  "local_polars_read_a9_api_oauth_json": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "oauth_json"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "OAuth token JSON request contains declared scope/extras/content-type; actual bearer data is exact."
+  },
+  "local_polars_read_a9_api_ratelimit": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_services.py",
+      "args": [
+        "--behavior",
+        "ratelimit"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Case-keyed first429/success and exhausted retry requests are exact; successes persist expected IDs/schema and failure preserves output/checkpoint."
+  },
+  "local_polars_merge_a9_iceberg_baseline": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/merge/validate_iceberg_baseline.py",
+      "timeout_seconds": 240
+    },
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+  },
+  "local_polars_scd2_a9_iceberg_history": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/scd2/validate_iceberg_scd2.py",
+      "timeout_seconds": 240
+    },
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+  },
+  "local_polars_merge_a9_iceberg_schema": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/merge/validate_iceberg_schema_merge.py",
+      "timeout_seconds": 240
+    },
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+  },
+  "local_polars_merge_a9_iceberg_partition": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/merge/validate_iceberg_partition_change.py",
+      "timeout_seconds": 240
+    },
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+  },
+  "local_polars_read_a9_iceberg_existing": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P1",
+    "skip_pipeline": true,
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_iceberg_existing.py",
+      "timeout_seconds": 240
+    },
+    "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
+  },
+  "local_polars_api_max_pages_negative": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P0",
+    "skip_pipeline": true,
+    "services": [
+      "mock-api"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/read/validate_api_max_pages.py",
+      "args": [],
+      "timeout_seconds": 240
+    },
+    "notes": "Child exit 2, exact max-pages source rejection, expected failed flow/current session, no destination write and unchanged checkpoint; API total must be 30. Fresh case-owned roots."
+  },
+  "local_polars_api_date_positive": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P0",
+    "skip_pipeline": true,
+    "services": [
+      "mock-api"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
+      "args": [
+        "--engine",
+        "polars"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Exactly IDs 101/102 then 101/102/103; DATE values and checkpoints 2024-01-02 then 2024-01-03; canonical exclusive lower requests; unchanged stable rerun bytes. Fresh roots are allocated by the validator; no shared reset."
+  },
+  "local_spark_api_date_positive": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P0",
+    "skip_pipeline": true,
+    "services": [
+      "mock-api"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
+      "args": [
+        "--engine",
+        "spark"
+      ],
+      "timeout_seconds": 240,
+      "in_container": true
+    },
+    "notes": "Exactly IDs 101/102 then 101/102/103; DATE values and checkpoints 2024-01-02 then 2024-01-03; canonical exclusive lower requests; unchanged stable rerun bytes. Fresh roots are allocated by the validator; no shared reset."
+  },
+  "local_polars_api_date_precision_negative": {
+    "engine": "polars",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P0",
+    "skip_pipeline": true,
+    "services": [
+      "mock-api"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
+      "args": [
+        "--engine",
+        "polars",
+        "--negative"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Fresh roots are allocated by the validator; no shared reset."
+  },
+  "local_spark_api_date_precision_negative": {
+    "engine": "spark",
+    "metadata_type": "file",
+    "platform": "local",
+    "priority": "P0",
+    "skip_pipeline": true,
+    "services": [
+      "mock-api"
+    ],
+    "validation": {
+      "expected_exit_code": 0,
+      "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
+      "args": [
+        "--engine",
+        "spark",
+        "--negative"
+      ],
+      "timeout_seconds": 240,
+      "in_container": true
+    },
+    "notes": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Fresh roots are allocated by the validator; no shared reset."
   }
 }

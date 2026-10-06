@@ -1,0 +1,11 @@
+{
+  "connections": [
+    {"name": "api_lifecycle_source", "connection_type": "file", "format": "parquet", "configure": {"base_path": "__CASE_ROOT__/input"}},
+    {"name": "api_lifecycle_destination", "connection_type": "lakehouse", "format": "delta", "configure": {"base_path": "__CASE_ROOT__/output"}}
+  ],
+  "dataflows": [{
+    "name": "api-watermark-lifecycle", "stage": "api_watermark_lifecycle",
+    "source": {"connection_name": "api_lifecycle_source", "table": "rows", "watermark_columns": ["modified_at"]},
+    "destination": {"connection_name": "api_lifecycle_destination", "table": "orders", "load_type": "append"}
+  }]
+}

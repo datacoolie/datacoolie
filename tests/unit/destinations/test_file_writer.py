@@ -38,6 +38,7 @@ class TestFileWriter:
 
         assert info.status == DataFlowStatus.SUCCEEDED.value
         assert len(engine._written) == 1
+
         assert engine._written[0]["mode"] == "overwrite"
         assert engine._written[0]["fmt"] == "parquet"
         assert engine._written[0]["path"] == "/data/output/curated/dim_events"
@@ -119,6 +120,7 @@ class TestFileWriter:
 
         assert info.status == DataFlowStatus.SUCCEEDED.value
         assert len(engine._written) == 1
+        assert engine._written[0]["partition_columns"] == ["region"]
 
     def test_write_no_path_raises(self, engine: MockEngine) -> None:
         df = _make_file_dataflow(has_path=False)

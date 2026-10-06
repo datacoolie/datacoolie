@@ -186,7 +186,7 @@ services:
   # Then run any Spark scenario:
   #   docker exec datacoolie-spark python usecase-sim/runner/run.py \
   #     --engine spark --metadata-source file --platform local \
-  #     --metadata-path ./usecase-sim/metadata/file/baseline/local_use_cases.json \
+  #     --metadata-path ./usecase-sim/metadata/file/workflows/local_use_cases.json \
   #     --stage load_delta --column-name-mode lower --skip-api-sources
   # ---------------------------------------------------------------------------
   spark:

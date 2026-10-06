@@ -20,6 +20,11 @@ from datacoolie.utils.path_utils import normalize_path
 _SCAN_CSV_PARAMS = frozenset(inspect.signature(pl.scan_csv).parameters)
 _PARTITION_SEGMENT_PATTERN = re.compile(r"^\d+$|^[^=]+=.+$")
 _DEFAULT_BYTES_PER_FILE = 256 * 1024 * 1024
+_FILE_INFO_COLUMN_NAMES = tuple(column.value for column in FileInfoColumn)
+_FILE_INFO_METADATA_COLUMNS = (
+    FileInfoColumn.FILE_NAME.value,
+    FileInfoColumn.FILE_MODIFICATION_TIME.value,
+)
 
 try:
     import fastexcel as _fastexcel  # noqa: F401
@@ -91,6 +96,41 @@ def _csv_write_options(options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return merged
 
 
+def _scan_file_path_column() -> str:
+    """Return a per-read path column that cannot collide with persisted data."""
+
+    return f"__datacoolie_scan_file_path_{uuid4().hex}"
+
+
+def _replace_scanned_file_info_columns(
+    df: pl.LazyFrame,
+    scan_path_column: str,
+) -> pl.LazyFrame:
+    """Replace persisted file metadata with the path from the current read.
+
+    Flat-file outputs can themselves contain the three reserved file-info
+    columns.  Supplying ``__file_path`` directly to a Polars scan then raises
+    before the lazy plan can be corrected.  A per-read temporary path column
+    lets the native reader discover the current path; the persisted metadata
+    is removed before that path is restored to the public column name.
+    """
+
+    return df.drop(list(_FILE_INFO_COLUMN_NAMES), strict=False).rename(
+        {scan_path_column: FileInfoColumn.FILE_PATH.value}
+    )
+
+
+def _replace_eager_file_info_columns(
+    df: pl.DataFrame,
+    path: str,
+) -> pl.DataFrame:
+    """Drop historical file metadata and attach the current file path."""
+
+    return df.drop(list(_FILE_INFO_COLUMN_NAMES), strict=False).with_columns(
+        pl.lit(normalize_path(path)).alias(FileInfoColumn.FILE_PATH.value)
+    )
+
+
 def scan_parquet(
     path: str | list[str],
     options: Optional[Dict[str, Any]],
@@ -120,8 +160,12 @@ def scan_parquet(
     merged.setdefault("extra_columns", "ignore")
     if storage_options:
         merged["storage_options"] = storage_options
-    return pl.scan_parquet(
-        resolved_path, include_file_paths=FileInfoColumn.FILE_PATH, **merged
+    scan_path_column = _scan_file_path_column()
+    return _replace_scanned_file_info_columns(
+        pl.scan_parquet(
+            resolved_path, include_file_paths=scan_path_column, **merged
+        ),
+        scan_path_column,
     )
 
 
@@ -146,7 +190,11 @@ def scan_csv(
         merged.setdefault("missing_columns", "insert")
     if storage_options:
         merged["storage_options"] = storage_options
-    return pl.scan_csv(path, include_file_paths=FileInfoColumn.FILE_PATH, **merged)
+    scan_path_column = _scan_file_path_column()
+    return _replace_scanned_file_info_columns(
+        pl.scan_csv(path, include_file_paths=scan_path_column, **merged),
+        scan_path_column,
+    )
 
 
 def _json_read_options(options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -192,9 +240,10 @@ def read_json_files(
 
     read_options = _json_read_options(options)
     frames = [
-        pl.read_json(
-            io.BytesIO(platform.read_bytes(path)), **read_options
-        ).with_columns(pl.lit(path).alias(FileInfoColumn.FILE_PATH))
+        _replace_eager_file_info_columns(
+            pl.read_json(io.BytesIO(platform.read_bytes(path)), **read_options),
+            path,
+        )
         for path in paths
     ]
     return pl.concat(frames).lazy()
@@ -209,8 +258,10 @@ def scan_jsonl(
     merged.pop("use_hive_partitioning", None)
     if storage_options:
         merged["storage_options"] = storage_options
-    return pl.scan_ndjson(
-        path, include_file_paths=FileInfoColumn.FILE_PATH, **merged
+    scan_path_column = _scan_file_path_column()
+    return _replace_scanned_file_info_columns(
+        pl.scan_ndjson(path, include_file_paths=scan_path_column, **merged),
+        scan_path_column,
     )
 
 
@@ -222,8 +273,8 @@ def read_avro_files(
     merged = dict(options or {})
     merged.pop("use_hive_partitioning", None)
     frames = [
-        pl.read_avro(io.BytesIO(platform.read_bytes(path)), **merged).with_columns(
-            pl.lit(path).alias(FileInfoColumn.FILE_PATH)
+        _replace_eager_file_info_columns(
+            pl.read_avro(io.BytesIO(platform.read_bytes(path)), **merged), path
         )
         for path in paths
     ]
@@ -242,7 +293,7 @@ def read_excel_files(
     for path in paths:
         result = pl.read_excel(io.BytesIO(platform.read_bytes(path)), **merged)
         frame = pl.concat(result.values()) if isinstance(result, dict) else result
-        frames.append(frame.with_columns(pl.lit(path).alias(FileInfoColumn.FILE_PATH)))
+        frames.append(_replace_eager_file_info_columns(frame, path))
     return pl.concat(frames).lazy()
 
 
@@ -253,10 +304,14 @@ def add_file_info_columns(
     path_column = FileInfoColumn.FILE_PATH
     name_column = FileInfoColumn.FILE_NAME
     modification_column = FileInfoColumn.FILE_MODIFICATION_TIME
+    # The path is produced by the current reader; replace any historical name
+    # and mtime values before joining the current listing metadata.  The path
+    # itself was already replaced by the native/eager reader helpers above.
+    df = df.drop(list(_FILE_INFO_METADATA_COLUMNS), strict=False)
     if file_infos:
         mapping = pl.LazyFrame(
             {
-                path_column: [info.path.replace("\\", "/") for info in file_infos],
+                path_column: [normalize_path(info.path) for info in file_infos],
                 name_column: [info.name for info in file_infos],
                 modification_column: [info.modification_time for info in file_infos],
             }
