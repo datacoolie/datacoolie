@@ -1,0 +1,3 @@
+# Schema descriptors and canonical log fixtures validate exact byte hashes.
+src/datacoolie/project/schemas/** text eol=lf
+tests/fixtures/logging/** text eol=lf
