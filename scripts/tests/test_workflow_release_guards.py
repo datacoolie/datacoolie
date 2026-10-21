@@ -15,6 +15,17 @@ def workflow(name: str) -> dict:
     return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
 
 
+def test_ci_installs_avro_fixture_dependency_before_ai_gate() -> None:
+    requirements = (ROOT / "scripts/requirements-release.txt").read_text().splitlines()
+    assert "fastavro==1.12.2" in requirements
+    steps = workflow("ci.yml")["jobs"]["validate"]["steps"]
+    install = next(i for i, step in enumerate(steps) if "requirements-release.txt" in step.get("run", ""))
+    ai_gate = next(i for i, step in enumerate(steps) if "ai/skills/tests/run_all.py" in step.get("run", ""))
+    assert install < ai_gate
+    publishing = workflow("publish-pypi.yml")["jobs"]["publish"]["steps"]
+    assert any("requirements-release.txt" in step.get("run", "") for step in publishing)
+
+
 def test_docs_build_and_deployment_use_separate_credentials() -> None:
     docs = workflow("docs.yml")
     assert docs["permissions"] == {"contents": "read"}
