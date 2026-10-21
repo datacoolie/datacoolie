@@ -432,11 +432,7 @@
             "rate_limit_delay": { "type": "number", "default": 0, "description": "Seconds to wait between sequential page requests." },
             "max_retries": { "type": "integer", "default": 10, "description": "Max retries on HTTP 429 responses. Uses Retry-After header or exponential backoff." },
 
-            "watermark_param_mapping": {
-              "type": "object",
-              "additionalProperties": { "type": "string" },
-              "description": "Maps watermark_columns entries to API parameter names (e.g. {'updated_at': 'updated_since'}). Pushes watermark server-side instead of filtering in memory."
-            },
+            "watermark_param_mapping": { "not": {} },
             "range_param_mapping": {
               "type": "object",
               "minProperties": 1,
@@ -484,37 +480,24 @@
                 "additionalProperties": false,
                 "anyOf": [{ "required": ["lower"] }, { "required": ["upper"] }]
               },
-              "description": "Canonical API per-field lower/upper bindings for bounded reads and replay. The selected field may be outside source.watermark_columns; only authored watermark columns are persisted."
+              "description": "API per-field lower/upper bindings for incremental push-down, internal splitting and bounded reads/replay. Declare each endpoint's actual operators; response_column supplies exact residual filtering when an endpoint returns a superset. The selected field may be outside source.watermark_columns; only authored watermark columns are persisted. Legacy watermark parameter settings are rejected."
             },
-            "watermark_to_param": { "type": "string", "description": "API parameter name to receive the current timestamp as upper bound ('to' side of the window)." },
-            "watermark_param_location": {
-              "type": "string",
-              "enum": ["params", "body"],
-              "default": "params",
-              "description": "Where to inject watermark values: URL query string or request body."
-            },
-            "watermark_param_format": {
-              "type": "string",
-              "enum": ["iso", "date", "timestamp", "timestamp_ms", "datetime", "datetime_ms"],
-              "default": "iso",
-              "description": "Serialisation format for watermark values sent to the API."
-            },
+            "watermark_to_param": { "not": {} },
+            "watermark_param_location": { "not": {} },
+            "watermark_param_format": { "not": {} },
             "watermark_to_param_timezone": { "type": "string", "description": "Timezone for the 'now' upper-bound timestamp (IANA name or ±HH:MM offset). Overrides connection-level default." },
 
             "watermark_range_interval_unit": {
               "type": "string",
               "enum": ["hour", "day", "month", "year"],
-              "description": "Splits the watermark window into sub-ranges of this unit and fetches concurrently. Canonical mode uses range_param_mapping with lower and upper bindings; legacy mode requires watermark_to_param and watermark_param_mapping for saved-state continuation. Requires a stored lower watermark or watermark_range_start."
+              "description": "Splits the incremental watermark window into sub-ranges and fetches concurrently. Requires range_param_mapping with lower and upper bindings for the selected field and a stored lower watermark or watermark_range_start. Explicit read_range/replay is mutually exclusive with internal splitting."
             },
             "watermark_range_interval_amount": { "type": "integer", "default": 1, "description": "Number of units per sub-range interval (e.g. 3 with unit='hour' → 3-hour windows)." },
             "watermark_range_start": { "type": "string", "description": "ISO-8601 fallback lower bound for API split-range reads when no stored lower watermark exists. Omit when a usable lower watermark is already stored." },
             "watermark_range_max_workers": { "type": "integer", "default": 4, "description": "Max parallel HTTP workers for range-split fetching." },
-            "watermark_range_to_exclusive_offset": {
-              "type": ["string", "null"],
-              "enum": ["1ms", "1s", "1day", null],
-              "description": "Epsilon subtracted from each range upper-bound before sending to the API. Use when API has inclusive BETWEEN semantics to prevent duplicates."
-            }
+            "watermark_range_to_exclusive_offset": { "not": {} }
           },
+          "dependentRequired": { "watermark_range_interval_unit": ["range_param_mapping"] },
           "additionalProperties": true
         }
       },

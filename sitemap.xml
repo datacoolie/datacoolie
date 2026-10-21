@@ -358,13 +358,55 @@
          <loc>https://datacoolie.github.io/datacoolie/guide/metadata/partitioning-and-sanitization/</loc>
     </url>
     <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-api/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-database/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-files/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-filtering/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-functions/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-incremental/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-lakehouse/</loc>
+    </url>
+    <url>
          <loc>https://datacoolie.github.io/datacoolie/guide/metadata/source-patterns/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/guide/metadata/stable-keys-and-protected-output/</loc>
     </url>
     <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-expressions/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-keys/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-layout/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-masking/</loc>
+    </url>
+    <url>
          <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-patterns/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-projection/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-schema/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/guide/metadata/transform-values/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/guide/metadata/validation-checklist/</loc>
@@ -472,6 +514,9 @@
          <loc>https://datacoolie.github.io/datacoolie/reference/</loc>
     </url>
     <url>
+         <loc>https://datacoolie.github.io/datacoolie/reference/dependencies/</loc>
+    </url>
+    <url>
          <loc>https://datacoolie.github.io/datacoolie/reference/environment-variables/</loc>
     </url>
     <url>
@@ -554,6 +599,15 @@
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/studio/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/studio/monitoring/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/studio/setup/</loc>
+    </url>
+    <url>
+         <loc>https://datacoolie.github.io/datacoolie/studio/tour/</loc>
     </url>
     <url>
          <loc>https://datacoolie.github.io/datacoolie/blog/archive/2026/</loc>
