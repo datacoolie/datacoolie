@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import sys
 from pathlib import Path
 
@@ -26,7 +25,7 @@ from write_basic.validate_a9_csv_options import (  # noqa: E402
 )
 
 
-METADATA_PATH = SIM_ROOT / "metadata" / "file" / "write_basic" / "a9_csv_options.json"
+METADATA_PATH = SIM_ROOT / "metadata" / "file" / "write_basic.json"
 
 
 def _valid_bytes() -> bytes:
@@ -41,7 +40,8 @@ def _valid_bytes() -> bytes:
 
 
 def test_a9_csv_fixture_declares_connection_defaults_and_destination_override() -> None:
-    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+    metadata = recipe_document("write_basic", "a9_csv_options")
     assert_a9_csv_metadata(metadata)
 
 

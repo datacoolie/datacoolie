@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source": "erp",
+      "evidence": "Replace with the verified source-owner inventory reference and declared access boundary",
+      "objects": [
+        ["erp", "table", "", "main", "orders", ""],
+        ["erp", "table", "", "main", "customers", ""]
+      ]
+    }
+  ]
+}

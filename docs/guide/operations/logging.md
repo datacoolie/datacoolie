@@ -66,11 +66,11 @@ Every newly written system, job, and dataflow record includes
 is automatic and cannot be configured through `LogConfig`. It follows the first
 two header fields, `log_schema_version` and `_type`, in both snapshot and batch
 output. Historical v3 records may lack this field; readers should tolerate its
-absence and ignore unknown fields. Current writers use schema version 6 with
-explicit nested runtime projections and nullable measurements. Historical v5
+absence and ignore unknown fields. Current writers use schema version 7 with
+explicit nested runtime projections and observed measurements. Historical v6
 payloads remain readable evidence and are not rewritten.
 
-Every current record carries `log_schema_version=6` followed immediately by `_type`:
+Every current record carries `log_schema_version=7` followed immediately by `_type`:
 `system_log`, `job_run_log`, or `dataflow_run_log`. Job/dataflow/system rows also carry the configured
 `job_id`, `job_num`, and `job_index`, plus `log_session_id`. The raw job id is retained in the row;
 only the filename token is sanitized. The same stem is used by the job and dataflow snapshot streams.
@@ -82,8 +82,10 @@ session. `dataflow_id` identifies the configured flow; `dataflow_run_id`
 identifies a particular execution or replay chunk. `run_attributes` supplies
 caller correlation on the JobRuntime record. A dataflow record's
 `read_request`, `attempts`, and `metrics` fields are native objects/arrays, not
-JSON strings; nullable metric values remain unavailable rather than becoming
-zero.
+JSON strings. Measured zero stays zero; unentered and unmeasured work stays null.
+Job and replay totals sum observed values independently per metric. A missing
+contribution does not erase a measured value; all-null populations remain null.
+These totals describe observed work and do not claim complete measurement.
 
 Diagnostic values share a 65,536-byte encoded UTF-8 allowance per dataflow or system
 record, configured by `diagnostic_max_bytes`. Root, attempt and phase messages share

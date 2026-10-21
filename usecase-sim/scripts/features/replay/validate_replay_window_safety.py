@@ -20,10 +20,12 @@ if str(USECASE_SIM_DIR) not in sys.path:
     sys.path.insert(0, str(USECASE_SIM_DIR))
 from runner.runtime_paths import DATA_DIR, LOG_DIR, WATERMARKS_DIR, DATACOOLIE_ROOT  # noqa: E402
 from runner.runtime_logs import job_sessions, records  # noqa: E402
+from runner.runtime_profile import optimized  # noqa: E402
+from runner.runtime_timing import measured, phase, runtime_entrypoint  # noqa: E402
 
 from datacoolie.core.constants import DATE_FOLDER_PARTITION_KEY  # noqa: E402
 from datacoolie.core.models.run_config import DataCoolieRunConfig, ReplayConfig  # noqa: E402
-from datacoolie.metadata.file_provider import FileProvider  # noqa: E402
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION  # noqa: E402
 from datacoolie.orchestration.driver import DataCoolieDriver  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
 from datacoolie.watermark.base import WatermarkSerializer  # noqa: E402
@@ -31,7 +33,7 @@ from datacoolie.watermark.base import WatermarkSerializer  # noqa: E402
 
 ROOT = USECASE_SIM_DIR
 
-_V6_METRIC_FIELDS = frozenset(
+_CURRENT_METRIC_FIELDS = frozenset(
     {
         "rows_read",
         "rows_written",
@@ -45,7 +47,7 @@ _V6_METRIC_FIELDS = frozenset(
         "bytes_saved",
     }
 )
-_V6_SELECTION_FIELDS = frozenset(
+_CURRENT_SELECTION_FIELDS = frozenset(
     {
         "mode",
         "lower",
@@ -56,10 +58,10 @@ _V6_SELECTION_FIELDS = frozenset(
         "upper_origin",
     }
 )
-_V6_CANDIDATE_KINDS = frozenset(
+_CURRENT_CANDIDATE_KINDS = frozenset(
     {"observed_max", "request_end", "opaque", "metadata"}
 )
-_V6_REMOVED_ROOT_FIELDS = frozenset(
+_REMOVED_ROOT_FIELDS = frozenset(
     {
         "source_start_time",
         "source_end_time",
@@ -106,6 +108,7 @@ class RetryAfterWriteDriver(DataCoolieDriver):
         return writer
 
 
+@measured("validation_s")
 def validate_history(job_id: str, session_id: str, case: str) -> dict:
     """Assert persisted execution grain, not just the in-memory return value."""
     runs = [
@@ -123,16 +126,19 @@ def validate_history(job_id: str, session_id: str, case: str) -> dict:
     assert len(runs) == len(jobs) == 1, (runs, jobs)
     run, job = runs[0], jobs[0]
     system_logs = list(records(LOG_DIR, job_id, "system_logs", session_id))
-    assert run.get("log_schema_version") == 6, run
-    assert job.get("log_schema_version") == 6, job
-    assert system_logs and all(value.get("log_schema_version") == 6 for _, value in system_logs)
-    assert not _V6_REMOVED_ROOT_FIELDS.intersection(run), run
+    assert run.get("log_schema_version") == LOG_SCHEMA_VERSION, run
+    assert job.get("log_schema_version") == LOG_SCHEMA_VERSION, job
+    assert system_logs and all(
+        value.get("log_schema_version") == LOG_SCHEMA_VERSION
+        for _, value in system_logs
+    )
+    assert not _REMOVED_ROOT_FIELDS.intersection(run), run
 
     attempts = run.get("attempts")
     assert isinstance(attempts, list), run
     metrics = run.get("metrics")
     assert isinstance(metrics, dict), run
-    assert set(metrics) == _V6_METRIC_FIELDS, metrics
+    assert set(metrics) == _CURRENT_METRIC_FIELDS, metrics
     expected = (
         ["failed", "succeeded"]
         if case == "retry-after-write"
@@ -150,14 +156,9 @@ def validate_history(job_id: str, session_id: str, case: str) -> dict:
     assert run["retry_attempts"] == len(expected) - 1, run
     assert run["status"] == expected[-1], run
     for attempt, status in zip(attempts, expected):
-        _assert_v6_attempt(attempt, expected_status=status)
+        _assert_current_attempt(attempt, expected_status=status)
 
-    expected_rows_read = 0 if case == "typed-empty" else 1
-    assert metrics["rows_read"] == expected_rows_read, metrics
-    if case == "typed-empty":
-        assert metrics["rows_written"] == 0, metrics
-    else:
-        assert metrics["rows_written"] in {None, 1}, metrics
+    _assert_observed_metrics(metrics, attempts[-1], case=case)
     assert job["total_dataflows"] == 1, job
     assert job["total_rows_read"] == metrics["rows_read"], (job, run)
     assert job["total_rows_written"] == metrics["rows_written"], (job, run)
@@ -189,8 +190,40 @@ def validate_history(job_id: str, session_id: str, case: str) -> dict:
     return {"dataflow_run_id": run["dataflow_run_id"], "attempt_statuses": expected}
 
 
-def _assert_v6_attempt(attempt: object, *, expected_status: str) -> None:
-    """Check the simulator's persisted attempt shape at the v6 boundary."""
+def _assert_observed_metrics(metrics: dict, attempt: object, *, case: str) -> None:
+    """Check v7 nullable observations without manufacturing zeroes."""
+
+    for field, value in metrics.items():
+        assert value is None or (type(value) is int and value >= 0), (field, value)
+    assert isinstance(attempt, dict), attempt
+    source = attempt.get("source")
+    expected_rows_read = 0 if case == "typed-empty" else 1
+    if source is None:
+        assert metrics["rows_read"] is None, metrics
+    else:
+        assert metrics["rows_read"] == source.get("rows_read") == expected_rows_read, (
+            metrics,
+            source,
+        )
+    destination = attempt.get("destination")
+    if destination is None:
+        assert all(metrics[field] is None for field in _CURRENT_METRIC_FIELDS - {"rows_read"}), metrics
+        return
+    assert isinstance(destination, dict), destination
+    for field in _CURRENT_METRIC_FIELDS - {"rows_read"}:
+        assert metrics[field] == destination.get(field), (field, metrics, destination)
+    bytes_added = destination.get("bytes_added")
+    bytes_removed = destination.get("bytes_removed")
+    expected_bytes_saved = (
+        None
+        if bytes_added is None or bytes_removed is None
+        else max(0, bytes_removed - bytes_added)
+    )
+    assert metrics["bytes_saved"] == expected_bytes_saved, metrics
+
+
+def _assert_current_attempt(attempt: object, *, expected_status: str) -> None:
+    """Check the simulator's persisted attempt shape at the current boundary."""
     assert isinstance(attempt, dict), attempt
     assert attempt.get("status") == expected_status, attempt
     assert isinstance(attempt.get("attempt_number"), int), attempt
@@ -203,7 +236,7 @@ def _assert_v6_attempt(attempt: object, *, expected_status: str) -> None:
         assert isinstance(source.get("source_action"), dict), source
         selection = source.get("selection")
         assert isinstance(selection, dict), source
-        assert set(selection) == _V6_SELECTION_FIELDS, selection
+        assert set(selection) == _CURRENT_SELECTION_FIELDS, selection
         assert selection["upper_origin"] in {"none", "explicit", "generated"}, selection
         assert "watermark_effective" not in source, source
 
@@ -214,7 +247,7 @@ def _assert_v6_attempt(attempt: object, *, expected_status: str) -> None:
             assert isinstance(candidate, dict), watermark
             assert set(candidate) == {"values", "kind"}, candidate
             assert isinstance(candidate["values"], dict), candidate
-            assert candidate["kind"] in _V6_CANDIDATE_KINDS, candidate
+            assert candidate["kind"] in _CURRENT_CANDIDATE_KINDS, candidate
 
 
 def _mapped_runtime_root(data_root: Path, runtime_root: Path) -> Path:
@@ -234,7 +267,7 @@ def _mapped_runtime_root(data_root: Path, runtime_root: Path) -> Path:
     return mapped
 
 
-def metadata(path: Path, *, folder: bool, tracked: bool) -> Path:
+def metadata(path: Path, *, folder: bool, tracked: bool) -> dict:
     source_config = {"base_path": str(path / "input")}
     if folder:
         source_config["date_folder_partitions"] = "{year}/{month}/{day}"
@@ -272,12 +305,10 @@ def metadata(path: Path, *, folder: bool, tracked: bool) -> Path:
             }
         ],
     }
-    path.mkdir(parents=True)
-    config_path = path / "metadata.json"
-    config_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
-    return config_path
+    return document
 
 
+@measured("readback_s")
 def read_rows(engine, path: Path, kind: str) -> list[dict]:
     frame = engine.read_delta(str(path))
     records = (
@@ -291,14 +322,34 @@ def read_rows(engine, path: Path, kind: str) -> list[dict]:
     )
 
 
+def fixture_dataframe(engine, rows: list[dict], kind: str):
+    """Build this validator's small typed seed without Python Spark workers."""
+    if kind != "spark" or not optimized():
+        return engine.create_dataframe(rows)
+    if not rows:
+        raise ValueError("window-safety fixtures require non-empty seed rows")
+    from pyspark.sql import functions as sf
+
+    # A typed JSON literal is folded to a JVM array without one Py4J call per
+    # value/cast. Indexing retains row multiplicity and nullable seed fields.
+    spark = engine.spark
+    ordinal = (sf.col("id") + 1).cast("int")
+    values = sf.from_json(sf.lit(json.dumps(rows)),
+                          "ARRAY<STRUCT<id: BIGINT, seq: BIGINT, value: STRING>>")
+    return spark.range(len(rows), numPartitions=spark.sparkContext.defaultParallelism).select(
+        sf.element_at(values, ordinal).alias("row")
+    ).select("row.*")
+
+
 def run_case(engine, platform, root: Path, kind: str, case: str) -> dict:
-    receipt_root = _mapped_runtime_root(root, LOG_DIR)
+    root.mkdir(parents=True, exist_ok=False)
+    receipt_root = _mapped_runtime_root(root, LOG_DIR / "scenarios")
     if receipt_root.exists():
         raise ValueError(f"native receipt root must be new and unused: {receipt_root}")
 
     folder = case != "typed-empty"
     tracked = case != "folder-only"
-    config_path = metadata(root, folder=folder, tracked=tracked)
+    document = metadata(root, folder=folder, tracked=tracked)
     source_rows = (
         [
             {"id": 200, "seq": 0, "value": "before"},
@@ -310,24 +361,23 @@ def run_case(engine, platform, root: Path, kind: str, case: str) -> dict:
     source_path = root / "input" / "events"
     if folder:
         source_path = source_path / "2026" / "01" / "02"
-    engine.write_to_path(
-        engine.create_dataframe(source_rows),
-        str(source_path),
-        mode="overwrite",
-        fmt="parquet" if folder else "delta",
-    )
+    with phase("fixture_setup_s"):
+        with phase("fixture_dataframe_s"):
+            source_frame = fixture_dataframe(engine, source_rows, kind)
+        with phase("fixture_write_s"):
+            engine.write_to_path(source_frame, str(source_path), mode="overwrite",
+                                 fmt="parquet" if folder else "delta")
     target_path = root / "output" / "events"
     points = [0, 2, 8, 10] if not folder else [1, 2, 3]
     initial = [
         {"id": 100 + i, "seq": point, "value": f"old-{point}"}
         for i, point in enumerate(points)
     ]
-    engine.write_to_path(
-        engine.create_dataframe(initial),
-        str(target_path),
-        mode="overwrite",
-        fmt="delta",
-    )
+    with phase("fixture_setup_s"):
+        with phase("fixture_dataframe_s"):
+            initial_frame = fixture_dataframe(engine, initial, kind)
+        with phase("fixture_write_s"):
+            engine.write_to_path(initial_frame, str(target_path), mode="overwrite", fmt="delta")
     # Keep case-specific watermarks independent of the shared framework logs.
     watermark_root = _mapped_runtime_root(root, WATERMARKS_DIR)
     if watermark_root.exists():
@@ -335,8 +385,10 @@ def run_case(engine, platform, root: Path, kind: str, case: str) -> dict:
     watermark_root.mkdir(parents=True, exist_ok=False)
     state_root = watermark_root / "state"
     state_root.mkdir()
-    provider = FileProvider(
-        config_path=str(config_path),
+    from runner.metadata_bindings import MemoryFileProvider
+
+    provider = MemoryFileProvider(
+        document=document,
         platform=platform,
         watermark_base_path=str(state_root),
     )
@@ -384,15 +436,16 @@ def run_case(engine, platform, root: Path, kind: str, case: str) -> dict:
             retry_delay=0,
         ),
     ) as driver:
-        if folder:
-            result = driver.run(stage="window-safety")
-        else:
-            result = driver.run_replay(
-                dataflows=[dataflow],
-                replay=ReplayConfig(
-                    start=1, end=10, chunk_column="seq", save_watermark=True
-                ),
-            )
+        with phase("execution_s"):
+            if folder:
+                result = driver.run(stage="window-safety")
+            else:
+                result = driver.run_replay(
+                    dataflows=[dataflow],
+                    replay=ReplayConfig(
+                        start=1, end=10, chunk_column="seq", save_watermark=True
+                    ),
+                )
         after_state = provider.get_watermark(dataflow.dataflow_id)
         if case == "retry-after-write":
             assert driver.write_calls == 2, driver.write_calls
@@ -466,6 +519,7 @@ def run_case(engine, platform, root: Path, kind: str, case: str) -> dict:
     }
 
 
+@runtime_entrypoint
 def main() -> int:
     # Resolve relative fixture roots from the product root, matching the
     # executable runners and Docker working directory convention.
@@ -484,7 +538,7 @@ def main() -> int:
         )
     # Validate derived runtime locations before creating any fixture bytes.
     _mapped_runtime_root(root, WATERMARKS_DIR)
-    receipt_root = _mapped_runtime_root(root, LOG_DIR)
+    receipt_root = _mapped_runtime_root(root, LOG_DIR / "scenarios")
     if receipt_root.exists():
         parser.error(f"native receipt root must be new and unused: {receipt_root}")
     receipt_root.mkdir(parents=True, exist_ok=False)
@@ -495,17 +549,19 @@ def main() -> int:
         from _runner_utils import build_spark_session
         from datacoolie.engines.spark_engine import SparkEngine
 
-        spark = build_spark_session(
-            app_name="replay-window-safety",
-            extra_config={
-                "spark.master": "local[2]",
-                "spark.driver.memory": "2g",
-                "spark.sql.shuffle.partitions": "2",
-                "spark.sql.session.timeZone": "UTC",
-            },
-            verify_local_file_checksums=False,
-        )
-        engine = SparkEngine(spark_session=spark, platform=platform)
+        with phase("engine_creation_s"):
+            spark = build_spark_session(
+                app_name="replay-window-safety",
+                extra_config={
+                    "spark.master": "local[2]",
+                    "spark.driver.memory": "2g",
+                    "spark.sql.shuffle.partitions": "2",
+                    "spark.sql.session.timeZone": "UTC",
+                },
+                verify_local_file_checksums=False,
+                needs_jdbc=not optimized(),
+            )
+            engine = SparkEngine(spark_session=spark, platform=platform)
     else:
         from datacoolie.engines.polars_engine import PolarsEngine
 
@@ -527,7 +583,8 @@ def main() -> int:
             handle.write("\n")
     finally:
         if spark is not None:
-            spark.stop()
+            with phase("shutdown_s"):
+                spark.stop()
     return 0
 
 

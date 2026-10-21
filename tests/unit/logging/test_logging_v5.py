@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import warnings
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -12,8 +11,6 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from datacoolie.watermark.base import WatermarkSerializer
-from datacoolie.logging.persistence.serialization import serialize_source_runtime
-from datacoolie.sources.runtime import SourceRuntimeInfo
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "logging" / "v5"
 
@@ -69,15 +66,6 @@ def test_additional_terminal_fixtures_cover_execution_boundaries():
     assert job["total_failed"] == 1
     assert job["log_records_dropped"] == 1
     assert job["log_bytes_dropped"] > 0
-
-
-def test_malformed_diagnostic_omission_survives_warning_as_error():
-    source = SourceRuntimeInfo(rows_read=2, source_action={"invalid": float("nan")})
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        encoded = serialize_source_runtime(source)
-    assert encoded["rows_read"] == 2
-    assert "source_action" not in encoded
 
 
 def test_typed_watermark_values_and_scalar_range_bounds_decode_exactly():

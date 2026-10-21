@@ -1,9 +1,7 @@
-"""Focused tests for simulator metadata composition and materialization."""
+"""Focused tests for simulator metadata direct documents and in-memory workflow selection."""
 
 from __future__ import annotations
 
-import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -43,15 +41,9 @@ def test_platform_smoke_is_self_contained_and_reads_its_own_written_targets(plat
 
 @pytest.fixture(scope="module")
 def composition():
-    spec = importlib.util.spec_from_file_location(
-        "usecase_sim_metadata_composition_test",
-        SIM_ROOT / "runner" / "metadata_composition.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    sys.path.insert(0, str(SIM_ROOT))
+    from runner import metadata_documents
+    return metadata_documents
 
 
 def _write_json(root: Path, relative: str, value: object) -> Path:
@@ -61,20 +53,13 @@ def _write_json(root: Path, relative: str, value: object) -> Path:
     return path
 
 
-def _group(name: str, shared: str, flow_name: str) -> dict:
-    return {
-        "shared_metadata": shared,
-        "dataflows": [{"name": flow_name, "stage": name}],
-    }
-
-
 def test_workflow_preserves_manifest_order_and_deduplicates_shared_profile(composition):
     root = SIM_ROOT
     workflow = composition.load_metadata(
-        "metadata/file/workflows/local_use_cases.json", root=root
+        "scenarios/workflows/local_use_cases.json", root=root
     )
     manifest = json.loads(
-        (root / "metadata/file/workflows/local_use_cases.json").read_text()
+        (root / "scenarios/workflows/local_use_cases.json").read_text()
     )
     assert [flow["name"] for flow in workflow["dataflows"]] == manifest["flow_order"]
     assert len(workflow["connections"]) == len({c["name"] for c in workflow["connections"]})
@@ -83,99 +68,126 @@ def test_workflow_preserves_manifest_order_and_deduplicates_shared_profile(compo
     assert "flow_order" not in workflow
 
 
-def test_workflow_rejects_conflicting_shared_sections_and_duplicate_flows(composition, tmp_path):
-    _write_json(
-        tmp_path,
-        "metadata/file/shared/one.json",
-        {"connections": [{"name": "same", "connection_type": "file"}], "schema_hints": []},
-    )
-    _write_json(
-        tmp_path,
-        "metadata/file/shared/two.json",
-        {"connections": [{"name": "same", "connection_type": "api"}], "schema_hints": []},
-    )
-    _write_json(tmp_path, "metadata/file/one.json", _group("one", "metadata/file/shared/one.json", "flow"))
-    _write_json(tmp_path, "metadata/file/two.json", _group("two", "metadata/file/shared/two.json", "other"))
-    _write_json(
-        tmp_path,
-        "metadata/file/workflow.json",
-        {
-            "metadata_documents": ["metadata/file/one.json", "metadata/file/two.json"],
-            "flow_order": ["flow", "other"],
-        },
-    )
-    with pytest.raises(composition.MetadataCompositionError, match="connection 'same'"):
-        composition.load_metadata("metadata/file/workflow.json", root=tmp_path)
-
-    _write_json(tmp_path, "metadata/file/two.json", _group("two", "metadata/file/shared/one.json", "flow"))
-    with pytest.raises(composition.MetadataCompositionError, match="Duplicate dataflow"):
-        composition.load_metadata("metadata/file/workflow.json", root=tmp_path)
+def test_exact_files_merge_in_memory_and_explicit_sections_replace(composition, tmp_path):
+    from runner.metadata_documents import load_metadata_files
+    one = _write_json(tmp_path, "one.json", {"connections": [{"name": "old"}],
+        "dataflows": [{"name": "one"}]})
+    two = _write_json(tmp_path, "two.json", {"dataflows": [{"name": "two"}]})
+    shared = _write_json(tmp_path, "connections.json", {"connections": [{"name": "shared"}]})
+    hints = _write_json(tmp_path, "schema_hints.json", {"schema_hints": []})
+    before = {path: path.read_bytes() for path in tmp_path.iterdir()}
+    document = load_metadata_files([one, two], connections_path=shared,
+        schema_hints_path=hints, root=tmp_path)
+    assert document == {"connections": [{"name": "shared"}],
+        "dataflows": [{"name": "one"}, {"name": "two"}], "schema_hints": []}
+    document["dataflows"][0]["name"] = "changed"
+    assert {path: path.read_bytes() for path in tmp_path.iterdir()} == before
+    assert load_metadata_files([one, two], root=tmp_path)["dataflows"][0]["name"] == "one"
 
 
-@pytest.mark.parametrize(
-    "documents",
-    [
-        {"metadata_documents": ["../outside.json"], "flow_order": []},
-        {"metadata_documents": ["metadata/file/cycle.json"], "flow_order": []},
-    ],
-)
-def test_composition_rejects_escaping_and_cycles(composition, tmp_path, documents):
-    if documents["metadata_documents"][0].startswith("../"):
-        _write_json(tmp_path, "metadata/file/workflow.json", documents)
-        with pytest.raises(composition.MetadataCompositionError, match="escapes simulator root"):
-            composition.load_metadata("metadata/file/workflow.json", root=tmp_path)
-        return
-
-    _write_json(
-        tmp_path,
-        "metadata/file/cycle.json",
-        {"shared_metadata": "metadata/file/cycle.json", "dataflows": []},
-    )
-    with pytest.raises(composition.MetadataCompositionError, match="cycle"):
-        composition.load_metadata("metadata/file/cycle.json", root=tmp_path)
+@pytest.mark.parametrize("section,rows", [
+    ("connections", [{"name": "shared"}, {"name": "shared"}]),
+    ("dataflows", [{"name": "one"}, {"name": "one"}]),
+    ("dataflows", [{"name": "one", "dataflow_id": "same"},
+                   {"name": "two", "dataflow_id": "same"}]),
+])
+def test_exact_files_reject_duplicate_identity_before_export_or_seed(composition, tmp_path, section, rows):
+    from runner.metadata_documents import load_metadata_files
+    one = _write_json(tmp_path, "one.json", {section: rows[:1]})
+    two = _write_json(tmp_path, "two.json", {section: rows[1:]})
+    with pytest.raises(ValueError, match="Duplicate"):
+        load_metadata_files([one, two], root=tmp_path)
 
 
-def test_materialization_is_content_hashed_and_plain_invalid_json_passes_through(composition, tmp_path):
-    _write_json(tmp_path, "metadata/file/shared/profile.json", {"connections": [], "schema_hints": []})
-    source = _write_json(
-        tmp_path,
-        "metadata/file/group.json",
-        _group("one", "metadata/file/shared/profile.json", "flow"),
-    )
-    materialized = Path(composition.materialize_metadata_path(source, root=tmp_path))
-    first_bytes = materialized.read_bytes()
-    assert materialized.parent == tmp_path / ".runtime/data/metadata"
-    assert materialized.stem.endswith(hashlib.sha256(first_bytes).hexdigest())
-
-    _write_json(tmp_path, "metadata/file/group.json", _group("changed", "metadata/file/shared/profile.json", "flow"))
-    second = Path(composition.materialize_metadata_path(source, root=tmp_path))
-    assert second != materialized
-    assert materialized.read_bytes() == first_bytes
-
-    malformed = _write_json(
-        tmp_path,
-        "metadata/file/startup_failure.json",
-        {"connections": [], "dataflows": "this must be a list"},
-    )
-    assert composition.load_metadata(malformed, root=tmp_path)["dataflows"] == "this must be a list"
-    assert composition.materialize_metadata_path(malformed, root=tmp_path) == str(malformed)
-    for name, raw in (("array.json", ["plain"]), ("scalar.json", "plain"), ("invalid.json", "{")):
-        path = tmp_path / "metadata/file" / name
-        path.write_text(raw if isinstance(raw, str) else json.dumps(raw), encoding="utf-8")
-        assert composition.materialize_metadata_path(path, root=tmp_path) == str(path)
+@pytest.mark.parametrize("section,id_field", [("connections", "connection_id"),
+                                              ("dataflows", "dataflow_id")])
+def test_exact_files_reject_explicit_id_colliding_with_derived_id(composition, tmp_path, section, id_field):
+    from runner.metadata_documents import load_metadata_files
+    from datacoolie.utils.identity import name_to_uuid
+    one = _write_json(tmp_path, "one.json", {section: [{"name": "one"}]})
+    two = _write_json(tmp_path, "two.json", {section: [{"name": "two", id_field: name_to_uuid("one")}]})
+    with pytest.raises(ValueError, match=f"Duplicate {id_field}"):
+        load_metadata_files([one, two], root=tmp_path)
 
 
-def test_materialization_passthrough_for_uri_and_non_json(composition):
-    assert composition.materialize_metadata_path("s3://bucket/metadata.json") == "s3://bucket/metadata.json"
-    assert composition.materialize_metadata_path("metadata/file/local.yaml") == "metadata/file/local.yaml"
+def test_workflow_rejects_duplicate_flows_and_unresolved_connections(composition, tmp_path):
+    _write_json(tmp_path, "one.json", {"dataflows": [{"name": "flow", "source": {"connection_name": "source"}, "destination": {"connection_name": "dest"}}]})
+    _write_json(tmp_path, "two.json", {"dataflows": [{"name": "flow"}]})
+    _write_json(tmp_path, "connections.json", {"connections": [{"name": "source"}, {"name": "dest"}]})
+    manifest = {"metadata_documents": ["one.json", "two.json"], "flow_order": ["flow"], "connections_path": "connections.json"}
+    _write_json(tmp_path, "workflow.json", manifest)
+    with pytest.raises(ValueError, match="Duplicate"):
+        composition.load_metadata("workflow.json", root=tmp_path)
+    manifest.update(metadata_documents=["one.json"], connection_order=["source"])
+    _write_json(tmp_path, "workflow.json", manifest)
+    with pytest.raises(ValueError, match="cannot resolve"):
+        composition.load_metadata("workflow.json", root=tmp_path)
 
 
-def test_external_plain_json_keeps_caller_path_and_can_be_written_to_runtime(composition, tmp_path, monkeypatch):
-    source = tmp_path / "docs" / "connections.json"
-    source.parent.mkdir(parents=True)
-    source.write_text(json.dumps({"connections": [], "dataflows": []}), encoding="utf-8")
-    monkeypatch.chdir(tmp_path)
-    assert composition.materialize_metadata_path("docs/connections.json", root=tmp_path / "sim") == "docs/connections.json"
-    compiled = composition.write_composed_metadata(source, root=tmp_path / "sim")
-    assert compiled == tmp_path / "sim/.runtime/data/metadata/connections.json"
-    assert json.loads(compiled.read_text())["dataflows"] == []
+def test_manifest_rejects_nested_or_escaping_references(composition, tmp_path):
+    manifest = {"metadata_documents": ["workflow.json"], "flow_order": []}
+    _write_json(tmp_path, "workflow.json", manifest)
+    with pytest.raises(ValueError, match="plain group"):
+        composition.load_metadata("workflow.json", root=tmp_path)
+    manifest["metadata_documents"] = ["../outside.json"]
+    _write_json(tmp_path, "workflow.json", manifest)
+    with pytest.raises(ValueError, match="escapes"):
+        composition.load_metadata("workflow.json", root=tmp_path)
+
+
+def test_plain_invalid_document_stays_unchanged_and_obsolete_group_is_rejected(composition, tmp_path):
+    source = _write_json(tmp_path, "startup.json", {"dataflows": "invalid"})
+    before = source.read_bytes()
+    assert composition.load_metadata(source) == {"dataflows": "invalid"}
+    assert source.read_bytes() == before
+    group = _write_json(tmp_path, "old.json", {"shared_metadata": "connections.json", "dataflows": []})
+    with pytest.raises(ValueError, match="obsolete shared_metadata"):
+        composition.load_metadata(group)
+
+
+def test_external_plain_document_loads_in_memory_without_runtime_files(composition, tmp_path):
+    source = _write_json(tmp_path, "outside/source.json", {"dataflows": []})
+    assert composition.load_metadata(source, root=tmp_path / "sim") == {"dataflows": []}
+    assert not (tmp_path / "sim").exists()
+
+
+@pytest.mark.parametrize("mode", ["plain", "exact", "workflow"])
+def test_metadata_reads_own_nested_rows_and_observe_source_changes(composition, tmp_path, mode):
+    flow = {"name": "flow", "source": {"connection_name": "shared"},
+            "destination": {"connection_name": "shared"},
+            "transform": {"select_columns": ["id", "value"]}}
+    connection = {"name": "shared", "configure": {"headers": {"x-test": "original"}}}
+    hint = {"connection_name": "shared", "table_name": "events",
+            "hints": [{"column_name": "id", "data_type": "INT"}]}
+    group = _write_json(tmp_path, "group.json", {"dataflows": [flow]})
+    shared = _write_json(tmp_path, "connections.json", {"connections": [connection]})
+    hints = _write_json(tmp_path, "schema_hints.json", {"schema_hints": [hint]})
+    if mode == "plain":
+        group = _write_json(tmp_path, "plain.json", {"dataflows": [flow],
+            "connections": [connection], "schema_hints": [hint]})
+        def read():
+            return composition.load_metadata(group)
+    elif mode == "exact":
+        def read():
+            return composition.load_metadata_files(group,
+                connections_path=shared, schema_hints_path=hints, root=tmp_path)
+    else:
+        manifest = _write_json(tmp_path, "workflow.json", {
+            "metadata_documents": ["group.json"], "flow_order": ["flow"],
+            "connections_path": "connections.json", "schema_hints_path": "schema_hints.json",
+            "connection_order": ["shared"]})
+        def read():
+            return composition.load_metadata(manifest, root=tmp_path)
+    before = {path: path.read_bytes() for path in tmp_path.iterdir()}
+    first, second = read(), read()
+    first["dataflows"][0]["transform"]["select_columns"].append("changed")
+    first["connections"][0]["configure"]["headers"]["x-test"] = "changed"
+    first["schema_hints"][0]["hints"][0]["data_type"] = "changed"
+    assert second["dataflows"][0]["transform"]["select_columns"] == ["id", "value"]
+    assert second["connections"][0]["configure"]["headers"]["x-test"] == "original"
+    assert second["schema_hints"][0]["hints"][0]["data_type"] == "INT"
+    assert {path: path.read_bytes() for path in before} == before
+    updated = json.loads(group.read_text())
+    updated["dataflows"][0]["transform"]["select_columns"] = ["new_column"]
+    group.write_text(json.dumps(updated), encoding="utf-8")
+    assert read()["dataflows"][0]["transform"]["select_columns"] == ["new_column"]

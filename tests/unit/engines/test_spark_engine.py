@@ -28,6 +28,7 @@ from datacoolie.core.exceptions import EngineError, TransformError  # noqa: E402
 from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.destinations.delta_writer import DeltaWriter  # noqa: E402
 from datacoolie.engines._spark import database as spark_database  # noqa: E402
+from datacoolie.engines._spark import delta as spark_delta  # noqa: E402
 from datacoolie.engines._spark import file_io as spark_file_io  # noqa: E402
 from datacoolie.engines._spark.iceberg import operations as spark_iceberg  # noqa: E402
 from datacoolie.engines._spark import table_operations as spark_tables  # noqa: E402
@@ -599,7 +600,7 @@ class TestWriteMetrics:
     def test_metrics_no_table(self, engine: SparkEngine, delta_path: str) -> None:
         writer = DeltaWriter(engine)
         metrics = writer._parse_write_metrics([])
-        assert metrics["rows_written"] == 0
+        assert metrics["rows_written"] is None
 
 
 # =====================================================================
@@ -866,9 +867,12 @@ class TestSparkEngineAdvanced:
         platform.folder_exists.assert_called_with("s3://x/tbl/metadata")
 
         platform.list_files.return_value = ["data.parquet"]
-        with patch.object(engine.spark, "sql") as spark_sql:
-            spark_sql.return_value = MagicMock()
+        delta_target = MagicMock()
+        with patch.object(
+            spark_delta, "delta_table", return_value=delta_target
+        ):
             assert engine.table_exists_by_path("s3://x/delta/", fmt="delta") is True
+        delta_target.forPath.assert_called_once_with(engine.spark, "s3://x/delta/")
         platform.folder_exists.assert_any_call("s3://x/delta/_delta_log")
 
         platform.folder_exists.return_value = True
@@ -884,13 +888,8 @@ class TestSparkEngineAdvanced:
         occupied = tmp_path / "occupied"
         occupied.mkdir()
         (occupied / "payload.bin").write_bytes(b"occupied")
-        with patch.object(engine.spark, "sql") as spark_sql:
-            spark_sql.return_value = MagicMock()
-            assert engine.table_exists_by_path(str(occupied), fmt="delta") is True
-
-            spark_sql.side_effect = FileNotFoundError("not found")
-            with pytest.raises(FileNotFoundError, match="not found"):
-                engine.table_exists_by_path(str(occupied), fmt="delta")
+        with pytest.raises(EngineError, match="not a Delta table"):
+            engine.table_exists_by_path(str(occupied), fmt="delta")
 
     def test_table_exists_by_path_probe_error_propagates(
         self, engine: SparkEngine

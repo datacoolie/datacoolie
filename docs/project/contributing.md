@@ -126,6 +126,15 @@ For Spark changes, install `spark-delta` in the same environment before using
 `poetry run python scripts/verify_release.py --with-spark`; the Spark stage
 remains local-only. CI also runs the separate AI skills gate.
 
+Push the candidate commit to `main` and require its CI checks to pass before
+creating the matching `vX.Y.Z` tag. Both publishing workflows require the tag
+to identify the checked-out commit in `origin/main` history. After fetching
+full history and an existing tag, check that condition locally with
+`python scripts/verify_release_ref.py --tag vX.Y.Z`.
+
+The docs workflow builds and verifies PRs with read permission. A separate job
+deploys the verified site artifact to `gh-pages` only for pushes to `main`.
+
 ## Documentation style
 
 - Follow the **Diátaxis** tier and the public information architecture:

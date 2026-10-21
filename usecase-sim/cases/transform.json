@@ -384,7 +384,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "aws_dedup__row_number",
           "role": "primary"
         }
@@ -415,7 +415,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "aws_dedup__rank",
           "role": "primary"
         }
@@ -446,7 +446,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "aws_dedup__no_order_col",
           "role": "primary"
         }
@@ -477,7 +477,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "aws_addcols__literal",
           "role": "primary"
         }
@@ -508,7 +508,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "aws_addcols__expression",
           "role": "primary"
         }
@@ -539,7 +539,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/aws.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "aws_dedup__composite_key",
           "role": "primary"
         }
@@ -570,7 +570,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "dedup__row_number",
           "role": "primary"
         }
@@ -601,7 +601,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "dedup__rank",
           "role": "primary"
         }
@@ -632,7 +632,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "dedup__no_order_col",
           "role": "primary"
         }
@@ -663,7 +663,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "addcols__literal",
           "role": "primary"
         }
@@ -694,7 +694,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "addcols__expression",
           "role": "primary"
         }
@@ -725,7 +725,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "row_filter__on_computed_col",
           "role": "primary"
         }
@@ -762,7 +762,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "row_filter__simple",
           "role": "primary"
         }
@@ -793,7 +793,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "dedup__composite_key",
           "role": "primary"
         }
@@ -824,7 +824,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__trim",
           "role": "primary"
         }
@@ -856,7 +856,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__case",
           "role": "primary"
         }
@@ -888,7 +888,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__regex_replace",
           "role": "primary"
         }
@@ -920,7 +920,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__regex_literal_replacement",
           "role": "primary"
         }
@@ -952,7 +952,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__empty_to_null",
           "role": "primary"
         }
@@ -984,7 +984,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__fill_null",
           "role": "primary"
         }
@@ -1016,7 +1016,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__map",
           "role": "primary"
         }
@@ -1048,7 +1048,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__stable_rule_order",
           "role": "primary"
         }
@@ -1080,7 +1080,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_hash__sha256",
           "role": "primary"
         }
@@ -1112,7 +1112,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_hash__xxhash64",
           "role": "primary"
         }
@@ -1144,7 +1144,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__redact",
           "role": "primary"
         }
@@ -1176,7 +1176,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__nullify",
           "role": "primary"
         }
@@ -1208,7 +1208,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__partial",
           "role": "primary"
         }
@@ -1240,7 +1240,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__numeric_bucket",
           "role": "primary"
         }
@@ -1272,7 +1272,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__date_truncate",
           "role": "primary"
         }
@@ -1304,7 +1304,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__select",
           "role": "primary"
         }
@@ -1336,7 +1336,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__drop",
           "role": "primary"
         }
@@ -1368,7 +1368,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__batch_rename",
           "role": "primary"
         }
@@ -1400,7 +1400,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__value_rule",
           "role": "primary"
         }
@@ -1432,7 +1432,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__hash",
           "role": "primary"
         }
@@ -1464,7 +1464,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__masking",
           "role": "primary"
         }
@@ -1496,7 +1496,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__projection",
           "role": "primary"
         }
@@ -1528,7 +1528,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__invalid_typed_fill",
           "role": "primary"
         }
@@ -1559,7 +1559,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__invalid_typed_redact",
           "role": "primary"
         }
@@ -1590,7 +1590,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_sanitizer__collision",
           "role": "primary"
         }
@@ -1621,7 +1621,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_dedup__missing_is_strict",
           "role": "primary"
         }
@@ -1652,127 +1652,127 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__trim",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__case",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__regex_replace",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__regex_literal_replacement",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__empty_to_null",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__fill_null",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__map",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__stable_rule_order",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_value__before_schema_cast",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_schema__cast",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_schema__missing_warning",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_hash__sha256",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_hash__xxhash64",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__redact",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__nullify",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__partial",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__numeric_bucket",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__date_truncate",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__select",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__drop",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__batch_rename",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__value_rule",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__hash",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__masking",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__projection",
           "role": "support"
         }
@@ -1808,127 +1808,127 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__trim",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__case",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__regex_replace",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__regex_literal_replacement",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__empty_to_null",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__fill_null",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__map",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__stable_rule_order",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_value__before_schema_cast",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_schema__cast",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_schema__missing_warning",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_hash__sha256",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_hash__xxhash64",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__redact",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__nullify",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__partial",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__numeric_bucket",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__date_truncate",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__select",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__drop",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_projection__batch_rename",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__value_rule",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__hash",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__masking",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_missing_policy__projection",
           "role": "support"
         }
@@ -1964,16 +1964,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_dedup__missing_is_strict",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_polars_transform_dedup_strict"
+        "error_messages.local_polars_transform_dedup_strict"
       ],
       "dedicated_scenarios": [
-        "local_polars_transform_dedup_strict"
+        "error_messages.local_polars_transform_dedup_strict"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2001,16 +2001,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_dedup__missing_is_strict",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_spark_transform_dedup_strict"
+        "error_messages.local_spark_transform_dedup_strict"
       ],
       "dedicated_scenarios": [
-        "local_spark_transform_dedup_strict"
+        "error_messages.local_spark_transform_dedup_strict"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2038,16 +2038,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__invalid_typed_fill",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_polars_transform_invalid_fill"
+        "error_messages.local_polars_transform_invalid_fill"
       ],
       "dedicated_scenarios": [
-        "local_polars_transform_invalid_fill"
+        "error_messages.local_polars_transform_invalid_fill"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2075,16 +2075,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_value__invalid_typed_fill",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_spark_transform_invalid_fill"
+        "error_messages.local_spark_transform_invalid_fill"
       ],
       "dedicated_scenarios": [
-        "local_spark_transform_invalid_fill"
+        "error_messages.local_spark_transform_invalid_fill"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2112,16 +2112,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__invalid_typed_redact",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_polars_transform_invalid_redact"
+        "error_messages.local_polars_transform_invalid_redact"
       ],
       "dedicated_scenarios": [
-        "local_polars_transform_invalid_redact"
+        "error_messages.local_polars_transform_invalid_redact"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2149,16 +2149,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_mask__invalid_typed_redact",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_spark_transform_invalid_redact"
+        "error_messages.local_spark_transform_invalid_redact"
       ],
       "dedicated_scenarios": [
-        "local_spark_transform_invalid_redact"
+        "error_messages.local_spark_transform_invalid_redact"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2186,16 +2186,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_sanitizer__collision",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_polars_transform_sanitizer_collision"
+        "error_messages.local_polars_transform_sanitizer_collision"
       ],
       "dedicated_scenarios": [
-        "local_polars_transform_sanitizer_collision"
+        "error_messages.local_polars_transform_sanitizer_collision"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2223,16 +2223,16 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "transform_sanitizer__collision",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_spark_transform_sanitizer_collision"
+        "error_messages.local_spark_transform_sanitizer_collision"
       ],
       "dedicated_scenarios": [
-        "local_spark_transform_sanitizer_collision"
+        "error_messages.local_spark_transform_sanitizer_collision"
       ],
       "preconditions": [
         "Existing recipe setup/invocation/validation sequence is authoritative; shared services require explicit prerequisites."
@@ -2260,7 +2260,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "a9-transform-uppercase",
           "role": "primary"
         }
@@ -2297,7 +2297,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "a9-transform-map-null",
           "role": "primary"
         }
@@ -2334,7 +2334,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "a9-transform-partial-keep-start",
           "role": "primary"
         }
@@ -2371,7 +2371,7 @@
       "contract": "src/datacoolie/core/models/transform.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/transform/a9_local.json",
+          "fixture": "usecase-sim/metadata/file/transform.json",
           "flow": "a9-transform-timestamp-truncate-hour",
           "role": "primary"
         }

@@ -6,7 +6,7 @@ description: Routes older partitioning and sanitization links to the owning conf
 # Partitioning and column sanitization
 
 Configure [destination partitions](destination-and-load-patterns.md#partition_columns-partition-the-output-table)
-and [column-name sanitization](transform-patterns.md#columnnamesanitizer)
+and [column-name sanitization](transform-layout.md#columnnamesanitizer)
 in their owning pages. The combined
 [stable keys and protected output](stable-keys-and-protected-output.md)
 case shows how later transforms preserve merge and partition identity.
@@ -25,7 +25,7 @@ See [Partition expression portability](destination-and-load-patterns.md#partitio
 
 ## Column name sanitization
 
-See [ColumnNameSanitizer](transform-patterns.md#columnnamesanitizer).
+See [ColumnNameSanitizer](transform-layout.md#columnnamesanitizer).
 
 ## Gotchas
 

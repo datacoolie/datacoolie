@@ -80,8 +80,13 @@ def host(monkeypatch):
                                  ("databricks", "DatabricksPlatform"), ("fabric", "FabricPlatform")]:
         module(f"datacoolie.platforms.{platform}_platform", **{class_name: Mock(return_value=object())})
     for engine, class_name in [("polars", "PolarsEngine"), ("spark", "SparkEngine")]:
+        from datacoolie.engines.contracts.maintenance import PreparedMaintenanceTarget
+        def preparation():
+            return lambda *, fmt, table_name=None, path=None, table_address=None: PreparedMaintenanceTarget(
+                fmt, table_name, path, f"test-backend:{table_name or path}")
         module(f"datacoolie.engines.{engine}_engine", **{
-            class_name: lambda **kwargs: SimpleNamespace(platform=kwargs["platform"]),
+            class_name: lambda **kwargs: SimpleNamespace(platform=kwargs["platform"],
+                maintenance_preparation=preparation, release_maintenance_target=lambda _target: None),
         })
     module("datacoolie.metadata.file_provider", FileProvider=Mock(return_value=provider))
     spark = SimpleNamespace(stop=Mock())
@@ -114,7 +119,7 @@ def host(monkeypatch):
         return DataFlowRuntimeInfo(dataflow_id=flow.dataflow_id, status="succeeded")
 
     monkeypatch.setattr(driver_module.DataCoolieDriver, "__init__", init)
-    for method in ("_process_dataflow", "_process_replay", "_process_maintenance"):
+    for method in ("_process_dataflow", "_process_replay", "_process_maintenance", "_process_prepared_maintenance"):
         monkeypatch.setattr(driver_module.DataCoolieDriver, method, process)
     state.spark = spark
     return state

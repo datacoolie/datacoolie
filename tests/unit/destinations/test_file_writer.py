@@ -52,10 +52,10 @@ class TestFileWriter:
         assert engine._written[0]["mode"] == "append"
         assert engine._written[0]["fmt"] == "csv"
         assert info.rows_written is None
-        assert info.rows_updated == 0
-        assert info.rows_deleted == 0
-        assert info.files_removed == 0
-        assert info.bytes_removed == 0
+        assert info.rows_updated is None
+        assert info.rows_deleted is None
+        assert info.files_removed is None
+        assert info.bytes_removed is None
 
     def test_write_append_json(self, engine: MockEngine) -> None:
         df = _make_file_dataflow(load_type=LoadType.APPEND.value, dest_format=Format.JSON.value)
@@ -125,7 +125,7 @@ class TestFileWriter:
     def test_write_no_path_raises(self, engine: MockEngine) -> None:
         df = _make_file_dataflow(has_path=False)
         writer = FileWriter(engine)
-        with pytest.raises(DestinationError, match="requires a destination path"):
+        with pytest.raises(DestinationError, match="storage path is required"):
             writer.write({"data": 1}, df)
 
     def test_write_records_timing(self, engine: MockEngine) -> None:

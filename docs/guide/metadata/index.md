@@ -162,7 +162,7 @@ complex transform. For combinations, choose
 | Destination and load | [Destination patterns](destination-and-load-patterns.md) | File outputs, Delta, Iceberg; `append`, `overwrite`, `full_load`, merge, SCD2, window replacement |
 | Transform and partition | [Transform patterns](transform-patterns.md), [destination partitioning](destination-and-load-patterns.md#partition_columns-partition-the-output-table) | Normalize, hash, deduplicate, compute, mask, project, partition, system columns |
 | Datatypes and hints | [Datatypes and schema hints](data-types.md) | Inline and shared hints, source types, timestamp and decimal semantics |
-| Incremental behavior | [Source](source-patterns.md#incremental-windows-and-look-back) | Watermarks, look-back, closing day, API ranges, replay boundaries |
+| Incremental behavior | [Source](source-incremental.md#incremental-windows-and-look-back) | Watermarks, look-back, closing day, API ranges, replay boundaries |
 | Identity and preparation | [Metadata document](#metadata-document), [Connections](connections.md#connection-identity), [Dataflows](dataflows.md#dataflow-identity), [Project overlays](../cli/project.md#environment-overlays) | `$schema`, derived/explicit IDs, project-owned `extensions`, environment overlays |
 | Validation and safety | [Validation checklist](validation-checklist.md) | Secrets, cross-field checks, smoke tests, common errors |
 

@@ -4,7 +4,7 @@ Compares connections, dataflows, and schema hints field by field.
 
 Usage (from the datacoolie/ directory):
     python usecase-sim/metadata/database/verify_metadata.py \\
-        --json-path usecase-sim/metadata/file/workflows/local_use_cases.json \\
+        --json-path usecase-sim/scenarios/workflows/local_use_cases.json \\
         --connection-string "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie" \\
         --workspace-id local-workspace
 """
@@ -21,8 +21,8 @@ from typing import Any, Dict, List
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
-from runner.metadata_composition import load_metadata
+from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT, sqlite_metadata_url
+from runner.metadata_documents import load_metadata_files
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -436,12 +436,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--json-path",
-        default="usecase-sim/metadata/file/workflows/local_use_cases.json",
-        help="Path to the use-cases JSON file",
+        action="append",
+        help="Exact source JSON; repeat for multiple group files",
     )
+    parser.add_argument("--connections-path", help="Exact shared connections file")
+    parser.add_argument("--schema-hints-path", help="Exact shared schema hints file")
     parser.add_argument(
         "--connection-string",
-        default="sqlite:///usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db",
+        default=sqlite_metadata_url(),
         help="SQLAlchemy connection string for the metadata DB",
     )
     parser.add_argument(
@@ -451,15 +453,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    source_path = Path(args.json_path)
-    if not source_path.is_absolute() and source_path.is_file():
-        source_path = source_path.resolve()
-    meta = load_metadata(source_path, root=SIM_ROOT)
+    sources = args.json_path or [str(SIM_ROOT / "scenarios/workflows/local_use_cases.json")]
+    meta = load_metadata_files(sources, connections_path=args.connections_path,
+                               schema_hints_path=args.schema_hints_path, root=SIM_ROOT)
 
     engine = create_engine(args.connection_string)
 
     failed = 0
-    logger.info("=== Metadata verification: %s ===", args.json_path)
+    logger.info("=== Metadata verification: %s ===", sources)
 
     conn_report = verify_connections(meta, engine, args.workspace_id)
     failed += _print_report("connections", conn_report)

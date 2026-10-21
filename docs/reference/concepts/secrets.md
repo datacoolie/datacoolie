@@ -41,6 +41,12 @@ the full source string. A custom resolver owns its own backend access because
 the resolver contract is only `resolve(key, source)`. See
 [ADR-0002](../../project/decisions/0002-secret-provider-resolver-split.md).
 
+A selected resolver's load, class-validation or constructor failure stops
+preparation and retains its cause. It never falls back to the platform provider.
+If group discovery fails before absence can be established, unresolved prefixes
+also raise. Healthy plugins and proven absence remain usable when unrelated
+entry points fail.
+
 ## `secrets_ref` schema
 
 `Connection.secrets_ref` maps each secret source to the `configure` fields that

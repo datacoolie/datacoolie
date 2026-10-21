@@ -9,7 +9,7 @@
       "gap": "Check-level acceptance, coverage and residual gaps are authoritative; family coverage does not qualify each fixture or runtime profile.",
       "assertion_owners": [
         "usecase-sim/scripts/features/logging/validate_execution_logs.py",
-        "tests/unit/logging/test_logging_v6.py::test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys",
+        "tests/unit/logging/test_logging_v7.py::test_current_fixture_streams_are_pinned_deterministic_and_schema_valid",
         "tests/unit/logging/test_logging_persistence_v4.py::test_run_attributes_are_strict_and_detached",
         "tests/unit/logging/test_logging_persistence_v4.py::test_execution_snapshot_writes_job_and_dataflow_json",
         "tests/unit/logging/test_logging_persistence_v4.py::test_activation_writes_running_job_snapshot_before_work",
@@ -18,11 +18,11 @@
       ],
       "checks": [
         {
-          "id": "logging.snapshot_batch_records.v6_identity_terminal",
-          "acceptance": "Each terminal v6 dataflow/job record carries required identity and terminal status and validates against the schema.",
+          "id": "logging.snapshot_batch_records.v7_identity_terminal",
+          "acceptance": "Each terminal v7 dataflow/job record carries required identity and terminal status and validates against the schema.",
           "preconditions": [
             "Run the local runtime log scenario through terminal success.",
-            "Validate every emitted v6 record against schema and identity."
+            "Validate every emitted v7 record against schema and identity."
           ],
           "case_ids": [
             "local_polars_runtime_log_contract",
@@ -30,7 +30,7 @@
           ],
           "assertion_owners": [
             "usecase-sim/scripts/features/logging/validate_execution_logs.py",
-            "tests/unit/logging/test_logging_v6.py::test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys"
+            "tests/unit/logging/test_logging_v7.py::test_current_fixture_streams_are_pinned_deterministic_and_schema_valid"
           ],
           "coverage": "asserted",
           "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
@@ -56,7 +56,7 @@
         },
         {
           "id": "logging.snapshot_batch_records.attempts_and_metrics",
-          "acceptance": "The terminal dataflow includes attempt history and metrics with the declared v6 nested structure.",
+          "acceptance": "The terminal dataflow includes attempt history and observed metrics with the declared v7 nested structure.",
           "preconditions": [
             "Run a route that emits one terminal attempt and metrics.",
             "Validate attempt/status/metric fields in persisted records."
@@ -67,7 +67,7 @@
           ],
           "assertion_owners": [
             "usecase-sim/scripts/features/logging/validate_execution_logs.py",
-            "tests/unit/logging/test_logging_v6.py::test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys"
+            "tests/unit/logging/test_logging_v7.py::test_current_fixture_streams_are_pinned_deterministic_and_schema_valid"
           ],
           "coverage": "asserted",
           "gap": "Exact pytest/validator owners cover this observable branch; recipe/profile qualification remains separate evidence.",
@@ -257,7 +257,7 @@
     {
       "id": "local_polars_runtime_log_contract",
       "behavior": "logging.snapshot_batch_records",
-      "intent": "v6 runtime message contract, metadata/runtime query representations, and external run_attributes",
+      "intent": "v7 runtime message contract, metadata/runtime query representations, observed metrics, and external run_attributes",
       "contract": "src/datacoolie/logging/execution_logger.py",
       "flows": [
         {
@@ -277,7 +277,7 @@
         "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
         "Run registered scenario `local_polars_runtime_log_contract`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`, validator `usecase-sim/scripts/features/logging/validate_execution_logs.py`, log_persistence_mode=snapshot."
       ],
-      "expected": "Scenario `local_polars_runtime_log_contract` runs `artifact_query` against `artifact:/queries/orders.sql` with `snapshot` persistence; validation should find the declared terminal v6 job/dataflow/system records.",
+      "expected": "Scenario `local_polars_runtime_log_contract` runs `artifact_query` against `artifact:/queries/orders.sql` with `snapshot` persistence; validation should find the declared terminal v7 job/dataflow/system records.",
       "assertion_owners": [
         "usecase-sim/scripts/features/logging/validate_execution_logs.py"
       ],
@@ -315,7 +315,7 @@
         "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
         "Run registered scenario `local_polars_logging_batch`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`, validator `usecase-sim/scripts/features/logging/validate_execution_logs.py`, log_persistence_mode=batch."
       ],
-      "expected": "Scenario `local_polars_logging_batch` runs `artifact_query` against `artifact:/queries/orders.sql` with `batch` persistence; validation should find the declared terminal v6 job/dataflow/system records.",
+      "expected": "Scenario `local_polars_logging_batch` runs `artifact_query` against `artifact:/queries/orders.sql` with `batch` persistence; validation should find the declared terminal v7 job/dataflow/system records.",
       "assertion_owners": [
         "usecase-sim/scripts/features/logging/validate_execution_logs.py"
       ],

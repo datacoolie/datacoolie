@@ -112,13 +112,4 @@ project's selected technologies into defaults for other projects.
 
 ## Outcome-scoped proof and handoff
 
-For author/build-only requests, validate the requested metadata or artifact and report the exact
-files, CLI result, environments, and skipped workload execution. Do not claim runtime evidence.
-For an explicitly requested safe runtime check, derive expected selection, output, and state from
-the matching public recipe/project criteria; independently inspect those results and identify
-legitimate empty or skipped outcomes. Report performed checks, skipped host/dependency checks,
-and unresolved questions.
-
-Fast source checks do not prove the selected combination. A failed compatibility test returns to
-setup, narrows the custom boundary with evidence, or returns a material change to design; it does
-not silently switch the whole pipeline to bespoke I/O.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). Fast source checks do not prove the selected capability combination. A failed compatibility test returns to setup, narrows the custom boundary with evidence, or returns a material change to Design; it does not silently replace the pipeline with bespoke I/O.

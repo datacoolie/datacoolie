@@ -3,7 +3,10 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json"
+    ],
     "stage": "transform_features",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -41,13 +44,65 @@
       ],
       "script": "usecase-sim/scripts/features/transform/validate_transformer_features.py"
     },
-    "notes": "Polars transformer metadata regression with output reconciliation"
+    "notes": "Polars transformer metadata regression with output reconciliation",
+    "concurrency": {
+      "isolation": "declared",
+      "engines": {
+        "polars": 1
+      },
+      "resources": [
+        {
+          "path": "key:legacy-transform-watermarks",
+          "mode": "write"
+        },
+        {
+          "path": "usecase-sim/.runtime/data/input/transform_features",
+          "mode": "read"
+        },
+        {
+          "path": "usecase-sim/metadata/file",
+          "mode": "read"
+        }
+      ]
+    },
+    "dataflows": [
+      "transform_value__trim",
+      "transform_value__case",
+      "transform_value__regex_replace",
+      "transform_value__regex_literal_replacement",
+      "transform_value__empty_to_null",
+      "transform_value__fill_null",
+      "transform_value__map",
+      "transform_value__stable_rule_order",
+      "transform_value__before_schema_cast",
+      "transform_schema__cast",
+      "transform_schema__missing_warning",
+      "transform_hash__sha256",
+      "transform_hash__xxhash64",
+      "transform_mask__redact",
+      "transform_mask__nullify",
+      "transform_mask__partial",
+      "transform_mask__numeric_bucket",
+      "transform_mask__date_truncate",
+      "transform_projection__select",
+      "transform_projection__drop",
+      "transform_projection__batch_rename",
+      "transform_missing_policy__value_rule",
+      "transform_missing_policy__hash",
+      "transform_missing_policy__masking",
+      "transform_missing_policy__projection"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_spark_transform_features": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json"
+    ],
     "stage": "transform_features",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -88,235 +143,1163 @@
       ],
       "script": "usecase-sim/scripts/features/transform/validate_transformer_features.py"
     },
-    "notes": "Spark transformer metadata regression with output reconciliation"
-  },
-  "local_polars_transform_dedup_strict": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_dedup_strict",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_dedup_strict"
-    ],
-    "invocations": [
-      {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Column 'missing_order' not found"
+    "notes": "Spark transformer metadata regression with output reconciliation",
+    "concurrency": {
+      "isolation": "declared",
+      "engines": {
+        "spark": 1
+      },
+      "resources": [
+        {
+          "path": "key:legacy-transform-watermarks",
+          "mode": "write"
+        },
+        {
+          "path": "usecase-sim/.runtime/data/input/transform_features",
+          "mode": "read"
+        },
+        {
+          "path": "usecase-sim/metadata/file",
+          "mode": "read"
+        }
       ]
     },
-    "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore"
+    "dataflows": [
+      "transform_value__trim",
+      "transform_value__case",
+      "transform_value__regex_replace",
+      "transform_value__regex_literal_replacement",
+      "transform_value__empty_to_null",
+      "transform_value__fill_null",
+      "transform_value__map",
+      "transform_value__stable_rule_order",
+      "transform_value__before_schema_cast",
+      "transform_schema__cast",
+      "transform_schema__missing_warning",
+      "transform_hash__sha256",
+      "transform_hash__xxhash64",
+      "transform_mask__redact",
+      "transform_mask__nullify",
+      "transform_mask__partial",
+      "transform_mask__numeric_bucket",
+      "transform_mask__date_truncate",
+      "transform_projection__select",
+      "transform_projection__drop",
+      "transform_projection__batch_rename",
+      "transform_missing_policy__value_rule",
+      "transform_missing_policy__hash",
+      "transform_missing_policy__masking",
+      "transform_missing_policy__projection"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
-  "local_spark_transform_dedup_strict": {
-    "engine": "spark",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_dedup_strict",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "skip_api_sources": true,
-    "max_workers": 1,
-    "timeout_seconds": 300,
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_dedup_strict"
-    ],
-    "invocations": [
+  "error_messages": {
+    "kind": "bundle",
+    "execution": "sequential",
+    "notes": "Independent intentionally invalid probes grouped for error-message validation; each step owns setup, service, attempt, and receipt.",
+    "steps": [
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Column 'missing_order' not found"
-      ]
-    },
-    "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore"
-  },
-  "local_polars_transform_invalid_fill": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_invalid_fill",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"
-    ],
-    "invocations": [
+        "id": "local_polars_transform_dedup_strict",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_dedup_strict",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_dedup_strict"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Column 'missing_order' not found"
+            ]
+          },
+          "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "polars": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_dedup__missing_is_strict"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Transformer literal is incompatible with the target column"
-      ]
-    },
-    "notes": "Expected failure: fill_null rejects a string literal for an integer column"
-  },
-  "local_spark_transform_invalid_fill": {
-    "engine": "spark",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_invalid_fill",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "skip_api_sources": true,
-    "max_workers": 1,
-    "timeout_seconds": 300,
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"
-    ],
-    "invocations": [
+        "id": "local_spark_transform_dedup_strict",
+        "recipe": {
+          "engine": "spark",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_dedup_strict",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "skip_api_sources": true,
+          "max_workers": 1,
+          "timeout_seconds": 300,
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_dedup_strict"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Column 'missing_order' not found"
+            ]
+          },
+          "notes": "Expected failure: configured dedup remains strict when missing-column policy is ignore",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "spark": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_dedup__missing_is_strict"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Transformer literal is incompatible with the target column"
-      ]
-    },
-    "notes": "Expected failure: fill_null rejects a string literal for an integer column"
-  },
-  "local_polars_transform_invalid_redact": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_invalid_redact",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"
-    ],
-    "invocations": [
+        "id": "local_polars_transform_invalid_fill",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_invalid_fill",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Transformer literal is incompatible with the target column"
+            ]
+          },
+          "notes": "Expected failure: fill_null rejects a string literal for an integer column",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "polars": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_value__invalid_typed_fill"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Transformer literal is incompatible with the target column"
-      ]
-    },
-    "notes": "Expected failure: redact rejects a string literal for an integer column"
-  },
-  "local_spark_transform_invalid_redact": {
-    "engine": "spark",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_invalid_redact",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "skip_api_sources": true,
-    "max_workers": 1,
-    "timeout_seconds": 300,
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"
-    ],
-    "invocations": [
+        "id": "local_spark_transform_invalid_fill",
+        "recipe": {
+          "engine": "spark",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_invalid_fill",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "skip_api_sources": true,
+          "max_workers": 1,
+          "timeout_seconds": 300,
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_fill"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Transformer literal is incompatible with the target column"
+            ]
+          },
+          "notes": "Expected failure: fill_null rejects a string literal for an integer column",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "spark": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_value__invalid_typed_fill"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Transformer literal is incompatible with the target column"
-      ]
-    },
-    "notes": "Expected failure: redact rejects a string literal for an integer column"
-  },
-  "local_polars_transform_sanitizer_collision": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_sanitizer_collision",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"
-    ],
-    "invocations": [
+        "id": "local_polars_transform_invalid_redact",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_invalid_redact",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Transformer literal is incompatible with the target column"
+            ]
+          },
+          "notes": "Expected failure: redact rejects a string literal for an integer column",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "polars": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_mask__invalid_typed_redact"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Column sanitization would create duplicate column names"
-      ]
-    },
-    "notes": "Expected failure: distinct source names cannot collapse to one sanitized name"
-  },
-  "local_spark_transform_sanitizer_collision": {
-    "engine": "spark",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/transformer_features.json",
-    "stage": "transform_features_sanitizer_collision",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "skip_api_sources": true,
-    "max_workers": 1,
-    "timeout_seconds": 300,
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"
-    ],
-    "invocations": [
+        "id": "local_spark_transform_invalid_redact",
+        "recipe": {
+          "engine": "spark",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_invalid_redact",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "skip_api_sources": true,
+          "max_workers": 1,
+          "timeout_seconds": 300,
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_invalid_typed_redact"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Transformer literal is incompatible with the target column"
+            ]
+          },
+          "notes": "Expected failure: redact rejects a string literal for an integer column",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "spark": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_mask__invalid_typed_redact"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
       {
-        "label": "expected_failure",
-        "expected_exit_code": 2
+        "id": "local_polars_transform_sanitizer_collision",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_sanitizer_collision",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Column sanitization would create duplicate column names"
+            ]
+          },
+          "notes": "Expected failure: distinct source names cannot collapse to one sanitized name",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "polars": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_sanitizer__collision"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
+      {
+        "id": "local_spark_transform_sanitizer_collision",
+        "recipe": {
+          "engine": "spark",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": [
+            "./usecase-sim/metadata/file/schema_types.json",
+            "./usecase-sim/metadata/file/transform.json"
+          ],
+          "stage": "transform_features_sanitizer_collision",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "skip_api_sources": true,
+          "max_workers": 1,
+          "timeout_seconds": 300,
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/parquet/tf_sanitizer_collision"
+          ],
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Column sanitization would create duplicate column names"
+            ]
+          },
+          "notes": "Expected failure: distinct source names cannot collapse to one sanitized name",
+          "concurrency": {
+            "isolation": "declared",
+            "engines": {
+              "spark": 1
+            },
+            "resources": [
+              {
+                "path": "key:legacy-transform-watermarks",
+                "mode": "write"
+              },
+              {
+                "path": "usecase-sim/.runtime/data/input/transform_features",
+                "mode": "read"
+              },
+              {
+                "path": "usecase-sim/metadata/file",
+                "mode": "read"
+              }
+            ]
+          },
+          "dataflows": [
+            "transform_sanitizer__collision"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
+      {
+        "id": "local_polars_qualified_sql_delta_ambiguity",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": "./usecase-sim/metadata/file/read.json",
+          "stage": "polars_qualified_sql_delta_ambiguity",
+          "column_name_mode": "lower",
+          "priority": "P0",
+          "max_workers": 1,
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/qualified_sql/results/delta_ambiguity"
+          ],
+          "setup": {
+            "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
+            "args": [
+              "--suite",
+              "delta-ambiguity"
+            ],
+            "timeout_seconds": 60
+          },
+          "engine_setup": {
+            "python_function": "runner.qualified_sql_setup.register_tables",
+            "args": [
+              "--suite",
+              "delta-ambiguity"
+            ]
+          },
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Ambiguous table reference 'shared.orders_ambiguous'",
+              "catalog_A.database_A.shared.orders_ambiguous",
+              "catalog_A.database_B.shared.orders_ambiguous"
+            ]
+          },
+          "notes": "Expected failure for an ambiguous two-part Delta suffix",
+          "dataflows": [
+            "qualified_sql__delta_ambiguity"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
+      {
+        "id": "local_polars_qualified_sql_iceberg_ambiguity",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": "./usecase-sim/metadata/file/read.json",
+          "stage": "polars_qualified_sql_iceberg_ambiguity",
+          "column_name_mode": "lower",
+          "priority": "P1",
+          "max_workers": 1,
+          "timeout_seconds": 120,
+          "services": [
+            "minio",
+            "iceberg-rest"
+          ],
+          "pre_clean_paths": [
+            "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_ambiguity"
+          ],
+          "setup": {
+            "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
+            "args": [
+              "--suite",
+              "iceberg-ambiguity"
+            ],
+            "timeout_seconds": 120
+          },
+          "engine_setup": {
+            "python_function": "runner.qualified_sql_setup.register_tables",
+            "args": [
+              "--suite",
+              "iceberg-ambiguity"
+            ]
+          },
+          "invocations": [
+            {
+              "label": "expected_failure",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "Ambiguous table reference 'shared.orders_ambiguous'",
+              "catalog_A.database_A.shared.orders_ambiguous",
+              "catalog_A.database_B.shared.orders_ambiguous"
+            ]
+          },
+          "notes": "Expected failure for an ambiguous two-part Iceberg suffix",
+          "dataflows": [
+            "qualified_sql__iceberg_ambiguity"
+          ],
+          "connections_path": "./usecase-sim/metadata/file/connections.json",
+          "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
+        }
+      },
+      {
+        "id": "local_polars_startup_failure",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "metadata_path": "./usecase-sim/scenarios/errors/startup_failure.json",
+          "state_base_path": "usecase-sim/.runtime",
+          "stage": "startup_failure",
+          "job_id": "usecase-startup-failure",
+          "priority": "P0",
+          "invocations": [
+            {
+              "label": "startup_failure",
+              "expected_exit_code": 1
+            }
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "required_console_text": [
+              "DataCoolie session startup failed"
+            ],
+            "script": "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py",
+            "args": [
+              "--job-id",
+              "usecase-startup-failure"
+            ],
+            "require_log_session": true
+          },
+          "notes": "Malformed provider document fails at Driver startup before any dataflow runtime",
+          "watermark_path": "usecase-sim/.runtime/watermarks"
+        }
+      },
+      {
+        "id": "local_polars_iceberg_unsupported_compact",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "maintenance",
+          "platform": "local",
+          "metadata_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/metadata.json",
+          "connection": "maintenance_iceberg_dest",
+          "priority": "P0",
+          "state_base_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/state",
+          "watermark_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/watermarks",
+          "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/deployment.json",
+          "do_compact": true,
+          "do_cleanup": false,
+          "compact_options": {
+            "rewrite_data_files": true,
+            "rewrite_position_delete_files": true,
+            "rewrite_manifests": true
+          },
+          "services": [
+            "minio",
+            "iceberg-rest"
+          ],
+          "setup": {
+            "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+            "args": [
+              "--descriptor",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/deployment.json",
+              "--metadata",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/metadata.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/expected.json",
+              "--deployment-receipt",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/deployment_receipt.json"
+            ],
+            "timeout_seconds": 120
+          },
+          "invocations": [
+            {
+              "label": "unsupported_compact",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+            "args": [
+              "--mode",
+              "polars_unsupported_compact",
+              "--observe-only",
+              "--maintenance-deployment",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/deployment.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_compact/expected.json"
+            ],
+            "timeout_seconds": 180
+          },
+          "notes": "Focused Polars compact request must fail explicitly before target effects"
+        }
+      },
+      {
+        "id": "aws_polars_iceberg_unsupported_compact",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "maintenance",
+          "platform": "aws",
+          "metadata_path": "s3://datacoolie-test/metadata/maintenance_t5/aws_polars_iceberg_unsupported_compact/metadata.json",
+          "connection": "maintenance_iceberg_dest",
+          "priority": "P0",
+          "state_base_path": "s3://datacoolie-test/state/maintenance_t5/aws_polars_iceberg_unsupported_compact",
+          "watermark_path": "s3://datacoolie-test/watermarks/maintenance_t5/aws_polars_iceberg_unsupported_compact",
+          "log_base_path": "s3://datacoolie-test/logs/maintenance_t5/aws_polars_iceberg_unsupported_compact",
+          "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/deployment.json",
+          "do_compact": true,
+          "do_cleanup": false,
+          "compact_options": {
+            "rewrite_data_files": true,
+            "rewrite_position_delete_files": true,
+            "rewrite_manifests": true
+          },
+          "services": [
+            "minio",
+            "iceberg-rest"
+          ],
+          "setup": {
+            "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+            "args": [
+              "--descriptor",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/deployment.json",
+              "--metadata",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/metadata.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/expected.json",
+              "--deployment-receipt",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/deployment_receipt.json",
+              "--aws-metadata-key",
+              "metadata/maintenance_t5/aws_polars_iceberg_unsupported_compact/metadata.json"
+            ],
+            "timeout_seconds": 120
+          },
+          "invocations": [
+            {
+              "label": "unsupported_compact",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+            "args": [
+              "--mode",
+              "polars_unsupported_compact",
+              "--platform",
+              "aws",
+              "--observe-only",
+              "--catalog-uri",
+              "http://localhost:8181",
+              "--s3-endpoint",
+              "http://localhost:9000",
+              "--aws-bucket",
+              "datacoolie-test",
+              "--aws-log-prefix",
+              "logs/maintenance_t5/aws_polars_iceberg_unsupported_compact",
+              "--maintenance-deployment",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/deployment.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_compact/expected.json"
+            ],
+            "timeout_seconds": 240
+          },
+          "notes": "AWS-MinIO Polars compaction request must fail with an explicit unsupported reason"
+        }
+      },
+      {
+        "id": "local_polars_iceberg_unsupported_orphan_files",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "maintenance",
+          "platform": "local",
+          "metadata_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/metadata.json",
+          "connection": "maintenance_iceberg_dest",
+          "priority": "P0",
+          "state_base_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/state",
+          "watermark_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/watermarks",
+          "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/deployment.json",
+          "do_compact": false,
+          "do_cleanup": true,
+          "cleanup_options": {
+            "expire_snapshots": false,
+            "remove_orphan_files": true
+          },
+          "services": [
+            "minio",
+            "iceberg-rest"
+          ],
+          "setup": {
+            "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+            "args": [
+              "--descriptor",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/deployment.json",
+              "--metadata",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/metadata.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/expected.json",
+              "--deployment-receipt",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/deployment_receipt.json"
+            ],
+            "timeout_seconds": 120
+          },
+          "invocations": [
+            {
+              "label": "unsupported_orphan_files",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+            "args": [
+              "--mode",
+              "polars_unsupported_orphan_files",
+              "--observe-only",
+              "--maintenance-deployment",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/deployment.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_unsupported_orphan_files/expected.json"
+            ],
+            "timeout_seconds": 180
+          },
+          "notes": "Focused Polars orphan-file request must fail explicitly before target effects"
+        }
+      },
+      {
+        "id": "aws_polars_iceberg_unsupported_orphan_files",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "maintenance",
+          "platform": "aws",
+          "metadata_path": "s3://datacoolie-test/metadata/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/metadata.json",
+          "connection": "maintenance_iceberg_dest",
+          "priority": "P0",
+          "state_base_path": "s3://datacoolie-test/state/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files",
+          "watermark_path": "s3://datacoolie-test/watermarks/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files",
+          "log_base_path": "s3://datacoolie-test/logs/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files",
+          "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/deployment.json",
+          "do_compact": false,
+          "do_cleanup": true,
+          "cleanup_options": {
+            "expire_snapshots": false,
+            "remove_orphan_files": true
+          },
+          "services": [
+            "minio",
+            "iceberg-rest"
+          ],
+          "setup": {
+            "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+            "args": [
+              "--descriptor",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/deployment.json",
+              "--metadata",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/metadata.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/expected.json",
+              "--deployment-receipt",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/deployment_receipt.json",
+              "--aws-metadata-key",
+              "metadata/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/metadata.json"
+            ],
+            "timeout_seconds": 120
+          },
+          "invocations": [
+            {
+              "label": "unsupported_orphan_files",
+              "expected_exit_code": 2
+            }
+          ],
+          "validation": {
+            "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+            "args": [
+              "--mode",
+              "polars_unsupported_orphan_files",
+              "--platform",
+              "aws",
+              "--observe-only",
+              "--catalog-uri",
+              "http://localhost:8181",
+              "--s3-endpoint",
+              "http://localhost:9000",
+              "--aws-bucket",
+              "datacoolie-test",
+              "--aws-log-prefix",
+              "logs/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files",
+              "--maintenance-deployment",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/deployment.json",
+              "--expected-state",
+              "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_unsupported_orphan_files/expected.json"
+            ],
+            "timeout_seconds": 240
+          },
+          "notes": "AWS-MinIO Polars orphan-file request must fail with an explicit unsupported reason"
+        }
+      },
+      {
+        "id": "local_polars_api_max_pages_negative",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "priority": "P0",
+          "skip_pipeline": true,
+          "services": [
+            "mock-api"
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "script": "usecase-sim/scripts/features/read/validate_api_max_pages.py",
+            "args": [],
+            "timeout_seconds": 240
+          },
+          "notes": "Child exit 2, exact max-pages source rejection, expected failed flow/current session, no destination write and unchanged checkpoint; API total must be 30. Fresh case-owned roots."
+        }
+      },
+      {
+        "id": "local_polars_api_date_precision_negative",
+        "recipe": {
+          "engine": "polars",
+          "metadata_type": "file",
+          "platform": "local",
+          "priority": "P0",
+          "skip_pipeline": true,
+          "services": [
+            "mock-api"
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
+            "args": [
+              "--engine",
+              "polars",
+              "--negative"
+            ],
+            "timeout_seconds": 240
+          },
+          "notes": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Fresh roots are allocated by the validator; no shared reset."
+        }
+      },
+      {
+        "id": "local_spark_api_date_precision_negative",
+        "recipe": {
+          "engine": "spark",
+          "metadata_type": "file",
+          "platform": "local",
+          "priority": "P0",
+          "skip_pipeline": true,
+          "services": [
+            "mock-api"
+          ],
+          "validation": {
+            "expected_exit_code": 0,
+            "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
+            "args": [
+              "--engine",
+              "spark",
+              "--negative"
+            ],
+            "timeout_seconds": 240,
+            "in_container": true
+          },
+          "notes": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Fresh roots are allocated by the validator; no shared reset."
+        }
       }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Column sanitization would create duplicate column names"
-      ]
-    },
-    "notes": "Expected failure: distinct source names cannot collapse to one sanitized name"
+    ]
   },
   "local_polars_file": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/execution.json",
+      "./usecase-sim/metadata/file/incremental.json",
+      "./usecase-sim/metadata/file/merge.json",
+      "./usecase-sim/metadata/file/read.json",
+      "./usecase-sim/metadata/file/replay.json",
+      "./usecase-sim/metadata/file/scd2.json",
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json",
+      "./usecase-sim/metadata/file/workflows.json",
+      "./usecase-sim/metadata/file/write_basic.json"
+    ],
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
-    "notes": "All local file-metadata stages via Polars (includes api_* stages)"
+    "notes": "All local file-metadata stages via Polars (includes api_* stages)",
+    "dataflows": [
+      "read__csv",
+      "read__json",
+      "read__jsonl",
+      "read__parquet",
+      "read__avro",
+      "read__excel",
+      "read__delta",
+      "read__iceberg",
+      "read_db__sqlite",
+      "read_db__postgres",
+      "read_db__mysql",
+      "read_db__mssql",
+      "read_db__oracle",
+      "write__csv",
+      "write__json",
+      "write__jsonl",
+      "write__avro",
+      "write__parquet",
+      "load_delta__full_load",
+      "load_delta__overwrite",
+      "load_delta__append",
+      "load_delta__merge_upsert",
+      "load_delta__merge_overwrite",
+      "load_delta__merge_upsert_no_watermark",
+      "load_iceberg__full_load",
+      "load_iceberg__overwrite",
+      "load_iceberg__merge_upsert",
+      "load_iceberg__merge_overwrite",
+      "load_iceberg__append",
+      "schema__date_format",
+      "schema__timestamp",
+      "schema__decimal",
+      "schema__numeric_types",
+      "schema__global_hint",
+      "dedup__row_number",
+      "dedup__rank",
+      "dedup__no_order_col",
+      "addcols__literal",
+      "addcols__expression",
+      "filter__simple",
+      "filter__compound",
+      "filter__transform_simple",
+      "filter__transform_date",
+      "row_filter__on_computed_col",
+      "row_filter__simple",
+      "partition__single",
+      "partition__multi",
+      "watermark__file_mtime",
+      "watermark__file_mtime_multi_col",
+      "watermark__data_col",
+      "watermark_db__postgres",
+      "watermark_db__oracle",
+      "watermark_db__mysql",
+      "watermark_db__mssql",
+      "watermark_db__sqlite",
+      "backward__days",
+      "backward__months_closing_day",
+      "python_fn__delta_sql",
+      "python_fn__iceberg_sql",
+      "python_fn__custom_load",
+      "api_auth__none",
+      "api_auth__bearer",
+      "api_auth__api_key",
+      "api_auth__basic",
+      "api_auth__oauth2",
+      "api_auth__oauth2_basic_method",
+      "api_page__none",
+      "api_page__offset",
+      "api_page__cursor",
+      "api_page__next_link",
+      "api_request__post_body",
+      "api_request__static_params",
+      "api_request__nested_data_path",
+      "api_request__server_filter",
+      "api_request__rate_limit",
+      "api_wm__iso",
+      "api_wm__timestamp_ms",
+      "api_wm__body",
+      "api_wm__tz_conn",
+      "api_wm__tz_src_override",
+      "api_wm__exclusive_offset",
+      "api_range__day_interval",
+      "api_range__month_interval",
+      "api_range__year_interval",
+      "api_range__multi_worker",
+      "api_range__with_bearer",
+      "date_folder__dest_partition",
+      "date_folder__src_partition",
+      "hive_partition__source",
+      "api_wm__timestamp",
+      "api_wm__datetime",
+      "api_wm__datetime_ms",
+      "api_page__offset_concurrent",
+      "load_delta__scd2",
+      "load_delta__merge_overwrite_rbw",
+      "load_delta__schema_evolve_base",
+      "load_delta__schema_evolve_new_cols",
+      "read_delta__schema_evolve",
+      "load_delta__schema_evolve_fewer_cols",
+      "read_delta__schema_evolve_fewer_cols",
+      "load_iceberg__scd2",
+      "load_iceberg__merge_overwrite_rbw",
+      "read_db__sqlite_query",
+      "read_delta__query",
+      "read_delta__scd2",
+      "read_iceberg__query",
+      "read_iceberg__scd2",
+      "combined__dedup_schema_addcols_partition",
+      "schema__string_cast",
+      "dedup__composite_key",
+      "schema__hint_inactive",
+      "schema__no_ntz_convert",
+      "schema__skip_hints",
+      "schema__boolean",
+      "schema__bigint",
+      "schema__timestamp_ntz",
+      "backward__hours",
+      "backward__years",
+      "write__json_to_jsonl",
+      "load_iceberg__append_partitioned",
+      "load_iceberg__merge_upsert_no_watermark",
+      "load_iceberg__schema_evolve_base",
+      "load_iceberg__schema_evolve_new_cols",
+      "read_iceberg__schema_evolve",
+      "load_iceberg__schema_evolve_fewer_cols",
+      "read_iceberg__schema_evolve_fewer_cols",
+      "watermark_iceberg__data_col",
+      "streaming__append",
+      "replay__orders"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_polars_replay": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/execution.json",
+      "./usecase-sim/metadata/file/incremental.json",
+      "./usecase-sim/metadata/file/merge.json",
+      "./usecase-sim/metadata/file/read.json",
+      "./usecase-sim/metadata/file/replay.json",
+      "./usecase-sim/metadata/file/scd2.json",
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json",
+      "./usecase-sim/metadata/file/workflows.json",
+      "./usecase-sim/metadata/file/write_basic.json"
+    ],
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/polars",
     "stage": "replay_test",
     "column_name_mode": "lower",
@@ -354,13 +1337,30 @@
         "2024-01-17T12:30:00"
       ]
     },
-    "notes": "Bounded Polars replay: three sequential half-open chunks, persisted source observation, and output/state validation"
+    "notes": "Bounded Polars replay: three sequential half-open chunks, persisted source observation, and output/state validation",
+    "dataflows": [
+      "replay__orders"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/polars/watermarks"
   },
   "local_spark_replay": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/execution.json",
+      "./usecase-sim/metadata/file/incremental.json",
+      "./usecase-sim/metadata/file/merge.json",
+      "./usecase-sim/metadata/file/read.json",
+      "./usecase-sim/metadata/file/replay.json",
+      "./usecase-sim/metadata/file/scd2.json",
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json",
+      "./usecase-sim/metadata/file/workflows.json",
+      "./usecase-sim/metadata/file/write_basic.json"
+    ],
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/spark",
     "stage": "replay_test",
     "column_name_mode": "lower",
@@ -399,7 +1399,13 @@
         "2024-01-17T12:30:00"
       ]
     },
-    "notes": "Bounded Spark replay: three sequential half-open chunks, persisted source observation, and output/state validation"
+    "notes": "Bounded Spark replay: three sequential half-open chunks, persisted source observation, and output/state validation",
+    "dataflows": [
+      "replay__orders"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/spark/watermarks"
   },
   "local_polars_date_mtime_replay": {
     "engine": "polars",
@@ -442,7 +1448,8 @@
         "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_polars"
       ]
     },
-    "notes": "Date-folder discovery is bounded conservatively; exact file selection uses the source-owned mtime column with inclusive start and exclusive end"
+    "notes": "Date-folder discovery is bounded conservatively; exact file selection uses the source-owned mtime column with inclusive start and exclusive end",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_polars/watermarks"
   },
   "local_spark_date_mtime_replay": {
     "engine": "spark",
@@ -486,13 +1493,14 @@
         "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_spark"
       ]
     },
-    "notes": "Docker Spark qualification of date-folder discovery plus exact file mtime replay boundaries"
+    "notes": "Docker Spark qualification of date-folder discovery plus exact file mtime replay boundaries",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/date_mtime_spark/watermarks"
   },
   "local_polars_api_replay": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay/replay_api_validation.json",
+    "metadata_path": "./usecase-sim/metadata/file/replay.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_polars",
     "stage": "replay_api_validation",
     "column_name_mode": "lower",
@@ -535,13 +1543,19 @@
         "2024-01-17"
       ]
     },
-    "notes": "Canonical API range mapping with modified_at as an independent replay column and order_date as the persisted source watermark"
+    "notes": "Canonical API range mapping with modified_at as an independent replay column and order_date as the persisted source watermark",
+    "dataflows": [
+      "api_replay_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_polars/watermarks"
   },
   "local_spark_api_replay": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay/replay_api_validation.json",
+    "metadata_path": "./usecase-sim/metadata/file/replay.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_spark",
     "stage": "replay_api_validation",
     "column_name_mode": "lower",
@@ -584,13 +1598,19 @@
         "2024-01-17"
       ]
     },
-    "notes": "Canonical API range mapping on Spark with modified_at as an independent replay column and order_date as the persisted source watermark"
+    "notes": "Canonical API range mapping on Spark with modified_at as an independent replay column and order_date as the persisted source watermark",
+    "dataflows": [
+      "api_replay_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_spark/watermarks"
   },
   "local_polars_api_recovery_fail": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery_fail.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -621,13 +1641,65 @@
         "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars"
       ]
     },
-    "notes": "Expected failure: the first API page is read but an unconsumed next_link prevents destination and watermark commit"
+    "notes": "Expected failure: the first API page is read but an unconsumed next_link prevents destination and watermark commit",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "metadata_bindings": {
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 1,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars/watermarks"
   },
   "local_polars_api_recovery": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -638,7 +1710,7 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result \u2014 total: 1, succeeded: 1, failed: 0"
+        "Result — total: 1, succeeded: 1, failed: 0"
       ],
       "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
@@ -650,13 +1722,65 @@
         "30"
       ]
     },
-    "notes": "Recovery after a failed paginated API read; all pages commit rows and the observed modified_at watermark"
+    "notes": "Recovery after a failed paginated API read; all pages commit rows and the observed modified_at watermark",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "metadata_bindings": {
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 10,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars/watermarks"
   },
   "local_polars_api_continuation": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_continuation.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -667,7 +1791,7 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result \u2014 total: 1, succeeded: 1, failed: 0"
+        "Result — total: 1, succeeded: 1, failed: 0"
       ],
       "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
@@ -680,13 +1804,19 @@
         "--continuation"
       ]
     },
-    "notes": "Second incremental run uses the saved modified_at lower bound and appends only the inclusive continuation row"
+    "notes": "Second incremental run uses the saved modified_at lower bound and appends only the inclusive continuation row",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_polars/watermarks"
   },
   "local_spark_api_recovery_fail": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery_spark_fail.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -717,13 +1847,77 @@
         "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark"
       ]
     },
-    "notes": "Expected Docker Spark failure: incomplete pagination must not commit a destination or watermark"
+    "notes": "Expected Docker Spark failure: incomplete pagination must not commit a destination or watermark",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "metadata_bindings": {
+      "connections": {
+        "api_recovery_dest": {
+          "replace": {
+            "name": "api_recovery_dest",
+            "connection_type": "lakehouse",
+            "format": "delta",
+            "configure": {
+              "base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"
+            }
+          }
+        }
+      },
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 1,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark/watermarks"
   },
   "local_spark_api_recovery": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_recovery_spark.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -734,7 +1928,7 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result \u2014 total: 1, succeeded: 1, failed: 0"
+        "Result — total: 1, succeeded: 1, failed: 0"
       ],
       "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
@@ -746,13 +1940,77 @@
         "30"
       ]
     },
-    "notes": "Docker Spark recovery after failed API pagination; the source commits only after every next_link page succeeds"
+    "notes": "Docker Spark recovery after failed API pagination; the source commits only after every next_link page succeeds",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "metadata_bindings": {
+      "connections": {
+        "api_recovery_dest": {
+          "replace": {
+            "name": "api_recovery_dest",
+            "connection_type": "lakehouse",
+            "format": "delta",
+            "configure": {
+              "base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"
+            }
+          }
+        }
+      },
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 10,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark/watermarks"
   },
   "local_spark_api_continuation": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/incremental/api_incremental_continuation_spark.json",
+    "metadata_path": "./usecase-sim/metadata/file/incremental.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark",
     "stage": "api_incremental_recovery_validation",
     "column_name_mode": "lower",
@@ -763,7 +2021,7 @@
     "validation": {
       "expected_exit_code": 0,
       "required_console_text": [
-        "Result \u2014 total: 1, succeeded: 1, failed: 0"
+        "Result — total: 1, succeeded: 1, failed: 0"
       ],
       "script": "usecase-sim/scripts/features/incremental/validate_api_incremental_recovery.py",
       "args": [
@@ -776,13 +2034,33 @@
         "--continuation"
       ]
     },
-    "notes": "Docker Spark second incremental run uses the persisted modified_at bound and appends the continuation row"
+    "notes": "Docker Spark second incremental run uses the persisted modified_at bound and appends the continuation row",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "metadata_bindings": {
+      "connections": {
+        "api_recovery_dest": {
+          "replace": {
+            "name": "api_recovery_dest",
+            "connection_type": "lakehouse",
+            "format": "delta",
+            "configure": {
+              "base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"
+            }
+          }
+        }
+      }
+    },
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/api_recovery_spark/watermarks"
   },
   "local_polars_sql_replay": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay/replay_sql_validation.json",
+    "metadata_path": "./usecase-sim/metadata/file/replay.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/sql_polars",
     "stage": "replay_sql_validation",
     "column_name_mode": "lower",
@@ -829,13 +2107,19 @@
         "2024-01-17"
       ]
     },
-    "notes": "SQLite SQL pushdown with modified_at as an independent replay column and order_date as the persisted source watermark"
+    "notes": "SQLite SQL pushdown with modified_at as an independent replay column and order_date as the persisted source watermark",
+    "dataflows": [
+      "sql_replay_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/sql_polars/watermarks"
   },
   "local_spark_sql_replay": {
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/replay/replay_sql_validation.json",
+    "metadata_path": "./usecase-sim/metadata/file/replay.json",
     "state_base_path": "usecase-sim/.runtime/watermarks/replay_validation/sql_spark",
     "stage": "replay_sql_validation",
     "column_name_mode": "lower",
@@ -882,7 +2166,13 @@
         "2024-01-17"
       ]
     },
-    "notes": "SQLite SQL pushdown on Spark with modified_at as an independent replay column and order_date as the persisted source watermark"
+    "notes": "SQLite SQL pushdown on Spark with modified_at as an independent replay column and order_date as the persisted source watermark",
+    "dataflows": [
+      "sql_replay_validation"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_validation/sql_spark/watermarks"
   },
   "aws_polars_replay": {
     "engine": "polars",
@@ -927,7 +2217,8 @@
         "2024-01-18T00:00:00"
       ]
     },
-    "notes": "AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks"
+    "notes": "AWSPlatform + MinIO Polars replay: independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+    "watermark_path": "s3://datacoolie-test/state/replay_validation/aws_polars/watermarks"
   },
   "aws_spark_replay": {
     "engine": "spark",
@@ -973,7 +2264,8 @@
         "2024-01-18T00:00:00"
       ]
     },
-    "notes": "AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks"
+    "notes": "AWSPlatform + MinIO Spark replay: S3A file reads, independent modified_at selection, order_date watermark persistence, three S3-backed chunks",
+    "watermark_path": "s3://datacoolie-test/state/replay_validation/aws_spark/watermarks"
   },
   "aws_polars_iceberg_replay": {
     "engine": "polars",
@@ -1016,7 +2308,8 @@
       ],
       "timeout_seconds": 480
     },
-    "notes": "AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows"
+    "notes": "AWSPlatform + MinIO/REST Polars Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+    "watermark_path": "s3://datacoolie-test/state/replay_validation/iceberg_polars/watermarks"
   },
   "aws_spark_iceberg_replay": {
     "engine": "spark",
@@ -1060,13 +2353,14 @@
       ],
       "timeout_seconds": 720
     },
-    "notes": "AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows"
+    "notes": "AWSPlatform + MinIO/REST Docker Spark Iceberg replay; the validator runs the same range twice and asserts replacement keeps six rows",
+    "watermark_path": "s3://datacoolie-test/state/replay_validation/iceberg_spark/watermarks"
   },
   "local_polars_file_yaml": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/.runtime/data/metadata/local_use_cases.yaml",
+    "metadata_path": "./usecase-sim/.runtime/data/output/metadata_exports/local_use_cases.yaml",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1076,7 +2370,7 @@
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/.runtime/data/metadata/local_use_cases.xlsx",
+    "metadata_path": "./usecase-sim/.runtime/data/output/metadata_exports/local_use_cases.xlsx",
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1087,7 +2381,18 @@
     "engine": "spark",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/execution.json",
+      "./usecase-sim/metadata/file/incremental.json",
+      "./usecase-sim/metadata/file/merge.json",
+      "./usecase-sim/metadata/file/read.json",
+      "./usecase-sim/metadata/file/replay.json",
+      "./usecase-sim/metadata/file/scd2.json",
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json",
+      "./usecase-sim/metadata/file/workflows.json",
+      "./usecase-sim/metadata/file/write_basic.json"
+    ],
     "stage": "",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1100,13 +2405,146 @@
       "usecase-sim/.runtime/data/output/delta/orders_read_delta_schema_evolve",
       "usecase-sim/.runtime/data/output/delta/orders_read_delta_schema_evolve_fewer"
     ],
-    "notes": "All local file-metadata stages via Spark, api-source dataflows skipped"
+    "notes": "All local file-metadata stages via Spark, api-source dataflows skipped",
+    "dataflows": [
+      "read__csv",
+      "read__json",
+      "read__jsonl",
+      "read__parquet",
+      "read__avro",
+      "read__excel",
+      "read__delta",
+      "read__iceberg",
+      "read_db__sqlite",
+      "read_db__postgres",
+      "read_db__mysql",
+      "read_db__mssql",
+      "read_db__oracle",
+      "write__csv",
+      "write__json",
+      "write__jsonl",
+      "write__avro",
+      "write__parquet",
+      "load_delta__full_load",
+      "load_delta__overwrite",
+      "load_delta__append",
+      "load_delta__merge_upsert",
+      "load_delta__merge_overwrite",
+      "load_delta__merge_upsert_no_watermark",
+      "load_iceberg__full_load",
+      "load_iceberg__overwrite",
+      "load_iceberg__merge_upsert",
+      "load_iceberg__merge_overwrite",
+      "load_iceberg__append",
+      "schema__date_format",
+      "schema__timestamp",
+      "schema__decimal",
+      "schema__numeric_types",
+      "schema__global_hint",
+      "dedup__row_number",
+      "dedup__rank",
+      "dedup__no_order_col",
+      "addcols__literal",
+      "addcols__expression",
+      "filter__simple",
+      "filter__compound",
+      "filter__transform_simple",
+      "filter__transform_date",
+      "row_filter__on_computed_col",
+      "row_filter__simple",
+      "partition__single",
+      "partition__multi",
+      "watermark__file_mtime",
+      "watermark__file_mtime_multi_col",
+      "watermark__data_col",
+      "watermark_db__postgres",
+      "watermark_db__oracle",
+      "watermark_db__mysql",
+      "watermark_db__mssql",
+      "watermark_db__sqlite",
+      "backward__days",
+      "backward__months_closing_day",
+      "python_fn__delta_sql",
+      "python_fn__iceberg_sql",
+      "python_fn__custom_load",
+      "api_auth__none",
+      "api_auth__bearer",
+      "api_auth__api_key",
+      "api_auth__basic",
+      "api_auth__oauth2",
+      "api_auth__oauth2_basic_method",
+      "api_page__none",
+      "api_page__offset",
+      "api_page__cursor",
+      "api_page__next_link",
+      "api_request__post_body",
+      "api_request__static_params",
+      "api_request__nested_data_path",
+      "api_request__server_filter",
+      "api_request__rate_limit",
+      "api_wm__iso",
+      "api_wm__timestamp_ms",
+      "api_wm__body",
+      "api_wm__tz_conn",
+      "api_wm__tz_src_override",
+      "api_wm__exclusive_offset",
+      "api_range__day_interval",
+      "api_range__month_interval",
+      "api_range__year_interval",
+      "api_range__multi_worker",
+      "api_range__with_bearer",
+      "date_folder__dest_partition",
+      "date_folder__src_partition",
+      "hive_partition__source",
+      "api_wm__timestamp",
+      "api_wm__datetime",
+      "api_wm__datetime_ms",
+      "api_page__offset_concurrent",
+      "load_delta__scd2",
+      "load_delta__merge_overwrite_rbw",
+      "load_delta__schema_evolve_base",
+      "load_delta__schema_evolve_new_cols",
+      "read_delta__schema_evolve",
+      "load_delta__schema_evolve_fewer_cols",
+      "read_delta__schema_evolve_fewer_cols",
+      "load_iceberg__scd2",
+      "load_iceberg__merge_overwrite_rbw",
+      "read_db__sqlite_query",
+      "read_delta__query",
+      "read_delta__scd2",
+      "read_iceberg__query",
+      "read_iceberg__scd2",
+      "combined__dedup_schema_addcols_partition",
+      "schema__string_cast",
+      "dedup__composite_key",
+      "schema__hint_inactive",
+      "schema__no_ntz_convert",
+      "schema__skip_hints",
+      "schema__boolean",
+      "schema__bigint",
+      "schema__timestamp_ntz",
+      "backward__hours",
+      "backward__years",
+      "write__json_to_jsonl",
+      "load_iceberg__append_partitioned",
+      "load_iceberg__merge_upsert_no_watermark",
+      "load_iceberg__schema_evolve_base",
+      "load_iceberg__schema_evolve_new_cols",
+      "read_iceberg__schema_evolve",
+      "load_iceberg__schema_evolve_fewer_cols",
+      "read_iceberg__schema_evolve_fewer_cols",
+      "watermark_iceberg__data_col",
+      "streaming__append",
+      "replay__orders"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_polars_database": {
     "engine": "polars",
     "metadata_type": "database",
     "platform": "local",
-    "metadata_db_connection_string": "sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db",
+    "metadata_db_connection_string": "sqlite:///./usecase-sim/metadata/database/datacoolie_metadata.db",
     "metadata_workspace_id": "local-workspace",
     "stage": "",
     "column_name_mode": "lower",
@@ -1161,7 +2599,7 @@
     "engine": "spark",
     "metadata_type": "database",
     "platform": "local",
-    "metadata_db_connection_string": "sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db",
+    "metadata_db_connection_string": "sqlite:///./usecase-sim/metadata/database/datacoolie_metadata.db",
     "metadata_workspace_id": "local-workspace",
     "stage": "",
     "column_name_mode": "lower",
@@ -1211,37 +2649,967 @@
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/execution.json",
+      "./usecase-sim/metadata/file/incremental.json",
+      "./usecase-sim/metadata/file/merge.json",
+      "./usecase-sim/metadata/file/read.json",
+      "./usecase-sim/metadata/file/replay.json",
+      "./usecase-sim/metadata/file/scd2.json",
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json",
+      "./usecase-sim/metadata/file/workflows.json",
+      "./usecase-sim/metadata/file/write_basic.json"
+    ],
     "connection": "local_delta_dest",
     "priority": "P1",
-    "notes": "Maintenance compact + cleanup on delta via Polars"
+    "notes": "Maintenance compact + cleanup on delta via Polars",
+    "dataflows": [
+      "read__csv",
+      "read__json",
+      "read__jsonl",
+      "read__parquet",
+      "read__avro",
+      "read__excel",
+      "read__delta",
+      "read__iceberg",
+      "read_db__sqlite",
+      "read_db__postgres",
+      "read_db__mysql",
+      "read_db__mssql",
+      "read_db__oracle",
+      "write__csv",
+      "write__json",
+      "write__jsonl",
+      "write__avro",
+      "write__parquet",
+      "load_delta__full_load",
+      "load_delta__overwrite",
+      "load_delta__append",
+      "load_delta__merge_upsert",
+      "load_delta__merge_overwrite",
+      "load_delta__merge_upsert_no_watermark",
+      "load_iceberg__full_load",
+      "load_iceberg__overwrite",
+      "load_iceberg__merge_upsert",
+      "load_iceberg__merge_overwrite",
+      "load_iceberg__append",
+      "schema__date_format",
+      "schema__timestamp",
+      "schema__decimal",
+      "schema__numeric_types",
+      "schema__global_hint",
+      "dedup__row_number",
+      "dedup__rank",
+      "dedup__no_order_col",
+      "addcols__literal",
+      "addcols__expression",
+      "filter__simple",
+      "filter__compound",
+      "filter__transform_simple",
+      "filter__transform_date",
+      "row_filter__on_computed_col",
+      "row_filter__simple",
+      "partition__single",
+      "partition__multi",
+      "watermark__file_mtime",
+      "watermark__file_mtime_multi_col",
+      "watermark__data_col",
+      "watermark_db__postgres",
+      "watermark_db__oracle",
+      "watermark_db__mysql",
+      "watermark_db__mssql",
+      "watermark_db__sqlite",
+      "backward__days",
+      "backward__months_closing_day",
+      "python_fn__delta_sql",
+      "python_fn__iceberg_sql",
+      "python_fn__custom_load",
+      "api_auth__none",
+      "api_auth__bearer",
+      "api_auth__api_key",
+      "api_auth__basic",
+      "api_auth__oauth2",
+      "api_auth__oauth2_basic_method",
+      "api_page__none",
+      "api_page__offset",
+      "api_page__cursor",
+      "api_page__next_link",
+      "api_request__post_body",
+      "api_request__static_params",
+      "api_request__nested_data_path",
+      "api_request__server_filter",
+      "api_request__rate_limit",
+      "api_wm__iso",
+      "api_wm__timestamp_ms",
+      "api_wm__body",
+      "api_wm__tz_conn",
+      "api_wm__tz_src_override",
+      "api_wm__exclusive_offset",
+      "api_range__day_interval",
+      "api_range__month_interval",
+      "api_range__year_interval",
+      "api_range__multi_worker",
+      "api_range__with_bearer",
+      "date_folder__dest_partition",
+      "date_folder__src_partition",
+      "hive_partition__source",
+      "api_wm__timestamp",
+      "api_wm__datetime",
+      "api_wm__datetime_ms",
+      "api_page__offset_concurrent",
+      "load_delta__scd2",
+      "load_delta__merge_overwrite_rbw",
+      "load_delta__schema_evolve_base",
+      "load_delta__schema_evolve_new_cols",
+      "read_delta__schema_evolve",
+      "load_delta__schema_evolve_fewer_cols",
+      "read_delta__schema_evolve_fewer_cols",
+      "load_iceberg__scd2",
+      "load_iceberg__merge_overwrite_rbw",
+      "read_db__sqlite_query",
+      "read_delta__query",
+      "read_delta__scd2",
+      "read_iceberg__query",
+      "read_iceberg__scd2",
+      "combined__dedup_schema_addcols_partition",
+      "schema__string_cast",
+      "dedup__composite_key",
+      "schema__hint_inactive",
+      "schema__no_ntz_convert",
+      "schema__skip_hints",
+      "schema__boolean",
+      "schema__bigint",
+      "schema__timestamp_ntz",
+      "backward__hours",
+      "backward__years",
+      "write__json_to_jsonl",
+      "load_iceberg__append_partitioned",
+      "load_iceberg__merge_upsert_no_watermark",
+      "load_iceberg__schema_evolve_base",
+      "load_iceberg__schema_evolve_new_cols",
+      "read_iceberg__schema_evolve",
+      "load_iceberg__schema_evolve_fewer_cols",
+      "read_iceberg__schema_evolve_fewer_cols",
+      "watermark_iceberg__data_col",
+      "streaming__append",
+      "replay__orders"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_polars_iceberg_maintenance": {
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
-    "connection": "local_iceberg_dest",
-    "priority": "P1",
-    "notes": "Maintenance compact + cleanup on iceberg via Polars"
+    "metadata_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/state",
+    "watermark_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/watermarks",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/deployment.json",
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/deployment_receipt.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/observations/effect.json"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/observations/no_work.json"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "polars_expiration",
+        "--observe-only",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/deployment.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_maintenance/observations/no_work.json"
+      ],
+      "timeout_seconds": 180
+    },
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
   },
   "local_spark_delta_maintenance": {
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
+    "metadata_path": [
+      "./usecase-sim/metadata/file/execution.json",
+      "./usecase-sim/metadata/file/incremental.json",
+      "./usecase-sim/metadata/file/merge.json",
+      "./usecase-sim/metadata/file/read.json",
+      "./usecase-sim/metadata/file/replay.json",
+      "./usecase-sim/metadata/file/scd2.json",
+      "./usecase-sim/metadata/file/schema_types.json",
+      "./usecase-sim/metadata/file/transform.json",
+      "./usecase-sim/metadata/file/workflows.json",
+      "./usecase-sim/metadata/file/write_basic.json"
+    ],
     "connection": "local_delta_dest",
     "priority": "P1",
-    "notes": "Maintenance compact + cleanup on delta via Spark"
+    "notes": "Maintenance compact + cleanup on delta via Spark",
+    "dataflows": [
+      "read__csv",
+      "read__json",
+      "read__jsonl",
+      "read__parquet",
+      "read__avro",
+      "read__excel",
+      "read__delta",
+      "read__iceberg",
+      "read_db__sqlite",
+      "read_db__postgres",
+      "read_db__mysql",
+      "read_db__mssql",
+      "read_db__oracle",
+      "write__csv",
+      "write__json",
+      "write__jsonl",
+      "write__avro",
+      "write__parquet",
+      "load_delta__full_load",
+      "load_delta__overwrite",
+      "load_delta__append",
+      "load_delta__merge_upsert",
+      "load_delta__merge_overwrite",
+      "load_delta__merge_upsert_no_watermark",
+      "load_iceberg__full_load",
+      "load_iceberg__overwrite",
+      "load_iceberg__merge_upsert",
+      "load_iceberg__merge_overwrite",
+      "load_iceberg__append",
+      "schema__date_format",
+      "schema__timestamp",
+      "schema__decimal",
+      "schema__numeric_types",
+      "schema__global_hint",
+      "dedup__row_number",
+      "dedup__rank",
+      "dedup__no_order_col",
+      "addcols__literal",
+      "addcols__expression",
+      "filter__simple",
+      "filter__compound",
+      "filter__transform_simple",
+      "filter__transform_date",
+      "row_filter__on_computed_col",
+      "row_filter__simple",
+      "partition__single",
+      "partition__multi",
+      "watermark__file_mtime",
+      "watermark__file_mtime_multi_col",
+      "watermark__data_col",
+      "watermark_db__postgres",
+      "watermark_db__oracle",
+      "watermark_db__mysql",
+      "watermark_db__mssql",
+      "watermark_db__sqlite",
+      "backward__days",
+      "backward__months_closing_day",
+      "python_fn__delta_sql",
+      "python_fn__iceberg_sql",
+      "python_fn__custom_load",
+      "api_auth__none",
+      "api_auth__bearer",
+      "api_auth__api_key",
+      "api_auth__basic",
+      "api_auth__oauth2",
+      "api_auth__oauth2_basic_method",
+      "api_page__none",
+      "api_page__offset",
+      "api_page__cursor",
+      "api_page__next_link",
+      "api_request__post_body",
+      "api_request__static_params",
+      "api_request__nested_data_path",
+      "api_request__server_filter",
+      "api_request__rate_limit",
+      "api_wm__iso",
+      "api_wm__timestamp_ms",
+      "api_wm__body",
+      "api_wm__tz_conn",
+      "api_wm__tz_src_override",
+      "api_wm__exclusive_offset",
+      "api_range__day_interval",
+      "api_range__month_interval",
+      "api_range__year_interval",
+      "api_range__multi_worker",
+      "api_range__with_bearer",
+      "date_folder__dest_partition",
+      "date_folder__src_partition",
+      "hive_partition__source",
+      "api_wm__timestamp",
+      "api_wm__datetime",
+      "api_wm__datetime_ms",
+      "api_page__offset_concurrent",
+      "load_delta__scd2",
+      "load_delta__merge_overwrite_rbw",
+      "load_delta__schema_evolve_base",
+      "load_delta__schema_evolve_new_cols",
+      "read_delta__schema_evolve",
+      "load_delta__schema_evolve_fewer_cols",
+      "read_delta__schema_evolve_fewer_cols",
+      "load_iceberg__scd2",
+      "load_iceberg__merge_overwrite_rbw",
+      "read_db__sqlite_query",
+      "read_delta__query",
+      "read_delta__scd2",
+      "read_iceberg__query",
+      "read_iceberg__scd2",
+      "combined__dedup_schema_addcols_partition",
+      "schema__string_cast",
+      "dedup__composite_key",
+      "schema__hint_inactive",
+      "schema__no_ntz_convert",
+      "schema__skip_hints",
+      "schema__boolean",
+      "schema__bigint",
+      "schema__timestamp_ntz",
+      "backward__hours",
+      "backward__years",
+      "write__json_to_jsonl",
+      "load_iceberg__append_partitioned",
+      "load_iceberg__merge_upsert_no_watermark",
+      "load_iceberg__schema_evolve_base",
+      "load_iceberg__schema_evolve_new_cols",
+      "read_iceberg__schema_evolve",
+      "load_iceberg__schema_evolve_fewer_cols",
+      "read_iceberg__schema_evolve_fewer_cols",
+      "watermark_iceberg__data_col",
+      "streaming__append",
+      "replay__orders"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_spark_iceberg_maintenance": {
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/workflows/local_use_cases.json",
-    "connection": "local_iceberg_dest",
-    "priority": "P1",
-    "notes": "Maintenance compact + cleanup on iceberg via Spark"
+    "metadata_path": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/state",
+    "watermark_path": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/watermarks",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/deployment.json",
+    "maintenance_guard_manifest": "{native_guard_manifest}",
+    "spark_config": {
+      "spark.master": "local[1]",
+      "spark.driver.memory": "2g",
+      "spark.sql.shuffle.partitions": "1"
+    },
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/deployment_receipt.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/observations/effect.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/observations/no_work.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "spark_expiration",
+        "--observe-only",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/deployment.json",
+        "--maintenance-guard-manifest",
+        "{native_guard_manifest}",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_maintenance/observations/no_work.json"
+      ],
+      "in_container": true,
+      "timeout_seconds": 360
+    },
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
+  },
+  "local_polars_iceberg_expiration_effect": {
+    "engine": "polars",
+    "metadata_type": "maintenance",
+    "platform": "local",
+    "metadata_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/state",
+    "watermark_path": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/watermarks",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/deployment.json",
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/deployment_receipt.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/observations/effect.json"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/observations/no_work.json"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "polars_expiration",
+        "--observe-only",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/deployment.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_polars_iceberg_expiration_effect/observations/no_work.json"
+      ],
+      "timeout_seconds": 180
+    },
+    "notes": "Focused Polars REST expiration-only action effect and subsequent known no-work"
+  },
+  "local_spark_iceberg_expiration_effect": {
+    "engine": "spark",
+    "metadata_type": "maintenance",
+    "platform": "local",
+    "metadata_path": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/state",
+    "watermark_path": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/watermarks",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/deployment.json",
+    "maintenance_guard_manifest": "{native_guard_manifest}",
+    "spark_config": {
+      "spark.master": "local[1]",
+      "spark.driver.memory": "2g",
+      "spark.sql.shuffle.partitions": "1"
+    },
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/deployment_receipt.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/observations/effect.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/observations/no_work.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "spark_expiration",
+        "--observe-only",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/deployment.json",
+        "--maintenance-guard-manifest",
+        "{native_guard_manifest}",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/local_spark_iceberg_expiration_effect/observations/no_work.json"
+      ],
+      "in_container": true,
+      "timeout_seconds": 360
+    },
+    "notes": "Focused guarded Spark REST expiration-only action effect and known no-work"
+  },
+  "aws_polars_iceberg_expiration_effect": {
+    "engine": "polars",
+    "metadata_type": "maintenance",
+    "platform": "aws",
+    "metadata_path": "s3://datacoolie-test/metadata/maintenance_t5/aws_polars_iceberg_expiration_effect/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "s3://datacoolie-test/state/maintenance_t5/aws_polars_iceberg_expiration_effect",
+    "watermark_path": "s3://datacoolie-test/watermarks/maintenance_t5/aws_polars_iceberg_expiration_effect",
+    "log_base_path": "s3://datacoolie-test/logs/maintenance_t5/aws_polars_iceberg_expiration_effect",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/deployment.json",
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/deployment_receipt.json",
+        "--aws-metadata-key",
+        "metadata/maintenance_t5/aws_polars_iceberg_expiration_effect/metadata.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/observations/effect.json"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/observations/no_work.json"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "polars_expiration",
+        "--platform",
+        "aws",
+        "--observe-only",
+        "--catalog-uri",
+        "http://localhost:8181",
+        "--s3-endpoint",
+        "http://localhost:9000",
+        "--aws-bucket",
+        "datacoolie-test",
+        "--aws-log-prefix",
+        "logs/maintenance_t5/aws_polars_iceberg_expiration_effect",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/deployment.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_expiration_effect/observations/no_work.json"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "AWS-MinIO Polars expiration effect and known no-work; generated metadata and logs are case-scoped"
+  },
+  "aws_spark_iceberg_expiration_effect": {
+    "engine": "spark",
+    "metadata_type": "maintenance",
+    "platform": "aws",
+    "metadata_path": "s3://datacoolie-test/metadata/maintenance_t5/aws_spark_iceberg_expiration_effect/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "s3://datacoolie-test/state/maintenance_t5/aws_spark_iceberg_expiration_effect",
+    "watermark_path": "s3://datacoolie-test/watermarks/maintenance_t5/aws_spark_iceberg_expiration_effect",
+    "log_base_path": "s3://datacoolie-test/logs/maintenance_t5/aws_spark_iceberg_expiration_effect",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/deployment.json",
+    "maintenance_guard_manifest": "{native_guard_manifest}",
+    "spark_config": {
+      "spark.master": "local[1]",
+      "spark.driver.memory": "2g",
+      "spark.sql.shuffle.partitions": "1"
+    },
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/deployment_receipt.json",
+        "--aws-metadata-key",
+        "metadata/maintenance_t5/aws_spark_iceberg_expiration_effect/metadata.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--catalog-uri",
+            "http://localhost:8181",
+            "--s3-endpoint",
+            "http://localhost:9000",
+            "--aws-bucket",
+            "datacoolie-test",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/deployment.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/observations/effect.json"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--catalog-uri",
+            "http://localhost:8181",
+            "--s3-endpoint",
+            "http://localhost:9000",
+            "--aws-bucket",
+            "datacoolie-test",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/deployment.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/observations/no_work.json"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "spark_expiration",
+        "--platform",
+        "aws",
+        "--observe-only",
+        "--catalog-uri",
+        "http://localhost:8181",
+        "--s3-endpoint",
+        "http://localhost:9000",
+        "--aws-bucket",
+        "datacoolie-test",
+        "--aws-log-prefix",
+        "logs/maintenance_t5/aws_spark_iceberg_expiration_effect",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/deployment.json",
+        "--maintenance-guard-manifest",
+        "{native_guard_manifest}",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_expiration_effect/observations/no_work.json"
+      ],
+      "timeout_seconds": 420
+    },
+    "notes": "AWS-MinIO guarded Spark expiration effect and known no-work with pinned native manifest"
   },
   "aws_polars_file": {
     "engine": "polars",
@@ -1277,10 +3645,114 @@
     "engine": "polars",
     "metadata_type": "maintenance",
     "platform": "aws",
-    "metadata_path": "s3://datacoolie-test/metadata/aws_use_cases.json",
-    "connection": "aws_iceberg_dest",
-    "priority": "P2",
-    "notes": "Maintenance compact + cleanup on AWS iceberg via Polars (requires MinIO + iceberg-rest)"
+    "metadata_path": "s3://datacoolie-test/metadata/maintenance_t5/aws_polars_iceberg_maintenance/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "s3://datacoolie-test/state/maintenance_t5/aws_polars_iceberg_maintenance",
+    "watermark_path": "s3://datacoolie-test/watermarks/maintenance_t5/aws_polars_iceberg_maintenance",
+    "log_base_path": "s3://datacoolie-test/logs/maintenance_t5/aws_polars_iceberg_maintenance",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/deployment.json",
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/deployment_receipt.json",
+        "--aws-metadata-key",
+        "metadata/maintenance_t5/aws_polars_iceberg_maintenance/metadata.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/observations/effect.json"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "polars_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/deployment.json",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/observations/no_work.json"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "polars_expiration",
+        "--platform",
+        "aws",
+        "--observe-only",
+        "--catalog-uri",
+        "http://localhost:8181",
+        "--s3-endpoint",
+        "http://localhost:9000",
+        "--aws-bucket",
+        "datacoolie-test",
+        "--aws-log-prefix",
+        "logs/maintenance_t5/aws_polars_iceberg_maintenance",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/deployment.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_polars_iceberg_maintenance/observations/no_work.json"
+      ],
+      "timeout_seconds": 240
+    },
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
   },
   "aws_spark_delta_maintenance": {
     "engine": "spark",
@@ -1295,16 +3767,144 @@
     "engine": "spark",
     "metadata_type": "maintenance",
     "platform": "aws",
-    "metadata_path": "s3://datacoolie-test/metadata/aws_use_cases.json",
-    "connection": "aws_iceberg_dest",
-    "priority": "P2",
-    "notes": "Maintenance compact + cleanup on AWS iceberg via Spark (requires MinIO + iceberg-rest)"
+    "metadata_path": "s3://datacoolie-test/metadata/maintenance_t5/aws_spark_iceberg_maintenance/metadata.json",
+    "connection": "maintenance_iceberg_dest",
+    "priority": "P0",
+    "state_base_path": "s3://datacoolie-test/state/maintenance_t5/aws_spark_iceberg_maintenance",
+    "watermark_path": "s3://datacoolie-test/watermarks/maintenance_t5/aws_spark_iceberg_maintenance",
+    "log_base_path": "s3://datacoolie-test/logs/maintenance_t5/aws_spark_iceberg_maintenance",
+    "maintenance_deployment": "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/deployment.json",
+    "maintenance_guard_manifest": "{native_guard_manifest}",
+    "spark_config": {
+      "spark.master": "local[1]",
+      "spark.driver.memory": "2g",
+      "spark.sql.shuffle.partitions": "1"
+    },
+    "do_compact": false,
+    "do_cleanup": true,
+    "cleanup_options": {
+      "expire_snapshots": true,
+      "remove_orphan_files": false
+    },
+    "retention_hours": 0,
+    "services": [
+      "minio",
+      "iceberg-rest"
+    ],
+    "setup": {
+      "script": "usecase-sim/scripts/features/maintenance/prepare_iceberg_rest.py",
+      "args": [
+        "--descriptor",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/deployment.json",
+        "--metadata",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/metadata.json",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/expected.json",
+        "--deployment-receipt",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/deployment_receipt.json",
+        "--aws-metadata-key",
+        "metadata/maintenance_t5/aws_spark_iceberg_maintenance/metadata.json"
+      ],
+      "timeout_seconds": 120
+    },
+    "invocations": [
+      {
+        "label": "effect",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--catalog-uri",
+            "http://localhost:8181",
+            "--s3-endpoint",
+            "http://localhost:9000",
+            "--aws-bucket",
+            "datacoolie-test",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/deployment.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/observations/effect.json"
+          ],
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "label": "no_work",
+        "expected_exit_code": 0,
+        "validation": {
+          "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+          "args": [
+            "--mode",
+            "spark_expiration",
+            "--platform",
+            "aws",
+            "--observe-only",
+            "--capture-only",
+            "--catalog-uri",
+            "http://localhost:8181",
+            "--s3-endpoint",
+            "http://localhost:9000",
+            "--aws-bucket",
+            "datacoolie-test",
+            "--maintenance-deployment",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/deployment.json",
+            "--maintenance-guard-manifest",
+            "{native_guard_manifest}",
+            "--expected-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/expected.json",
+            "--capture-state",
+            "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/observations/no_work.json"
+          ],
+          "timeout_seconds": 120
+        }
+      }
+    ],
+    "validation": {
+      "script": "usecase-sim/scripts/features/maintenance/validate_iceberg_rest_maintenance.py",
+      "args": [
+        "--mode",
+        "spark_expiration",
+        "--platform",
+        "aws",
+        "--observe-only",
+        "--catalog-uri",
+        "http://localhost:8181",
+        "--s3-endpoint",
+        "http://localhost:9000",
+        "--aws-bucket",
+        "datacoolie-test",
+        "--aws-log-prefix",
+        "logs/maintenance_t5/aws_spark_iceberg_maintenance",
+        "--maintenance-deployment",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/deployment.json",
+        "--maintenance-guard-manifest",
+        "{native_guard_manifest}",
+        "--expected-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/expected.json",
+        "--effect-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/observations/effect.json",
+        "--no-work-state",
+        "usecase-sim/.runtime/data/maintenance_t5/aws_spark_iceberg_maintenance/observations/no_work.json"
+      ],
+      "timeout_seconds": 420
+    },
+    "notes": "Original broad recipe replaced with isolated REST expiration effect + no-work; split unsupported Polars operations into named negative cases. Original diagnosis artifacts preserved before rerun. AWSPlatform uses MinIO only."
   },
   "local_polars_qualified_sql_delta": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/read.json",
     "stage": "polars_qualified_sql_delta",
     "column_name_mode": "lower",
     "priority": "P0",
@@ -1341,56 +3941,24 @@
         "delta"
       ]
     },
-    "notes": "Seven isolated Delta qualified-SQL cases with output reconciliation"
-  },
-  "local_polars_qualified_sql_delta_ambiguity": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
-    "stage": "polars_qualified_sql_delta_ambiguity",
-    "column_name_mode": "lower",
-    "priority": "P0",
-    "max_workers": 1,
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/qualified_sql/results/delta_ambiguity"
+    "notes": "Seven isolated Delta qualified-SQL cases with output reconciliation",
+    "dataflows": [
+      "qualified_sql__delta_name_4",
+      "qualified_sql__delta_name_3",
+      "qualified_sql__delta_name_2",
+      "qualified_sql__delta_name_1",
+      "qualified_sql__delta_include",
+      "qualified_sql__delta_exclude",
+      "qualified_sql__delta_lazy_reuse"
     ],
-    "setup": {
-      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
-      "args": [
-        "--suite",
-        "delta-ambiguity"
-      ],
-      "timeout_seconds": 60
-    },
-    "engine_setup": {
-      "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": [
-        "--suite",
-        "delta-ambiguity"
-      ]
-    },
-    "invocations": [
-      {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Ambiguous table reference 'shared.orders_ambiguous'",
-        "catalog_A.database_A.shared.orders_ambiguous",
-        "catalog_A.database_B.shared.orders_ambiguous"
-      ]
-    },
-    "notes": "Expected failure for an ambiguous two-part Delta suffix"
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_polars_qualified_sql_iceberg": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
+    "metadata_path": "./usecase-sim/metadata/file/read.json",
     "stage": "polars_qualified_sql_iceberg",
     "column_name_mode": "lower",
     "priority": "P1",
@@ -1431,55 +3999,17 @@
         "iceberg"
       ]
     },
-    "notes": "Six isolated Iceberg catalog qualified-SQL cases with output reconciliation"
-  },
-  "local_polars_qualified_sql_iceberg_ambiguity": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/read/polars_qualified_sql.json",
-    "stage": "polars_qualified_sql_iceberg_ambiguity",
-    "column_name_mode": "lower",
-    "priority": "P1",
-    "max_workers": 1,
-    "timeout_seconds": 120,
-    "services": [
-      "minio",
-      "iceberg-rest"
+    "notes": "Six isolated Iceberg catalog qualified-SQL cases with output reconciliation",
+    "dataflows": [
+      "qualified_sql__iceberg_default_root",
+      "qualified_sql__iceberg_logical_prefix",
+      "qualified_sql__iceberg_name_1",
+      "qualified_sql__iceberg_include",
+      "qualified_sql__iceberg_exclude",
+      "qualified_sql__iceberg_lazy_reuse"
     ],
-    "pre_clean_paths": [
-      "usecase-sim/.runtime/data/output/qualified_sql/results/iceberg_ambiguity"
-    ],
-    "setup": {
-      "script": "usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py",
-      "args": [
-        "--suite",
-        "iceberg-ambiguity"
-      ],
-      "timeout_seconds": 120
-    },
-    "engine_setup": {
-      "python_function": "runner.qualified_sql_setup.register_tables",
-      "args": [
-        "--suite",
-        "iceberg-ambiguity"
-      ]
-    },
-    "invocations": [
-      {
-        "label": "expected_failure",
-        "expected_exit_code": 2
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "Ambiguous table reference 'shared.orders_ambiguous'",
-        "catalog_A.database_A.shared.orders_ambiguous",
-        "catalog_A.database_B.shared.orders_ambiguous"
-      ]
-    },
-    "notes": "Expected failure for an ambiguous two-part Iceberg suffix"
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json"
   },
   "local_polars_artifact_default_metadata": {
     "engine": "polars",
@@ -1519,7 +4049,8 @@
         "1"
       ]
     },
-    "notes": "Static deployed artifact consumed through Driver-inferred FileProvider"
+    "notes": "Static deployed artifact consumed through Driver-inferred FileProvider",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_artifact_custom_metadata": {
     "engine": "polars",
@@ -1560,7 +4091,8 @@
         "1"
       ]
     },
-    "notes": "Arbitrary section-wrapped shard names loaded from an explicit artifact metadata root"
+    "notes": "Arbitrary section-wrapped shard names loaded from an explicit artifact metadata root",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_query_artifact_relative_nested": {
     "engine": "polars",
@@ -1600,13 +4132,14 @@
         "1"
       ]
     },
-    "notes": "Artifact-only execution joins a nested SQL reference directly below the artifact root"
+    "notes": "Artifact-only execution joins a nested SQL reference directly below the artifact root",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_query_explicit_multiple_roots": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/multi_sql_root_contract.json",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts.json",
     "sql_base_path": [
       "usecase-sim/artifacts/multi-sql-roots/sql1",
       "usecase-sim/artifacts/multi-sql-roots/shared/sql2"
@@ -1644,13 +4177,19 @@
         "1"
       ]
     },
-    "notes": "Repeated --sql-base-path flags route a prefixed SQL reference through explicit roots"
+    "notes": "Repeated --sql-base-path flags route a prefixed SQL reference through explicit roots",
+    "dataflows": [
+      "query_explicit_multiple_roots"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_query_root_routing": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts.json",
     "sql_base_path": "./usecase-sim/metadata/file/metadata_artifacts/queries",
     "state_base_path": "usecase-sim/.runtime",
     "stage": "query_root_routing",
@@ -1685,7 +4224,13 @@
         "1"
       ]
     },
-    "notes": "Shorthand SQL reference resolved only through the explicit sql_base_path"
+    "notes": "Shorthand SQL reference resolved only through the explicit sql_base_path",
+    "dataflows": [
+      "query_root_routing"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_runtime_log_contract": {
     "engine": "polars",
@@ -1737,7 +4282,8 @@
       ],
       "require_log_session": true
     },
-    "notes": "v6 runtime message contract, metadata/runtime query representations, and external run_attributes"
+    "notes": "v6 runtime message contract, metadata/runtime query representations, and external run_attributes",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_logging_batch": {
     "engine": "polars",
@@ -1785,36 +4331,8 @@
       ],
       "require_log_session": true
     },
-    "notes": "Immutable terminal dataflow batch part plus one replace-one JobRuntime snapshot"
-  },
-  "local_polars_startup_failure": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/execution/startup_failure.json",
-    "state_base_path": "usecase-sim/.runtime",
-    "stage": "startup_failure",
-    "job_id": "usecase-startup-failure",
-    "priority": "P0",
-    "invocations": [
-      {
-        "label": "startup_failure",
-        "expected_exit_code": 1
-      }
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "required_console_text": [
-        "DataCoolie session startup failed"
-      ],
-      "script": "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py",
-      "args": [
-        "--job-id",
-        "usecase-startup-failure"
-      ],
-      "require_log_session": true
-    },
-    "notes": "Malformed provider document fails at Driver startup before any dataflow runtime"
+    "notes": "Immutable terminal dataflow batch part plus one replace-one JobRuntime snapshot",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_query_artifact_relative": {
     "engine": "polars",
@@ -1855,13 +4373,14 @@
         "1"
       ]
     },
-    "notes": "Shorthand SQL reference resolves directly below the artifact root when sql_base_path is absent"
+    "notes": "Shorthand SQL reference resolves directly below the artifact root when sql_base_path is absent",
+    "watermark_path": "usecase-sim/.runtime/watermarks"
   },
   "local_polars_state_base_path": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/state_contract.json",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts.json",
     "sql_base_path": "./usecase-sim/metadata/file/metadata_artifacts/queries",
     "state_base_path": "usecase-sim/.runtime/watermarks/state_contract",
     "stage": "state_base_path",
@@ -1893,13 +4412,19 @@
       ],
       "require_log_session": true
     },
-    "notes": "Explicit log and FileProvider watermark roots remain in separate simulator areas"
+    "notes": "Explicit log and FileProvider watermark roots remain in separate simulator areas",
+    "dataflows": [
+      "state_base_path"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/state_contract/watermarks"
   },
   "local_polars_dry_run_query_file": {
     "engine": "polars",
     "metadata_type": "file",
     "platform": "local",
-    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+    "metadata_path": "./usecase-sim/metadata/file/metadata_artifacts.json",
     "sql_base_path": "./usecase-sim/metadata/file/metadata_artifacts/queries",
     "state_base_path": "usecase-sim/.runtime/watermarks/dry_run_query",
     "stage": "query_root_routing",
@@ -1923,7 +4448,13 @@
       ],
       "require_log_session": true
     },
-    "notes": "Dry-run resolves the SQL file and validates paths without reader/writer/watermark I/O"
+    "notes": "Dry-run resolves the SQL file and validates paths without reader/writer/watermark I/O",
+    "dataflows": [
+      "query_root_routing"
+    ],
+    "connections_path": "./usecase-sim/metadata/file/connections.json",
+    "schema_hints_path": "./usecase-sim/metadata/file/schema_hints.json",
+    "watermark_path": "usecase-sim/.runtime/watermarks/dry_run_query/watermarks"
   },
   "local_polars_datatype_qualification": {
     "engine": "polars",
@@ -2136,7 +4667,8 @@
         "polars"
       ]
     },
-    "notes": "C1 multi-invocation keyed file replay: high stored watermark, save=False state preservation, and monotonic save=True"
+    "notes": "C1 multi-invocation keyed file replay: high stored watermark, save=False state preservation, and monotonic save=True",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/polars/watermarks"
   },
   "local_spark_replay_surface_sync_c1": {
     "engine": "spark",
@@ -2198,7 +4730,8 @@
         "spark"
       ]
     },
-    "notes": "C1 multi-invocation keyed file replay on Spark"
+    "notes": "C1 multi-invocation keyed file replay on Spark",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c1/spark/watermarks"
   },
   "local_polars_replay_surface_sync_c3": {
     "engine": "polars",
@@ -2262,7 +4795,8 @@
         "polars"
       ]
     },
-    "notes": "C3 ordinary request-end continuation and incomplete-page no-save oracle"
+    "notes": "C3 ordinary request-end continuation and incomplete-page no-save oracle",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c3/polars/watermarks"
   },
   "local_spark_replay_surface_sync_c3": {
     "engine": "spark",
@@ -2326,7 +4860,8 @@
         "spark"
       ]
     },
-    "notes": "C3 request-end continuation on Spark"
+    "notes": "C3 request-end continuation on Spark",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c3/spark/watermarks"
   },
   "local_polars_replay_surface_sync_c4": {
     "engine": "polars",
@@ -2358,6 +4893,7 @@
         "label": "aligned_ms",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_ms_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/ms",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/ms/watermarks",
         "replay_start": "2024-01-15T11:59:59.123000+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
         "replay_chunk_interval": [
@@ -2370,6 +4906,7 @@
         "label": "iso",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_iso_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/iso",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/iso/watermarks",
         "replay_start": "2024-01-15T11:59:59.123000+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
         "replay_chunk_interval": [
@@ -2382,6 +4919,7 @@
         "label": "invalid_precision",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_invalid_precision_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/invalid_precision",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/invalid_precision/watermarks",
         "replay_start": "2024-01-15T00:00:00.000001+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
         "replay_chunk_interval": [
@@ -2395,6 +4933,7 @@
         "label": "invalid_observed",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c4/polars/metadata/c4_invalid_observed_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/invalid_observed",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/invalid_observed/watermarks",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-17T00:00:00.123000+00:00",
         "replay_chunk_interval": [
@@ -2415,7 +4954,8 @@
         "polars"
       ]
     },
-    "notes": "C4 aligned timestamp-ms and ISO requests plus precision and observed-max pre-HTTP failures"
+    "notes": "C4 aligned timestamp-ms and ISO requests plus precision and observed-max pre-HTTP failures",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c4/polars/ms/watermarks"
   },
   "local_polars_replay_surface_sync_c5": {
     "engine": "polars",
@@ -2447,6 +4987,7 @@
         "label": "opaque",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_opaque_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/opaque",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/opaque/watermarks",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
         "replay_chunk_interval": [
@@ -2458,6 +4999,7 @@
         "label": "matching",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_matching_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/matching",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/matching/watermarks",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
         "replay_chunk_interval": [
@@ -2469,6 +5011,7 @@
         "label": "missing",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_missing_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/missing",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/missing/watermarks",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
         "replay_chunk_interval": [
@@ -2480,6 +5023,7 @@
         "label": "conflict",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_conflict_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/conflict",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/conflict/watermarks",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
         "replay_chunk_interval": [
@@ -2492,6 +5036,7 @@
         "label": "duplicate",
         "metadata_path": "./usecase-sim/.runtime/data/replay_surface_sync/c5/polars/metadata/c5_duplicate_polars.json",
         "state_base_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/duplicate",
+        "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/duplicate/watermarks",
         "replay_start": "2024-01-15T00:00:00+00:00",
         "replay_end": "2024-01-16T00:00:00+00:00",
         "replay_chunk_interval": [
@@ -2511,7 +5056,8 @@
         "polars"
       ]
     },
-    "notes": "C5 opaque and repeat-query next-link continuation with missing, matching, conflict, and duplicate bound variants"
+    "notes": "C5 opaque and repeat-query next-link continuation with missing, matching, conflict, and duplicate bound variants",
+    "watermark_path": "usecase-sim/.runtime/watermarks/replay_surface_sync/c5/polars/opaque/watermarks"
   },
   "local_polars_replay_surface_window_safety": {
     "engine": "polars",
@@ -2541,6 +5087,7 @@
     "platform": "local",
     "priority": "P1",
     "skip_pipeline": true,
+    "runtime_workspace": "linux_fresh",
     "pre_clean_paths": [
       "usecase-sim/.runtime/data/replay_surface_window_spark_registry"
     ],
@@ -2569,7 +5116,14 @@
       "script": "usecase-sim/scripts/features/write_basic/validate_write_basic.py",
       "timeout_seconds": 180
     },
-    "notes": "Exact overwrite replacement after changed input, incremental append retains earlier IDs, watermark-empty rerun preserves rows."
+    "notes": "Exact overwrite replacement after changed input, incremental append retains earlier IDs, watermark-empty rerun preserves rows.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_merge_stateful": {
     "engine": "polars",
@@ -2582,7 +5136,14 @@
       "script": "usecase-sim/scripts/features/merge/validate_merge.py",
       "timeout_seconds": 180
     },
-    "notes": "Seed old key and untouched tail, upsert changed/new keys, repeated merge keeps exact rows."
+    "notes": "Seed old key and untouched tail, upsert changed/new keys, repeated merge keeps exact rows.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_scd2_stateful": {
     "engine": "polars",
@@ -2595,7 +5156,14 @@
       "script": "usecase-sim/scripts/features/scd2/validate_scd2.py",
       "timeout_seconds": 180
     },
-    "notes": "Seed history; close/open advancing effective versions; equal-effective incoming is appended per contract, while upstream-filtered watermark-empty rerun preserves history."
+    "notes": "Seed history; close/open advancing effective versions; equal-effective incoming is appended per contract, while upstream-filtered watermark-empty rerun preserves history.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_schema_types_stateful": {
     "engine": "polars",
@@ -2608,7 +5176,14 @@
       "script": "usecase-sim/scripts/features/schema_types/validate_schema_evolution.py",
       "timeout_seconds": 180
     },
-    "notes": "Seed old schema, append new then fewer columns, exact persisted values/nulls and types."
+    "notes": "Seed old schema, append new then fewer columns, exact persisted values/nulls and types.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_maintenance_stateful": {
     "engine": "polars",
@@ -2634,7 +5209,14 @@
       "script": "usecase-sim/scripts/features/scd2/validate_scd2_older_effective.py",
       "timeout_seconds": 180
     },
-    "notes": "Seed a newer-effective version and untouched control, then ingest an older-effective same-key version from a later-mtime file. Native append-all history has two open/current id=1 versions plus the unchanged id=2 control. Validator allocates fresh test-owned roots; no shared reset."
+    "notes": "Seed a newer-effective version and untouched control, then ingest an older-effective same-key version from a later-mtime file. Native append-all history has two open/current id=1 versions plus the unchanged id=2 control. Validator allocates fresh test-owned roots; no shared reset.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_sql_root_precedence": {
     "engine": "polars",
@@ -2647,7 +5229,14 @@
       "script": "usecase-sim/scripts/features/metadata_artifacts/validate_sql_root_precedence.py",
       "timeout_seconds": 180
     },
-    "notes": "Resolve the same logical orders.sql under distinct explicit SQL and artifact roots; normal Driver output must be the two SQL-root rows with exact IDs, amount, marker_id and root_marker. Validator allocates fresh test-owned roots; no shared reset."
+    "notes": "Resolve the same logical orders.sql under distinct explicit SQL and artifact roots; normal Driver output must be the two SQL-root rows with exact IDs, amount, marker_id and root_marker. Validator allocates fresh test-owned roots; no shared reset.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_flat_append_csv": {
     "engine": "polars",
@@ -2664,7 +5253,14 @@
         "csv"
       ]
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_csv result/schema and successful current-session evidence. Host-local Polars csv only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_csv result/schema and successful current-session evidence. Host-local Polars csv only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_flat_append_json": {
     "engine": "polars",
@@ -2681,7 +5277,14 @@
         "json"
       ]
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_json result/schema and successful current-session evidence. Host-local Polars json only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_json result/schema and successful current-session evidence. Host-local Polars json only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_flat_append_jsonl": {
     "engine": "polars",
@@ -2698,7 +5301,14 @@
         "jsonl"
       ]
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_jsonl result/schema and successful current-session evidence. Host-local Polars jsonl only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_jsonl result/schema and successful current-session evidence. Host-local Polars jsonl only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_flat_append_avro": {
     "engine": "polars",
@@ -2715,7 +5325,14 @@
         "avro"
       ]
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_avro result/schema and successful current-session evidence. Host-local Polars avro only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted flat_append_avro result/schema and successful current-session evidence. Host-local Polars avro only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_merge_composite_keys": {
     "engine": "polars",
@@ -2728,7 +5345,14 @@
       "script": "usecase-sim/scripts/features/merge/validate_composite_keys.py",
       "timeout_seconds": 180
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted composite_business_keys result/schema and successful current-session evidence. Host-local Polars delta only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted composite_business_keys result/schema and successful current-session evidence. Host-local Polars delta only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_merge_custom_predicate": {
     "engine": "polars",
@@ -2741,7 +5365,14 @@
       "script": "usecase-sim/scripts/features/merge/validate_custom_predicate.py",
       "timeout_seconds": 180
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted custom_match_predicate result/schema and successful current-session evidence. Host-local Polars delta only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted custom_match_predicate result/schema and successful current-session evidence. Host-local Polars delta only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_ntz_timezone": {
     "engine": "polars",
@@ -2754,7 +5385,14 @@
       "script": "usecase-sim/scripts/features/schema_types/validate_ntz_timezone.py",
       "timeout_seconds": 180
     },
-    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted explicit_ntz_timezone result/schema and successful current-session evidence. Host-local Polars delta only."
+    "notes": "Fresh case-owned roots, same authored primary flow, exact persisted explicit_ntz_timezone result/schema and successful current-session evidence. Host-local Polars delta only.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_transform_a9_uppercase": {
     "engine": "polars",
@@ -2771,7 +5409,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_transform_a9_map_null": {
     "engine": "polars",
@@ -2788,7 +5433,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_transform_a9_partial_keep_start": {
     "engine": "polars",
@@ -2805,7 +5457,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_transform_a9_timestamp_hour": {
     "engine": "polars",
@@ -2822,7 +5481,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_write_basic_a9_csv_options": {
     "engine": "polars",
@@ -2836,7 +5502,14 @@
       "args": [],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_schema_types_a9_merge_schema": {
     "engine": "polars",
@@ -2850,7 +5523,14 @@
       "args": [],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_existing_csv": {
     "engine": "polars",
@@ -2867,7 +5547,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_existing_json": {
     "engine": "polars",
@@ -2884,7 +5571,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_existing_jsonl": {
     "engine": "polars",
@@ -2901,7 +5595,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_existing_parquet": {
     "engine": "polars",
@@ -2918,7 +5619,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_existing_avro": {
     "engine": "polars",
@@ -2935,7 +5643,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_existing_delta": {
     "engine": "polars",
@@ -2952,7 +5667,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_transform_a9_existing_row_filter": {
     "engine": "polars",
@@ -2969,7 +5691,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_write_basic_a9_existing_partition_single": {
     "engine": "polars",
@@ -2986,7 +5715,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_write_basic_a9_existing_partition_multi": {
     "engine": "polars",
@@ -3003,7 +5739,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_workflows_a9_existing_combined": {
     "engine": "polars",
@@ -3020,7 +5763,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_incremental_a9_mtime": {
     "engine": "polars",
@@ -3037,7 +5787,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_incremental_a9_days": {
     "engine": "polars",
@@ -3054,7 +5811,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_incremental_a9_months_closing_day": {
     "engine": "polars",
@@ -3071,7 +5835,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_incremental_a9_hours": {
     "engine": "polars",
@@ -3088,7 +5859,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_incremental_a9_years": {
     "engine": "polars",
@@ -3105,7 +5883,14 @@
       ],
       "timeout_seconds": 240
     },
-    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts."
+    "notes": "Fresh case-owned paths/identities; normal Driver execution and exact persisted assertions. Profile qualification requires current fingerprint receipts.",
+    "concurrency": {
+      "isolation": "fresh-local",
+      "engines": {
+        "polars": 1
+      },
+      "resources": []
+    }
   },
   "local_polars_read_a9_postgres": {
     "engine": "polars",
@@ -3486,23 +6271,6 @@
     },
     "notes": "Required native Polars Iceberg REST profile on Docker PostgreSQL/MinIO; fresh namespace; normal Driver and exact native rows/schema/spec/snapshot oracle."
   },
-  "local_polars_api_max_pages_negative": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "priority": "P0",
-    "skip_pipeline": true,
-    "services": [
-      "mock-api"
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/read/validate_api_max_pages.py",
-      "args": [],
-      "timeout_seconds": 240
-    },
-    "notes": "Child exit 2, exact max-pages source rejection, expected failed flow/current session, no destination write and unchanged checkpoint; API total must be 30. Fresh case-owned roots."
-  },
   "local_polars_api_date_positive": {
     "engine": "polars",
     "metadata_type": "file",
@@ -3543,48 +6311,5 @@
       "in_container": true
     },
     "notes": "Exactly IDs 101/102 then 101/102/103; DATE values and checkpoints 2024-01-02 then 2024-01-03; canonical exclusive lower requests; unchanged stable rerun bytes. Fresh roots are allocated by the validator; no shared reset."
-  },
-  "local_polars_api_date_precision_negative": {
-    "engine": "polars",
-    "metadata_type": "file",
-    "platform": "local",
-    "priority": "P0",
-    "skip_pipeline": true,
-    "services": [
-      "mock-api"
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
-      "args": [
-        "--engine",
-        "polars",
-        "--negative"
-      ],
-      "timeout_seconds": 240
-    },
-    "notes": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Fresh roots are allocated by the validator; no shared reset."
-  },
-  "local_spark_api_date_precision_negative": {
-    "engine": "spark",
-    "metadata_type": "file",
-    "platform": "local",
-    "priority": "P0",
-    "skip_pipeline": true,
-    "services": [
-      "mock-api"
-    ],
-    "validation": {
-      "expected_exit_code": 0,
-      "script": "usecase-sim/scripts/features/incremental/validate_api_date.py",
-      "args": [
-        "--engine",
-        "spark",
-        "--negative"
-      ],
-      "timeout_seconds": 240,
-      "in_container": true
-    },
-    "notes": "Child exit 2, exact source rejection, unique failed expected flow/current session, unchanged output/checkpoint; precision recipe dispatches no HTTP. Fresh roots are allocated by the validator; no shared reset."
   }
 }

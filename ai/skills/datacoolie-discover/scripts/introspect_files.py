@@ -159,8 +159,7 @@ def _detect_format_from_path(path: str) -> str | None:
 def _detect_delta(fs, path: str) -> bool:
     """Check if path contains a _delta_log directory."""
     try:
-        entries = fs.ls(path, detail=False)
-        return any(e.rstrip("/").endswith("_delta_log") for e in entries)
+        return fs.isdir(path.rstrip("/") + "/_delta_log")
     except Exception:
         return False
 
@@ -401,42 +400,28 @@ def _detect_format(fs, path: str) -> str:
     return "unknown"
 
 
-def _schema_parquet(fs, path: str) -> list[tuple[str, Any]]:
+def _schema_parquet(fs, path: str) -> list[tuple[str, Any, bool]]:
     """Extract schema from Parquet file(s)."""
     import pyarrow.parquet as pq
-    # Find a parquet file
-    target = path
-    try:
-        if fs.isdir(path):
-            files = sorted(
-                fs.glob(path.rstrip("/") + "/**/*.parquet")
-                or fs.glob(path.rstrip("/") + "/*.parquet")
-            )
-            if files:
-                target = files[0]
-    except Exception:
-        pass
-    with fs.open(target, "rb") as f:
-        schema = pq.read_schema(f)
-    return [(field.name, field.type) for field in schema]
+
+    with fs.open(path, "rb") as handle:
+        schema = pq.read_schema(handle)
+    return [(field.name, field.type, field.nullable) for field in schema]
 
 
-def _schema_csv(fs, path: str) -> list[tuple[str, Any]]:
+def _schema_csv(fs, path: str, sample_bytes: int = 1 << 20) -> list[tuple[str, Any]]:
     """Infer schema from CSV by reading first rows."""
     import pyarrow.csv as pcsv
+
     target = path
-    try:
-        if fs.isdir(path):
-            files = sorted(
-                fs.glob(path.rstrip("/") + "/*.csv")
-                + fs.glob(path.rstrip("/") + "/*.tsv")
-            )
-            if files:
-                target = files[0]
-    except Exception:
-        pass
     with fs.open(target, "rb") as f:
-        reader = pcsv.open_csv(f, read_options=pcsv.ReadOptions(block_size=1 << 20))
+        reader = pcsv.open_csv(
+            f,
+            read_options=pcsv.ReadOptions(block_size=sample_bytes),
+            parse_options=pcsv.ParseOptions(
+                delimiter="\t" if path.lower().endswith(".tsv") else ","
+            ),
+        )
         batch = next(reader)
     return [(field.name, field.type) for field in batch.schema]
 
@@ -449,18 +434,8 @@ def _schema_json(
 ) -> list[tuple[str, Any]]:
     """Infer schema from a bounded sample of JSON objects."""
     import pyarrow as pa
+
     target = path
-    try:
-        if fs.isdir(path):
-            files = sorted(
-                fs.glob(path.rstrip("/") + "/*.json")
-                + fs.glob(path.rstrip("/") + "/*.jsonl")
-                + fs.glob(path.rstrip("/") + "/*.ndjson")
-            )
-            if files:
-                target = files[0]
-    except Exception:
-        pass
     with fs.open(target, "rb") as f:
         sample = f.read(sample_bytes)
     text_sample = sample.decode("utf-8")
@@ -501,14 +476,17 @@ def _schema_json(
     return [(field.name, field.type) for field in table.schema]
 
 
-def _schema_delta(path: str, storage_options: dict | None) -> list[tuple[str, Any]]:
+def _schema_delta(
+    path: str, storage_options: dict | None
+) -> list[tuple[str, Any, bool]]:
     """Extract schema from a Delta table."""
     from deltalake import DeltaTable
+
     dt = DeltaTable(path, storage_options=storage_options)
     schema = dt.schema()
     fields = []
     for field in schema.fields:
-        fields.append((field.name, field.type))
+        fields.append((field.name, field.type, field.nullable))
     return fields
 
 
@@ -559,23 +537,25 @@ def _map_delta_type(dt_type) -> tuple[str, str, str, str]:
     return type_str, type_str, "", ""
 
 
-def _schema_avro(fs, path: str) -> list[tuple[str, Any]]:
+def _schema_avro(fs, path: str) -> list[tuple[str, Any, bool]]:
     """Extract schema from an Avro file."""
     import fastavro
+
     target = path
-    try:
-        if fs.isdir(path):
-            files = sorted(fs.glob(path.rstrip("/") + "/*.avro"))
-            if files:
-                target = files[0]
-    except Exception:
-        pass
     with fs.open(target, "rb") as f:
         reader = fastavro.reader(f)
         schema = reader.writer_schema
     fields = []
     for field_def in schema.get("fields", []):
-        fields.append((field_def["name"], field_def["type"]))
+        field_type = field_def["type"]
+        branches = field_type if isinstance(field_type, list) else [field_type]
+        nullable = any(
+            branch == "null"
+            or isinstance(branch, dict)
+            and branch.get("type") == "null"
+            for branch in branches
+        )
+        fields.append((field_def["name"], field_type, nullable))
     return fields
 
 
@@ -583,9 +563,14 @@ def _map_avro_type(avro_type) -> tuple[str, str, str, str]:
     """Map an Avro type to (canonical, format, precision, scale)."""
     if isinstance(avro_type, str):
         mapping = {
-            "null": "string", "boolean": "boolean", "int": "integer",
-            "long": "long", "float": "float", "double": "double",
-            "bytes": "binary", "string": "string",
+            "null": "string",
+            "boolean": "boolean",
+            "int": "integer",
+            "long": "long",
+            "float": "float",
+            "double": "double",
+            "bytes": "binary",
+            "string": "string",
         }
         return mapping.get(avro_type, avro_type), "", "", ""
 
@@ -627,26 +612,21 @@ def _map_avro_type(avro_type) -> tuple[str, str, str, str]:
     return str(avro_type), str(avro_type), "", ""
 
 
-def _schema_orc(fs, path: str) -> list[tuple[str, Any]]:
+def _schema_orc(fs, path: str) -> list[tuple[str, Any, bool]]:
     """Extract schema from ORC file(s)."""
     import pyarrow.orc as porc
+
     target = path
-    try:
-        if fs.isdir(path):
-            files = sorted(fs.glob(path.rstrip("/") + "/*.orc"))
-            if files:
-                target = files[0]
-    except Exception:
-        pass
     with fs.open(target, "rb") as f:
         orc_file = porc.ORCFile(f)
         schema = orc_file.schema
-    return [(field.name, field.type) for field in schema]
+    return [(field.name, field.type, field.nullable) for field in schema]
 
 
 def _schema_excel(path: str) -> list[tuple[str, str]]:
     """Extract column names from an Excel file header row."""
     import openpyxl
+
     wb = openpyxl.load_workbook(path, read_only=True)
     ws = wb.active
     rows = list(ws.iter_rows(max_row=2, values_only=True))
@@ -680,85 +660,161 @@ def cmd_schema(
     storage_options: dict | None,
     sample_bytes: int = 1 << 20,
     sample_records: int = 100,
+    *,
+    max_entries: int = 10000,
+    max_depth: int = 8,
+    max_files: int = 1,
+    issues: list[str] | None = None,
+    details: dict | None = None,
 ) -> int:
-    """Extract schema from files and output CSV."""
+    """Read bounded representative schemas; never infer dataset completeness from one file."""
     import fsspec
 
+    validate_nonsecret_locator(path, "File path")
+    problems = issues if issues is not None else []
+    evidence = details if details is not None else {}
     so = storage_options or {}
     fs, resolved = fsspec.core.url_to_fs(path, **so)
-
-    # Detect format
-    if fmt == "auto":
-        fmt = _detect_format(fs, resolved)
-        if fmt == "unknown":
-            print(f"ERROR: Cannot detect format at {path}. Use --format.", file=sys.stderr)
-            sys.exit(1)
-
-    # Extract fields as list of (name, type_obj)
-    notes_suffix = ""
-    fields: list[tuple[str, Any]] = []
-    is_delta = fmt == "delta"
-    is_avro = fmt == "avro"
-    is_excel = fmt == "excel"
-
-    try:
+    selected = [resolved]
+    directory = fs.isdir(resolved)
+    if fmt == "auto" and _detect_delta(fs, resolved):
+        fmt = "delta"
+    if directory and fmt != "delta":
+        listing, limitations = _bounded_file_listing(
+            fs, resolved, max_entries, max_depth
+        )
+        problems.extend(limitations)
+        candidates = sorted(
+            name for name in listing if _detect_format_from_path(name) is not None
+        )
+        excluded = sorted(set(listing) - set(candidates))
+        evidence["excluded_files"] = excluded
+        if excluded:
+            problems.append(
+                "Unrecognized files were excluded from directory schema coverage"
+            )
+        if fmt == "auto":
+            fmt = _detect_format_from_path(candidates[0]) if candidates else "unknown"
+        matching = [
+            name for name in candidates if _detect_format_from_path(name) == fmt
+        ]
+        if len(matching) != len(candidates):
+            problems.append(
+                "Directory contains other formats outside the selected schema scope"
+            )
+        selected = matching[:max_files]
+        if len(matching) > len(selected):
+            problems.append("Unexamined files remain outside the bounded schema sample")
+    elif fmt == "auto":
+        fmt = _detect_format_from_path(resolved) or "unknown"
+    if not selected:
+        problems.append("No schema files found within the requested scope")
+    if fmt in {"unknown", "iceberg"}:
+        raise ValueError(
+            "Unsupported file schema scope; select a format or lakehouse catalog probe"
+        )
+    evidence.update(
+        {
+            "selected_files": selected,
+            "format": fmt,
+            "schema_scope": "table"
+            if fmt == "delta"
+            else "directory_sample"
+            if directory
+            else "file",
+            "bounds": {
+                "max_entries": max_entries,
+                "max_depth": max_depth,
+                "max_files": max_files,
+                "sample_bytes": sample_bytes,
+                "sample_records": sample_records,
+            },
+            "listing_limitation": "Backend ls responses may be buffered before traversal limits apply",
+        }
+    )
+    if output_path and fs.protocol in ("file", "local", ("file", "local")):
+        destination = Path(output_path).resolve()
+        source_path = Path(resolved).resolve()
+        if (
+            destination in {Path(name).resolve() for name in selected}
+            or directory
+            and destination.is_relative_to(source_path)
+        ):
+            raise ValueError("Schema output must be outside source files")
+    representative = None
+    for selected_path in selected:
+        inferred = fmt in {"csv", "json", "excel"}
         if fmt == "parquet":
-            fields = _schema_parquet(fs, resolved)
-        elif fmt == "csv":
-            fields = _schema_csv(fs, resolved)
-            notes_suffix = "inferred from sample rows"
-        elif fmt == "json":
-            fields = _schema_json(fs, resolved, sample_bytes, sample_records)
-            notes_suffix = f"inferred from bounded sample ({sample_bytes} bytes, {sample_records} records max)"
+            fields = _schema_parquet(fs, selected_path)
         elif fmt == "delta":
             fields = _schema_delta(path, so or None)
         elif fmt == "avro":
-            fields = _schema_avro(fs, resolved)
+            fields = _schema_avro(fs, selected_path)
         elif fmt == "orc":
-            fields = _schema_orc(fs, resolved)
+            fields = _schema_orc(fs, selected_path)
+        elif fmt == "csv":
+            fields = [
+                (name, typ, None)
+                for name, typ in _schema_csv(fs, selected_path, sample_bytes)
+            ]
+        elif fmt == "json":
+            fields = [
+                (name, typ, None)
+                for name, typ in _schema_json(
+                    fs, selected_path, sample_bytes, sample_records
+                )
+            ]
         elif fmt == "excel":
-            # Excel needs local path
-            fields = _schema_excel(resolved)
-        elif fmt == "iceberg":
-            print("ERROR: Iceberg schema extraction requires catalog access. Use AI-native fallback.", file=sys.stderr)
-            sys.exit(1)
+            if fs.protocol not in ("file", "local", ("file", "local")):
+                raise ValueError("Excel schema requires a local file")
+            fields = [(name, typ, None) for name, typ in _schema_excel(selected_path)]
         else:
-            print(f"ERROR: Unsupported format '{fmt}'. Use --format.", file=sys.stderr)
-            sys.exit(1)
-    except ImportError as exc:
-        lib = str(exc).split("'")[1] if "'" in str(exc) else str(exc)
-        print(f"ERROR: Install '{lib}' for {fmt} support: pip install {lib}", file=sys.stderr)
-        sys.exit(1)
-
-    observations = []
-    for ordinal, (name, type_obj) in enumerate(fields, start=1):
-        if is_delta:
-            canonical, type_fmt, prec, scl = _map_delta_type(type_obj)
-        elif is_avro:
-            canonical, type_fmt, prec, scl = _map_avro_type(type_obj)
-        elif is_excel:
-            canonical, type_fmt, prec, scl = str(type_obj), "", "", ""
-        else:
-            canonical, type_fmt, prec, scl = _map_arrow_type(type_obj)
-
-        notes = notes_suffix
-        if not type_fmt:
-            type_fmt = fmt
-        observations.append(make_observation(
-            source=source,
-            object_type="file",
-            object=table,
-            column=name,
-            native_type=str(type_obj),
-            data_type=canonical,
-            format=type_fmt,
-            precision=prec,
-            scale=scl,
-            nullable="true",
-            ordinal=ordinal,
-            notes=notes,
-        ))
-
+            raise ValueError("Unsupported schema format")
+        observations = []
+        for ordinal, (name, type_obj, nullable) in enumerate(fields, start=1):
+            mapper = (
+                _map_delta_type
+                if fmt == "delta"
+                else _map_avro_type
+                if fmt == "avro"
+                else _map_arrow_type
+            )
+            canonical, type_fmt, prec, scl = (
+                (str(type_obj), "", "", "") if fmt == "excel" else mapper(type_obj)
+            )
+            observations.append(
+                make_observation(
+                    source=source,
+                    object_type="file",
+                    object=table,
+                    column=name,
+                    native_type=str(type_obj),
+                    data_type=canonical,
+                    format=type_fmt or fmt,
+                    precision=prec,
+                    scale=scl,
+                    nullable="" if nullable is None else str(nullable).lower(),
+                    ordinal=ordinal,
+                    notes="inferred from sample rows; nullability unknown"
+                    if inferred
+                    else "",
+                )
+            )
+        signature = [
+            (r["column"], r["native_type"], r["nullable"]) for r in observations
+        ]
+        if representative is None:
+            representative = observations
+        elif signature != [
+            (r["column"], r["native_type"], r["nullable"]) for r in representative
+        ]:
+            problems.append(
+                "Selected files have conflicting name/type/nullability schemas"
+            )
+    observations = representative or []
+    if not observations and selected:
+        problems.append("No schema fields extracted from selected files")
+    evidence["schema_complete"] = not problems
     if output_path:
         atomic_write_observations(Path(output_path), observations)
     else:
@@ -770,6 +826,7 @@ def cmd_schema(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         allow_abbrev=False,
@@ -779,11 +836,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # structure
     p_struct = sub.add_parser(
-        "structure", help="List folder structure as Markdown", allow_abbrev=False,
+        "structure",
+        help="List folder structure as Markdown",
+        allow_abbrev=False,
     )
-    p_struct.add_argument("--path", required=True, help="Root path (local, s3://, abfss://, gs://)")
-    p_struct.add_argument("--source", required=True, help="Source name for status evidence")
-    p_struct.add_argument("--output", default=None, help="Output .md file (default: stdout)")
+    p_struct.add_argument(
+        "--path", required=True, help="Root path (local, s3://, abfss://, gs://)"
+    )
+    p_struct.add_argument(
+        "--source", required=True, help="Source name for status evidence"
+    )
+    p_struct.add_argument(
+        "--output", default=None, help="Output .md file (default: stdout)"
+    )
     p_struct.add_argument("--storage-options-env", default=None)
     p_struct.add_argument("--max-entries", type=int, default=10000)
     p_struct.add_argument("--max-depth", type=int, default=8)
@@ -791,19 +856,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # schema
     p_schema = sub.add_parser(
-        "schema", help="Extract file schema as CSV", allow_abbrev=False,
+        "schema",
+        help="Extract file schema as CSV",
+        allow_abbrev=False,
     )
     p_schema.add_argument("--path", required=True, help="Path to file or directory")
-    p_schema.add_argument("--format", default="auto", choices=[
-        "auto", "parquet", "csv", "json", "delta", "iceberg", "avro", "orc", "excel",
-    ], help="File format (default: auto-detect)")
+    p_schema.add_argument(
+        "--format",
+        default="auto",
+        choices=[
+            "auto",
+            "parquet",
+            "csv",
+            "json",
+            "delta",
+            "iceberg",
+            "avro",
+            "orc",
+            "excel",
+        ],
+        help="File format (default: auto-detect)",
+    )
     p_schema.add_argument("--source", required=True, help="Source name for CSV output")
     p_schema.add_argument("--table", required=True, help="Table name for CSV output")
-    p_schema.add_argument("--output", default=None, help="Output .csv file (default: stdout)")
+    p_schema.add_argument(
+        "--output", default=None, help="Output .csv file (default: stdout)"
+    )
     p_schema.add_argument("--storage-options-env", default=None)
     p_schema.add_argument("--sample-bytes", type=int, default=1 << 20)
     p_schema.add_argument("--sample-records", type=int, default=100)
     p_schema.add_argument("--status-output", default=None)
+    p_schema.add_argument("--max-entries", type=int, default=10000)
+    p_schema.add_argument("--max-depth", type=int, default=8)
+    p_schema.add_argument("--max-files", type=int, default=1)
 
     return parser.parse_args(argv)
 
@@ -812,7 +897,33 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
     try:
+        if (
+            args.output
+            and args.status_output
+            and Path(args.output).resolve() == Path(args.status_output).resolve()
+        ):
+            raise ValueError(
+                "Probe status output must be distinct from observation output"
+            )
         validate_nonsecret_locator(args.path, "File path")
+        if args.status_output and (
+            "://" not in args.path or args.path.startswith(("file://", "local://"))
+        ):
+            import fsspec
+
+            guard_fs, guard_root = fsspec.core.url_to_fs(args.path)
+            if guard_fs.protocol in ("file", "local", ("file", "local")):
+                input_path, status_path = (
+                    Path(guard_root).resolve(),
+                    Path(args.status_output).resolve(),
+                )
+                inside = input_path.is_dir() and status_path.is_relative_to(input_path)
+                if (
+                    status_path == input_path
+                    or inside
+                    and (args.command == "schema" or status_path.exists())
+                ):
+                    raise ValueError("Probe status output must be outside source files")
     except ValueError as exc:
         raise SystemExit(f"ERROR: {exc}") from exc
 
@@ -821,13 +932,19 @@ def main(argv: list[str] | None = None) -> None:
     if storage_options_env:
         raw = os.environ.get(storage_options_env)
         if raw is None:
-            raise SystemExit(f"ERROR: Environment variable '{storage_options_env}' is not set")
+            raise SystemExit(
+                f"ERROR: Environment variable '{storage_options_env}' is not set"
+            )
         try:
             so = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise SystemExit("ERROR: Storage options environment value is not valid JSON") from exc
+            raise SystemExit(
+                "ERROR: Storage options environment value is not valid JSON"
+            ) from exc
         if not isinstance(so, dict):
-            raise SystemExit("ERROR: Storage options environment value must be a JSON object")
+            raise SystemExit(
+                "ERROR: Storage options environment value must be a JSON object"
+            )
 
     if args.command == "structure":
         if args.max_entries < 1 or args.max_entries > 1000000:
@@ -836,7 +953,11 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("ERROR: --max-depth must be between 1 and 64")
         try:
             row_count, issues = cmd_structure(
-                args.path, args.output, so, args.max_entries, args.max_depth,
+                args.path,
+                args.output,
+                so,
+                args.max_entries,
+                args.max_depth,
             )
         except (OSError, ValueError) as exc:
             raise SystemExit(f"ERROR: {exc}") from exc
@@ -854,16 +975,51 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("ERROR: --sample-bytes must be between 1024 and 67108864")
         if args.sample_records < 1 or args.sample_records > 10000:
             raise SystemExit("ERROR: --sample-records must be between 1 and 10000")
-        row_count = cmd_schema(
-            args.path, args.format, args.source, args.table, args.output, so,
-            args.sample_bytes, args.sample_records,
-        )
-        write_probe_status(
+        if (
+            not 1 <= args.max_entries <= 1000000
+            or not 1 <= args.max_depth <= 64
+            or not 1 <= args.max_files <= 10000
+        ):
+            raise SystemExit("ERROR: schema traversal/sample bounds out of range")
+        issues, details = [], {}
+        try:
+            row_count = cmd_schema(
+                args.path,
+                args.format,
+                args.source,
+                args.table,
+                args.output,
+                so,
+                args.sample_bytes,
+                args.sample_records,
+                max_entries=args.max_entries,
+                max_depth=args.max_depth,
+                max_files=args.max_files,
+                issues=issues,
+                details=details,
+            )
+        except (OSError, ValueError, ImportError) as exc:
+            raise SystemExit(
+                f"ERROR: File schema probe failed ({type(exc).__name__})"
+            ) from exc
+        status = write_probe_status(
             Path(args.status_output) if args.status_output else None,
             source=args.source,
             probe="file-schema",
             row_count=row_count,
+            issues=issues,
+            output_path=Path(args.output) if args.output else None,
+            scope={
+                "kind": "objects",
+                "filters": {"path": args.path, "table": args.table},
+                "objects": [[args.source, "file", "", "", args.table, ""]]
+                if row_count
+                else [],
+            },
+            details=details,
         )
+        if status == "partial":
+            raise SystemExit(PARTIAL_EXIT_CODE)
 
 
 if __name__ == "__main__":

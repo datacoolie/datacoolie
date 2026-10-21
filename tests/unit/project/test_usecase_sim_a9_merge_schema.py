@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import sys
 from pathlib import Path
 
@@ -28,11 +27,12 @@ from schema_types.validate_a9_merge_schema import (  # noqa: E402
 )
 
 
-METADATA_PATH = SIM_ROOT / "metadata" / "file" / "schema_types" / "a9_merge_schema.json"
+METADATA_PATH = SIM_ROOT / "metadata" / "file" / "schema_types.json"
 
 
 def test_a9_merge_schema_fixture_uses_explicit_append_option_without_hints() -> None:
-    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+    metadata = recipe_document("schema_types", "a9_merge_schema")
     assert_a9_merge_schema_metadata(metadata)
     assert metadata["dataflows"][0].get("transform", {}) not in (
         {"schema_hints": [{"column_name": NEW_COLUMN, "data_type": "INT"}]},

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -117,7 +116,7 @@ def assert_a9_merge_schema_metadata(metadata: Mapping[str, Any]) -> None:
 def validate(root: Path | None = None) -> dict[str, Any]:
     case = resolve_case_root("schema_types", root)
     materialize_fixture(case, "a9_merge_schema.json")
-    metadata = json.loads(case.metadata.read_text(encoding="utf-8"))
+    metadata = case.document
     assert_a9_merge_schema_metadata(metadata)
 
     engine = PolarsEngine()

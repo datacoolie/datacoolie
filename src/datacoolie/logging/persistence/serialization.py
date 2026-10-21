@@ -20,21 +20,11 @@ from datacoolie.logging.persistence.diagnostics import (
     ensure_json_size,
     join_pointer,
 )
+from datacoolie.core.models.metrics import METRIC_FIELDS
 from datacoolie.watermark.base import WatermarkSerializer
 
 
-_METRIC_FIELDS = (
-    "rows_read",
-    "rows_written",
-    "rows_inserted",
-    "rows_updated",
-    "rows_deleted",
-    "files_added",
-    "files_removed",
-    "bytes_added",
-    "bytes_removed",
-    "bytes_saved",
-)
+_METRIC_FIELDS = METRIC_FIELDS
 
 
 def _member(value: Any, name: str) -> Any:

@@ -12,7 +12,6 @@ import argparse
 import copy
 import hashlib
 import importlib.util
-import json
 import sys
 import uuid
 from pathlib import Path
@@ -41,12 +40,10 @@ from _stateful_support import (  # noqa: E402
     run_driver,
     write_receipt,
 )
+from runner.metadata_sources import group_document, recipe_document  # noqa: E402
 
 
 SCRIPT = Path(__file__).resolve()
-READ_METADATA_DIR = USECASE_SIM_DIR / "metadata" / "file" / "read"
-SHARED_LOCAL_PATH = USECASE_SIM_DIR / "metadata" / "file" / "shared" / "local.json"
-READ_LOCAL_PATH = READ_METADATA_DIR / "local.json"
 
 D1_FLOWS = (
     ("api_auth__bearer", "/api/secure/bearer"),
@@ -82,13 +79,7 @@ EXPECTED_SCHEMA = {
     "customer_name": "String",
     "status": "String",
 }
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"expected JSON object: {path}")
-    return value
+READ_METADATA_SOURCE = str((USECASE_SIM_DIR / "metadata" / "file" / "read.json").resolve())
 
 
 def _mock_rows() -> list[dict[str, Any]]:
@@ -103,7 +94,8 @@ def _mock_rows() -> list[dict[str, Any]]:
 
 
 def _shared_documents() -> tuple[dict[str, Any], dict[str, Any]]:
-    return _read_json(READ_LOCAL_PATH), _read_json(SHARED_LOCAL_PATH)
+    document = group_document("read")
+    return document, document
 
 
 def _find_flow(document: Mapping[str, Any], name: str) -> dict[str, Any]:
@@ -125,11 +117,9 @@ def _opaque_id(value: str) -> str:
 
 
 def _runtime_identity(case: CasePaths, authored_name: str, authored_stage: str, label: str) -> tuple[str, str]:
-    suffix = case.root.name.rsplit("_", 1)[-1]
-    return (
-        f"{authored_name}__{label}__{suffix}",
-        f"{authored_stage}__{label}__{suffix}",
-    )
+    # Each run owns a fresh case root and receipt/log namespace, so the
+    # authored flow identity remains the stable evidence key.
+    return authored_name, authored_stage
 
 
 def _existing_phase(
@@ -144,9 +134,6 @@ def _existing_phase(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     read_document, shared_document = _shared_documents()
     flow = _find_flow(read_document, name)
-    runtime_name, runtime_stage = _runtime_identity(case, name, stage, runtime_label)
-    flow["name"] = runtime_name
-    flow["stage"] = runtime_stage
     if destination_table is not None:
         flow["destination"]["table"] = destination_table
     source_connection_name = flow["source"]["connection_name"]
@@ -166,7 +153,7 @@ def _existing_phase(
                     + _opaque_id(trace_token)
                 )
         elif connection.get("name") == "local_parquet_dest":
-            configure["base_path"] = "__CASE_ROOT__/output/parquet"
+            configure["base_path"] = (case.output / "parquet").as_posix()
     return flow, connections
 
 
@@ -179,15 +166,14 @@ def _focused_phase(
     runtime_label: str,
     replacements: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    text = (READ_METADATA_DIR / fixture_name).read_text(encoding="utf-8")
     values = {
+        "__CASE_ROOT__/input": case.input.as_posix(),
+        "__CASE_ROOT__/output": case.output.as_posix(),
         "__CASE_ROOT__": case.root.as_posix(),
         "__MOCK_BASE_URL__": base_url.rstrip("/"),
     }
     values.update(replacements or {})
-    for marker, value in values.items():
-        text = text.replace(marker, value)
-    document = json.loads(text)
+    document = recipe_document("read", Path(fixture_name).stem, tokens=values)
     if not isinstance(document, dict):
         raise ValueError(f"focused fixture is not an object: {fixture_name}")
     flows = document.get("dataflows")
@@ -196,11 +182,6 @@ def _focused_phase(
         raise ValueError(f"focused fixture must contain one dataflow: {fixture_name}")
     if not isinstance(connections, list):
         raise ValueError(f"focused fixture must contain connections: {fixture_name}")
-    authored_name = flows[0]["name"]
-    authored_stage = flows[0]["stage"]
-    runtime_name, runtime_stage = _runtime_identity(case, authored_name, authored_stage, runtime_label)
-    flows[0]["name"] = runtime_name
-    flows[0]["stage"] = runtime_stage
     for connection in connections:
         if connection.get("connection_type") == "api":
             connection.setdefault("configure", {}).setdefault("default_headers", {})[
@@ -221,10 +202,17 @@ def _write_document(
     case: CasePaths,
     flows: list[dict[str, Any]],
     connections: list[dict[str, Any]],
+    *,
+    sources: tuple[str, ...] = (READ_METADATA_SOURCE,),
 ) -> None:
     document = {"connections": connections, "dataflows": flows}
-    text = json.dumps(document, indent=2).replace("__CASE_ROOT__", case.root.as_posix())
-    case.metadata.write_text(text + "\n", encoding="utf-8")
+    case.document = copy.deepcopy(document)
+    # The flow identities remain authored even when endpoint, trace, or
+    # destination values are bound for this case.  Keep the canonical flat
+    # source attached so BoundFileProvider performs normal file validation;
+    # generated identities can explicitly opt into the memory provider with
+    # ``sources=()``.
+    case.sources = tuple(sources)
 
 
 def _output_path(case: CasePaths, table: str) -> Path:
@@ -924,10 +912,11 @@ def validate(
             "This receipt qualifies the selected loopback mock API behavior with normal Polars Driver execution; cloud OAuth/API identities remain deferred.",
         ),
         references=(
-            "metadata/file/shared/local.json",
-            "metadata/file/read/local.json",
-            "metadata/file/read/a9_api_rate_limit.json",
-            "metadata/file/read/a9_api_oauth_json.json",
+            "metadata/file/connections.json",
+            "metadata/file/schema_hints.json",
+            "metadata/file/read.json",
+            "scenarios/metadata_recipes.json#read/a9_api_rate_limit",
+            "scenarios/metadata_recipes.json#read/a9_api_oauth_json",
             "docker/mock_api_server.py",
             "tests/unit/sources/test_api_auth_guards.py",
         ),

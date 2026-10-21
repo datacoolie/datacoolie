@@ -165,11 +165,13 @@ owns its own `dataflow_run_id`, and only retries within that chunk appear in
 that chunk's history.
 
 `DataFlowRuntimeInfo.metrics` projects the final attempt, not the sum of retry
-work. `ExecutionMetrics` fields remain nullable: an entered phase with an
-unavailable measurement is `null`, while a known zero remains `0`. Job and
-replay aggregation sums each metric independently and propagates `null` when
-any contributing observation is unknown. `JobRuntimeInfo` owns the job-level
-status counters and nullable ingestion totals.
+work. `ExecutionMetrics` retains measured numbers, including `0`; unentered
+phases and unavailable measurements are `null`. Job and replay metrics sum
+known observations: `100 + null` totals `100`; `0 + null` totals `0`.
+No observations means `null`. Each metric, including per-write derived `bytes_saved`, sums
+independently. Job ingestion totals exclude maintenance rows while preserving
+their raw observations. `JobRuntimeInfo` owns the job-level status counters and
+nullable ingestion totals.
 
 Component diagnostic hooks, where a component exposes them, are enrichment
 only. A malformed or failing diagnostic capture cannot retry an acknowledged
@@ -184,13 +186,24 @@ dataflow and is logged without an executed source action.
 ## Maintenance path
 
 `driver.run_maintenance(connection=..., do_compact=True, do_cleanup=True)` is a parallel
-variant for `OPTIMIZE` / `VACUUM`. It:
+variant for `OPTIMIZE` / `VACUUM`. Before dispatch, the Driver prepares each
+eligible dataflow and resolves its destination address. The engine's
+operation-scoped preparation hook hydrates a `PreparedMaintenanceTarget` with
+qualified identity, missing state, capabilities and, when required, a borrowed
+native binding. Runnable candidates sharing that qualified identity are reduced
+to one winner; inactive candidates remain skipped and a missing target has no
+identity that can hide an existing table.
 
-1. Loads the dataflow metadata when no explicit `dataflows` list is supplied.
-2. Deduplicates by destination so fan-in topologies don't race on the same
-   table.
-3. Distributes metadata-loaded targets through `JobDistributor`, then dispatches
-   the selected targets to `BaseDestinationWriter.run_maintenance`.
+For metadata-loaded selections, the winning prepared items then pass through
+`JobDistributor`. Each worker retains its prepared target; the destination
+pipeline uses `BaseDestinationWriter.run_selected_maintenance` when a prepared
+binding or explicit action map is present and preserves `run_maintenance` for
+legacy/local defaults. Caller-supplied `dataflows` use the same preparation and
+deduplication but keep their existing no-second-shard behavior. The prepared
+execution snapshot and borrowed binding remain in scope across worker retries,
+and all acquired bindings are released after the selection completes, including
+failure paths. Bindings stay outside generic dataflow copies and runtime
+metadata.
 
 See [User guide · Maintenance](../../guide/operations/maintenance.md).
 

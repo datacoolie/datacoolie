@@ -2,38 +2,97 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://datacoolie.github.io/datacoolie/schema/upload-record.schema.json",
   "title": "DataCoolie local upload record",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "release_id",
-    "build_id",
-    "environment",
-    "deployment_path",
-    "source",
-    "status",
-    "uploads"
+  "oneOf": [
+    {"$ref": "#/$defs/v1"},
+    {"$ref": "#/$defs/v2"}
   ],
-  "properties": {
-    "schema_version": {"const": 1},
-    "release_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
-    "build_id": {"type": "string", "minLength": 1},
-    "environment": {"type": "string", "minLength": 1},
-    "deployment_path": {"type": "string", "minLength": 1},
-    "source": {"type": "string", "minLength": 1},
-    "status": {"enum": ["success", "partial_failure", "failed"]},
-    "uploads": {
+  "$defs": {
+    "v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "release_id",
+        "build_id",
+        "environment",
+        "deployment_path",
+        "source",
+        "status",
+        "uploads"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "release_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "build_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "environment": {"type": "string", "minLength": 1},
+        "deployment_path": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "status": {"enum": ["success", "partial_failure", "failed"]},
+        "uploads": {"$ref": "#/$defs/uploads_v1"}
+      }
+    },
+    "v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "release_id",
+        "build_id",
+        "environment",
+        "deployment_path",
+        "source",
+        "preflight",
+        "status",
+        "uploads",
+        "record"
+      ],
+      "properties": {
+        "schema_version": {"const": 2},
+        "release_id": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "build_id": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "environment": {"type": ["string", "null"], "minLength": 1},
+        "deployment_path": {"type": ["string", "null"], "minLength": 1},
+        "source": {"type": ["string", "null"], "minLength": 1},
+        "preflight": {"$ref": "#/$defs/preflight"},
+        "status": {"enum": ["success", "partial_failure", "failed"]},
+        "uploads": {"$ref": "#/$defs/uploads_v2"},
+        "record": {"$ref": "#/$defs/record"}
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["passed", "failed"]},
+        "error": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["not_requested", "written", "failed"]},
+        "error": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "uploads_v1": {
       "type": "object",
       "additionalProperties": false,
       "required": ["artifact", "current"],
       "properties": {
-        "artifact": {"$ref": "#/$defs/upload"},
-        "current": {"$ref": "#/$defs/upload"}
+        "artifact": {"$ref": "#/$defs/upload_v1"},
+        "current": {"$ref": "#/$defs/upload_v1"}
       }
-    }
-  },
-  "$defs": {
-    "upload": {
+    },
+    "upload_v1": {
       "type": "object",
       "additionalProperties": false,
       "required": ["status", "files"],
@@ -41,6 +100,25 @@
         "status": {"enum": ["success", "failed", "skipped"]},
         "files": {"type": "integer", "minimum": 0},
         "error": {"type": "string"}
+      }
+    },
+    "uploads_v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "current"],
+      "properties": {
+        "artifact": {"$ref": "#/$defs/upload_v2"},
+        "current": {"$ref": "#/$defs/upload_v2"}
+      }
+    },
+    "upload_v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "files"],
+      "properties": {
+        "status": {"enum": ["success", "failed", "skipped"]},
+        "files": {"type": "integer", "minimum": 0},
+        "error": {"type": "string", "minLength": 1, "maxLength": 512}
       }
     }
   }

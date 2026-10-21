@@ -24,7 +24,7 @@ Usage (from the datacoolie/ directory):
 
 Options:
     --engine          polars | spark
-    --metadata-path   path to perf_test.json (default: ./usecase-sim/metadata/file/performance/perf_test.json)
+    --metadata-path   path to perf_test.json (default: ./usecase-sim/metadata/file/performance.json)
     --stages          comma-separated stage names (default: all 8 stages in dependency order)
     --max-size        largest size to run: 10k|50k|100k|500k|1m|5m|10m|50m (default: 1m)
     --output-dir      where to store JSON result files and the report
@@ -65,7 +65,7 @@ from runner.runtime_paths import (  # noqa: E402
 _USECASE_SIM_DIR = USECASE_SIM_DIR
 _DATACOOLIE_DIR = DATACOOLIE_ROOT
 _DEFAULT_METADATA = str(
-    _USECASE_SIM_DIR / "metadata" / "file" / "performance" / "perf_test.json"
+    _USECASE_SIM_DIR / "metadata" / "file" / "performance.json"
 )
 _DEFAULT_OUTPUT_DIR = str(
     LOG_DIR / "performance" / "benchmark_results"
@@ -147,6 +147,15 @@ def _throughput(rows: int, seconds: float) -> str:
 # Engine builder
 # ---------------------------------------------------------------------------
 
+def _shared_metadata_kwargs(metadata_path: str) -> dict[str, str]:
+    """Supply canonical shared sections for the checked-in flat benchmark."""
+    if Path(metadata_path).resolve() != Path(_DEFAULT_METADATA).resolve():
+        return {}
+    directory = _USECASE_SIM_DIR / "metadata/file"
+    return {"connections_path": str(directory / "connections.json"),
+            "schema_hints_path": str(directory / "schema_hints.json")}
+
+
 def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
     """Return a configured PolarsEngine DataCoolieDriver."""
     from _runner_utils import MINIO_STORAGE_OPTIONS, build_iceberg_rest_catalog  # noqa: PLC0415
@@ -179,6 +188,7 @@ def _build_polars_driver(metadata_path: str, needs_iceberg: bool = True):
     )
     metadata = FileProvider(
         config_path=metadata_path,
+        **_shared_metadata_kwargs(metadata_path),
         watermark_base_path=str(WATERMARKS_DIR / "performance"),
     )
     config = DataCoolieRunConfig(max_workers=1)  # single-threaded for fair comparison
@@ -203,6 +213,7 @@ def _build_spark_driver(metadata_path: str):
 
     spark = build_spark_session(
         app_name="DataCoolie-PerfBenchmark",
+        functional_profile=False,
         catalog_preset="local",
         iceberg_catalog_uri=None,
         uc_token="",
@@ -215,6 +226,7 @@ def _build_spark_driver(metadata_path: str):
     engine = SparkEngine(spark_session=spark, platform=platform)
     metadata = FileProvider(
         config_path=metadata_path,
+        **_shared_metadata_kwargs(metadata_path),
         watermark_base_path=str(WATERMARKS_DIR / "performance"),
     )
     config = DataCoolieRunConfig(max_workers=1)

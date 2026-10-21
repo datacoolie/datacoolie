@@ -65,8 +65,8 @@ to both loggers for its session, so reuse of a caller-supplied `job_id` does not
 erase session identity. Correlate individual executions with `dataflow_run_id`;
 replay chunks have their own execution IDs.
 Package releases and log schema versions evolve independently. Current records
-use `log_schema_version=6`; readers of historical logs must tolerate older
-records and an absent producer version. The v6 writer has one explicit shape
+use `log_schema_version=7`; readers of historical logs must tolerate older
+records and an absent producer version. The v7 writer has one explicit shape
 per record type and does not rewrite historical files.
 
 Execution logging accepts only terminal `succeeded`, `failed`, or `skipped` runtime observations. Preparation
@@ -103,7 +103,7 @@ their budget. Exception text can be truncated or omitted; inspect `diagnostic_is
 assuming a persisted traceback is complete. A concise message plus the traceback's exception
 line is intentional when both are retained and aid diagnosis.
 
-The v6 dataflow root keeps identity, operation, timing, status, message, and
+The v7 dataflow root keeps identity, operation, timing, status, message, and
 derived `retry_attempts`. It also contains:
 
 - `read_request`: a nullable native object with the caller's original
@@ -112,7 +112,8 @@ derived `retry_attempts`. It also contains:
 - `attempts`: a native array of detached terminal `AttemptRuntimeInfo` objects.
   It is `[]` when no pipeline attempt was admitted; it is never a JSON string.
 - `metrics`: native `ExecutionMetrics` for the final attempt. Counts and byte
-  measurements are nullable, so unknown remains `null` rather than `0`.
+  measurements are nullable. Execution-reported zero remains `0`; unentered or
+  unmeasured work remains `null`.
 
 Each attempt contains `attempt_number`, timing/status/message, and optional
 `source`, `transform`, `destination`, and `watermark` objects. The source phase
@@ -131,9 +132,11 @@ raises before acknowledging its physical write remains a business failure.
 `ReplayRuntimeInfo` summarizes an outer replay with `chunk_run_ids`, aggregate
 `metrics`, and aggregate `retry_attempts`; it does not invent an outer attempt.
 Admitted chunks retain separate run IDs and histories. `JobRuntimeInfo` keeps
-status counters exact and applies per-metric null propagation to its ingestion
-totals; maintenance row metrics do not contribute to those totals, while file
-and byte metrics do.
+status counters exact. Job and replay totals sum available observations per
+metric: `100 + null` totals `100`, and `0 + null` totals `0`.
+Without any observations the total is `null`, including
+an empty job or replay. Maintenance rows do not contribute to job ingestion
+totals; file and byte measurements do. Raw maintenance row observations are retained.
 
 Watermark-shaped values in `read_request`, read-range bounds, source selection,
 candidate values, and watermark phase fields use the canonical tagged scalar
@@ -158,7 +161,10 @@ phase fields. Read persistence progress from `attempts[-1].watermark.save_status
 and selection from `attempts[-1].source.selection`; neither is an execution
 instruction. An empty attempt array means execution never entered the pipeline.
 
-Unknown metrics are `null`; phases not entered contribute zero to run metrics.
+Unknown metrics and phases not entered are `null`. Aggregate v7 measurements
+as observed totals: sum known values and return null when none are measured.
+Use measurement coverage to distinguish a partial observation from complete
+measurement. Historical v6 zero values and v6-only aggregate semantics remain unchanged.
 Only the final attempt contributes to job metric totals. Optional diagnostic
 payloads (`source_action`, `transformers_applied`, `operation_details`) may be
 omitted when their JSON encoding fails; consumers must not require them.

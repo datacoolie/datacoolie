@@ -38,6 +38,16 @@ class _DestinationContract(Protocol):
     path: str | None
 
 
+class _EngineTargetContract(Protocol):
+    def preferred_target_addressing(
+        self, *, fmt: str, table_name: str | None, path: str | None
+    ) -> AddressingMode | None: ...
+
+    def target_name_identity(
+        self, *, fmt: str, table_name: str
+    ) -> tuple[str, str] | None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ResolvedDestination:
     """Effective table/path handles and their deterministic identity."""
@@ -46,22 +56,24 @@ class ResolvedDestination:
     path: str | None
     format: str
     addressing: AddressingMode
-    identity: str
+    identity: str | None
+    storage_path: str | None = None
 
 
 def resolve_destination_target(
     destination: _DestinationContract,
     *,
+    engine: _EngineTargetContract | None = None,
     require_target: bool = True,
+    require_identity: bool = False,
 ) -> ResolvedDestination:
     """Resolve the primary handle used by destination engine operations.
 
-    File connections are path-addressed.  Delta uses a path when it has no
-    catalog/database scope or when Athena explicitly requires a path.  Iceberg
-    is catalog-addressed when a catalog/database is configured and otherwise
-    falls back to a path.  Physical paths are identity-preserving; named
-    targets include a connection scope because two backends can expose the
-    same schema/table spelling independently.
+    Forced-path destination policy precedes the engine's pure preference.
+    Engine-aware results expose only the operative handle, retaining the
+    auxiliary path in storage_path. Unknown named equality is None, or an
+    error when require_identity is requested. Engine-free calls preserve the
+    legacy declared projection for inspection, not runtime physical equality.
     """
 
     try:
@@ -89,7 +101,19 @@ def resolve_destination_target(
         and not catalog_scoped
     )
 
-    if path_only:
+    addressing: AddressingMode = "path" if path_only else "table"
+    if engine is not None and not path_only:
+        try:
+            preference = engine.preferred_target_addressing(
+                fmt=fmt, table_name=table_name, path=path
+            )
+        except Exception as exc:
+            raise ConfigurationError("Cannot resolve engine target preference") from exc
+        if preference not in ("table", "path"):
+            raise ConfigurationError(f"Invalid or missing engine target preference: {preference!r}")
+        addressing = preference
+
+    if addressing == "path":
         if not path:
             if require_target:
                 raise ConfigurationError(
@@ -100,7 +124,6 @@ def resolve_destination_target(
         else:
             target = path
         table_name = None
-        addressing: AddressingMode = "path"
     else:
         if not table_name:
             if require_target:
@@ -111,10 +134,27 @@ def resolve_destination_target(
             target = "<missing-table>"
         else:
             target = table_name
-        addressing = "table"
 
     if addressing == "path":
         identity = f"{connection_type}:{fmt}:path:{target}"
+    elif engine is not None:
+        try:
+            native = engine.target_name_identity(fmt=fmt, table_name=target)
+        except Exception as exc:
+            raise ConfigurationError("Cannot resolve engine target identity") from exc
+        if native is None:
+            identity = None
+        elif (
+            not isinstance(native, tuple) or len(native) != 2
+            or any(not isinstance(value, str) or not value.strip() for value in native)
+        ):
+            raise ConfigurationError(f"Invalid engine target identity: {native!r}")
+        else:
+            backend_scope, canonical_name = native
+            scope = ""
+            if connection_type == ConnectionType.DATABASE.value:
+                scope = f"{connection.connection_id or connection.name}:"
+            identity = f"{connection_type}:{fmt}:table:{scope}{backend_scope}:{canonical_name}"
     else:
         # Named targets are not globally unique without their backend scope.
         # connection_id is stable for a configured connection; name is the
@@ -125,12 +165,16 @@ def resolve_destination_target(
         else:
             identity = f"{connection_type}:{fmt}:table:{target.casefold()}"
 
+    if require_identity and (identity is None or not (path if addressing == "path" else table_name)):
+        raise ConfigurationError(f"Unqualified destination identity for '{destination.table}' ({fmt})")
+
     return ResolvedDestination(
         table_name=table_name,
-        path=path,
+        path=path if engine is None or addressing == "path" else None,
         format=fmt,
         addressing=addressing,
         identity=identity,
+        storage_path=path,
     )
 
 

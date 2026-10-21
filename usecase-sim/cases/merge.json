@@ -229,7 +229,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "aws_load_delta__merge_upsert",
           "role": "primary"
         }
@@ -260,7 +260,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "aws_load_delta__merge_overwrite",
           "role": "primary"
         }
@@ -291,7 +291,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "aws_load_iceberg__merge_upsert",
           "role": "primary"
         }
@@ -322,7 +322,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "aws_load_iceberg__merge_overwrite",
           "role": "primary"
         }
@@ -353,7 +353,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_delta__merge_upsert",
           "role": "primary"
         }
@@ -384,7 +384,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_delta__merge_overwrite",
           "role": "primary"
         }
@@ -415,7 +415,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_iceberg__merge_upsert",
           "role": "primary"
         }
@@ -452,7 +452,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_iceberg__merge_overwrite",
           "role": "primary"
         }
@@ -483,7 +483,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_delta__merge_overwrite_rbw",
           "role": "primary"
         }
@@ -514,7 +514,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_iceberg__merge_overwrite_rbw",
           "role": "primary"
         }
@@ -545,12 +545,12 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/merge.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "merge-seed",
           "role": "primary"
         },
         {
-          "fixture": "usecase-sim/metadata/file/merge/merge.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "merge-upsert",
           "role": "primary"
         }
@@ -587,7 +587,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "aws_load_delta__merge_upsert_no_watermark",
           "role": "primary"
         }
@@ -618,7 +618,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/aws.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "aws_load_iceberg__merge_upsert_no_watermark",
           "role": "primary"
         }
@@ -649,7 +649,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_delta__merge_upsert_no_watermark",
           "role": "primary"
         }
@@ -680,7 +680,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/local.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "load_iceberg__merge_upsert_no_watermark",
           "role": "primary"
         }
@@ -711,7 +711,7 @@
       "contract": "src/datacoolie/engines/_polars/delta.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/composite_keys.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "merge-composite-keys",
           "role": "primary"
         }
@@ -748,7 +748,7 @@
       "contract": "src/datacoolie/engines/_polars/delta.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/custom_predicate.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "merge-custom-predicate",
           "role": "primary"
         }
@@ -785,7 +785,7 @@
       "contract": "src/datacoolie/engines/_polars/iceberg/operations.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/a9_iceberg_schema_merge.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "a9-iceberg-schema-merge",
           "role": "primary"
         }
@@ -822,7 +822,7 @@
       "contract": "src/datacoolie/engines/_polars/iceberg/operations.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/merge/a9_iceberg_partition_change.json",
+          "fixture": "usecase-sim/metadata/file/merge.json",
           "flow": "a9-iceberg-partition-change",
           "role": "primary"
         }

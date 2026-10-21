@@ -143,19 +143,16 @@ def _native_rows(path):
 
 
 def validate(root=None, profile="postgres"):
+    from runner.metadata_sources import group_document
+
     case = resolve_case_root("read", root)
-    source_doc = json.loads(
-        (USECASE_SIM_DIR / "metadata/file/read/local.json").read_text()
-    )
-    shared = json.loads(
-        (USECASE_SIM_DIR / "metadata/file/shared/local.json").read_text()
-    )
+    source_doc = group_document("read")
     authored = next(
         f for f in source_doc["dataflows"] if f["name"] == f"read_db__{profile}"
     )
     source_name = authored["source"]["connection_name"]
     connection = copy.deepcopy(
-        next(c for c in shared["connections"] if c["name"] == source_name)
+        next(c for c in source_doc["connections"] if c["name"] == source_name)
     )
     connection["configure"]["database_read_engine"] = "native"
     connection["configure"]["schema_hint_type_system"] = "spark"
@@ -165,22 +162,28 @@ def validate(root=None, profile="postgres"):
     connection["configure"]["database_type"] = database_type
     os.environ.setdefault(user_var, user_default)
     os.environ.setdefault(password_var, password_default)
-    runtime_name = f"{authored['name']}-{uuid.uuid4().hex[:12]}"
     table = "a9_" + uuid.uuid4().hex[:16]
     flow = copy.deepcopy(authored)
-    stage = "database_profile_" + table
-    flow.update(name=runtime_name, stage=stage, group_number=1, execution_order=1)
+    runtime_name = authored["name"]
+    stage = authored["stage"]
     flow["transform"] = {"schema_hints": [{"column_name": "id", "data_type": "BIGINT"}]}
     flow["source"]["table"] = table
     flow["destination"]["table"] = "records"
-    destination = {
-        "name": flow["destination"]["connection_name"],
-        "connection_type": "file",
-        "format": "parquet",
-        "configure": {"base_path": case.output.as_posix()},
-    }
+    destination = copy.deepcopy(
+        next(
+            c
+            for c in source_doc["connections"]
+            if c["name"] == flow["destination"]["connection_name"]
+        )
+    )
+    destination.setdefault("configure", {})["base_path"] = case.output.as_posix()
     document = {"connections": [connection, destination], "dataflows": [flow]}
-    case.metadata.write_text(json.dumps(document, indent=2))
+    case.document = document
+    # The flow and both connection identities remain authored.  BoundFileProvider
+    # applies the isolated database/output overrides against the canonical file.
+    case.sources = (
+        str((USECASE_SIM_DIR / "metadata" / "file" / "read.json").resolve()),
+    )
     db = _connection(profile)
     rows = [
         {"id": 1, "value": "first", "modified_at": datetime(2024, 1, 1, 10)},
@@ -213,7 +216,7 @@ def validate(root=None, profile="postgres"):
     for iteration, query in [(1, None), (2, f"SELECT * FROM {table} WHERE id=1")]:
         if query:
             document["dataflows"][0]["source"]["query"] = query
-        case.metadata.write_text(json.dumps(document, indent=2))
+        case.document = document
         evidence = run_driver(case, stage=stage, iteration=iteration)
         assert_successful_flow(evidence, runtime_name)
         assert_exact_rows(_native_rows(case.output / "records"), rows[:1], key="id")
@@ -223,7 +226,7 @@ def validate(root=None, profile="postgres"):
     document["dataflows"][0]["source"]["watermark_columns"] = [
         "MODIFIED_AT" if profile == "oracle" else "modified_at"
     ]
-    case.metadata.write_text(json.dumps(document, indent=2))
+    case.document = document
     initial = run_driver(case, stage=stage, iteration=3)
     assert_successful_flow(initial, runtime_name)
     runs.append(initial)
@@ -298,7 +301,7 @@ def validate(root=None, profile="postgres"):
         raise AssertionError("Invalid column query unexpectedly succeeded")
     finally:
         cursor.close()
-    case.metadata.write_text(json.dumps(document, indent=2))
+    case.document = document
     failed_query = run_driver(case, stage=stage, iteration=6)
     assert {k: failed_query.result[k] for k in ("succeeded", "failed", "skipped")} == {
         "succeeded": 0,

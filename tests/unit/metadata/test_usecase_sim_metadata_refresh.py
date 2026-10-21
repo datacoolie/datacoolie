@@ -468,12 +468,12 @@ def test_obsolete_snapshot_requires_new_backup_without_mutation(database):
 
 
 def test_revised_broad_metadata_reconciles_isolated_sqlite_and_exports(tmp_path):
-    from runner.metadata_composition import load_metadata
+    from runner.metadata_documents import load_metadata
     from verify_metadata import verify_connections, verify_dataflows
     from datacoolie.metadata.file_provider import FileProvider
     from datacoolie.platforms.local_platform import LocalPlatform
 
-    document = load_metadata("metadata/file/workflows/local_use_cases.json", root=SIM)
+    document = load_metadata("scenarios/workflows/local_use_cases.json", root=SIM)
     names = [f["name"] for f in document["dataflows"]]
     assert "api_request__max_pages" not in names and "api_wm__date_fmt" not in names
     setup = _setup()

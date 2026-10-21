@@ -7,7 +7,9 @@ connection string building, and Connection model validation.
 from __future__ import annotations
 
 from urllib.parse import unquote_plus
+from unittest.mock import patch
 
+import polars as pl
 import pytest
 
 from datacoolie.core.constants import DatabaseAuthType
@@ -348,12 +350,11 @@ class TestPolarsReadDatabaseGuards:
             )
 
     def test_valid_table_name_accepted(self) -> None:
-        """schema.table pattern should pass validation (will fail at connectorx, not at guard)."""
+        """A valid identifier reaches the driver and returns its rows."""
         engine = PolarsEngine()
-        # Should NOT raise EngineError for table validation — it will fail
-        # later at connectorx connection, which is expected.
-        with pytest.raises(Exception, match="(?!Invalid table name)"):
-            engine.read_database(
+        rows = pl.DataFrame({"id": [7]})
+        with patch("datacoolie.engines._polars.database.pl.read_database_uri", return_value=rows) as read:
+            result = engine.read_database(
                 table="dbo.orders",
                 options={
                     "database_type": "postgresql",
@@ -362,14 +363,18 @@ class TestPolarsReadDatabaseGuards:
                     "password": "p",
                 },
             )
+        assert result.collect().rows() == [(7,)]
+        read.assert_called_once()
+        assert read.call_args.args[0] == "SELECT * FROM dbo.orders"
 
     def test_query_bypasses_table_validation(self) -> None:
         """When query is provided, table validation should not trigger."""
         engine = PolarsEngine()
-        # Should NOT raise EngineError for table — will fail at connectorx instead
-        with pytest.raises(Exception, match="(?!Invalid table name)"):
-            engine.read_database(
-                query="SELECT * FROM orders",
+        query = "SELECT id FROM orders WHERE amount > 100"
+        rows = pl.DataFrame({"id": [9]})
+        with patch("datacoolie.engines._polars.database.pl.read_database_uri", return_value=rows) as read:
+            result = engine.read_database(
+                query=query,
                 options={
                     "database_type": "postgresql",
                     "host": "localhost",
@@ -377,3 +382,6 @@ class TestPolarsReadDatabaseGuards:
                     "password": "p",
                 },
             )
+        assert result.collect().rows() == [(9,)]
+        read.assert_called_once()
+        assert read.call_args.args[0] == query

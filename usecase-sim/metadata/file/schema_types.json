@@ -1,0 +1,1958 @@
+{
+  "dataflows": [
+    {
+      "name": "a9-schema-merge-schema-append",
+      "stage": "a9_schema_merge_schema_append",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_merge_schema_source",
+        "table": "new_schema"
+      },
+      "destination": {
+        "connection_name": "a9_merge_schema_destination",
+        "table": "events",
+        "load_type": "append",
+        "configure": {
+          "write_options": {
+            "mergeSchema": true
+          }
+        }
+      }
+    },
+    {
+      "name": "aws_schema__date_format",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_date",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__timestamp",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_timestamp",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__decimal",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_decimal",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__numeric_types",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_numeric",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "FLOAT"
+          },
+          {
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__global_hint",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_global",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers merge schema",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_delta__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_read_delta_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "aws_schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_read_delta_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_schema__string_cast",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_string",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "STRING"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__hint_inactive",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_hint_inactive",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "INTEGER",
+            "is_active": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__no_ntz_convert",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_no_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "configure": {
+          "convert_timestamp_ntz": false
+        },
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__skip_hints",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_no_hint",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_skip",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__boolean",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_boolean",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "BOOLEAN"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__bigint",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_bigint",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "BIGINT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_schema__timestamp_ntz",
+      "stage": "aws_transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_schema_ntz",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "timestamp_ntz"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers evolve",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_iceberg__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_read_schema_evolve",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_read_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "aws_schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_read_schema_evolve_fewer",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "datatype_decimal_and_date",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "id",
+            "data_type": "BIGINT"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL(18,2)"
+          },
+          {
+            "column_name": "event_date",
+            "data_type": "DATE"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_decimal",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_csv",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_csv",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_parquet",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_unhinted_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_parquet",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_json",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_json_source",
+        "table": "sample"
+      },
+      "transform": {
+        "select_columns": [
+          "id",
+          "amount",
+          "event_date"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_json",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_unhinted_jsonl",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_jsonl_source",
+        "table": "sample"
+      },
+      "transform": {
+        "select_columns": [
+          "id",
+          "amount",
+          "event_date"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_unhinted_jsonl",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_postgresql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_postgresql_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "pg_row_id",
+          "pg_bool",
+          "pg_int2",
+          "pg_int4",
+          "pg_int8",
+          "pg_real",
+          "pg_double",
+          "pg_numeric",
+          "pg_text",
+          "pg_bytea",
+          "pg_date",
+          "pg_timestamp",
+          "pg_timestamptz"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "pg_row_id",
+            "data_type": "int4"
+          },
+          {
+            "column_name": "pg_bool",
+            "data_type": "bool"
+          },
+          {
+            "column_name": "pg_int2",
+            "data_type": "int2"
+          },
+          {
+            "column_name": "pg_int4",
+            "data_type": "int4"
+          },
+          {
+            "column_name": "pg_int8",
+            "data_type": "int8"
+          },
+          {
+            "column_name": "pg_real",
+            "data_type": "real"
+          },
+          {
+            "column_name": "pg_double",
+            "data_type": "double precision"
+          },
+          {
+            "column_name": "pg_numeric",
+            "data_type": "numeric(18,2)"
+          },
+          {
+            "column_name": "pg_text",
+            "data_type": "text"
+          },
+          {
+            "column_name": "pg_bytea",
+            "data_type": "bytea"
+          },
+          {
+            "column_name": "pg_date",
+            "data_type": "date"
+          },
+          {
+            "column_name": "pg_timestamp",
+            "data_type": "timestamp",
+            "format": "yyyy-MM-dd HH:mm:ss"
+          },
+          {
+            "column_name": "pg_timestamptz",
+            "data_type": "timestamptz",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_postgresql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_mysql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mysql_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "my_row_id",
+          "my_tinyint_unsigned",
+          "my_smallint_unsigned",
+          "my_mediumint",
+          "my_bigint_unsigned",
+          "my_float",
+          "my_double",
+          "my_decimal",
+          "my_text",
+          "my_binary",
+          "my_date",
+          "my_datetime",
+          "my_timestamp",
+          "my_year"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "my_row_id",
+            "data_type": "int"
+          },
+          {
+            "column_name": "my_tinyint_unsigned",
+            "data_type": "tinyint unsigned"
+          },
+          {
+            "column_name": "my_smallint_unsigned",
+            "data_type": "smallint unsigned"
+          },
+          {
+            "column_name": "my_mediumint",
+            "data_type": "mediumint"
+          },
+          {
+            "column_name": "my_bigint_unsigned",
+            "data_type": "bigint unsigned"
+          },
+          {
+            "column_name": "my_float",
+            "data_type": "float"
+          },
+          {
+            "column_name": "my_double",
+            "data_type": "double"
+          },
+          {
+            "column_name": "my_decimal",
+            "data_type": "decimal(18,2)"
+          },
+          {
+            "column_name": "my_text",
+            "data_type": "text"
+          },
+          {
+            "column_name": "my_binary",
+            "data_type": "binary"
+          },
+          {
+            "column_name": "my_date",
+            "data_type": "date"
+          },
+          {
+            "column_name": "my_datetime",
+            "data_type": "datetime",
+            "format": "yyyy-MM-dd HH:mm:ss"
+          },
+          {
+            "column_name": "my_timestamp",
+            "data_type": "timestamp",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          },
+          {
+            "column_name": "my_year",
+            "data_type": "year"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_mysql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_mssql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mssql_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "ms_row_id",
+          "ms_bit",
+          "ms_tinyint",
+          "ms_smallint",
+          "ms_int",
+          "ms_bigint",
+          "ms_decimal",
+          "ms_money",
+          "ms_smallmoney",
+          "ms_real",
+          "ms_float",
+          "ms_string",
+          "ms_binary",
+          "ms_date",
+          "ms_datetime",
+          "ms_datetimeoffset"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "ms_row_id",
+            "data_type": "int"
+          },
+          {
+            "column_name": "ms_bit",
+            "data_type": "bit"
+          },
+          {
+            "column_name": "ms_tinyint",
+            "data_type": "tinyint"
+          },
+          {
+            "column_name": "ms_smallint",
+            "data_type": "smallint"
+          },
+          {
+            "column_name": "ms_int",
+            "data_type": "int"
+          },
+          {
+            "column_name": "ms_bigint",
+            "data_type": "bigint"
+          },
+          {
+            "column_name": "ms_decimal",
+            "data_type": "decimal(18,2)"
+          },
+          {
+            "column_name": "ms_money",
+            "data_type": "money"
+          },
+          {
+            "column_name": "ms_smallmoney",
+            "data_type": "smallmoney"
+          },
+          {
+            "column_name": "ms_real",
+            "data_type": "real"
+          },
+          {
+            "column_name": "ms_float",
+            "data_type": "float"
+          },
+          {
+            "column_name": "ms_string",
+            "data_type": "nvarchar"
+          },
+          {
+            "column_name": "ms_binary",
+            "data_type": "rowversion"
+          },
+          {
+            "column_name": "ms_date",
+            "data_type": "date"
+          },
+          {
+            "column_name": "ms_datetime",
+            "data_type": "datetime2",
+            "format": "yyyy-MM-dd HH:mm:ss"
+          },
+          {
+            "column_name": "ms_datetimeoffset",
+            "data_type": "datetimeoffset",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS XXX"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_mssql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_oracle",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_oracle_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "ora_row_id",
+          "ora_number",
+          "ora_binary_float",
+          "ora_binary_double",
+          "ora_float",
+          "ora_string",
+          "ora_binary",
+          "ora_date",
+          "ora_timestamp",
+          "ora_timestamptz"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "ora_row_id",
+            "data_type": "NUMBER(10,0)"
+          },
+          {
+            "column_name": "ora_number",
+            "data_type": "NUMBER(18,2)"
+          },
+          {
+            "column_name": "ora_binary_float",
+            "data_type": "BINARY_FLOAT"
+          },
+          {
+            "column_name": "ora_binary_double",
+            "data_type": "BINARY_DOUBLE"
+          },
+          {
+            "column_name": "ora_float",
+            "data_type": "FLOAT(24)"
+          },
+          {
+            "column_name": "ora_string",
+            "data_type": "VARCHAR2"
+          },
+          {
+            "column_name": "ora_binary",
+            "data_type": "RAW"
+          },
+          {
+            "column_name": "ora_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd HH:mm:ss"
+          },
+          {
+            "column_name": "ora_timestamp",
+            "data_type": "TIMESTAMP",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          },
+          {
+            "column_name": "ora_timestamptz",
+            "data_type": "TIMESTAMP WITH TIME ZONE",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_oracle",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_sqlite",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_sqlite_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "sqlite_row_id",
+          "sqlite_integer",
+          "sqlite_real",
+          "sqlite_numeric",
+          "sqlite_text",
+          "sqlite_blob",
+          "sqlite_date",
+          "sqlite_datetime",
+          "sqlite_timestamp"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "sqlite_row_id",
+            "data_type": "integer"
+          },
+          {
+            "column_name": "sqlite_integer",
+            "data_type": "integer"
+          },
+          {
+            "column_name": "sqlite_real",
+            "data_type": "real"
+          },
+          {
+            "column_name": "sqlite_numeric",
+            "data_type": "numeric(18,2)"
+          },
+          {
+            "column_name": "sqlite_text",
+            "data_type": "text"
+          },
+          {
+            "column_name": "sqlite_blob",
+            "data_type": "blob"
+          },
+          {
+            "column_name": "sqlite_date",
+            "data_type": "date",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          },
+          {
+            "column_name": "sqlite_datetime",
+            "data_type": "datetime",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          },
+          {
+            "column_name": "sqlite_timestamp",
+            "data_type": "timestamp",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_sqlite",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_matrix_spark_sql",
+      "stage": "datatype_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_spark_source",
+        "table": "matrix"
+      },
+      "transform": {
+        "select_columns": [
+          "spark_row_id",
+          "spark_boolean",
+          "spark_tinyint",
+          "spark_smallint",
+          "spark_int",
+          "spark_bigint",
+          "spark_float",
+          "spark_double",
+          "spark_decimal",
+          "spark_string",
+          "spark_binary",
+          "spark_date",
+          "spark_timestamp",
+          "spark_timestamp_ntz"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "spark_row_id",
+            "data_type": "int"
+          },
+          {
+            "column_name": "spark_boolean",
+            "data_type": "boolean"
+          },
+          {
+            "column_name": "spark_tinyint",
+            "data_type": "tinyint"
+          },
+          {
+            "column_name": "spark_smallint",
+            "data_type": "smallint"
+          },
+          {
+            "column_name": "spark_int",
+            "data_type": "int"
+          },
+          {
+            "column_name": "spark_bigint",
+            "data_type": "bigint"
+          },
+          {
+            "column_name": "spark_float",
+            "data_type": "float"
+          },
+          {
+            "column_name": "spark_double",
+            "data_type": "double"
+          },
+          {
+            "column_name": "spark_decimal",
+            "data_type": "decimal(18,2)"
+          },
+          {
+            "column_name": "spark_string",
+            "data_type": "string"
+          },
+          {
+            "column_name": "spark_binary",
+            "data_type": "binary"
+          },
+          {
+            "column_name": "spark_date",
+            "data_type": "date"
+          },
+          {
+            "column_name": "spark_timestamp",
+            "data_type": "timestamp",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          },
+          {
+            "column_name": "spark_timestamp_ntz",
+            "data_type": "timestamp_ntz",
+            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_matrix_spark_sql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_postgresql",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_postgresql_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": [
+          "id",
+          "amount",
+          "event_date",
+          "active",
+          "label"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_postgresql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_mysql",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mysql_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": [
+          "id",
+          "amount",
+          "event_date",
+          "label"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_mysql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_sqlite",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_sqlite_db_source",
+        "table": "__run_owned_table__",
+        "query": "SELECT label FROM __run_owned_table__"
+      },
+      "transform": {
+        "select_columns": [
+          "label"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_sqlite",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_mssql",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_mssql_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": [
+          "label"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_mssql",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "datatype_database_oracle",
+      "stage": "datatype_database_qualification",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "datatype_qualification_oracle_db_source",
+        "table": "__run_owned_table__"
+      },
+      "transform": {
+        "select_columns": [
+          "label"
+        ]
+      },
+      "destination": {
+        "connection_name": "datatype_qualification_destination",
+        "table": "datatype_database_oracle",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__date_format",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_date",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__timestamp",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_timestamp",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__decimal",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_decimal",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__numeric_types",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "FLOAT"
+          },
+          {
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_numeric",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__global_hint",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_global",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_delta__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_delta__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers merge schema",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "read_delta__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_read_delta_schema_evolve",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "read_delta__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "schema_evolve_delta",
+      "group_number": 2,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_read_delta_schema_evolve_fewer",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__string_cast",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "STRING"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_string",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__hint_inactive",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "INTEGER",
+            "is_active": false
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_hint_inactive",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__no_ntz_convert",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "TIMESTAMP"
+          }
+        ],
+        "configure": {
+          "convert_timestamp_ntz": false
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_no_ntz",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__skip_hints",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_no_hint",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_skip",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__boolean",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "quantity",
+            "data_type": "BOOLEAN"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_boolean",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__bigint",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_id",
+            "data_type": "BIGINT"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_bigint",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema__timestamp_ntz",
+      "stage": "transform_schema",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "modified_at",
+            "data_type": "timestamp_ntz"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_schema_ntz",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_iceberg__schema_evolve_base",
+      "description": "Schema evolution test: initial write with base columns only",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 10,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_iceberg__schema_evolve_new_cols",
+      "description": "Schema evolution test: append with additional columns triggers evolve",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 11,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "additional_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "amount_category",
+            "expression": "CASE WHEN CAST(amount AS DOUBLE) > 100 THEN 'high' ELSE 'low' END"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "read_iceberg__schema_evolve",
+      "description": "Schema evolution test: read back the evolved table",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 12,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_read_schema_evolve",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: append with fewer columns than dest (missing order_year, amount_category filled with null)",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 13,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_schema_evolve",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "read_iceberg__schema_evolve_fewer_cols",
+      "description": "Schema evolution test: read back after fewer-column append to verify nulls",
+      "stage": "schema_evolve_iceberg",
+      "group_number": 3,
+      "execution_order": 14,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_schema_evolve"
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_read_schema_evolve_fewer",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "ntz-timezone-conversion",
+      "stage": "ntz_timezone",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "ntz_timezone_source",
+        "table": "rows"
+      },
+      "transform": {
+        "configure": {
+          "convert_timestamp_ntz": true,
+          "timestamp_timezone": "Asia/Ho_Chi_Minh"
+        }
+      },
+      "destination": {
+        "connection_name": "ntz_timezone_destination",
+        "table": "timestamps",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "schema-evolution-seed",
+      "stage": "schema_seed",
+      "source": {
+        "connection_name": "schema_evolution_source",
+        "table": "old_schema"
+      },
+      "destination": {
+        "connection_name": "schema_evolution_destination",
+        "table": "events",
+        "load_type": "overwrite"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "event_date",
+            "data_type": "DATE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema-evolution-new-columns",
+      "stage": "schema_new",
+      "source": {
+        "connection_name": "schema_evolution_source",
+        "table": "new_schema"
+      },
+      "destination": {
+        "connection_name": "schema_evolution_destination",
+        "table": "events",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "event_date",
+            "data_type": "DATE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schema-evolution-fewer-columns",
+      "stage": "schema_fewer",
+      "source": {
+        "connection_name": "schema_evolution_source",
+        "table": "fewer_schema"
+      },
+      "destination": {
+        "connection_name": "schema_evolution_destination",
+        "table": "events",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "event_date",
+            "data_type": "DATE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "transform_value__before_schema_cast",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "transform_features_source",
+        "table": "sample"
+      },
+      "transform": {
+        "value_rules": [
+          {
+            "operation": "regex_replace",
+            "columns": [
+              "formatted_phone"
+            ],
+            "pattern": "[^0-9]",
+            "replacement": ""
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "formatted_phone",
+            "data_type": "BIGINT"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_value_before_cast",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_schema__cast",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "transform_features_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "customer_id",
+            "data_type": "STRING"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_schema_cast",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "transform_schema__missing_warning",
+      "stage": "transform_features",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "transform_features_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "missing_schema_one",
+            "data_type": "STRING"
+          },
+          {
+            "column_name": "missing_schema_two",
+            "data_type": "DATE"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "transform_features_destination",
+        "table": "tf_schema_missing_warning",
+        "load_type": "overwrite"
+      }
+    }
+  ]
+}

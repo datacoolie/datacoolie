@@ -75,7 +75,11 @@ vault = "mypkg.resolvers:VaultResolver"
 ```
 
 Install that package in the same Python environment as the DataCoolie Driver.
-The resolver registry discovers entry points lazily. You can inspect the
+The resolver registry discovers entry points lazily. A selected resolver that
+fails to load, declares an invalid class, or fails construction stops preparation
+before source or destination work. Native fallback requires a genuinely absent
+prefix; it does not hide a broken selected plugin. If discovery of the group is
+incomplete, unresolved names also fail explicitly. You can inspect the
 runtime registry while diagnosing an installation:
 
 ```python

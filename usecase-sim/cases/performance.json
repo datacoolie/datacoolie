@@ -100,7 +100,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_parquet__10k",
           "role": "primary"
         }
@@ -130,7 +130,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_parquet__50k",
           "role": "primary"
         }
@@ -160,7 +160,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_parquet__100k",
           "role": "primary"
         }
@@ -190,7 +190,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_parquet__500k",
           "role": "primary"
         }
@@ -220,7 +220,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_parquet__1m",
           "role": "primary"
         }
@@ -250,7 +250,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_delta__10k",
           "role": "primary"
         }
@@ -280,7 +280,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_delta__50k",
           "role": "primary"
         }
@@ -310,7 +310,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_delta__100k",
           "role": "primary"
         }
@@ -340,7 +340,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_delta__500k",
           "role": "primary"
         }
@@ -370,7 +370,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_delta__1m",
           "role": "primary"
         }
@@ -400,7 +400,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_iceberg__10k",
           "role": "primary"
         }
@@ -430,7 +430,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_iceberg__50k",
           "role": "primary"
         }
@@ -460,7 +460,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_iceberg__100k",
           "role": "primary"
         }
@@ -490,7 +490,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_iceberg__500k",
           "role": "primary"
         }
@@ -520,7 +520,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_jsonl_iceberg__1m",
           "role": "primary"
         }
@@ -550,7 +550,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__10k",
           "role": "primary"
         }
@@ -580,7 +580,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__50k",
           "role": "primary"
         }
@@ -610,7 +610,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__100k",
           "role": "primary"
         }
@@ -640,7 +640,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__500k",
           "role": "primary"
         }
@@ -670,7 +670,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__1m",
           "role": "primary"
         }
@@ -700,7 +700,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__5m",
           "role": "primary"
         }
@@ -730,7 +730,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__10m",
           "role": "primary"
         }
@@ -760,7 +760,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_parquet__50m",
           "role": "primary"
         }
@@ -790,7 +790,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__10k",
           "role": "primary"
         }
@@ -820,7 +820,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__50k",
           "role": "primary"
         }
@@ -850,7 +850,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__100k",
           "role": "primary"
         }
@@ -880,7 +880,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__500k",
           "role": "primary"
         }
@@ -910,7 +910,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__1m",
           "role": "primary"
         }
@@ -940,7 +940,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__5m",
           "role": "primary"
         }
@@ -970,7 +970,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__10m",
           "role": "primary"
         }
@@ -1000,7 +1000,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_delta__50m",
           "role": "primary"
         }
@@ -1030,7 +1030,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__10k",
           "role": "primary"
         }
@@ -1060,7 +1060,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__50k",
           "role": "primary"
         }
@@ -1090,7 +1090,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__100k",
           "role": "primary"
         }
@@ -1120,7 +1120,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__500k",
           "role": "primary"
         }
@@ -1150,7 +1150,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__1m",
           "role": "primary"
         }
@@ -1180,7 +1180,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__5m",
           "role": "primary"
         }
@@ -1210,7 +1210,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__10m",
           "role": "primary"
         }
@@ -1240,7 +1240,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_parquet_iceberg__50m",
           "role": "primary"
         }
@@ -1270,7 +1270,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__10k",
           "role": "primary"
         }
@@ -1300,7 +1300,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__50k",
           "role": "primary"
         }
@@ -1330,7 +1330,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__100k",
           "role": "primary"
         }
@@ -1360,7 +1360,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__500k",
           "role": "primary"
         }
@@ -1390,7 +1390,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__1m",
           "role": "primary"
         }
@@ -1420,7 +1420,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__5m",
           "role": "primary"
         }
@@ -1450,7 +1450,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__10m",
           "role": "primary"
         }
@@ -1480,7 +1480,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_delta_delta__50m",
           "role": "primary"
         }
@@ -1510,7 +1510,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__10k",
           "role": "primary"
         }
@@ -1540,7 +1540,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__50k",
           "role": "primary"
         }
@@ -1570,7 +1570,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__100k",
           "role": "primary"
         }
@@ -1600,7 +1600,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__500k",
           "role": "primary"
         }
@@ -1630,7 +1630,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__1m",
           "role": "primary"
         }
@@ -1660,7 +1660,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__5m",
           "role": "primary"
         }
@@ -1690,7 +1690,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__10m",
           "role": "primary"
         }
@@ -1720,7 +1720,7 @@
       "contract": "usecase-sim/scripts/features/performance/generate_perf_data.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/performance/perf_test.json",
+          "fixture": "usecase-sim/metadata/file/performance.json",
           "flow": "perf_iceberg_iceberg__50m",
           "role": "primary"
         }

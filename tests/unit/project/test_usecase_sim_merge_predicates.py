@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -57,8 +56,8 @@ def _flow_evidence(
 
 
 def test_composite_fixture_declares_two_business_keys() -> None:
-    path = PRODUCT_ROOT / "usecase-sim/metadata/file/merge/composite_keys.json"
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+    payload = recipe_document("merge", "composite_keys")
     flow = payload["dataflows"][0]
     assert len(payload["dataflows"]) == 1
     assert flow["name"] == "merge-composite-keys"
@@ -67,8 +66,8 @@ def test_composite_fixture_declares_two_business_keys() -> None:
 
 
 def test_custom_predicate_fixture_declares_aliases_and_scope_match() -> None:
-    path = PRODUCT_ROOT / "usecase-sim/metadata/file/merge/custom_predicate.json"
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+    payload = recipe_document("merge", "custom_predicate")
     flow = payload["dataflows"][0]
     options = flow["destination"]["configure"]["merge_options"]
     assert len(payload["dataflows"]) == 1

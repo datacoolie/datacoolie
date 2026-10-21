@@ -105,7 +105,7 @@ class AwsDeltaCatalogCoordinator:
         self._engine = engine
 
     def _resolve_path(self, dataflow: DataFlow) -> Optional[str]:
-        return resolve_destination_target(dataflow.destination).path
+        return resolve_destination_target(dataflow.destination, engine=self._engine).storage_path
 
     def read_delta_hive_schema(
         self,

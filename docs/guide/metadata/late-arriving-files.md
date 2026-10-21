@@ -7,8 +7,8 @@ description: Combine date-folder discovery and file modification watermarks with
 
 Use this pattern for files stored under dated folders when a delivery may
 arrive later than the folder date. Configure the ordinary
-[file source](source-patterns.md#file-source-csv-parquet-json-jsonl-avro-excel)
-and [look-back](source-patterns.md#incremental-windows-and-look-back) first. The
+[file source](source-files.md#file-source-csv-parquet-json-jsonl-avro-excel)
+and [look-back](source-incremental.md#incremental-windows-and-look-back) first. The
 [Connection](../../reference/metadata-schema.md#connection) and
 [Source](../../reference/metadata-schema.md#source) reference sections give
 exact field shapes.

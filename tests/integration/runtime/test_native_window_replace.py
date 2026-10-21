@@ -28,6 +28,60 @@ from datacoolie.watermark.base import BaseWatermarkManager
 pytestmark = [pytest.mark.integration, pytest.mark.runtime_qualification]
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_driver_mixed_case_parquet_lineage_replaces_only_userid(tmp_path, reverse):
+    """Distinct source spellings survive defaults and native Delta replacement."""
+    pl = pytest.importorskip("polars")
+    pytest.importorskip("deltalake")
+    from datacoolie.engines.polars_engine import PolarsEngine
+    from datacoolie.core.models.transform import Transform
+
+    input_root = tmp_path / "input"
+    (input_root / "events").mkdir(parents=True)
+    frame = pl.DataFrame({"UserID": [999], "userid": [5], "value": ["new"]})
+    if reverse:
+        frame = frame.select("userid", "UserID", "value")
+    frame.write_parquet(input_root / "events/part.parquet")
+    target = tmp_path / "output/events"
+    engine = PolarsEngine()
+    _write_polars_delta(engine, target, pl.DataFrame({
+        "user_id": [101, 102, 103], "userid": [0, 3, 9],
+        "value": ["before", "stale", "after"],
+    }))
+    flow = DataFlow(name="mixed-case", source=Source(
+        connection=Connection(name="source", connection_type="file", format="parquet",
+                              configure={"base_path": str(input_root)}),
+        table="events", watermark_columns=["userid"], configure={"backward_days": 1},
+    ), destination=Destination(
+        connection=Connection(name="target", connection_type="lakehouse", format="delta",
+                              configure={"base_path": str(target.parent)}),
+        table="events", load_type="merge_overwrite", configure={"replace_by_watermark": True},
+    ))
+    manager = _MemoryWatermarkManager({"userid": 1})
+    with DataCoolieDriver(engine=PolarsEngine(), platform=LocalPlatform(), watermark_manager=manager,
+        state_base_path=str(tmp_path / "state"), log_base_path=str(tmp_path / "logs"),
+        config=DataCoolieRunConfig(job_id="mixed-case", retry_count=0, retry_delay=0)) as driver:
+        result = driver.run(dataflows=[flow], column_name_mode="snake")
+        assert (result.succeeded, result.failed) == (1, 0), result.errors
+        expected = [
+            {"user_id": 101, "userid": 0, "value": "before"},
+            {"user_id": 999, "userid": 5, "value": "new"},
+            {"user_id": 103, "userid": 9, "value": "after"},
+        ]
+        assert engine.read_delta(str(target)).collect().select("user_id", "userid", "value").sort("userid").to_dicts() == expected
+        assert manager.current == {"userid": 5}
+        assert manager.saved == [{"userid": 5}]
+        before_log = _delta_log_entries(target)
+        flow.transform = Transform(select_columns=["value"])
+        failed = driver.run_replay(flow, ReplayConfig(start=1, end=10, chunk_column="userid",
+                                                    save_watermark=True), column_name_mode="snake")
+        assert (failed.succeeded, failed.failed) == (0, 1), failed.errors
+        assert engine.read_delta(str(target)).collect().select("user_id", "userid", "value").sort("userid").to_dicts() == expected
+        assert _delta_log_entries(target) == before_log
+        assert manager.current == {"userid": 5}
+        assert manager.saved == [{"userid": 5}]
+
+
 def test_polars_delta_replace_window_preserves_out_of_window_rows(
     tmp_path: Path,
 ) -> None:

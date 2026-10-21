@@ -62,12 +62,7 @@ snapshot and selection across a shard set, as required by the public orchestrati
 
 ## Outcome-scoped verification
 
-For author/build-only requests, validate the metadata, runner, and artifact without launching a
-workload. For an explicitly requested safe runtime check, derive expected selected IDs, output, and
-state from the matching public recipe/project criteria; inspect result status plus independent
-output/state evidence. Treat legitimate empty shards, empty incremental reads, and explicit skips
-according to the project contract, while reporting inactive/missing required flows as unmet gates.
-Always report performed checks, skipped host/dependency checks, and unresolved questions.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). Verify selected IDs and the whole shard barrier. Empty shards or incremental reads follow project criteria; inactive or missing required flows remain unmet gates.
 
 ## Evidence to verify when the runtime changes
 

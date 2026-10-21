@@ -82,26 +82,22 @@ def map_watermark_window(
             "Cannot resolve replacement watermark columns after transformation"
         )
 
-    final = {column.casefold(): column for column in output_columns}
     mapped: dict[str, tuple[Any, Any]] = {}
-    mapped_keys: set[str] = set()
     for source, bounds in window.items():
         output = column_mapping.resolve(source)
         if output is None:
             raise TransformError(
                 f"Replacement watermark column {source!r} was removed or is unmapped"
             )
-        output = final.get(output.casefold())
+        output = ColumnMapping.match_name(output, output_columns)
         if output is None:
             raise TransformError(
                 f"Replacement watermark column {source!r} is absent from transformed output"
             )
-        output_key = output.casefold()
-        if output_key in mapped_keys:
+        if output in mapped:
             raise TransformError(
                 f"Replacement watermark columns collide on transformed output {output!r}"
             )
-        mapped_keys.add(output_key)
         mapped[output] = bounds
 
     return WindowSpec(

@@ -14,6 +14,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.metadata_sources import recipe_document
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -23,7 +24,6 @@ import pyarrow.parquet as pq
 
 ROOT = SIM_ROOT
 DEFAULT_RUN_ROOT = ROOT / ".runtime" / "data" / "datatype_qualification"
-CANONICAL_METADATA = ROOT / "metadata" / "file" / "schema_types" / "datatype_qualification.json"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -248,7 +248,7 @@ def main() -> None:
     input_root = run_root / "input"
     output_root = run_root / "output"
     metadata_root = run_root / "metadata"
-    canonical = json.loads(CANONICAL_METADATA.read_text(encoding="utf-8"))
+    canonical = recipe_document("schema_types", "datatype_qualification")
     formats = tuple(item.strip().lower() for item in args.formats.split(",") if item.strip())
     unsupported = set(formats) - {"parquet", "delta", "iceberg"}
     if not formats or unsupported:

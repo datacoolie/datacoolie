@@ -148,7 +148,7 @@ class TestEnsureList:
 
     def test_malformed_json_array_treated_as_csv(self) -> None:
         result = ensure_list("[1, 2")
-        assert len(result) > 0  # Should treat as CSV fallthrough
+        assert result == ["[1", "2"]
 
     def test_empty_string(self) -> None:
         assert ensure_list("") == []
@@ -156,20 +156,8 @@ class TestEnsureList:
     def test_json_object_not_array(self) -> None:
         # JSON parsing succeeds but returns an object, falls back to CSV
         result = ensure_list('{"a": 1}')
-        assert isinstance(result, list)
-        # Falls through to CSV parsing since it's not a list
+        assert result == ['{"a": 1}']
 
-    def test_json_array_parse_returns_non_list(self) -> None:
-        """Force test for theoretical case where json.loads returns non-list."""
-        import json
-        from unittest.mock import patch
-        
-        with patch('json.loads') as mock_loads:
-            # Make json.loads return a non-list for the array string
-            mock_loads.return_value = {"not": "list"}
-            result = ensure_list("[1, 2, 3]")
-            # Should fall back to CSV parsing
-            assert isinstance(result, list)
 
 
 class TestConvertStringToList:

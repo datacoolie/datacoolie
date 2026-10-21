@@ -39,14 +39,11 @@ pytestmark = [
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[3]
-CANONICAL_METADATA = (
-    PRODUCT_ROOT
-    / "usecase-sim"
-    / "metadata"
-    / "file"
-    / "schema_types"
-    / "datatype_qualification.json"
-)
+SIM_ROOT = PRODUCT_ROOT / "usecase-sim"
+if str(SIM_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIM_ROOT))
+from runner.metadata_sources import recipe_document  # noqa: E402
+
 EXPECTED_CONTRACT = json.loads(
     (
         PRODUCT_ROOT
@@ -113,7 +110,7 @@ def _metadata_for_engine(
 ) -> tuple[Path, str]:
     """Address canonical metadata without changing its semantic definition."""
 
-    metadata = json.loads(CANONICAL_METADATA.read_text(encoding="utf-8"))
+    metadata = recipe_document("schema_types", "datatype_qualification")
     run_relative = run_root.relative_to(PRODUCT_ROOT).as_posix()
     source_url = DEFAULT_POLARS_URL if engine == "polars" else DEFAULT_SPARK_URL
     for connection in metadata["connections"]:

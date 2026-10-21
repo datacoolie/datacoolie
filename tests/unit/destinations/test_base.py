@@ -243,16 +243,16 @@ class TestBaseDestinationWriter:
         assert info.status == DataFlowStatus.SUCCEEDED.value
         assert info.rows_written is None
 
-    def test_append_preserves_operation_proven_zero_metrics(self) -> None:
+    def test_append_preserves_excluded_metrics_as_null(self) -> None:
         writer = ConcreteWriter(NoHistoryEngine())
         df = _make_dataflow(load_type="append")
         info = writer.write({"data": 1}, df)
 
         assert info.rows_written is None
-        assert info.rows_updated == 0
-        assert info.rows_deleted == 0
-        assert info.files_removed == 0
-        assert info.bytes_removed == 0
+        assert info.rows_updated is None
+        assert info.rows_deleted is None
+        assert info.files_removed is None
+        assert info.bytes_removed is None
 
     def test_end_time_capture_failure_cannot_repeat_acknowledged_write(self) -> None:
         from datetime import datetime, timezone
@@ -348,10 +348,10 @@ class TestMaintenanceOperations:
             "bytes_added",
             "bytes_removed",
         ):
-            assert getattr(info, name) == 0
-        assert info.bytes_saved == 0
+            assert getattr(info, name) is None
+        assert info.bytes_saved is None
 
-    def test_run_maintenance_all_operations_disabled_are_known_zero(
+    def test_run_maintenance_all_operations_disabled_are_excluded(
         self, engine: MockEngine
     ) -> None:
         engine.set_table_exists(True)
@@ -374,8 +374,8 @@ class TestMaintenanceOperations:
             "bytes_added",
             "bytes_removed",
         ):
-            assert getattr(info, name) == 0
-        assert info.bytes_saved == 0
+            assert getattr(info, name) is None
+        assert info.bytes_saved is None
 
     def test_run_maintenance_no_path_uses_table_name(self, engine: MockEngine) -> None:
         """When no path is set, maintenance routes to _by_name methods using full_table_name."""
@@ -418,7 +418,7 @@ class TestMaintenanceOperations:
         info = writer.run_maintenance(dataflow)
         assert writer.get_runtime_info() is info
         assert info.status == DataFlowStatus.FAILED.value
-        assert info.message == "Destination path or table name is required"
+        assert "storage path is required" in info.message
 
     def test_run_maintenance_operational_failure_updates_runtime_info(
         self,
@@ -478,7 +478,7 @@ class TestMaintenanceOperations:
         df = _make_dataflow()
         info = writer.run_maintenance(df)
         assert info.status == DataFlowStatus.SUCCEEDED.value
-        assert info.rows_written == 0
+        assert info.rows_written is None
         assert info.files_added is None
         assert info.bytes_saved is None
 
@@ -499,7 +499,7 @@ class TestMaintenanceOperations:
             info = writer.run_maintenance(_make_dataflow())
 
         assert info.status == DataFlowStatus.SUCCEEDED.value
-        assert info.rows_written == 0
+        assert info.rows_written is None
 
     def test_run_maintenance_preserves_sparse_and_known_zero_metrics(
         self, engine: MockEngine
@@ -518,12 +518,38 @@ class TestMaintenanceOperations:
             _make_dataflow(), do_cleanup=False
         )
 
-        assert info.rows_written == 0
+        assert info.rows_written is None
         assert info.files_added == 0
         assert info.files_removed is None
         assert info.bytes_added is None
         assert info.bytes_removed is None
         assert info.bytes_saved is None
+
+    def test_run_maintenance_keeps_compact_measurements_when_cleanup_excludes_additions(
+        self, engine: MockEngine
+    ) -> None:
+        class MixedMaintenanceWriter(ConcreteWriter):
+            def _parse_maintenance_metrics(self, history):
+                return {
+                    "compact": {
+                        "files_added": 3,
+                        "files_removed": 2,
+                        "bytes_added": 300,
+                        "bytes_removed": 200,
+                    },
+                    "cleanup": {
+                        "files_removed": 1,
+                        "bytes_removed": 100,
+                    },
+                }
+
+        engine.set_table_exists(True)
+        info = MixedMaintenanceWriter(engine).run_maintenance(_make_dataflow())
+
+        assert info.files_added == 3
+        assert info.files_removed == 3
+        assert info.bytes_added == 300
+        assert info.bytes_removed == 300
 
     def test_run_maintenance_metrics_match_second_entry_and_unmatched_key(self, engine: MockEngine) -> None:
         class LoopCoverageWriter(ConcreteWriter):

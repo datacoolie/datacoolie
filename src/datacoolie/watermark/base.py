@@ -46,17 +46,8 @@ class WatermarkSerializer:
     """
 
     @staticmethod
-    def serialize(watermark: Dict[str, Any]) -> str:
-        """Convert a watermark dict to a JSON string.
-
-        ``datetime`` values are encoded with the ``__datetime__`` pattern.
-
-        Args:
-            watermark: Watermark key-value pairs.
-
-        Returns:
-            JSON string.
-        """
+    def _validate_watermark(watermark: Dict[str, Any]) -> None:
+        """Validate Python values shared by encoding and restored checkpoints."""
         if not isinstance(watermark, dict):
             raise TypeError("Watermark must be a dict")
 
@@ -73,6 +64,8 @@ class WatermarkSerializer:
                 raise TypeError(
                     f"Watermark value at {path or '<root>'} must be finite"
                 )
+            if isinstance(value, Decimal) and not value.is_finite():
+                raise TypeError("Watermark Decimal values must be finite")
             if isinstance(value, (tuple, set, frozenset)):
                 raise TypeError(
                     f"Unsupported watermark container at {path or '<root>'}: "
@@ -111,6 +104,20 @@ class WatermarkSerializer:
 
         _validate(watermark, "", 0)
 
+    @staticmethod
+    def serialize(watermark: Dict[str, Any]) -> str:
+        """Convert a watermark dict to a JSON string.
+
+        ``datetime`` values are encoded with the ``__datetime__`` pattern.
+
+        Args:
+            watermark: Watermark key-value pairs.
+
+        Returns:
+            JSON string.
+        """
+        WatermarkSerializer._validate_watermark(watermark)
+
         def _encode(obj: Any) -> Any:
             if isinstance(obj, datetime):  # must precede date — datetime subclasses date
                 return {DATETIME_PATTERN: obj.isoformat()}
@@ -119,8 +126,6 @@ class WatermarkSerializer:
             if isinstance(obj, time):
                 return {TIME_PATTERN: obj.isoformat()}
             if isinstance(obj, Decimal):
-                if not obj.is_finite():
-                    raise TypeError("Watermark Decimal values must be finite")
                 return {DECIMAL_PATTERN: str(obj)}
             if isinstance(obj, bytes):
                 return {BINARY_PATTERN: base64.b64encode(obj).decode("ascii")}
@@ -161,7 +166,12 @@ class WatermarkSerializer:
         if not isinstance(raw, dict):
             raise WatermarkError("Watermark JSON must contain an object")
 
-        return WatermarkSerializer._restore_datetimes(raw)
+        restored = WatermarkSerializer._restore_datetimes(raw)
+        try:
+            WatermarkSerializer._validate_watermark(restored)
+        except TypeError as exc:
+            raise WatermarkError(f"Invalid watermark value: {exc}") from exc
+        return restored
 
     @staticmethod
     def _restore_datetimes(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -212,7 +222,10 @@ class WatermarkSerializer:
                         ) from None
                 if DECIMAL_PATTERN in value:
                     try:
-                        decimal = Decimal(value[DECIMAL_PATTERN])
+                        encoded = value[DECIMAL_PATTERN]
+                        if not isinstance(encoded, str):
+                            raise TypeError
+                        decimal = Decimal(encoded)
                     except (InvalidOperation, TypeError, ValueError):
                         raise WatermarkError(
                             f"Invalid decimal watermark value for {key!r}"

@@ -87,14 +87,16 @@ Format-aware methods take a `fmt` string (`"delta"`, `"iceberg"`, `"parquet"`,
 
 ```python
 engine.read_table("`cat`.`db`.`sales`.`orders`", fmt="iceberg")
-engine.merge_to_table(df, table, merge_keys=["id"], fmt="delta", options={"overwriteSchema": "true"})
+engine.merge_to_table(df, table, merge_keys=["id"], fmt="delta")
 engine.table_exists_by_name(table, fmt="iceberg")
 ```
 
 Rules:
 
-- `fmt` defaults to `"delta"` where it would otherwise be required — legacy code
-  that predates Iceberg keeps working.
+- `read_table`, `table_exists_by_name`, and `merge_overwrite_to_table` default
+  `fmt` to `"delta"`. `merge_to_table` requires an explicit `fmt`; write
+  methods also require it. Check the [engine API](../api/engines.md) for
+  each method's signature when writing a plugin or migrating a caller.
 - `merge_to_table` / `read_table` / `table_exists_by_name` all accept `fmt`.
 - `table_exists_by_name` uses **keyword-only** `fmt` (`*, fmt="delta"`).
 - Engines raise `EngineError` for unsupported `fmt` values rather than silently
@@ -236,10 +238,15 @@ attached to the engine or pass one instance to both constructors. See
 
 ## Case-insensitive column resolution
 
-`BaseEngine._resolve_column_name` and `_resolve_column_names` do a
+`BaseEngine.resolve_column_name` and `resolve_column_names` do a
 case-insensitive lookup against an actual DataFrame schema. Most transformers
 use these helpers so users can write `amount` in metadata even when Spark
-inferred `AMOUNT`.
+inferred `AMOUNT`. Exact spelling wins; otherwise `lower()` comparison returns
+the first match in the supplied schema order, even when several spellings match.
+A missing name raises `EngineError`. The plural helper preserves requested order
+and duplicates and dispatches to the concrete BaseEngine singular helper.
+Subclasses inherit both concrete helpers without a new abstract requirement.
+ColumnMapping retains its separate ambiguity checks.
 
 ## Related
 

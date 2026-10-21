@@ -181,6 +181,7 @@ plugins:
         - docs/scripts/gen_plugin_table.py
         - docs/scripts/gen_metadata_schema.py
         - docs/scripts/gen_runtime_configuration.py
+        - docs/scripts/gen_dependency_reference.py
         - docs/scripts/gen_examples.py
   - section-index
   - mkdocstrings:
@@ -208,7 +209,11 @@ nav:
       - introduction/index.md
       - Choose the framework: introduction/choose-framework.md
       - AI-assisted workflow: introduction/ai-skills.md
-      - Studio: studio/index.md
+      - Studio:
+          - Overview: studio/index.md
+          - Setup: studio/setup.md
+          - Interface tour: studio/tour.md
+          - Monitoring: studio/monitoring.md
   - User guide:
       - Overview: guide/index.md
       - Getting started:
@@ -227,6 +232,22 @@ nav:
                   - Source: guide/metadata/source-patterns.md
                   - Transform: guide/metadata/transform-patterns.md
                   - Destination: guide/metadata/destination-and-load-patterns.md
+                  - Source recipes:
+                      - Files: guide/metadata/source-files.md
+                      - Lakehouse: guide/metadata/source-lakehouse.md
+                      - Database and SQL: guide/metadata/source-database.md
+                      - REST API: guide/metadata/source-api.md
+                      - Python functions: guide/metadata/source-functions.md
+                      - Incremental reads: guide/metadata/source-incremental.md
+                      - Read-time filters: guide/metadata/source-filtering.md
+                  - Transform recipes:
+                      - Value normalization: guide/metadata/transform-values.md
+                      - Schema conversion: guide/metadata/transform-schema.md
+                      - Hashes and deduplication: guide/metadata/transform-keys.md
+                      - Computed columns and filters: guide/metadata/transform-expressions.md
+                      - System columns and partitions: guide/metadata/transform-layout.md
+                      - Data masking: guide/metadata/transform-masking.md
+                      - Selection and renaming: guide/metadata/transform-projection.md
               - Datatypes and schema hints: guide/metadata/data-types.md
           - Advanced:
               - Replace a complete watermark window: guide/metadata/watermark-window-replacement.md
@@ -296,6 +317,7 @@ nav:
           - Secrets: reference/concepts/secrets.md
       - Metadata reference: reference/metadata-schema.md
       - Runtime configuration: reference/runtime-configuration.md
+      - Dependency profiles: reference/dependencies.md
       - Plugin entry points: reference/plugin-entry-points.md
       - Environment variables: reference/environment-variables.md
       - API:

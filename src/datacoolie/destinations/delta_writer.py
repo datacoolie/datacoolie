@@ -45,7 +45,7 @@ class DeltaWriter(BaseDestinationWriter[DF]):
     def _resolve_handle(
         self, dataflow: DataFlow
     ) -> tuple[Optional[str], Optional[str]]:
-        target = resolve_destination_target(dataflow.destination)
+        target = resolve_destination_target(dataflow.destination, engine=self._engine)
         return target.table_name, target.path
 
     def _capture_aws_state(self, dataflow: DataFlow) -> Optional[AwsDeltaState]:
@@ -248,20 +248,6 @@ class DeltaWriter(BaseDestinationWriter[DF]):
                     ),
                 },
             )
-            # Compaction and cleanup cannot change logical row counts. Cleanup
-            # cannot add physical files or bytes, but its removals remain
-            # unknown unless history measures them.
-            metrics.update(
-                {
-                    "rows_written": 0,
-                    "rows_inserted": 0,
-                    "rows_updated": 0,
-                    "rows_deleted": 0,
-                }
-            )
-            if key == MaintenanceType.CLEANUP.value:
-                metrics["files_added"] = 0
-                metrics["bytes_added"] = 0
             result[key] = metrics
         return result
 

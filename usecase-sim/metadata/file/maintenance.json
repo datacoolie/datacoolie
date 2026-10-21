@@ -1,0 +1,56 @@
+{
+  "dataflows": [
+    {
+      "name": "iceberg-rest-maintenance",
+      "stage": "iceberg_rest_maintenance",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_iceberg_dest",
+        "table": "Orders",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "maintenance-eligible",
+      "stage": "maintenance_eligible",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_destination",
+        "table": "eligible",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "maintenance-protected",
+      "stage": "maintenance_protected",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_destination",
+        "table": "protected",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "maintenance-missing",
+      "stage": "maintenance_missing",
+      "source": {
+        "connection_name": "maintenance_source",
+        "table": "noop"
+      },
+      "destination": {
+        "connection_name": "maintenance_destination",
+        "table": "missing",
+        "load_type": "append"
+      }
+    }
+  ]
+}

@@ -79,9 +79,4 @@ them in handoff evidence rather than creating a Skill-owned layout.
 
 ## Agent handoff
 
-Report the selected schema URL/version, exact files changed, `dc validate --format json` result,
-SQL roots, overlay/provider assumptions, and the requested outcome scope. For a requested safe
-runtime check, derive expected selection/output/state from the matching public recipe/project
-criteria and verify independently, including legitimate empty/skipped outcomes. If a schema,
-resource, or public sample is unavailable, report the blocker and do not fall forward to a newer
-schema or silently treat a missing `.sql` file as inline SQL.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). Record the selected schema URL/version, SQL roots and overlay/provider assumptions. If a schema, resource or public sample is unavailable, report the blocker; do not switch to a newer schema or silently treat a missing `.sql` file as inline SQL.

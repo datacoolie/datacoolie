@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import json
+from importlib.metadata import version
 
 import argparse
 import shutil
@@ -11,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.runtime_profile import optimized
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 from typing import Any, Iterable
@@ -96,6 +100,19 @@ def prepare_delta_suite(suite: str, *, fixture_root: Path = FIXTURE_ROOT) -> Non
         raise ValueError(f"Unknown Delta fixture suite: {suite}")
 
     suite_root = _assert_scoped_delta_root(fixture_root / suite, fixture_root)
+    manifest = suite_root / ".prepared.json"
+    identity = {"script": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "polars": pl.__version__, "deltalake": version("deltalake"),
+                "suite": suite, "tables": list(relative_tables), "root": str(suite_root)}
+    if optimized() and manifest.is_file():
+        try:
+            previous = json.loads(manifest.read_text())
+        except (OSError, ValueError):
+            previous = None
+        if previous == {"identity": identity, "files": _fixture_files(suite_root)} and all(
+                (suite_root / table / "_delta_log").is_dir() for table in relative_tables):
+            logger.info("Reused verified immutable Delta inputs: %s", suite_root)
+            return
     if suite_root.exists():
         shutil.rmtree(suite_root)
 
@@ -106,6 +123,15 @@ def prepare_delta_suite(suite: str, *, fixture_root: Path = FIXTURE_ROOT) -> Non
         )
         frame.write_delta(str(table_path))
         logger.info("Created Delta fixture: %s", table_path)
+    if optimized():
+        manifest.write_text(json.dumps({"identity": identity, "files": _fixture_files(suite_root)},
+                                      indent=2) + "\n", encoding="utf-8")
+
+
+def _fixture_files(root: Path) -> dict[str, str]:
+    """Byte identity detects an external writer, missing file or stale fixture."""
+    return {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(root.rglob("*")) if path.is_file() and path.name != ".prepared.json"}
 
 
 def _purge_tables(catalog: Any, identifiers: Iterable[tuple[str, ...]]) -> None:

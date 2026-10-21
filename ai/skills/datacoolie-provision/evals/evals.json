@@ -3,11 +3,11 @@
   "eval_schema_version": 2,
   "case_kinds": {
     "decision": [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16],
-    "execution": [9]
+    "execution": [9, 17]
   },
   "capability_families": {
     "approval-and-recovery": [2, 3, 5, 7, 9],
-    "resource-readiness": [1, 4, 10, 11, 12, 16],
+    "resource-readiness": [1, 4, 10, 11, 12, 16, 17],
     "state-reconciliation": [6, 15],
     "secrets-and-tooling": [8, 13, 14]
   },
@@ -186,6 +186,17 @@
         "fab api is preferred before generic az rest for a supported Fabric REST operation.",
         "The selected API audience, target identity, tool version, and fallback decision are recorded without tokens.",
         "API access does not weaken provision planning, approval, or target verification."
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Release can use an existing qa resource. Validate the selected v1 provision receipt without forcing an apply, using the exact requirements path/hash and requested host-access check.",
+      "expected_output": "Run the --require-ready command with the expected environment, workspace-relative requirements path and SHA-256, repeatable required checks, and explicit required-observation check/resource/capability bindings; use its exit code and JSON output to accept only scoped passed resource-observation and host access/capability evidence from a successful apply or no-change plan.",
+      "files": ["scripts/validate_provision.py", "schemas/provision-receipt.schema.json"],
+      "expectations": [
+        "A successful no-change plan can satisfy readiness without mutation and returns observable evidence.",
+        "Plan-validation alone, wrong scope, skipped checks, mutating plans, and partial or unknown state remain blocked.",
+        "Receipt evidence is recorded observation and does not authenticate authorization or provider results."
       ]
     }
   ]

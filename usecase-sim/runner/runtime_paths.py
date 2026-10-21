@@ -10,14 +10,27 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from runner.runtime_workspace import runtime_root
+
 
 USECASE_SIM_DIR = Path(__file__).resolve().parents[1]
 DATACOOLIE_ROOT = USECASE_SIM_DIR.parent
-RUNTIME_DIR = USECASE_SIM_DIR / ".runtime"
+RUNTIME_DIR = runtime_root(USECASE_SIM_DIR / ".runtime")
 DATA_DIR = RUNTIME_DIR / "data"
+INPUT_DIR = DATA_DIR / "input"
+OUTPUT_DIR = DATA_DIR / "output"
+STATE_DIR = RUNTIME_DIR / "state"
 LOG_DIR = RUNTIME_DIR / "logs"
 WATERMARKS_DIR = RUNTIME_DIR / "watermarks"
-DEPENDENCIES_DIR = RUNTIME_DIR / "dependencies"
+DEPENDENCIES_DIR = USECASE_SIM_DIR / ".runtime" / "dependencies"
+METADATA_DATABASE_DIR = USECASE_SIM_DIR / "metadata" / "database"
+SQLITE_METADATA_DB = METADATA_DATABASE_DIR / "datacoolie_metadata.db"
+
+
+def sqlite_metadata_url() -> str:
+    """Resolve the canonical SQLite provider DB in this native coordinate."""
+    return f"sqlite:///{SQLITE_METADATA_DB.as_posix()}"
+
 
 AWS_LOG_PATH = "s3://datacoolie-test/logs"
 AWS_WATERMARK_PATH = "s3://datacoolie-test/watermarks"
@@ -38,11 +51,8 @@ def apply_runtime_defaults(args):
     if args.log_path is None:
         args.log_path = AWS_LOG_PATH if is_aws else str(LOG_DIR)
     if args.watermark_path is None:
-        state = getattr(args, "state_base_path", None)
-        if state:
-            args.watermark_path = runtime_child(state, "watermarks")
-        else:
-            args.watermark_path = AWS_WATERMARK_PATH if is_aws else str(WATERMARKS_DIR)
+        base = AWS_WATERMARK_PATH if is_aws else str(WATERMARKS_DIR)
+        args.watermark_path = runtime_child(base, getattr(args, "engine", "polars"))
     return args
 
 
@@ -60,10 +70,9 @@ def spark_profile(value: str | None = None) -> str:
     return "spark4" if requested == "spark4" else "spark35"
 
 
-def spark_data_dir(profile: str | None = None) -> Path:
-    """Return the profile-isolated Spark data root."""
-
-    return DATA_DIR / "spark" / spark_profile(profile)
+def spark_state_dir(profile: str | None = None) -> Path:
+    """Return the profile-isolated Spark warehouse/metastore state root."""
+    return STATE_DIR / "spark" / spark_profile(profile)
 
 
 def spark_dependencies_dir(profile: str | None = None) -> Path:
@@ -75,13 +84,19 @@ def spark_dependencies_dir(profile: str | None = None) -> Path:
 def spark_log_dir(profile: str | None = None) -> Path:
     """Return the profile-isolated Derby/Spark diagnostic log root."""
 
-    return LOG_DIR / "spark" / spark_profile(profile)
+    return LOG_DIR / "others" / "spark" / spark_profile(profile)
 
 
 __all__ = [
     "DATA_DIR",
+    "INPUT_DIR",
+    "OUTPUT_DIR",
+    "STATE_DIR",
     "DATACOOLIE_ROOT",
     "DEPENDENCIES_DIR",
+    "METADATA_DATABASE_DIR",
+    "SQLITE_METADATA_DB",
+    "sqlite_metadata_url",
     "LOG_DIR",
     "RUNTIME_DIR",
     "USECASE_SIM_DIR",
@@ -91,7 +106,7 @@ __all__ = [
     "RUNTIME_URI_PREFIXES",
     "runtime_child",
     "apply_runtime_defaults",
-    "spark_data_dir",
+    "spark_state_dir",
     "spark_dependencies_dir",
     "spark_log_dir",
     "spark_profile",

@@ -17,6 +17,11 @@ into a different Python installation.
 | Local Spark + Delta run | `datacoolie[spark-delta]` |
 | Validate/build a project archive | add `cli` |
 
+For API/Excel/database sources, metadata providers, platform SDKs, Polars SQL
+and Iceberg, use the complete [dependency profiles](../../reference/dependencies.md).
+That inventory is generated from the package manifest and distinguishes
+Python dependencies from system drivers and runtime configuration.
+
 For the canonical project, install one of these profiles:
 
 ```bash

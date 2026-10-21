@@ -6,7 +6,6 @@ import argparse
 import csv
 import hashlib
 import io
-import json
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -137,7 +136,7 @@ def assert_a9_csv_profile(payload: Mapping[str, Any]) -> None:
 def validate(root: Path | None = None) -> dict[str, Any]:
     case = resolve_case_root("write_basic", root)
     materialize_fixture(case, "a9_csv_options.json")
-    metadata = json.loads(case.metadata.read_text(encoding="utf-8"))
+    metadata = case.document
     assert_a9_csv_metadata(metadata)
 
     engine = PolarsEngine()

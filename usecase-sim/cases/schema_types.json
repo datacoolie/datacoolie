@@ -417,7 +417,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__date_format",
           "role": "primary"
         }
@@ -448,7 +448,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__timestamp",
           "role": "primary"
         }
@@ -479,7 +479,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__decimal",
           "role": "primary"
         }
@@ -510,7 +510,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__numeric_types",
           "role": "primary"
         }
@@ -541,7 +541,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__global_hint",
           "role": "primary"
         }
@@ -572,7 +572,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_load_delta__schema_evolve_base",
           "role": "primary"
         }
@@ -603,7 +603,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_load_delta__schema_evolve_new_cols",
           "role": "primary"
         }
@@ -634,7 +634,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_read_delta__schema_evolve",
           "role": "primary"
         }
@@ -665,7 +665,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_load_delta__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -696,7 +696,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_read_delta__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -727,7 +727,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__string_cast",
           "role": "primary"
         }
@@ -758,7 +758,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__hint_inactive",
           "role": "primary"
         }
@@ -789,7 +789,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__no_ntz_convert",
           "role": "primary"
         }
@@ -820,7 +820,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__skip_hints",
           "role": "primary"
         }
@@ -851,7 +851,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__boolean",
           "role": "primary"
         }
@@ -882,7 +882,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__bigint",
           "role": "primary"
         }
@@ -913,7 +913,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_schema__timestamp_ntz",
           "role": "primary"
         }
@@ -944,7 +944,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_load_iceberg__schema_evolve_base",
           "role": "primary"
         }
@@ -975,7 +975,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_load_iceberg__schema_evolve_new_cols",
           "role": "primary"
         }
@@ -1006,7 +1006,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_read_iceberg__schema_evolve",
           "role": "primary"
         }
@@ -1037,7 +1037,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_load_iceberg__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -1068,7 +1068,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/aws.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "aws_read_iceberg__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -1099,7 +1099,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__date_format",
           "role": "primary"
         }
@@ -1130,7 +1130,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__timestamp",
           "role": "primary"
         }
@@ -1161,7 +1161,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__decimal",
           "role": "primary"
         }
@@ -1192,7 +1192,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__numeric_types",
           "role": "primary"
         }
@@ -1223,7 +1223,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__global_hint",
           "role": "primary"
         }
@@ -1254,7 +1254,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "load_delta__schema_evolve_base",
           "role": "primary"
         }
@@ -1285,7 +1285,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "load_delta__schema_evolve_new_cols",
           "role": "primary"
         }
@@ -1316,7 +1316,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "read_delta__schema_evolve",
           "role": "primary"
         }
@@ -1347,7 +1347,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "load_delta__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -1378,7 +1378,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "read_delta__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -1409,7 +1409,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__string_cast",
           "role": "primary"
         }
@@ -1440,7 +1440,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__hint_inactive",
           "role": "primary"
         }
@@ -1471,7 +1471,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__no_ntz_convert",
           "role": "primary"
         }
@@ -1502,7 +1502,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__skip_hints",
           "role": "primary"
         }
@@ -1533,7 +1533,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__boolean",
           "role": "primary"
         }
@@ -1564,7 +1564,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__bigint",
           "role": "primary"
         }
@@ -1595,7 +1595,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema__timestamp_ntz",
           "role": "primary"
         }
@@ -1626,7 +1626,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "load_iceberg__schema_evolve_base",
           "role": "primary"
         }
@@ -1657,7 +1657,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "load_iceberg__schema_evolve_new_cols",
           "role": "primary"
         }
@@ -1688,7 +1688,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "read_iceberg__schema_evolve",
           "role": "primary"
         }
@@ -1719,7 +1719,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "load_iceberg__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -1750,7 +1750,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/local.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "read_iceberg__schema_evolve_fewer_cols",
           "role": "primary"
         }
@@ -1781,7 +1781,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_decimal_and_date",
           "role": "primary"
         }
@@ -1813,7 +1813,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_unhinted_csv",
           "role": "primary"
         }
@@ -1845,7 +1845,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_unhinted_parquet",
           "role": "primary"
         }
@@ -1877,7 +1877,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_unhinted_json",
           "role": "primary"
         }
@@ -1909,7 +1909,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_unhinted_jsonl",
           "role": "primary"
         }
@@ -1941,7 +1941,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_matrix_postgresql",
           "role": "primary"
         }
@@ -1973,7 +1973,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_matrix_mysql",
           "role": "primary"
         }
@@ -2005,7 +2005,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_matrix_mssql",
           "role": "primary"
         }
@@ -2037,7 +2037,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_matrix_oracle",
           "role": "primary"
         }
@@ -2069,7 +2069,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_matrix_sqlite",
           "role": "primary"
         }
@@ -2101,7 +2101,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_matrix_spark_sql",
           "role": "primary"
         }
@@ -2133,7 +2133,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_database_postgresql",
           "role": "primary"
         }
@@ -2143,7 +2143,7 @@
       "preconditions": [
         "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
       ],
-      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "expected": "Database-stage persisted source→target values/types reconcile across selected engines and dialect.",
       "assertion_owners": [
         "tests/integration/data_types/test_postgresql_cross_engine.py"
       ],
@@ -2165,7 +2165,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_database_mysql",
           "role": "primary"
         }
@@ -2175,7 +2175,7 @@
       "preconditions": [
         "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
       ],
-      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "expected": "Database-stage persisted source→target values/types reconcile across selected engines and dialect.",
       "assertion_owners": [
         "tests/integration/data_types/test_database_cross_engine.py"
       ],
@@ -2197,7 +2197,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_database_sqlite",
           "role": "primary"
         }
@@ -2207,7 +2207,7 @@
       "preconditions": [
         "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
       ],
-      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "expected": "Database-stage persisted source→target values/types reconcile across selected engines and dialect.",
       "assertion_owners": [
         "tests/integration/data_types/test_database_cross_engine.py"
       ],
@@ -2229,7 +2229,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_database_mssql",
           "role": "primary"
         }
@@ -2239,7 +2239,7 @@
       "preconditions": [
         "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
       ],
-      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "expected": "Database-stage persisted source→target values/types reconcile across selected engines and dialect.",
       "assertion_owners": [
         "tests/integration/data_types/test_database_cross_engine.py"
       ],
@@ -2261,7 +2261,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/datatype_qualification.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "datatype_database_oracle",
           "role": "primary"
         }
@@ -2271,7 +2271,7 @@
       "preconditions": [
         "Use the owning recipe/setup; broad bundle ordering may prepare source tables."
       ],
-      "expected": "Database-stage persisted source\u2192target values/types reconcile across selected engines and dialect.",
+      "expected": "Database-stage persisted source→target values/types reconcile across selected engines and dialect.",
       "assertion_owners": [
         "tests/integration/data_types/test_database_cross_engine.py"
       ],
@@ -2293,7 +2293,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_value__before_schema_cast",
           "role": "primary"
         }
@@ -2325,7 +2325,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_schema__cast",
           "role": "primary"
         }
@@ -2357,7 +2357,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/transformer_features.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "transform_schema__missing_warning",
           "role": "primary"
         }
@@ -2569,17 +2569,17 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/schema_evolution.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema-evolution-seed",
           "role": "primary"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/schema_evolution.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema-evolution-new-columns",
           "role": "primary"
         },
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/schema_evolution.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "schema-evolution-fewer-columns",
           "role": "primary"
         }
@@ -2616,7 +2616,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/ntz_timezone.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "ntz-timezone-conversion",
           "role": "primary"
         }
@@ -2653,7 +2653,7 @@
       "contract": "src/datacoolie/transformers/schema_converter.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/schema_types/a9_merge_schema.json",
+          "fixture": "usecase-sim/metadata/file/schema_types.json",
           "flow": "a9-schema-merge-schema-append",
           "role": "primary"
         }

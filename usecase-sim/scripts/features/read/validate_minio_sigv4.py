@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import argparse
+import copy
 import json
 import os
 import subprocess
@@ -143,8 +144,6 @@ def _phases(root):
     """Called only in the child with an isolated development credential chain."""
     import boto3
     import httpx
-    from dataclasses import replace
-
     case = resolve_case_root("read", root)
     materialize_fixture(case, "minio_sigv4.json")
     access, secret = (
@@ -171,15 +170,18 @@ def _phases(root):
     endpoint = f"/{bucket}/{key}"
     unsigned = httpx.get("http://127.0.0.1:9000" + endpoint)
     assert unsigned.status_code == 403 and "AccessDenied" in unsigned.text
-    document = json.loads(
-        case.metadata.read_text().replace("__PRIVATE_OBJECT__", endpoint)
-    )
+    document = copy.deepcopy(case.document)
+    document = json.loads(json.dumps(document).replace("__PRIVATE_OBJECT__", endpoint))
     authored_flow = document["dataflows"][0]["name"]
-    runtime_flow = f"{authored_flow}-{case.root.name}"
-    runtime_stage = f"minio_sigv4-{case.root.name}"
-    document["dataflows"][0].update(name=runtime_flow, stage=runtime_stage)
+    runtime_flow = authored_flow
+    runtime_stage = document["dataflows"][0]["stage"]
     document["connections"][0]["configure"].pop("aws_session_token", None)
-    case.metadata.write_text(json.dumps(document, indent=2))
+    case.document = document
+    # Keep every negative control rooted in the successful SigV4 document.
+    # The unsigned control mutates only its own copy; otherwise the following
+    # wrong-secret control would inherit auth_type="none" and test anonymous
+    # AccessDenied again instead of an invalid signature.
+    positive_document = copy.deepcopy(document)
     with driver_http_trace(endpoint) as positive_trace:
         run = run_driver(case, stage=runtime_stage)
     assert_successful_flow(run, runtime_flow)
@@ -191,7 +193,7 @@ def _phases(root):
     runs = [run]
     failures = []
     for iteration, mode in enumerate(("unsigned", "wrong-secret"), 2):
-        negative = json.loads(case.metadata.read_text())
+        negative = copy.deepcopy(positive_document)
         target = case.output / mode
         negative["connections"][1]["configure"]["base_path"] = target.as_posix()
         original_secret = os.environ["A9_MINIO_SECRET_KEY"]
@@ -199,12 +201,11 @@ def _phases(root):
             negative["connections"][0]["configure"]["auth_type"] = "none"
         else:
             os.environ["A9_MINIO_SECRET_KEY"] = "invalid-development-signature"
-        phase_path = case.root / f"metadata-{mode}.json"
-        phase_path.write_text(json.dumps(negative, indent=2))
+        case.document = negative
         try:
             with driver_http_trace(endpoint) as negative_trace:
                 evidence = run_driver(
-                    replace(case, metadata=phase_path),
+                    case,
                     stage=runtime_stage,
                     iteration=iteration,
                 )

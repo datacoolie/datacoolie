@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -26,11 +25,10 @@ def validate(root=None, *, qualification_scope="host-polars-mock-api"):
 
     case = resolve_case_root("read", root)
     materialize_fixture(case, "api_max_pages_negative.json")
-    document = json.loads(case.metadata.read_text())
+    document = case.document
     document["connections"][0]["configure"]["base_url"] = os.getenv(
         "DATACOOLIE_MOCK_API_URL", "http://localhost:8082"
     )
-    case.metadata.write_text(json.dumps(document, indent=2))
     flow = document["dataflows"][0]
     response = httpx.get(
         document["connections"][0]["configure"]["base_url"].rstrip("/")

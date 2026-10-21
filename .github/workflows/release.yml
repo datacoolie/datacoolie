@@ -13,6 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify release tag belongs to main
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/verify_release_ref.py --tag "$RELEASE_TAG"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

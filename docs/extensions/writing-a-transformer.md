@@ -112,24 +112,60 @@ execution, and the mode controls column-name normalization.
 
 ## Order slot cheat-sheet
 
-| Slots | Who owns them |
-|---|---|
-| **5** | `ColumnValueTransformer` |
-| **10** | `SchemaConverter` |
-| **18** | `HashColumnAdder` |
-| **20** | `Deduplicator` |
-| **30** | `ColumnAdder` |
-| **35** | `RowFilter` |
-| **40–50** | **Your plugins** |
-| **60** | `SCD2ColumnAdder` |
-| **70** | `SystemColumnAdder` |
-| **80** | `PartitionHandler` |
-| **84** | `DataMasker` |
-| **85** | `ColumnProjector` |
-| **90** | `ColumnNameSanitizer` |
-| Other slots | Reserved for future framework work or additional plugins; the pipeline sorts by numeric order |
+Use **40–50** for user plugins. The canonical
+[built-in order and responsibilities](../reference/concepts/transformers-and-pipeline.md#the-twelve-built-ins-order-responsibility)
+shows the surrounding steps; [ADR-0003](../project/decisions/0003-transformer-ordering-slots.md)
+records the slot reservation. Choose distinct orders when your plugins depend
+on each other; the pipeline sorts by numeric order.
 
-See [ADR-0003](../project/decisions/0003-transformer-ordering-slots.md).
+## Report renamed and removed columns
+
+A plugin that renames or drops columns must report its input-to-output mapping
+with `_report_column_mapping()`. Without a declaration, the pipeline preserves
+identical names and marks the mapping unknown if any input disappears. Even
+dropping an unrelated column can then prevent watermark-window replacement.
+
+This example expects `UpdatedAt` and `raw_payload` in its input. It renames the
+watermark column and removes the payload using public engine operations:
+
+```python
+from datacoolie.transformers.base import BaseTransformer, ColumnMapping
+
+
+class RenameAndDropTransformer(BaseTransformer):
+    ORDER = 45
+
+    def __init__(self, engine):
+        self._engine = engine
+
+    @property
+    def order(self):
+        return self.ORDER
+
+    def transform(self, df, dataflow):
+        before = self._engine.get_columns(df)
+        renames = {"UpdatedAt": "updated_at"}
+        result = self._engine.rename_columns(df, renames)
+        result = self._engine.drop_columns(result, ["raw_payload"])
+        after = self._engine.get_columns(result)
+        self._report_column_mapping(
+            ColumnMapping.from_columns(before, after, renames=renames)
+        )
+        self._mark_applied("rename watermark; drop raw_payload")
+        return result
+```
+
+Add this plugin through the same Driver hook as the masking example. Report
+the mapping on every invocation: the pipeline resets tracking before each
+call. `from_columns()` maps unchanged inputs to themselves, declared renames
+to their final names, and removed inputs to `None`. Supply all actual renames;
+do not claim known lineage for a transformation you cannot describe.
+
+The replacement writer receives bounds under the final `updated_at` name.
+Removing a replacement watermark column, leaving lineage unknown, or mapping
+two watermark columns to one output fails before the replacement write. See
+[the mapping API](../reference/api/transformers.md#datacoolie.transformers.base.ColumnMapping)
+and [watermark-window replacement](../guide/metadata/watermark-window-replacement.md).
 
 ## Tracking labels
 
@@ -142,6 +178,9 @@ a call, the default is to record your class name.
 Test with native DataFrames for every advertised engine. Check configured
 columns, preserved nulls, unchanged output when no columns are configured,
 ordering with other transforms, and failure for invalid column expressions.
+For renames/drops, run the plugin through `TransformerPipeline`, verify the
+composed mapping on repeated calls, and check both successful window mapping
+and rejection when the watermark column is removed.
 The sample assumes simple SQL-safe column names; adapt expression construction
 to the identifiers and data types your plugin supports. Do not treat it as a
 general identifier-quoting or anonymization implementation.

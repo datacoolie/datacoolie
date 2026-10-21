@@ -69,7 +69,7 @@ def test_invalid_metric_contract_does_not_partially_mutate_summary(tmp_path):
     with pytest.raises(ConfigurationError):
         logger.log(make_dataflow(), runtime)
     assert logger.job_runtime.total_dataflows == 0
-    assert logger.job_runtime.total_rows_read == 0
+    assert logger.job_runtime.total_rows_read is None
     assert logger.job_runtime.log_records_dropped == 0
     logger.close()
 

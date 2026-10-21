@@ -15,9 +15,12 @@ description: Python API reference for DataCoolie destinations covering base writ
 ## Destination target contract
 
 Destination writers and maintenance use the same pure target projection. A
-`ResolvedDestination` reports the effective table or path handle, its format,
-addressing mode, and deterministic identity; `resolve_destination_target(...)`
-performs no catalog or storage I/O.
+`resolve_destination_target(destination, engine=engine)` reports the effective
+table or path handle, format, and addressing mode. Its `storage_path` retains an
+auxiliary path for catalog registration. It performs no catalog or storage I/O.
+An unqualified named backend has `identity=None`; use `require_identity=True`
+to reject it before maintenance dispatch. Engine-free calls retain the legacy
+declared projection for inspection and do not establish physical equality.
 
 ::: datacoolie.destinations.resolution.target
     options:

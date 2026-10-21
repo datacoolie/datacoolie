@@ -31,6 +31,14 @@ is a separate concern and must not be inferred or mutated by the platform.
 - Use an injected Azure `TokenCredential` when supplied; otherwise create one
   `DefaultAzureCredential` lazily and reuse it for Storage and Key Vault.
 - Keep Azure packages optional under the `fabric-external` extra and import them lazily.
+- Synchronize first acquisition/publication of backend, credential and cached
+  clients; ordinary service I/O remains outside acquisition locks.
+- `FabricPlatform.close()` is terminal and requires caller quiescence. Close
+  owned Storage/Key Vault root clients before an internally created credential,
+  clear child references without closing shared transport wrappers, and preserve
+  injected credentials and native handles. Unused close stays lazy; errors still
+  attempt remaining cleanup and surface the first ordinary error. Driver retains
+  the borrowed-platform lifecycle.
 - Group implementation details in the private `_fabric/` package. Do not
   export backend classes or introduce a shared Fabric/Databricks hierarchy
   before Databricks requirements demonstrate stable duplication.

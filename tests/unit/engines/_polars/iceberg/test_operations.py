@@ -94,6 +94,19 @@ def test_expire_snapshots_skips_commit_when_no_non_current_snapshot_is_old() -> 
     table.maintenance.expire_snapshots.assert_not_called()
 
 
+def test_expiration_failure_propagates_and_protected_snapshot_avoids_empty_commit():
+    table = MagicMock()
+    table.metadata.current_snapshot_id = 2
+    table.snapshots.return_value = [MagicMock(snapshot_id=1, timestamp_ms=0)]
+    table.refs.return_value = {"tag": MagicMock(snapshot_id=1)}
+    operations.expire_snapshots(table, 168)
+    table.maintenance.expire_snapshots.assert_not_called()
+    table.refs.return_value = {}
+    table.maintenance.expire_snapshots.return_value.older_than.return_value.commit.side_effect = RuntimeError("native commit failed")
+    with pytest.raises(RuntimeError, match="native commit failed"):
+        operations.expire_snapshots(table, 168)
+
+
 @pytest.mark.runtime_qualification
 def test_expire_snapshots_sql_catalog_retains_current_snapshot(tmp_path) -> None:
     pyiceberg = pytest.importorskip("pyiceberg")

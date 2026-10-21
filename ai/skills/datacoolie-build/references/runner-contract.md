@@ -62,15 +62,4 @@ selectors, arbitrary search paths, or a new runner-owned `sys.path` bootstrap.
 
 ## Outcome-scoped verification
 
-For author/build-only requests, inspect the runner source, validate the project, build the requested
-artifact, and confirm that the built runner bytes remain the authored bytes. Do not execute a
-workload merely to certify authoring/build success. For an explicitly requested safe runtime check,
-follow the public [build and execute workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/#build-and-execute)
-and matching recipe for the exact copy, command and path contract. Confirm the CLI-selected retained
-environment is the one being checked, read output/state independently and preserve the documented
-rerun and retained/current validation evidence. Identify legitimate empty or skipped results,
-unavailable host dependencies, and any unperformed cloud check.
-
-Report exact input/output paths or IDs, the CLI/result evidence, checks performed and skipped,
-blockers/next owner, and unresolved questions. No package installation, remote upload, activation,
-or workload discovery belongs in a Build runner.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). Verify built runner bytes against authored bytes and use the CLI-selected environment for an artifact runtime check. Preserve the recipe's retained/current validation and rerun evidence. A runner does not install packages, upload, activate, or discover workloads.

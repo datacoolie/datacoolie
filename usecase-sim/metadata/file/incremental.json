@@ -1,0 +1,1154 @@
+{
+  "dataflows": [
+    {
+      "name": "api_wm__date_fmt",
+      "stage": "api_wm__date_fmt",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "case_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "event_date"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/date-only",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data",
+          "range_param_mapping": {
+            "event_date": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">"
+              },
+              "format": "date",
+              "response_column": "event_date",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "case_parquet_dest",
+        "table": "orders",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "event_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "api_wm__date_precision_negative",
+      "stage": "api_wm__date_precision_negative",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "case_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "event_date"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/date-only",
+          "pagination_type": "offset",
+          "page_size": 5,
+          "data_path": "data",
+          "range_param_mapping": {
+            "event_date": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">"
+              },
+              "format": "date",
+              "response_column": "event_date",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "case_parquet_dest",
+        "table": "orders",
+        "load_type": "append"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "event_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "api_incremental_recovery_validation",
+      "stage": "api_incremental_recovery_validation",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "api_recovery_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/next-link",
+          "pagination_type": "next_link",
+          "data_path": "records",
+          "next_link_path": "_links.next",
+          "page_size": 5,
+          "max_pages": 10,
+          "params": {
+            "limit": 5,
+            "include_late": 1
+          },
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "api_recovery_dest",
+        "table": "api_incremental_recovery_validation",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "aws_watermark__file_mtime",
+      "stage": "aws_watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_file_mtime",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark__file_mtime_multi_col",
+      "stage": "aws_watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time",
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_file_multi",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark__data_col",
+      "stage": "aws_watermark_file",
+      "group_number": 2,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_delta_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_db__postgres",
+      "stage": "aws_watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_postgres_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_postgres",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_db__sqlite",
+      "stage": "aws_watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_sqlite_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_sqlite",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__days",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_days",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__months_closing_day",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "months": 1,
+            "closing_day": 10
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_months",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_date_folder__src_partition",
+      "stage": "aws_date_folder_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_date_folder_src",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_from_dated_src",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__hours",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "hours": 12
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_hours",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_backward__years",
+      "stage": "aws_source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "years": 1
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_backward_years",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_watermark_iceberg__data_col",
+      "stage": "aws_watermark_file",
+      "group_number": 3,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_iceberg_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_wm_iceberg_data_col",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "watermark__file_mtime",
+      "stage": "watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_file_mtime",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark__file_mtime_multi_col",
+      "stage": "watermark_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time",
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_file_multi",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "watermark__data_col",
+      "stage": "watermark_file",
+      "group_number": 2,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_delta_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_data_col",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark_db__postgres",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_postgres_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "MODIFIED_AT"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_postgres",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark_db__oracle",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_oracle_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_oracle",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark_db__mysql",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_mysql_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_mysql",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark_db__mssql",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_mssql_source",
+        "table": "source_orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_mssql",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark_db__sqlite",
+      "stage": "watermark_db",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_sqlite_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_sqlite",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "backward__days",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_days",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "backward__months_closing_day",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "months": 1,
+            "closing_day": 10
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_months",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__iso",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_iso",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__timestamp_ms",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "timestamp_ms",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_ts_ms",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__body",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/wm-body",
+          "method": "POST",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "body",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "body",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_body",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__tz_conn",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_tz",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_tz_conn",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__tz_src_override",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_tz",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          },
+          "watermark_to_param_timezone": "UTC"
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_tz_src",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__exclusive_offset",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged-inclusive",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<="
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_excl",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_range__day_interval",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          },
+          "watermark_range_interval_unit": "day",
+          "watermark_range_interval_amount": 7,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 1
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_day",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_range__month_interval",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          },
+          "watermark_range_interval_unit": "month",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 1
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_month",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_range__year_interval",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_tz",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          },
+          "watermark_range_interval_unit": "year",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 1
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_year",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_range__multi_worker",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/ranged",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          },
+          "watermark_range_interval_unit": "month",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 4
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_multi",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_range__with_bearer",
+      "stage": "api_range",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_bearer",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/secure/bearer-ranged",
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "upper": {
+                "location": "params",
+                "name": "modified_until",
+                "operator": "<"
+              },
+              "format": "iso",
+              "response_column": "modified_at",
+              "watermark_value": "request_end"
+            }
+          },
+          "watermark_range_interval_unit": "year",
+          "watermark_range_interval_amount": 1,
+          "watermark_range_start": "2024-01-01T00:00:00",
+          "watermark_range_max_workers": 2
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_range_bearer",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "date_folder__src_partition",
+      "stage": "date_folder_src",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_date_folder_src",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_from_dated_src",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__timestamp",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "timestamp",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_timestamp",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__datetime",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "datetime",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_datetime",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "api_wm__datetime_ms",
+      "stage": "api_watermark",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_api_source",
+        "table": "orders",
+        "watermark_columns": [
+          "modified_at"
+        ],
+        "configure": {
+          "endpoint": "/api/orders/incremental",
+          "pagination_type": "offset",
+          "page_size": 10,
+          "data_path": "data",
+          "range_param_mapping": {
+            "modified_at": {
+              "lower": {
+                "location": "params",
+                "name": "modified_since",
+                "operator": ">="
+              },
+              "format": "datetime_ms",
+              "response_column": "modified_at",
+              "watermark_value": "observed_max"
+            }
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_api_wm_datetime_ms",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "backward__hours",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "hours": 12
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_hours",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "backward__years",
+      "stage": "source_backward",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "years": 1
+          }
+        }
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_backward_years",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "watermark_iceberg__data_col",
+      "stage": "watermark_file",
+      "group_number": 3,
+      "execution_order": 104,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_iceberg_source",
+        "table": "orders_appended",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_wm_iceberg_data_col",
+        "load_type": "append"
+      }
+    }
+  ]
+}

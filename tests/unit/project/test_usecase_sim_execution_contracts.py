@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION
+
 
 @pytest.fixture
 def validator():
@@ -38,6 +40,7 @@ def history_records(case):
                 "attempt_number": number,
                 "status": status,
                 "source": {
+                    "rows_read": 0 if case == "typed-empty" else 1,
                     "source_action": {"reader": "SimulatorReader"},
                     "selection": {
                         "mode": "range",
@@ -69,21 +72,36 @@ def history_records(case):
         attempts[-1]["watermark"].update(
             save_status="saved", saved_watermark={"seq": 2}
         )
-    destination_metric = None if case == "folder-only" else 0
+    destination = None
+    if case not in {"typed-empty", "folder-only"}:
+        destination = {
+            "status": statuses[-1],
+            "operation_type": "merge_overwrite",
+            "rows_written": int(statuses[-1] == "succeeded"),
+            "rows_inserted": 0,
+            "rows_updated": 0,
+            "rows_deleted": 0,
+            "files_added": 0,
+            "files_removed": 0,
+            "bytes_added": 0,
+            "bytes_removed": 0,
+            "bytes_saved": 0,
+        }
     metrics = {
         "rows_read": 0 if case == "typed-empty" else 1,
-        "rows_written": None if case == "folder-only" else int(statuses[-1] == "succeeded"),
-        "rows_inserted": destination_metric,
-        "rows_updated": destination_metric,
-        "rows_deleted": destination_metric,
-        "files_added": destination_metric,
-        "files_removed": destination_metric,
-        "bytes_added": destination_metric,
-        "bytes_removed": destination_metric,
-        "bytes_saved": destination_metric,
+        "rows_written": None if destination is None else destination["rows_written"],
+        "rows_inserted": None if destination is None else destination["rows_inserted"],
+        "rows_updated": None if destination is None else destination["rows_updated"],
+        "rows_deleted": None if destination is None else destination["rows_deleted"],
+        "files_added": None if destination is None else destination["files_added"],
+        "files_removed": None if destination is None else destination["files_removed"],
+        "bytes_added": None if destination is None else destination["bytes_added"],
+        "bytes_removed": None if destination is None else destination["bytes_removed"],
+        "bytes_saved": None if destination is None else destination["bytes_saved"],
     }
+    attempts[-1]["destination"] = destination
     run = {
-        "log_schema_version": 6,
+        "log_schema_version": LOG_SCHEMA_VERSION,
         "_type": "dataflow_run_log",
         "dataflow_run_id": "shared-run",
         "status": statuses[-1],
@@ -100,7 +118,7 @@ def history_records(case):
         "metrics": metrics,
     }
     job = {
-        "log_schema_version": 6,
+        "log_schema_version": LOG_SCHEMA_VERSION,
         "_type": "job_run_log",
         "total_dataflows": 1,
         "total_succeeded": int(statuses[-1] == "succeeded"),
@@ -110,7 +128,7 @@ def history_records(case):
         "total_rows_written": metrics["rows_written"],
     }
     system = {
-        "log_schema_version": 6,
+        "log_schema_version": LOG_SCHEMA_VERSION,
         "_type": "system_log",
         "event_name": "retry.scheduled",
         "attempt_number": 1,
@@ -143,7 +161,9 @@ def test_persisted_history_contract(validator, monkeypatch, case):
     )
 
 
-@pytest.mark.parametrize("mutation", ["count", "rows", "run_id", "number", "non_array"])
+@pytest.mark.parametrize(
+    "mutation", ["count", "rows", "run_id", "number", "non_array", "version"]
+)
 def test_history_oracle_rejects_retry_count_inflation_and_bad_correlation(
     validator, monkeypatch, mutation
 ):
@@ -156,6 +176,8 @@ def test_history_oracle_rejects_retry_count_inflation_and_bad_correlation(
         system["dataflow_run_id"] = "another-run"
     elif mutation == "number":
         system["attempt_number"] = 2
+    elif mutation == "version":
+        run["log_schema_version"] = LOG_SCHEMA_VERSION - 1
     else:
         run["attempts"] = {"attempt_number": 1}
     attach_records(monkeypatch, validator, run, job, system)
@@ -172,6 +194,26 @@ def test_empty_history_oracle_rejects_destination_participation(validator, monke
         validator.validate_history("job", "session", "typed-empty")
 
 
+def test_empty_history_oracle_rejects_unknown_destination_as_measured_zero(
+    validator, monkeypatch
+):
+    run, job, system = history_records("typed-empty")
+    run["metrics"]["rows_written"] = 0
+    attach_records(monkeypatch, validator, run, job, system)
+    with pytest.raises(AssertionError):
+        validator.validate_history("job", "session", "typed-empty")
+
+
+def test_retry_history_oracle_rejects_erased_measured_zero(
+    validator, monkeypatch
+):
+    run, job, system = history_records("retry-after-write")
+    run["metrics"]["rows_updated"] = None
+    attach_records(monkeypatch, validator, run, job, system)
+    with pytest.raises(AssertionError):
+        validator.validate_history("job", "session", "retry-after-write")
+
+
 @pytest.mark.parametrize("mutation", ["status", "selection", "saved_state"])
 def test_post_write_retry_oracle_rejects_erased_failure_or_changed_boundary(validator, monkeypatch, mutation):
     run, job, system = history_records("retry-after-write")
@@ -184,3 +226,20 @@ def test_post_write_retry_oracle_rejects_erased_failure_or_changed_boundary(vali
     attach_records(monkeypatch, validator, run, job, system)
     with pytest.raises(AssertionError):
         validator.validate_history("job", "session", "retry-after-write")
+
+
+@pytest.mark.parametrize("kind,mode", [("polars", True), ("polars", False), ("spark", False)])
+def test_fixture_dataframe_keeps_normal_creation_outside_optimized_spark(validator, monkeypatch, kind, mode):
+    from types import SimpleNamespace
+
+    rows = [{"id": 200, "seq": 2, "value": "new"}]
+    created = object()
+    calls = []
+
+    def create_dataframe(value):
+        calls.append(value)
+        return created
+
+    monkeypatch.setattr(validator, "optimized", lambda: mode)
+    assert validator.fixture_dataframe(SimpleNamespace(create_dataframe=create_dataframe), rows, kind) is created
+    assert calls == [rows]

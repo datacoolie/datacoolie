@@ -7,6 +7,7 @@ import pytest
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import TransformError
 from datacoolie.transformers.base import BaseTransformer, TransformerPipeline
+from datacoolie.transformers.base import ColumnMapping
 from tests.unit.transformers.support import MockEngine, make_dataflow
 
 
@@ -16,6 +17,32 @@ def engine() -> MockEngine:
 
 
 _make_dataflow = make_dataflow
+
+
+@pytest.mark.parametrize("columns", [["UserID", "userid"], ["userid", "UserID"]])
+def test_exact_lineage_survives_noop_and_rename_composition(columns):
+    mapping = ColumnMapping.identity(columns)
+    mapping = mapping.compose(ColumnMapping.from_columns(columns, columns))
+    mapping = mapping.compose(ColumnMapping.from_columns(
+        columns, ["user_id", "userid"], {"UserID": "user_id"},
+    ))
+    mapping = mapping.compose(ColumnMapping.preserve_or_unknown(
+        ["user_id", "userid"], ["user_id", "userid", "extra"],
+    ))
+    assert mapping.known
+    assert mapping.resolve("UserID") == "user_id"
+    assert mapping.resolve("userid") == "userid"
+    with pytest.raises(TransformError, match="[Aa]mbiguous"):
+        mapping.resolve("USERID")
+
+
+def test_mapping_unique_fallback_and_unknown_lineage():
+    assert ColumnMapping({"UserID": "user_id"}).resolve("USERID") == "user_id"
+    assert ColumnMapping({"UserID": None, "userid": "userid"}).resolve("UserID") is None
+    unknown = ColumnMapping.preserve_or_unknown(["UserID"], ["userid"])
+    assert not unknown.known
+    assert unknown.mapping == {"UserID": None}
+    assert not unknown.compose(ColumnMapping.identity(["userid"])).known
 
 
 class DummyTransformer(BaseTransformer[dict]):

@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 
 from datacoolie import __version__
 from datacoolie.core.constants import DataFlowStatus
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION
 from datacoolie.logging.persistence.projection import (
     build_dataflow_entry,
     build_system_entry,
@@ -32,7 +33,7 @@ from tests.unit.logging.support import make_dataflow, make_runtime
 
 def _assert_header(entry: dict, record_type: str) -> None:
     assert list(entry)[:2] == ["log_schema_version", "_type"]
-    assert entry["log_schema_version"] == 6
+    assert entry["log_schema_version"] == LOG_SCHEMA_VERSION
     assert entry["datacoolie_version"] == __version__
     assert entry["_type"] == record_type
 

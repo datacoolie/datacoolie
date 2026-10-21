@@ -9,6 +9,7 @@ files and native Delta targets where a case needs an existing table.
 from __future__ import annotations
 
 import argparse
+import copy
 import dataclasses
 import hashlib
 import importlib.metadata
@@ -17,6 +18,7 @@ import os
 import platform as py_platform
 import subprocess
 import sys
+import time as monotonic_time
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -35,12 +37,19 @@ if str(PRODUCT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PRODUCT_ROOT / "src"))
 
 from runner.runtime_logs import job_sessions, records  # noqa: E402
-from runner.runtime_paths import DATA_DIR, LOG_DIR, WATERMARKS_DIR  # noqa: E402
+from runner.runtime_paths import (  # noqa: E402
+    DATA_DIR,
+    INPUT_DIR,
+    LOG_DIR,
+    OUTPUT_DIR,
+    STATE_DIR,
+    WATERMARKS_DIR,
+)
+from runner.runtime_timing import measured, phase  # noqa: E402
 from cases.receipts import worktree_fingerprint  # noqa: E402
 
 from datacoolie.core.models.run_config import DataCoolieRunConfig  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
-from datacoolie.metadata.file_provider import FileProvider  # noqa: E402
 from datacoolie.orchestration.driver import DataCoolieDriver  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
 from datacoolie.utils.identity import name_to_uuid  # noqa: E402
@@ -62,18 +71,22 @@ GENERATED_COLUMNS = frozenset(
 )
 
 
-@dataclass(frozen=True)
+@dataclass
 class CasePaths:
     """Case-owned paths and the mapped receipt/watermark roots."""
 
     group: str
     root: Path
-    metadata: Path
     input: Path
     output: Path
     state: Path
     watermarks: Path
     receipt_root: Path
+    # Authored cases keep their canonical flat source paths so the provider
+    # can validate the same files used by the simulator.  Generated cases
+    # carry a validated document in memory and leave ``sources`` empty.
+    document: dict[str, Any] = dataclasses.field(default_factory=dict)
+    sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -85,73 +98,117 @@ class DriverEvidence:
     session_id: str
     result: dict[str, Any]
     records: tuple[dict[str, Any], ...]
+    metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
+    timings: dict[str, float] = dataclasses.field(default_factory=dict)
 
 
-def _mapped_runtime_root(root: Path, base: Path) -> Path:
-    """Map a data case path beneath the corresponding runtime base."""
+def _case_relative(root: Path) -> Path:
+    """Return the output-root relative suffix used by every case namespace."""
 
-    relative = root.resolve().relative_to(DATA_DIR.resolve())
-    return (base.resolve() / relative).resolve()
+    resolved = root.resolve()
+    try:
+        return resolved.relative_to(OUTPUT_DIR.resolve())
+    except ValueError:
+        # Keep explicit legacy roots below DATA_DIR usable during cutover.
+        return resolved.relative_to(DATA_DIR.resolve())
+
+
+def _mapped_runtime_root(root: Path, base: Path, *, scenario_logs: bool = False) -> Path:
+    """Map one output case root beneath a canonical runtime namespace."""
+
+    relative = _case_relative(root)
+    prefix = base / "scenarios" if scenario_logs else base
+    return (prefix.resolve() / relative).resolve()
 
 
 def resolve_case_root(group: str, requested: Path | None = None) -> CasePaths:
     """Allocate a fresh case root and validate all derived runtime roots."""
 
     if requested is None:
-        root = DATA_DIR / "behavior_cases" / f"{group}_polars_{uuid.uuid4().hex[:12]}"
+        relative = Path("behavior_cases") / f"{group}_polars_{uuid.uuid4().hex[:12]}"
+        root = (OUTPUT_DIR / relative).resolve()
     else:
         root = requested if requested.is_absolute() else PRODUCT_ROOT / requested
-    root = root.resolve()
+        root = root.resolve()
     data_root = DATA_DIR.resolve()
     if root == data_root or not root.is_relative_to(data_root):
         raise ValueError(
             "--root must be a new directory strictly below usecase-sim/.runtime/data"
         )
 
-    receipt_root = _mapped_runtime_root(root, LOG_DIR)
+    relative = _case_relative(root)
+    input_root = (INPUT_DIR / relative).resolve()
+    state_root = (STATE_DIR / relative).resolve()
+    receipt_root = _mapped_runtime_root(root, LOG_DIR, scenario_logs=True)
     watermark_root = _mapped_runtime_root(root, WATERMARKS_DIR)
-    if root.exists():
-        raise ValueError(f"case root must be new and unused: {root}")
-    if receipt_root.exists():
-        raise ValueError(f"native receipt root must be new and unused: {receipt_root}")
-    if watermark_root.exists():
-        raise ValueError(
-            f"native watermark root must be new and unused: {watermark_root}"
-        )
+    for label, path, base in (
+        ("input", input_root, INPUT_DIR),
+        ("state", state_root, STATE_DIR),
+        ("receipt", receipt_root, LOG_DIR / "scenarios"),
+        ("watermark", watermark_root, WATERMARKS_DIR),
+    ):
+        namespace = base.resolve()
+        if path == namespace or not path.is_relative_to(namespace):
+            raise ValueError(f"native {label} root escaped its canonical namespace: {path}")
+    owned = [root, input_root, state_root, receipt_root, watermark_root]
+    if any(left == right or left.is_relative_to(right) or right.is_relative_to(left)
+           for index, left in enumerate(owned) for right in owned[index + 1:]):
+        raise ValueError("native case runtime roots must be separate directories")
+    existing = [
+        ("output", root),
+        ("input", input_root),
+        ("state", state_root),
+        ("receipt", receipt_root),
+        ("watermark", watermark_root),
+    ]
+    for label, path in existing:
+        if path.exists():
+            raise ValueError(f"native {label} root must be new and unused: {path}")
 
     root.mkdir(parents=True, exist_ok=False)
+    input_root.mkdir(parents=True, exist_ok=False)
+    state_root.mkdir(parents=True, exist_ok=False)
     receipt_root.mkdir(parents=True, exist_ok=False)
     watermark_root.mkdir(parents=True, exist_ok=False)
     paths = CasePaths(
         group=group,
         root=root,
-        metadata=root / "metadata.json",
-        input=root / "input",
-        output=root / "output",
-        state=root / "state",
+        input=input_root,
+        output=root,
+        state=state_root,
         watermarks=watermark_root,
         receipt_root=receipt_root,
     )
-    for path in (paths.input, paths.output, paths.state):
-        path.mkdir(parents=True, exist_ok=False)
     return paths
 
 
 def materialize_fixture(case: CasePaths, fixture_name: str) -> None:
-    """Copy an authored metadata fixture and substitute the case root."""
+    """Select one flat authored recipe and bind it to this case root.
 
-    fixture = USECASE_SIM_DIR / "metadata" / "file" / case.group / fixture_name
-    if not fixture.is_file():
-        raise FileNotFoundError(f"missing focused fixture: {fixture}")
-    # POSIX separators keep the authored JSON valid when a case is run from
-    # Windows; FileProvider and the local platform accept the resulting path.
-    payload = fixture.read_text(encoding="utf-8").replace(
-        "__CASE_ROOT__", case.root.as_posix()
+    The old focused fixture copies were generated metadata artifacts.  The
+    canonical source is now ``metadata/file/<group>.json`` plus the shared
+    section files; ``metadata_sources.recipe_document`` returns the exact
+    flow/connection projection without creating a runtime metadata file.
+    """
+
+    from runner.metadata_sources import recipe_document
+
+    recipe = Path(fixture_name).stem
+    document = recipe_document(
+        case.group,
+        recipe,
+        tokens={
+            "__CASE_ROOT__/input": case.input.as_posix(),
+            "__CASE_ROOT__/output": case.output.as_posix(),
+            "__CASE_ROOT__": case.root.as_posix(),
+        },
     )
-    document = json.loads(payload)
     if not isinstance(document, dict) or not document.get("connections"):
-        raise ValueError(f"fixture is not a FileProvider document: {fixture}")
-    case.metadata.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+        raise ValueError(f"metadata recipe is not a FileProvider document: {case.group}/{recipe}")
+    case.document = copy.deepcopy(document)
+    case.sources = (
+        str((USECASE_SIM_DIR / "metadata" / "file" / f"{case.group}.json").resolve()),
+    )
 
 
 def write_parquet(
@@ -253,6 +310,7 @@ def assert_schema(
         raise AssertionError(f"{label} mismatch: actual={dict(actual)!r}, expected={dict(expected)!r}")
 
 
+@measured("driver_and_evidence_s")
 def run_driver(
     case: CasePaths,
     *,
@@ -268,13 +326,31 @@ def run_driver(
     """Execute one stage through a normal, isolated Driver session."""
 
     job_id = f"focused-{case.group}-{stage}-{iteration}-{case.root.name}"
+    invocation_started = monotonic_time.perf_counter()
+    evidence_before_started = invocation_started
     previous = job_sessions(LOG_DIR, job_id)
+    evidence_before_s = monotonic_time.perf_counter() - evidence_before_started
+    metadata_started = monotonic_time.perf_counter()
     platform = LocalPlatform()
-    provider = metadata_provider if metadata_provider is not None else FileProvider(
-        config_path=str(case.metadata),
-        platform=platform,
-        watermark_base_path=str(case.watermarks / "provider"),
-    )
+    if metadata_provider is not None:
+        provider = metadata_provider
+    else:
+        from runner.metadata_sources import make_case_provider
+
+        provider_kwargs = {
+            "platform": platform,
+            "watermark_base_path": str(case.watermarks / "provider"),
+            "stage": stage,
+        }
+        if maintenance:
+            provider_kwargs["maintenance"] = True
+        provider = make_case_provider(case, **provider_kwargs)
+    from runner.metadata_sources import case_metadata_provenance
+
+    provenance = case_metadata_provenance(case, stage=stage, maintenance=maintenance)
+    provenance["stage"] = stage
+    metadata_s = monotonic_time.perf_counter() - metadata_started
+    startup_started = monotonic_time.perf_counter()
     with DataCoolieDriver(
         engine=engine if engine is not None else PolarsEngine(platform=platform),
         platform=platform,
@@ -289,15 +365,22 @@ def run_driver(
             retention_hours=retention_hours,
         ),
     ) as driver:
-        if maintenance:
-            result = driver.run_maintenance(
-                dataflows=provider.get_dataflows(stage=stage),
-                do_compact=do_compact,
-                do_cleanup=do_cleanup,
-            )
-        else:
-            result = driver.run(stage=stage)
+        startup_s = monotonic_time.perf_counter() - startup_started
+        execution_started = monotonic_time.perf_counter()
+        with phase("execution_s"):
+            if maintenance:
+                result = driver.run_maintenance(
+                    dataflows=provider.get_dataflows(stage=stage),
+                    do_compact=do_compact,
+                    do_cleanup=do_cleanup,
+                )
+            else:
+                result = driver.run(stage=stage)
+        execution_s = monotonic_time.perf_counter() - execution_started
+        close_started = monotonic_time.perf_counter()
 
+    close_s = monotonic_time.perf_counter() - close_started
+    evidence_started = monotonic_time.perf_counter()
     sessions = job_sessions(LOG_DIR, job_id) - previous
     if len(sessions) != 1:
         raise AssertionError(f"expected one current framework session for {job_id}, got {sessions}")
@@ -314,17 +397,33 @@ def run_driver(
                 "operation_details": _find_operation_details(value),
             }
         )
+    evidence_s = evidence_before_s + monotonic_time.perf_counter() - evidence_started
     return DriverEvidence(
         job_id=job_id,
         stage=stage,
         session_id=session_id,
         result=dataclasses.asdict(result),
         records=tuple(matching),
+        metadata=provenance,
+        timings={"metadata_preparation_s": metadata_s, "driver_startup_s": startup_s,
+                 "execution_s": execution_s, "driver_close_s": close_s,
+                 "evidence_lookup_s": evidence_s,
+                 "total_s": monotonic_time.perf_counter() - invocation_started},
     )
 
 
-def assert_successful_flow(evidence: DriverEvidence, flow_name: str) -> None:
-    """Require execution of the intended flow in this invocation's session."""
+def assert_successful_flow(
+    evidence: DriverEvidence,
+    flow_name: str,
+    *,
+    expected_dataflow_id: str | None = None,
+) -> None:
+    """Require one successful intended-flow row in this invocation's session.
+
+    ``expected_dataflow_id`` is used by fixtures that persist an explicit
+    backend identity. Existing callers retain the authored-name UUID behavior
+    when it is omitted.
+    """
 
     expected_counts = {"succeeded": 1, "failed": 0, "skipped": 0}
     actual_counts = {key: evidence.result.get(key) for key in expected_counts}
@@ -332,7 +431,11 @@ def assert_successful_flow(evidence: DriverEvidence, flow_name: str) -> None:
         raise AssertionError(f"{flow_name} invocation did not succeed: {actual_counts!r}")
     if not evidence.session_id:
         raise AssertionError(f"{flow_name} has no current session evidence")
-    expected_id = name_to_uuid(flow_name)
+    expected_id = (
+        expected_dataflow_id
+        if expected_dataflow_id is not None
+        else name_to_uuid(flow_name)
+    )
     matching = [
         record for record in evidence.records
         if record.get("record_type") == "dataflow_run_log"
@@ -409,6 +512,8 @@ def receipt_payload(
 
     receipt_script = (script or Path(sys.argv[0])).resolve()
     command = [sys.executable, str(receipt_script), *sys.argv[1:]]
+    from runner.metadata_sources import case_metadata_provenance
+
     return {
         "schema_version": 1,
         "case": case.group,
@@ -441,6 +546,7 @@ def receipt_payload(
             {"job_id": item.job_id, "stage": item.stage, "log_session_id": item.session_id}
             for item in runs
         ],
+        "metadata_provenance": [item.metadata for item in runs if item.metadata] or [case_metadata_provenance(case)],
         "runs": [_json_value(dataclasses.asdict(item)) for item in runs],
         "details": _json_value(details),
         "qualification_gaps": list(qualification_gaps),
@@ -455,6 +561,7 @@ def write_receipt(case: CasePaths, payload: Mapping[str, Any]) -> Path:
     with receipt_path.open("x", encoding="utf-8") as handle:
         json.dump(_json_value(payload), handle, indent=2, sort_keys=True)
         handle.write("\n")
+    print("SIM_METADATA_PROVENANCE=" + json.dumps({"invocations": payload.get("metadata_provenance", [])}, separators=(",", ":")), flush=True)
     return receipt_path
 
 
@@ -463,7 +570,7 @@ def root_argument(parser: argparse.ArgumentParser) -> None:
         "--root",
         type=Path,
         default=None,
-        help="fresh case root below usecase-sim/.runtime/data (default: generated)",
+        help="fresh output case root below usecase-sim/.runtime/data (default: generated)",
     )
 
 

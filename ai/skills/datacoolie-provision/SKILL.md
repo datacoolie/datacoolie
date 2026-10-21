@@ -93,7 +93,37 @@ Use `templates/provision-receipt.json.example`, then validate the explicitly sel
 python scripts/validate_provision.py --workspace <workspace> --receipt <receipt-path>
 ```
 
-Build or release consumers that require completed provisioning add `--require-apply-success`.
-Never search for `latest`, glob for receipts, or include secrets, sensitive outputs, or raw provider
-responses. Return the exact receipt path and SHA-256 plus non-sensitive resource identifiers to the
-blocked skill. End with actions, verification, skipped checks, and unresolved questions.
+Build or release consumers that require completed provisioning add
+`--require-apply-success`. A consumer that can use an already-present resource
+may request the non-mutating readiness gate instead:
+
+```bash
+python scripts/validate_provision.py \
+  --workspace <workspace> \
+  --receipt <receipt-path> \
+  --require-ready \
+  --environment <environment> \
+  --requirements <workspace-relative-requirements-path> \
+  --requirements-sha256 <requirements-sha256> \
+  --required-check host-access \
+  --required-observation resource-observation control-storage metadata-read \
+  --required-observation host-access execution-host host-access
+```
+
+The readiness gate continues to use the v1 receipt. It accepts a successful
+apply, or a successful plan whose actions are all `no_change`, only when state
+is not `partial` or `unknown`, `resource-observation` is passed, and every
+requested check is passed. At least one requested check must be a host access
+or capability check. Consumers must bind `resource-observation` and every
+requested check with `--required-observation <check> <resource> <capability>`;
+`--required-check` without those expected resource/capability bindings is
+rejected. Every accepted check records a JSON string with the same environment
+and requirements path/hash plus the exact expected non-empty `resource` and
+`capability` and a non-empty `observation`. This is recorded observation; the
+validator does not authenticate provider results or authorization from the
+evidence.
+
+Never search for `latest`, glob for receipts, or include secrets, sensitive
+outputs, or raw provider responses. Return the exact receipt path and SHA-256
+plus non-sensitive resource identifiers to the blocked skill. End with actions,
+verification, skipped checks, and unresolved questions.

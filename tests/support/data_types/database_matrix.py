@@ -23,14 +23,10 @@ import pytest
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[3]
-CANONICAL_METADATA = (
-    PRODUCT_ROOT
-    / "usecase-sim"
-    / "metadata"
-    / "file"
-    / "schema_types"
-    / "datatype_qualification.json"
-)
+SIM_ROOT = PRODUCT_ROOT / "usecase-sim"
+if str(SIM_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIM_ROOT))
+from runner.metadata_sources import recipe_document  # noqa: E402
 
 
 @dataclass(slots=True)
@@ -336,7 +332,7 @@ def address_matrix_metadata(
 ) -> tuple[Path, str]:
     """Address one canonical matrix flow to a real source snapshot."""
 
-    metadata = json.loads(CANONICAL_METADATA.read_text(encoding="utf-8"))
+    metadata = recipe_document("schema_types", "datatype_qualification")
     run_relative = run_root.relative_to(PRODUCT_ROOT).as_posix()
     source_name = f"datatype_qualification_{dialect}_db_source"
     flow_name = f"datatype_matrix_{dialect}"

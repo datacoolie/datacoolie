@@ -228,7 +228,7 @@ Driver, read business data or write runtime state.
 | Inline SQL | The query is short and belongs with the dataflow metadata | [Source patterns](../guide/metadata/source-patterns.md) |
 | SQL file | The query is medium/complex, reviewed as code or shared by a project | [Query preparation guide](../guide/operations/runtime-configuration.md#query-preparation) |
 | Qualified Polars SQL | A runner registers tables before calling the Driver | [Polars SQL guide](../reference/concepts/engines.md#qualified-sql-relations-in-polars) |
-| Python function source | Business logic needs a packaged callable | [Python functions contract](../guide/metadata/source-patterns.md#python-function-source) |
+| Python function source | Business logic needs a packaged callable | [Python functions contract](../guide/metadata/source-functions.md#python-function-source) |
 
 Function packages are prepared before Driver startup. The dataflow metadata
 declares the import path; the runner only supplies the fixed allowed prefix and

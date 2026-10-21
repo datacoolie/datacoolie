@@ -26,25 +26,24 @@ from typing import Any, Dict, List, Optional
 SIM_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SIM_ROOT))
 
-from runner.metadata_composition import load_metadata
+from runner.metadata_documents import load_metadata_files  # noqa: E402
 
 try:
     from flask import Flask, jsonify, request
 except ImportError:
     raise SystemExit("Flask is required: pip install flask")
 
-from datacoolie.utils.identity import name_to_uuid as _name_to_uuid
+from datacoolie.utils.identity import name_to_uuid as _name_to_uuid  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
 
-def _load_metadata(json_path: str) -> Dict[str, Any]:
-    candidate = Path(json_path)
-    if not candidate.is_absolute() and candidate.is_file():
-        json_path = str(candidate.resolve())
-    raw = load_metadata(json_path, root=SIM_ROOT)
+def _load_metadata(json_path: str | list[str], *, connections_path=None,
+                   schema_hints_path=None) -> Dict[str, Any]:
+    raw = load_metadata_files(json_path, connections_path=connections_path,
+                              schema_hints_path=schema_hints_path, root=SIM_ROOT)
 
     connections: List[Dict[str, Any]] = []
     conn_map: Dict[str, Dict[str, Any]] = {}
@@ -122,9 +121,11 @@ def _paginate(items: List[Any], page: int, page_size: int) -> Dict[str, Any]:
 # Flask app factory
 # ---------------------------------------------------------------------------
 
-def create_app(json_path: str, watermark_dir: Optional[Path] = None) -> Flask:
+def create_app(json_path: str | list[str], watermark_dir: Optional[Path] = None,
+               *, connections_path=None, schema_hints_path=None) -> Flask:
     app = Flask(__name__)
-    meta = _load_metadata(json_path)
+    meta = _load_metadata(json_path, connections_path=connections_path,
+                          schema_hints_path=schema_hints_path)
 
     if watermark_dir is None:
         # Keep generated API-provider state outside the metadata source tree.
@@ -251,9 +252,11 @@ def main():
     parser = argparse.ArgumentParser(description="DataCoolie simulated metadata API server")
     parser.add_argument(
         "--json-path",
-        default=str(SIM_ROOT / "metadata" / "file" / "workflows" / "local_use_cases.json"),
-        help="Path to source JSON metadata file",
+        action="append",
+        help="Exact source JSON metadata file; repeat for multiple groups",
     )
+    parser.add_argument("--connections-path", help="Exact shared connections file")
+    parser.add_argument("--schema-hints-path", help="Exact shared schema hints file")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     parser.add_argument(
@@ -268,7 +271,10 @@ def main():
     )
     args = parser.parse_args()
 
-    app = create_app(args.json_path, watermark_dir=Path(args.watermark_dir))
+    paths = args.json_path or [str(SIM_ROOT / "scenarios/workflows/local_use_cases.json")]
+    app = create_app(paths, watermark_dir=Path(args.watermark_dir),
+                     connections_path=args.connections_path,
+                     schema_hints_path=args.schema_hints_path)
     print(f"Starting metadata API server on {args.host}:{args.port}")
     print(f"  Source:     {args.json_path}")
     print(f"  Watermarks: {args.watermark_dir}")

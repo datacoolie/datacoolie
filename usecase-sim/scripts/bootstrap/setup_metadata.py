@@ -1,7 +1,7 @@
 """Fan-out metadata from a single use-cases JSON into multiple targets.
 
 Targets:
-    file              : emit YAML + XLSX siblings next to the JSON
+    file              : export JSON/YAML/XLSX at the declared output directory
     db:<dialect>      : apply schema + seed connections/dataflows/schema_hints
                         (dialects: sqlite, postgresql, mysql, mssql, oracle)
     api-db            : alias for db:postgresql (what pg_api_metadata_server reads)
@@ -11,7 +11,7 @@ Examples:
         # → default: file + db:sqlite + db:postgresql (local workspace)
 
     python usecase-sim/scripts/bootstrap/setup_metadata.py \
-        --json usecase-sim/metadata/file/workflows/aws_use_cases.json \
+        --json usecase-sim/scenarios/workflows/aws_use_cases.json \
         --workspace-id aws-workspace --targets db:postgresql --truncate
 
     python usecase-sim/scripts/bootstrap/setup_metadata.py \
@@ -30,13 +30,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
-from runner.metadata_composition import load_metadata, write_composed_metadata
+from runner.metadata_documents import load_metadata_files
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
 from _common import (  # noqa: E402
     DB_URLS,
-    COMPILED_METADATA_DIR,
+    OUTPUT_DIR,
     LOCAL_USE_CASES_JSON,
     METADATA_DB_DIR,
     setup_logging,
@@ -312,9 +312,8 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
     from sqlalchemy import create_engine, make_url  # noqa: PLC0415
 
     # SQLite does not create missing parent directories for a file database.
-    # The simulator deliberately keeps mutable databases below .runtime, so a
-    # clean checkout (or a deleted .runtime) must bootstrap that directory
-    # before SQLAlchemy opens the connection.  Do not touch remote databases or
+    # A fresh checkout must create the selected database parent before SQLAlchemy
+    # opens the connection. Do not touch remote databases or
     # in-memory SQLite URLs.
     url = make_url(connection_string)
     if url.get_backend_name() == "sqlite" and url.database not in (None, ":memory:"):
@@ -487,7 +486,7 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
 
     ws_d = wb.create_sheet("dataflows")
     ws_d.append([
-        "name", "stage", "group_number", "execution_order", "processing_mode",
+        "name", "description", "stage", "group_number", "execution_order", "processing_mode",
         "is_active", "configure",
         "source_connection_name", "source_schema_name", "source_table",
         "source_query", "source_python_function", "source_watermark_columns",
@@ -503,7 +502,7 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
         part = dst.get("partition_columns", [])
         part_str = json.dumps(part, ensure_ascii=False) if part and isinstance(part[0], dict) else _list_to_csv(part)
         ws_d.append([
-            d.get("name", ""), d.get("stage", ""),
+            d.get("name", ""), d.get("description", ""), d.get("stage", ""),
             d.get("group_number", ""), d.get("execution_order", ""),
             d.get("processing_mode", "batch"),
             "" if d.get("is_active", True) else False,
@@ -576,14 +575,18 @@ def _default_targets() -> str:
 def main() -> int:
     os.chdir(DATACOOLIE_ROOT)
     parser = argparse.ArgumentParser(description="Fan-out metadata from JSON to multiple targets")
-    parser.add_argument("--json", default=str(LOCAL_USE_CASES_JSON),
-                        help="Path to use-cases JSON (default: local_use_cases.json)")
+    parser.add_argument("--json", action="append",
+                        help="Exact source JSON; repeat for multiple group files")
+    parser.add_argument("--connections-path", help="Exact shared connections section file")
+    parser.add_argument("--schema-hints-path", help="Exact shared schema_hints section file")
     parser.add_argument("--workspace-id", default="local-workspace")
     parser.add_argument("--targets", default=_default_targets(),
                         help="Comma-separated: file, db:<dialect>, api-db. "
                              "Dialects: " + ", ".join(ALL_DIALECTS))
     parser.add_argument("--truncate", action="store_true",
                         help="Delete existing rows for the workspace before seeding")
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR / "metadata_exports",
+                        help="Destination for explicit file exports; unused for database targets")
     parser.add_argument("--db-url", action="append", default=[],
                         metavar="DIALECT=URL",
                         help="Override a dialect's connection string (repeatable)")
@@ -604,31 +607,48 @@ def main() -> int:
             return 2
         db_urls[k] = v
 
-    source_path = Path(args.json)
-    if not source_path.is_absolute():
-        source_path = (DATACOOLIE_ROOT / source_path).resolve()
-    if not source_path.exists():
-        logger.error("JSON not found: %s", source_path)
-        return 2
+    sources = args.json or [str(LOCAL_USE_CASES_JSON)]
+    source_paths = []
+    for value in sources:
+        source_path = Path(value)
+        if not source_path.is_absolute():
+            source_path = (DATACOOLIE_ROOT / source_path).resolve()
+        if not source_path.is_file():
+            logger.error("JSON not found: %s", source_path)
+            return 2
+        source_paths.append(source_path)
 
-    # Workflow manifests are authored simulator metadata.  Compile them into
-    # the stable runtime artifact first so every target (YAML/XLSX/database)
-    # receives the same fully composed document.
+    # Seed backends from one in-memory snapshot. Only the explicit file target
+    # needs an export; a database seed must not create a JSON intermediate.
     try:
-        json_path = write_composed_metadata(
-            source_path,
-            COMPILED_METADATA_DIR / source_path.name,
-            root=SIM_ROOT,
-        )
-        meta = load_metadata(json_path, root=SIM_ROOT)
+        meta = load_metadata_files(source_paths, connections_path=args.connections_path,
+                                   schema_hints_path=args.schema_hints_path, root=SIM_ROOT)
     except (OSError, ValueError) as exc:
-        logger.error("Cannot compose metadata %s: %s", source_path, exc)
+        logger.error("Cannot load metadata %s: %s", source_paths, exc)
         return 2
 
     rc = 0
+    export_path = None
+    if "file" in targets:
+        basename = source_paths[0].name if len(source_paths) == 1 else "metadata.json"
+        export_path = args.output_dir.resolve() / basename
+        inputs = set(source_paths)
+        for value in (args.connections_path, args.schema_hints_path):
+            if value:
+                inputs.add(Path(value).resolve())
+        outputs = {export_path.with_suffix(suffix) for suffix in (".json", ".yaml", ".xlsx")}
+        # Protect every authored source, including manifests' referenced files.
+        authored_root = (SIM_ROOT / "metadata").resolve()
+        if outputs & inputs or any(path.is_relative_to(authored_root) for path in outputs):
+            logger.error("Export destination would overwrite authored metadata: %s", export_path)
+            return 2
     for target in targets:
         if target == "file":
             logger.info("--- target: file ---")
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            json_path = export_path
+            json_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+                                 encoding="utf-8")
             emit_yaml(meta, json_path.with_suffix(".yaml"))
             emit_xlsx(meta, json_path.with_suffix(".xlsx"))
         elif target.startswith("db:"):

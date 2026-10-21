@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from _stateful_support import PRODUCT_ROOT, LOG_DIR, DriverEvidence
+from runner.owned_process import run_owned
+from runner.metadata_sources import child_metadata_args, make_case_provider, case_metadata_provenance
 from runner.runtime_logs import job_sessions, records, require_job_logs
+from runner.runtime_timing import phase
 from datacoolie.utils.identity import name_to_uuid
-from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.platforms.local_platform import LocalPlatform
 from datacoolie.watermark.base import WatermarkSerializer
 
@@ -25,8 +26,8 @@ def snapshot(root):
 
 
 def seed_checkpoint(case, flow, values):
-    provider = FileProvider(
-        config_path=str(case.metadata),
+    provider = make_case_provider(
+        case,
         platform=LocalPlatform(),
         watermark_base_path=str(case.watermarks / "provider"),
     )
@@ -70,6 +71,7 @@ def run_rejection(case, *, flow, stage, error, engine="polars"):
     job = "rejection-" + uuid4().hex
     before_sessions = job_sessions(LOG_DIR, job)
     before_output, before_state = snapshot(case.output), snapshot(case.watermarks)
+    provenance = case_metadata_provenance(case, stage=stage)
     command = [
         sys.executable,
         "-u",
@@ -80,8 +82,7 @@ def run_rejection(case, *, flow, stage, error, engine="polars"):
         "local",
         "--metadata-source",
         "file",
-        "--metadata-path",
-        str(case.metadata),
+        *child_metadata_args(case),
         "--stage",
         stage,
         "--log-path",
@@ -95,15 +96,12 @@ def run_rejection(case, *, flow, stage, error, engine="polars"):
         "--max-workers",
         "1",
     ]
-    child = subprocess.run(
-        command,
-        cwd=PRODUCT_ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=150,
-    )
+    with phase("child_wall_s"):
+        child = run_owned(
+            command,
+            cwd=PRODUCT_ROOT,
+            timeout=150,
+        )
     # Unique case-owned evidence; never overwrite historical dispatcher logs.
     (case.receipt_root / "child-console.log").write_text(
         child.stdout + child.stderr, encoding="utf-8"
@@ -126,6 +124,7 @@ def run_rejection(case, *, flow, stage, error, engine="polars"):
         session,
         {"total": 1, "succeeded": 0, "failed": 1, "skipped": 0},
         tuple(rows),
+        provenance,
     )
     return evidence, {
         "command": command,

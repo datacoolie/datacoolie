@@ -8,7 +8,6 @@ injected engine during a run.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
@@ -119,11 +118,11 @@ def native_rows(
 def rewrite_iceberg_namespace(case: Any, namespace: str) -> dict[str, Any]:
     """Replace the authored namespace token after fixture materialization."""
 
-    document = json.loads(case.metadata.read_text(encoding="utf-8"))
+    document = case.document
     for connection in document.get("connections", []):
         if connection.get("format") == "iceberg":
             connection["database"] = namespace
-    case.metadata.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+    case.document = document
     return document
 
 

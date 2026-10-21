@@ -1,4 +1,4 @@
-"""Qualify v6 snapshot/batch diagnostics with native Polars and fresh paths."""
+"""Qualify current snapshot/batch diagnostics with native Polars and fresh paths."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "usecase-sim"))
-from runner.runtime_paths import DATA_DIR, LOG_DIR
-from runner.runtime_logs import job_sessions
+from runner.runtime_paths import DATA_DIR, LOG_DIR  # noqa: E402
+from runner.runtime_logs import job_sessions  # noqa: E402
 
 from datacoolie.core.models.connection import Connection  # noqa: E402
 from datacoolie.core.models.dataflow import DataFlow  # noqa: E402
@@ -22,8 +22,25 @@ from datacoolie.core.models.run_config import DataCoolieRunConfig  # noqa: E402
 from datacoolie.core.models.source import Source  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
 from datacoolie.logging.configuration.config import LogConfig  # noqa: E402
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION  # noqa: E402
 from datacoolie.orchestration.driver import DataCoolieDriver  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
+
+
+_METRIC_FIELDS = frozenset(
+    {
+        "rows_read",
+        "rows_written",
+        "rows_inserted",
+        "rows_updated",
+        "rows_deleted",
+        "files_added",
+        "files_removed",
+        "bytes_added",
+        "bytes_removed",
+        "bytes_saved",
+    }
+)
 
 
 def run(root: Path) -> dict:
@@ -45,9 +62,9 @@ def run(root: Path) -> dict:
             query = "SELECT * FROM logging_fixture" + (" /*" + "🧭" * 5000 + "*/" if bounded else "")
             flow = DataFlow(name="logging_bounds", source=Source(connection=source, query=query), destination=Destination(connection=target, table="rows", load_type="overwrite"))
             log_root = LOG_DIR
-            job_id = f"logging-v6-{case}"
+            job_id = f"logging-v{LOG_SCHEMA_VERSION}-{case}"
             previous_sessions = job_sessions(log_root, job_id)
-            with DataCoolieDriver(engine, platform=LocalPlatform(), config=DataCoolieRunConfig(job_id=f"logging-v6-{case}"), state_base_path=str(case_root / "state"), log_base_path=str(log_root), log_config=LogConfig(persistence_mode=mode, diagnostic_max_bytes=256 if bounded else 65536, flush_interval_seconds=0, flush_batch_bytes=1)) as driver:
+            with DataCoolieDriver(engine, platform=LocalPlatform(), config=DataCoolieRunConfig(job_id=job_id), state_base_path=str(case_root / "state"), log_base_path=str(log_root), log_config=LogConfig(persistence_mode=mode, diagnostic_max_bytes=256 if bounded else 65536, flush_interval_seconds=0, flush_batch_bytes=1)) as driver:
                 result = driver.run(dataflows=[flow])
                 assert result.succeeded == 1 and result.failed == 0, result
             current = job_sessions(log_root, job_id) - previous_sessions
@@ -55,13 +72,18 @@ def run(root: Path) -> dict:
             session_id = next(iter(current))
             rows = [json.loads(line) for category in ("execution_logs", "system_logs") for path in (log_root / category).rglob("*.json") for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
             rows = [row for row in rows if row.get("job_id") == job_id and row.get("log_session_id") == session_id]
-            assert rows and all(row["log_schema_version"] == 6 for row in rows)
+            assert rows and all(row["log_schema_version"] == LOG_SCHEMA_VERSION for row in rows)
             jobs = [row for row in rows if row["_type"] == "job_run_log"]
             flows = [row for row in rows if row["_type"] == "dataflow_run_log"]
             assert len(jobs) == len(flows) == 1
             job, record = jobs[0], flows[0]
             assert job["total_dataflows"] == job["total_succeeded"] == 1
             assert job["log_records_dropped"] == 0
+            assert set(record["metrics"]) == _METRIC_FIELDS
+            assert all(
+                value is None or (type(value) is int and value >= 0)
+                for value in record["metrics"].values()
+            )
             assert record["status"] == "succeeded" and record["metrics"]["rows_read"] == 2
             assert record["metrics"]["rows_written"] is None
             assert record["source_query"] == query
@@ -71,7 +93,7 @@ def run(root: Path) -> dict:
             output = pl.read_parquet(str(case_root / "output" / "rows" / "**" / "*.parquet"))
             assert sorted(output["id"].to_list()) == [1, 2]
             receipts.append({"case": case, "job_id": job["job_id"], "log_session_id": job["log_session_id"], "output_rows": 2, "rows_written_metric": None, "diagnostic_issues": record.get("diagnostic_issues", []), "log_records_dropped": 0})
-    receipt = {"schema_version": 6, "engine": "polars", "polars_version": pl.__version__, "cases": receipts}
+    receipt = {"schema_version": LOG_SCHEMA_VERSION, "engine": "polars", "polars_version": pl.__version__, "cases": receipts}
     (root / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     return receipt
 

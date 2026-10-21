@@ -165,3 +165,174 @@ def test_latest_or_glob_plan_selection_is_rejected(tmp_path: Path) -> None:
     receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
     with pytest.raises(ValueError, match="latest and globs are forbidden"):
         validate_provision.validate_receipt(workspace, receipt_path)
+
+
+def _scoped_evidence(receipt: dict, *, environment: str = "qa") -> str:
+    return json.dumps(
+        {
+            "environment": environment,
+            "requirements": receipt["requirements"],
+            "resource": "control-storage",
+            "capability": "metadata-read",
+            "observation": "observed from the intended host",
+        },
+        separators=(",", ":"),
+    )
+
+
+def _ready_plan(tmp_path: Path) -> tuple[Path, Path, dict]:
+    workspace, receipt_path, receipt = _write_receipt(tmp_path)
+    receipt["actions"][0].update({"action": "no_change", "status": "planned"})
+    receipt["verification"] = [
+        {
+            "name": "resource-observation",
+            "status": "passed",
+            "evidence": _scoped_evidence(receipt),
+        },
+        {
+            "name": "host-access",
+            "status": "passed",
+            "evidence": _scoped_evidence(receipt),
+        },
+    ]
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    return workspace, receipt_path, receipt
+
+
+def test_no_change_plan_can_satisfy_readiness_gate(tmp_path: Path) -> None:
+    workspace, receipt_path, receipt = _ready_plan(tmp_path)
+    result = validate_provision.validate_receipt(
+        workspace,
+        receipt_path,
+        require_ready=True,
+        environment="qa",
+        requirements="architecture/current.md",
+        requirements_sha256=receipt["requirements"]["sha256"],
+        required_checks=["host-access"],
+        required_observations={
+            "resource-observation": ("control-storage", "metadata-read"),
+            "host-access": ("control-storage", "metadata-read"),
+        },
+    )
+    assert result["operation"] == "plan"
+
+
+def test_readiness_rejects_mutating_plan_and_plan_validation_only(tmp_path: Path) -> None:
+    workspace, receipt_path, receipt = _ready_plan(tmp_path)
+    receipt["actions"][0]["action"] = "create"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(ValueError, match="only no_change"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["host-access"],
+            required_observations={
+                "resource-observation": ("control-storage", "metadata-read"),
+                "host-access": ("control-storage", "metadata-read"),
+            },
+        )
+
+    workspace, receipt_path, receipt = _ready_plan(tmp_path / "plan-only")
+    with pytest.raises(ValueError, match="host access or capability"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["plan-validation"],
+            required_observations={
+                "resource-observation": ("control-storage", "metadata-read"),
+                "plan-validation": ("control-storage", "metadata-read"),
+            },
+        )
+
+
+def test_readiness_requires_scoped_passed_checks(tmp_path: Path) -> None:
+    workspace, receipt_path, receipt = _ready_plan(tmp_path)
+    receipt["verification"][1]["status"] = "skipped"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(ValueError, match="did not pass"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["host-access"],
+            required_observations={
+                "resource-observation": ("control-storage", "metadata-read"),
+                "host-access": ("control-storage", "metadata-read"),
+            },
+        )
+
+    workspace, receipt_path, receipt = _ready_plan(tmp_path / "wrong-scope")
+    wrong = json.loads(receipt["verification"][1]["evidence"])
+    wrong["environment"] = "prod"
+    receipt["verification"][1]["evidence"] = json.dumps(wrong)
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(ValueError, match="wrong environment"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["host-access"],
+            required_observations={
+                "resource-observation": ("control-storage", "metadata-read"),
+                "host-access": ("control-storage", "metadata-read"),
+            },
+        )
+
+    workspace, receipt_path, receipt = _ready_plan(tmp_path / "wrong-capability")
+    with pytest.raises(ValueError, match="wrong capability"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["host-access"],
+            required_observations={
+                "resource-observation": ("control-storage", "metadata-read"),
+                "host-access": ("control-storage", "host-access"),
+            },
+        )
+
+
+def test_readiness_requires_exact_observation_bindings(tmp_path: Path) -> None:
+    workspace, receipt_path, receipt = _ready_plan(tmp_path)
+    with pytest.raises(ValueError, match="expected resource/capability scope"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["host-access"],
+        )
+    with pytest.raises(ValueError, match="unexpected required observation"):
+        validate_provision.validate_receipt(
+            workspace,
+            receipt_path,
+            require_ready=True,
+            environment="qa",
+            requirements="architecture/current.md",
+            requirements_sha256=receipt["requirements"]["sha256"],
+            required_checks=["host-access"],
+            required_observations={
+                "resource-observation": ("control-storage", "metadata-read"),
+                "host-access": ("control-storage", "metadata-read"),
+                "unused-check": ("other", "other"),
+            },
+        )

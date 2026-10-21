@@ -30,12 +30,7 @@ installation, or runner-owned packaging.
 
 ## Outcome-scoped verification
 
-For author/build-only requests, inspect the dry-run plan, validate the assembled artifact, and
-report each configured root and any skipped host import check. For an explicitly requested safe
-runtime check, follow the public [build and execute workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/#build-and-execute)
-and Function recipe: use CLI packaging evidence, the selected built environment and independent
-import/output/state checks. Keep the retained/current validation evidence and report legitimate
-empty/skipped work or unavailable host packages rather than converting them into success claims.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). Inspect each configured root's CLI packaging evidence and, when runtime use is requested, verify attachment/import on the selected host. Retain unavailable host-package/import checks as gaps.
 
 ## Unresolved questions
 

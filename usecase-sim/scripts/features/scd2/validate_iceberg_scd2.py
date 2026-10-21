@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -198,7 +197,6 @@ def validate(root: Path | None = None) -> dict[str, Any]:
     except ImportError:  # pragma: no cover - compatibility for pre-T6 worktrees
         raise RuntimeError("T6 requires the existing-flow compiler for the Iceberg SCD2 baseline")
     document, identity = compile_existing(case, "scd2", FLOW_NAME_AUTHORED)
-    case.metadata.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     rewrite_iceberg_namespace(case, namespace)
     catalog = new_catalog()
     source_engine = new_engine(catalog)

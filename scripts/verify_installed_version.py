@@ -17,8 +17,9 @@ from datacoolie.core import (
     Destination,
     Source,
 )
-from datacoolie.core.models.runtime import DataFlowRuntimeInfo
+from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
 from datacoolie.logging import ExecutionLogger, LogConfig, SystemLogger
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION
 from datacoolie.platforms.local_platform import LocalPlatform
 from datacoolie.project.schema import resolve_metadata_schema
 
@@ -99,7 +100,7 @@ def verify_installed_version(expected: str) -> None:
             }
             for row in records:
                 assert row["datacoolie_version"] == expected, row
-                assert row["log_schema_version"] == 4, row
+                assert row["log_schema_version"] == LOG_SCHEMA_VERSION, row
                 assert list(row)[:2] == ["log_schema_version", "_type"], row
     print(f"Installed package, CLI and persisted log versions match {expected}.")
 

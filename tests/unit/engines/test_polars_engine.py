@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from threading import Lock
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, sentinel
 
 import pytest
 
@@ -20,7 +20,7 @@ from datacoolie.core.constants import (  # noqa: E402
     SystemColumn,
 )
 from datacoolie.core.exceptions import ConfigurationError, EngineError, TransformError  # noqa: E402
-from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
+from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule  # noqa: E402
 from datacoolie.engines._polars import delta as delta_ops  # noqa: E402
 from datacoolie.engines._polars.iceberg import operations as iceberg_ops  # noqa: E402
 from datacoolie.engines.polars_engine import PolarsEngine  # noqa: E402
@@ -481,7 +481,7 @@ class TestReadExcel:
         pl.DataFrame({"x": [2]}).write_excel(str(p2))
         out = platform_engine.read_excel([str(p1), str(p2)]).collect()
         paths = sorted(out[FileInfoColumn.FILE_PATH].to_list())
-        assert paths == sorted([str(p1), str(p2)])
+        assert paths == sorted([p1.as_posix(), p2.as_posix()])
 
     def test_read_excel_multi_sheet_has_file_path(
         self, platform_engine: PolarsEngine, tmp_path: Path
@@ -503,7 +503,7 @@ class TestReadExcel:
             str(path), options={"sheet_id": 0}
         ).collect()
         assert FileInfoColumn.FILE_PATH in result.columns
-        assert all(v == str(path) for v in result[FileInfoColumn.FILE_PATH].to_list())
+        assert all(v == path.as_posix() for v in result[FileInfoColumn.FILE_PATH].to_list())
 
     def test_read_excel_empty_directory_raises(
         self, platform_engine: PolarsEngine, tmp_path: Path
@@ -2037,9 +2037,8 @@ class TestPolarsEngineAdvancedCoverage:
         engine.cleanup_by_path("/tmp/x", fmt="json")
         assert "only supports Delta" in caplog.text
 
-        # Iceberg compact logs warning (pyiceberg lacks compaction)
-        engine.compact_by_name("t", fmt="iceberg")
-        assert "does not support compaction" in caplog.text
+        with pytest.raises(EngineError, match="does not support compaction"):
+            engine.compact_by_name("t", fmt="iceberg")
 
         # Iceberg cleanup requires catalog
         with pytest.raises(EngineError, match="requires iceberg_catalog"):
@@ -2050,18 +2049,18 @@ class TestPolarsEngineAdvancedCoverage:
     ) -> None:
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.compact_by_name("ns.tbl", fmt="iceberg")
-        assert "does not support compaction" in caplog.text
+        with pytest.raises(EngineError, match="does not support compaction"):
+            engine.compact_by_name("ns.tbl", fmt="iceberg")
 
     def test_compact_by_name_iceberg_options(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.compact_by_name(
-            "ns.tbl", fmt="iceberg", options={"rewrite_data_files": False}
-        )
-        assert "does not support compaction" in caplog.text
+        with pytest.raises(EngineError, match="does not support compaction"):
+            engine.compact_by_name("ns.tbl", fmt="iceberg", options={"rewrite_data_files": False})
+        engine.compact_by_name("ns.tbl", fmt="iceberg", options={
+            "rewrite_data_files": False, "rewrite_position_delete_files": False, "rewrite_manifests": False})
 
     def test_cleanup_by_name_iceberg_expire_snapshots(self) -> None:
         ice_table = MagicMock()
@@ -2081,7 +2080,7 @@ class TestPolarsEngineAdvancedCoverage:
         catalog.load_table.return_value = ice_table
 
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.cleanup_by_name("ns.tbl", retention_hours=48, fmt="iceberg")
+        engine.cleanup_by_name("ns.tbl", retention_hours=48, fmt="iceberg", options={"remove_orphan_files": False})
         catalog.load_table.assert_called_once_with("ns.tbl")
         ice_table.maintenance.expire_snapshots.assert_called_once()
         expire.older_than.assert_called_once()
@@ -2113,10 +2112,9 @@ class TestPolarsEngineAdvancedCoverage:
         catalog.load_table.return_value = ice_table
 
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.cleanup_by_name(
-            "ns.tbl", fmt="iceberg", options={"remove_orphan_files": True}
-        )
-        assert "does not support remove_orphan_files" in caplog.text
+        with pytest.raises(EngineError, match="does not support remove_orphan_files"):
+            engine.cleanup_by_name("ns.tbl", fmt="iceberg", options={"remove_orphan_files": True})
+        catalog.load_table.assert_not_called()
 
 
 
@@ -2174,23 +2172,29 @@ class TestRouterOverrides:
         with pytest.raises(EngineError, match="pass path instead of table_name"):
             engine.write(lf, table_name="my_table", mode="overwrite", fmt="delta")
 
-    @patch.object(
-        iceberg_ops.iceberg_schema,
-        "align_arrow_to_table",
-        side_effect=lambda arrow, ice: arrow,
-    )
-    def test_write_iceberg_with_table_name_routes_to_catalog(
-        self, _mock_reorder: MagicMock
-    ) -> None:
-        lf = pl.DataFrame({"id": [1]}).lazy()
-        ice_table = MagicMock()
-        id_field = MagicMock()
-        id_field.name = "id"
-        ice_table.schema.return_value.fields = [id_field]
-        catalog = MagicMock()
-        catalog.load_table.return_value = ice_table
-        engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.write(lf, table_name="ns.tbl", mode="overwrite", fmt="iceberg")
+    def test_write_iceberg_with_table_name_routes_to_catalog(self) -> None:
+        frame = sentinel.frame
+        partition_columns = ["id"]
+        options = {"schema_evolution": "true"}
+        engine = PolarsEngine()
+        with patch.object(engine, "write_to_table") as write_to_table:
+            engine.write(
+                frame,
+                table_name="ns.tbl",
+                mode="overwrite",
+                fmt="iceberg",
+                partition_columns=partition_columns,
+                options=options,
+            )
+
+        write_to_table.assert_called_once_with(
+            frame,
+            "ns.tbl",
+            mode="overwrite",
+            fmt="iceberg",
+            partition_columns=partition_columns,
+            options=options,
+        )
 
     def test_write_iceberg_with_only_path_raises(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
@@ -2204,11 +2208,29 @@ class TestRouterOverrides:
 
     # ---- merge ----
 
-    def test_merge_delta_routes_to_path(
-        self, engine: PolarsEngine, delta_path: Path
-    ) -> None:
-        lf = pl.DataFrame({"id": [1], "val": [99]}).lazy()
-        engine.merge(lf, path=str(delta_path), merge_keys=["id"], fmt="delta")
+    def test_merge_delta_routes_to_path(self, engine: PolarsEngine) -> None:
+        frame = sentinel.frame
+        merge_keys = ["id"]
+        partition_columns = ["event_date"]
+        options = {"predicate": "target.id = source.id"}
+        with patch.object(engine, "merge_to_path") as merge_to_path:
+            engine.merge(
+                frame,
+                path="/warehouse/orders",
+                merge_keys=merge_keys,
+                fmt="delta",
+                partition_columns=partition_columns,
+                options=options,
+            )
+
+        merge_to_path.assert_called_once_with(
+            frame,
+            "/warehouse/orders",
+            merge_keys=merge_keys,
+            fmt="delta",
+            partition_columns=partition_columns,
+            options=options,
+        )
 
     def test_merge_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
         lf = pl.DataFrame({"id": [1]}).lazy()
@@ -2235,11 +2257,32 @@ class TestRouterOverrides:
 
     # ---- merge_overwrite ----
 
-    def test_merge_overwrite_delta_routes_to_path(
-        self, engine: PolarsEngine, delta_path: Path
-    ) -> None:
-        lf = pl.DataFrame({"id": [1], "val": [99]}).lazy()
-        engine.merge_overwrite(lf, path=str(delta_path), merge_keys=["id"], fmt="delta")
+    def test_merge_overwrite_delta_routes_to_path(self, engine: PolarsEngine) -> None:
+        frame = sentinel.frame
+        merge_keys = ["id"]
+        partition_columns = ["event_date"]
+        options = {"predicate": "target.id = source.id"}
+        write_options = {"target_file_size": "128MB"}
+        with patch.object(engine, "merge_overwrite_to_path") as merge_overwrite_to_path:
+            engine.merge_overwrite(
+                frame,
+                path="/warehouse/orders",
+                merge_keys=merge_keys,
+                fmt="delta",
+                partition_columns=partition_columns,
+                options=options,
+                write_options=write_options,
+            )
+
+        merge_overwrite_to_path.assert_called_once_with(
+            frame,
+            "/warehouse/orders",
+            merge_keys=merge_keys,
+            fmt="delta",
+            partition_columns=partition_columns,
+            options=options,
+            write_options=write_options,
+        )
 
     def test_merge_overwrite_delta_with_table_name_raises(
         self, engine: PolarsEngine
@@ -2321,10 +2364,20 @@ class TestRouterOverrides:
 
     # ---- compact ----
 
-    def test_compact_delta_routes_to_path(
-        self, engine: PolarsEngine, delta_path: Path
-    ) -> None:
-        engine.compact(path=str(delta_path), fmt="delta")
+    def test_compact_delta_routes_to_path(self, engine: PolarsEngine) -> None:
+        options = {"target_size": 134217728}
+        with patch.object(engine, "compact_by_path") as compact_by_path:
+            engine.compact(
+                path="/warehouse/orders",
+                fmt="delta",
+                options=options,
+            )
+
+        compact_by_path.assert_called_once_with(
+            "/warehouse/orders",
+            fmt="delta",
+            options=options,
+        )
 
     def test_compact_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
         with pytest.raises(EngineError, match="pass path instead of table_name"):
@@ -2343,24 +2396,44 @@ class TestRouterOverrides:
 
     # ---- cleanup ----
 
-    def test_cleanup_delta_routes_to_path(
-        self, engine: PolarsEngine, delta_path: Path
-    ) -> None:
-        engine.cleanup(path=str(delta_path), fmt="delta")
+    def test_cleanup_delta_routes_to_path(self, engine: PolarsEngine) -> None:
+        options = {"dry_run": True}
+        with patch.object(engine, "cleanup_by_path") as cleanup_by_path:
+            engine.cleanup(
+                path="/warehouse/orders",
+                retention_hours=48,
+                fmt="delta",
+                options=options,
+            )
+
+        cleanup_by_path.assert_called_once_with(
+            "/warehouse/orders",
+            retention_hours=48,
+            fmt="delta",
+            options=options,
+        )
 
     def test_cleanup_delta_with_table_name_raises(self, engine: PolarsEngine) -> None:
         with pytest.raises(EngineError, match="pass path instead of table_name"):
             engine.cleanup(table_name="my_table", fmt="delta")
 
     def test_cleanup_iceberg_with_table_name_routes_to_catalog(self) -> None:
-        ice_table = MagicMock()
-        expire = MagicMock()
-        ice_table.maintenance.expire_snapshots.return_value = expire
-        expire.older_than.return_value = expire
-        catalog = MagicMock()
-        catalog.load_table.return_value = ice_table
-        engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.cleanup(table_name="ns.tbl", fmt="iceberg")
+        options = {"expire_snapshots": False}
+        engine = PolarsEngine()
+        with patch.object(engine, "cleanup_by_name") as cleanup_by_name:
+            engine.cleanup(
+                table_name="ns.tbl",
+                retention_hours=48,
+                fmt="iceberg",
+                options=options,
+            )
+
+        cleanup_by_name.assert_called_once_with(
+            "ns.tbl",
+            retention_hours=48,
+            fmt="iceberg",
+            options=options,
+        )
 
     def test_cleanup_no_args_raises(self, engine: PolarsEngine) -> None:
         with pytest.raises(EngineError, match="requires table_name or path"):

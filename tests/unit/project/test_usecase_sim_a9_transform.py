@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import sys
 from pathlib import Path
 
@@ -33,7 +32,7 @@ from transform.validate_a9_local import (  # noqa: E402
 )
 
 
-METADATA_PATH = SIM_ROOT / "metadata" / "file" / "transform" / "a9_local.json"
+METADATA_PATH = SIM_ROOT / "metadata" / "file" / "transform.json"
 
 
 def _rows(rows: list[dict]) -> list[dict]:
@@ -41,7 +40,8 @@ def _rows(rows: list[dict]) -> list[dict]:
 
 
 def test_a9_transform_fixture_declares_four_independent_primary_flows() -> None:
-    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+    metadata = recipe_document("transform", "a9_local")
     assert_a9_transform_metadata(metadata)
     assert {flow["stage"] for flow in metadata["dataflows"]} == {
         "a9_transform_uppercase",

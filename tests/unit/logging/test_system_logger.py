@@ -12,7 +12,7 @@ from datacoolie.core.models.run_config import DataCoolieRunConfig
 from datacoolie.logging.configuration.config import LogConfig
 from datacoolie.logging.runtime.manager import LogManager, get_logger
 from datacoolie.logging.runtime.context import dataflow_context
-from datacoolie.logging.configuration.constants import LogEvent
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION, LogEvent
 from datacoolie.logging.system_logger import SystemLogger, create_system_logger
 from datacoolie.platforms.local_platform import LocalPlatform
 
@@ -75,7 +75,7 @@ class TestSystemLogger:
             "_type",
         ]
         row = dict(ordered_pairs)
-        assert row["log_schema_version"] == 6
+        assert row["log_schema_version"] == LOG_SCHEMA_VERSION
         assert row["_type"] == "system_log"
         assert row["log_session_id"]
         assert row["job_id"] == "factory/job-1"

@@ -18,11 +18,13 @@ from datacoolie.core.constants import (
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models.source import Source
 from datacoolie.engines.base import DF, BaseEngine
+from datacoolie.engines.contracts.json_framing import resolve_json_multiline
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.platforms.base import FileInfo
 from datacoolie.sources.base import BaseSourceReader
 from datacoolie.sources.contracts import SourceReadRequest
 from datacoolie.watermark.contracts import WatermarkCandidateKind
+from datacoolie.utils.path_utils import normalize_path
 
 logger = get_logger(__name__)
 
@@ -84,6 +86,8 @@ class FileReader(BaseSourceReader[DF]):
         """
         watermark_start = self._get_effective_watermark_start()
         watermark_end = request.watermark_end
+        if source.connection.format in {"json", "jsonl"}:
+            resolve_json_multiline(source.connection.format, source.read_options)
         if not source.path:
             raise SourceError("FileReader requires source.path")
 
@@ -287,8 +291,8 @@ class FileReader(BaseSourceReader[DF]):
     ) -> List[FileInfo]:
         """List all files under *paths* and return those within the mtime window.
 
-        Uses :meth:`~datacoolie.platforms.base.BasePlatform.list_files` with a
-        ``".{fmt}"`` extension filter. Listing errors propagate so a partial
+        Uses the engine's format suffix policy (JSONL admits .jsonl and .json
+        by default). Listing errors propagate so a partial
         discovery cannot be reported as a successful read.
 
         Args:
@@ -325,15 +329,18 @@ class FileReader(BaseSourceReader[DF]):
         }
         lower_cmp = _cmp.get(start_operator, lambda a, b: a > b)
         upper_cmp = _cmp.get(end_operator, lambda a, b: a < b)
-        ext = self._engine.FORMAT_EXTENSIONS.get(fmt, f".{fmt}")
         result: List[FileInfo] = []
+        seen_paths: set[str] = set()
 
-        for path in paths:
-            files = self._engine.platform.list_files(path, extension=ext, recursive=recursive)  # type: ignore[union-attr]
+        discovery_paths = list({normalize_path(p): p for p in paths}.values()) if fmt in {"json", "jsonl"} else paths
+        for path in discovery_paths:
+            files = self._engine.list_format_files(path, fmt, recursive=recursive)
 
             for fi in files:
-                if fi.is_dir:
+                concrete_path = normalize_path(fi.path)
+                if fi.is_dir or (fmt in {"json", "jsonl"} and concrete_path in seen_paths):
                     continue
+                seen_paths.add(concrete_path)
                 if fi.modification_time is None:
                     if require_modification_time:
                         raise SourceError(

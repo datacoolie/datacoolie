@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -27,12 +29,18 @@ def _expect_failure(call, exception_type=Exception):
     raise AssertionError(f"Expected {exception_type.__name__}")
 
 
+def _error_class(error):
+    getter = getattr(error, "getErrorClass", None)
+    return getter() if callable(getter) else None
+
+
 def main():
     sys.path.insert(0, str(PRODUCT_ROOT / "usecase-sim"))
     from runner._runner_utils import build_spark_session
     from delta import DeltaTable
     from datacoolie.engines._spark.delta import table_exists_by_path
     from datacoolie.core.exceptions import EngineError
+    from datacoolie.platforms import LocalPlatform
 
     root = (
         PRODUCT_ROOT
@@ -44,6 +52,7 @@ def main():
         app_name="bounded-delta-path-probe",
         extra_config={"spark.sql.shuffle.partitions": "1", "spark.master": "local[1]"},
     )
+    platform = LocalPlatform()
     try:
         assert spark.version.startswith("3.5."), spark.version
         target = root / "table"
@@ -67,27 +76,69 @@ def main():
             == "delta"
         )
         assert (
-            DeltaTable.forPath(spark, relative).detail().collect()[0]["format"]
-            == "delta"
+            DeltaTable.forPath(spark, relative).toDF().schema.simpleString()
+            == "struct<id:bigint,value:string>"
         )
-        assert table_exists_by_path(spark, None, relative)
-        assert table_exists_by_path(spark, None, target.as_posix())
-        assert not table_exists_by_path(spark, None, (root / "missing").as_posix())
+        assert table_exists_by_path(spark, platform, relative)
+        assert table_exists_by_path(spark, platform, target.as_posix())
+        assert not table_exists_by_path(
+            spark, platform, (root / "missing").as_posix()
+        )
         empty = root / "empty"
         empty.mkdir()
-        assert not table_exists_by_path(spark, None, empty.as_posix())
+        assert not table_exists_by_path(spark, platform, empty.as_posix())
         occupied = root / "occupied"
         occupied.mkdir()
         (occupied / "data.txt").write_text("occupied")
         _expect_failure(
-            lambda: table_exists_by_path(spark, None, occupied.as_posix()), EngineError
+            lambda: table_exists_by_path(spark, platform, occupied.as_posix()), EngineError
         )
-        corrupt = root / "corrupt/_delta_log"
-        corrupt.mkdir(parents=True)
-        (corrupt / "00000000000000000000.json").write_text("not-json")
-        _expect_failure(
-            lambda: table_exists_by_path(spark, None, corrupt.parent.as_posix())
+        empty_log = root / "empty-log/_delta_log"
+        empty_log.mkdir(parents=True)
+        empty_log_failure = _expect_failure(
+            lambda: table_exists_by_path(
+                spark, platform, empty_log.parent.as_posix()
+            )
         )
+
+        corrupt = root / "corrupt"
+        shutil.copytree(target, corrupt)
+        (corrupt / "_delta_log/00000000000000000001.json").write_text(
+            "not valid json\n"
+        )
+        corrupt_failure = _expect_failure(
+            lambda: table_exists_by_path(spark, platform, corrupt.as_posix())
+        )
+
+        unsupported = root / "unsupported"
+        shutil.copytree(target, unsupported)
+        (unsupported / "_delta_log/00000000000000000001.json").write_text(
+            json.dumps({"protocol": {"minReaderVersion": 99, "minWriterVersion": 2}})
+            + "\n"
+        )
+        unsupported_failure = _expect_failure(
+            lambda: table_exists_by_path(spark, platform, unsupported.as_posix())
+        )
+
+        permission = root / "permission"
+        permission_observation = {"status": "skipped-root"}
+        if hasattr(os, "geteuid") and os.geteuid() != 0:
+            shutil.copytree(target, permission)
+            try:
+                permission.chmod(0)
+                permission_failure = _expect_failure(
+                    lambda: table_exists_by_path(
+                        spark, platform, permission.as_posix()
+                    )
+                )
+                permission_observation = {
+                    "status": "propagated",
+                    "error": type(permission_failure).__name__,
+                    "class": _error_class(permission_failure),
+                }
+            finally:
+                permission.chmod(0o755)
+
         assert [
             row.asDict()
             for row in spark.read.format("delta").load(relative).select(
@@ -99,6 +150,21 @@ def main():
             "status": "passed",
             "spark_version": spark.version,
             "relative_sql_error_class": sql_error_class,
+            "native_failures": {
+                "empty_log": {
+                    "error": type(empty_log_failure).__name__,
+                    "class": _error_class(empty_log_failure),
+                },
+                "corrupt": {
+                    "error": type(corrupt_failure).__name__,
+                    "class": _error_class(corrupt_failure),
+                },
+                "unsupported": {
+                    "error": type(unsupported_failure).__name__,
+                    "class": _error_class(unsupported_failure),
+                },
+            },
+            "permission": permission_observation,
         }
     finally:
         spark.stop()

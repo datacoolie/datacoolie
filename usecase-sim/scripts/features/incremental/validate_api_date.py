@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
 import sys
 from datetime import date, datetime
@@ -26,6 +25,8 @@ from _stateful_support import (
 )
 from read.api_rejection_support import seed_checkpoint, run_rejection, snapshot
 from runner.runtime_logs import records
+from runner.runtime_profile import optimized
+from runner.runtime_timing import phase, runtime_entrypoint
 from datacoolie.watermark.base import WatermarkSerializer
 from datacoolie.utils.identity import name_to_uuid
 
@@ -68,6 +69,7 @@ def _trace(url, token):
     return response.json()["requests"]
 
 
+@runtime_entrypoint
 def validate(
     root=None, *, negative=False, engine_name="polars", qualification_scope=None
 ):
@@ -78,7 +80,7 @@ def validate(
         case,
         "api_date_precision_negative.json" if negative else "api_date_positive.json",
     )
-    document = json.loads(case.metadata.read_text())
+    document = case.document
     token = "date-" + uuid4().hex
     url = os.getenv(
         "DATACOOLIE_MOCK_API_URL",
@@ -88,7 +90,6 @@ def validate(
         base_url=url, default_headers={"X-Sim-Case-Token": token}
     )
     flow = document["dataflows"][0]
-    case.metadata.write_text(json.dumps(document, indent=2))
     target = case.output / "orders"
     runs, details = [], {"engine": engine_name, "fresh_case_roots": True}
     if negative:
@@ -115,16 +116,17 @@ def validate(
             from runner._runner_utils import build_spark_session
             from datacoolie.engines.spark_engine import SparkEngine
 
-            spark = build_spark_session(
-                app_name="date-only-case",
-                extra_config={"spark.sql.shuffle.partitions": "1"},
-            )
+            with phase("engine_creation_s"):
+                spark = build_spark_session(
+                    app_name="date-only-case",
+                    extra_config={"spark.sql.shuffle.partitions": "1"},
+                    needs_jdbc=not optimized(),
+                )
         try:
             for iteration in (1, 2, 3):
                 flow["source"]["configure"]["params"] = {
                     "include_late": "false" if iteration == 1 else "true"
                 }
-                case.metadata.write_text(json.dumps(document, indent=2))
                 before_output, before_state = (
                     snapshot(target),
                     snapshot(case.watermarks),
@@ -158,15 +160,16 @@ def validate(
                         or snapshot(case.watermarks) != before_state
                     ):
                         raise AssertionError("Stable rerun changed output/state")
-                files = sorted(target.rglob("*.parquet"))
-                rows = business_rows(
-                    pl.concat([pl.read_parquet(p) for p in files]).to_dicts()
-                )
-                assert_date_state(
-                    rows,
-                    _checkpoint(case),
-                    EXPECTED[:2] if iteration == 1 else EXPECTED,
-                )
+                with phase("readback_s"):
+                    files = sorted(target.rglob("*.parquet"))
+                    rows = business_rows(
+                        pl.concat([pl.read_parquet(p) for p in files]).to_dicts()
+                    )
+                    assert_date_state(
+                        rows,
+                        _checkpoint(case),
+                        EXPECTED[:2] if iteration == 1 else EXPECTED,
+                    )
             trace = _trace(url, token)
             expected_requests = [
                 {"include_late": "false", "offset": "0", "limit": "5"},
@@ -195,7 +198,8 @@ def validate(
             )
         finally:
             if spark:
-                spark.stop()
+                with phase("shutdown_s"):
+                    spark.stop()
     payload = receipt_payload(case, runs=runs, details=details, script=Path(__file__))
     payload["profile"].update(
         engine=engine_name,

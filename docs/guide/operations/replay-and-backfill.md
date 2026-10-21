@@ -71,13 +71,9 @@ may delete the selected destination scope.
 
 ## `ReplayConfig` fields
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `start` | `str`, `date`, `datetime`, or `int` | — | **Inclusive** lower bound of the replay range |
-| `end` | `str`, `date`, `datetime`, or `int` | — | **Exclusive** upper bound of the replay range |
-| `chunk_interval` | `Dict[str, int]` or `None` | `None` | Chunking interval (see below). `None` = single-shot replay |
-| `save_watermark` | `bool` | `False` | When `True`, saves the reader-produced watermark candidate after each successful non-empty chunk. It does not skip chunks on a later invocation |
-| `chunk_column` | `str` or `None` | `None` | Column used to select chunks. It may be independent of `source.watermark_columns` when the source reader supports bounded reads |
+Use the generated [runtime field reference](../../reference/runtime-configuration.md#replay-configuration)
+for exact types, defaults and constraints. The examples on this page explain
+how to apply those fields.
 
 ### Range convention: `[start, end)`
 

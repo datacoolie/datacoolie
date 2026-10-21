@@ -148,6 +148,19 @@ when read benefits justify write costs. Review [V-Order](https://learn.microsoft
 and [Direct Lake storage](https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-understand-storage).
 The smoke output alone does not create a semantic model.
 
+## Release platform resources
+
+After all Driver and other consumers have finished, call `platform.close()` on
+the FabricPlatform you created. Driver retains the supplied platform's lifecycle.
+Close releases owned Azure root clients and its internally created credential;
+injected credentials and native NotebookUtils handles remain owned by the caller
+or host. An unused platform closes without importing the SDK or selecting a runtime.
+
+Close is idempotent and terminal. Later file operations and secret reads,
+including cached secrets, raise `PlatformError`. If cleanup fails, the platform
+still attempts remaining resources and stays closed. Quiesce consumers first;
+service I/O overlapping close is unsupported.
+
 ## Troubleshooting and next steps
 
 | Symptom | Check |

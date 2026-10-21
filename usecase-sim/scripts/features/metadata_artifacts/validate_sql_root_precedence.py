@@ -28,11 +28,11 @@ from _stateful_support import (  # noqa: E402
     write_receipt,
 )
 from datacoolie.core.models.run_config import DataCoolieRunConfig  # noqa: E402
-from datacoolie.metadata.file_provider import FileProvider  # noqa: E402
 from datacoolie.orchestration.driver import DataCoolieDriver  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
 from runner.runtime_logs import job_sessions, records  # noqa: E402
 from runner.runtime_paths import LOG_DIR  # noqa: E402
+from runner.metadata_sources import make_case_provider  # noqa: E402
 
 
 EXPECTED_SQL_ROWS = [
@@ -155,11 +155,14 @@ def _run_registered_driver(
     platform = engine.platform
     if platform is None:
         raise AssertionError("focused SQL case requires a bound local platform")
-    provider = FileProvider(
-        config_path=str(case.metadata),
+    provider = make_case_provider(
+        case,
         platform=platform,
         watermark_base_path=str(case.watermarks / "provider"),
     )
+    from runner.metadata_sources import case_metadata_provenance
+
+    provenance = case_metadata_provenance(case, stage="sql_root_precedence")
     with DataCoolieDriver(
         engine=engine,
         platform=platform,
@@ -198,6 +201,7 @@ def _run_registered_driver(
         session_id=session_id,
         result=dataclasses.asdict(result),
         records=tuple(evidence_records),
+        metadata=provenance,
     )
 
 

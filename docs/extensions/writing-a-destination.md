@@ -55,7 +55,13 @@ class MyDestinationWriter(BaseDestinationWriter):
                 options=dest.write_options or None,
             )
         elif mode == LoadType.MERGE_UPSERT.value:
-            self._engine.merge_to_path(df, path, merge_keys=dest.merge_keys, fmt="myfmt")
+            self._engine.merge_to_path(
+                df, path,
+                merge_keys=dest.merge_keys_extended,
+                fmt="myfmt",
+                partition_columns=dest.partition_column_names or None,
+                options=dest.merge_options or None,
+            )
         else:
             raise NotImplementedError(f"LoadType {mode!r} not supported by MyDestinationWriter")
 
@@ -77,6 +83,11 @@ implements those format branches. The built-in `PolarsEngine` rejects
 `myfmt` as unsupported; do not generalise that result to every engine. Supply
 an engine plugin with `myfmt` support, or route the writer to a format the
 selected engine already implements, before running the write path.
+
+Forward `merge_keys_extended` so partition columns participate in matching,
+and forward the merged `merge_options` for the merge operation. Ordinary
+writes use `write_options`. Your engine/backend must implement the forwarded
+options; a writer must not silently drop them.
 
 The framework calls the public
 `write(df, dataflow, *, watermark_window=None)` method; subclasses implement

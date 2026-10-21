@@ -9,9 +9,9 @@ This maintainer guide describes the workflows checked into the standalone
 | Workflow | Trigger | Current behavior |
 |---|---|---|
 | `.github/workflows/ci.yml` | Push to `main`, any pull request | Poetry 2.3.4; shared local release verifier; non-Spark pytest is blocking |
-| `.github/workflows/docs.yml` | Relevant docs/source/config changes | Strict ProperDocs build; deploys `main` to `gh-pages` with `properdocs gh-deploy --force` |
-| `.github/workflows/publish-pypi.yml` | Tag matching `v*` | Shared release verifier, then trusted-publisher upload to PyPI |
-| `.github/workflows/release.yml` | Tag matching `v*` | Creates the GitHub Release with generated release notes |
+| `.github/workflows/docs.yml` | Relevant docs/source/config changes | Read-only strict build and SEO verification; a separate main-push job deploys the verified artifact to `gh-pages` with ghp-import |
+| `.github/workflows/publish-pypi.yml` | Tag matching `v*` | Tag/checkout and main-ancestry check, shared release verifier, then trusted-publisher upload to PyPI |
+| `.github/workflows/release.yml` | Tag matching `v*` | Tag/checkout and main-ancestry check, then GitHub Release with generated release notes |
 
 The tag push is the release trigger. There is no checked-in changelog file or
 manual production publish workflow.
@@ -22,6 +22,12 @@ manual production publish workflow.
 
 Configure Pages to deploy from the `gh-pages` branch, root folder. The docs
 workflow creates/updates that branch; it does not use `mike`.
+
+The build job has `contents: read`, does not persist checkout credentials and
+uploads its verified `site/` artifact. Only the main-push deployment job has
+`contents: write` and receives `DOCS_DEPLOY_TOKEN` (falling back to the workflow
+token). It downloads the artifact from the same run and uses ghp-import 2.1.0
+with `--no-jekyll`; it does not execute project build hooks.
 
 ### PyPI trusted publisher
 
@@ -41,6 +47,9 @@ API token.
 Use `main` as the release branch and tag only commits already merged into it.
 Require the checks that the team considers release-blocking. The shared local
 release verifier is the CI gate for package, docs, and non-Spark tests.
+Both tag workflows fetch full history and require the tag to identify the
+checkout commit in `origin/main` history. This ancestry check does not establish
+that CI passed; confirm the candidate commit's CI result before creating a tag.
 
 ## Release prerequisites
 
@@ -144,10 +153,17 @@ Example for version `0.1.3`:
 ```bash
 git switch main
 git pull --ff-only origin main
-git add pyproject.toml src/datacoolie/__init__.py
-git commit -m "chore(release): 0.1.3"
+git add <reviewed-release-files>
+git commit -m "chore(release): prepare 0.1.3"
 git push origin main
+```
+
+Wait for the pushed commit's CI checks to pass, then create and verify its tag:
+
+```bash
+git fetch origin main --tags
 git tag v0.1.3
+python scripts/verify_release_ref.py --tag v0.1.3
 git push origin v0.1.3
 ```
 
@@ -181,13 +197,14 @@ Confirm the relevant `docs` workflow run succeeded and
 
 ## Release checklist
 
-- versions match in `pyproject.toml` and `src/datacoolie/__init__.py`
+- package metadata, runtime and intended tag versions match
 - Poetry metadata and package build pass
 - `twine check dist/*` passes
 - shared local release verifier passes, including wheel install smoke test
 - strict docs build passes
 - non-Spark tests pass; Spark is run locally when the release touches Spark
 - release commit is on `main`
+- CI passes on that release commit; tag/checkout and main-ancestry checks pass
 - immutable `vX.Y.Z` tag is pushed
 - PyPI trusted-publisher workflow succeeds
 - GitHub Release is created with generated notes

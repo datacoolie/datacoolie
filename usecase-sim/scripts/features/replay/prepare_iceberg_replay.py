@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.metadata_sources import recipe_document
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -22,7 +23,6 @@ from pyiceberg.catalog import load_catalog
 
 
 ROOT = SIM_ROOT
-BASE_METADATA = ROOT / "metadata" / "file" / "replay" / "replay_iceberg_validation.json"
 BUCKET = "datacoolie-test"
 ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
 ICEBERG_URI = os.environ.get("DATACOOLIE_ICEBERG_URI", "http://localhost:8181")
@@ -104,9 +104,6 @@ def main() -> int:
     parser.add_argument("--engine", choices=("polars", "spark"), required=True)
     args = parser.parse_args()
 
-    if not BASE_METADATA.is_file():
-        raise SystemExit(f"Missing checked-in metadata fixture: {BASE_METADATA}")
-
     catalog = _catalog()
     output_table = f"iceberg_replay_validation_{args.engine}"
     output_id = f"default.{output_table}"
@@ -117,7 +114,7 @@ def main() -> int:
     client = _client()
     metadata_key = f"metadata/replay_iceberg_validation_{args.engine}.json"
     state_prefix = f"state/replay_validation/iceberg_{args.engine}/"
-    metadata = json.loads(BASE_METADATA.read_text(encoding="utf-8"))
+    metadata = recipe_document("replay", "replay_iceberg_validation")
     metadata["dataflows"][0]["destination"]["table"] = output_table
     client.put_object(
         Bucket=BUCKET,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -223,7 +222,7 @@ def _validate_format(root: Path | None, fmt: str) -> dict[str, Any]:
     fixture_name, flow_name, stage = _format_config(normalized)
     case = resolve_case_root("write_basic", root)
     materialize_fixture(case, fixture_name)
-    metadata = json.loads(case.metadata.read_text(encoding="utf-8"))
+    metadata = case.document
     connections = {item["name"]: item for item in metadata["connections"]}
     authored_destination_format = connections[
         f"flat_append_{normalized}_destination"

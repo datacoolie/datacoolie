@@ -5,8 +5,17 @@ description: Build a minimum-valid DataCoolie metadata JSON file from scratch �
 
 # Build your first metadata file
 
-**Prerequisites** · DataCoolie installed (`pip install datacoolie`).  
-**End state** · A valid `metadata.json` you can pass to `FileProvider` and run.
+**Prerequisites** · Python 3.11+ and the matching DataCoolie release with
+the `polars-delta` extra. Follow [Installation](../getting-started/installation.md)
+to select the interpreter and install `datacoolie[polars-delta]==0.2.0`.
+
+**End state** · A valid `metadata.json`, two sample CSV rows written to Delta,
+and an independent readback that still contains two business rows after a rerun.
+
+Use a new tutorial directory and run every command from it. All paths below
+are relative to that directory. The destination is a complete sample snapshot:
+`overwrite` replaces its contents on each run. Keep this tutorial output
+separate from existing data.
 
 This page uses **JSON** because it is the easiest format to learn and the
 recommended canonical source. The same model also works in YAML, Excel,
@@ -82,24 +91,24 @@ settings are grouped under [Connection settings by endpoint type](../../referenc
     error. Use `connection_type: "lakehouse"` for Delta/Iceberg.
 
 !!! info "`connection_type` can be derived"
-  This is also valid:
+    This is also valid:
 
-  ```json
-  {
-    "name": "bronze",
-    "format": "delta",
-    "configure": { "base_path": "data/output/bronze" }
-  }
-  ```
+    ```json
+    {
+      "name": "bronze",
+      "format": "delta",
+      "configure": { "base_path": "data/output/bronze" }
+    }
+    ```
 
-  Because `format: "delta"` belongs to the lakehouse family, DataCoolie
-  derives `connection_type: "lakehouse"` automatically.
+    Because `format: "delta"` belongs to the lakehouse family, DataCoolie
+    derives `connection_type: "lakehouse"` automatically.
 
 !!! note "Streaming is reserved, not active"
-  The model defines `connection_type: "streaming"`, but no formats are wired
-  to it yet. Treat DataCoolie metadata today as **batch-first**: `batch`,
-  `microbatch`, and `streaming` may appear as `processing_mode` values on a
-  dataflow, but the connection-side streaming type is not yet usable.
+    The model defines `connection_type: "streaming"`, but no formats are wired
+    to it yet. Treat DataCoolie metadata today as **batch-first**: `batch`,
+    `microbatch`, and `streaming` may appear as `processing_mode` values on a
+    dataflow, but the connection-side streaming type is not yet usable.
 
 ## Step 3 — Add a destination connection
 
@@ -139,7 +148,7 @@ by name:
   "name":  "orders_to_bronze",
   "stage": "ingest",
   "source":      { "connection_name": "my_source", "schema_name": "sales", "table": "orders" },
-  "destination": { "connection_name": "bronze",    "schema_name": "sales", "table": "orders", "load_type": "append" }
+  "destination": { "connection_name": "bronze",    "schema_name": "sales", "table": "orders", "load_type": "overwrite" }
 }
 ```
 
@@ -211,7 +220,7 @@ reader receives the path as SQL text:
 ```
 
 Use `artifact:/sql/orders.sql` when the artifact root must be selected
-explicitly. See [Source patterns](source-patterns.md#read-a-sql-file) for
+explicitly. See [Source patterns](source-database.md#read-a-sql-file) for
 single-root, multiple-root and artifact path rules.
 
 Python function source:
@@ -235,6 +244,7 @@ partitioning, and write options:
 | `merge_keys` | `merge_upsert`, `scd2`, or key-based `merge_overwrite` needs a business key; a usable watermark replacement window can remove this requirement |
 | `partition_columns` | You want partitioned writes |
 | `configure.write_options` | You need one dataflow to override connection-level write options |
+| `configure.merge_options` | You need merge-specific aliases, predicates, or supported backend options |
 | `configure.scd2_effective_column` | Required for `scd2` |
 
 Example destination for a merge:
@@ -247,10 +257,15 @@ Example destination for a merge:
   "load_type": "merge_upsert",
   "merge_keys": ["order_id"],
   "configure": {
-    "write_options": { "mergeSchema": true }
+    "merge_options": { "source_alias": "incoming", "target_alias": "existing" }
   }
 }
 ```
+
+Merge operations use `configure.merge_options`; `write_options` apply to
+ordinary writes and the initial write when a merge target does not exist.
+Schema-evolution options depend on the engine, format and operation. See
+[Destination options](destination-and-load-patterns.md) before enabling them.
 
 ### How `base_path + schema_name + table` become a path
 
@@ -298,7 +313,7 @@ Here is the complete minimal document:
       "name":  "orders_to_bronze",
       "stage": "ingest",
       "source":      { "connection_name": "my_source", "schema_name": "sales", "table": "orders" },
-      "destination": { "connection_name": "bronze",    "schema_name": "sales", "table": "orders", "load_type": "append" }
+      "destination": { "connection_name": "bronze",    "schema_name": "sales", "table": "orders", "load_type": "overwrite" }
     }
   ]
 }
@@ -312,25 +327,53 @@ strategy.
 
 ## Step 6 — Run after validation
 
-After validation passes, run it with:
+First create the sample input. Save this as `prepare_input.py` and run
+`python prepare_input.py`. The file source reads a table directory,
+so the CSV belongs under `data/input/sales/orders/`:
+
+```python
+from pathlib import Path
+
+sample = Path("data/input/sales/orders/orders.csv")
+sample.parent.mkdir(parents=True, exist_ok=True)
+if not sample.exists():
+    sample.write_text("order_id,amount\n1,10\n2,20\n", encoding="utf-8")
+```
+
+After validation passes, save this runner as `run.py` and run `python run.py`:
 
 ```python
 from datacoolie.engines.polars_engine import PolarsEngine
 from datacoolie.metadata.file_provider import FileProvider
 from datacoolie.platforms.local_platform import LocalPlatform
+from datacoolie.orchestration.driver import DataCoolieDriver
+import polars as pl
 
 platform  = LocalPlatform()
 engine    = PolarsEngine(platform=platform)
 metadata  = FileProvider(config_path="metadata.json", platform=platform)
 
-from datacoolie.orchestration.driver import DataCoolieDriver
-
-with DataCoolieDriver(engine=engine, metadata_provider=metadata) as driver:
+with DataCoolieDriver(
+    engine=engine, metadata_provider=metadata, state_base_path=".runtime",
+) as driver:
     result = driver.run(stage="ingest")
 
-print(result)
-# ExecutionResult(total=1, succeeded=1, failed=0, skipped=0)
+if result.total != 1 or result.succeeded != 1 or result.failed or result.pending:
+    raise RuntimeError(f"Expected one successful dataflow: {result}")
+
+output = pl.read_delta("data/output/bronze/sales/orders")
+business_rows = output.select("order_id", "amount").sort("order_id")
+assert business_rows.rows() == [("1", "10"), ("2", "20")], business_rows
+print(business_rows)
 ```
+
+Run `python run.py` again. The same two business rows should remain because
+this example uses `overwrite`. Framework audit columns may change between
+runs. CSV columns are strings by default; use
+[schema conversion](transform-schema.md) when you need typed business values.
+Switching to `append` without an incremental read would append both CSV
+rows again; use [incremental reads](source-incremental.md#incremental-reads-with-watermark_columns)
+and an appropriate [load strategy](destination-and-load-patterns.md) for that case.
 
 ## Adding more dataflows
 
@@ -419,5 +462,5 @@ that the workbook columns do not expose.
 | Configure a database or API source | [Source patterns](source-patterns.md) |
 | Use merge or SCD2 instead of append | [Destination & load patterns](destination-and-load-patterns.md) |
 | Cast types, deduplicate, or add columns | [Transform patterns](transform-patterns.md) |
-| Configure API auth, pagination, or incremental windows | [Connections](connections.md#api-authentication), [API source configuration](source-patterns.md#api-source-configuration), and [Incremental windows](source-patterns.md#incremental-windows-and-look-back) |
+| Configure API auth, pagination, or incremental windows | [Connections](connections.md#api-authentication), [API source configuration](source-api.md#api-source-configuration), and [Incremental windows](source-incremental.md#incremental-windows-and-look-back) |
 | Check your file is correct before running | [Validation checklist](validation-checklist.md) |

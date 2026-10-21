@@ -147,7 +147,41 @@ class TestListFolders:
 class TestExistence:
     def test_file_exists(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
         mock_fs.exists.return_value = True
+        mock_fs.ls.return_value = [_file_item("path", "path")]
         assert platform.file_exists("path") is True
+
+    def test_existing_folder_is_not_a_file(self, platform, mock_fs):
+        mock_fs.exists.return_value = True
+        mock_fs.ls.return_value = [_file_item("events", "Files/events", is_dir=True)]
+        assert platform.file_exists("Files/events") is False
+        assert platform.folder_exists("Files/events") is True
+        mock_fs.ls.assert_called_with("Files")
+
+    def test_relative_file_with_canonical_metadata(self, platform, mock_fs):
+        mock_fs.exists.return_value = True
+        mock_fs.ls.return_value = [_file_item("one.jsonl", "abfss://ws@onelake.dfs.fabric.microsoft.com/lake/Files/one.jsonl")]
+        assert platform.file_exists("Files/one.jsonl") is True
+        assert platform.folder_exists("Files/one.jsonl") is False
+
+    def test_qualified_root_is_a_folder(self, platform, mock_fs):
+        mock_fs.exists.return_value = True
+        assert platform.folder_exists("abfss://ws@onelake.dfs.fabric.microsoft.com/") is True
+        mock_fs.ls.assert_not_called()
+
+    def test_classification_listing_errors_propagate(self, platform, mock_fs):
+        mock_fs.exists.return_value = True
+        mock_fs.ls.side_effect = PermissionError("denied")
+        with pytest.raises(PlatformError, match="existence"):
+            platform.file_exists("Files/file.json")
+        mock_fs.ls.side_effect = FileNotFoundError("not found")
+        assert platform.folder_exists("Files/missing") is False
+
+    def test_directory_conflict_guard_does_not_list_or_write(self, platform, mock_fs):
+        mock_fs.exists.return_value = True
+        with pytest.raises(PlatformError, match="already exists"):
+            platform.write_file("Files/folder", "content")
+        mock_fs.ls.assert_not_called()
+        mock_fs.put.assert_not_called()
 
     def test_folder_exists(self, platform: FabricPlatform, mock_fs: MagicMock) -> None:
         mock_fs.exists.return_value = False
@@ -490,19 +524,19 @@ class TestWriteBytes:
             calls.append((src, dst))
         backend = platform._get_backend()
         backend.upload_file = fake_upload  # type: ignore[method-assign]
-        backend.file_exists = lambda p: False  # type: ignore[method-assign]
+        backend._path_exists = lambda p: False  # type: ignore[method-assign]
         platform.write_bytes('abfss://x/f.bin', b'data')
         assert len(calls) == 1
 
     def test_write_bytes_exists_no_overwrite(self, platform: FabricPlatform) -> None:
         backend = platform._get_backend()
-        backend.file_exists = lambda p: True  # type: ignore[method-assign]
+        backend._path_exists = lambda p: True  # type: ignore[method-assign]
         with pytest.raises(PlatformError, match='File already exists'):
             platform.write_bytes('abfss://x/f.bin', b'data', overwrite=False)
 
     def test_write_bytes_generic_exception_wrapped(self, platform: FabricPlatform) -> None:
         backend = platform._get_backend()
-        backend.file_exists = lambda p: False  # type: ignore[method-assign]
+        backend._path_exists = lambda p: False  # type: ignore[method-assign]
         backend.upload_file = lambda *a, **kw: (_ for _ in ()).throw(  # type: ignore[method-assign]
             RuntimeError('upload fail')
         )
@@ -511,9 +545,93 @@ class TestWriteBytes:
 
     def test_write_bytes_platform_error_reraises(self, platform: FabricPlatform) -> None:
         backend = platform._get_backend()
-        backend.file_exists = lambda p: False  # type: ignore[method-assign]
+        backend._path_exists = lambda p: False  # type: ignore[method-assign]
         backend.upload_file = lambda *a, **kw: (_ for _ in ()).throw(  # type: ignore[method-assign]
             PlatformError('up fail')
         )
         with pytest.raises(PlatformError, match='up fail'):
             platform.write_bytes('abfss://x/f.bin', b'data')
+
+@pytest.mark.parametrize('fail_first', [False, True])
+def test_concurrent_facade_acquisition_and_constructor_retry(monkeypatch, fail_first):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from datacoolie.platforms._fabric.azure_backend import AzureSdkBackend
+    entered, release, contender = Event(), Event(), Event()
+    calls = []
+    def constructor(**kwargs):
+        calls.append(1)
+        if fail_first and len(calls) == 1:
+            raise RuntimeError('backend creation failed')
+        entered.set()
+        assert release.wait(3)
+        return AzureSdkBackend(**kwargs)
+    monkeypatch.setattr('datacoolie.platforms.fabric_platform.AzureSdkBackend', constructor)
+    instance = FabricPlatform(runtime='external')
+    if fail_first:
+        with pytest.raises(RuntimeError, match='backend creation failed'):
+            instance._get_backend()
+    def compete():
+        contender.set()
+        return instance._get_backend()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(instance._get_backend)
+        assert entered.wait(3)
+        second = pool.submit(compete)
+        assert contender.wait(3)
+        release.set()
+        assert first.result(3) is second.result(3)
+    assert len(calls) == (2 if fail_first else 1)
+
+@pytest.mark.parametrize('runtime', ['auto', 'fabric', 'external'])
+def test_unused_facade_close_is_lazy_and_terminal(monkeypatch, runtime):
+    from unittest.mock import Mock
+    resolver = Mock(side_effect=AssertionError('must not select runtime'))
+    monkeypatch.setattr('datacoolie.platforms.fabric_platform.resolve_runtime', resolver)
+    instance = FabricPlatform(runtime=runtime)
+    instance.close()
+    instance.close()
+    with pytest.raises(PlatformError, match='closed'):
+        instance.read_file('anything')
+    with pytest.raises(PlatformError, match='closed'):
+        instance.get_secret('key', 'vault')
+    resolver.assert_not_called()
+
+
+def test_native_close_preserves_borrowed_handles_and_rejects_cached_secret(platform, mock_fs):
+    from unittest.mock import MagicMock
+    platform._nu = MagicMock()
+    platform._nu.credentials.getSecret.return_value = 'synthetic'
+    assert platform.get_secret('key', 'vault') == 'synthetic'
+    platform.close()
+    platform.close()
+    platform._cache[('vault', 'key')] = ('synthetic', __import__('time').time())
+    with pytest.raises(PlatformError, match='closed'):
+        platform.get_secret('key', 'vault')
+    with pytest.raises(PlatformError, match='closed'):
+        platform.append_file('anything', '')
+    mock_fs.close.assert_not_called()
+
+
+def test_facade_closes_owned_backend_once_outside_lock(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from unittest.mock import Mock
+    from datacoolie.platforms._fabric.azure_backend import AzureSdkBackend
+    backend = AzureSdkBackend()
+    instance = FabricPlatform(runtime='external')
+    instance._backend = backend
+    def available():
+        with instance._acquisition_lock:
+            return True
+    def close():
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            assert pool.submit(available).result(2)
+        raise PlatformError('cleanup failed')
+    monkeypatch.setattr(backend, 'close', Mock(side_effect=close))
+    with pytest.raises(PlatformError, match='cleanup failed'):
+        instance.close()
+    instance.close()
+    backend.close.assert_called_once()
+    assert instance._backend is None
+    with pytest.raises(PlatformError, match='closed'):
+        instance.get_secret('key', 'vault')

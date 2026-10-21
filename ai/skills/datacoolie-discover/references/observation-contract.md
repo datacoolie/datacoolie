@@ -30,6 +30,7 @@ source has no operation dimension. Duplicate stable keys are errors.
 
 | Field | Meaning |
 |---|---|
+| `nullable` | Allowed null value, not optional presence. Empty means unknown. OpenAPI presence and inferred-file limitations stay in notes; native types retain union/list element constraints. |
 | `key` | Declared fact only: empty, `primary`, or `unique:<constraint-name>`; use `unique:unnamed` when uniqueness is declared without a name. |
 | `reference` | Canonical source-native target locator without display decoration. Relational probes use `[catalog.]schema.object.column` or `object.column`; GraphQL/OData use the referenced type/entity; API probes retain their canonical schema locator. |
 | `watermark_candidate` | Confirmed candidate roles only. It does not record evidence strength or select a load strategy. |
@@ -38,6 +39,37 @@ source has no operation dimension. Duplicate stable keys are errors.
 GraphQL `ID` is a serialization scalar, not proof of a primary key. Hard deletes are not observable
 by polling ordinary base-table columns after the row disappears; delete coverage requires a durable
 tombstone, CDC, change tracking, or equivalent signal.
+
+## Probe Status And Refresh
+
+Probe CSVs and status JSON remain scratch evidence. Status binds exact CSV bytes with
+`output_sha256`, reports `row_count`, `complete`/`partial`, and declares `scope`:
+`kind` (`source` or `objects`), requested `filters`, and observed six-field object identities
+(the stable key without `column`). A digest detects mismatched artifacts; it does not authenticate
+a provider observation. Source-boundary evidence must reflect actual access/catalog scope.
+
+File `schema` has separate `details.schema_scope` (`file`, `table`, `directory_sample`), selected
+files, bounds and schema completeness. Declared Parquet/Delta/Avro nullability is retained;
+CSV/JSON/Excel samples leave it unknown. Directory samples default to `--max-files 1` and report
+partial if files remain unexamined, traversal is truncated, or selected schemas conflict. Increase
+`--max-files`, `--max-entries` and `--max-depth` only for the required scope. Backend `ls` responses
+may be buffered before traversal limits apply; these limits do not guarantee network byte bounds.
+
+New merges may still use legacy `--input CSV`, including old status-less observations.
+Source refresh uses repeatable `--probe-input CSV STATUS`; legacy `--input` plus `--status-input`
+also works in matching order with current digest/scope evidence. Do not mix forms. Legacy status
+without digest/scope is readable evidence but cannot authorize refresh. Inputs, base, candidate and
+diff must use distinct paths. Duplicate keys, CSVs or statuses and mismatched count/source/digest
+are rejected.
+
+A single unfiltered `kind: source` probe may cover its declared source boundary. Multiple or
+filtered/object probes require `--coverage-input` in the shape of
+[the coverage template](../templates/source-coverage.example.json). Its `evidence` identifies a
+verified source-owner inventory or boundary observation; do not infer it from the probe row count
+or the old inventory. Probe object identities must cover that declared set. A partial result also
+requires exact `--accept-partial-source SOURCE`, which acknowledges that whole-source replacement
+can remove unobserved prior rows. Preserve the original base and inspect the scratch diff before
+promotion. [The worked example](worked-example.md) shows both workflows.
 
 ## Watermark Roles
 

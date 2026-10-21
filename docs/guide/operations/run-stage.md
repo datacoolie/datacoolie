@@ -123,19 +123,9 @@ every shard.
 
 ## `DataCoolieRunConfig` reference
 
-| Field | Default | Purpose |
-|-------|---------|---------|
-| `job_id` | auto-generated UUID | Unique identifier for this run |
-| `job_num` | `1` | Total job shards; the external orchestrator launches them |
-| `job_index` | `0` | This invocation's shard (0-based, must be < `job_num`) |
-| `max_workers` | `8` | Global dataflow concurrency cap for one Driver operation |
-| `stop_on_error` | `False` | Stop admitting new dataflows after the first terminal failure; admitted work drains |
-| `retry_count` | `0` | Number of retry attempts per failed dataflow |
-| `retry_delay` | `5.0` | Base retry delay; doubles per retry, capped at 60 seconds |
-| `dry_run` | `False` | Plan without reading or writing |
-| `retention_hours` | `168` | VACUUM retention for maintenance (7 days) |
-| `allowed_function_prefixes` | `[]` | Restrict which Python modules can be imported by function sources |
-| `run_attributes` | `None` | Caller-owned JSON object for external run correlation; persisted in JobRuntime only |
+Use the generated [runtime field reference](../../reference/runtime-configuration.md#run-configuration)
+for exact types, defaults and constraints. The examples on this page explain
+how to apply those fields.
 
 ## `ExecutionResult` fields
 

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
+import pytest
 
 
 def _load_server_module():
@@ -75,3 +77,20 @@ def test_json_api_server_keeps_source_filter_expression(tmp_path: Path) -> None:
     loaded = server._load_metadata(str(metadata_path))
 
     assert loaded["dataflows"][0]["source"]["filter_expression"] == "status = 'open'"
+
+
+def test_json_api_reads_groups_and_shared_sections_without_disk_aggregate(tmp_path):
+    server = _load_json_server_module()
+    group = tmp_path / "group.json"
+    shared = tmp_path / "connections.json"
+    group.write_text(json.dumps({"dataflows": [{"name": "orders",
+        "source": {"connection_name": "src", "table": "orders"},
+        "destination": {"connection_name": "src", "table": "target", "load_type": "append"}}]}))
+    shared.write_text(json.dumps({"connections": [{"name": "src",
+        "connection_type": "file", "format": "parquet"}]}))
+    before = {path: path.read_bytes() for path in tmp_path.iterdir()}
+    metadata = server._load_metadata([str(group)], connections_path=str(shared))
+    assert metadata["dataflows"][0]["source"]["connection"]["name"] == "src"
+    assert {path: path.read_bytes() for path in tmp_path.iterdir()} == before
+    with pytest.raises(ValueError, match="Duplicate"):
+        server._load_metadata([str(group), str(group)], connections_path=str(shared))

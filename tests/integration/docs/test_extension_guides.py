@@ -104,3 +104,66 @@ def test_authored_platform_constructor_initializes_inherited_secret_cache() -> N
     assert platform.get_secret("fixture", "scope-a") == "synthetic-value"
     assert platform.get_secret("fixture", "scope-b") == "synthetic-value"
     assert calls == [("fixture", "scope-a"), ("fixture", "scope-b")]
+
+
+@pytest.mark.integration
+def test_authored_destination_forwards_merge_identity_partition_and_options():
+    from unittest.mock import Mock
+    from datacoolie.core.models.connection import Connection
+    from datacoolie.core.models.dataflow import DataFlow
+    from datacoolie.core.models.destination import Destination
+    from datacoolie.core.models.source import Source
+
+    namespace = {}
+    exec(_first_python("writing-a-destination.md"), namespace)
+    writer = object.__new__(namespace["MyDestinationWriter"])
+    writer._engine = Mock()
+    connection = Connection(name="fixture", format="delta", configure={"base_path": "output"})
+    destination = Destination(
+        connection=connection, table="orders", load_type="merge_upsert",
+        merge_keys=["id"], partition_columns=["region"],
+        configure={"merge_options": {"source_alias": "incoming", "target_alias": "existing"}},
+    )
+    dataflow = DataFlow(name="guide", source=Source(connection=connection, table="input"), destination=destination)
+    frame = object()
+    writer._write_internal(frame, dataflow)
+    writer._engine.merge_to_path.assert_called_once_with(
+        frame, destination.path, merge_keys=["id", "region"], fmt="myfmt",
+        partition_columns=["region"], options={"source_alias": "incoming", "target_alias": "existing"},
+    )
+    writer._engine.write_to_path.assert_not_called()
+
+
+@pytest.mark.integration
+def test_authored_rename_drop_lineage_maps_window_across_repeated_pipeline_calls():
+    import polars as pl
+    from datacoolie.core.exceptions import TransformError
+    from datacoolie.engines.polars_engine import PolarsEngine
+    from datacoolie.engines.contracts.windows import WindowSpec
+    from datacoolie.orchestration.execution.window import map_watermark_window
+    from datacoolie.transformers.base import TransformerPipeline
+
+    text = (GUIDES / "writing-a-transformer.md").read_text(encoding="utf-8")
+    section = text.split("## Report renamed and removed columns", 1)[1]
+    script = re.search(r"```python\n(.*?)\n```", section, re.S)[1]
+    namespace = {}
+    exec(script, namespace)
+    engine = PolarsEngine()
+    pipeline = TransformerPipeline(engine)
+    pipeline.add_transformer(namespace["RenameAndDropTransformer"](engine=engine))
+    for value in (2, 3):
+        frame = pl.DataFrame({"UpdatedAt": [value], "raw_payload": ["fixture"], "id": [1]}).lazy()
+        output = pipeline.transform(frame, None)
+        assert output.collect().to_dicts() == [{"updated_at": value, "id": 1}]
+        mapping = pipeline.get_column_mapping()
+        assert mapping.known and mapping.mapping == {"UpdatedAt": "updated_at", "raw_payload": None, "id": "id"}
+        mapped = map_watermark_window(
+            WindowSpec(bounds={"UpdatedAt": (value, value + 1)}),
+            column_mapping=mapping, output_columns=pipeline.get_output_columns(),
+        )
+        assert mapped.bounds == {"updated_at": (value, value + 1)}
+        with pytest.raises(TransformError, match="removed or is unmapped"):
+            map_watermark_window(
+                WindowSpec(bounds={"raw_payload": (1, 2)}), column_mapping=mapping,
+                output_columns=pipeline.get_output_columns(),
+            )

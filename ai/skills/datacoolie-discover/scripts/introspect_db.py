@@ -23,10 +23,11 @@ from sqlalchemy.engine import Engine
 from _observation_contract import (
     CSV_HEADER as CSV_HEADER,  # noqa: F401 - public cross-probe contract
     atomic_write_observations,
+    read_observations,
     make_observation,
     write_observations,
 )
-from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
+from _probe_status import PARTIAL_EXIT_CODE, write_probe_status, observation_scope
 from sqlalchemy.types import (
     BigInteger, Boolean, Date, DateTime, Float, Integer, LargeBinary,
     Numeric, SmallInteger, String, Text, Time,
@@ -624,6 +625,12 @@ def _introspect_table(
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    if (
+        args.output
+        and args.status_output
+        and Path(args.output).resolve() == Path(args.status_output).resolve()
+    ):
+        raise SystemExit("ERROR: Probe output paths must be distinct")
     if args.max_objects < 1 or args.max_objects > 100000:
         raise SystemExit("ERROR: --max-objects must be between 1 and 100000")
     try:
@@ -631,7 +638,9 @@ def main(argv: list[str] | None = None) -> None:
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(2)
-    schema_filter = [s.strip() for s in args.schemas.split(",")] if args.schemas else None
+    schema_filter = (
+        [s.strip() for s in args.schemas.split(",")] if args.schemas else None
+    )
     table_filter = [t.strip() for t in args.tables.split(",")] if args.tables else None
     row_count, issues = introspect(
         url=url,
@@ -641,12 +650,22 @@ def main(argv: list[str] | None = None) -> None:
         output_path=args.output,
         max_objects=args.max_objects,
     )
+    filters = {"schemas": schema_filter or [], "tables": table_filter or []}
+    scope_rows = read_observations(Path(args.output)) if args.output else []
+    scope = observation_scope(
+        scope_rows,
+        kind="objects" if any(filters.values()) else "source",
+        filters=filters,
+    )
     status = write_probe_status(
         Path(args.status_output) if args.status_output else None,
         source=args.source,
         probe="database-catalog",
         row_count=row_count,
         issues=issues,
+        output_path=Path(args.output) if args.output else None,
+        scope=scope,
+        details={"bounds": {"max_objects": args.max_objects}},
     )
     if status == "partial":
         raise SystemExit(PARTIAL_EXIT_CODE)

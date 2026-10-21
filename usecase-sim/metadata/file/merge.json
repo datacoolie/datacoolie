@@ -1,0 +1,609 @@
+{
+  "dataflows": [
+    {
+      "name": "a9-iceberg-partition-change",
+      "stage": "a9_iceberg_partition_change",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_iceberg_partition_source",
+        "table": "records"
+      },
+      "destination": {
+        "connection_name": "a9_iceberg_partition_destination",
+        "table": "events",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "id"
+        ],
+        "partition_columns": [
+          {
+            "column": "region"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a9-iceberg-schema-merge",
+      "stage": "a9_iceberg_schema_merge",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_iceberg_schema_source",
+        "table": "records"
+      },
+      "destination": {
+        "connection_name": "a9_iceberg_schema_destination",
+        "table": "events",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "aws_load_delta__merge_upsert",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__merge_overwrite",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ]
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__merge_upsert_no_watermark",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__merge_upsert",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__merge_overwrite",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__merge_upsert_no_watermark",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 8,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "merge-composite-keys",
+      "stage": "merge_composite_keys",
+      "source": {
+        "connection_name": "merge_composite_keys_source",
+        "table": "rows"
+      },
+      "destination": {
+        "connection_name": "merge_composite_keys_destination",
+        "table": "orders",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "id",
+          "tenant"
+        ]
+      }
+    },
+    {
+      "name": "merge-custom-predicate",
+      "stage": "merge_custom_predicate",
+      "source": {
+        "connection_name": "merge_custom_predicate_source",
+        "table": "rows"
+      },
+      "destination": {
+        "connection_name": "merge_custom_predicate_destination",
+        "table": "orders",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "id"
+        ],
+        "configure": {
+          "merge_options": {
+            "source_alias": "s",
+            "target_alias": "t",
+            "predicate": "t.id = s.id AND t.scope = s.scope"
+          }
+        }
+      }
+    },
+    {
+      "name": "load_delta__merge_upsert",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "load_delta__merge_overwrite",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ]
+      }
+    },
+    {
+      "name": "load_delta__merge_upsert_no_watermark",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__merge_upsert",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 3,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merge_upsert",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__merge_overwrite",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 4,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merge_overwrite",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_delta__merge_overwrite_rbw",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 6,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_merge_overwrite_rbw",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "configure": {
+          "replace_by_watermark": true
+        }
+      }
+    },
+    {
+      "name": "load_iceberg__merge_overwrite_rbw",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ],
+        "configure": {
+          "backward": {
+            "days": 7
+          }
+        }
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merge_overwrite_rbw",
+        "load_type": "merge_overwrite",
+        "merge_keys": [
+          "order_date"
+        ],
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ],
+        "configure": {
+          "replace_by_watermark": true
+        }
+      }
+    },
+    {
+      "name": "load_iceberg__merge_upsert_no_watermark",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 8,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_merged_nwm",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "order_id"
+        ]
+      }
+    },
+    {
+      "name": "merge-seed",
+      "stage": "merge_seed",
+      "source": {
+        "connection_name": "merge_source",
+        "table": "seed"
+      },
+      "destination": {
+        "connection_name": "merge_destination",
+        "table": "orders",
+        "load_type": "overwrite",
+        "merge_keys": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "merge-upsert",
+      "stage": "merge_upsert",
+      "source": {
+        "connection_name": "merge_source",
+        "table": "incoming"
+      },
+      "destination": {
+        "connection_name": "merge_destination",
+        "table": "orders",
+        "load_type": "merge_upsert",
+        "merge_keys": [
+          "id"
+        ]
+      }
+    }
+  ]
+}

@@ -51,12 +51,4 @@ missing, report the uncovered canonical source instead of guessing a path.
 
 The selected guide and project recipe own prerequisites, working directory,
 commands, adaptation points, expected selection/output/state, and rerun behavior.
-For author/build-only requests, retrieve and validate the declared files or
-archive without forcing workload execution. For an explicitly requested safe
-runtime check, follow the public [build and execute workflow](https://datacoolie.github.io/datacoolie/guide/cli/project/#build-and-execute)
-and selected recipe: use the CLI-selected environment and retain its fresh-copy
-execution, independent output/state, rerun and retained/current validation
-evidence. Classify legitimate empty or skipped results and report skipped host,
-dependency, or cloud checks. Keep source, raw, and archive content tied to the
-same published revision and report body/content mismatches even when the HTTP
-request succeeds.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). Verify retrieved source, raw and archive content against the same published revision and report content mismatches even when HTTP succeeds. The selected recipe owns execution-copy and rerun details.

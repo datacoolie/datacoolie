@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from datacoolie.core.exceptions import SourceError
@@ -42,8 +44,19 @@ class TestIcebergReader:
             watermark_columns=["modified_at"],
         )
         reader = IcebergReader(engine)
-        result = reader.read(src, request=read_request())
-        assert result is not None
+        with patch.object(engine, "execute_sql", wraps=engine.execute_sql) as execute_sql, \
+             patch.object(engine, "read", wraps=engine.read) as read:
+            result = reader.read(src, request=read_request())
+
+        execute_sql.assert_called_once_with(src.query)
+        read.assert_not_called()
+        assert result.frame == engine._data
+        assert result.rows_read == 3
+        assert result.runtime is not None
+        assert result.runtime.source_action == {
+            "reader": "IcebergReader",
+            "query": src.query,
+        }
 
     def test_read_with_path_fallback(self, engine: MockEngine) -> None:
         engine.set_max_values({"modified_at": "2024-06-01"})
@@ -60,8 +73,25 @@ class TestIcebergReader:
             watermark_columns=["modified_at"],
         )
         reader = IcebergReader(engine)
-        result = reader.read(src, request=read_request())
-        assert result is not None
+        with patch.object(engine, "read", wraps=engine.read) as read, \
+             patch.object(engine, "execute_sql", wraps=engine.execute_sql) as execute_sql:
+            result = reader.read(src, request=read_request())
+
+        read.assert_called_once_with(
+            fmt="iceberg",
+            table_name="`sch`.`tbl`",
+            path="/data/iceberg/sch/tbl",
+            options=None,
+        )
+        execute_sql.assert_not_called()
+        assert result.frame == engine._data
+        assert result.rows_read == 3
+        assert result.runtime is not None
+        assert result.runtime.source_action == {
+            "reader": "IcebergReader",
+            "table": "`sch`.`tbl`",
+            "path": "/data/iceberg/sch/tbl",
+        }
 
     def test_read_zero_rows_returns_none(self, engine: MockEngine) -> None:
         engine.set_data({}, 0)

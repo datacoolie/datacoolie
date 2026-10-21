@@ -140,8 +140,8 @@ class TestExecutionLoggerProjection:
 
         assert summary["total_dataflows"] == 1
         assert summary["total_succeeded"] == 1
-        assert summary["total_rows_read"] == 0
-        assert summary["total_rows_written"] == 0
+        assert summary["total_rows_read"] is None
+        assert summary["total_rows_written"] is None
         assert summary["total_files_added"] == 1
         assert summary["total_bytes_removed"] == 500
         logger.finish_job(DataFlowStatus.SUCCEEDED.value)

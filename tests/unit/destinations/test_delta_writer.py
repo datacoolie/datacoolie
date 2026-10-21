@@ -265,7 +265,7 @@ class TestDeltaWriter:
         assert m["rows_written"] is None
         assert m["rows_inserted"] is None
 
-    def test_append_write_uses_only_operation_proven_zeros(self, engine: MockEngine) -> None:
+    def test_append_write_keeps_unmeasured_dimensions_null(self, engine: MockEngine) -> None:
         writer = DeltaWriter(engine)
         info = writer.write(
             {"data": 1},
@@ -273,10 +273,10 @@ class TestDeltaWriter:
         )
 
         assert info.rows_written is None
-        assert info.rows_updated == 0
-        assert info.rows_deleted == 0
-        assert info.files_removed == 0
-        assert info.bytes_removed == 0
+        assert info.rows_updated is None
+        assert info.rows_deleted is None
+        assert info.files_removed is None
+        assert info.bytes_removed is None
 
     def test_parse_maintenance_metrics(self, engine: MockEngine) -> None:
         history = [
@@ -334,7 +334,7 @@ class TestDeltaWriter:
         assert m["compact"]["files_removed"] is None
         assert m["compact"]["bytes_added"] is None
         assert m["compact"]["bytes_removed"] is None
-        assert m["compact"]["rows_written"] == 0
+        assert m["compact"]["rows_written"] is None
 
     def test_parse_maintenance_metrics_rejects_invalid_counts(
         self, engine: MockEngine
@@ -354,7 +354,7 @@ class TestDeltaWriter:
         assert m["compact"]["files_added"] is None
         assert m["compact"]["files_removed"] is None
         assert m["compact"]["bytes_added"] is None
-        assert m["compact"]["rows_written"] == 0
+        assert m["compact"]["rows_written"] is None
 
 
 # ============================================================================

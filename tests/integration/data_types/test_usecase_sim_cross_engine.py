@@ -32,7 +32,12 @@ pytestmark = [
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[3]
-SCENARIOS_SOURCE = PRODUCT_ROOT / "usecase-sim" / "scenarios" / "scenarios.json"
+SIM_ROOT = PRODUCT_ROOT / "usecase-sim"
+if str(SIM_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIM_ROOT))
+from runner.metadata_sources import recipe_document  # noqa: E402
+
+SCENARIOS_SOURCE = SIM_ROOT / "scenarios" / "scenarios.json"
 
 EXPECTED_BUSINESS = json.loads(
     (
@@ -44,16 +49,7 @@ EXPECTED_BUSINESS = json.loads(
     ).read_text(encoding="utf-8")
 )
 
-CANONICAL_METADATA = json.loads(
-    (
-        PRODUCT_ROOT
-        / "usecase-sim"
-        / "metadata"
-        / "file"
-        / "schema_types"
-        / "datatype_qualification.json"
-    ).read_text(encoding="utf-8")
-)
+CANONICAL_METADATA = recipe_document("schema_types", "datatype_qualification")
 
 QUALIFICATION_TABLES = (
     "datatype_decimal",

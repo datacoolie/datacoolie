@@ -206,8 +206,8 @@ def test_exhausted_lifecycle_keeps_terminal_history_without_prior_phase_leakage(
 
     row = dataflow_rows[0]
     assert row["retry_attempts"] == 1
-    assert row["metrics"]["rows_read"] == 0
-    assert row["metrics"]["rows_written"] == 0
+    assert row["metrics"]["rows_read"] is None
+    assert row["metrics"]["rows_written"] is None
     history = row["attempts"]
     assert [attempt["attempt_number"] for attempt in history] == [1, 2]
     assert history[0]["source"]["rows_read"] == 303

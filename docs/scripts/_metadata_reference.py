@@ -28,11 +28,11 @@ FIELD_NOTES: dict[str, str] = {
     "dataflows[].source": "Use exactly one connection reference form: `connection_name` or `connection`. An inline connection object still needs its own `name`; it is not registered as a reusable top-level connection. A query controls the read; optional `table` can label its result. A Python function may use any Source field it receives.",
     "dataflows[].source.filter_expression": "Filter reader output before transforms. In database query mode, use columns or aliases returned by the query, not columns hidden inside it.",
     "dataflows[].destination": "Use exactly one connection reference form: `connection_name` or `connection`. An inline connection object still needs its own `name`; it is not registered as a reusable top-level connection. `table` is required even when the destination is addressed through a catalog.",
-    "dataflows[].source.query": "Inline SQL is supported. A relative `.sql` path is resolved during Driver preparation using provider `sql_base_path`, Driver `sql_base_path` as a session fallback, or `artifact_base_path`; `artifact:/...` selects the artifact root explicitly. See [SQL-file query sources](../guide/metadata/source-patterns.md#read-a-sql-file).",
+    "dataflows[].source.query": "Inline SQL is supported. A relative `.sql` path is resolved during Driver preparation using provider `sql_base_path`, Driver `sql_base_path` as a session fallback, or `artifact_base_path`; `artifact:/...` selects the artifact root explicitly. See [SQL-file query sources](../guide/metadata/source-database.md#read-a-sql-file).",
     "dataflows[].source.watermark_columns": "The authored column list enables incremental filtering. The effective lower bound and `date_backward` are runtime values, not authored fields.",
     "dataflows[].source.configure.method": "HTTP method string, not a DataCoolie enum. Default GET; the reader passes the uppercased value to the HTTP client. `body` is sent as JSON.",
-    "dataflows[].source.configure.pagination_type": "API pagination mode: `offset`, `cursor`, or `next_link`; omit for one response. See [pagination cases](../guide/metadata/source-patterns.md#choose-the-pagination-contract).",
-    "dataflows[].source.configure.next_link_bound_mode": "Next-link continuation policy: default `opaque` follows the returned URL as-is; `repeat_query_bounds` is an explicit opt-in that adds only missing active query bounds and rejects duplicate or conflicting values. It does not decode or rewrite opaque tokens. See [next-link pagination](../guide/metadata/source-patterns.md#next-link-pagination).",
+    "dataflows[].source.configure.pagination_type": "API pagination mode: `offset`, `cursor`, or `next_link`; omit for one response. See [pagination cases](../guide/metadata/source-api.md#choose-the-pagination-contract).",
+    "dataflows[].source.configure.next_link_bound_mode": "Next-link continuation policy: default `opaque` follows the returned URL as-is; `repeat_query_bounds` is an explicit opt-in that adds only missing active query bounds and rejects duplicate or conflicting values. It does not decode or rewrite opaque tokens. See [next-link pagination](../guide/metadata/source-api.md#next-link-pagination).",
     "dataflows[].source.configure.endpoint": "Endpoint path appended to the API connection's `base_url`; omit only when requesting the base URL itself.",
     "dataflows[].source.configure.data_path": "API response JSON path to a list or one object. A missing or mismatched path yields zero records, not a path-validation error.",
     "dataflows[].source.configure.offset_param": "API offset pagination sends record offsets `0`, `page_size`, `2 × page_size`, not page numbers. Rename the parameter only if the provider expects record offsets.",
@@ -40,8 +40,8 @@ FIELD_NOTES: dict[str, str] = {
     "dataflows[].source.configure.max_pages": "API safety cap, default 1,000 pages. If another page is required at the cap, the reader fails instead of returning a partial result; choose the budget with the provider's completeness contract.",
     "dataflows[].source.configure.rate_limit_delay": "Seconds between sequential API pages only. It does not throttle concurrent offset pages selected by `total_path`.",
     "dataflows[].source.configure.max_retries": "Retries HTTP 429 using Retry-After or exponential backoff; other HTTP errors are not retried by this setting.",
-    "dataflows[].source.configure.range_param_mapping": "Canonical API per-field lower/upper bindings for incremental push-down, split ranges, bounded reads, and replay. Lower and upper bindings accept a parameter-name shorthand or an object with location and operator; `format` keeps the supported temporal and integer aliases. The selected field may be outside `source.watermark_columns`; only configured watermark columns are persisted. See [API range configuration](../guide/metadata/source-patterns.md#push-down-and-split-watermark-ranges).",
-    "dataflows[].source.configure.watermark_range_interval_unit": "Canonical API incremental split unit. Pair it with `range_param_mapping` lower and upper bindings for the selected field; the first incremental run may need `watermark_range_start` when no lower watermark is saved. Explicit bounded reads and replay receive their `[start, end)` range from the source contract and do not require split settings. See [API range configuration](../guide/metadata/source-patterns.md#push-down-and-split-watermark-ranges).",
+    "dataflows[].source.configure.range_param_mapping": "Canonical API per-field lower/upper bindings for incremental push-down, split ranges, bounded reads, and replay. Lower and upper bindings accept a parameter-name shorthand or an object with location and operator; `format` keeps the supported temporal and integer aliases. The selected field may be outside `source.watermark_columns`; only configured watermark columns are persisted. See [API range configuration](../guide/metadata/source-api.md#push-down-and-split-watermark-ranges).",
+    "dataflows[].source.configure.watermark_range_interval_unit": "Canonical API incremental split unit. Pair it with `range_param_mapping` lower and upper bindings for the selected field; the first incremental run may need `watermark_range_start` when no lower watermark is saved. Explicit bounded reads and replay receive their `[start, end)` range from the source contract and do not require split settings. See [API range configuration](../guide/metadata/source-api.md#push-down-and-split-watermark-ranges).",
     "dataflows[].source.configure.watermark_range_start": "Fallback lower bound for canonical API incremental split reads when no stored lower watermark exists. Explicit bounded reads and replay receive their `[start, end)` range from the source contract; do not add this field solely to configure replay.",
     "dataflows[].source.configure.watermark_to_param_timezone": "Source-level timezone for generated API upper bounds and watermark advancement. It overrides the connection-level default; use an IANA name or ±HH:MM offset.",
     "dataflows[].source.configure.backward_days": "Source-level look-back override for watermark preparation. Connection-level look-back is used when no source override applies.",
@@ -74,7 +74,7 @@ FIELD_NOTES: dict[str, str] = {
 }
 ENDPOINT_NOTES: dict[tuple[str, str], str] = {
     ("file", "base_path"): "File root. The schema permits omission, but the built-in file reader needs a resolvable root path; see [file connections](../guide/metadata/connections.md#choose-the-endpoint-family).",
-    ("lakehouse", "base_path"): "Path-based lakehouse root; omit for a supported named-table/catalog addressing mode. See [lakehouse addressing](../guide/metadata/source-patterns.md#lakehouse-source-delta-or-iceberg).",
+    ("lakehouse", "base_path"): "Path-based lakehouse root; omit for a supported named-table/catalog addressing mode. See [lakehouse addressing](../guide/metadata/source-lakehouse.md#lakehouse-source-delta-or-iceberg).",
     ("api", "base_url"): "Base URL required by the built-in API reader, although the schema does not mark this open-map key as required.",
     ("api", "auth_type"): "API authentication mode; its credential fields depend on the selected mode. See [API authentication cases](../guide/metadata/connections.md#api-authentication).",
 }
@@ -132,10 +132,10 @@ GUIDE_LINKS: dict[str, tuple[tuple[str, str], ...]] = {
     "SchemaHint": (("Datatypes and schema hints", "../guide/metadata/data-types.md"),),
     "SharedSchemaHint": (("Datatypes and schema hints", "../guide/metadata/data-types.md"),),
     "PartitionColumn": (("Destination partitioning", "../guide/metadata/destination-and-load-patterns.md#partition_columns-partition-the-output-table"),),
-    "AdditionalColumn": (("Computed columns (ColumnAdder)", "../guide/metadata/transform-patterns.md#columnadder"),),
-    "ValueRule": (("Value normalization (ColumnValueTransformer)", "../guide/metadata/transform-patterns.md#columnvaluetransformer"),),
-    "HashColumn": (("Hash columns (HashColumnAdder)", "../guide/metadata/transform-patterns.md#hashcolumnadder"),),
-    "MaskingRule": (("Masking (DataMasker)", "../guide/metadata/transform-patterns.md#datamasker"),),
+    "AdditionalColumn": (("Computed columns (ColumnAdder)", "../guide/metadata/transform-expressions.md#columnadder"),),
+    "ValueRule": (("Value normalization (ColumnValueTransformer)", "../guide/metadata/transform-values.md#columnvaluetransformer"),),
+    "HashColumn": (("Hash columns (HashColumnAdder)", "../guide/metadata/transform-keys.md#hashcolumnadder"),),
+    "MaskingRule": (("Masking (DataMasker)", "../guide/metadata/transform-masking.md#datamasker"),),
 }
 
 

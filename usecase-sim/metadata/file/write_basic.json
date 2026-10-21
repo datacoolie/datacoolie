@@ -1,0 +1,790 @@
+{
+  "dataflows": [
+    {
+      "name": "a9-write-csv-options",
+      "stage": "a9_write_csv_options",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "a9_csv_options_source",
+        "table": "rows"
+      },
+      "destination": {
+        "connection_name": "a9_csv_options_destination",
+        "table": "records",
+        "load_type": "overwrite",
+        "configure": {
+          "write_options": {
+            "header": true,
+            "sep": "|"
+          }
+        }
+      }
+    },
+    {
+      "name": "flat-append-avro",
+      "stage": "flat_append_avro",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "flat_append_source",
+        "table": "source"
+      },
+      "destination": {
+        "connection_name": "flat_append_avro_destination",
+        "table": "target",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "flat-append-csv",
+      "stage": "flat_append_csv",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "flat_append_source",
+        "table": "source"
+      },
+      "destination": {
+        "connection_name": "flat_append_csv_destination",
+        "table": "target",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "flat-append-json",
+      "stage": "flat_append_json",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "flat_append_source",
+        "table": "source"
+      },
+      "destination": {
+        "connection_name": "flat_append_json_destination",
+        "table": "target",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "flat-append-jsonl",
+      "stage": "flat_append_jsonl",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "flat_append_source",
+        "table": "source"
+      },
+      "destination": {
+        "connection_name": "flat_append_jsonl_destination",
+        "table": "target",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "aws_write__csv",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_csv_dest",
+        "table": "orders_write_csv",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__json",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_json_dest",
+        "table": "orders_write_json",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__jsonl",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_jsonl_dest",
+        "table": "orders_write_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__avro",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_avro_dest",
+        "table": "orders_write_avro",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__parquet",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_dest",
+        "table": "orders_write_parquet",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__full_load",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": -1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_full_load",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__overwrite",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 0,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_delta__append",
+      "stage": "aws_load_delta",
+      "group_number": 2,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__full_load",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_from_json",
+        "load_type": "full_load"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__overwrite",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_load_iceberg__append",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_partition__single",
+      "stage": "aws_transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_partition_single",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_partition__multi",
+      "stage": "aws_transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_partition_multi",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "region_part",
+            "expression": "region"
+          },
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws_date_folder__dest_partition",
+      "stage": "aws_date_folder_dest",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_parquet_date_folder_dest",
+        "table": "orders_dated_dest",
+        "load_type": "append"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_write__json_to_jsonl",
+      "stage": "aws_write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_jsonl_dest",
+        "table": "orders_json_to_jsonl",
+        "load_type": "full_load"
+      },
+      "transform": {}
+    },
+    {
+      "name": "aws_load_iceberg__append_partitioned",
+      "description": "Iceberg append with year partition column",
+      "stage": "aws_load_iceberg",
+      "group_number": 3,
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "aws_iceberg_dest",
+        "table": "orders_appended_part",
+        "load_type": "append",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "write__csv",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_csv_dest",
+        "table": "orders_write_csv",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "write__json",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_json_dest",
+        "table": "orders_write_json",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "write__jsonl",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_jsonl_dest",
+        "table": "orders_write_jsonl",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "write__avro",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_avro_dest",
+        "table": "orders_write_avro",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "write__parquet",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_dest",
+        "table": "orders_write_parquet",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "load_delta__full_load",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": -1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_full_load",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "load_delta__overwrite",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 0,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "load_delta__append",
+      "stage": "load_delta",
+      "group_number": 2,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "load_iceberg__full_load",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 1,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          },
+          {
+            "column_name": "quantity",
+            "data_type": "INTEGER"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_from_json",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "load_iceberg__overwrite",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 2,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_overwritten",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          },
+          {
+            "column": "order_month",
+            "expression": "EXTRACT(MONTH FROM order_date)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "load_iceberg__append",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 5,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_appended",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "partition__single",
+      "stage": "transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_partition_single",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "partition__multi",
+      "stage": "transform_partition",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_partition_multi",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "region_part",
+            "expression": "region"
+          },
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "date_folder__dest_partition",
+      "stage": "date_folder_dest",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_parquet_date_folder_dest",
+        "table": "orders_dated_dest",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "write__json_to_jsonl",
+      "stage": "write_file",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_json_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_jsonl_dest",
+        "table": "orders_json_to_jsonl",
+        "load_type": "full_load"
+      }
+    },
+    {
+      "name": "load_iceberg__append_partitioned",
+      "description": "Iceberg append with year partition column",
+      "stage": "load_iceberg",
+      "group_number": 3,
+      "execution_order": 7,
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_parquet_source",
+        "table": "sample",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "transform": {
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_iceberg_dest",
+        "table": "orders_appended_part",
+        "load_type": "append",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "write-basic-overwrite",
+      "stage": "write_basic_overwrite",
+      "source": {
+        "connection_name": "write_basic_source",
+        "table": "overwrite_source"
+      },
+      "destination": {
+        "connection_name": "write_basic_destination",
+        "table": "overwrite_target",
+        "load_type": "overwrite"
+      }
+    },
+    {
+      "name": "write-basic-append",
+      "stage": "write_basic_append",
+      "source": {
+        "connection_name": "write_basic_source",
+        "table": "append_source",
+        "watermark_columns": [
+          "__file_modification_time"
+        ]
+      },
+      "destination": {
+        "connection_name": "write_basic_destination",
+        "table": "append_target",
+        "load_type": "append"
+      }
+    }
+  ]
+}

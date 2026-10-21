@@ -99,6 +99,19 @@ class PluginRegistry(Generic[T]):
     def get_or_create(self, name: str, **kwargs: object) -> T:
         """Return one singleton, with deterministic concurrent construction."""
 
+        instance = self._get_or_create(name, False, **kwargs)
+        assert instance is not None
+        return instance
+
+    def get_or_create_optional(self, name: str, **kwargs: object) -> T | None:
+        """Return a singleton or None for proven absence; selected failures raise.
+
+        Incomplete discovery cannot prove absence. Unrelated failed entry points
+        do not prevent healthy plugins or genuinely absent names from resolving.
+        """
+        return self._get_or_create(name, True, **kwargs)
+
+    def _get_or_create(self, name: str, optional: bool, /, **kwargs: object) -> T | None:
         self._ensure_discovered()
         owner = threading.get_ident()
         with self._condition:
@@ -124,6 +137,8 @@ class PluginRegistry(Generic[T]):
                     continue
                 cls = self._plugins.get(name)
                 if cls is None:
+                    if optional and name not in self._discovery_plugin_errors and self._discovery_error is None:
+                        return None
                     self._raise_missing(name)
                 generation = self._generations.get(name, 0)
                 self._singleton_inflight[name] = (owner, generation, cls)
@@ -253,13 +268,16 @@ class PluginRegistry(Generic[T]):
                 try:
                     cls = ep.load()
                     if not (isinstance(cls, type) and issubclass(cls, self._base_class)):
-                        continue
+                        raise DataCoolieError(
+                            f"Plugin '{ep.name}' must be a subclass of {self._base_class.__name__}"
+                        )
                     with self._condition:
                         if ep.name not in self._plugins:
                             self._plugins[ep.name] = cls
                             self._generations.setdefault(ep.name, 0)
                 except Exception as exc:
-                    self._discovery_plugin_errors[ep.name] = exc
+                    with self._condition:
+                        self._discovery_plugin_errors[ep.name] = exc
                     logger.debug(
                         "Entry-point plugin '%s' in group '%s' failed to load",
                         ep.name,
@@ -267,7 +285,8 @@ class PluginRegistry(Generic[T]):
                         exc_info=True,
                     )
         except Exception as exc:
-            self._discovery_error = exc
+            with self._condition:
+                self._discovery_error = exc
             logger.debug(
                 "Entry-point discovery failed for group '%s'",
                 self._entry_point_group,

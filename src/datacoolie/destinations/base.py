@@ -21,11 +21,10 @@ from datacoolie.core.constants import (
     DEFAULT_RETENTION_HOURS,
     DataFlowStatus,
     ExecutionType,
-    LoadType,
-    MaintenanceType,
 )
 from datacoolie.core.exceptions import DestinationError
 from datacoolie.core.models.dataflow import DataFlow
+from datacoolie.core.models.metrics import MetricAccumulator
 from datacoolie.engines.base import DF, BaseEngine
 from datacoolie.destinations.resolution.target import ResolvedDestination, resolve_destination_target
 from datacoolie.destinations.runtime import DestinationRuntimeInfo
@@ -140,53 +139,11 @@ def _normalise_metric_values(values: Mapping[str, Any] | None) -> _MetricValues:
     return result
 
 
-def _apply_known_zero_metrics(metrics: _MetricValues, names: set[str]) -> None:
-    """Fill only metrics proven unaffected by the operation semantics."""
-
-    for name in names:
-        if metrics[name] is None:
-            metrics[name] = 0
-
-
-def _known_write_zero_metrics(load_type: str) -> set[str]:
-    """Return write metrics that the selected operation cannot affect."""
-
-    if load_type == LoadType.APPEND.value:
-        return {
-            "rows_updated",
-            "rows_deleted",
-            "files_removed",
-            "bytes_removed",
-        }
-    if load_type == LoadType.MERGE_UPSERT.value:
-        return {"rows_deleted"}
-    return set()
-
-
-def _known_maintenance_zero_metrics(operation: str) -> set[str]:
-    """Return metrics unaffected by a successful physical maintenance op."""
-
-    if operation not in {"compact", "cleanup"}:
-        return set()
-    names = {
-        "rows_written",
-        "rows_inserted",
-        "rows_updated",
-        "rows_deleted",
-    }
-    if operation == "cleanup":
-        names.update({"files_added", "bytes_added"})
-    return names
-
-
-def _aggregate_maintenance_metrics(
+def _maintenance_metric_accumulator(
     parsed: Mapping[str, Mapping[str, Any]],
     sub_results: List[Dict[str, Any]],
-    *,
-    requested_operations: set[str],
-    operation_errors: bool = False,
-) -> _MetricValues:
-    """Aggregate known maintenance operations with nullable propagation."""
+) -> MetricAccumulator:
+    """Reduce observed maintenance values without semantic zero filling."""
 
     operation_status = {
         entry.get("operation"): entry.get("status")
@@ -194,38 +151,28 @@ def _aggregate_maintenance_metrics(
         if isinstance(entry, Mapping)
         and entry.get("operation") in {"compact", "cleanup"}
     }
-    per_operation: Dict[str, _MetricValues] = {}
+    accumulator = MetricAccumulator()
     for operation, status in operation_status.items():
         if status == DataFlowStatus.SKIPPED.value:
             continue
         if status == DataFlowStatus.SUCCEEDED.value and operation in parsed:
             metrics = _normalise_metric_values(parsed[operation])
         else:
-            # A failed or malformed entered operation has no trustworthy
-            # affected-dimension measurement.  Keep only the dimensions its
-            # operation semantics prove cannot change.
             metrics = _empty_metric_values()
-        _apply_known_zero_metrics(metrics, _known_maintenance_zero_metrics(operation))
-        per_operation[operation] = metrics
+        accumulator.add(metrics)
 
-    if not per_operation:
-        skipped_operations = {
-            operation
-            for operation, status in operation_status.items()
-            if status == DataFlowStatus.SKIPPED.value
-        }
-        all_requested_not_performed = requested_operations.issubset(skipped_operations)
-        if operation_errors or (
-            requested_operations and not all_requested_not_performed
-        ):
-            return _empty_metric_values()
-        return {name: 0 for name in _DESTINATION_METRIC_FIELDS}
+    return accumulator
 
-    result = _empty_metric_values()
-    for name in _DESTINATION_METRIC_FIELDS:
-        values = [metrics[name] for metrics in per_operation.values()]
-        result[name] = None if any(value is None for value in values) else sum(values)
-    return result
+
+def _aggregate_maintenance_metrics(
+    parsed: Mapping[str, Mapping[str, Any]],
+    sub_results: List[Dict[str, Any]],
+) -> _MetricValues:
+    """Return physical maintenance totals from the shared reducer."""
+
+    accumulator = _maintenance_metric_accumulator(parsed, sub_results)
+    aggregate = accumulator.metrics
+    return {name: getattr(aggregate, name) for name in _DESTINATION_METRIC_FIELDS}
 
 
 def _safe_debug(message: str, *args: Any) -> None:
@@ -456,14 +403,6 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             _safe_debug("Could not parse destination history metrics: %s", exc)
 
         try:
-            _apply_known_zero_metrics(
-                metrics,
-                _known_write_zero_metrics(dataflow.load_type),
-            )
-        except Exception as exc:  # noqa: BLE001
-            _safe_debug("Could not derive operation-proven destination zeros: %s", exc)
-
-        try:
             for name in _DESTINATION_METRIC_FIELDS:
                 setattr(self._runtime_info, name, metrics[name])
         except Exception as exc:  # noqa: BLE001
@@ -472,6 +411,23 @@ class BaseDestinationWriter(ABC, Generic[DF]):
     # ------------------------------------------------------------------
     # Maintenance
     # ------------------------------------------------------------------
+
+    def run_selected_maintenance(self, dataflow: DataFlow, *, prepared=None,
+                                 do_compact=True, do_cleanup=True, retention_hours=None,
+                                 compact_options=None, cleanup_options=None):
+        """Opt-in extension; legacy writers retain their original kwargs."""
+        from datacoolie.engines.contracts.maintenance import default_options
+        compact_options, cleanup_options = default_options(compact_options), default_options(cleanup_options)
+        if not do_compact and not do_cleanup and compact_options is None and cleanup_options is None:
+            self._runtime_info = DestinationRuntimeInfo(start_time=utc_now(), end_time=utc_now(),
+                status="succeeded", operation_type="maintenance", message="No maintenance actions selected",
+                operation_details=[{"operation": "compact", "status": "skipped", "actions": [],
+                    "reason": "No maintenance actions selected", "metrics": _empty_metric_values()}])
+            return self._runtime_info
+        if (prepared is not None and prepared.binding is not None) or compact_options is not None or cleanup_options is not None:
+            raise DestinationError(f"{type(self).__name__} does not support prepared maintenance selections")
+        return self.run_maintenance(dataflow, do_compact=do_compact, do_cleanup=do_cleanup,
+                                    retention_hours=retention_hours)
 
     def run_maintenance(
         self,
@@ -567,15 +523,6 @@ class BaseDestinationWriter(ABC, Generic[DF]):
             self._enrich_maintenance_runtime(
                 dataflow,
                 sub_results,
-                requested_operations={
-                    operation
-                    for operation, enabled in (
-                        (MaintenanceType.COMPACT.value, do_compact),
-                        (MaintenanceType.CLEANUP.value, do_cleanup),
-                    )
-                    if enabled
-                },
-                operation_errors=bool(errors),
             )
         except Exception as exc:  # noqa: BLE001
             _safe_warning("Maintenance metric enrichment failed: %s", exc)
@@ -596,9 +543,6 @@ class BaseDestinationWriter(ABC, Generic[DF]):
         self,
         dataflow: DataFlow,
         sub_results: List[Dict[str, Any]],
-        *,
-        requested_operations: set[str],
-        operation_errors: bool,
     ) -> None:
         """Best-effort maintenance history enrichment after operations run."""
 
@@ -648,12 +592,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
                 _safe_debug("Could not attach %s maintenance metrics: %s", operation, exc)
 
         try:
-            aggregate = _aggregate_maintenance_metrics(
-                parsed,
-                sub_results,
-                requested_operations=requested_operations,
-                operation_errors=operation_errors,
-            )
+            aggregate = _aggregate_maintenance_metrics(parsed, sub_results)
         except Exception as exc:  # noqa: BLE001
             _safe_warning("Failed to aggregate maintenance metrics: %s", exc)
             aggregate = _empty_metric_values()
@@ -791,7 +730,7 @@ class BaseDestinationWriter(ABC, Generic[DF]):
     def _resolve_target(self, dataflow: DataFlow) -> ResolvedDestination:
         """Return the writer/engine target contract for *dataflow*."""
 
-        return resolve_destination_target(dataflow.destination, require_target=False)
+        return resolve_destination_target(dataflow.destination, engine=self._engine)
 
     def _parse_write_metrics(
         self, history: List[Dict[str, Any]]

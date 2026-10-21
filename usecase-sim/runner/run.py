@@ -6,7 +6,9 @@ Replaces:
 
 Usage:
     python usecase-sim/runner/run.py --engine polars --metadata-source file \
-        --metadata-path usecase-sim/metadata/file/workflows/local_use_cases.json --stage read__csv
+        --metadata-path usecase-sim/metadata/file/read.json \
+        --connections-path usecase-sim/metadata/file/connections.json \
+        --schema-hints-path usecase-sim/metadata/file/schema_hints.json --stage read__csv
 
     python usecase-sim/runner/run.py --engine spark --metadata-source database \
         --metadata-db-connection-string "sqlite:///..." \
@@ -42,11 +44,12 @@ from _runner_utils import (
     run_and_report,
     setup_platform,
 )
-from runner.metadata_composition import materialize_metadata_path
 from runner.runtime_paths import (
     DATACOOLIE_ROOT, LOG_DIR as LOG_DIR, USECASE_SIM_DIR, WATERMARKS_DIR,
-    AWS_WATERMARK_PATH, runtime_child, apply_runtime_defaults,
+    AWS_WATERMARK_PATH, apply_runtime_defaults,
 )
+from runner.runtime_timing import phase, runtime_entrypoint
+from runner.runtime_profile import optimized, metadata_capabilities
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,7 +80,35 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--metadata-path",
         default=None,
+        action="append",
         help="Path to metadata file (.json|.yaml|.xlsx)",
+    )
+    parser.add_argument(
+        "--metadata-document",
+        default=None,
+        help="Inline JSON metadata object for a generated scenario projection",
+    )
+    parser.add_argument(
+        "--metadata-bindings",
+        default=None,
+        help="JSON object with per-invocation token/replace/patch/delete bindings (exact file source only)",
+    )
+    parser.add_argument(
+        "--dataflow",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help="Select one dataflow by authored name; repeat to preserve execution order (exact file source only)",
+    )
+    parser.add_argument(
+        "--connections-path",
+        default=None,
+        help="Optional exact file containing the connections section",
+    )
+    parser.add_argument(
+        "--schema-hints-path",
+        default=None,
+        help="Optional exact file containing the schema_hints section",
     )
     parser.add_argument(
         "--metadata-base-path",
@@ -239,6 +270,11 @@ def parse_args() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
+    _normalize_metadata_path_arg(parser, args)
+    for option_name in ("connections_path", "schema_hints_path"):
+        value = getattr(args, option_name)
+        if value is not None and not value.strip():
+            parser.error(f"--{option_name.replace('_', '-')} must be a non-empty path")
     _validate_source_args(parser, args)
     _apply_runtime_defaults(args)
     return args
@@ -250,12 +286,44 @@ def _validate_source_args(
     src = args.metadata_source
     if args.metadata_path and args.metadata_base_path:
         parser.error("--metadata-path and --metadata-base-path are mutually exclusive")
-    if src == "file" and not any(
+    if args.metadata_document is not None and src != "file":
+        parser.error("--metadata-document is supported only with --metadata-source file")
+    if args.metadata_document is not None and any(
         (args.metadata_path, args.metadata_base_path, args.artifact_base_path)
     ):
         parser.error(
+            "--metadata-document is mutually exclusive with --metadata-path, "
+            "--metadata-base-path, and --artifact-base-path"
+        )
+    if args.metadata_bindings is not None or args.dataflow:
+        if src != "file":
+            parser.error("--metadata-bindings/--dataflow are supported only with --metadata-source file")
+        if not args.metadata_path or args.metadata_base_path or args.artifact_base_path:
+            parser.error(
+                "--metadata-bindings/--dataflow require exact --metadata-path file inputs"
+            )
+        if args.metadata_bindings is not None:
+            try:
+                from runner.metadata_bindings import parse_metadata_bindings
+                parse_metadata_bindings(args.metadata_bindings)
+            except Exception as exc:
+                parser.error(str(exc))
+    if args.metadata_document is not None:
+        try:
+            document = json.loads(args.metadata_document)
+        except json.JSONDecodeError as exc:
+            parser.error(f"--metadata-document must be valid JSON: {exc.msg}")
+        if not isinstance(document, dict):
+            parser.error("--metadata-document must decode to a JSON object")
+    if args.metadata_document is not None and (args.connections_path or args.schema_hints_path):
+        parser.error("--metadata-document cannot be combined with section override paths")
+    if src == "file" and not any(
+        (args.metadata_path, args.metadata_base_path, args.artifact_base_path,
+         args.metadata_document)
+    ):
+        parser.error(
             "--metadata-source file requires --metadata-path, "
-            "--metadata-base-path, or --artifact-base-path"
+            "--metadata-base-path, --artifact-base-path, or --metadata-document"
         )
     if src == "database":
         if not args.metadata_db_connection_string or not args.metadata_workspace_id:
@@ -272,37 +340,56 @@ def _validate_source_args(
 _apply_runtime_defaults = apply_runtime_defaults
 
 
+def _normalize_metadata_path_arg(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Keep one metadata path scalar while retaining repeated path order."""
+    values = args.metadata_path
+    if values is None:
+        return
+    if not values or any(not isinstance(value, str) or not value.strip() for value in values):
+        parser.error("--metadata-path values must be non-empty paths")
+    args.metadata_path = values[0] if len(values) == 1 else values
+
+
 def _build_metadata(source: str, args: argparse.Namespace):
     """Instantiate the correct MetadataProvider for the requested source."""
     if source == "file":
         from datacoolie.metadata import FileProvider
+        from runner.metadata_bindings import MemoryFileProvider, build_file_provider
 
         watermark_path = getattr(args, "watermark_path", None)
         if not watermark_path:
-            state = getattr(args, "state_base_path", None)
-            if state:
-                watermark_path = runtime_child(state, "watermarks")
-            else:
-                watermark_path = (
-                    AWS_WATERMARK_PATH
-                    if getattr(args, "platform", "local") == "aws"
-                    else str(WATERMARKS_DIR)
-                )
+            watermark_path = (
+                AWS_WATERMARK_PATH
+                if getattr(args, "platform", "local") == "aws"
+                else str(WATERMARKS_DIR)
+            )
         # Directory and artifact modes are assembled by Driver so the same
         # provider/platform binding contract is used by every provider type.
         # Inject an uninitialized provider with an explicit watermark root;
         # passing config_path together with metadata_base_path would violate
         # the FileProvider startup contract.
+        provider_kwargs = {
+            "watermark_base_path": watermark_path,
+            "sql_base_path": args.sql_base_path or None,
+        }
+        if getattr(args, "metadata_document", None) is not None:
+            document = json.loads(args.metadata_document)
+            return MemoryFileProvider(document=document, **provider_kwargs)
         if args.metadata_path:
-            return FileProvider(
-                config_path=args.metadata_path,
-                watermark_base_path=watermark_path,
-                sql_base_path=args.sql_base_path or None,
+            provider_kwargs["config_path"] = args.metadata_path
+        for option_name in ("connections_path", "schema_hints_path"):
+            value = getattr(args, option_name, None)
+            if value is not None:
+                provider_kwargs[option_name] = value
+        if getattr(args, "metadata_bindings", None) is not None or getattr(args, "dataflow", None):
+            return build_file_provider(
+                **provider_kwargs,
+                metadata_bindings=getattr(args, "metadata_bindings", None),
+                dataflows=getattr(args, "dataflow", None),
             )
-        return FileProvider(
-            watermark_base_path=watermark_path,
-            sql_base_path=args.sql_base_path or None,
-        )
+        return FileProvider(**provider_kwargs)
     if source == "database":
         from datacoolie.metadata import DatabaseProvider
 
@@ -387,18 +474,12 @@ def _run_engine_setup(
     setup_function(engine=engine, args=list(setup_args))
 
 
+@runtime_entrypoint
 def main() -> None:
     # All metadata documents and relative fixture paths use the product root
     # convention, independent of the shell directory used to invoke the CLI.
     os.chdir(DATACOOLIE_ROOT)
     args = parse_args()
-
-    # Compose simulator workflow metadata before constructing a platform,
-    # engine, or service-backed provider.  Plain JSON/YAML/XLSX and storage
-    # URIs pass through unchanged; _build_metadata remains provider assembly
-    # only.
-    if args.metadata_source == "file" and args.metadata_path:
-        args.metadata_path = materialize_metadata_path(args.metadata_path)
 
     is_aws = args.platform == "aws"
     is_spark = args.engine == "spark"
@@ -416,10 +497,23 @@ def main() -> None:
         config_kwargs["job_id"] = args.job_id
     if args.max_workers is not None:
         config_kwargs["max_workers"] = args.max_workers
+    elif is_spark and optimized():
+        config_kwargs["max_workers"] = 3
     config = DataCoolieRunConfig(**config_kwargs)
     log_config = _build_log_config(args)
 
     needs_iceberg = args.needs_iceberg or not args.stage or "iceberg" in args.stage.lower()
+
+    capabilities = None
+    if is_spark and optimized() and args.metadata_source == "file":
+        capabilities = metadata_capabilities(args.metadata_path, stage=args.stage,
+            skip_api_sources=args.skip_api_sources,
+            connections_path=getattr(args, "connections_path", None),
+            schema_hints_path=getattr(args, "schema_hints_path", None),
+            metadata_bindings=getattr(args, "metadata_bindings", None),
+            dataflow_names=getattr(args, "dataflow", None))
+        if capabilities is not None:
+            needs_iceberg = args.needs_iceberg or capabilities["needs_iceberg"]
 
     storage_opts = _parse_kv_list(args.storage_options)
     extra_config = _parse_kv_list(args.spark_config)
@@ -451,82 +545,95 @@ def main() -> None:
 
     platform = setup_platform(is_aws, storage_opts, logger)
 
-    # Build engine
     cleanup_fn = None
-    if is_spark:
-        spark = build_spark_session(
-            app_name=args.app_name,
-            catalog_preset=args.catalog_preset,
-            iceberg_catalog_uri=args.iceberg_catalog_uri,
-            uc_token=args.uc_token,
-            uc_credential=args.uc_credential,
-            needs_s3=is_aws,
-            needs_iceberg=needs_iceberg,
-            extra_config=extra_config or None,
-            verify_local_file_checksums=is_aws,
-        )
-        from datacoolie.engines import SparkEngine
 
-        engine = SparkEngine(spark_session=spark, platform=platform)
-        cleanup_fn = spark.stop
-    else:
-        iceberg_catalog = None
-        if needs_iceberg:
-            iceberg_catalog = build_iceberg_rest_catalog(
-                catalog_preset=args.catalog_preset,
-                iceberg_catalog_uri=args.iceberg_catalog_uri,
-                uc_token=args.uc_token,
-                uc_credential=args.uc_credential,
-                storage_opts=storage_opts or None,
-            )
-        from datacoolie.engines import PolarsEngine
+    def cleanup_engine():
+        nonlocal cleanup_fn
+        if cleanup_fn is not None:
+            callback, cleanup_fn = cleanup_fn, None
+            with phase("shutdown_s"):
+                callback()
 
-        engine = PolarsEngine(
+    try:
+        with phase("engine_creation_s"):
+            # Build engine
+            if is_spark:
+                spark = build_spark_session(
+                    app_name=args.app_name,
+                    catalog_preset=args.catalog_preset,
+                    iceberg_catalog_uri=args.iceberg_catalog_uri,
+                    uc_token=args.uc_token,
+                    uc_credential=args.uc_credential,
+                    needs_s3=is_aws or bool(capabilities and capabilities["needs_s3"]),
+                    needs_jdbc=capabilities["needs_jdbc"] if capabilities else True,
+                    needs_iceberg=needs_iceberg,
+                    extra_config=extra_config or None,
+                    verify_local_file_checksums=is_aws,
+                )
+                cleanup_fn = spark.stop
+                from datacoolie.engines import SparkEngine
+
+                engine = SparkEngine(spark_session=spark, platform=platform)
+            else:
+                iceberg_catalog = None
+                if needs_iceberg:
+                    iceberg_catalog = build_iceberg_rest_catalog(
+                        catalog_preset=args.catalog_preset,
+                        iceberg_catalog_uri=args.iceberg_catalog_uri,
+                        uc_token=args.uc_token,
+                        uc_credential=args.uc_credential,
+                        storage_opts=storage_opts or None,
+                    )
+                from datacoolie.engines import PolarsEngine
+
+                engine = PolarsEngine(
+                    platform=platform,
+                    storage_options=storage_opts or None,
+                    iceberg_catalog=iceberg_catalog,
+                )
+
+        _run_engine_setup(args.engine_setup_function, args.engine_setup_arg, engine)
+
+        metadata = _build_metadata(args.metadata_source, args)
+
+        driver = DataCoolieDriver(
+            engine=engine,
             platform=platform,
-            storage_options=storage_opts or None,
-            iceberg_catalog=iceberg_catalog,
+            metadata_provider=metadata,
+            config=config,
+            artifact_base_path=args.artifact_base_path,
+            metadata_base_path=args.metadata_base_path,
+            sql_base_path=args.sql_base_path,
+            state_base_path=args.state_base_path,
+            log_base_path=args.log_path,
+            log_config=log_config,
         )
 
-    _run_engine_setup(args.engine_setup_function, args.engine_setup_arg, engine)
-
-    metadata = _build_metadata(args.metadata_source, args)
-
-    driver = DataCoolieDriver(
-        engine=engine,
-        platform=platform,
-        metadata_provider=metadata,
-        config=config,
-        artifact_base_path=args.artifact_base_path,
-        metadata_base_path=args.metadata_base_path,
-        sql_base_path=args.sql_base_path,
-        state_base_path=args.state_base_path,
-        log_base_path=args.log_path,
-        log_config=log_config,
-    )
-
-    if args.replay_start:
-        replay_and_report(
-            driver,
-            stage=args.stage,
-            column_name_mode=args.column_name_mode,
-            logger=logger,
-            replay_start=args.replay_start,
-            replay_end=args.replay_end,
-            replay_chunk_interval=args.replay_chunk_interval,
-            replay_save_watermark=args.replay_save_watermark,
-            replay_chunk_column=args.replay_chunk_column,
-            skip_api_sources=args.skip_api_sources,
-            cleanup_fn=cleanup_fn,
-        )
-    else:
-        run_and_report(
-            driver,
-            args.stage,
-            args.column_name_mode,
-            logger,
-            cleanup_fn=cleanup_fn,
-            skip_api_sources=args.skip_api_sources,
-        )
+        if args.replay_start:
+            replay_and_report(
+                driver,
+                stage=args.stage,
+                column_name_mode=args.column_name_mode,
+                logger=logger,
+                replay_start=args.replay_start,
+                replay_end=args.replay_end,
+                replay_chunk_interval=args.replay_chunk_interval,
+                replay_save_watermark=args.replay_save_watermark,
+                replay_chunk_column=args.replay_chunk_column,
+                skip_api_sources=args.skip_api_sources,
+                cleanup_fn=cleanup_engine,
+            )
+        else:
+            run_and_report(
+                driver,
+                args.stage,
+                args.column_name_mode,
+                logger,
+                cleanup_fn=cleanup_engine,
+                skip_api_sources=args.skip_api_sources,
+            )
+    finally:
+        cleanup_engine()
 
 
 if __name__ == "__main__":

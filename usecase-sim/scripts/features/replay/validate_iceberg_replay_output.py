@@ -5,12 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from runner.runtime_paths import DATACOOLIE_ROOT
+from runner.owned_process import run_owned
 
 import boto3
 from botocore.config import Config
@@ -71,11 +71,9 @@ def _run_again(engine: str) -> None:
         ]
     else:
         command = [sys.executable, "usecase-sim/runner/run.py", *common]
-    completed = subprocess.run(
+    completed = run_owned(
         command,
         cwd=str(__import__("pathlib").Path(__file__).resolve().parents[4]),
-        capture_output=True,
-        text=True,
         timeout=360,
     )
     if completed.returncode:

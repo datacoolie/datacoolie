@@ -22,6 +22,7 @@ sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
 from _common import COMPOSE_FILE, port_open, setup_logging  # noqa: E402
+from runner.compose_config import compose_file_arguments, compose_startup_arguments  # noqa: E402
 
 logger = setup_logging("setup_platform")
 
@@ -41,11 +42,14 @@ _SERVICE_PORTS: dict[str, tuple[str, int]] = {
 
 
 def _compose(*args: str) -> int:
+    compose_files = compose_file_arguments(COMPOSE_FILE)
     docker = shutil.which("docker")
     if docker is None:
         logger.error("docker CLI not found on PATH")
         return 1
-    cmd = [docker, "compose", "-f", str(COMPOSE_FILE), *args]
+    if args and args[0] == "up":
+        args = (args[0], *compose_startup_arguments(), *args[1:])
+    cmd = [docker, "compose", *compose_files, *args]
     logger.info("$ %s", " ".join(cmd))
     return subprocess.call(cmd)
 

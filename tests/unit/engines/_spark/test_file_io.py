@@ -2,8 +2,36 @@ import pytest
 from unittest.mock import MagicMock
 
 from datacoolie.engines._spark import file_io
-from datacoolie.core.exceptions import EngineError
+from datacoolie.core.exceptions import ConfigurationError, EngineError
 from pyspark.sql.types import StructField, StructType, TimestampType
+
+
+@pytest.mark.parametrize("multiline,value,expected", [
+    (True, None, "true"), (True, False, "false"),
+    (True, " TRUE ", "true"), (False, None, "false"), (False, "false", "false"),
+])
+def test_json_framing_keeps_native_paths_and_options(multiline, value, expected):
+    spark = MagicMock()
+    reader = spark.read.format.return_value
+    reader.option.return_value = reader
+    options = {"pathGlobFilter": "*.json", "basePath": "/root", "mode": "FAILFAST"}
+    if value is not None:
+        options["multiLine"] = value
+    before = dict(options)
+    paths = ["/root/day=*/part*.json", "/root/other.jsonl"]
+    file_io.read_json(spark, paths, options, multiline=multiline)
+    reader.load.assert_called_once_with(paths)
+    actual = dict(call.args for call in reader.option.call_args_list)
+    assert actual == {**options, "multiLine": expected}
+    assert options == before
+
+
+@pytest.mark.parametrize("multiline,value", [(False, True), (True, None), (True, 0), (True, "invalid")])
+def test_json_invalid_options_fail_before_native_reader(multiline, value):
+    spark = MagicMock()
+    with pytest.raises(ConfigurationError):
+        file_io.read_json(spark, "/empty", {"multiLine": value}, multiline=multiline)
+    spark.read.format.assert_not_called()
 
 
 def test_read_parquet_translates_hive_partition_option_without_mutating_input() -> None:

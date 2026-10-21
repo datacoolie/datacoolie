@@ -390,7 +390,7 @@
       "contract": "src/datacoolie/metadata/file_provider.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/multi_sql_root_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "query_explicit_multiple_roots",
           "role": "primary"
         }
@@ -422,7 +422,7 @@
       "contract": "src/datacoolie/metadata/file_provider.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "query_root_routing",
           "role": "primary"
         }
@@ -454,7 +454,7 @@
       "contract": "src/datacoolie/metadata/file_provider.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/state_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "state_base_path",
           "role": "primary"
         }
@@ -594,7 +594,7 @@
       "contract": "src/datacoolie/metadata/file_provider.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/multi_sql_root_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "query_explicit_multiple_roots",
           "role": "support"
         }
@@ -630,7 +630,7 @@
       "contract": "src/datacoolie/metadata/file_provider.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "query_root_routing",
           "role": "support"
         }
@@ -702,7 +702,7 @@
       "contract": "src/datacoolie/metadata/file_provider.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/state_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "state_base_path",
           "role": "support"
         }
@@ -738,7 +738,7 @@
       "contract": "src/datacoolie/orchestration/preparation/query.py::resolve_query",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/sql_root_precedence.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "sql-root-precedence",
           "role": "primary"
         }

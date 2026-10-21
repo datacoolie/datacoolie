@@ -41,13 +41,19 @@ def _database():
     )
 
 
+def _runtime_flow_id(workspace: str, authored_name: str) -> str:
+    """Return the globally unique persisted ID for one workspace/name pair."""
+
+    return name_to_uuid(f"{workspace}:{authored_name}")
+
+
 def _seed(case, workspace: str, runtime_name: str):
     """Insert only this execution's records into the existing metadata schema."""
-    document = json.loads(case.metadata.read_text())
+    document = case.document
     connections = {row["name"]: row for row in document["connections"]}
     flow = document["dataflows"][0]
     ids = {name: str(uuid.uuid4()) for name in connections}
-    flow_id = name_to_uuid(runtime_name)
+    flow_id = _runtime_flow_id(workspace, runtime_name)
     with _database() as db, db.cursor() as cursor:
         cursor.execute(
             "SELECT to_regclass('dc_framework_watermarks'), to_regclass('dc_framework_schema_hints')"
@@ -107,7 +113,9 @@ def validate(root=None):
     materialize_fixture(case, "api_watermark_lifecycle.json")
     workspace = str(uuid.uuid4())
     authored = "api-watermark-lifecycle"
-    runtime_name = f"{authored}-{workspace}"
+    # The authored flow identity is stable; the fresh case root and workspace
+    # already isolate this run from prior lifecycle observations.
+    runtime_name = authored
     flow_id = _seed(case, workspace, runtime_name)
     url = os.environ.get("DATACOOLIE_METADATA_API_URL", "http://127.0.0.1:8000")
     endpoint = f"{url}/workspaces/{workspace}/watermarks/{flow_id}"
@@ -152,7 +160,11 @@ def validate(root=None):
             iteration=iteration,
             metadata_provider=provider,
         )
-        assert_successful_flow(run, runtime_name)
+        assert_successful_flow(
+            run,
+            runtime_name,
+            expected_dataflow_id=flow_id,
+        )
         runs.append(run)
         checkpoint = httpx.get(endpoint).json()
         expected = {"modified_at": {"__datetime__": row["modified_at"].isoformat()}}
@@ -214,9 +226,20 @@ def validate(root=None):
         script=Path(__file__),
         details={
             "identity_mapping": {
-                authored: {"name": runtime_name, "dataflow_id": flow_id}
+                authored: {
+                    "name": runtime_name,
+                    "workspace_id": workspace,
+                    "dataflow_id": flow_id,
+                    "id_strategy": "name_to_uuid(workspace_id + ':' + authored_name)",
+                }
             },
             "workspace": workspace,
+            "provenance_id_scope": (
+                "metadata_provenance.dataflows identifies the authored source "
+                "using its name-derived ID; details.identity_mapping maps that "
+                "authored name to the workspace-scoped persisted dataflow_id "
+                "used by Driver logs and API watermarks"
+            ),
             "backend": "postgresql-backed-metadata-api",
             "checkpoints": checkpoints,
             "sanitized_driver_request_trace": watermark_trace,

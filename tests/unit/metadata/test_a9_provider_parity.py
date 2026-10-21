@@ -42,6 +42,7 @@ def _document():
         "dataflows": [
             {
                 "name": "parity_z",
+                "description": "non-empty export description",
                 "stage": "parity",
                 "group_number": 1,
                 "execution_order": 2,
@@ -117,6 +118,7 @@ def test_json_yaml_excel_database_api_full_model_parity(tmp_path):
     try:
         expected = _models(providers[0])
         assert [flow["name"] for flow in expected] == ["parity_a", "parity_z"]
+        assert expected[1]["description"] == "non-empty export description"
         for provider in providers[1:]:
             assert _models(provider) == expected
         connections = [

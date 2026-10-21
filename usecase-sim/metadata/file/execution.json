@@ -1,0 +1,19 @@
+{
+  "dataflows": [
+    {
+      "name": "streaming__append",
+      "stage": "streaming_deferred",
+      "processing_mode": "streaming",
+      "is_active": false,
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_streaming",
+        "load_type": "append"
+      }
+    }
+  ]
+}

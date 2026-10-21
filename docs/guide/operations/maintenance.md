@@ -37,8 +37,18 @@ Deduplication applies within one `run_maintenance()` invocation, before shard
 distribution. It is not a lock across Driver sessions or external jobs.
 Serialize overlapping maintenance invocations for the same physical target;
 different connection names pointing to the same location do not make those
-jobs independent. A target whose identity cannot be resolved is omitted with
-a warning, so reconcile the selected destinations with the intended inventory.
+jobs independent. An invalid target or unqualified named backend raises a
+configuration error before maintenance dispatch.
+
+Named equality is currently qualified for local PyIceberg 0.12 SQLite file
+catalogs and loaded Spark 3.5 catalogs: explicit `spark_catalog.schema.table`
+with an in-memory metastore and `spark.sql.caseSensitive=false`, or Iceberg
+SparkCatalog/HadoopCatalog with a local warehouse and default file I/O.
+Initialize those catalogs through normal native use before maintenance; target
+resolution never loads them. Relative/current-catalog Spark names, SQLite memory
+catalogs and other profiles remain unqualified. The bounded REST profile below
+adds explicit deployment and table-incarnation qualification. Ordinary writes
+may use a valid handle without this maintenance qualification.
 
 ## Retention
 
@@ -72,18 +82,75 @@ shorter policy with the required recovery and reader guarantees.
 |---|---|---|
 | Polars / Delta path | delta-rs `optimize.compact()` | Vacuum by retention hours; native minimum-retention enforcement is disabled |
 | Spark / Delta path or catalog table | Delta `OPTIMIZE` | Delta `VACUUM`; runtime retention checks apply |
-| Polars / named Iceberg table | Logs a warning and skips compaction | PyIceberg snapshot expiration when supported; expiration errors are logged as warnings. Orphan-file removal logs a warning and is skipped |
-| Spark / named Iceberg table | Catalog procedures for data files, position deletes and manifests | Catalog procedures for snapshot expiration and orphan-file removal; requires an Iceberg runtime/catalog supporting those procedures |
+| Polars / named Iceberg table | Unsupported requests fail | Snapshot expiration only; orphan removal fails. Expiration updates metadata and does not claim file reclamation |
+| Spark / named Iceberg (qualified REST) | Native data-file, position-delete and manifest actions on the prepared table | Native snapshot expiration and orphan removal; requires the verified JVM helper and pinned runtime |
+| Spark / named Iceberg (qualified local) | Existing catalog procedures | Existing snapshot-expiration and orphan-removal procedures |
 
 Polars uses paths for Delta and a configured catalog for named Iceberg tables.
 Plain file formats such as CSV and Parquet are excluded from metadata-driven
 maintenance selection. The built-in maintenance writers call the engine's
 default compaction and cleanup actions; inspect the selected engine and catalog
 before requesting them.
-A successful aggregate does not establish that every requested backend action
-ran. Check warning logs and the final attempt's
+A supported action with no eligible work succeeds with its observed zero effect.
+Unsupported REST requests fail before any selected action runs. Check the final attempt's
 `destination.operation_details`, then inspect table
 history, snapshots or files for the intended effect.
+
+## REST Iceberg maintenance
+
+REST maintenance requires an operator-attested `RestMaintenanceDeployment`
+passed as `maintenance_deployment` to the engine. Supply the physical backend
+instance identity, verified route aliases, warehouse, native continuity-sentinel
+identifier and UUID, and the executing catalog label. Route strings and catalog
+labels alone cannot establish backend equality. The sentinel must already exist
+and belong to that warehouse. Authenticated, tenant-routed, prefix-mismatched
+and arbitrary REST deployments remain outside this qualified profile.
+
+Polars requires PyIceberg 0.12.0. Spark requires Spark 3.5.9 with the exact
+Iceberg Spark 3.5/Scala 2.12 runtime 1.10.1 JAR and an explicitly built helper.
+Build the helper before starting Spark with
+`python -m datacoolie.engines._spark.iceberg.native_build --output-dir <directory> --runtime-jar <pinned-jar> --spark-jars-dir <spark-jars>`.
+Add the resulting `guard.jar` to the session's JARs and pass its `manifest.json`
+as `maintenance_guard_manifest` to `SparkEngine`. Runtime verification rejects
+stale sources, mismatched artifacts and duplicate classes; it does not download,
+compile or modify a borrowed session.
+Configure `spark.sql.catalog.<catalog-label>.cache-enabled=false` before creating
+the session so the qualified REST catalog exposes the bound native table.
+
+Driver preparation carries catalog and namespace separately from the hydrated
+destination. Foreign catalogs are rejected before lookup; namespace components
+remain intact even when one equals the catalog label. Direct engine preparation
+accepts a two-part `namespace.table` string. For catalog-qualified or deeper
+names, pass `MaintenanceTableAddress(catalog, namespace_tuple, table)` as
+`table_address`; ambiguous strings with three or more parts are rejected.
+Preparation captures the table UUID, and native refresh/commit boundaries reject
+a replacement incarnation. Serialize external DDL and overlapping maintenance;
+orphan discovery/deletion is not atomic with concurrent external DDL.
+
+Request supported-only Polars expiration with:
+
+```python
+result = driver.run_maintenance(
+    connection="silver",
+    do_compact=False,
+    cleanup_options={"expire_snapshots": True, "remove_orphan_files": False},
+)
+```
+
+`compact_options` accepts `rewrite_data_files`, `rewrite_position_delete_files`
+and `rewrite_manifests`; `cleanup_options` accepts the two keys above. Values
+must be booleans. `None`, `{}`, and omitted known keys preserve default `True`
+within enabled groups. Nonempty options for a disabled group, unknown keys and
+nonboolean values fail validation. Setting every action in every enabled group
+to `False` succeeds without native effects, with skipped action-group detail.
+Missing targets remain skipped. Tagged/branched snapshots and the current
+snapshot are protected by native expiration semantics.
+
+Preparation happens once per unique routed candidate within each public call;
+aliases deduplicate by deployment scope and UUID before metadata sharding.
+`load_maintenance_dataflows()` releases its bindings and returns declarative
+metadata. A subsequent run prepares again. Retries retain the execution snapshot
+and borrowed binding; the Driver does not close borrowed native sessions.
 
 ## How deduplication works
 
@@ -91,8 +158,10 @@ When you call `run_maintenance()`, the driver:
 
 1. Loads all dataflows from metadata (optionally filtered by connection).
 2. Separates inactive candidates, then deduplicates runnable dataflows by
-   **physical destination** — flows that share the same catalog-qualified
-   table or storage path are collapsed into one.
+   **physical destination** using the executing engine's selected address and
+   qualified backend equality. Polars Delta uses its path even with catalog
+   metadata; supported Spark catalog targets use their names. Catalog case and
+   prefix aliases are collapsed only where native equivalence is qualified.
 3. Distributes the deduplicated list via `JobDistributor`.
 4. Dispatches `OPTIMIZE` and/or `VACUUM` in parallel (bounded by `max_workers`).
 
@@ -144,8 +213,17 @@ Use `--working-directory` when relative connection paths belong to another
 directory. `--confirm-maintenance` is required by this runner before mutation;
 the Python Driver API leaves authorization to the caller. Enabling neither
 compaction nor cleanup is rejected by the runner. Its nonzero exit code reports
-failed dataflows; warnings about unsupported backend actions still need review.
+failed dataflows. This reference runner configures local Delta; REST Iceberg needs
+the engine setup described above and an explicit supported action selection.
 For Spark hosts, use the [runner examples](../../examples/runners.md).
+
+## Maintenance outcomes and diagnostics
+
+A returned maintenance result must report `succeeded`, `skipped`, or `failed`.
+Its status and message survive unavailable diagnostic metrics or timing. Failed
+work remains retryable and honors `stop_on_error`; successful work is not
+repeated for a capture failure, and skipped work does not retry. Unknown metrics
+remain nullable. A typed result with a nonterminal status is a contract error.
 
 ## When to schedule maintenance
 
@@ -158,7 +236,7 @@ For Spark hosts, use the [runner examples](../../examples/runners.md).
 `OPTIMIZE` compacts small files into larger ones for better read performance.
 For Delta, `VACUUM` removes eligible unreferenced files. Iceberg cleanup uses
 snapshot expiration and, where supported, orphan-file removal; backend behavior
-and capability warnings must be checked separately.
+and supported action details must be checked separately.
 
 !!! warning "Do not set retention below the longest running query"
     If a query is reading old files and VACUUM removes them, the query fails.

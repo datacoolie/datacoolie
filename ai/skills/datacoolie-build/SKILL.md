@@ -116,7 +116,10 @@ was requested.
 ## Automation and handoff
 
 Generate automation only when requested; use `scripts/render_automation.py`
-for thin project-owned wrappers around the installed CLI. Do not duplicate
+for thin project-owned wrappers around the installed CLI. Generated Python wrappers
+invoke `sys.executable -m datacoolie`, preserving the running environment, and
+require both zero exit and JSON `ok: true` before continuing. They preserve command
+output for diagnostics. Do not duplicate
 project configuration, manifest or metadata validation in Skill code.
 
 Return exact changed files, docs/example revision, selected artifact/build ID,

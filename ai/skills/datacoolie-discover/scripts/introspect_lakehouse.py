@@ -28,7 +28,7 @@ from _observation_contract import (
     write_observations,
 )
 from _input_safety import validate_nonsecret_locator
-from _probe_status import PARTIAL_EXIT_CODE, write_probe_status
+from _probe_status import PARTIAL_EXIT_CODE, write_probe_status, observation_scope
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -655,6 +655,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
+    if (
+        args.output
+        and args.status_output
+        and Path(args.output).resolve() == Path(args.status_output).resolve()
+    ):
+        raise SystemExit("ERROR: Probe output paths must be distinct")
     if args.iceberg:
         try:
             validate_nonsecret_locator(args.iceberg, "Iceberg catalog URL")
@@ -671,18 +677,30 @@ def main(argv: list[str] | None = None) -> None:
         if args.headers_env:
             raw_headers = os.environ.get(args.headers_env)
             if raw_headers is None:
-                raise SystemExit(f"ERROR: Environment variable '{args.headers_env}' is not set")
+                raise SystemExit(
+                    f"ERROR: Environment variable '{args.headers_env}' is not set"
+                )
             try:
                 hdrs = json.loads(raw_headers)
             except json.JSONDecodeError as exc:
-                raise SystemExit("ERROR: Headers environment value is not valid JSON") from exc
+                raise SystemExit(
+                    "ERROR: Headers environment value is not valid JSON"
+                ) from exc
             if not isinstance(hdrs, dict) or not all(
-                isinstance(key, str) and isinstance(value, str) for key, value in hdrs.items()
+                isinstance(key, str) and isinstance(value, str)
+                for key, value in hdrs.items()
             ):
-                raise SystemExit("ERROR: Headers environment value must be a JSON object of strings")
+                raise SystemExit(
+                    "ERROR: Headers environment value must be a JSON object of strings"
+                )
         ns_filter = args.namespaces.split(",") if args.namespaces else None
         rows = introspect_iceberg(
-            args.iceberg, args.source, ns_filter, tables_filter, hdrs, issues,
+            args.iceberg,
+            args.source,
+            ns_filter,
+            tables_filter,
+            hdrs,
+            issues,
         )
         probe = "iceberg-rest-catalog"
     elif args.hive:
@@ -694,11 +712,17 @@ def main(argv: list[str] | None = None) -> None:
             print("ERROR: --catalog is required for Unity Catalog", file=sys.stderr)
             sys.exit(1)
         schema_filter = args.schemas.split(",") if args.schemas else None
-        rows = introspect_unity(args.source, args.catalog, schema_filter, tables_filter, issues)
+        rows = introspect_unity(
+            args.source, args.catalog, schema_filter, tables_filter, issues
+        )
         probe = "unity-catalog"
     elif args.glue:
         rows = introspect_glue(
-            args.source, args.database, tables_filter, args.region, issues,
+            args.source,
+            args.database,
+            tables_filter,
+            args.region,
+            issues,
         )
         probe = "aws-glue-catalog"
 
@@ -710,12 +734,31 @@ def main(argv: list[str] | None = None) -> None:
         atomic_write_observations(Path(args.output), rows)
     else:
         write_observations(sys.stdout, rows)
+    filters = {
+        name: getattr(args, name, None)
+        for name in ("tables", "namespaces", "databases", "schemas")
+    }
+    # catalog/database is the declared service boundary; optional table/namespace filters narrow it.
+    scope = observation_scope(
+        rows, kind="objects" if any(filters.values()) else "source", filters=filters
+    )
     status = write_probe_status(
         Path(args.status_output) if args.status_output else None,
         source=args.source,
         probe=probe,
         row_count=len(rows),
         issues=issues,
+        output_path=Path(args.output) if args.output else None,
+        scope=scope,
+        details={
+            "source_boundary": {
+                "catalog": args.catalog,
+                "database": args.database,
+                "region": args.region,
+            },
+            "bounds": {"request_timeout_seconds": 15, "cli_timeout_seconds_max": 60},
+            "catalog_limitation": "Catalog listing/pagination has no configurable object bound",
+        },
     )
     if status == "partial":
         raise SystemExit(PARTIAL_EXIT_CODE)

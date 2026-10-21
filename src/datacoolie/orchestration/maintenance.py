@@ -7,7 +7,10 @@ work across dataflows without pulling logic into the driver or model layer.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datacoolie.engines.base import BaseEngine
 
 from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models.dataflow import DataFlow
@@ -18,7 +21,7 @@ from datacoolie.orchestration.execution.activation import inactive_reason
 logger = get_logger(__name__)
 
 
-def dedupe_by_destination(dataflows: List[DataFlow]) -> List[DataFlow]:
+def dedupe_by_destination(dataflows: List[DataFlow], *, engine: BaseEngine | None = None) -> List[DataFlow]:
     """Return blocked dataflows and one runnable flow per physical destination.
 
     Multiple dataflows may target the same table or storage path
@@ -28,8 +31,9 @@ def dedupe_by_destination(dataflows: List[DataFlow]) -> List[DataFlow]:
     sorted by ``dataflow_id`` first so "first-meet wins" is
     deterministic across runs regardless of metadata ordering.
 
-    Destinations whose resolved identity cannot be computed are skipped with a
-    warning rather than aborting the whole run.
+    Engine-aware maintenance requires qualified physical equality and fails
+    before dispatch for invalid or unknown targets. Engine-free calls retain
+    the legacy inspection behavior, including warn-and-skip errors.
     """
     blocked: List[DataFlow] = []
     seen: Dict[str, DataFlow] = {}
@@ -38,8 +42,12 @@ def dedupe_by_destination(dataflows: List[DataFlow]) -> List[DataFlow]:
             if inactive_reason(df) is not None:
                 blocked.append(df)
                 continue
-            key = resolve_destination_target(df.destination).identity
+            key = resolve_destination_target(
+                df.destination, engine=engine, require_identity=engine is not None
+            ).identity
         except ConfigurationError as exc:
+            if engine is not None:
+                raise
             logger.warning(
                 "Skipping dataflow %s: %s",
                 df.dataflow_id,
@@ -55,5 +63,4 @@ def dedupe_by_destination(dataflows: List[DataFlow]) -> List[DataFlow]:
             len(unique),
         )
     return unique
-
 

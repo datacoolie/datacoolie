@@ -47,6 +47,14 @@ Construct argument vectors, handle paths with spaces and fail closed on an
 empty/ambiguous destination. Follow the public handoff's phase mapping and
 completion/retry rules without inventing another publication protocol.
 
+Route the selected handoff details directly to the focused references:
+
+| Release scope | Reference |
+|---|---|
+| Environment runner mapping and target/runtime boundary | `references/runner-deployment-mapping.md` |
+| Retained Python functions roots, packaging and host import boundary | `references/python-functions-deployment.md` |
+| Adapter sequencing, credentials and transfer evidence | `references/deployment-contract.md` and `references/automation-contract.md` |
+
 Retain per-phase commands, process status, file counts where available and safe
 errors. Stop before the next phase when its prerequisite fails; report
 `partial_failure` when the documented later phase fails. Retry only the pinned
@@ -60,7 +68,18 @@ and uses `references/automation-contract.md` for agent-specific checks.
 
 If persisting a record, use the existing `templates/upload-record.json.example`
 and `schemas/upload-record.schema.json`; validate the exact record with
-`scripts/validate_upload_record.py`. These own the Skill-specific receipt shape.
+`scripts/validate_upload_record.py`. The schema keeps a v1 branch for existing
+records and a v2 branch for the local adapter's preflight and record-persistence
+stages. The validator owns only phase relationships after JSON Schema has
+validated shape and types.
+
+The local adapter writes v2 records. A failed preflight records both upload
+phases as `skipped` with zero files and marks the overall transfer `failed`.
+Once preflight passes, artifact/current phase semantics remain unchanged. The
+identity fields may be `null` only before preflight succeeds. A requested
+record is marked `written` only after its atomic write completes; a persistence
+failure leaves the transfer and preflight outcomes on stdout, marks the record
+stage `failed` with a bounded safe error, and exits nonzero.
 Return its exact path rather than discovering a latest receipt.
 
 The record observes transfer commands. It does not establish activation,
@@ -78,6 +97,10 @@ of creating a second manifest, checksum sidecar or release validator.
 | Target activation, scheduler jobs, package installation or rollback operation | project/platform workflow |
 
 ## Verification
+
+Shared CLI response interpretation, authorization boundaries and credential
+handling come from `datacoolie/ai/AGENTS.md`; this section keeps only the
+release-specific handoff result that must be reported.
 
 Report selected input/build/environment, documented destination mapping,
 authorization reference, validation results and scope, transfer-phase results,

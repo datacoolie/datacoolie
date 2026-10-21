@@ -41,9 +41,16 @@ class TestWatermarkManagerGet:
         mgr = WatermarkManager(provider)
         assert mgr.get_watermark("df-1") is None
 
-    def test_corrupt_stored_json_is_not_first_run(self) -> None:
+    @pytest.mark.parametrize("raw", [
+        "not json",
+        '{"offset": 1e999}',
+        '{"__future_type__": "value"}',
+        '{"offset": {"__decimal__": 0.1}}',
+        '{"offset": {"__decimal__": true}}',
+    ])
+    def test_corrupt_stored_json_is_not_first_run(self, raw: str) -> None:
         provider = StubMetadataProvider()
-        provider.watermarks["df-1"] = "not json"
+        provider.watermarks["df-1"] = raw
         mgr = WatermarkManager(provider)
         with pytest.raises(WatermarkError, match="Invalid stored watermark"):
             mgr.get_watermark("df-1")

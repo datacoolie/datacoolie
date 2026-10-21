@@ -7,6 +7,7 @@ credentials while callers keep the same :class:`FabricPlatform` API.
 
 from __future__ import annotations
 
+from threading import RLock
 from typing import TYPE_CHECKING, Any
 
 from datacoolie.core.exceptions import PlatformError
@@ -52,45 +53,79 @@ class FabricPlatform(BasePlatform):
         self._effective_runtime: EffectiveFabricRuntime | None = None
         self._azure_credential = azure_credential
         self._backend: _Backend | None = None
+        self._acquisition_lock = RLock()
+        self._closed = False
 
         # Retained as native compatibility surfaces and test injection points.
         self._nu: Any | None = None
         self._fs: Any | None = None
 
     def _resolve_effective_runtime(self) -> EffectiveFabricRuntime:
-        if self._effective_runtime is None:
-            if self._runtime == "auto" and (self._nu is not None or self._fs is not None):
-                self._effective_runtime = "fabric"
-            else:
-                self._effective_runtime = resolve_runtime(self._runtime)
-        return self._effective_runtime
+        with self._acquisition_lock:
+            if self._effective_runtime is None:
+                if self._runtime == "auto" and (self._nu is not None or self._fs is not None):
+                    self._effective_runtime = "fabric"
+                else:
+                    self._effective_runtime = resolve_runtime(self._runtime)
+            return self._effective_runtime
 
     def _get_backend(self) -> _Backend:
-        if self._backend is not None:
+        with self._acquisition_lock:
+            self._ensure_open()
+            if self._backend is not None:
+                return self._backend
+
+            if self._resolve_effective_runtime() == "external":
+                self._backend = AzureSdkBackend(credential=self._azure_credential)
+                return self._backend
+
+            if self._nu is None and self._fs is None:
+                self._nu = require_notebookutils()
+            self._backend = NotebookUtilsBackend(self._nu, fs=self._fs)
+            self._fs = self._backend.fs
             return self._backend
 
-        if self._resolve_effective_runtime() == "external":
-            self._backend = AzureSdkBackend(credential=self._azure_credential)
-            return self._backend
+    def _ensure_open(self) -> None:
+        with self._acquisition_lock:
+            if self._closed:
+                raise PlatformError("FabricPlatform is closed.")
 
-        if self._nu is None and self._fs is None:
-            self._nu = require_notebookutils()
-        self._backend = NotebookUtilsBackend(self._nu, fs=self._fs)
-        self._fs = self._backend.fs
-        return self._backend
+    def close(self) -> None:
+        """Release owned Azure resources once, after consumers have quiesced.
+
+        Close is terminal. Concurrent service I/O and close are unsupported.
+        Injected credentials and native NotebookUtils handles remain borrowed.
+        """
+        with self._acquisition_lock:
+            if self._closed:
+                return
+            self._closed = True
+            backend = self._backend
+            self._backend = None
+            self._azure_credential = None
+            self._nu = self._fs = None
+            self.clear_cache()
+        if isinstance(backend, AzureSdkBackend):
+            backend.close()
+
+    def get_secret(self, key: str, source: str = "") -> str:
+        """Fetch a secret while open, including reads from the inherited cache."""
+        self._ensure_open()
+        return super().get_secret(key, source)
 
     @property
     def notebookutils(self) -> Any:
         """Return native NotebookUtils; unavailable in explicit external mode."""
-        backend = self._get_backend()
-        if not isinstance(backend, NotebookUtilsBackend):
-            raise PlatformError(
-                "notebookutils is available only when FabricPlatform uses runtime='fabric'."
-            )
-        if self._nu is None:
-            self._nu = require_notebookutils()
-            backend.notebookutils = self._nu
-        return self._nu
+        with self._acquisition_lock:
+            backend = self._get_backend()
+            if not isinstance(backend, NotebookUtilsBackend):
+                raise PlatformError(
+                    "notebookutils is available only when FabricPlatform uses runtime='fabric'."
+                )
+            if self._nu is None:
+                self._nu = require_notebookutils()
+                backend.notebookutils = self._nu
+            return self._nu
 
     @property
     def fs(self) -> Any:

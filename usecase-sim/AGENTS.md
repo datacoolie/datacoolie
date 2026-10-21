@@ -8,13 +8,16 @@ Portable rules remain in the workspace `.agents/instructions/`.
 - A case owns one primary behavior. Identity is `(fixture, flow)`, not flow name.
   Setup/readback flows are support references, never extra qualifications.
 - `metadata/` owns local, Docker and AWS-MinIO simulation fixtures. Put primary
-  flows in `metadata/file/<group>/` and shared profiles in `metadata/file/shared/`.
+  flows in one flat `metadata/file/<group>.json`; shared configuration belongs to
+  `metadata/file/connections.json` and global hints to `schema_hints.json`.
   Real-cloud smoke metadata is one ordinary JSON in `platforms/<platform>/`,
   with a few representative flows owned by a platform workflow case. Full feature
   matrices stay in local simulation. Group fixtures must match their primary group. Local feature evidence
   does not qualify the corresponding real-cloud platform.
-  Broad workflows reference group documents and explicit order; compile them
-  for export/upload instead of maintaining copied aggregate metadata.
+  Broad workflow manifests belong to `scenarios/workflows/` and select canonical
+  group documents and explicit flow order. Read them in memory for export/upload;
+  never maintain copied aggregate definitions. Intentionally malformed startup
+  documents are isolated under `scenarios/errors/`.
 - Fixtures must activate the branch: seeded old/new keys for merge, changed and
   unchanged history for SCD2, old schema for evolution, eligible/protected data
   for cleanup. Declare stateful run sequences and dependencies explicitly.

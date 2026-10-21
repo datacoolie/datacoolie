@@ -48,6 +48,29 @@ def table_id(table_name: str) -> str:
     return parts[0]
 
 
+def sqlite_name_identity(catalog: Any, table_name: str) -> Tuple[str, str] | None:
+    """Project attached SQLite file scope without connecting or loading tables."""
+    import hashlib
+    import os
+    from importlib.metadata import version
+    from pyiceberg.catalog.sql import SqlCatalog
+
+    if type(catalog) is not SqlCatalog or not version("pyiceberg").startswith("0.12."):
+        return None
+    url = catalog.engine.url
+    database = url.database
+    if (
+        url.get_backend_name() != "sqlite" or url.query or not database
+        or not os.path.isabs(database) or database.startswith("file:")
+        or ".." in database.replace("\\", "/").split("/")
+        or (os.name == "nt" and not os.path.splitdrive(database)[0])
+    ):
+        return None
+    database = os.path.normpath(database).replace("\\", "/")
+    digest = hashlib.sha256(database.encode("utf-8")).hexdigest()
+    return f"pyiceberg-sqlite:{catalog.name}:{digest}", table_id(table_name)
+
+
 def align_arrow_to_schema(arrow_table: Any, target_schema: Any) -> Any:
     """Backfill, case-align, and order Arrow columns for an Iceberg schema."""
     import pyarrow as pa  # noqa: PLC0415

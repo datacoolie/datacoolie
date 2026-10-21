@@ -14,7 +14,7 @@ are separate.
 Start with [run your first transformer plugin](transformer-tutorial.md) for a
 complete local installation, activation and output check. To solve an existing
 pipeline task, first check [metadata patterns](../guide/metadata/index.md),
-including built-in transforms and [Python function sources](../guide/metadata/source-patterns.md#python-function-source).
+including built-in transforms and [Python function sources](../guide/metadata/source-functions.md#python-function-source).
 
 ## Choose the extension point
 

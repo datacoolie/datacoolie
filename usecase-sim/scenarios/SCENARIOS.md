@@ -11,7 +11,10 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `spark_container` | | Docker container override for Spark scenarios; defaults to `datacoolie-spark`, use `datacoolie-spark4` for the opt-in Spark 4.1.0 service |
 | `metadata_type` | ✓ | `file`, `database`, `api`, or `maintenance` |
 | `platform` | | `local` (default) or `aws` — sets `is_aws` in runners |
-| `metadata_path` | file / maintenance | Path to JSON / YAML / XLSX metadata file |
+| `metadata_path` | file / maintenance | Exact JSON / YAML / XLSX file or ordered list of files |
+| `connections_path`, `schema_hints_path` | file / maintenance | Exact shared section files; replace their sections |
+| `dataflows` | file / maintenance | Ordered unique flow names selected after complete metadata validation |
+| `metadata_bindings` | file / maintenance | Invocation tokens and named row replacement/patch/delete operations; identity stays immutable |
 | `metadata_base_path` | file / maintenance | Directory of section-wrapped metadata documents; Driver binds the simulator FileProvider |
 | `artifact_base_path` | file / maintenance | Deployed artifact root; metadata defaults to `<root>/metadata` when no explicit metadata root is supplied |
 | `sql_base_path` | | Optional SQL root for shorthand references such as `queries/orders.sql`; provider configuration is preferred and Driver input is the session fallback; repeatable roots use their folder prefix |
@@ -24,9 +27,9 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `connection` | maintenance | Connection name filter |
 | `skip_api_sources` | | Skip dataflows with `connection_type=api` |
 | `dry_run` | | Driver-level dry-run |
-| `state_base_path` | | Runtime state root; simulator derives file-provider watermarks while framework logs use the shared root |
+| `state_base_path` | | Runtime engine/state-chain root; framework logs and provider watermarks have separate canonical bases |
 | `log_base_path` | | Optional explicit root; local scenarios require `.runtime/logs`, AWS uses an S3 log root |
-| `watermark_path` | | Explicit file-provider watermark root; otherwise simulator uses `state_base_path/watermarks` or `.runtime/watermarks` |
+| `watermark_path` | | Explicit state-chain scope under the canonical watermark base; defaults to `.runtime/watermarks/<engine>` or the equivalent AWS prefix |
 | `job_id` | | Stable Driver session/job identifier used by log validators |
 | `run_attributes` | | JSON object of caller-owned external correlation values persisted with JobRuntime |
 | `log_persistence_mode` | | Structured logger mode: `snapshot` or `batch` |
@@ -44,6 +47,23 @@ Consult [../README.md](../README.md) for narrative context and usage.
 | `validation` | | Final scenario console/output checks; keep its `expected_exit_code` at `0` |
 | `priority` | | `P0`, `P1`, or `P2` (for `--priority` filter) |
 | `notes` | | Free-form description |
+| `concurrency` | | Reviewed opt-in admission declaration: `isolation`, `engines`, and extra `resources`; cleanup write locks derive from `pre_clean_paths` |
+
+Without `concurrency`, a scenario runs exclusively. `engines` counts all engine
+use, including setup and standalone/nested validators. Resource entries contain
+`path` and `mode` (`read`/`write`); ancestor paths and S3/S3A aliases conflict when
+either side writes. `key:` names represent an explicitly reviewed shared resource.
+Initial `declared` admission supports ordinary local Parquet file cases and
+checks every selected endpoint against the locks before setup. `fresh-local`
+admits reviewed standalone Polars validators that allocate unused case-owned
+data/state/receipt roots; these declarations require review when helper behavior
+changes. Shared providers, traces and setup mutations retain exclusive execution.
+Reviewed fresh-local cases include existing-local read modes and incremental
+lookback modes; their compiled endpoints and data/state/receipt roots are unique
+per attempt. A declaration does not weaken the validator or permit shared setup.
+Case dependency declarations stay in the behavior catalog. Failed prerequisites
+block selected dependents; an explicitly selected single scenario still assumes
+its external prerequisites have already been prepared.
 
 `validation` supports `expected_exit_code` (default `0`),
 `required_console_text` (string or list), `script` (repository-relative Python
@@ -89,7 +109,7 @@ value-rule ordering case with two ordered rules.
 
 ### `local_polars_transform_features` / `local_spark_transform_features`
 
-Runs the ordered `metadata/file/workflows/transformer_features.json` manifest,
+Runs the ordered `scenarios/workflows/transformer_features.json` manifest,
 composed from canonical `transform` and `schema_types` fixtures. Both variants
 assert the aggregate missing-schema-hint warning and then validate persisted
 Parquet schemas and values across 25 independent, single-case outputs covering
@@ -97,7 +117,7 @@ normalization, literal replacement, mapping, rule order, value-rule/schema-cast
 order, schema hints, portable SHA-256 and signed XXHash64 parity, PII masking,
 select/drop, multi-column rename, and missing-column policies.
 
-### `local_polars_transform_dedup_strict` / `local_spark_transform_dedup_strict`
+### `error_messages.local_polars_transform_dedup_strict` / `error_messages.local_spark_transform_dedup_strict`
 
 Expected-failure scenarios proving that a missing configured dedup order
 column exits with code `2`, even when `missing_column_policy` is `ignore`.
@@ -121,7 +141,7 @@ nested Delta fixtures; the same-process engine setup registers them; normal
 DeltaReader instances execute `source.query`; and a validator reconciles every
 unique Parquet result.
 
-### `local_polars_qualified_sql_delta_ambiguity`
+### `error_messages.local_polars_qualified_sql_delta_ambiguity`
 
 Runs one isolated expected-failure dataflow. Two different Delta tables share
 the suffix `shared.orders_ambiguous`; the scenario requires exit code `2` and
@@ -145,7 +165,7 @@ never mutate those fixtures during a run.
 | `local_polars_runtime_log_contract` | Snapshot execution logging | v6 `message`, `source_query`, nested native `source_action.query`, `job_id`, and `run_attributes` |
 | `local_polars_logging_batch` | Batch execution logging | immutable `.json` part plus replace-one JobRuntime snapshot |
 | `local_polars_dry_run_query_file` | Preparation-only execution | query file is resolved; no business output or watermark is written |
-| `local_polars_startup_failure` | Fail-fast startup | malformed provider input emits startup lifecycle diagnostics before dataflow execution |
+| `error_messages.local_polars_startup_failure` | Fail-fast startup | malformed provider input emits startup lifecycle diagnostics before dataflow execution |
 
 ### `local_polars_file`
 
@@ -154,7 +174,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | stage | `""` (all) |
 | column_name_mode | lower |
 | priority | P0 |
@@ -167,7 +187,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | priority | P0 |
@@ -180,7 +200,7 @@ never mutate those fixtures during a run.
 | engine | polars |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | priority | P0 |
@@ -193,7 +213,7 @@ never mutate those fixtures during a run.
 | engine | spark |
 | metadata_type | file |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | stage | `""` |
 | column_name_mode | lower |
 | skip_api_sources | `true` |
@@ -214,7 +234,7 @@ by local regression tests and are not claimed by this pair.
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/workflows/local_use_cases.json` |
+| metadata | `scenarios/workflows/local_use_cases.json` |
 | stage | `replay_test` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
@@ -288,7 +308,7 @@ final saved `order_date=2024-01-17` observation.
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/replay/replay_api_validation.json` |
+| metadata | `metadata/file/replay.json` |
 | stage | `replay_api_validation` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
@@ -345,7 +365,7 @@ python usecase-sim/runner/run_scenario.py --scenario local_spark_api_continuatio
 
 | Field | Value |
 |---|---|
-| metadata | Polars uses `metadata/file/incremental/api_incremental_recovery_fail.json` / `api_incremental_continuation.json` plus `api_incremental_recovery.json`; Spark uses the corresponding `_spark` metadata files to isolate its output base |
+| metadata | Both engines select `api_incremental_recovery_validation` from `metadata/file/incremental.json`; exact step bindings preserve pagination controls and engine-specific output/watermark scopes |
 | source | `mock-api` `/api/orders/next-link` with `modified_since` pushdown |
 | pagination | opaque same-origin `next_link`, `limit=5`; failure uses `max_pages=1` |
 | destination | Delta `api_incremental_recovery_validation` |
@@ -369,7 +389,7 @@ the generated 30-row sample locally; each run pushes a half-open
 
 | Field | Value |
 |---|---|
-| metadata | `metadata/file/replay/replay_sql_validation.json` |
+| metadata | `metadata/file/replay.json` |
 | source | SQLite `orders` table from `.runtime/data/input/sqlite/orders.db` |
 | replay range | `[2024-01-15T00:00:00, 2024-01-18T00:00:00)` |
 | chunking | `modified_at`, `days=1` |
@@ -400,7 +420,7 @@ persisted schema/value assertions and cross-engine comparison.
 
 | Field | Value |
 |---|---|
-| canonical metadata | `metadata/file/schema_types/datatype_qualification.json` |
+| canonical metadata | `metadata/file/schema_types.json` |
 | generated metadata | `.runtime/data/datatype_qualification/metadata/{engine}_{format}.json` |
 | stage | `datatype_qualification` |
 | priority | P1 |
@@ -417,7 +437,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | database |
 | platform | local |
-| metadata_db_connection_string | `sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db` |
+| metadata_db_connection_string | `sqlite:///./usecase-sim/metadata/database/datacoolie_metadata.db` |
 | metadata_workspace_id | `local-workspace` |
 | stage | `""` |
 | priority | P1 |
@@ -478,7 +498,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | database |
 | platform | local |
-| metadata_db_connection_string | `sqlite:///./usecase-sim/.runtime/data/databases/metadata/datacoolie_metadata.db` |
+| metadata_db_connection_string | `sqlite:///./usecase-sim/metadata/database/datacoolie_metadata.db` |
 | metadata_workspace_id | `local-workspace` |
 | skip_api_sources | `true` |
 | priority | P1 |
@@ -514,7 +534,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | connection | `local_delta_dest` |
 | priority | P1 |
 
@@ -525,7 +545,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | polars |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |
@@ -537,7 +557,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | connection | `local_delta_dest` |
 | priority | P1 |
 
@@ -548,7 +568,7 @@ persisted schema/value assertions and cross-engine comparison.
 | engine | spark |
 | metadata_type | maintenance |
 | platform | local |
-| metadata_path | `./usecase-sim/metadata/file/workflows/local_use_cases.json` |
+| metadata_path | `./usecase-sim/scenarios/workflows/local_use_cases.json` |
 | connection | `local_iceberg_dest` |
 | priority | P1 |
 | Docker needs | `minio` + `iceberg-rest` |
@@ -558,7 +578,7 @@ persisted schema/value assertions and cross-engine comparison.
 `local_polars_qualified_sql_iceberg` runs six independent dataflows for
 default catalog mapping, structured `logical_prefix` replacement, short-name
 resolution, include/exclude filters, and lazy reuse.
-`local_polars_qualified_sql_iceberg_ambiguity` contains exactly one expected
+`error_messages.local_polars_qualified_sql_iceberg_ambiguity` contains exactly one expected
 failure dataflow. Both use explicit `minio` and `iceberg-rest` services and
 scoped `qsql_*` namespaces in the local REST catalog. Registration is runner
 setup; each dataflow uses a normal Iceberg source and metadata `source.query`.

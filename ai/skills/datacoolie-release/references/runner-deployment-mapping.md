@@ -18,8 +18,4 @@ target identity or activation state in `datacoolie.yml` or the build manifest.
 Those concerns belong to the platform's deployment policy. DataCoolie release
 only records upload command outcomes and leaves unrelated target files intact.
 
-For author/build-only requests, validate the runner bytes and artifact mapping
-without execution. An authorized upload reports transfer evidence only. Route
-entrypoint, runtime state, and host verification to the project/platform owner
-with the matching public recipe; Release does not execute a runner or target
-workload and records those checks as outside its scope.
+Use [Release's evidence gate](../SKILL.md#verification) for the upload. Hand the exact runner path and target/host assumptions to the project/platform owner for execution verification against the matching public recipe.

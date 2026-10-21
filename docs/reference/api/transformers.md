@@ -21,6 +21,12 @@ description: Python API reference for DataCoolie transformers, including value n
 steps. A `None` output records a removed column, and `known=False` marks a custom transform whose
 rename behavior cannot be inferred safely.
 
+For plugins that rename or drop columns, follow the
+[mapping example](../../extensions/writing-a-transformer.md#report-renamed-and-removed-columns).
+The protected reporting hook is part of that extension contract:
+
+::: datacoolie.transformers.base.BaseTransformer._report_column_mapping
+
 ::: datacoolie.transformers.schema_converter
 ::: datacoolie.transformers.column_value_transformer
 ::: datacoolie.transformers.hash_column_adder

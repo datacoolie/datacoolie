@@ -1351,21 +1351,53 @@ class TestFileProviderSchemaHintFields:
         assert 'bronze2silver' in wm_path or 'orders_flow' in wm_path or 'df-1' in wm_path
 
     def test_bulk_load_populates_schema_hints(self, tmp_path: Path) -> None:
-        """Lines 657-692: _bulk_load groups schema hints by (conn_id, schema, table)."""
-        data = dict(MINIMAL_CONFIG)
-        data['schema_hints'] = [
+        """Bulk hints attach only to the matching source connection/schema/table."""
+        data = json.loads(json.dumps(MINIMAL_CONFIG))
+        data["connections"][0]["configure"]["use_schema_hint"] = True
+        data["dataflows"][0]["source"]["schema_name"] = "dbo"
+        data["dataflows"][0]["transform"] = {}
+        data["schema_hints"] = [
             {
-                'connection_name': 'silver_lakehouse',
-                'table_name': 'orders',
-                'schema_name': 'dbo',
-                'hints': [{'column_name': 'id', 'data_type': 'INT'}],
-            }
+                "connection_name": "silver_lakehouse",
+                "table_name": "orders",
+                "schema_name": "dbo",
+                "hints": [{"column_name": "wrong_connection", "data_type": "STRING"}],
+            },
+            {
+                "connection_name": "bronze_adls",
+                "table_name": "orders",
+                "schema_name": "other",
+                "hints": [{"column_name": "wrong_schema", "data_type": "STRING"}],
+            },
+            {
+                "connection_name": "bronze_adls",
+                "table_name": "other_orders",
+                "schema_name": "dbo",
+                "hints": [{"column_name": "wrong_table", "data_type": "STRING"}],
+            },
+            {
+                "connection_name": "bronze_adls",
+                "table_name": "orders",
+                "schema_name": "dbo",
+                "hints": [
+                    {"column_name": "id", "data_type": "INT"},
+                    {"column_name": "amount", "data_type": "DECIMAL", "precision": 18, "scale": 2},
+                ],
+            },
         ]
         path = _write_json_config(tmp_path, data)
         provider = FileProvider(config_path=path, platform=LocalPlatform())
-        # Trigger bulk load by calling get_dataflows
         dataflows = provider.get_dataflows()
-        assert dataflows is not None
+        assert len(dataflows) == 1
+        dataflow = dataflows[0]
+        assert dataflow.dataflow_id == "df-1"
+        assert dataflow.source.connection.connection_id == "c-1"
+        assert dataflow.source.schema_name == "dbo"
+        assert dataflow.source.table == "orders"
+        assert [
+            (hint.column_name, hint.data_type, hint.precision, hint.scale)
+            for hint in dataflow.transform.schema_hints
+        ] == [("id", "INT", None, None), ("amount", "DECIMAL", 18, 2)]
 
 
 class TestFileProviderBulkLoadSchemaHintEdgeCases:

@@ -25,7 +25,7 @@ from sqlalchemy import MetaData, Table, create_engine, delete, or_, select
 
 SIM = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SIM))
-from runner.metadata_composition import load_metadata  # noqa: E402
+from runner.metadata_documents import load_metadata  # noqa: E402
 
 TABLES = (
     "dc_framework_connections",
@@ -286,7 +286,7 @@ def main():
     parser.add_argument("action", choices=["snapshot", "restore", "refresh"])
     parser.add_argument("--snapshot", type=Path, required=True)
     parser.add_argument(
-        "--json-path", default="metadata/file/workflows/local_use_cases.json"
+        "--json-path", default="scenarios/workflows/local_use_cases.json"
     )
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()

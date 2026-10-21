@@ -297,7 +297,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_write__csv",
           "role": "primary"
         }
@@ -328,7 +328,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_write__json",
           "role": "primary"
         }
@@ -359,7 +359,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_write__jsonl",
           "role": "primary"
         }
@@ -390,7 +390,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_write__avro",
           "role": "primary"
         }
@@ -421,7 +421,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_write__parquet",
           "role": "primary"
         }
@@ -452,7 +452,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_delta__full_load",
           "role": "primary"
         }
@@ -483,7 +483,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_delta__overwrite",
           "role": "primary"
         }
@@ -514,7 +514,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_delta__append",
           "role": "primary"
         }
@@ -545,7 +545,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_iceberg__full_load",
           "role": "primary"
         }
@@ -576,7 +576,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_iceberg__overwrite",
           "role": "primary"
         }
@@ -607,7 +607,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_iceberg__append",
           "role": "primary"
         }
@@ -638,7 +638,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_partition__single",
           "role": "primary"
         }
@@ -669,7 +669,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_partition__multi",
           "role": "primary"
         }
@@ -700,7 +700,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_date_folder__dest_partition",
           "role": "primary"
         }
@@ -731,7 +731,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_write__json_to_jsonl",
           "role": "primary"
         }
@@ -762,7 +762,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/aws.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "aws_load_iceberg__append_partitioned",
           "role": "primary"
         }
@@ -793,7 +793,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write__csv",
           "role": "primary"
         }
@@ -824,7 +824,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write__json",
           "role": "primary"
         }
@@ -855,7 +855,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write__jsonl",
           "role": "primary"
         }
@@ -886,7 +886,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write__avro",
           "role": "primary"
         }
@@ -917,7 +917,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write__parquet",
           "role": "primary"
         }
@@ -948,7 +948,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_delta__full_load",
           "role": "primary"
         }
@@ -979,7 +979,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_delta__overwrite",
           "role": "primary"
         }
@@ -1010,7 +1010,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_delta__append",
           "role": "primary"
         }
@@ -1041,7 +1041,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_iceberg__full_load",
           "role": "primary"
         }
@@ -1072,7 +1072,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_iceberg__overwrite",
           "role": "primary"
         }
@@ -1103,7 +1103,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_iceberg__append",
           "role": "primary"
         }
@@ -1134,7 +1134,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "partition__single",
           "role": "primary"
         }
@@ -1171,7 +1171,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "partition__multi",
           "role": "primary"
         }
@@ -1208,7 +1208,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "date_folder__dest_partition",
           "role": "primary"
         }
@@ -1239,7 +1239,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write__json_to_jsonl",
           "role": "primary"
         }
@@ -1270,7 +1270,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/local.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "load_iceberg__append_partitioned",
           "role": "primary"
         }
@@ -1301,12 +1301,12 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/write_basic.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write-basic-overwrite",
           "role": "primary"
         },
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/write_basic.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "write-basic-append",
           "role": "primary"
         }
@@ -1343,7 +1343,7 @@
       "contract": "src/datacoolie/engines/_polars/file_io.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/append_csv.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "flat-append-csv",
           "role": "primary"
         }
@@ -1380,7 +1380,7 @@
       "contract": "src/datacoolie/engines/_polars/file_io.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/append_json.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "flat-append-json",
           "role": "primary"
         }
@@ -1417,7 +1417,7 @@
       "contract": "src/datacoolie/engines/_polars/file_io.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/append_jsonl.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "flat-append-jsonl",
           "role": "primary"
         }
@@ -1454,7 +1454,7 @@
       "contract": "src/datacoolie/engines/_polars/file_io.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/append_avro.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "flat-append-avro",
           "role": "primary"
         }
@@ -1491,7 +1491,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/write_basic/a9_csv_options.json",
+          "fixture": "usecase-sim/metadata/file/write_basic.json",
           "flow": "a9-write-csv-options",
           "role": "primary"
         }

@@ -43,6 +43,8 @@ Resolve resources relative to this skill and read only the matching reference.
 | Merge/refresh observations or assess watermark signals | `scripts/merge_observations.py`, `scripts/assess_watermarks.py` |
 | Finalize complete object decisions | `scripts/finalize_watermark_assessment.py`, `templates/watermark-assessment.example.json` |
 | Apply verified observation annotations | `scripts/enrich_observations.py` |
+| Executable synthetic workflow and multi-probe refresh | `references/worked-example.md` |
+| Source coverage declaration | `templates/source-coverage.example.json` |
 | Observation fields or manual rows | `references/observation-contract.md` |
 | Python packages or external CLI prerequisites | `references/dependency-routing.md` |
 | Unsupported source or unresolved probe gap | `references/fallback-probes.md` |
@@ -62,9 +64,10 @@ Resolve resources relative to this skill and read only the matching reference.
 4. Resolve or report partial and failed probes. Never describe partial coverage as complete.
 5. For a new project, merge all usable probe CSVs, including a single input, with
    `merge_observations.py`. For a full-source refresh, use the current inventory as
-   `--base`, explicit `--replace-source` and status inputs, a scratch candidate output, and a scratch
-   diff. Refresh replaces the whole named source. A filtered probe's complete status does not prove
-   full-source coverage; retain that evidence in scratch until the coverage gap is resolved.
+   `--base`, explicit `--replace-source`, paired `--probe-input CSV STATUS`, a distinct scratch
+   candidate and diff. Refresh replaces the whole named source; the merge checks CSV digest and
+   scope. Multiple or filtered probes need an owner-backed `--coverage-input` declaring the whole
+   source boundary. See `references/observation-contract.md` for legacy and partial handling.
    Do not replace prior complete evidence with a partial probe unless that exact source is
    explicitly accepted. Promote the validated candidate to `discover/observations.csv`.
 6. Preserve exact observed column types so build can author shared schema hints without re-querying

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generic, List, Mapping, Optional
+from typing import Generic, Iterable, List, Mapping, Optional
 
 from datacoolie.core.constants import DataFlowStatus
 from datacoolie.core.exceptions import TransformError
@@ -49,15 +49,11 @@ class ColumnMapping:
     ) -> "ColumnMapping":
         """Build a deterministic mapping for a built-in column transform."""
 
-        final = {column.casefold(): column for column in after}
-        explicit = {
-            source.casefold(): target for source, target in (renames or {}).items()
-        }
+        final = set(after)
+        explicit = renames or {}
         return cls(
             {
-                source: final.get(
-                    explicit.get(source.casefold(), source).casefold()
-                )
+                source: target if (target := explicit.get(source, source)) in final else None
                 for source in before
             }
         )
@@ -66,16 +62,24 @@ class ColumnMapping:
     def preserve_or_unknown(cls, before: list[str], after: list[str]) -> "ColumnMapping":
         """Infer only unchanged names; never infer a rename heuristically."""
 
-        final = {column.casefold(): column for column in after}
-        mapping = {source: final.get(source.casefold()) for source in before}
+        final = set(after)
+        mapping = {source: source if source in final else None for source in before}
         return cls(mapping, known=all(value is not None for value in mapping.values()))
 
+    @staticmethod
+    def match_name(name: str, candidates: Iterable[str]) -> Optional[str]:
+        """Resolve exact spelling first; reject ambiguous case fallback."""
+        candidates = list(candidates)
+        if name in candidates:
+            return name
+        matches = [candidate for candidate in candidates if candidate.casefold() == name.casefold()]
+        if len(matches) > 1:
+            raise TransformError(f"Ambiguous column mapping for {name!r}: {matches!r}")
+        return matches[0] if matches else None
+
     def resolve(self, source: str) -> Optional[str]:
-        source_key = source.casefold()
-        for authored, output in self.mapping.items():
-            if authored.casefold() == source_key:
-                return output
-        return None
+        authored = self.match_name(source, self.mapping)
+        return self.mapping[authored] if authored is not None else None
 
     def compose(self, step: "ColumnMapping") -> "ColumnMapping":
         """Compose this mapping with the next transform's mapping."""

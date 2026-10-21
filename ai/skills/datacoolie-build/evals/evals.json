@@ -3,12 +3,12 @@
   "eval_schema_version": 2,
   "case_kinds": {
     "decision": [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14],
-    "execution": [8, 15, 16, 17, 18]
+    "execution": [8, 15, 16, 17, 18, 19]
   },
   "capability_families": {
     "project-contract": [1, 2, 3, 4, 9, 11],
     "artifact-validation": [5, 6, 7, 10],
-    "cli-automation": [8],
+    "cli-automation": [8, 19],
     "runtime-boundary": [12],
     "docs-routing": [13, 14, 15],
     "recipe-execution": [16, 17, 18]
@@ -188,6 +188,20 @@
         "CLI dry-run and build evidence identifies the configured function-root packaging and the exact selected artifact",
         "The built Function runner executes from a fresh disjoint copy with the fixed import prefix and independently verified output/state, including rerun behavior",
         "The user's existing environment is reused without runner-owned installation or environment creation, and unavailable prerequisites are reported with scope"
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Render a project wrapper in the active Python environment while PATH points to a different dc. Validate returns zero with ok:false; then exercise malformed JSON and a valid response.",
+      "expected_output": "Invoke the current interpreter module CLI, preserve output and stop on either nonzero exit or JSON ok not true.",
+      "files": [
+        "scripts/render_automation.py"
+      ],
+      "expectations": [
+        "The generated wrapper uses sys.executable -m datacoolie without PATH fallback or environment setup.",
+        "Build is blocked after failed or malformed validation even with zero exit.",
+        "Arguments and diagnostics are preserved and successful JSON is checked with process status.",
+        "Report the exact command, exit code and observable output/evidence for each successful and rejected invocation."
       ]
     }
   ]

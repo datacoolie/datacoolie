@@ -170,3 +170,20 @@ class TestDeduplicator:
         )
         with pytest.raises(EngineError, match="missing_order"):
             Deduplicator(engine).transform({"id": 1}, df)
+
+@pytest.mark.parametrize('rank', [False, True])
+def test_public_helpers_preserve_real_polars_dedup_and_projection(rank):
+    import polars as pl
+    from datacoolie.core.models.transform import Transform
+    from datacoolie.engines.polars_engine import PolarsEngine
+    from datacoolie.transformers.column_projector import ColumnProjector
+    engine = PolarsEngine()
+    flow = make_dataflow(load_type='append', dedup_cols=['id'], latest_cols=['stamp'],
+                         deduplicate_by_rank=rank)
+    frame = pl.DataFrame({'ID':[1,1,1,2], 'Stamp':[1,2,2,1], 'Value':['old','new','new','other']}).lazy()
+    result = Deduplicator(engine).transform(frame, flow)
+    flow.transform = Transform(select_columns=['value','id'], rename_columns={'value':'label'})
+    result = ColumnProjector(engine).transform(result, flow).collect().sort('ID')
+    assert result.columns == ['label','ID']
+    expected = [{'label':'new','ID':1}] * (2 if rank else 1) + [{'label':'other','ID':2}]
+    assert result.to_dicts() == expected

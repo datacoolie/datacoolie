@@ -49,15 +49,15 @@ Use the structured ID and event fields for filtering and persistence.
 
 `DataCoolieRunConfig.run_attributes` is documented with the [runtime configuration API · Run configuration](../runtime-configuration.md#run-configuration). It is persisted
 only in the job-runtime JSON record as the deterministic `run_attributes` string. Persisted
-records use `log_schema_version=6`. A logger's `log_session_id` correlates records from one
+records use `log_schema_version=7`. A logger's `log_session_id` correlates records from one
 activated Driver logging session; `job_id` identifies the job lifecycle, while `dataflow_run_id`
 identifies an individual execution or replay-chunk instance (`dataflow_id` identifies the logical
 flow). `LogConfig.console_color` accepts `"auto"`, `"always"`, or `"never"` and affects only the
 owned console handler; capture and persisted JSON remain plain.
 
-### v6 runtime projection
+### v7 runtime projection
 
-The v6 dataflow record keeps authored metadata fields and adds an explicit
+The v7 dataflow record keeps authored metadata fields and adds an explicit
 runtime shape:
 
 - `read_request` is a nullable native object containing the original source
@@ -69,9 +69,15 @@ runtime shape:
   phase objects. Source `selection` and watermark `candidate` are native nested
   objects; a candidate is `{ "values": ..., "kind": ... }` or `null`.
 - `metrics` is a native object with nullable counts and byte measurements.
-  `null` means the measurement is unavailable; it is not an implicit zero.
+  A reported count, including `0`, is retained; unentered work and unavailable
+  measurements are `null`.
   `retry_attempts` and the root identity/timing/status fields remain derived
   root fields.
+
+Job and replay metrics sum the available observations per field. For example,
+`100 + null` totals `100`, `0 + null` totals `0`, and an all-null or empty
+population stays `null`. These are observed totals; they do not imply every
+operation was measured. No additional eligibility field is persisted.
 
 Diagnostic detail is bounded per persisted dataflow or system record by the shared
 `LogConfig.diagnostic_max_bytes` budget (65,536 bytes by default). The encoder keeps a valid
@@ -84,5 +90,5 @@ for the shared message/detail budget, marker semantics and exact scope of job dr
 The root does not duplicate phase fields such as `source_read_range`,
 `source_watermark_end`, flattened source/transform/destination counts, or
 checkpoint aliases. System records may carry an optional positive
-  `attempt_number` for diagnostic correlation. Historical v3/v4/v5 records remain
-  historical evidence; the v6 writer does not rewrite them or emit a dual shape.
+  `attempt_number` for diagnostic correlation. Historical records, including v6,
+  retain their original values and meaning; the v7 writer does not rewrite them.

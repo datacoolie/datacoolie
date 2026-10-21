@@ -8,8 +8,12 @@ Falls back to path-based operations when no catalog is configured.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 
 from datacoolie.core.constants import Format, MaintenanceType
+from datacoolie.core.models.metrics import MetricAccumulator
+from datacoolie.destinations.runtime import DestinationRuntimeInfo
+from datacoolie.engines.contracts.maintenance import COMPACT_ACTIONS, CLEANUP_ACTIONS, selected_actions
 from datacoolie.core.exceptions import DestinationError
 from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.destinations.base import (
@@ -43,7 +47,7 @@ class IcebergWriter(BaseDestinationWriter[DF]):
         Iceberg is catalog-first: prefer ``full_table_name`` when set,
         fall back to path otherwise.
         """
-        target = resolve_destination_target(dataflow.destination)
+        target = resolve_destination_target(dataflow.destination, engine=self._engine)
         return target.table_name, target.path
 
     def _write_internal(
@@ -89,6 +93,107 @@ class IcebergWriter(BaseDestinationWriter[DF]):
     # ------------------------------------------------------------------
     # Maintenance
     # ------------------------------------------------------------------
+
+    def run_selected_maintenance(self, dataflow, *, prepared=None, do_compact=True,
+                                 do_cleanup=True, retention_hours=None,
+                                 compact_options=None, cleanup_options=None):
+        """Execute all preflighted native actions against one retained binding."""
+        from datacoolie.engines.contracts.maintenance import default_options
+        compact_options, cleanup_options = default_options(compact_options), default_options(cleanup_options)
+        started = datetime.now(timezone.utc)
+        self._runtime_info = DestinationRuntimeInfo(start_time=started, status="running",
+                                                    operation_type="maintenance")
+        details = []
+        self._runtime_info.operation_details = details
+        try:
+            actions = selected_actions(do_compact=do_compact, do_cleanup=do_cleanup,
+                                       compact_options=compact_options, cleanup_options=cleanup_options)
+            if prepared is not None and prepared.missing:
+                self._runtime_info.status = "skipped"
+                self._runtime_info.message = "Prepared maintenance target is missing"
+                return self._runtime_info
+            if prepared is None or prepared.binding is None:
+                if actions and compact_options is None and cleanup_options is None:
+                    return super().run_selected_maintenance(dataflow, prepared=prepared,
+                        do_compact=do_compact, do_cleanup=do_cleanup, retention_hours=retention_hours)
+                if actions:
+                    raise DestinationError("Explicit Iceberg actions require a prepared native binding")
+            if actions:
+                unsupported = set(actions) - prepared.capabilities
+                if unsupported:
+                    raise DestinationError("Unsupported Iceberg maintenance actions: " + ", ".join(sorted(unsupported)))
+            if not actions:
+                details.append({"operation": "cleanup" if do_cleanup else "compact", "status": "skipped",
+                    "reason": "No maintenance actions selected", "actions": [],
+                    "metrics": {key: None for key in ("files_added", "files_removed", "bytes_added", "bytes_removed")}})
+                self._runtime_info.status = "succeeded"
+                self._runtime_info.message = "No maintenance actions selected"
+                return self._runtime_info
+            for group, known in (("compact", COMPACT_ACTIONS), ("cleanup", CLEANUP_ACTIONS)):
+                requested = [action for action in actions if action in known]
+                if not requested:
+                    continue
+                entry = {"operation": group, "status": "running", "actions": [], "metrics": {}}
+                details.append(entry)
+                for action in requested:
+                    try:
+                        detail = self._engine.execute_maintenance_action(prepared, action=action,
+                            retention_hours=168 if retention_hours is None else retention_hours)
+                        if not isinstance(detail, dict) or detail.get("status") != "succeeded":
+                            raise DestinationError("Native maintenance action returned no successful evidence")
+                        entry["actions"].append(detail)
+                    except Exception as exc:
+                        evidence = getattr(exc, "action_detail", None)
+                        entry["actions"].append(evidence if isinstance(evidence, dict) else {
+                            "action": action, "status": "failed", "reason": str(exc), "metrics": {}})
+                        entry["status"] = "failed"
+                        entry["reason"] = str(exc)
+                        self._set_native_metrics(details)
+                        raise
+                entry["status"] = "succeeded"
+                self._set_native_metrics(details)
+            self._runtime_info.status = "succeeded"
+            # Diagnostics observe the same incarnation. A diagnostic failure
+            # cannot turn acknowledged action effects into false failure.
+            try:
+                history = self._engine.maintenance_history(prepared, limit=5, start_time=started)
+                if history:
+                    details.append({"operation": "history", "data": history})
+            except Exception as exc:
+                details.append({"operation": "history", "reason": str(exc)})
+        except Exception as exc:
+            self._runtime_info.status = "failed"
+            self._runtime_info.message = str(exc) or type(exc).__name__
+        finally:
+            self._runtime_info.end_time = datetime.now(timezone.utc)
+        return self._runtime_info
+
+    def _set_native_metrics(self, groups):
+        keys = ("files_added", "files_removed", "bytes_added", "bytes_removed")
+        aggregate = MetricAccumulator()
+        action_groups = [
+            group
+            for group in groups
+            if isinstance(group, dict) and isinstance(group.get("actions"), list)
+        ]
+        for group in action_groups:
+            action_accumulator = MetricAccumulator()
+            for action in group.get("actions", []):
+                action_accumulator.add(
+                    action.get("metrics") if isinstance(action, dict) else None,
+                )
+            group_metrics = action_accumulator.metrics
+            group["metrics"] = {
+                key: getattr(group_metrics, key)
+                for key in keys
+            }
+            aggregate.add(group["metrics"])
+
+        aggregate_metrics = aggregate.metrics
+        for key in keys:
+            setattr(self._runtime_info, key, getattr(aggregate_metrics, key))
+        for key in ("rows_written", "rows_inserted", "rows_updated", "rows_deleted"):
+            setattr(self._runtime_info, key, None)
 
     def _maintain_internal(
         self,
@@ -187,16 +292,5 @@ class IcebergWriter(BaseDestinationWriter[DF]):
                     "bytes_removed": ("removed-files-size",),
                 },
             )
-            metrics.update(
-                {
-                    "rows_written": 0,
-                    "rows_inserted": 0,
-                    "rows_updated": 0,
-                    "rows_deleted": 0,
-                }
-            )
-            if key == MaintenanceType.CLEANUP.value:
-                metrics["files_added"] = 0
-                metrics["bytes_added"] = 0
             result[key] = metrics
         return result

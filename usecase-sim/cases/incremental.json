@@ -379,7 +379,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_watermark__file_mtime",
           "role": "primary"
         }
@@ -410,7 +410,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_watermark__file_mtime_multi_col",
           "role": "primary"
         }
@@ -441,7 +441,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_watermark__data_col",
           "role": "primary"
         }
@@ -472,7 +472,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_watermark_db__postgres",
           "role": "primary"
         }
@@ -503,7 +503,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_watermark_db__sqlite",
           "role": "primary"
         }
@@ -534,7 +534,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_backward__days",
           "role": "primary"
         }
@@ -565,7 +565,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_backward__months_closing_day",
           "role": "primary"
         }
@@ -596,7 +596,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_date_folder__src_partition",
           "role": "primary"
         }
@@ -627,7 +627,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_backward__hours",
           "role": "primary"
         }
@@ -658,7 +658,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_backward__years",
           "role": "primary"
         }
@@ -689,7 +689,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/aws.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "aws_watermark_iceberg__data_col",
           "role": "primary"
         }
@@ -720,7 +720,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark__file_mtime",
           "role": "primary"
         }
@@ -757,7 +757,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark__file_mtime_multi_col",
           "role": "primary"
         }
@@ -788,7 +788,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark__data_col",
           "role": "primary"
         }
@@ -819,7 +819,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark_db__postgres",
           "role": "primary"
         }
@@ -850,7 +850,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark_db__oracle",
           "role": "primary"
         }
@@ -881,7 +881,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark_db__mysql",
           "role": "primary"
         }
@@ -912,7 +912,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark_db__mssql",
           "role": "primary"
         }
@@ -943,7 +943,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark_db__sqlite",
           "role": "primary"
         }
@@ -974,7 +974,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "backward__days",
           "role": "primary"
         }
@@ -1011,7 +1011,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "backward__months_closing_day",
           "role": "primary"
         }
@@ -1048,7 +1048,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__iso",
           "role": "primary"
         }
@@ -1079,7 +1079,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_date_positive.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__date_fmt",
           "role": "primary"
         }
@@ -1122,7 +1122,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__timestamp_ms",
           "role": "primary"
         }
@@ -1153,7 +1153,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__body",
           "role": "primary"
         }
@@ -1184,7 +1184,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__tz_conn",
           "role": "primary"
         }
@@ -1215,7 +1215,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__tz_src_override",
           "role": "primary"
         }
@@ -1246,7 +1246,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__exclusive_offset",
           "role": "primary"
         }
@@ -1277,7 +1277,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_range__day_interval",
           "role": "primary"
         }
@@ -1308,7 +1308,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_range__month_interval",
           "role": "primary"
         }
@@ -1339,7 +1339,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_range__year_interval",
           "role": "primary"
         }
@@ -1370,7 +1370,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_range__multi_worker",
           "role": "primary"
         }
@@ -1401,7 +1401,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_range__with_bearer",
           "role": "primary"
         }
@@ -1432,7 +1432,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "date_folder__src_partition",
           "role": "primary"
         }
@@ -1463,7 +1463,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__timestamp",
           "role": "primary"
         }
@@ -1494,7 +1494,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__datetime",
           "role": "primary"
         }
@@ -1525,7 +1525,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__datetime_ms",
           "role": "primary"
         }
@@ -1556,7 +1556,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "backward__hours",
           "role": "primary"
         }
@@ -1593,7 +1593,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "backward__years",
           "role": "primary"
         }
@@ -1630,7 +1630,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/local.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "watermark_iceberg__data_col",
           "role": "primary"
         }
@@ -1661,7 +1661,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "primary"
         }
@@ -1692,9 +1692,9 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation_spark.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
-          "role": "primary"
+          "role": "support"
         }
       ],
       "scenarios": [],
@@ -1723,9 +1723,9 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
-          "role": "primary"
+          "role": "support"
         }
       ],
       "scenarios": [],
@@ -1754,9 +1754,9 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_fail.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
-          "role": "primary"
+          "role": "support"
         }
       ],
       "scenarios": [],
@@ -1785,9 +1785,9 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
-          "role": "primary"
+          "role": "support"
         }
       ],
       "scenarios": [],
@@ -1816,9 +1816,9 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark_fail.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
-          "role": "primary"
+          "role": "support"
         }
       ],
       "scenarios": [],
@@ -1847,7 +1847,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_fail.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "support"
         }
@@ -1885,7 +1885,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "support"
         }
@@ -1925,7 +1925,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "support"
         }
@@ -1965,7 +1965,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark_fail.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "support"
         }
@@ -2003,7 +2003,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_recovery_spark.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "support"
         }
@@ -2043,7 +2043,7 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_incremental_continuation_spark.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_incremental_recovery_validation",
           "role": "support"
         }
@@ -2083,18 +2083,18 @@
       "contract": "src/datacoolie/sources/runtime.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/incremental/api_date_precision_negative.json",
+          "fixture": "usecase-sim/metadata/file/incremental.json",
           "flow": "api_wm__date_precision_negative",
           "role": "primary"
         }
       ],
       "scenarios": [
-        "local_polars_api_date_precision_negative",
-        "local_spark_api_date_precision_negative"
+        "error_messages.local_polars_api_date_precision_negative",
+        "error_messages.local_spark_api_date_precision_negative"
       ],
       "dedicated_scenarios": [
-        "local_polars_api_date_precision_negative",
-        "local_spark_api_date_precision_negative"
+        "error_messages.local_polars_api_date_precision_negative",
+        "error_messages.local_spark_api_date_precision_negative"
       ],
       "preconditions": [
         "Fresh case-owned roots; preserve shared output and checkpoints.",

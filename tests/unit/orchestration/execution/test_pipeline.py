@@ -37,6 +37,120 @@ from datacoolie.watermark.contracts import (
 _DEFAULT_FRAME = object()
 
 
+def _isolated_transformer_registry(monkeypatch, *, missing=None, broken=None):
+    import importlib.metadata
+    from types import SimpleNamespace
+    import datacoolie
+    from datacoolie.core.registry import PluginRegistry
+    from datacoolie.transformers.base import BaseTransformer
+
+    entries = [entry for entry in importlib.metadata.entry_points(group="datacoolie.transformers")
+               if entry.name not in {missing, broken}]
+    cause = ImportError("synthetic optional plugin load failure")
+    if broken:
+        def fail_load():
+            raise cause
+        entries.append(SimpleNamespace(name=broken, load=fail_load))
+    monkeypatch.setattr("datacoolie.core.registry.entry_points", lambda **_kwargs: entries)
+    registry = PluginRegistry("datacoolie.transformers", BaseTransformer)
+    monkeypatch.setattr(datacoolie, "transformer_registry", registry)
+    return registry, cause
+
+
+@pytest.mark.parametrize("failure", ["missing", "load"])
+@pytest.mark.parametrize("configured", [False, True])
+def test_required_default_masker_failure_precedes_write_and_save(monkeypatch, failure, configured):
+    from unittest.mock import Mock
+    from datacoolie.core.models.transform import Transform as TransformConfig
+    from datacoolie.engines.polars_engine import PolarsEngine
+    from datacoolie.orchestration.execution.pipeline import build_transformer_pipeline
+    import polars as pl
+
+    _, cause = _isolated_transformer_registry(monkeypatch,
+        missing="data_masker" if failure == "missing" else None,
+        broken="data_masker" if failure == "load" else None)
+    flow = _dataflow(with_watermark=True)
+    if configured:
+        flow.transform = TransformConfig(masking_rules=[{"method": "nullify", "columns": ["email"]}])
+    engine = PolarsEngine()
+    manager = Mock()
+    manager.get_watermark.return_value = {"id": 1}
+    writer = Mock()
+    with pytest.raises(PipelineError, match="data_masker") as caught:
+        execute_etl_pipeline(flow, "required-masker", baseline=ReadBaseline(),
+            attempt=AttemptRuntimeInfo(), column_name_mode="snake", watermark_start={"id": 1},
+            watermark_end=None, save_watermark=True, watermark_manager=manager, job_id="masker",
+            create_source_reader=lambda _fmt: Reader(
+                frame=pl.DataFrame({"id": [2], "email": ["synthetic@example.test"]}).lazy(),
+                candidate={"id": 2}),
+            create_transformer_pipeline=lambda **kwargs: build_transformer_pipeline(engine, **kwargs),
+            create_destination_writer=writer, validate_watermark_storage=lambda *_args, **_kwargs: None)
+    if failure == "load":
+        assert caught.value.__cause__.__cause__ is cause
+    writer.assert_not_called()
+    manager.save_watermark.assert_not_called()
+
+
+@pytest.mark.parametrize("configured", [False, True])
+def test_complete_defaults_ignore_unrelated_failed_plugin_and_preserve_masking(monkeypatch, configured):
+    import polars as pl
+    from datacoolie.core.models.transform import Transform as TransformConfig
+    from datacoolie.engines.polars_engine import PolarsEngine
+    from datacoolie.orchestration.execution.pipeline import DEFAULT_TRANSFORMERS, build_transformer_pipeline
+
+    registry, _ = _isolated_transformer_registry(monkeypatch, broken="unused_external")
+    flow = _dataflow()
+    if configured:
+        flow.transform = TransformConfig(masking_rules=[{"method": "nullify", "columns": ["email"]}])
+    pipeline = build_transformer_pipeline(PolarsEngine(), column_name_mode="snake")
+    assert len(pipeline.transformers) == len(DEFAULT_TRANSFORMERS)
+    result = pipeline.transform(pl.DataFrame({"id": [2], "email": ["synthetic@example.test"]}).lazy(), flow)
+    assert result.collect()["email"].to_list() == [None if configured else "synthetic@example.test"]
+    assert not registry.is_available("unused_external")
+    # Explicit custom pipelines do not implicitly select the broken default.
+    registry.unregister("data_masker")
+    from datacoolie.transformers.base import TransformerPipeline
+    custom = TransformerPipeline(PolarsEngine())
+    custom.transform(pl.DataFrame({"id": [2]}).lazy(), flow)
+    assert custom.get_column_mapping().mapping == {"id": "id"}
+
+
+@pytest.mark.parametrize("mapping, outputs", [
+    (None, ["id"]),
+    ({"id": None}, ["other"]),
+    ({"id": "missing"}, ["other"]),
+    ({"ID": "a", "Id": "b"}, ["a", "b"]),
+    ({"id": "ID"}, ["Id", "iD"]),
+])
+def test_replacement_mapping_failure_cannot_create_writer_or_save(mapping, outputs):
+    from datacoolie.transformers.base import ColumnMapping
+    from unittest.mock import Mock
+
+    class UnsafeTransform(Transform):
+        def get_column_mapping(self):
+            return None if mapping is None else ColumnMapping(mapping)
+
+        def get_output_columns(self):
+            return outputs
+
+    manager = Mock()
+    manager.get_watermark.return_value = {"id": 1}
+    writer_factory = Mock(side_effect=AssertionError("guard must precede writer construction"))
+    with pytest.raises(PipelineError):
+        execute_etl_pipeline(
+            _dataflow(replace=True, with_watermark=True), "unsafe-mapping",
+            baseline=ReadBaseline(), attempt=AttemptRuntimeInfo(), column_name_mode="snake",
+            watermark_start={"id": 1}, watermark_end=None, save_watermark=True,
+            watermark_manager=manager, job_id="guard",
+            create_source_reader=lambda _fmt: Reader(candidate={"id": 2}),
+            create_transformer_pipeline=lambda **_kwargs: UnsafeTransform(),
+            create_destination_writer=writer_factory,
+            validate_watermark_storage=lambda *_args, **_kwargs: None,
+        )
+    writer_factory.assert_not_called()
+    manager.save_watermark.assert_not_called()
+
+
 def _dataflow(*, replace: bool = False, with_watermark: bool = False) -> DataFlow:
     connection = Connection(name="c", format="delta", configure={"base_path": "/data"})
     return DataFlow(
@@ -631,7 +745,8 @@ def test_invalid_watermark_is_rejected_before_destination_write() -> None:
         )
 
 
-def test_maintenance_attempt_has_destination_only_phase() -> None:
+@pytest.mark.parametrize("options", [{}, {"compact_options": {}, "cleanup_options": {}}])
+def test_maintenance_attempt_has_destination_only_phase(options) -> None:
     class MaintenanceWriter:
         def run_maintenance(self, **_kwargs):
             return DestinationRuntimeInfo(
@@ -648,6 +763,7 @@ def test_maintenance_attempt_has_destination_only_phase() -> None:
         retention_hours=168,
         do_compact=False,
         do_cleanup=False,
+        **options,
     )
 
     assert result is attempt
@@ -655,3 +771,145 @@ def test_maintenance_attempt_has_destination_only_phase() -> None:
     assert result.destination is not None
     assert result.source is None
     assert result.transform is None
+
+class BrokenMaintenanceDuration(DestinationRuntimeInfo):
+    @property
+    def duration_seconds(self):
+        raise RuntimeError("diagnostic duration failed")
+
+
+@pytest.mark.parametrize("status", ["succeeded", "skipped", "failed"])
+@pytest.mark.parametrize("capture", ["duration", "copy", "observer"])
+def test_maintenance_control_survives_failed_capture(monkeypatch, status, capture):
+    from unittest.mock import Mock
+    runtime_type = BrokenMaintenanceDuration if capture == "duration" else DestinationRuntimeInfo
+    returned = runtime_type(status=status, message="operational evidence")
+    if capture == "copy":
+        class Uncopyable:
+            def __deepcopy__(self, memo):
+                raise RuntimeError("copy failed")
+        returned.operation_details = Uncopyable()
+    if capture == "observer":
+        monkeypatch.setattr("datacoolie.orchestration.execution.pipeline._observe_runtime", lambda *a, **kw: None)
+    writer = Mock()
+    writer.run_maintenance.return_value = returned
+    attempt = AttemptRuntimeInfo()
+    kwargs = dict(baseline=ReadBaseline(), attempt=attempt,
+                  create_destination_writer=lambda _: writer, retention_hours=168,
+                  do_compact=True, do_cleanup=True)
+    if status == "failed":
+        with pytest.raises(PipelineError, match="operational evidence") as caught:
+            execute_maintenance_pipeline(_dataflow(), **kwargs)
+        assert str(caught.value.__cause__) == "operational evidence"
+    else:
+        assert execute_maintenance_pipeline(_dataflow(), **kwargs) is attempt
+    assert attempt.status == attempt.destination.status == status
+    assert attempt.message == attempt.destination.message == "operational evidence"
+    assert attempt.destination.end_time is not None
+    assert attempt.destination.rows_written is None
+    writer.run_maintenance.assert_called_once()
+
+
+@pytest.mark.parametrize("status", [None, "", "running", "pending", "invalid"])
+def test_maintenance_typed_result_requires_terminal_status(status):
+    from unittest.mock import Mock
+    writer = Mock()
+    writer.run_maintenance.return_value = DestinationRuntimeInfo(status=status)
+    attempt = AttemptRuntimeInfo()
+    with pytest.raises(PipelineError, match="terminal status"):
+        execute_maintenance_pipeline(_dataflow(), baseline=ReadBaseline(), attempt=attempt,
+            create_destination_writer=lambda _: writer, retention_hours=168,
+            do_compact=True, do_cleanup=True)
+    assert attempt.status == attempt.destination.status == "failed"
+    assert attempt.destination.end_time is not None
+
+
+def test_maintenance_untyped_return_acknowledges_success():
+    from unittest.mock import Mock
+    writer = Mock()
+    writer.run_maintenance.return_value = None
+    attempt = execute_maintenance_pipeline(_dataflow(), baseline=ReadBaseline(), attempt=AttemptRuntimeInfo(),
+        create_destination_writer=lambda _: writer, retention_hours=168,
+        do_compact=True, do_cleanup=True)
+    assert attempt.status == attempt.destination.status == "succeeded"
+    assert attempt.destination.end_time is not None
+
+@pytest.mark.parametrize('status', ['succeeded', 'skipped', 'failed'])
+@pytest.mark.parametrize('with_end', [False, True])
+def test_maintenance_finalization_preserves_valid_fallback_timing(status, with_end):
+    from datetime import timedelta
+    from unittest.mock import Mock
+    from datacoolie.utils.time import utc_now
+    start = utc_now() + timedelta(days=1)
+    writer = Mock()
+    writer.run_maintenance.return_value = DestinationRuntimeInfo(status=status, message='work outcome',
+        start_time=start, end_time=start + timedelta(seconds=5) if with_end else None)
+    writer.get_runtime_info.return_value = writer.run_maintenance.return_value
+    attempt = AttemptRuntimeInfo()
+    kwargs = dict(baseline=ReadBaseline(), attempt=attempt,
+        create_destination_writer=lambda _: writer, retention_hours=168,
+        do_compact=True, do_cleanup=True)
+    if status == 'failed':
+        with pytest.raises(PipelineError, match='work outcome'):
+            execute_maintenance_pipeline(_dataflow(), **kwargs)
+    else:
+        execute_maintenance_pipeline(_dataflow(), **kwargs)
+    assert attempt.destination.end_time >= attempt.destination.start_time
+    assert attempt.destination.duration_seconds >= 0
+    assert attempt.status == attempt.destination.status == status
+    assert attempt.destination.message == 'work outcome'
+
+@pytest.mark.parametrize('status', ['succeeded', 'skipped', 'failed'])
+@pytest.mark.parametrize('missing_start', [False, True])
+def test_maintenance_enrichment_retains_pipeline_owned_phase(status, missing_start):
+    from unittest.mock import Mock
+    from tests.unit.orchestration.test_maintenance import ReadonlyMaintenanceRuntime
+    returned = ReadonlyMaintenanceRuntime(status=status, message='work result', rows_written=5,
+                                         operation_details=[{'action': 'compact'}],
+                                         **({'start_time': None} if missing_start else {}))
+    attempt = AttemptRuntimeInfo()
+    owned = []
+    writer = Mock()
+    def work(**kwargs):
+        owned.append(attempt.destination)
+        return returned
+    writer.run_maintenance.side_effect = work
+    writer.get_runtime_info.return_value = returned
+    kwargs = dict(baseline=ReadBaseline(), attempt=attempt, create_destination_writer=lambda _: writer,
+                  retention_hours=168, do_compact=True, do_cleanup=True)
+    if status == 'failed':
+        with pytest.raises(PipelineError, match='work result') as caught:
+            execute_maintenance_pipeline(_dataflow(), **kwargs)
+        assert str(caught.value.__cause__) == 'work result'
+    else:
+        assert execute_maintenance_pipeline(_dataflow(), **kwargs) is attempt
+    assert attempt.destination is owned[0]
+    assert type(attempt.destination) is DestinationRuntimeInfo
+    assert attempt.status == attempt.destination.status == status
+    assert attempt.destination.message == 'work result'
+    assert attempt.destination.rows_written == 5
+    assert attempt.destination.operation_type == 'maintenance'
+    assert attempt.destination.start_time is not None
+    assert attempt.destination.duration_seconds >= 0
+    assert attempt.destination.operation_details == [{'action': 'compact'}]
+    assert attempt.destination.operation_details is not returned.operation_details
+    attempt.destination.operation_details[0]['action'] = 'changed'
+    assert returned.operation_details == [{'action': 'compact'}]
+
+
+def test_maintenance_error_preserves_cause_with_readonly_observer():
+    from unittest.mock import Mock
+    from tests.unit.orchestration.test_maintenance import ReadonlyMaintenanceRuntime
+    cause = RuntimeError('operational error')
+    writer = Mock()
+    writer.run_maintenance.side_effect = cause
+    writer.get_runtime_info.return_value = ReadonlyMaintenanceRuntime(status='succeeded', message='diagnostic message')
+    attempt = AttemptRuntimeInfo()
+    with pytest.raises(PipelineError, match='operational error') as caught:
+        execute_maintenance_pipeline(_dataflow(), baseline=ReadBaseline(), attempt=attempt,
+            create_destination_writer=lambda _: writer, retention_hours=168,
+            do_compact=True, do_cleanup=True)
+    assert caught.value.__cause__ is cause
+    assert attempt.status == attempt.destination.status == 'failed'
+    assert attempt.destination.message == 'operational error'
+    assert type(attempt.destination) is DestinationRuntimeInfo

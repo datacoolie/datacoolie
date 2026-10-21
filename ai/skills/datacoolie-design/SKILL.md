@@ -47,6 +47,7 @@ affected by the material change.
 | Author the canonical design | `templates/architecture.tpl.md` |
 | Inspect approval shape | `templates/design-approval.json.example` |
 | Validate approval contract | `schemas/design-approval.schema.json` |
+| Approval command examples | `references/approval-commands.md` |
 | Hash, record, or verify approval | `scripts/design_approval.py` |
 | Install helper dependencies | `scripts/requirements.txt` |
 

@@ -238,7 +238,7 @@ def test_metadata_guides_link_to_contextual_reference_sections() -> None:
 
 
 def test_api_guides_do_not_misstate_offset_or_range_contract() -> None:
-    source = (DOCS / "guide/metadata/source-patterns.md").read_text(encoding="utf-8")
+    source = (DOCS / "guide/metadata/source-api.md").read_text(encoding="utf-8")
     advanced = (DOCS / "guide/metadata/api-advanced.md").read_text(encoding="utf-8")
 
     assert '"range_param_mapping": {' in source
@@ -263,7 +263,8 @@ def test_api_guides_do_not_misstate_offset_or_range_contract() -> None:
         "backward_closing_day",
         "replace_by_watermark",
     ):
-        assert token in source
+        incremental = (DOCS / "guide/metadata/source-incremental.md").read_text(encoding="utf-8")
+        assert token in incremental
 
 
 def test_generated_metadata_reference_omits_rejected_api_range_rows() -> None:
@@ -305,12 +306,14 @@ def test_cross_section_references_link_to_contextual_reference_sections() -> Non
         "guide/providers/file.md": ("metadata-providers.md#file-provider",),
         "guide/providers/database.md": ("metadata-providers.md#database-provider",),
         "guide/providers/api.md": ("metadata-providers.md#api-provider",),
-        "guide/metadata/source-patterns.md": (
+        "guide/metadata/source-database.md": (
             "secrets.md#secrets_ref-schema",
+        ),
+        "guide/metadata/source-incremental.md": (
             "watermarks.md#storage-ownership-and-path-binding",
-            "metadata-schema.md#dataflowssourceconfigure",
             "metadata-schema.md#destination",
         ),
+        "guide/metadata/source-api.md": ("metadata-schema.md#dataflowssourceconfigure",),
         "guide/metadata/validation-checklist.md": ("secrets.md#secrets_ref-schema",),
         "guide/metadata/index.md": (
             "cli/project.md#environment-overlays",

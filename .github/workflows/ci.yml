@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The shadow receipt resolves the PR base/head and checked-out
+          # merge-tree commits locally.  Shallow history cannot prove that
+          # binding or include merge-result changes safely.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -51,7 +57,24 @@ jobs:
       - name: Test AI skill scripts
         run: poetry run python ai/skills/tests/run_all.py
 
-      - name: Run local release gate
+      - name: Run local release gate (shadow selection)
         # Spark tests remain local-only. The shared verifier makes package,
         # docs, core non-Spark, and release-contract test failures blocking.
-        run: poetry run python scripts/verify_release.py
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_SHA: ${{ github.sha }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          CI_SELECTION_RECEIPT: .ci-artifacts/selection-receipt.json
+        run: poetry run python scripts/verify_ci.py
+
+      - name: Upload CI selection receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-selection-receipt-${{ github.run_id }}
+          path: .ci-artifacts/selection-receipt.json
+          if-no-files-found: warn

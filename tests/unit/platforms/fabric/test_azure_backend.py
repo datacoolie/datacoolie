@@ -551,3 +551,194 @@ def test_missing_optional_dependency_has_actionable_install_message() -> None:
         monkeypatch.setitem(sys.modules, "azure.identity", None)
         with pytest.raises(PlatformError, match=r"datacoolie\[fabric-external\]"):
             load_azure_sdk()
+
+@pytest.mark.parametrize('resource', ['dependencies', 'credential', 'service', 'filesystem', 'secret'])
+def test_concurrent_first_acquisition_publishes_one_resource(monkeypatch, dependencies, resource):
+    from concurrent.futures import ThreadPoolExecutor
+    from dataclasses import replace
+    from threading import Event
+    entered, release, contender = Event(), Event(), Event()
+    created = []
+    def slow(factory):
+        def construct(*args, **kwargs):
+            entered.set()
+            assert release.wait(3)
+            value = factory(*args, **kwargs)
+            created.append(value)
+            return value
+        return construct
+    location = AzureSdkBackend._parse(f'{ROOT}/a')
+    if resource == 'dependencies':
+        monkeypatch.setattr('datacoolie.platforms._fabric.azure_backend.load_azure_sdk', slow(lambda: dependencies))
+        instance = AzureSdkBackend()
+        def acquire():
+            return instance.dependencies
+    elif resource == 'filesystem':
+        instance = AzureSdkBackend(dependencies=dependencies)
+        root = instance._service_client(location)
+        monkeypatch.setattr(root, 'get_file_system_client', slow(root.get_file_system_client))
+        def acquire():
+            return instance._file_system_client(location)
+    else:
+        field = {'credential':'default_credential', 'service':'service_client', 'secret':'secret_client'}[resource]
+        deps = replace(dependencies, **{field: slow(getattr(dependencies, field))})
+        instance = AzureSdkBackend(dependencies=deps)
+        acquire = {'credential':lambda: instance.credential,
+                   'service':lambda: instance._service_client(location),
+                   'secret':lambda: instance._secret_client('https://demo.vault.azure.net')}[resource]
+    def compete():
+        contender.set()
+        return acquire()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(acquire)
+        assert entered.wait(3)
+        second = pool.submit(compete)
+        assert contender.wait(3)
+        release.set()
+        assert first.result(3) is second.result(3)
+    assert len(created) == 1
+
+
+@pytest.mark.parametrize('resource', ['dependencies', 'credential', 'service', 'filesystem', 'secret'])
+def test_failed_acquisition_can_retry(monkeypatch, dependencies, resource):
+    from dataclasses import replace
+    calls = []
+    def fail_once(factory):
+        def construct(*args, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError('creation failed')
+            return factory(*args, **kwargs)
+        return construct
+    location = AzureSdkBackend._parse(f'{ROOT}/a')
+    if resource == 'dependencies':
+        monkeypatch.setattr('datacoolie.platforms._fabric.azure_backend.load_azure_sdk', fail_once(lambda: dependencies))
+        instance = AzureSdkBackend()
+        def acquire():
+            return instance.dependencies
+    elif resource == 'filesystem':
+        instance = AzureSdkBackend(dependencies=dependencies)
+        root = instance._service_client(location)
+        monkeypatch.setattr(root, 'get_file_system_client', fail_once(root.get_file_system_client))
+        def acquire():
+            return instance._file_system_client(location)
+    else:
+        field = {'credential':'default_credential', 'service':'service_client', 'secret':'secret_client'}[resource]
+        deps = replace(dependencies, **{field: fail_once(getattr(dependencies, field))})
+        instance = AzureSdkBackend(dependencies=deps)
+        acquire = {'credential':lambda: instance.credential,
+                   'service':lambda: instance._service_client(location),
+                   'secret':lambda: instance._secret_client('https://demo.vault.azure.net')}[resource]
+    with pytest.raises(RuntimeError, match='creation failed'):
+        acquire()
+    value = acquire()
+    assert acquire() is value
+    assert len(calls) == 2
+
+
+def test_service_io_runs_outside_acquisition_lock(monkeypatch, backend):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    barrier = Barrier(2)
+    def io(*args, **kwargs):
+        barrier.wait(timeout=3)
+        return SimpleNamespace(value='synthetic')
+    monkeypatch.setattr(FakeSecretClient, 'get_secret', io)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(backend.fetch_secret, 'key', 'https://demo.vault.azure.net') for _ in range(2)]
+        assert [f.result(5) for f in futures] == ['synthetic', 'synthetic']
+    assert len(FakeSecretClient.created) == 1
+
+@pytest.mark.parametrize('fail_close', [False, True])
+@pytest.mark.parametrize('borrowed', [False, True])
+def test_close_owns_roots_and_credential_and_attempts_all_cleanup(monkeypatch, dependencies, fail_close, borrowed):
+    from concurrent.futures import ThreadPoolExecutor
+    from unittest.mock import Mock
+    events = []
+    credential = FakeCredential() if borrowed else None
+    instance = AzureSdkBackend(credential, dependencies=dependencies)
+    instance.write_file(f'{ROOT}/a', 'a')
+    instance.write_file(f'{OTHER_ROOT}/b', 'b')
+    instance.fetch_secret('api-key', 'https://demo.vault.azure.net')
+    owned_credential = instance.credential
+    resources = [*FakeServiceClient.created, *FakeSecretClient.created, owned_credential]
+    cause = RuntimeError('close failed')
+    for index, resource in enumerate(resources):
+        def available():
+            with instance._acquisition_lock:
+                return True
+        def close(i=index):
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                assert pool.submit(available).result(2)
+            events.append(i)
+            if fail_close and i == 0:
+                raise cause
+        monkeypatch.setattr(resource, 'close', Mock(side_effect=close), raising=False)
+    children = list(instance._file_system_clients.values())
+    for child in children:
+        monkeypatch.setattr(child, 'close', Mock(side_effect=AssertionError('child transport is borrowed')), raising=False)
+    if fail_close:
+        with pytest.raises(PlatformError, match='cleanup') as caught:
+            instance.close()
+        assert caught.value.__cause__ is cause
+    else:
+        instance.close()
+    instance.close()
+    assert events == list(range(len(resources) - int(borrowed)))
+    if borrowed:
+        owned_credential.close.assert_not_called()
+    for child in children:
+        child.close.assert_not_called()
+    assert not instance._service_clients and not instance._file_system_clients and not instance._secret_clients
+    assert instance._credential is instance._dependencies is None
+    with pytest.raises(PlatformError, match='closed'):
+        instance.fetch_secret('api-key', 'https://demo.vault.azure.net')
+
+
+def test_unused_backend_close_does_not_import_or_create(monkeypatch):
+    from unittest.mock import Mock
+    loader = Mock(side_effect=AssertionError('unused close must stay lazy'))
+    monkeypatch.setattr('datacoolie.platforms._fabric.azure_backend.load_azure_sdk', loader)
+    instance = AzureSdkBackend()
+    instance.close()
+    instance.close()
+    for get in (lambda: instance.dependencies, lambda: instance.credential):
+        with pytest.raises(PlatformError, match='closed'):
+            get()
+    loader.assert_not_called()
+
+
+CLOSED_FILE_CALLS = [
+    ('read_file', ('{path}',)), ('read_bytes', ('{path}',)),
+    ('write_file', ('{path}', 'a')), ('write_bytes', ('{path}', b'a')),
+    ('append_file', ('{path}', '')), ('delete_file', ('{path}',)),
+    ('create_folder', ('{path}',)), ('delete_folder', ('{path}',)),
+    ('list_files', ('{path}',)), ('list_folders', ('{path}',)),
+    ('file_exists', ('{root}',)), ('folder_exists', ('{root}',)),
+    ('upload_file', ('{local}', '{path}')), ('download_file', ('{path}', '{local}')),
+    ('copy_file', ('{path}', '{path}')), ('move_file', ('{path}', '{path}')),
+    ('get_file_info', ('{path}',)),
+]
+
+
+@pytest.mark.parametrize('method,args', CLOSED_FILE_CALLS)
+def test_closed_backend_rejects_all_file_access_before_side_effects(backend, tmp_path, method, args):
+    local = tmp_path / 'existing.bin'
+    local.write_bytes(b'preserve')
+    values = {'{path}':f'{ROOT}/a', '{root}':ROOT, '{local}':str(local)}
+    backend.close()
+    with pytest.raises(PlatformError, match='closed'):
+        getattr(backend, method)(*(values.get(arg, arg) for arg in args))
+    assert local.read_bytes() == b'preserve'
+    assert not FakeServiceClient.created
+
+
+def test_resource_cache_keys_remain_distinct(backend):
+    first = backend._parse(f'{ROOT}/a')
+    other_account = backend._parse(f'{OTHER_ROOT}/a')
+    other_filesystem = backend._parse('abfss://other@account.dfs.core.windows.net/a')
+    assert backend._service_client(first) is not backend._service_client(other_account)
+    assert backend._service_client(first) is backend._service_client(other_filesystem)
+    assert backend._file_system_client(first) is not backend._file_system_client(other_filesystem)
+    assert backend._file_system_client(first) is not backend._file_system_client(other_account)
+    assert backend._secret_client('https://one.vault.azure.net') is not backend._secret_client('https://two.vault.azure.net')

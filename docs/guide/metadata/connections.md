@@ -218,7 +218,7 @@ default. A source with `"configure": {"backward_hours": 12}` uses twelve
 hours, not seven days plus twelve hours. Author the full combination in that
 source's `backward` object if both offsets are needed; `date_backward` is a
 computed runtime property, not a metadata field. See
-[Incremental windows](source-patterns.md#override-the-connection-for-one-source)
+[Incremental windows](source-incremental.md#override-the-connection-for-one-source)
 for the supported forms, [Source patterns](source-patterns.md) for file reads,
 and [Destination & load patterns](destination-and-load-patterns.md#flat-file-outputs-with-date-folders)
 for dated file writes. Engine and provider option maps remain open; the
@@ -238,14 +238,14 @@ API, omit `auth_type`. Put the endpoint-specific `endpoint`,
 `body`, response
 `data_path`, pagination, canonical `range_param_mapping`, and its split/timezone
 settings in `source.configure`. The built-in API connection reads sources; no built-in API
-destination writer is registered. See [Source patterns](source-patterns.md#rest-api-source)
-for a complete source and [API source configuration](source-patterns.md#api-source-configuration)
+destination writer is registered. See [Source patterns](source-api.md#rest-api-source)
+for a complete source and [API source configuration](source-api.md#api-source-configuration)
 for all request, response, pagination and incremental options.
 
 A function connection identifies the `function` source family; set
 `source.python_function` to the callable's dotted path. Custom arguments for
 that callable belong in `source.configure`. See
-[Python function sources](source-patterns.md#python-function-source).
+[Python function sources](source-functions.md#python-function-source).
 
 ## API authentication
 

@@ -208,7 +208,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/execution/local.json",
+          "fixture": "usecase-sim/metadata/file/execution.json",
           "flow": "streaming__append",
           "role": "primary"
         }
@@ -239,17 +239,17 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [],
       "scenarios": [
-        "local_polars_startup_failure"
+        "error_messages.local_polars_startup_failure"
       ],
       "dedicated_scenarios": [
-        "local_polars_startup_failure"
+        "error_messages.local_polars_startup_failure"
       ],
       "preconditions": [
-        "Invoke scenario `local_polars_startup_failure`; stage=`startup_failure`; metadata_path=`./usecase-sim/metadata/file/execution/startup_failure.json`; validator `usecase-sim/scripts/features/execution/validate_startup_failure_logs.py`; Malformed provider document fails at Driver startup before any dataflow runtime.",
+        "Invoke scenario `error_messages.local_polars_startup_failure`; stage=`startup_failure`; metadata_path=`./usecase-sim/scenarios/errors/startup_failure.json`; validator `usecase-sim/scripts/features/execution/validate_startup_failure_logs.py`; Malformed provider document fails at Driver startup before any dataflow runtime.",
         "Provide required profile(s) `polars/local` with isolated output, state, and log roots and run the registered validation command.",
-        "Run registered scenario `local_polars_startup_failure`, validator `usecase-sim/scripts/features/execution/validate_startup_failure_logs.py`."
+        "Run registered scenario `error_messages.local_polars_startup_failure`, validator `usecase-sim/scripts/features/execution/validate_startup_failure_logs.py`."
       ],
-      "expected": "Scenario `local_polars_startup_failure` fails during startup before any dataflow runtime and emits the declared session/job failure records.",
+      "expected": "Scenario `error_messages.local_polars_startup_failure` fails during startup before any dataflow runtime and emits the declared session/job failure records.",
       "assertion_owners": [
         "usecase-sim/scripts/features/execution/validate_startup_failure_logs.py"
       ],
@@ -271,7 +271,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/metadata_artifacts/query_contract.json",
+          "fixture": "usecase-sim/metadata/file/metadata_artifacts.json",
           "flow": "query_root_routing",
           "role": "support"
         }

@@ -252,6 +252,14 @@ The most common notebook source is **runners/databricks/run_spark.ipynb**
 
 ## Related guides
 
+REST Iceberg maintenance requires deployment evidence and explicit engine setup
+described in the [maintenance guide](../guide/operations/maintenance.md#rest-iceberg-maintenance).
+The simulator maintenance CLI accepts `--maintenance-deployment <JSON file>`,
+`--maintenance-guard-manifest <manifest.json>`, and boolean JSON action maps via
+`--compact-options` / `--cleanup-options`. These inputs do not discover or
+attest arbitrary REST services. Polars expiration-only selection also needs
+`--no-compact` and `--cleanup-options '{"expire_snapshots":true,"remove_orphan_files":false}'`.
+
 - [Runtime configuration and path ownership](../guide/operations/runtime-configuration.md)
 - [Replay and backfill](../guide/operations/replay-and-backfill.md)
 - [Maintenance](../guide/operations/maintenance.md)

@@ -37,12 +37,13 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import sys
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Any, Dict, Generic, List, Literal, Optional, Tuple, TypeVar
 
 from datacoolie.core.constants import SystemColumn, Format
 from datacoolie.core.exceptions import ConfigurationError, EngineError, TransformError
 from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
 from datacoolie.platforms.base import BasePlatform, FileInfo
+from datacoolie.utils.path_utils import normalize_path
 
 # DataFrame type variable — bound to nothing so any DF library can be used.
 DF = TypeVar("DF")
@@ -110,7 +111,7 @@ class BaseEngine(ABC, Generic[DF]):
     def _resolve_file_paths(
         self,
         path: str | list[str],
-        extension: str,
+        extension: str | tuple[str, ...],
     ) -> list[str]:
         """Resolve directory paths to concrete file paths with the given extension.
 
@@ -118,31 +119,72 @@ class BaseEngine(ABC, Generic[DF]):
         Otherwise :attr:`platform` is used to list all files matching
         *extension* under that directory path.
         """
+        extensions = (extension,) if isinstance(extension, str) else extension
+        json_format = any(ext in {".json", ".jsonl"} for ext in extensions)
         resolved: list[str] = []
-        for p in path if isinstance(path, list) else [path]:
-            if p.endswith(extension):
+        inputs = path if isinstance(path, list) else [path]
+        if json_format:
+            inputs = list({normalize_path(p): p for p in inputs}.values())
+        for p in inputs:
+            if p.endswith(extensions) or (
+                json_format and self._platform is not None
+                and self._existing_json_file_info(p) is not None
+            ):
                 resolved.append(p)
             else:
                 resolved.extend(
                     fi.path
                     for fi in sorted(
-                        self._platform.list_files(p, extension=extension),
+                        self._platform.list_files(
+                            p, extension=extensions[0] if len(extensions) == 1 else None
+                        ),
                         key=lambda fi: fi.path,
                     )
+                    if (not json_format or not fi.is_dir)
+                    and (len(extensions) == 1 or fi.path.endswith(extensions))
                 )
-        return resolved
+        return list({normalize_path(p): p for p in resolved}.values()) if json_format else resolved
+
+    def file_extensions(self, fmt: str) -> tuple[str, ...]:
+        """Suffixes for framework discovery; subclass overrides are authoritative."""
+        if fmt in self.FORMAT_EXTENSIONS:
+            return (self.FORMAT_EXTENSIONS[fmt],)
+        return (".jsonl", ".json") if fmt == "jsonl" else (f".{fmt}",)
+
+    def list_format_files(self, path: str, fmt: str, *, recursive: bool = False) -> list[FileInfo]:
+        """Discover one directory, or honor an explicit JSON file with its metadata."""
+        if fmt in {"json", "jsonl"}:
+            explicit_file = self._existing_json_file_info(path)
+            if explicit_file is not None:
+                return [explicit_file]
+        extensions = self.file_extensions(fmt)
+        files = self.platform.list_files(
+            path, extension=extensions[0] if len(extensions) == 1 else None,
+            recursive=recursive,
+        )
+        return [
+            fi for fi in files
+            if not fi.is_dir and (len(extensions) == 1 or fi.path.endswith(extensions))
+        ]
+
+    def _existing_json_file_info(self, path: str) -> FileInfo | None:
+        """Honor platform-relative file paths and their canonical metadata."""
+        if not self.platform.file_exists(path):
+            return None
+        return self.platform.get_file_info(path)
 
     # ==================================================================
     # Column resolution
     # ==================================================================
 
     @staticmethod
-    def _resolve_column_name(actual_columns: List[str], column: str) -> str:
+    def resolve_column_name(actual_columns: List[str], column: str) -> str:
         """Return the actual column name matching *column* case-insensitively.
 
         If *column* already matches an element of *actual_columns* exactly it
         is returned as-is (fast path).  Otherwise a case-insensitive scan is
-        performed against *actual_columns*.
+        performed using ``lower()`` against *actual_columns*, selecting the
+        first match in supplied order when several spellings match.
 
         Args:
             actual_columns: Column names present in the DataFrame schema.
@@ -166,12 +208,14 @@ class BaseEngine(ABC, Generic[DF]):
         )
 
     @staticmethod
-    def _resolve_column_names(
+    def resolve_column_names(
         actual_columns: List[str], columns: List[str]
     ) -> List[str]:
         """Resolve a list of column names case-insensitively.
 
-        Delegates to :meth:`_resolve_column_name` for each entry.
+        Delegates to the concrete :meth:`BaseEngine.resolve_column_name` for
+        each entry, preserving requested order and duplicates. Subclass overrides
+        of the singular helper do not change this static default dispatch.
 
         Args:
             actual_columns: Column names present in the DataFrame schema.
@@ -183,7 +227,7 @@ class BaseEngine(ABC, Generic[DF]):
         Raises:
             EngineError: If any column is not found.
         """
-        return [BaseEngine._resolve_column_name(actual_columns, c) for c in columns]
+        return [BaseEngine.resolve_column_name(actual_columns, c) for c in columns]
 
     # ==================================================================
     # Read
@@ -994,6 +1038,20 @@ class BaseEngine(ABC, Generic[DF]):
             return self.read_path(path, fmt, options)
         raise EngineError("read() requires table_name or path")
 
+    def preferred_target_addressing(
+        self, *, fmt: str, table_name: Optional[str], path: Optional[str]
+    ) -> Optional[Literal["table", "path"]]:
+        """Pure target preference matching this engine's table-first dispatch."""
+        return "table" if table_name else "path" if path else None
+
+    def target_name_identity(self, *, fmt: str, table_name: str) -> Optional[Tuple[str, str]]:
+        """Return qualified (backend scope, native name), or None if unknown.
+
+        This concrete extension hook adds no abstract requirement to plugins.
+        Implementations may inspect borrowed loaded resources, never load them.
+        """
+        return None
+
     def write(
         self,
         df: DF,
@@ -1193,7 +1251,7 @@ class BaseEngine(ABC, Generic[DF]):
         actual_columns = self.get_columns(df)
         for column, (lower, upper) in normalized.items():
             try:
-                self._resolve_column_name(actual_columns, column)
+                self.resolve_column_name(actual_columns, column)
             except EngineError as exc:
                 raise EngineError(
                     f"replace_window() input is missing watermark column {column!r}"
@@ -1369,6 +1427,45 @@ class BaseEngine(ABC, Generic[DF]):
             self.compact_by_path(path, fmt=fmt, options=options)
         else:
             raise EngineError("compact() requires table_name or path")
+
+    def prepare_maintenance_target(
+        self, *, fmt: str, table_name: Optional[str] = None, path: Optional[str] = None,
+    ):
+        """Prepare a legacy qualified address; native adapters override binding.
+
+        This concrete hook adds no requirements to existing engine subclasses.
+        Destination policy has already selected the operative address.
+        """
+        from datacoolie.engines.contracts.maintenance import PreparedMaintenanceTarget
+        if table_name:
+            native = self.target_name_identity(fmt=fmt, table_name=table_name)
+            if native is None:
+                raise ConfigurationError("Unqualified maintenance target; native preparation is required")
+            identity = f"{fmt}:table:{native[0]}:{native[1]}"
+        elif path:
+            identity = f"{fmt}:path:{normalize_path(path)}"
+        else:
+            raise ConfigurationError("Maintenance preparation requires a table or path")
+        return PreparedMaintenanceTarget(fmt, table_name, path, identity)
+
+    def maintenance_preparation(self):
+        """Return an operation-scoped preparation callable with no shared cache."""
+        def prepare(*, fmt, table_name=None, path=None, table_address=None):
+            return self.prepare_maintenance_target(fmt=fmt, table_name=table_name, path=path)
+        return prepare
+
+    def execute_maintenance_action(self, prepared, *, action: str, retention_hours: int = 168):
+        """Explicit native selection requires an engine implementation."""
+        raise EngineError(f"{type(self).__name__} has no prepared action support for {action}")
+
+    def maintenance_history(self, prepared, *, limit: int = 5, start_time=None, end_time=None):
+        return self.get_history(table_name=prepared.table_name, path=prepared.path,
+                                fmt=prepared.format, limit=limit, start_time=start_time,
+                                end_time=end_time)
+
+    def release_maintenance_target(self, prepared) -> None:
+        """Default binding owns no session or catalog resources."""
+        _ = prepared
 
     def cleanup(
         self,

@@ -844,7 +844,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__csv",
           "role": "primary"
         }
@@ -875,7 +875,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__json",
           "role": "primary"
         }
@@ -906,7 +906,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__jsonl",
           "role": "primary"
         }
@@ -937,7 +937,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__parquet",
           "role": "primary"
         }
@@ -968,7 +968,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__avro",
           "role": "primary"
         }
@@ -999,7 +999,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__delta",
           "role": "primary"
         }
@@ -1030,7 +1030,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read__iceberg",
           "role": "primary"
         }
@@ -1061,7 +1061,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_db__sqlite",
           "role": "primary"
         }
@@ -1092,7 +1092,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_db__postgres",
           "role": "primary"
         }
@@ -1123,7 +1123,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_python_fn__delta_sql",
           "role": "primary"
         }
@@ -1154,7 +1154,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_python_fn__iceberg_sql",
           "role": "primary"
         }
@@ -1185,7 +1185,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_python_fn__custom_load",
           "role": "primary"
         }
@@ -1216,7 +1216,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_hive_partition__source",
           "role": "primary"
         }
@@ -1247,7 +1247,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_db__sqlite_query",
           "role": "primary"
         }
@@ -1278,7 +1278,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_delta__query",
           "role": "primary"
         }
@@ -1309,7 +1309,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_delta__scd2",
           "role": "primary"
         }
@@ -1340,7 +1340,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_iceberg__query",
           "role": "primary"
         }
@@ -1371,7 +1371,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/aws.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "aws_read_iceberg__scd2",
           "role": "primary"
         }
@@ -1402,7 +1402,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__csv",
           "role": "primary"
         }
@@ -1439,7 +1439,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__json",
           "role": "primary"
         }
@@ -1476,7 +1476,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__jsonl",
           "role": "primary"
         }
@@ -1513,7 +1513,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__parquet",
           "role": "primary"
         }
@@ -1550,7 +1550,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__avro",
           "role": "primary"
         }
@@ -1587,7 +1587,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__excel",
           "role": "primary"
         }
@@ -1618,7 +1618,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__delta",
           "role": "primary"
         }
@@ -1655,7 +1655,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read__iceberg",
           "role": "primary"
         }
@@ -1692,7 +1692,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_db__sqlite",
           "role": "primary"
         }
@@ -1723,7 +1723,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_db__postgres",
           "role": "primary"
         }
@@ -1760,7 +1760,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_db__mysql",
           "role": "primary"
         }
@@ -1797,7 +1797,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_db__mssql",
           "role": "primary"
         }
@@ -1834,7 +1834,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_db__oracle",
           "role": "primary"
         }
@@ -1871,7 +1871,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "filter__simple",
           "role": "primary"
         }
@@ -1902,7 +1902,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "filter__compound",
           "role": "primary"
         }
@@ -1933,7 +1933,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "filter__transform_simple",
           "role": "primary"
         }
@@ -1964,7 +1964,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "filter__transform_date",
           "role": "primary"
         }
@@ -1995,7 +1995,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "python_fn__delta_sql",
           "role": "primary"
         }
@@ -2026,7 +2026,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "python_fn__iceberg_sql",
           "role": "primary"
         }
@@ -2057,7 +2057,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "python_fn__custom_load",
           "role": "primary"
         }
@@ -2088,7 +2088,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_auth__none",
           "role": "primary"
         }
@@ -2119,7 +2119,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_auth__bearer",
           "role": "primary"
         }
@@ -2156,7 +2156,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_auth__api_key",
           "role": "primary"
         }
@@ -2193,7 +2193,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_auth__basic",
           "role": "primary"
         }
@@ -2230,7 +2230,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_auth__oauth2",
           "role": "primary"
         }
@@ -2267,7 +2267,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_auth__oauth2_basic_method",
           "role": "primary"
         }
@@ -2304,7 +2304,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_page__none",
           "role": "primary"
         }
@@ -2335,7 +2335,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_page__offset",
           "role": "primary"
         }
@@ -2372,7 +2372,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_page__cursor",
           "role": "primary"
         }
@@ -2409,7 +2409,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_page__next_link",
           "role": "primary"
         }
@@ -2446,7 +2446,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_request__post_body",
           "role": "primary"
         }
@@ -2483,7 +2483,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_request__static_params",
           "role": "primary"
         }
@@ -2520,7 +2520,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_request__nested_data_path",
           "role": "primary"
         }
@@ -2551,7 +2551,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_request__server_filter",
           "role": "primary"
         }
@@ -2582,7 +2582,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_request__rate_limit",
           "role": "primary"
         }
@@ -2613,16 +2613,16 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/api_max_pages_negative.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_request__max_pages",
           "role": "primary"
         }
       ],
       "scenarios": [
-        "local_polars_api_max_pages_negative"
+        "error_messages.local_polars_api_max_pages_negative"
       ],
       "dedicated_scenarios": [
-        "local_polars_api_max_pages_negative"
+        "error_messages.local_polars_api_max_pages_negative"
       ],
       "preconditions": [
         "Fresh case-owned roots; preserve shared output and checkpoints.",
@@ -2650,7 +2650,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "hive_partition__source",
           "role": "primary"
         }
@@ -2681,7 +2681,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_page__offset_concurrent",
           "role": "primary"
         }
@@ -2712,7 +2712,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_db__sqlite_query",
           "role": "primary"
         }
@@ -2743,7 +2743,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_delta__query",
           "role": "primary"
         }
@@ -2774,7 +2774,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_delta__scd2",
           "role": "primary"
         }
@@ -2805,7 +2805,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_iceberg__query",
           "role": "primary"
         }
@@ -2836,7 +2836,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/local.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "read_iceberg__scd2",
           "role": "primary"
         }
@@ -2867,7 +2867,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_4",
           "role": "primary"
         }
@@ -2898,7 +2898,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_3",
           "role": "primary"
         }
@@ -2929,7 +2929,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_2",
           "role": "primary"
         }
@@ -2960,7 +2960,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_1",
           "role": "primary"
         }
@@ -2991,7 +2991,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_include",
           "role": "primary"
         }
@@ -3022,7 +3022,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_exclude",
           "role": "primary"
         }
@@ -3053,7 +3053,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_lazy_reuse",
           "role": "primary"
         }
@@ -3084,7 +3084,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_ambiguity",
           "role": "primary"
         }
@@ -3115,7 +3115,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_default_root",
           "role": "primary"
         }
@@ -3146,7 +3146,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_logical_prefix",
           "role": "primary"
         }
@@ -3177,7 +3177,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_name_1",
           "role": "primary"
         }
@@ -3208,7 +3208,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_include",
           "role": "primary"
         }
@@ -3239,7 +3239,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_exclude",
           "role": "primary"
         }
@@ -3270,7 +3270,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_lazy_reuse",
           "role": "primary"
         }
@@ -3301,7 +3301,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_ambiguity",
           "role": "primary"
         }
@@ -3332,37 +3332,37 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_4",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_3",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_2",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_name_1",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_include",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_exclude",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_lazy_reuse",
           "role": "support"
         }
@@ -3400,21 +3400,21 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__delta_ambiguity",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_polars_qualified_sql_delta_ambiguity"
+        "error_messages.local_polars_qualified_sql_delta_ambiguity"
       ],
       "dedicated_scenarios": [
-        "local_polars_qualified_sql_delta_ambiguity"
+        "error_messages.local_polars_qualified_sql_delta_ambiguity"
       ],
       "preconditions": [
         "Load the product fixture(s) and activate flow `qualified_sql__delta_ambiguity` (stage `polars_qualified_sql_delta_ambiguity`, mode `batch`): source connection `qualified_sql_delta_source`; query `SELECT COUNT(*) AS matched_rows FROM shared.orders_ambiguous`; destination connection `qualified_sql_result_destination`; table `delta_ambiguity`; load_type `overwrite`.",
         "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
-        "Run registered scenario `local_polars_qualified_sql_delta_ambiguity`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`."
+        "Run registered scenario `error_messages.local_polars_qualified_sql_delta_ambiguity`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`."
       ],
       "expected": "`qualified_sql__delta_ambiguity` reads the declared source input(s) and writes the declared destination(s). The route should resolve the intended query/filter branch and return only the selected rows or the declared ambiguity rejection.",
       "assertion_owners": [
@@ -3439,32 +3439,32 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_default_root",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_logical_prefix",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_name_1",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_include",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_exclude",
           "role": "support"
         },
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_lazy_reuse",
           "role": "support"
         }
@@ -3502,21 +3502,21 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/polars_qualified_sql.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "qualified_sql__iceberg_ambiguity",
           "role": "support"
         }
       ],
       "scenarios": [
-        "local_polars_qualified_sql_iceberg_ambiguity"
+        "error_messages.local_polars_qualified_sql_iceberg_ambiguity"
       ],
       "dedicated_scenarios": [
-        "local_polars_qualified_sql_iceberg_ambiguity"
+        "error_messages.local_polars_qualified_sql_iceberg_ambiguity"
       ],
       "preconditions": [
         "Load the product fixture(s) and activate flow `qualified_sql__iceberg_ambiguity` (stage `polars_qualified_sql_iceberg_ambiguity`, mode `batch`): source connection `qualified_sql_iceberg_source`; query `SELECT COUNT(*) AS matched_rows FROM shared.orders_ambiguous`; destination connection `qualified_sql_result_destination`; table `iceberg_ambiguity`; load_type `overwrite`.",
         "Provide required profile(s) `polars/local` with isolated output, state, and log roots; preserve the listed request, watermark, transform, and load controls.",
-        "Run registered scenario `local_polars_qualified_sql_iceberg_ambiguity`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`."
+        "Run registered scenario `error_messages.local_polars_qualified_sql_iceberg_ambiguity`, setup `usecase-sim/scripts/features/read/prepare_polars_qualified_sql.py`."
       ],
       "expected": "`qualified_sql__iceberg_ambiguity` reads the declared source input(s) and writes the declared destination(s). The route should resolve the intended query/filter branch and return only the selected rows or the declared ambiguity rejection.",
       "assertion_owners": [
@@ -3541,7 +3541,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/minio_sigv4.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "minio-sigv4-private-read",
           "role": "primary"
         }
@@ -3578,7 +3578,7 @@
       "contract": "src/datacoolie/sources/contracts.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/a9_file_info_roundtrip.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "a9-file-info-roundtrip-read",
           "role": "primary"
         }
@@ -3615,7 +3615,7 @@
       "contract": "src/datacoolie/sources/_api/auth.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/a9_api_oauth_json.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_service__oauth2_json",
           "role": "primary"
         }
@@ -3651,7 +3651,7 @@
       "contract": "src/datacoolie/sources/_api/transport.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/read/a9_api_rate_limit.json",
+          "fixture": "usecase-sim/metadata/file/read.json",
           "flow": "api_service__rate_limit_case",
           "role": "primary"
         }

@@ -123,6 +123,41 @@ During execution preparation, the driver processes `connection.secrets_ref`
 and replaces placeholder values in `configure` with actual credentials from
 the active secret provider. Readers never handle secret fetching directly.
 
+### JSON and JSON Lines
+
+The declared `connection.format` selects framing on both Spark and Polars:
+
+| Format and `read_options` | Reading behavior |
+|---|---|
+| `json`, `multiLine` omitted or `true` | One complete JSON document per file, including pretty-printed objects and arrays. |
+| `json`, `multiLine=false` | One JSON record per line (NDJSON). |
+| `jsonl`, `multiLine` omitted or `false` | One JSON record per line (NDJSON). |
+| `jsonl`, `multiLine=true` | Configuration error before source discovery or reading. |
+
+`multiLine` accepts booleans and trimmed, case-insensitive `"true"` or `"false"`
+strings. Explicit null, numbers and other values are invalid. Source options
+override connection defaults before validation; invalid framing fails even when
+the source folder is empty, without a destination write or watermark save.
+
+For JSON Lines saved as `events.json`, declare `format="jsonl"` or use
+`format="json"` with `read_options={"multiLine": False}`. The extension does
+not switch the parser, and DataCoolie does not retry with another parser.
+
+FileReader discovery and Polars directory reads select both `.jsonl` and `.json`
+for declared JSONL. Declared JSON directory discovery keeps `.json`, including
+with `multiLine=false`. An existing explicit file is honored with either suffix;
+a custom engine `FORMAT_EXTENSIONS["jsonl"]` override replaces the default
+directory suffix set. A JSONL folder must therefore contain line-oriented data
+in its selected `.json` files as well as its `.jsonl` files.
+
+Direct Spark reads retain native path, glob, partition and file-filter behavior;
+configure native `pathGlobFilter` when a directory needs suffix filtering.
+Polars line reads retain native file/list/glob scanning and storage options.
+These framing rules do not change schema inference or native malformed-record
+policies. In particular, Spark's document parser may accept only the first of
+multiple objects saved as JSON Lines, even with `mode="FAILFAST"`; explicitly
+select line-oriented framing to read every record.
+
 ## Destination contract
 
 `BaseDestinationWriter[DF]` declares:

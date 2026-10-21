@@ -66,8 +66,4 @@ runner, mutate target resources from a Build runner, or turn discovery output in
 
 ## Outcome-scoped verification
 
-For author/build-only requests, validate the selected environment, runner, and artifact without
-requiring a host login or workload execution. For an explicitly requested safe runtime check, use
-the matching public platform recipe/project criteria to derive expected paths, selection, output,
-and state; verify those independently and classify unavailable credentials, host-only checks,
-legitimate empties/skips, and unperformed cloud checks in the report.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). For requested runtime use, verify the selected host/platform mode, addressing, identity and engine/control-storage access independently; report host-only gaps.

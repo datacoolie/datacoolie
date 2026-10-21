@@ -35,7 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
-from runner.metadata_composition import materialize_metadata_path
+from runner.metadata_documents import load_metadata
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -279,8 +279,10 @@ def generate_minio() -> None:
         client = minio_client()
         if client is not None:
             key = f"metadata/{AWS_USE_CASES_JSON.name}"
-            compiled = materialize_metadata_path(AWS_USE_CASES_JSON, root=SIM_ROOT)
-            client.upload_file(str(compiled), MINIO_BUCKET, key)
+            payload = json.dumps(load_metadata(AWS_USE_CASES_JSON, root=SIM_ROOT),
+                                 ensure_ascii=False, indent=2).encode("utf-8")
+            client.put_object(Bucket=MINIO_BUCKET, Key=key, Body=payload,
+                              ContentType="application/json")
             logger.info(
                 "Uploaded AWS metadata: s3://%s/%s",
                 MINIO_BUCKET,

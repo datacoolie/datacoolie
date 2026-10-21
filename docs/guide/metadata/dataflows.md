@@ -217,7 +217,7 @@ output. Without it, put their hints inline. See
 [Datatypes and schema hints](data-types.md) for matching and precedence.
 
 If the source is incremental, choose the watermark and look-back together;
-see [Incremental windows and look-back](source-patterns.md#incremental-windows-and-look-back). If the
+see [Incremental windows and look-back](source-incremental.md#incremental-windows-and-look-back). If the
 destination replaces a watermark window, the source must cover the complete
 delete scope and the destination must use the matching load strategy.
 

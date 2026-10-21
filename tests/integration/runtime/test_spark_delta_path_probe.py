@@ -19,7 +19,7 @@ pytestmark = [
 PRODUCT_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_native_relative_delta_detail_preserves_existing_table():
+def test_native_delta_path_contract_preserves_existing_table():
     require_docker_services(("spark",))
     result = subprocess.run(
         [
@@ -43,3 +43,7 @@ def test_native_relative_delta_detail_preserves_existing_table():
     assert observation["relative_sql_error_class"] in {
         "DELTA_MISSING_DELTA_TABLE", "TABLE_OR_VIEW_NOT_FOUND"
     }, observation
+    assert set(observation["native_failures"]) == {
+        "empty_log", "corrupt", "unsupported"
+    }, observation
+    assert observation["permission"]["status"] in {"propagated", "skipped-root"}, observation

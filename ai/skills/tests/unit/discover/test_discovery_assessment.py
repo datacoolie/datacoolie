@@ -12,6 +12,7 @@ import finalize_watermark_assessment
 import merge_observations
 from _observation_contract import KEY_FIELDS, make_observation, read_observations, write_observations
 from _watermark_signals import suggest_roles, tokenize_identifier
+from _probe_status import file_sha256, observation_scope
 
 
 def _row(
@@ -218,6 +219,8 @@ def test_refresh_replaces_only_explicit_source_and_writes_diff(tmp_path):
     _write_rows(replacement, [changed])
     status.write_text(json.dumps({
         "source": "erp", "status": "complete", "row_count": 1,
+        "output_sha256": file_sha256(replacement),
+        "scope": observation_scope(read_observations(replacement), kind="source"),
     }), encoding="utf-8")
 
     assert merge_observations.merge(
@@ -239,6 +242,8 @@ def test_refresh_rejects_partial_status_without_exact_acceptance(tmp_path):
     _write_rows(replacement, [_row("erp", "orders", "UpdatedAt")])
     status.write_text(json.dumps({
         "source": "erp", "status": "partial", "row_count": 1,
+        "output_sha256": file_sha256(replacement),
+        "scope": observation_scope(read_observations(replacement), kind="source"),
     }), encoding="utf-8")
 
     with pytest.raises(ValueError, match="explicit acceptance"):
@@ -260,9 +265,11 @@ def test_refresh_rejects_status_row_count_mismatch(tmp_path):
     _write_rows(replacement, [_row("erp", "orders", "UpdatedAt")])
     status.write_text(json.dumps({
         "source": "erp", "status": "complete", "row_count": 2,
+        "output_sha256": file_sha256(replacement),
+        "scope": observation_scope(read_observations(replacement), kind="source"),
     }), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="probe status reports 2"):
+    with pytest.raises(ValueError, match="row count"):
         merge_observations.merge(
             [replacement], tmp_path / "candidate.csv", base=base,
             replace_sources=["erp"], status_inputs=[status],
@@ -279,9 +286,11 @@ def test_refresh_rejects_duplicate_status_for_source_boundary(tmp_path):
     for status in (first_status, second_status):
         status.write_text(json.dumps({
             "source": "erp", "status": "complete", "row_count": 1,
+        "output_sha256": file_sha256(replacement),
+        "scope": observation_scope(read_observations(replacement), kind="source"),
         }), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="repeats source boundary: erp"):
+    with pytest.raises(ValueError, match="paired probe status"):
         merge_observations.merge(
             [replacement], tmp_path / "candidate.csv", base=base,
             replace_sources=["erp"], status_inputs=[first_status, second_status],

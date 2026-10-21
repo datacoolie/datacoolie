@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,8 +26,8 @@ from read.validate_a9_file_info_roundtrip import (  # noqa: E402
 
 
 def test_authored_roundtrip_fixture_declares_read_phase_and_native_seed_path() -> None:
-    metadata_path = SIM_ROOT / "metadata" / "file" / "read" / "a9_file_info_roundtrip.json"
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+    metadata = recipe_document("read", "a9_file_info_roundtrip")
     connections = {item["name"]: item for item in metadata["connections"]}
     flows = {item["name"]: item for item in metadata["dataflows"]}
 

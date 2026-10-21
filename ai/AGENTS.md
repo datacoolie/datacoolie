@@ -62,7 +62,9 @@ Reuse exact handoff artifacts; do not introduce a parallel workflow state store.
 
 ## Verification and handoff
 
-Select checks from the requested outcome and compatible public docs:
+This file owns common reporting and verification scope. Lifecycle skills own
+their specific evidence gates; references link to those owners. Select checks
+from the requested outcome and compatible public docs:
 
 - Author/validate: apply the metadata/CLI guidance and report the actual scope,
   warnings and skipped checks. Validation success certifies that scope.

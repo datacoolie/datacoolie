@@ -92,10 +92,10 @@ def test_date_oracle_rejects_wrong_results(mutation):
 
 
 def test_moved_flows_excluded_from_broad_workflow_and_owned_once():
-    from runner.metadata_composition import load_metadata
+    from runner.metadata_documents import load_metadata
 
     removed = {"api_request__max_pages", "api_wm__date_fmt"}
-    composed = load_metadata("metadata/file/workflows/local_use_cases.json", root=SIM)
+    composed = load_metadata("scenarios/workflows/local_use_cases.json", root=SIM)
     assert not removed.intersection(f["name"] for f in composed["dataflows"])
     for name in removed:
         refs = [
@@ -109,15 +109,59 @@ def test_moved_flows_excluded_from_broad_workflow_and_owned_once():
 
 
 def test_api_cap_authored_controls_preserved():
-    d = json.loads((SIM / "metadata/file/read/api_max_pages_negative.json").read_text())
+    from runner.metadata_sources import recipe_document
+
+    d = recipe_document("read", "api_max_pages_negative")
     cfg = d["dataflows"][0]["source"]["configure"]
     assert cfg["max_pages"] == 2 and cfg["page_size"] == 5
 
 
-def test_date_fixture_exclusive_lower_and_date_hint():
-    d = json.loads(
-        (SIM / "metadata/file/incremental/api_date_positive.json").read_text()
+def test_api_service_case_paths_use_split_roots_without_runtime_metadata(tmp_path):
+    from types import SimpleNamespace
+
+    from read import validate_api_services as module
+
+    case = SimpleNamespace(
+        root=tmp_path / "case",
+        input=tmp_path / "input",
+        output=tmp_path / "output",
+        document={},
+        sources=(),
     )
+    flow, connections = module._existing_phase(
+        "api_auth__bearer",
+        case=case,
+        stage="api_service_auth",
+        base_url="http://127.0.0.1:8082",
+        trace_token="trace",
+        runtime_label="positive",
+    )
+    destination = next(row for row in connections if row["name"] == "local_parquet_dest")
+    assert destination["configure"]["base_path"] == (case.output / "parquet").as_posix()
+
+    focused_flow, focused_connections = module._focused_phase(
+        "a9_api_oauth_json.json",
+        case=case,
+        base_url="http://127.0.0.1:8082",
+        trace_token="trace-focused",
+        runtime_label="positive",
+    )
+    focused_destination = next(
+        row for row in focused_connections if row["name"] == "a9_api_parquet_dest"
+    )
+    assert focused_destination["configure"]["base_path"] == (
+        case.output / "parquet"
+    ).as_posix()
+    assert focused_flow["name"] == "api_service__oauth2_json"
+
+    module._write_document(case, [flow], connections)
+    assert case.sources == (module.READ_METADATA_SOURCE,)
+
+
+def test_date_fixture_exclusive_lower_and_date_hint():
+    from runner.metadata_sources import recipe_document
+
+    d = recipe_document("incremental", "api_date_positive")
     f = d["dataflows"][0]
     assert (
         f["source"]["configure"]["range_param_mapping"]["event_date"]["lower"][
@@ -133,7 +177,7 @@ def test_native_database_recipe_preserves_authored_mssql_false(tmp_path, monkeyp
     from read import validate_database_profiles as module
 
     case = SimpleNamespace(
-        metadata=tmp_path / "metadata.json", output=tmp_path / "output"
+        output=tmp_path / "output"
     )
     monkeypatch.setattr(module, "resolve_case_root", lambda *args: case)
 
@@ -143,13 +187,22 @@ def test_native_database_recipe_preserves_authored_mssql_false(tmp_path, monkeyp
     monkeypatch.setattr(module, "_connection", stop_before_source_setup)
     with pytest.raises(RuntimeError, match="stop before source setup"):
         module.validate(profile="mssql")
-    authored = json.loads((SIM / "metadata/file/shared/local.json").read_text())
+    from runner.metadata_sources import group_document
+
+    authored = group_document("read")
     source = next(
         c for c in authored["connections"] if c["name"] == "local_mssql_source"
     )
-    compiled = json.loads(case.metadata.read_text())
+    compiled = case.document
     assert (
         compiled["connections"][0]["configure"]["encrypt"]
         == source["configure"]["encrypt"]
         == "false"
+    )
+    assert compiled["connections"][1]["configure"]["base_path"] == (
+        case.output.as_posix()
+    )
+    assert compiled["connections"][1]["configure"]["write_options"]["compression"] == "snappy"
+    assert case.sources == (
+        str((module.USECASE_SIM_DIR / "metadata" / "file" / "read.json").resolve()),
     )

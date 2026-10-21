@@ -54,10 +54,4 @@ explicit replay/recovery action; never advance or reset the watermark merely to 
 
 ## Outcome-scoped verification
 
-For author/build-only requests, validate the runner/project and built artifact without executing a
-workload. For an explicitly requested safe replay or maintenance check, derive expected selection,
-output, and state changes from the matching public recipe and project acceptance criteria; inspect
-the framework result/logs and independent output/state evidence. Identify legitimate empty or
-skipped outcomes, and report performed checks, skipped host/dependency checks, and unresolved
-questions. The CLI build manifest and local validation report remain artifact evidence; runtime
-observations belong to the operation's normal logs and result.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). For requested replay or maintenance, inspect the operation result/logs and independently reconcile the authorized state changes. Build manifests certify artifacts; operation logs and results carry runtime observations.

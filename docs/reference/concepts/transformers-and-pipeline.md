@@ -27,28 +27,10 @@ leaving **40–50** free for user plugins.
 | **85** | `ColumnProjector` | Resolve select/drop against source names, then apply atomic renames. |
 | **90** | `ColumnNameSanitizer` | Last — sanitise casing and special chars for the destination engine. |
 
-The default pipeline assembled by `DataCoolieDriver`:
-
-```python
-DEFAULT_TRANSFORMERS = [
-    "column_value_transformer",  # 5
-    "schema_converter",       # 10
-    "hash_column_adder",      # 18
-    "deduplicator",           # 20
-    "column_adder",           # 30
-    "row_filter",             # 35 — post-column_adder, pre-scd2
-    "scd2_column_adder",      # 60
-    "system_column_adder",    # 70
-    "partition_handler",      # 80
-    "data_masker",            # 84
-    "column_projector",       # 85
-    "column_name_sanitizer",  # 90
-]
-```
-
-(List order is informational; `TransformerPipeline` sorts by the transformer's
-`order` attribute, so `ColumnAdder` (30) still runs before `RowFilter` (35)
-and `SCD2ColumnAdder` (60).)
+`DataCoolieDriver` assembles these built-ins; `TransformerPipeline` sorts by
+each transformer's `order` attribute. Use the
+[transform recipes](../../guide/metadata/transform-patterns.md) for metadata
+configuration and examples rather than copying the default list into a runner.
 
 ## Empty-result boundary
 

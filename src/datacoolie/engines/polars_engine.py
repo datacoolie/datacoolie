@@ -29,6 +29,8 @@ from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.core.qualified_names import NameInput
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.engines.base import BaseEngine, FileInfo
+from datacoolie.engines.contracts.json_framing import resolve_json_multiline
+from datacoolie.utils.path_utils import normalize_path
 from datacoolie.engines.contracts.windows import WindowSpec, normalize_window
 from datacoolie.engines._polars.relations import (
     PatternInput,
@@ -120,6 +122,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             for Iceberg table discovery and management.
         sql_context: An existing ``polars.SQLContext`` to reuse.  A new
             context is created when *None* (the default).
+        sql_dialect: Optional SQL dialect passed to the Polars SQL resolver.
+        maintenance_deployment: Optional operator-attested REST deployment
+            record for qualified REST Iceberg maintenance.
         platform: Optional platform to attach to this engine immediately.
     """
 
@@ -137,10 +142,12 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         iceberg_catalog: Optional[Any] = None,
         sql_context: Optional[pl.SQLContext] = None,
         sql_dialect: Optional[str] = None,
+        maintenance_deployment: Optional[Any] = None,
     ) -> None:
         super().__init__(platform=platform)
         self._storage_options = storage_options or {}
         self._iceberg_catalog = iceberg_catalog
+        self._maintenance_deployment = maintenance_deployment
         self._sql_context = sql_context if sql_context is not None else pl.SQLContext()
         self._sql_context_lock = RLock()
         self._relation_registry = PolarsRelationRegistry()
@@ -153,6 +160,65 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     def set_iceberg_catalog(self, catalog: Any) -> None:
         """Replace the Iceberg catalog used for Iceberg table operations."""
         self._iceberg_catalog = catalog
+
+    def preferred_target_addressing(
+        self, *, fmt: str, table_name: Optional[str], path: Optional[str]
+    ) -> Optional[Literal["table", "path"]]:
+        """Match native Delta/file path routing and Iceberg catalog routing."""
+        if fmt.lower() == Format.ICEBERG.value:
+            return "table"
+        return "path"
+
+    def target_name_identity(self, *, fmt: str, table_name: str) -> Optional[Tuple[str, str]]:
+        """Qualify only the attached local PyIceberg SQLite file catalog."""
+        if fmt.lower() != Format.ICEBERG.value or self._iceberg_catalog is None:
+            return None
+        from datacoolie.engines._polars.iceberg.schema import sqlite_name_identity
+        return sqlite_name_identity(self._iceberg_catalog, table_name)
+
+    def prepare_maintenance_target(self, *, fmt: str, table_name=None, path=None, table_address=None):
+        if fmt.lower() == Format.ICEBERG.value and table_name:
+            from pyiceberg.catalog.rest import RestCatalog
+            if type(self._iceberg_catalog) is RestCatalog:
+                from datacoolie.engines._polars.iceberg.maintenance import prepare_target
+                return prepare_target(self._iceberg_catalog, self._maintenance_deployment, table_name,
+                                      table_address=table_address)
+        return super().prepare_maintenance_target(fmt=fmt, table_name=table_name, path=path)
+
+    def maintenance_preparation(self):
+        catalog, deployment = self._iceberg_catalog, self._maintenance_deployment
+        if catalog is None:
+            return super().maintenance_preparation()
+        from pyiceberg.catalog.rest import RestCatalog
+        validated = False
+        def prepare(*, fmt, table_name=None, path=None, table_address=None):
+            nonlocal validated
+            if fmt.lower() == Format.ICEBERG.value and table_name and type(catalog) is RestCatalog:
+                from datacoolie.engines._polars.iceberg.maintenance import prepare_target, validate_deployment
+                from datacoolie.engines.contracts.maintenance import native_identifier
+                from datacoolie.core.exceptions import ConfigurationError
+                if deployment is None:
+                    raise ConfigurationError("REST maintenance requires a verified deployment binding")
+                native_identifier(table_name, catalog_label=deployment.catalog_label, table_address=table_address)
+                if not validated:
+                    validate_deployment(catalog, deployment)
+                    validated = True
+                return prepare_target(catalog, deployment, table_name, deployment_validated=True,
+                                      table_address=table_address)
+            return self.prepare_maintenance_target(fmt=fmt, table_name=table_name, path=path)
+        return prepare
+
+    def execute_maintenance_action(self, prepared, *, action: str, retention_hours: int = 168):
+        if prepared.binding is not None and prepared.format == Format.ICEBERG.value:
+            from datacoolie.engines._polars.iceberg.maintenance import execute_action
+            return execute_action(prepared, action=action, retention_hours=retention_hours)
+        return super().execute_maintenance_action(prepared, action=action, retention_hours=retention_hours)
+
+    def maintenance_history(self, prepared, *, limit=5, start_time=None, end_time=None):
+        if prepared.binding is not None and prepared.format == Format.ICEBERG.value:
+            from datacoolie.engines._polars.iceberg.maintenance import history
+            return history(prepared, limit=limit, start_time=start_time, end_time=end_time)
+        return super().maintenance_history(prepared, limit=limit, start_time=start_time, end_time=end_time)
 
     @property
     def sql_context(self) -> pl.SQLContext:
@@ -338,7 +404,11 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        ext = self.FORMAT_EXTENSIONS.get(Format.JSON.value, f".{Format.JSON.value}")
+        if not resolve_json_multiline("json", options):
+            return scan_jsonl(
+                self._resolve_json_line_paths(path, "json"), options, self._storage_options
+            )
+        ext = self.file_extensions("json")
         resolved = self._resolve_file_paths(path, ext)
         if not resolved:
             raise FileNotFoundError(f"No JSON files found at: {path}")
@@ -349,7 +419,37 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         path: str | list[str],
         options: Optional[Dict[str, str]] = None,
     ) -> pl.LazyFrame:
-        return scan_jsonl(path, options, self._storage_options)
+        resolve_json_multiline("jsonl", options)
+        return scan_jsonl(
+            self._resolve_json_line_paths(path, "jsonl"), options, self._storage_options
+        )
+
+    def _resolve_json_line_paths(self, path: str | list[str], fmt: str) -> str | list[str]:
+        """Expand directories while retaining native file, URI and glob scanning."""
+        from pathlib import Path
+
+        resolved: list[str] = []
+        expanded = False
+        inputs = list({normalize_path(item): item for item in path}.values()) if isinstance(path, list) else [path]
+        for item in inputs:
+            if any(char in item for char in "*?["):
+                resolved.append(item)
+            elif self._platform is not None and self._platform.folder_exists(item):
+                expanded = True
+                resolved.extend(fi.path for fi in self.list_format_files(item, fmt))
+            elif self._platform is None and "://" not in item and Path(item).is_dir():
+                expanded = True
+                resolved.extend(
+                    str(p) for p in sorted(Path(item).iterdir())
+                    if p.is_file() and p.name.endswith(self.file_extensions(fmt))
+                )
+            else:
+                resolved.append(item)
+        if not expanded:
+            return list({normalize_path(item): item for item in path}.values()) if isinstance(path, list) else path
+        if not resolved:
+            raise FileNotFoundError(f"No {fmt.upper()} files found at: {path}")
+        return list({normalize_path(item): item for item in resolved}.values())
 
     def read_avro(
         self,
@@ -517,7 +617,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         merged: Dict[str, Any] = dict(options or {})
 
         if partition_columns:
-            partition_columns = self._resolve_column_names(
+            partition_columns = self.resolve_column_names(
                 self._schema_names(df), partition_columns
             )
 
@@ -568,7 +668,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     "PolarsEngine named Iceberg write does not support write_options"
                 )
             if partition_columns:
-                partition_columns = self._resolve_column_names(
+                partition_columns = self.resolve_column_names(
                     self._schema_names(df), partition_columns
                 )
             if self._iceberg_catalog is None:
@@ -611,9 +711,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             )
 
         actual = self._schema_names(df)
-        merge_keys = self._resolve_column_names(actual, merge_keys)
+        merge_keys = self.resolve_column_names(actual, merge_keys)
         if partition_columns:
-            partition_columns = self._resolve_column_names(actual, partition_columns)
+            partition_columns = self.resolve_column_names(actual, partition_columns)
 
         delta_ops.merge_path(
             df,
@@ -643,9 +743,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             )
 
         actual = self._schema_names(df)
-        merge_keys = self._resolve_column_names(actual, merge_keys)
+        merge_keys = self.resolve_column_names(actual, merge_keys)
         if partition_columns:
-            partition_columns = self._resolve_column_names(actual, partition_columns)
+            partition_columns = self.resolve_column_names(actual, partition_columns)
 
         delta_ops.merge_overwrite_path(
             df,
@@ -679,9 +779,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     "PolarsEngine named Iceberg merge does not support merge_options"
                 )
             actual = self._schema_names(df)
-            merge_keys = self._resolve_column_names(actual, merge_keys)
+            merge_keys = self.resolve_column_names(actual, merge_keys)
             if partition_columns:
-                partition_columns = self._resolve_column_names(
+                partition_columns = self.resolve_column_names(
                     actual, partition_columns
                 )
             if self._iceberg_catalog is None:
@@ -723,9 +823,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     "merge_options or write_options"
                 )
             actual = self._schema_names(df)
-            merge_keys = self._resolve_column_names(actual, merge_keys)
+            merge_keys = self.resolve_column_names(actual, merge_keys)
             if partition_columns:
-                partition_columns = self._resolve_column_names(
+                partition_columns = self.resolve_column_names(
                     actual, partition_columns
                 )
             if self._iceberg_catalog is None:
@@ -846,9 +946,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             )
 
         actual = self._schema_names(df)
-        merge_keys = self._resolve_column_names(actual, merge_keys)
+        merge_keys = self.resolve_column_names(actual, merge_keys)
         if partition_columns:
-            partition_columns = self._resolve_column_names(actual, partition_columns)
+            partition_columns = self.resolve_column_names(actual, partition_columns)
 
         delta_ops.scd2_path(
             df,
@@ -890,9 +990,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                     "merge_options or write_options"
                 )
             actual = self._schema_names(df)
-            merge_keys = self._resolve_column_names(actual, merge_keys)
+            merge_keys = self.resolve_column_names(actual, merge_keys)
             if partition_columns:
-                partition_columns = self._resolve_column_names(
+                partition_columns = self.resolve_column_names(
                     actual, partition_columns
                 )
             if self._iceberg_catalog is None:
@@ -929,13 +1029,13 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         return polars_transforms.drop_columns(df, to_drop)
 
     def select_columns(self, df: pl.LazyFrame, columns: List[str]) -> pl.LazyFrame:
-        resolved = self._resolve_column_names(self._schema_names(df), columns)
+        resolved = self.resolve_column_names(self._schema_names(df), columns)
         return polars_transforms.select_columns(df, resolved)
 
     def rename_column(
         self, df: pl.LazyFrame, old_name: str, new_name: str
     ) -> pl.LazyFrame:
-        actual_old = self._resolve_column_name(self._schema_names(df), old_name)
+        actual_old = self.resolve_column_name(self._schema_names(df), old_name)
         return polars_transforms.rename_column(df, actual_old, new_name)
 
     def rename_columns(self, df: pl.LazyFrame, mapping: Dict[str, str]) -> pl.LazyFrame:
@@ -943,7 +1043,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
             return df
         actual = self._schema_names(df)
         resolved = {
-            self._resolve_column_name(actual, old_name): new_name
+            self.resolve_column_name(actual, old_name): new_name
             for old_name, new_name in mapping.items()
         }
         return polars_transforms.rename_columns(df, resolved)
@@ -956,7 +1056,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         resolved_columns: List[str] = []
         for requested in rule.columns:
             try:
-                resolved_columns.append(self._resolve_column_name(actual, requested))
+                resolved_columns.append(self.resolve_column_name(actual, requested))
             except EngineError:
                 if missing_column_policy == "ignore":
                     continue
@@ -976,7 +1076,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         resolved_columns: List[str] = []
         for requested in rule.columns:
             try:
-                resolved_columns.append(self._resolve_column_name(actual, requested))
+                resolved_columns.append(self.resolve_column_name(actual, requested))
             except EngineError:
                 if missing_column_policy == "ignore":
                     continue
@@ -989,7 +1089,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         schema = df.collect_schema()
         actual = schema.names()
         columns = [
-            self._resolve_column_name(actual, requested)
+            self.resolve_column_name(actual, requested)
             for requested in definition.columns
         ]
         return polars_transforms.add_hash_column(df, definition, schema, columns)
@@ -1021,7 +1121,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 raise EngineError(
                     "Binary watermark comparison requires a qualified backend"
                 )
-            resolved_col = self._resolve_column_name(actual, col_name)
+            resolved_col = self.resolve_column_name(actual, col_name)
             dtype = schema[resolved_col]
             if isinstance(lower_val, str):
                 if dtype == pl.Date:
@@ -1085,9 +1185,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         order: str = "desc",
     ) -> pl.LazyFrame:
         actual = self._schema_names(df)
-        resolved_partition = self._resolve_column_names(actual, partition_columns)
+        resolved_partition = self.resolve_column_names(actual, partition_columns)
         resolved_order = (
-            self._resolve_column_names(actual, order_columns) if order_columns else None
+            self.resolve_column_names(actual, order_columns) if order_columns else None
         )
         return polars_transforms.deduplicate(
             df, resolved_partition, resolved_order, order
@@ -1101,8 +1201,8 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         order: str = "desc",
     ) -> pl.LazyFrame:
         actual = self._schema_names(df)
-        resolved_partition = self._resolve_column_names(actual, partition_columns)
-        resolved_order = self._resolve_column_names(actual, order_columns)
+        resolved_partition = self.resolve_column_names(actual, partition_columns)
+        resolved_order = self.resolve_column_names(actual, order_columns)
         return polars_transforms.deduplicate_by_rank(
             df, resolved_partition, resolved_order, order
         )
@@ -1120,7 +1220,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
     ) -> pl.LazyFrame:
         # Collect schema once — reused for name resolution and dtype inspection.
         schema = df.collect_schema()
-        actual_name = self._resolve_column_name(schema.names(), column_name)
+        actual_name = self.resolve_column_name(schema.names(), column_name)
         expr = build_cast_expr(
             actual_name,
             target_type,
@@ -1200,7 +1300,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         return polars_metrics.get_hive_schema(df)
 
     def get_max_values(self, df: pl.LazyFrame, columns: List[str]) -> Dict[str, Any]:
-        resolved = self._resolve_column_names(self._schema_names(df), columns)
+        resolved = self.resolve_column_names(self._schema_names(df), columns)
         return polars_metrics.get_max_values(df, resolved)
 
     def get_count_and_max_values(
@@ -1208,7 +1308,7 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
         df: pl.LazyFrame,
         columns: List[str],
     ) -> Tuple[int, Dict[str, Any]]:
-        resolved = self._resolve_column_names(self._schema_names(df), columns)
+        resolved = self.resolve_column_names(self._schema_names(df), columns)
         return polars_metrics.get_count_and_max_values(df, resolved)
 
     # ==================================================================
@@ -1331,11 +1431,9 @@ class PolarsEngine(BaseEngine["pl.LazyFrame"]):
                 "PolarsEngine does not support named Delta tables — use compact_by_path(path) instead"
             )
         if fmt_lower == Format.ICEBERG.value:
-            # pyiceberg does not yet provide compaction APIs (rewrite_data_files,
-            # rewrite_position_delete_files, rewrite_manifests). Log and no-op.
-            logger.warning(
-                "PolarsEngine compact_by_name: pyiceberg does not support compaction procedures; skipping"
-            )
+            from datacoolie.engines.contracts.maintenance import selected_actions
+            if selected_actions(do_compact=True, do_cleanup=False, compact_options=options):
+                raise EngineError("Polars Iceberg does not support compaction")
             return
         raise EngineError(f"PolarsEngine.compact_by_name: unsupported format {fmt!r}")
 

@@ -1,0 +1,1392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datacoolie.dev/schemas/logging-v7.json",
+  "title": "DataCoolie v7 observed execution logs",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/jobRecord"
+    },
+    {
+      "$ref": "#/$defs/dataflowRecord"
+    },
+    {
+      "$ref": "#/$defs/systemRecord"
+    }
+  ],
+  "$defs": {
+    "jsonValue": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "running",
+        "succeeded",
+        "failed",
+        "skipped"
+      ]
+    },
+    "terminalStatus": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "skipped"
+      ]
+    },
+    "nullableStatus": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "pending",
+        "running",
+        "succeeded",
+        "failed",
+        "skipped",
+        null
+      ]
+    },
+    "lowerOperator": {
+      "enum": [
+        ">",
+        ">="
+      ]
+    },
+    "upperOperator": {
+      "enum": [
+        "<",
+        "<="
+      ]
+    },
+    "nullableLowerOperator": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        ">",
+        ">=",
+        null
+      ]
+    },
+    "nullableUpperOperator": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "<",
+        "<=",
+        null
+      ]
+    },
+    "combineOperator": {
+      "enum": [
+        "OR"
+      ]
+    },
+    "nullableCombineOperator": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "OR",
+        null
+      ]
+    },
+    "sourceMode": {
+      "enum": [
+        "full",
+        "incremental",
+        "range"
+      ]
+    },
+    "nullableSourceMode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "full",
+        "incremental",
+        "range",
+        null
+      ]
+    },
+    "upperOrigin": {
+      "enum": [
+        "none",
+        "explicit",
+        "generated"
+      ]
+    },
+    "nullableUpperOrigin": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "none",
+        "explicit",
+        "generated",
+        null
+      ]
+    },
+    "loadStatus": {
+      "enum": [
+        "not_requested",
+        "loaded",
+        "reused",
+        "load_error"
+      ]
+    },
+    "nullableLoadStatus": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "not_requested",
+        "loaded",
+        "reused",
+        "load_error",
+        null
+      ]
+    },
+    "saveStatus": {
+      "enum": [
+        "not_requested",
+        "not_attempted",
+        "no_candidate",
+        "saved",
+        "save_error"
+      ]
+    },
+    "nullableSaveStatus": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "not_requested",
+        "not_attempted",
+        "no_candidate",
+        "saved",
+        "save_error",
+        null
+      ]
+    },
+    "candidateKind": {
+      "enum": [
+        "observed_max",
+        "request_end",
+        "opaque",
+        "metadata"
+      ]
+    },
+    "nullableCandidateKind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "observed_max",
+        "request_end",
+        "opaque",
+        "metadata",
+        null
+      ]
+    },
+    "executionType": {
+      "enum": [
+        "etl",
+        "replay",
+        "maintenance"
+      ]
+    },
+    "nullableExecutionType": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "etl",
+        "replay",
+        "maintenance",
+        null
+      ]
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nullableNumber": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "nullableInteger": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "typedDate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "__date__"
+      ],
+      "properties": {
+        "__date__": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        }
+      }
+    },
+    "typedDateTime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "__datetime__"
+      ],
+      "properties": {
+        "__datetime__": {
+          "type": "string",
+          "description": "Tagged watermark datetime: preserve offset-aware RFC3339 or canonical naive datetime.isoformat() without assuming a timezone.",
+          "anyOf": [
+            {
+              "format": "date-time"
+            },
+            {
+              "pattern": "^(?:(?!0000)[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)-02-29)T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,6})?(?![\\s\\S])"
+            }
+          ]
+        }
+      }
+    },
+    "typedTime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "__time__"
+      ],
+      "properties": {
+        "__time__": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})?$"
+        }
+      }
+    },
+    "typedDecimal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "__decimal__"
+      ],
+      "properties": {
+        "__decimal__": {
+          "type": "string",
+          "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$"
+        }
+      }
+    },
+    "typedBinary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "__binary__"
+      ],
+      "properties": {
+        "__binary__": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+        }
+      }
+    },
+    "typedValueRoot": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/typedDate"
+        },
+        {
+          "$ref": "#/$defs/typedDateTime"
+        },
+        {
+          "$ref": "#/$defs/typedTime"
+        },
+        {
+          "$ref": "#/$defs/typedDecimal"
+        },
+        {
+          "$ref": "#/$defs/typedBinary"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typedValueNested"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "anyOf": [
+              {
+                "const": "__date_folder_partition__"
+              },
+              {
+                "pattern": "^(?!__[\\s\\S]*__(?![\\s\\S]))[\\s\\S]*$"
+              }
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/typedValueNested"
+          }
+        }
+      ]
+    },
+    "typedValueNested": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/typedDate"
+        },
+        {
+          "$ref": "#/$defs/typedDateTime"
+        },
+        {
+          "$ref": "#/$defs/typedTime"
+        },
+        {
+          "$ref": "#/$defs/typedDecimal"
+        },
+        {
+          "$ref": "#/$defs/typedBinary"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typedValueNested"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(?!__[\\s\\S]*__(?![\\s\\S]))[\\s\\S]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/typedValueNested"
+          }
+        }
+      ]
+    },
+    "diagnosticIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "reason"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "maxLength": 192
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "truncated",
+            "omitted",
+            "invalid"
+          ]
+        }
+      }
+    },
+    "diagnosticIssues": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/diagnosticIssue"
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows_read",
+        "rows_written",
+        "rows_inserted",
+        "rows_updated",
+        "rows_deleted",
+        "files_added",
+        "files_removed",
+        "bytes_added",
+        "bytes_removed",
+        "bytes_saved"
+      ],
+      "properties": {
+        "rows_read": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_written": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_inserted": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_updated": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_deleted": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "files_added": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "files_removed": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "bytes_added": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "bytes_removed": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "bytes_saved": {
+          "$ref": "#/$defs/nullableInteger"
+        }
+      }
+    },
+    "readRange": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "column",
+        "start",
+        "end",
+        "lower_operator",
+        "upper_operator"
+      ],
+      "properties": {
+        "column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "end": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "lower_operator": {
+          "$ref": "#/$defs/lowerOperator"
+        },
+        "upper_operator": {
+          "$ref": "#/$defs/upperOperator"
+        }
+      }
+    },
+    "readRequest": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "watermark_start",
+        "watermark_end",
+        "watermark_start_operator",
+        "watermark_end_operator",
+        "read_range",
+        "reference_time"
+      ],
+      "properties": {
+        "watermark_start": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "watermark_end": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "watermark_start_operator": {
+          "$ref": "#/$defs/nullableLowerOperator"
+        },
+        "watermark_end_operator": {
+          "$ref": "#/$defs/nullableUpperOperator"
+        },
+        "read_range": {
+          "$ref": "#/$defs/readRange"
+        },
+        "reference_time": {
+          "type": "string"
+        }
+      }
+    },
+    "selection": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "lower",
+        "upper",
+        "lower_operator",
+        "upper_operator",
+        "combine_operator",
+        "upper_origin"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/nullableSourceMode"
+        },
+        "lower": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "upper": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "lower_operator": {
+          "$ref": "#/$defs/lowerOperator"
+        },
+        "upper_operator": {
+          "$ref": "#/$defs/upperOperator"
+        },
+        "combine_operator": {
+          "$ref": "#/$defs/combineOperator"
+        },
+        "upper_origin": {
+          "$ref": "#/$defs/upperOrigin"
+        }
+      }
+    },
+    "sourcePhase": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "status",
+        "rows_read",
+        "selection"
+      ],
+      "properties": {
+        "start_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "end_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "status": {
+          "$ref": "#/$defs/nullableStatus"
+        },
+        "message": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "rows_read": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "source_action": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        }
+      }
+    },
+    "transformPhase": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "status"
+      ],
+      "properties": {
+        "start_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "end_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "status": {
+          "$ref": "#/$defs/nullableStatus"
+        },
+        "message": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transformers_applied": {
+          "$ref": "#/$defs/jsonValue"
+        }
+      }
+    },
+    "destinationPhase": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "status",
+        "operation_type",
+        "rows_written",
+        "rows_inserted",
+        "rows_updated",
+        "rows_deleted",
+        "files_added",
+        "files_removed",
+        "bytes_added",
+        "bytes_removed",
+        "bytes_saved"
+      ],
+      "properties": {
+        "start_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "end_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "status": {
+          "$ref": "#/$defs/nullableStatus"
+        },
+        "message": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "operation_type": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "rows_written": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_inserted": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_updated": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "rows_deleted": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "files_added": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "files_removed": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "bytes_added": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "bytes_removed": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "bytes_saved": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "operation_details": {
+          "$ref": "#/$defs/jsonValue"
+        }
+      }
+    },
+    "candidate": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "values",
+        "kind"
+      ],
+      "properties": {
+        "values": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "kind": {
+          "$ref": "#/$defs/candidateKind"
+        }
+      }
+    },
+    "watermarkPhase": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "load_status",
+        "loaded_watermark",
+        "merge_base",
+        "candidate",
+        "watermark_to_save",
+        "save_status",
+        "saved_watermark"
+      ],
+      "properties": {
+        "load_status": {
+          "$ref": "#/$defs/loadStatus"
+        },
+        "loaded_watermark": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "merge_base": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "candidate": {
+          "$ref": "#/$defs/candidate"
+        },
+        "watermark_to_save": {
+          "$ref": "#/$defs/typedValueRoot"
+        },
+        "save_status": {
+          "$ref": "#/$defs/saveStatus"
+        },
+        "saved_watermark": {
+          "$ref": "#/$defs/typedValueRoot"
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_number",
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "status",
+        "source",
+        "transform",
+        "destination",
+        "watermark"
+      ],
+      "properties": {
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "end_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "status": {
+          "$ref": "#/$defs/nullableStatus"
+        },
+        "message": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source": {
+          "$ref": "#/$defs/sourcePhase"
+        },
+        "transform": {
+          "$ref": "#/$defs/transformPhase"
+        },
+        "destination": {
+          "$ref": "#/$defs/destinationPhase"
+        },
+        "watermark": {
+          "$ref": "#/$defs/watermarkPhase"
+        }
+      }
+    },
+    "dataflowRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "log_schema_version",
+        "_type",
+        "datacoolie_version",
+        "log_session_id",
+        "job_id",
+        "job_num",
+        "job_index",
+        "dataflow_id",
+        "dataflow_run_id",
+        "read_request",
+        "attempts",
+        "metrics",
+        "retry_attempts",
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "status"
+      ],
+      "properties": {
+        "log_schema_version": {
+          "const": 7
+        },
+        "_type": {
+          "const": "dataflow_run_log"
+        },
+        "datacoolie_version": {
+          "type": "string"
+        },
+        "log_session_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "job_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "job_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "job_index": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "dataflow_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "workspace_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "dataflow_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "dataflow_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "stage": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "group_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "execution_order": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "processing_mode": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "configure": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_connection_type": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_format": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_catalog": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_database": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_schema": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_table": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_full_table": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_path": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_query": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_python_function": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_watermark_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_filter_expression": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_configure": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_deduplicate_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_latest_data_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_filter_expression": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_additional_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_schema_hints": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_select_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_drop_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_rename_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_value_rules": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_hash_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_masking_rules": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "transform_configure": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_connection_type": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_format": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_catalog": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_database": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_schema": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_table": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_full_table": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_path": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_load_type": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_merge_keys": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_partition_columns": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "destination_configure": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "dataflow_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation_type": {
+          "$ref": "#/$defs/nullableExecutionType"
+        },
+        "start_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "end_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "status": {
+          "$ref": "#/$defs/terminalStatus"
+        },
+        "message": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "retry_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "read_request": {
+          "$ref": "#/$defs/readRequest"
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attempt"
+          }
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        },
+        "diagnostic_issues": {
+          "$ref": "#/$defs/diagnosticIssues"
+        }
+      }
+    },
+    "jobRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "log_schema_version",
+        "_type",
+        "datacoolie_version",
+        "job_id",
+        "status",
+        "total_dataflows",
+        "total_succeeded",
+        "total_failed",
+        "total_skipped"
+      ],
+      "properties": {
+        "log_schema_version": {
+          "const": 7
+        },
+        "_type": {
+          "const": "job_run_log"
+        },
+        "datacoolie_version": {
+          "type": "string"
+        },
+        "log_session_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "job_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "job_index": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "workspace_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "stages": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "engine_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "platform_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "metadata_provider_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "watermark_manager_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "max_workers": {
+          "type": "integer"
+        },
+        "stop_on_error": {
+          "type": "boolean"
+        },
+        "retry_count": {
+          "type": "integer"
+        },
+        "retry_delay": {
+          "type": "number"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "retention_hours": {
+          "type": "integer"
+        },
+        "run_attributes": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "start_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "end_time": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "duration_seconds": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "message": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "total_dataflows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_succeeded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_running": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_pending": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_rows_read": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_rows_written": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_rows_inserted": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_rows_updated": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_rows_deleted": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_files_added": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_files_removed": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_bytes_added": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "total_bytes_removed": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "log_records_dropped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "log_bytes_dropped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message_truncated": {
+          "type": "boolean"
+        },
+        "operation_types": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_at": {
+          "type": "string"
+        }
+      }
+    },
+    "systemRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "log_schema_version",
+        "_type",
+        "datacoolie_version",
+        "log_session_id",
+        "job_id",
+        "job_num",
+        "job_index",
+        "ts",
+        "level",
+        "logger"
+      ],
+      "properties": {
+        "log_schema_version": {
+          "const": 7
+        },
+        "_type": {
+          "const": "system_log"
+        },
+        "datacoolie_version": {
+          "type": "string"
+        },
+        "log_session_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "job_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "job_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "job_index": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "ts": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "logger": {
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "dataflow_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "dataflow_run_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "event_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "module": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "func": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "exc_info": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "diagnostic_issues": {
+          "$ref": "#/$defs/diagnosticIssues"
+        }
+      }
+    }
+  }
+}

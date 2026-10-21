@@ -168,6 +168,59 @@ class TestWatermarkSerializerDeserialize:
         with pytest.raises(WatermarkError, match="Invalid watermark JSON"):
             WatermarkSerializer.deserialize(raw)
 
+    @pytest.mark.parametrize("raw", [
+        '{"offset": 1e999}',
+        '{"offset": -1e999}',
+        '{"meta": {"offset": 1e999}}',
+        '{"offsets": [1, -1e999]}',
+    ])
+    def test_overflowed_json_numbers_are_corruption(self, raw: str) -> None:
+        with pytest.raises(WatermarkError, match="finite"):
+            WatermarkSerializer.deserialize(raw)
+
+    @pytest.mark.parametrize("key", [
+        "__datetime__", "__date__", "__time__", "__decimal__", "__binary__",
+        "__future_type__",
+    ])
+    def test_reserved_root_keys_are_corruption(self, key: str) -> None:
+        with pytest.raises(WatermarkError, match="Reserved watermark tag"):
+            WatermarkSerializer.deserialize(json.dumps({key: "value"}))
+
+    @pytest.mark.parametrize("parent", ["", "meta"])
+    def test_nested_date_folder_metadata_is_corruption(self, parent: str) -> None:
+        raw = json.dumps({parent: {DATE_FOLDER_PARTITION_KEY: "2026-01-02"}})
+        with pytest.raises(WatermarkError, match="Invalid watermark tag"):
+            WatermarkSerializer.deserialize(raw)
+
+    @pytest.mark.parametrize("payload", [
+        0.1, 1, True, False, None, {}, [], "bad", "NaN", "Infinity", "-Infinity",
+    ])
+    def test_invalid_decimal_payload_is_corruption(self, payload) -> None:
+        raw = json.dumps({"offset": {"__decimal__": payload}})
+        with pytest.raises(WatermarkError, match="Invalid decimal"):
+            WatermarkSerializer.deserialize(raw)
+
+    @pytest.mark.parametrize("text", ["0.1", "1.2300", "1E+30", "-0.000"])
+    def test_decimal_string_preserves_value_and_scale(self, text: str) -> None:
+        raw = json.dumps({"offset": {"__decimal__": text}})
+        restored = WatermarkSerializer.deserialize(raw)
+        assert restored["offset"].as_tuple() == Decimal(text).as_tuple()
+        assert json.loads(WatermarkSerializer.serialize(restored)) == json.loads(raw)
+
+    def test_nested_supported_values_and_folder_metadata_roundtrip(self) -> None:
+        original = {
+            DATE_FOLDER_PARTITION_KEY: "2026-01-02T00:00:00+00:00",
+            "": {"": [None, True, False, 0, 0.1, "09:15:00"]},
+            "values": [
+                {"date": date(2026, 1, 2)},
+                datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+                time(3, 4, 5), Decimal("0.1000"), b"\x00\xff",
+            ],
+        }
+        assert WatermarkSerializer.deserialize(
+            WatermarkSerializer.serialize(original)
+        ) == original
+
     def test_non_dict_json_is_corruption(self) -> None:
         with pytest.raises(WatermarkError, match="must contain an object"):
             WatermarkSerializer.deserialize("[1, 2, 3]")

@@ -137,7 +137,7 @@ Quick database connectivity check:
 - [ ] For inline database queries: `source.query` runs successfully by itself.
 - [ ] For SQL-file queries: the `.sql` path is resolved with the runner's
       `sql_base_path` or `artifact_base_path`; check the single-root or
-      multiple-root prefix rules in [Source patterns](source-patterns.md#read-a-sql-file).
+      multiple-root prefix rules in [Source patterns](source-database.md#read-a-sql-file).
 - [ ] For SQL-file queries: the resolved SQL text runs successfully and the
       selected query returns every column named by `watermark_columns` or later
       transform/destination rules.

@@ -10,7 +10,8 @@ from datacoolie.core.constants import ColumnCaseMode, DataFlowStatus, ExecutionT
 from datacoolie.core.exceptions import DataCoolieError
 from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.orchestration.execution.runtime import DataFlowRuntimeInfo
-from datacoolie.orchestration.execution.runtime import ReplayRuntimeInfo, ExecutionMetrics
+from datacoolie.orchestration.execution.runtime import ReplayRuntimeInfo
+from datacoolie.core.models.metrics import MetricAccumulator
 from datacoolie.core.models.run_config import ReplayConfig
 from datacoolie.logging.configuration.constants import LogEvent
 from datacoolie.logging.runtime.context import dataflow_context
@@ -242,6 +243,7 @@ def _process_replay_body(
         catch_base=True,
     )
     chunk_results: List[DataFlowRuntimeInfo] = []
+    metric_accumulator = MetricAccumulator()
     try:
         for index, (lower, upper) in enumerate(chunks, 1):
             emit_safely(
@@ -316,7 +318,10 @@ def _process_replay_body(
             if not execution_observation_attempted(chunk_runtime):
                 log_result_safely(log_result, metadata_snapshot or dataflow, chunk_runtime)
             runtime.chunk_run_ids.append(chunk_runtime.dataflow_run_id)
-            runtime.metrics = ExecutionMetrics.sum(result.metrics for result in chunk_results)
+            # Each terminal chunk contributes exactly once.  Missing values
+            # remain unobserved at the replay aggregate boundary.
+            metric_accumulator.add(chunk_runtime.metrics)
+            runtime.metrics = metric_accumulator.metrics
             runtime.retry_attempts += chunk_runtime.retry_attempts
             # The callback belongs to the chunk completion boundary.  Keep
             # its existing chunk identity visible even though the outer

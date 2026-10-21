@@ -34,11 +34,12 @@ Each authored `(fixture, flow)` has one primary owner; multiple recipes can refe
 it as support. Each scenario has one owning case. `dedicated_scenarios` is the
 explicit group execution route; broad bundles remain workflows.
 
-Local/Docker/AWS-MinIO definitions live in `metadata/file/<group>/`; each real-cloud
+Local/Docker/AWS-MinIO definitions live in `metadata/file/<group>.json`; each real-cloud
 platform has one ordinary smoke JSON in `platforms/<platform>/`, owned by a
 `workflows` case. Cloud smoke checks representative platform execution separately
 from the full local feature matrix. Local workflow manifests reference the local
-group documents. `cases` owns test intent and coverage, not another copy of ETL configuration.
+group documents under `scenarios/workflows/`. Shared connections and global hints
+have one canonical file each. `cases` owns test intent and coverage, not another copy of ETL configuration.
 Case IDs stay stable across file moves for dependency/history tracking; use
 `flows[].fixture` for current locations. Shared documents and manifests have
 explicit inventory reasons and their composition is audited.
@@ -58,9 +59,9 @@ remain smoke; services/cloud qualification needs its own prerequisites and evide
 Do not run `--all` or shared reset/bootstrap commands merely to improve the summary.
 Counts and statuses come from the catalog/audit, not a second hand-maintained table.
 `--group` scopes checklist, profile and execution rows while checking integrity
-of every catalog (`validation_scope: all_catalogs`). Duplicate flow names within
-one metadata document fail audit; equal names in different documents retain
-their distinct fixture identities.
+of every catalog (`validation_scope: all_catalogs`). Authored dataflow names and
+effective IDs are globally unique across the canonical flat group documents;
+fixture/flow identity still identifies each case's primary owner.
 
 The JSON report includes all `checks`, their `check_coverage` totals,
 `functional_check_coverage` excluding performance, and separate

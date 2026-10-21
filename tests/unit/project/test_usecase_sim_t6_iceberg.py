@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import sys
 from pathlib import Path
 
@@ -175,10 +174,7 @@ def test_o2_existing_readback_oracle_requires_exact_business_and_technical_schem
 
 
 def test_i3_fixture_declares_existing_identity_partition_without_expression() -> None:
-    fixture = json.loads(
-        (
-            SIM_ROOT / "metadata/file/merge/a9_iceberg_partition_change.json"
-        ).read_text(encoding="utf-8")
-    )
+    from runner.metadata_sources import recipe_document
+    fixture = recipe_document("merge", "a9_iceberg_partition_change")
     partition = fixture["dataflows"][0]["destination"]["partition_columns"][0]
     assert partition == {"column": "region"}

@@ -29,7 +29,6 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
-    from datacoolie.core.secrets.resolver import BaseSecretResolver
     from datacoolie.core.models.connection import Connection
 
 from datacoolie.core.constants import (
@@ -60,7 +59,8 @@ from datacoolie.transformers import TransformerPipeline
 # Destination writers
 from datacoolie.destinations import BaseDestinationWriter
 
-from datacoolie.orchestration.maintenance import dedupe_by_destination
+from datacoolie.orchestration.preparation.maintenance import prepare_selection, release_selection
+from datacoolie.engines.contracts.maintenance import selected_actions
 from datacoolie.orchestration.execution.activation import inactive_reason
 from datacoolie.orchestration.scheduling.job_distributor import JobDistributor
 from datacoolie.orchestration.scheduling.parallel_executor import ExecutionResult, ParallelExecutor
@@ -1033,7 +1033,13 @@ class DataCoolieDriver:
             active_only=active_only,
         )
 
-        unique = dedupe_by_destination(all_dataflows)
+        acquired = []
+        try:
+            items = prepare_selection(all_dataflows, engine=self._engine,
+                prepare_dataflow=self._prepare_execution_dataflow, acquired=acquired)
+            unique = [item.metadata for item in items]
+        finally:
+            release_selection(self._engine, acquired)
 
         self._dataflows = self._distributor.filter_dataflows(
             unique, active_only=active_only
@@ -1575,6 +1581,7 @@ class DataCoolieDriver:
         dataflows: Optional[List[DataFlow]] = None,
         do_compact: bool = True,
         do_cleanup: bool = True,
+        *, compact_options=None, cleanup_options=None,
     ) -> ExecutionResult:
         """Execute one admitted maintenance operation."""
         with self._driver_operation("run_maintenance"):
@@ -1583,6 +1590,7 @@ class DataCoolieDriver:
                 dataflows=dataflows,
                 do_compact=do_compact,
                 do_cleanup=do_cleanup,
+                compact_options=compact_options, cleanup_options=cleanup_options,
             )
             result = self._observe_operation_result(result)
             self._log_operation_finished("run_maintenance", result)
@@ -1594,6 +1602,7 @@ class DataCoolieDriver:
         dataflows: Optional[List[DataFlow]] = None,
         do_compact: bool = True,
         do_cleanup: bool = True,
+        *, compact_options=None, cleanup_options=None,
     ) -> ExecutionResult:
         """Run maintenance operations (optimize + vacuum).
 
@@ -1614,15 +1623,37 @@ class DataCoolieDriver:
         """
         emit_safely(logger, logging.DEBUG, "Starting maintenance run", catch_base=True)
 
-        if dataflows is not None:
-            target = dedupe_by_destination(dataflows)
-        else:
+        selected_actions(do_compact=do_compact, do_cleanup=do_cleanup,
+                         compact_options=compact_options, cleanup_options=cleanup_options)
+        from types import MappingProxyType
+        compact_options = MappingProxyType(dict(compact_options)) if compact_options else None
+        cleanup_options = MappingProxyType(dict(cleanup_options)) if cleanup_options else None
+        dataflows_from_metadata = dataflows is None
+        if dataflows is None:
             if self._metadata_provider is None:
                 raise ConfigurationError(
                     "metadata_provider is required to load maintenance dataflows; pass one "
                     "or provide an explicit dataflows list"
                 )
-            target = self._load_maintenance_dataflows(connection=connection)
+            dataflows = self._metadata_provider.get_maintenance_dataflows(connection=connection, active_only=True)
+
+        acquired = []
+        try:
+            items = prepare_selection(dataflows, engine=self._engine,
+                prepare_dataflow=self._prepare_execution_dataflow, acquired=acquired)
+            # Caller lists keep their preexisting no-second-shard semantics.
+            return self._execute_maintenance_selection(items, do_compact=do_compact,
+                do_cleanup=do_cleanup, compact_options=compact_options, cleanup_options=cleanup_options,
+                distribute=dataflows_from_metadata)
+        finally:
+            release_selection(self._engine, acquired)
+
+    def _execute_maintenance_selection(self, items, *, do_compact, do_cleanup,
+                                       compact_options, cleanup_options, distribute):
+        target = [item.metadata for item in items]
+        if distribute:
+            target = self._distributor.filter_dataflows(target, active_only=True)
+        by_id = {item.metadata.dataflow_id: item for item in items}
 
         if not target:
             emit_safely(
@@ -1643,9 +1674,11 @@ class DataCoolieDriver:
             result = self._executor.execute(
                 dataflows=target,
                 process_fn=functools.partial(
-                    self._process_maintenance,
+                    self._process_prepared_maintenance,
+                    prepared_items=by_id,
                     do_compact=do_compact,
                     do_cleanup=do_cleanup,
+                    compact_options=compact_options, cleanup_options=cleanup_options,
                 ),
                 callback=self._record_maintenance_complete,
                 operation_type=ExecutionType.MAINTENANCE.value,
@@ -1665,6 +1698,22 @@ class DataCoolieDriver:
             catch_base=True,
         )
         return result
+
+    def _process_prepared_maintenance(self, dataflow, *, prepared_items, do_compact,
+                                     do_cleanup, compact_options, cleanup_options):
+        item = prepared_items[dataflow.dataflow_id]
+        if item.execution is None:
+            return self._process_maintenance(dataflow, do_compact=do_compact, do_cleanup=do_cleanup)
+        binding = item.target if item.target.binding is not None or item.target.missing else None
+        if not do_compact and not do_cleanup:
+            binding = item.target
+        return run_prepared_execution(item.execution, operation_type=ExecutionType.MAINTENANCE.value,
+            retry_handler=self._retry_handler, preflight=lambda _execution: None,
+            attempt_runner=functools.partial(self._execute_maintenance_pipeline,
+                prepared_maintenance=binding, compact_options=compact_options, cleanup_options=cleanup_options),
+            log_result=self._log_dataflow_result,
+            attempt_kwargs={"do_compact": do_compact, "do_cleanup": do_cleanup},
+            include_dataflow_run_id=False)
 
     def _process_maintenance(
         self,
@@ -1703,6 +1752,7 @@ class DataCoolieDriver:
         *,
         baseline: ReadBaseline,
         attempt: AttemptRuntimeInfo,
+        prepared_maintenance=None, compact_options=None, cleanup_options=None,
     ) -> AttemptRuntimeInfo:
         """Run optimize + vacuum for *dataflow*.
 
@@ -1723,6 +1773,7 @@ class DataCoolieDriver:
             attempt=attempt,
             create_destination_writer=self._create_destination_writer,
             retention_hours=self._config.retention_hours,
+            prepared_maintenance=prepared_maintenance, compact_options=compact_options, cleanup_options=cleanup_options,
             do_compact=do_compact,
             do_cleanup=do_cleanup,
         )
@@ -1735,15 +1786,10 @@ class DataCoolieDriver:
         """Resolve secret references for one runtime connection."""
         from datacoolie import resolver_registry
 
-        def _lookup(prefix: str) -> BaseSecretResolver | None:
-            if resolver_registry.is_available(prefix):
-                return resolver_registry.get_or_create(prefix)
-            return None
-
         resolve_secrets(
             connection,
             self._secret_provider,
-            resolver_lookup=_lookup,
+            resolver_lookup=resolver_registry.get_or_create_optional,
         )
 
     # ------------------------------------------------------------------

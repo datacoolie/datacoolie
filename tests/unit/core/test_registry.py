@@ -583,3 +583,69 @@ def test_unregister_raises_when_not_registered() -> None:
     reg = PluginRegistry(entry_point_group='test.group', base_class=_DummyBase)
     with pytest.raises(DataCoolieError, match='not registered'):
         reg.unregister('nonexistent')
+
+@pytest.mark.parametrize("kind", ["load", "invalid", "constructor"])
+def test_optional_selected_failure_preserves_cause_and_unrelated_absence(monkeypatch, kind):
+    from types import SimpleNamespace
+    cause = RuntimeError("selected failure")
+    class Broken(_ConcreteA):
+        def __init__(self, **kwargs):
+            raise cause
+    def load():
+        if kind == "load":
+            raise cause
+        return object if kind == "invalid" else Broken
+    monkeypatch.setattr('datacoolie.core.registry.entry_points', lambda **kw: [
+        SimpleNamespace(name='broken', load=load),
+        SimpleNamespace(name='healthy', load=lambda: _ConcreteA)])
+    reg = PluginRegistry('test.optional', _DummyBase)
+    assert reg.get_or_create_optional('absent') is None
+    assert reg.get_or_create_optional('healthy') is reg.get_or_create('healthy')
+    with pytest.raises(DataCoolieError) as caught:
+        reg.get_or_create_optional('broken')
+    assert caught.value.__cause__ is (cause if kind != 'invalid' else reg._discovery_plugin_errors['broken'])
+    assert reg.is_available('broken') is (kind == 'constructor')
+    reg.register('broken', _ConcreteB)
+    assert isinstance(reg.get_or_create_optional('broken'), _ConcreteB)
+
+
+def test_optional_incomplete_enumeration_cannot_prove_absence(monkeypatch):
+    from types import SimpleNamespace
+    cause = RuntimeError('group enumeration failed')
+    def entries():
+        yield SimpleNamespace(name='healthy', load=lambda: _ConcreteA)
+        raise cause
+    monkeypatch.setattr('datacoolie.core.registry.entry_points', lambda **kw: entries())
+    reg = PluginRegistry('test.partial', _DummyBase)
+    assert isinstance(reg.get_or_create_optional('healthy'), _ConcreteA)
+    with pytest.raises(DataCoolieError) as caught:
+        reg.get_or_create_optional('absent')
+    assert caught.value.__cause__ is cause
+
+
+def test_optional_and_required_lookup_share_singleton_construction(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    monkeypatch.setattr('datacoolie.core.registry.entry_points', lambda **kw: [])
+    entered, release = threading.Event(), threading.Event()
+    calls = []
+    class Slow(_ConcreteA):
+        def __init__(self, **kwargs):
+            calls.append(self)
+            entered.set()
+            assert release.wait(3)
+    reg = PluginRegistry('test.optional.concurrent', _DummyBase)
+    reg.register('slow', Slow)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(reg.get_or_create_optional, 'slow')
+        assert entered.wait(3)
+        second = pool.submit(reg.get_or_create, 'slow')
+        release.set()
+        assert first.result(3) is second.result(3)
+    assert len(calls) == 1
+
+@pytest.mark.parametrize('method', ['get_or_create', 'get_or_create_optional'])
+def test_singleton_lookup_preserves_optional_constructor_keyword(monkeypatch, method):
+    monkeypatch.setattr('datacoolie.core.registry.entry_points', lambda **kw: [])
+    registry = PluginRegistry('test.kwargs', _DummyBase)
+    registry.register('plugin', _ConcreteA)
+    assert getattr(registry, method)('plugin', optional=True).kwargs == {'optional': True}

@@ -267,7 +267,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "replay__orders",
           "role": "primary"
         }
@@ -298,7 +298,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_api_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "api_replay_validation",
           "role": "primary"
         }
@@ -329,7 +329,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_aws_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "aws_replay_validation",
           "role": "primary"
         }
@@ -360,7 +360,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_iceberg_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "iceberg_replay_validation",
           "role": "primary"
         }
@@ -391,7 +391,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_sql_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "sql_replay_validation",
           "role": "primary"
         }
@@ -422,7 +422,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "replay__orders",
           "role": "support"
         }
@@ -460,7 +460,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/local.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "replay__orders",
           "role": "support"
         }
@@ -562,7 +562,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_api_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "api_replay_validation",
           "role": "support"
         }
@@ -600,7 +600,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_api_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "api_replay_validation",
           "role": "support"
         }
@@ -638,7 +638,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_sql_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "sql_replay_validation",
           "role": "support"
         }
@@ -676,7 +676,7 @@
       "contract": "src/datacoolie/orchestration/driver.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/replay/replay_sql_validation.json",
+          "fixture": "usecase-sim/metadata/file/replay.json",
           "flow": "sql_replay_validation",
           "role": "support"
         }

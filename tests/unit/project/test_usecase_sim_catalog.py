@@ -584,19 +584,48 @@ def test_malformed_case_array_is_reported_without_shape_iteration_crash(tmp_path
     assert any(item["code"] == "catalog_field_type" for item in report["errors"])
 
 
-def test_check_coverage_views_separate_functional_and_measurement_scopes():
+def test_check_coverage_views_separate_functional_and_measurement_scopes(tmp_path):
     module = _load_catalog_module()
-    report = module.audit_catalog(SIM_ROOT)
-    performance = module.audit_catalog(SIM_ROOT, "performance")
-    merge = module.audit_catalog(SIM_ROOT, "merge")
+    root = _fixture_root(tmp_path)
+    path = root / "cases" / "demo.json"
+    catalog = json.loads(path.read_text(encoding="utf-8"))
+    catalog["behaviors"][0]["checks"] = [{
+        "id": "demo.check", "acceptance": "one functional observation",
+        "preconditions": [], "case_ids": ["demo.case"],
+        "assertion_owners": ["assertions.py::test_demo"], "coverage": "asserted",
+        "gap": "", "next_action": "none",
+    }]
+    path.write_text(json.dumps(catalog), encoding="utf-8")
+    (root / "cases" / "performance.json").write_text(json.dumps({
+        "group": "performance", "cases": [], "behaviors": [{
+            "id": "performance.b", "intent": "measure listing", "contract": "assertions.py",
+            "coverage": "asserted", "assertion_owners": ["assertions.py::test_demo"],
+            "checks": [{
+                "id": "performance.check", "acceptance": "one measurement",
+                "preconditions": [], "case_ids": [],
+                "assertion_owners": ["assertions.py::test_demo"], "coverage": "asserted",
+                "gap": "", "next_action": "none",
+            }],
+        }],
+    }), encoding="utf-8")
+    report = module.audit_catalog(root)
+    performance = module.audit_catalog(root, "performance")
+    functional = module.audit_catalog(root, "demo")
 
+    assert report["ok"], report["errors"]
     assert performance["functional_check_coverage"]["total"] == 0
-    assert performance["measurement_check_coverage"]["total"] == 2
-    assert merge["measurement_check_coverage"]["total"] == 0
+    assert performance["measurement_check_coverage"]["total"] == 1
+    assert functional["functional_check_coverage"]["total"] == 1
+    assert functional["measurement_check_coverage"]["total"] == 0
     assert report["functional_check_coverage"]["total"] + report["measurement_check_coverage"]["total"] == report["check_coverage"]["total"]
     compact = module.compact_audit_report(report)
     assert compact["functional_check_coverage"] == report["functional_check_coverage"]
     assert compact["measurement_check_coverage"] == report["measurement_check_coverage"]
+
+
+def test_authored_catalog_integrity():
+    report = _load_catalog_module().audit_catalog(SIM_ROOT)
+    assert report["ok"], report["errors"]
 
 
 def test_group_report_scopes_presentation_but_keeps_global_integrity_errors(tmp_path):

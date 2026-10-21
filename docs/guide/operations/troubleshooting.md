@@ -113,7 +113,7 @@ provider-owned state root. Custom readers must handle absent state according
 to their contract or reject an unsupported initial read clearly. Use an
 explicit bounded replay for a history load when supported; do not fabricate
 watermark state to hide a storage failure. See
-[API source configuration](../metadata/source-patterns.md#push-down-and-split-watermark-ranges).
+[API source configuration](../metadata/source-api.md#push-down-and-split-watermark-ranges).
 
 ## Maintenance succeeded but compaction or cleanup had no effect
 

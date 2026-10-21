@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from datacoolie.core.constants import DataFlowStatus
@@ -32,8 +34,19 @@ class TestDeltaReader:
     def test_read_from_query(self, engine: MockEngine, query_source: Source) -> None:
         engine.set_max_values({"modified_at": "2024-06-01"})
         reader = DeltaReader(engine)
-        result = reader.read(query_source, request=read_request())
-        assert result is not None
+        with patch.object(engine, "execute_sql", wraps=engine.execute_sql) as execute_sql, \
+             patch.object(engine, "read", wraps=engine.read) as read:
+            result = reader.read(query_source, request=read_request())
+
+        execute_sql.assert_called_once_with(query_source.query)
+        read.assert_not_called()
+        assert result.frame == engine._data
+        assert result.rows_read == 3
+        assert result.runtime is not None
+        assert result.runtime.source_action == {
+            "reader": "DeltaReader",
+            "query": query_source.query,
+        }
 
     def test_read_with_watermark(self, engine: MockEngine, delta_source: Source) -> None:
         engine.set_max_values({"modified_at": "2024-06-15"})

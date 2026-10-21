@@ -96,7 +96,7 @@ class ColumnProjector(BaseTransformer[DF]):
         current_lower = {column.lower(): column for column in current}
         for source, target in transform.rename_columns.items():
             try:
-                actual_source = self._engine._resolve_column_name(current, source)
+                actual_source = self._engine.resolve_column_name(current, source)
             except EngineError:
                 if transform.missing_column_policy == "ignore":
                     ignored_references += 1
@@ -153,7 +153,7 @@ class ColumnProjector(BaseTransformer[DF]):
         resolved: list[str] = []
         for column in requested:
             try:
-                resolved.append(self._engine._resolve_column_name(actual, column))
+                resolved.append(self._engine.resolve_column_name(actual, column))
             except EngineError:
                 if policy != "ignore":
                     raise

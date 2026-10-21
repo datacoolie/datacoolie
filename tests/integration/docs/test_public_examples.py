@@ -16,6 +16,7 @@ import importlib.util
 
 import pytest
 
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION
 from docs.scripts._examples import is_excluded, iter_public_files
 
 
@@ -756,7 +757,7 @@ def test_local_runner_persists_snapshot_job_and_batch_dataflow_logs(tmp_path: Pa
     system_records = records(system_files)
     assert dataflow_records
     assert len(job_records) == 1
-    assert all(record["log_schema_version"] == 6 for record in dataflow_records + job_records + system_records)
+    assert all(record["log_schema_version"] == LOG_SCHEMA_VERSION for record in dataflow_records + job_records + system_records)
     assert all(record["_type"] in {"dataflow_run_log", "job_run_log"} for record in dataflow_records + job_records)
     assert all(record["_type"] == "system_log" for record in system_records)
     assert dataflow_records[0]["dataflow_run_id"]

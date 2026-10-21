@@ -16,6 +16,7 @@ from pyspark.sql import functions as sf
 
 from datacoolie.core.constants import FileInfoColumn, Format, LoadType
 from datacoolie.core.exceptions import EngineError
+from datacoolie.engines.contracts.json_framing import resolve_json_multiline
 
 
 def apply_options(target: Any, options: Optional[Dict[str, Any]]) -> Any:
@@ -133,7 +134,9 @@ def read_json(
     *,
     multiline: bool,
 ) -> DataFrame:
-    merged = {"multiLine": str(multiline).lower(), **_with_base_path(options)}
+    effective = resolve_json_multiline("json" if multiline else "jsonl", options)
+    merged = _with_base_path(options)
+    merged["multiLine"] = str(effective).lower()
     return apply_options(spark.read.format("json"), merged).load(path)
 
 

@@ -13,6 +13,7 @@ import polars as pl
 
 from datacoolie.core.constants import FileInfoColumn, Format, LoadType
 from datacoolie.core.exceptions import EngineError
+from datacoolie.engines.contracts.json_framing import resolve_json_multiline
 from datacoolie.engines.base import FileInfo
 from datacoolie.platforms.base import BasePlatform
 from datacoolie.utils.path_utils import normalize_path
@@ -200,10 +201,8 @@ def scan_csv(
 def _json_read_options(options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Translate portable JSON read options to the Polars reader contract.
 
-    ``multiLine`` is a Spark reader option.  Polars' JSON reader already
-    accepts a complete JSON document, so there is no equivalent switch.  The
-    remaining supported options are passed explicitly instead of silently
-    dropping every option at the engine facade.
+    Framing is resolved before choosing the document or NDJSON parser.
+    This function maps options for the complete-document parser only.
     """
 
     raw = dict(options or {})
@@ -238,6 +237,8 @@ def read_json_files(
 ) -> pl.LazyFrame:
     """Read JSON files while preserving the engine-specific read options."""
 
+    if not resolve_json_multiline("json", options):
+        return scan_jsonl(list(paths), options, {})
     read_options = _json_read_options(options)
     frames = [
         _replace_eager_file_info_columns(
@@ -255,6 +256,8 @@ def scan_jsonl(
     storage_options: Dict[str, Any],
 ) -> pl.LazyFrame:
     merged = dict(options or {})
+    resolve_json_multiline("jsonl", merged)
+    merged.pop("multiLine", None)
     merged.pop("use_hive_partitioning", None)
     if storage_options:
         merged["storage_options"] = storage_options

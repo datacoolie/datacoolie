@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-import json
 import sys
 from pathlib import Path
 
@@ -29,11 +28,10 @@ from schema_types.validate_ntz_timezone import (  # noqa: E402
 from datacoolie.utils.identity import name_to_uuid  # noqa: E402
 
 
-METADATA_PATH = SIM_ROOT / "metadata" / "file" / "schema_types" / "ntz_timezone.json"
-
-
 def test_authored_ntz_fixture_activates_explicit_timezone_conversion() -> None:
-    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+
+    metadata = recipe_document("schema_types", "ntz_timezone")
     connections = {item["name"]: item for item in metadata["connections"]}
     flows = metadata["dataflows"]
 

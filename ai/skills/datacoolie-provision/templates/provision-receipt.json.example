@@ -22,13 +22,26 @@
     "backend_reference": null,
     "status": "unchanged"
   },
-  "actions": [],
+  "actions": [
+    {
+      "resource": "control-storage",
+      "action": "no_change",
+      "status": "planned",
+      "data_bearing": false,
+      "evidence": "observed existing resource"
+    }
+  ],
   "resource_outputs": [],
   "verification": [
     {
-      "name": "plan-validation",
+      "name": "resource-observation",
       "status": "passed",
-      "evidence": "validated persisted plan"
+      "evidence": "{\"environment\":\"example\",\"requirements\":{\"path\":\"architecture/current.md\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"},\"resource\":\"control-storage\",\"capability\":\"metadata-read\",\"observation\":\"readiness observed\"}"
+    },
+    {
+      "name": "host-access",
+      "status": "passed",
+      "evidence": "{\"environment\":\"example\",\"requirements\":{\"path\":\"architecture/current.md\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"},\"resource\":\"execution-host\",\"capability\":\"host-access\",\"observation\":\"readiness observed\"}"
     }
   ],
   "started_at": "2026-08-10T00:00:00Z",

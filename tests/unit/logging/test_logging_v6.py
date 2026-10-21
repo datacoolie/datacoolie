@@ -14,7 +14,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 from datacoolie.core.exceptions import WatermarkError
 from datacoolie.watermark.base import WatermarkSerializer
-from datacoolie.logging.persistence.serialization import serialize_source_runtime
+from datacoolie.logging.persistence.serialization import serialize_source_runtime, serialize_watermark_value
 from datacoolie.sources.runtime import SourceRuntimeInfo
 from tests.fixtures.logging.v6.generator import generate
 
@@ -56,15 +56,16 @@ def test_checked_in_producer_fixtures_match_manifest_and_schema():
             assert not errors, [(list(error.path), error.message) for error in errors]
 
 
-def test_fixture_generator_is_deterministic_and_uses_actual_current_producer(tmp_path):
-    generate(tmp_path)
+def test_fixture_generator_is_deterministic_without_rewriting_historical_v6(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    generate(first)
+    generate(second)
     manifest = _manifest()
     expected_files = set(manifest["streams"]) | {"manifest.json"}
-    assert {path.name for path in tmp_path.iterdir()} == expected_files
+    assert {path.name for path in first.iterdir()} == expected_files
     for filename in expected_files:
-        assert (tmp_path / filename).read_bytes() == (
-            FIXTURE_ROOT / filename
-        ).read_bytes()
+        assert (first / filename).read_bytes() == (second / filename).read_bytes()
 
 
 def test_v6_schema_enforces_identity_terminal_status_and_root_nested_keys():
@@ -257,6 +258,32 @@ def test_invalid_typed_tags_are_rejected_by_schema_or_codec():
     ):
         with pytest.raises(WatermarkError):
             WatermarkSerializer.deserialize(json.dumps({"value": value}))
+
+
+@pytest.mark.parametrize('value', [
+    datetime(2024, 1, 2, 10, 5), datetime(2000, 2, 29, 23, 59, 59, 123456),
+    datetime(1, 1, 1), datetime(9999, 12, 31, 23, 59, 59),
+    datetime(2024, 1, 2, 10, 5, tzinfo=timezone.utc),
+])
+def test_producer_tagged_datetime_is_schema_valid_and_roundtrips(value):
+    encoded = serialize_watermark_value({'event_date': value})
+    assert encoded == {'event_date': {'__datetime__': value.isoformat()}}
+    row = _rows('dataflow_snapshot.json')[0]
+    row['attempts'][0]['source']['selection']['lower'] = encoded
+    row['attempts'][0]['watermark']['loaded_watermark'] = encoded
+    assert not list(_validator().iter_errors(row))
+    assert WatermarkSerializer.deserialize(json.dumps(encoded)) == {'event_date': value}
+
+
+@pytest.mark.parametrize('value', [
+    '1900-02-29T10:05:00', '2024-04-31T10:05:00', '0000-01-01T00:00:00',
+    '2024-01-02T24:00:00', '2024-01-02T10:05:60', '2024-01-02T10:05:00.1234567',
+    '2024-01-02T10:05:00\n', '2024-01-02T10:05:00 ', 'not-a-date',
+])
+def test_schema_rejects_malformed_naive_tagged_datetime(value):
+    row = _rows('dataflow_snapshot.json')[0]
+    row['attempts'][0]['source']['selection']['lower'] = {'event_date': {'__datetime__': value}}
+    assert list(_validator().iter_errors(row))
 
 
 def test_v6_runtime_is_native_allowlisted_and_preserves_optional_nulls():

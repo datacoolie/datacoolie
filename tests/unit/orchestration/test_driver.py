@@ -106,6 +106,10 @@ def _mock_engine():
     engine.count_rows.return_value = 5
     engine.table_exists.return_value = True
     engine.get_maintenance_metrics.return_value = {}
+    from datacoolie.engines.contracts.maintenance import PreparedMaintenanceTarget
+    engine.prepare_maintenance_target.side_effect = lambda *, fmt, table_name=None, path=None, table_address=None: PreparedMaintenanceTarget(
+        fmt, table_name, path, f"test-backend:{table_name or path}")
+    engine.maintenance_preparation.side_effect = lambda: engine.prepare_maintenance_target
     return engine
 
 
@@ -1614,7 +1618,10 @@ class TestProcessMaintenance:
             result = d._process_maintenance(df)
 
         assert result.status == DataFlowStatus.SUCCEEDED.value
-        assert result.final_attempt.destination == succeeded
+        assert result.final_attempt.destination.status == succeeded.status
+        assert result.final_attempt.destination.message == succeeded.message
+        assert result.final_attempt.destination.end_time is not None
+        assert succeeded.end_time is None
         assert result.final_attempt.destination is not succeeded
         assert result.final_attempt.destination is result.attempts[-1].destination
         assert result.retry_attempts == 1
@@ -1678,7 +1685,10 @@ class TestProcessMaintenance:
 
         assert result.status == DataFlowStatus.SKIPPED.value
         assert result.message == "Maintenance performed no operations"
-        assert result.final_attempt.destination == skipped
+        assert result.final_attempt.destination.status == skipped.status
+        assert result.final_attempt.destination.message == skipped.message
+        assert result.final_attempt.destination.end_time is not None
+        assert skipped.end_time is None
         assert result.final_attempt.destination is not skipped
         assert result.final_attempt.destination is result.attempts[-1].destination
         writer_factory.assert_called_once_with(df.destination.connection.format)
@@ -3004,7 +3014,7 @@ class TestDriverProcessingEdgeCases:
 
         with patch.object(
             driver,
-            "_process_maintenance",
+            "_process_prepared_maintenance",
             side_effect=RuntimeError("maintenance boundary failed"),
         ):
             result = driver._run_maintenance(dataflows=[dataflow])
@@ -3507,3 +3517,72 @@ class TestDriverRemainingCoverage:
         with patch('datacoolie.source_registry.get', return_value=mock_source):
             reader = driver._create_source_reader(Format.FUNCTION.value)
         assert reader == mock_source
+
+@pytest.mark.parametrize("kind", ["load", "invalid", "constructor", "group"])
+def test_selected_broken_resolver_prevents_preparation_side_effects(monkeypatch, kind):
+    from types import SimpleNamespace
+    import datacoolie
+    from datacoolie.core.registry import PluginRegistry
+    from datacoolie.core.secrets.resolver import BaseSecretResolver
+    cause = ImportError('synthetic selected resolver failure')
+    class Broken(BaseSecretResolver):
+        def __init__(self):
+            raise cause
+        def resolve(self, key, source):
+            raise AssertionError('unreachable')
+    def load():
+        if kind == 'load':
+            raise cause
+        return object if kind == 'invalid' else Broken
+    def entries(**kwargs):
+        if kind == 'group':
+            raise cause
+        return [SimpleNamespace(name='vault', load=load)]
+    monkeypatch.setattr('datacoolie.core.registry.entry_points', entries)
+    monkeypatch.setattr(datacoolie, 'resolver_registry', PluginRegistry('test.resolvers', BaseSecretResolver))
+    driver, _, _, watermark = _make_driver()
+    provider = MagicMock()
+    driver._secret_provider = provider
+    flow = _dataflow()
+    flow.source.connection.secrets_ref = {'vault:team': ['password']}
+    flow.source.connection.configure['password'] = 'synthetic-key'
+    with patch.object(driver, '_create_source_reader') as reader, \
+         patch.object(driver, '_create_destination_writer') as writer:
+        runtime = driver._process_dataflow(flow)
+    assert runtime.status == 'failed'
+    assert runtime.attempts == []
+    provider.get_secret.assert_not_called()
+    reader.assert_not_called()
+    writer.assert_not_called()
+    watermark.save_watermark.assert_not_called()
+    assert flow.source.connection.configure['password'] == 'synthetic-key'
+
+
+@pytest.mark.parametrize('source', ['unknown:team', 'team'])
+def test_absent_resolver_retains_native_fallback(monkeypatch, source):
+    import datacoolie
+    from datacoolie.core.registry import PluginRegistry
+    from datacoolie.core.secrets.resolver import BaseSecretResolver
+    monkeypatch.setattr('datacoolie.core.registry.entry_points', lambda **kw: [])
+    monkeypatch.setattr(datacoolie, 'resolver_registry', PluginRegistry('test.resolvers', BaseSecretResolver))
+    driver, *_ = _make_driver()
+    provider = MagicMock()
+    provider.get_secret.return_value = 'synthetic-value'
+    driver._secret_provider = provider
+    connection = _conn()
+    connection.secrets_ref = {source: ['password']}
+    connection.configure['password'] = 'synthetic-key'
+    driver._resolve_secrets_for_connection(connection)
+    provider.get_secret.assert_called_once_with('synthetic-key', source)
+
+
+def test_driver_close_keeps_borrowed_fabric_platform_open():
+    from datacoolie.platforms.fabric_platform import FabricPlatform
+    platform = FabricPlatform(runtime='external')
+    driver = DataCoolieDriver(engine=_mock_engine(), platform=platform,
+        metadata_provider=_mock_metadata(), watermark_manager=_mock_watermark(),
+        config=DataCoolieRunConfig())
+    driver.close()
+    assert not platform._closed
+    assert platform._backend is None
+    platform.close()

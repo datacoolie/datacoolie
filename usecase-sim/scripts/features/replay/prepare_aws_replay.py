@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from runner.owned_process import run_owned
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
+from runner.metadata_sources import recipe_document
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -19,7 +20,6 @@ import boto3
 
 ROOT = SIM_ROOT
 BUCKET = "datacoolie-test"
-METADATA_FILE = ROOT / "metadata" / "file" / "replay" / "replay_aws_validation.json"
 ENDPOINT = os.environ.get("DATACOOLIE_MINIO_ENDPOINT", "http://localhost:9000")
 
 
@@ -49,17 +49,13 @@ def main() -> int:
     parser.add_argument("--engine", choices=("polars", "spark"), required=True)
     args = parser.parse_args()
 
-    if not METADATA_FILE.is_file():
-        raise SystemExit(f"Missing checked-in metadata fixture: {METADATA_FILE}")
-
     # Re-seed the standard AWS/MinIO input fixture through the supported setup
-    # path, then publish the replay-only metadata file beside it.
+    # path, then publish the exact flat-recipe projection beside it.
     generate = ROOT / "scripts" / "bootstrap" / "generate_data.py"
-    completed = subprocess.run(
+    completed = run_owned(
         [sys.executable, str(generate), "--targets", "minio"],
         cwd=str(ROOT.parent),
-        check=False,
-        text=True,
+        timeout=150,
     )
     if completed.returncode:
         raise SystemExit(completed.returncode)
@@ -67,7 +63,7 @@ def main() -> int:
     client = _client()
     metadata_key = f"metadata/replay_aws_validation_{args.engine}.json"
     output_table = f"aws_replay_validation_{args.engine}"
-    metadata = json.loads(METADATA_FILE.read_text(encoding="utf-8"))
+    metadata = recipe_document("replay", "replay_aws_validation")
     metadata["dataflows"][0]["destination"]["table"] = output_table
     client.put_object(
         Bucket=BUCKET,

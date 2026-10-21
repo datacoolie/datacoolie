@@ -4,6 +4,7 @@ from io import StringIO
 import json
 from pathlib import Path
 import tomllib
+import zipfile
 
 import pytest
 
@@ -748,9 +749,41 @@ version = \"0.1.0\"
         encoding="utf-8",
     )
     config = load_project_config(project)
+    plan = plan_function_packaging(project / "functions", "auto")
+    assert plan.packaging == "wheel"
+    assert plan.backend == "setuptools.build_meta"
     built = build_project(config)
-    function_root = Path(built["build_path"]) / "dev" / "functions"
-    assert len(list(function_root.glob("*.whl"))) == 1
+    build_root = Path(built["build_path"])
+    root_manifest = json.loads((build_root / "manifest.json").read_text(encoding="utf-8"))
+    function_records = root_manifest["functions_artifact"]
+    assert len(function_records) == 1
+    function_record = function_records[0]
+    assert function_record["requested_packaging"] == "auto"
+    assert function_record["packaging"] == "wheel"
+    assert function_record["backend"] == "setuptools.build_meta"
+    assert function_record["path"] == "functions"
+    assert len(function_record["sha256"]) == 64
+    environment_record = root_manifest["environments"]["dev"]["functions"]
+    assert environment_record[0]["packaging"] == "wheel"
+    function_root = build_root / "dev" / "functions"
+    wheels = sorted(function_root.glob("*.whl"))
+    assert len(wheels) == 1
+    wheel = wheels[0]
+    assert environment_record[0]["files"] == [f"functions/{wheel.name}"]
+    with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
+        metadata_names = [name for name in names if name.endswith(".dist-info/METADATA")]
+        wheel_metadata_names = [name for name in names if name.endswith(".dist-info/WHEEL")]
+        assert len(metadata_names) == 1
+        assert len(wheel_metadata_names) == 1
+        metadata = archive.read(metadata_names[0]).decode("utf-8")
+        wheel_metadata = archive.read(wheel_metadata_names[0]).decode("utf-8")
+        assert "Name: orders-functions" in metadata.splitlines()
+        assert "Version: 0.1.0" in metadata.splitlines()
+        assert "Wheel-Version: 1.0" in wheel_metadata.splitlines()
+        assert "Root-Is-Purelib: true" in wheel_metadata.splitlines()
+        assert "Tag: py3-none-any" in wheel_metadata.splitlines()
+        assert archive.read("helpers.py").decode("utf-8").splitlines() == ["VALUE = 1"]
 
 
 def test_multi_root_build_routes_sql_and_records_function_modes(

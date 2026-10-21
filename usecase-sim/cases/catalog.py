@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import json
 import re
 import sys
@@ -33,6 +34,8 @@ VALID_COVERAGE = {
 VALID_FLOW_ROLES = {"primary", "support"}
 VALID_RECEIPT_STATUSES = {"passed", "failed", "blocked", "not_run"}
 _EXCLUDED_PARTS = {".runtime", "cases", "scenarios"}
+BUNDLE_KIND = "bundle"
+_SCENARIO_STEP_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 class CatalogError(ValueError):
@@ -154,6 +157,102 @@ def load_scenario_registry(root: str | Path | None = None) -> dict[str, dict[str
     if any(not isinstance(item, dict) for item in value.values()):
         raise CatalogError("scenario registry values must be objects")
     return value
+
+
+def _bundle_steps(name: str, value: Mapping[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:
+    """Return validated ordered steps for one canonical scenario bundle."""
+
+    if value.get("kind") != BUNDLE_KIND:
+        return []
+    raw = value.get("steps")
+    if not isinstance(raw, list) or not raw:
+        raise CatalogError(f"scenario bundle {name} steps must be a non-empty array")
+    result: list[tuple[str, Mapping[str, Any]]] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise CatalogError(f"scenario bundle {name} step must be an object")
+        step_id = item.get("id")
+        recipe = item.get("recipe")
+        if not isinstance(step_id, str) or not step_id or not _SCENARIO_STEP_ID.fullmatch(step_id):
+            raise CatalogError(
+                f"scenario bundle {name} step id must contain only letters, digits, '_' or '-': {step_id!r}"
+            )
+        if step_id in seen:
+            raise CatalogError(f"scenario bundle {name} repeats step id: {step_id}")
+        if not isinstance(recipe, Mapping):
+            raise CatalogError(f"scenario bundle {name} step {step_id} recipe must be an object")
+        seen.add(step_id)
+        result.append((step_id, recipe))
+    return result
+
+
+def is_scenario_bundle(value: object) -> bool:
+    """Return whether a registry value is a declarative multi-step bundle."""
+
+    return isinstance(value, Mapping) and value.get("kind") == BUNDLE_KIND
+
+
+def scenario_leaf_views(
+    scenarios: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Expand canonical registry entries into qualified executable leaf views.
+
+    The JSON registry keeps one owner for a bundle.  Runtime/catalog consumers
+    operate on the derived ``bundle.step`` names so every step can have its own
+    setup, platform, attempt, and receipt.  Ordinary scenarios retain their
+    original names for backwards compatibility with focused tests and callers.
+    """
+
+    result: dict[str, dict[str, Any]] = {}
+    for name, value in scenarios.items():
+        if not isinstance(name, str) or not name:
+            raise CatalogError("scenario registry keys must be non-empty strings")
+        if not isinstance(value, Mapping):
+            raise CatalogError(f"scenario {name} must be an object")
+        steps = _bundle_steps(name, value)
+        if not steps:
+            result[name] = copy.deepcopy(dict(value))
+            continue
+        for step_id, recipe in steps:
+            qualified = f"{name}.{step_id}"
+            if qualified in result:
+                raise CatalogError(f"duplicate qualified scenario reference: {qualified}")
+            result[qualified] = copy.deepcopy(dict(recipe))
+    return result
+
+
+def scenario_bundle_names(scenarios: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """Return canonical bundle names in registry order."""
+
+    return [name for name, value in scenarios.items() if is_scenario_bundle(value)]
+
+
+def scenario_leaf_names(
+    scenarios: Mapping[str, Mapping[str, Any]],
+    name: str,
+) -> list[str]:
+    """Resolve one canonical or qualified reference to executable leaves."""
+
+    if name in scenarios:
+        value = scenarios[name]
+        if is_scenario_bundle(value):
+            prefix = f"{name}."
+            return [key for key in scenario_leaf_views(scenarios) if key.startswith(prefix)]
+        return [name]
+    leaves = scenario_leaf_views(scenarios)
+    if name in leaves:
+        return [name]
+    return []
+
+
+def resolve_scenario_reference(
+    scenarios: Mapping[str, Mapping[str, Any]],
+    name: str,
+) -> dict[str, Any] | None:
+    """Resolve a normal or qualified scenario reference to a runtime recipe."""
+
+    return scenario_leaf_views(scenarios).get(name)
 
 
 def catalog_paths(root: str | Path | None = None) -> list[Path]:
@@ -352,8 +451,18 @@ def _profile(value: object) -> tuple[str, str] | None:
 
 def _scenario_profiles(scenarios: Mapping[str, Mapping[str, Any]], names: Iterable[str]) -> set[tuple[str, str]]:
     profiles: set[tuple[str, str]] = set()
+    leaves = scenario_leaf_views(scenarios)
     for name in names:
-        scenario = scenarios.get(name)
+        scenario = leaves.get(name)
+        if scenario is None and is_scenario_bundle(scenarios.get(name)):
+            for leaf in scenario_leaf_names(scenarios, name):
+                scenario = leaves.get(leaf)
+                if scenario:
+                    engine = scenario.get("engine")
+                    platform = scenario.get("platform", "local")
+                    if isinstance(engine, str) and isinstance(platform, str):
+                        profiles.add((engine, platform))
+            continue
         if scenario:
             engine = scenario.get("engine")
             platform = scenario.get("platform", "local")
@@ -428,6 +537,7 @@ def _validate_inventory(
     scenarios: Mapping[str, Mapping[str, Any]],
     errors: list[Diagnostic],
 ) -> None:
+    leaf_scenarios = scenario_leaf_views(scenarios)
     if inventory.get("schema_version") != 1:
         _diagnostic(errors, "inventory_schema", "inventory schema_version must be 1", path="cases/inventory.json")
     if "coverage_schema_version" in inventory and inventory.get("coverage_schema_version") != 2:
@@ -479,7 +589,7 @@ def _validate_inventory(
         if scenario_name in seen_generated:
             _diagnostic(errors, "duplicate_generated", f"generated scenario listed more than once: {scenario_name}", path="cases/inventory.json")
         seen_generated.add(scenario_name)
-        scenario = scenarios.get(scenario_name)
+        scenario = leaf_scenarios.get(scenario_name)
         if scenario is None:
             _diagnostic(errors, "orphan_generated_scenario", f"generated route references unknown scenario: {scenario_name}", path="cases/inventory.json")
         if not isinstance(setup_script, str) or not setup_script:
@@ -757,6 +867,11 @@ def _validate_catalog_references(
         return
 
     all_flow_refs: list[tuple[str, str, str, str]] = []
+    try:
+        leaf_scenarios = scenario_leaf_views(scenarios)
+    except CatalogError as exc:
+        _diagnostic(errors, "scenario_bundle", str(exc), path="scenarios/scenarios.json")
+        leaf_scenarios = {}
     scenario_refs: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for group_name, catalog in catalogs.items():
         for case in catalog.get("cases", []) if isinstance(catalog.get("cases"), list) else []:
@@ -769,7 +884,7 @@ def _validate_catalog_references(
             dedicated = _normal_scenario_names(case.get("dedicated_scenarios"))
             for name in names:
                 scenario_refs[name].append((group_name, case_id))
-                if name not in scenarios:
+                if name not in leaf_scenarios and name not in scenarios:
                     _diagnostic(errors, "orphan_scenario_ref", f"case {case_id} references unknown scenario: {name}", group=group_name)
             for name in dedicated:
                 if name not in names:
@@ -785,6 +900,24 @@ def _validate_catalog_references(
                 parts = _slash(normal[0]).removeprefix("usecase-sim/").split("/")
                 if normal[2] == "primary" and parts[:2] == ["metadata", "file"] and len(parts) > 3 and parts[2] != group_name:
                     _diagnostic(errors, "fixture_group_mismatch", f"primary flow {normal[1]} belongs to {group_name}, but fixture folder is {parts[2]}", path=normal[0], group=group_name)
+                # Flat metadata files are group-owned by filename.  Shared
+                # section files and support flows may be reused, but a primary
+                # flow in ``metadata/file/<group>.json`` must match its case
+                # catalog owner.
+                if (
+                    normal[2] == "primary"
+                    and len(parts) == 3
+                    and parts[:2] == ["metadata", "file"]
+                    and Path(parts[2]).stem != group_name
+                    and parts[2] not in {"connections.json", "schema_hints.json"}
+                ):
+                    _diagnostic(
+                        errors,
+                        "fixture_group_mismatch",
+                        f"primary flat metadata file {normal[0]} belongs to {group_name}, but filename stem is {Path(parts[2]).stem}",
+                        path=normal[0],
+                        group=group_name,
+                    )
                 if normal[2] == "primary" and len(parts) > 5 and parts[0] == "platforms" and parts[2:4] == ["metadata", "file"] and parts[4] != group_name:
                     _diagnostic(errors, "fixture_group_mismatch", f"cloud primary flow {normal[1]} belongs to {group_name}, but fixture folder is {parts[4]}", path=normal[0], group=group_name)
             # Required profiles are reported separately from configured
@@ -821,7 +954,7 @@ def _validate_catalog_references(
         if not isinstance(value, dict) or not isinstance(value.get("dataflows"), list):
             if isinstance(value, dict) and "metadata_documents" in value:
                 try:
-                    from runner.metadata_composition import load_metadata
+                    from runner.metadata_documents import load_metadata
                     load_metadata(path, root=sim_root)
                 except (ValueError, OSError) as exc:
                     _diagnostic(errors, "invalid_metadata_composition", str(exc), path=relative)
@@ -830,7 +963,7 @@ def _validate_catalog_references(
             continue
         if "shared_metadata" in value:
             try:
-                from runner.metadata_composition import load_metadata
+                from runner.metadata_documents import load_metadata
                 load_metadata(path, root=sim_root)
             except (ValueError, OSError) as exc:
                 _diagnostic(errors, "invalid_metadata_composition", str(exc), path=relative)
@@ -899,11 +1032,22 @@ def _validate_catalog_references(
     for name, refs in scenario_refs.items():
         if len(refs) > 1:
             _diagnostic(errors, "duplicate_scenario_owner", f"scenario has multiple catalog owners: {name}")
-    for name in scenarios:
-        if name not in scenario_refs:
+    for name, value in scenarios.items():
+        if is_scenario_bundle(value):
+            owned = any(ref.startswith(f"{name}.") for ref in scenario_refs)
+        else:
+            owned = name in scenario_refs
+        if not owned:
             _diagnostic(errors, "unowned_scenario", f"scenario has no catalog owner: {name}", path="scenarios/scenarios.json")
 
     # Integrity is global; group filtering applies only to report presentation.
+    try:
+        from runner.admission import declaration
+        for name, scenario in leaf_scenarios.items():
+            declaration(scenario, _product_root(sim_root))
+    except (ValueError, KeyError, TypeError) as exc:
+        _diagnostic(errors, "scenario_admission", str(exc), path="scenarios/scenarios.json", group=group or "all")
+
     all_cases: dict[str, tuple[str, Mapping[str, Any]]] = {}
     for group_name, catalog in catalogs.items():
         for case in catalog.get("cases", []) if isinstance(catalog.get("cases"), list) else []:
@@ -1141,7 +1285,7 @@ def audit_catalog(root: str | Path | None = None, group: str | None = None) -> d
         "discovered": {
             "authored_json": discover_authored_json(sim_root),
             "flows": discover_flows(sim_root),
-            "scenarios": sorted(scenarios),
+            "scenarios": sorted(scenario_leaf_views(scenarios)),
             "scripts": discover_scripts(sim_root),
         },
         "execution": scoped_execution,

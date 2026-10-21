@@ -10,54 +10,42 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
 from typing import Any
 
+from jsonschema import Draft202012Validator, FormatChecker
 
-_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
 _PHASES = ("artifact", "current")
-_PHASE_STATUS = {"success", "failed", "skipped"}
-_STATUS = {"success", "partial_failure", "failed"}
+_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "upload-record.schema.json"
 
 
-def validate_record(value: Any, *, require_success: bool = False) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise ValueError("Upload record must be a JSON object")
-    required = {
-        "schema_version",
-        "release_id",
-        "build_id",
-        "environment",
-        "deployment_path",
-        "source",
-        "status",
-        "uploads",
-    }
-    missing = sorted(required - set(value))
-    if missing:
-        raise ValueError(f"Upload record is missing: {', '.join(missing)}")
-    if value["schema_version"] != 1:
-        raise ValueError("Unsupported upload record schema_version")
-    for field in ("release_id", "build_id"):
-        if not isinstance(value[field], str) or not _ID.fullmatch(value[field]):
-            raise ValueError(f"Invalid {field}")
-    for field in ("environment", "deployment_path", "source"):
-        if not isinstance(value[field], str) or not value[field].strip():
-            raise ValueError(f"{field} must be a non-empty string")
-    if value["status"] not in _STATUS:
-        raise ValueError("Invalid upload record status")
+def _validate_schema(value: Any) -> None:
+    try:
+        schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Upload record schema is unavailable") from exc
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    errors = sorted(
+        validator.iter_errors(value),
+        key=lambda error: tuple(str(part) for part in error.absolute_path),
+    )
+    if errors:
+        details = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            details.append(f"{location}: {error.message}")
+        raise ValueError("Invalid upload record:\n- " + "\n- ".join(details))
+
+
+def _validate_phase_semantics(
+    value: dict[str, Any], *, require_zero_skipped: bool = False
+) -> None:
     uploads = value["uploads"]
-    if not isinstance(uploads, dict):
-        raise ValueError("uploads must be an object")
-    for phase in _PHASES:
-        entry = uploads.get(phase)
-        if not isinstance(entry, dict):
-            raise ValueError(f"uploads.{phase} must be an object")
-        if entry.get("status") not in _PHASE_STATUS:
-            raise ValueError(f"Invalid uploads.{phase}.status")
-        files = entry.get("files")
-        if not isinstance(files, int) or isinstance(files, bool) or files < 0:
-            raise ValueError(f"uploads.{phase}.files must be a non-negative integer")
+    if require_zero_skipped and any(
+        entry["status"] == "skipped" and entry["files"] != 0
+        for entry in uploads.values()
+    ):
+        raise ValueError("Skipped upload phases must report zero files")
     artifact_status = uploads["artifact"]["status"]
     current_status = uploads["current"]["status"]
     if artifact_status == "skipped":
@@ -77,11 +65,58 @@ def validate_record(value: Any, *, require_success: bool = False) -> dict[str, A
         raise ValueError(
             f"status {value['status']!r} does not match upload phases; expected {expected!r}"
         )
+def _validate_v1_semantics(value: dict[str, Any]) -> None:
+    _validate_phase_semantics(value)
+
+
+def _validate_v2_semantics(value: dict[str, Any]) -> None:
+    # ``record`` describes the adapter's persistence attempt.  The validator
+    # has no record path or filesystem transaction to authenticate, so it
+    # validates the stage's schema and leaves atomic-write truth to the CLI.
+    preflight = value["preflight"]
+    if preflight["status"] == "failed":
+        if value["status"] != "failed":
+            raise ValueError("A failed preflight requires a failed upload record")
+        for phase in _PHASES:
+            entry = value["uploads"][phase]
+            if entry["status"] != "skipped" or entry["files"] != 0:
+                raise ValueError("A failed preflight must skip both upload phases")
+        _validate_record_stage(value["record"])
+        return
+
+    if "error" in preflight:
+        raise ValueError("A passed preflight must not contain an error")
+    for field in ("release_id", "build_id", "environment", "deployment_path", "source"):
+        if value[field] is None:
+            raise ValueError(f"{field} is required after preflight succeeds")
+    _validate_phase_semantics(value, require_zero_skipped=True)
+    _validate_record_stage(value["record"])
+
+
+def _validate_record_stage(record: dict[str, Any]) -> None:
+    status = record["status"]
+    if status == "failed" and "error" not in record:
+        raise ValueError("A failed record stage requires a diagnostic error")
+    if status in {"written", "not_requested"} and "error" in record:
+        raise ValueError(f"A {status} record stage must not contain an error")
+
+
+def validate_record(value: Any, *, require_success: bool = False) -> dict[str, Any]:
+    # JSON Schema is the sole owner of record shape and types.  The functions
+    # below only inspect relationships between already validated fields.
+    _validate_schema(value)
+    version = value["schema_version"]
+    if version == 1:
+        _validate_v1_semantics(value)
+    elif version == 2:
+        _validate_v2_semantics(value)
+    else:  # guarded by the schema, retained as a defensive boundary
+        raise ValueError("Unsupported upload record schema_version")
     if require_success and value["status"] != "success":
         raise ValueError("Upload record is not successful")
     return {
         "ok": True,
-        "schema_version": 1,
+        "schema_version": version,
         "release_id": value["release_id"],
         "build_id": value["build_id"],
         "environment": value["environment"],

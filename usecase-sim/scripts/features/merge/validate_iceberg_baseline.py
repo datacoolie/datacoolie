@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
-import json
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -141,39 +140,10 @@ def assert_i1_branch_precondition(
 
 
 def _compile_existing(case: Any) -> dict[str, Any]:
-    """Compile the authored baseline flow without editing its canonical JSON."""
-
-    try:
-        from _fixture_support import compile_existing
-    except ImportError:  # pragma: no cover - compatibility for pre-T6 worktrees
-        source = FEATURES_DIR.parent.parent / "metadata" / "file" / "merge" / "local.json"
-        document = json.loads(source.read_text(encoding="utf-8"))
-        shared = json.loads(
-            (FEATURES_DIR.parent.parent / document["shared_metadata"]).read_text(
-                encoding="utf-8"
-            )
-        )
-        flow = next(
-            row for row in document["dataflows"] if row["name"] == "load_iceberg__merge_upsert"
-        )
-        names = {flow[role]["connection_name"] for role in ("source", "destination")}
-        connections = [row for row in shared["connections"] if row["name"] in names]
-        runtime = f"load_iceberg__merge_upsert-{uuid.uuid4().hex[:12]}"
-        flow = json.loads(json.dumps(flow))
-        flow.update(name=runtime, stage=runtime, group_number=1, execution_order=1)
-        for role in ("source", "destination"):
-            connection = next(
-                item for item in connections if item["name"] == flow[role]["connection_name"]
-            )
-            connection.setdefault("configure", {})["base_path"] = (
-                case.input if role == "source" else case.output
-            ).as_posix()
-        document = {"connections": connections, "dataflows": [flow]}
-        case.metadata.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
-        return {"runtime_flow": runtime, "runtime_stage": runtime, "authored_flow": flow["name"]}
+    """Compile the authored baseline flow without editing canonical JSON."""
+    from _fixture_support import compile_existing
 
     document, identity = compile_existing(case, "merge", "load_iceberg__merge_upsert")
-    case.metadata.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     return identity
 
 

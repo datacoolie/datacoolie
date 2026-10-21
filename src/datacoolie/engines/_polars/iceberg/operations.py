@@ -292,11 +292,13 @@ def expire_snapshots(ice_table: Any, retention_hours: int) -> None:
     cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=retention_hours)
     cutoff_ms = int(cutoff.timestamp() * 1000)
     current_id = ice_table.metadata.current_snapshot_id
+    protected = {ref.snapshot_id for ref in ice_table.refs().values()}
     expired = [
         snapshot
         for snapshot in (ice_table.snapshots() or [])
         if snapshot.timestamp_ms < cutoff_ms
         and snapshot.snapshot_id != current_id
+        and snapshot.snapshot_id not in protected
     ]
     if not expired:
         logger.debug(
@@ -305,12 +307,7 @@ def expire_snapshots(ice_table: Any, retention_hours: int) -> None:
             retention_hours,
         )
         return
-    try:
-        ice_table.maintenance.expire_snapshots().older_than(cutoff).commit()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "PolarsEngine cleanup_by_name: expire_snapshots skipped (%s)", exc
-        )
+    ice_table.maintenance.expire_snapshots().older_than(cutoff).commit()
 
 
 def cleanup(
@@ -320,11 +317,12 @@ def cleanup(
     *,
     catalog: Any,
 ) -> None:
+    from datacoolie.engines.contracts.maintenance import selected_actions
+    actions = selected_actions(do_compact=False, do_cleanup=True, cleanup_options=options)
+    if "remove_orphan_files" in actions:
+        raise EngineError("Polars Iceberg does not support remove_orphan_files")
+    if not actions:
+        return
     ice_table = catalog.load_table(iceberg_schema.table_id(table_name))
     if options.get("expire_snapshots", True):
         expire_snapshots(ice_table, retention_hours)
-    if options.get("remove_orphan_files", True):
-        logger.warning(
-            "PolarsEngine cleanup_by_name: pyiceberg does not support "
-            "remove_orphan_files; skipping"
-        )

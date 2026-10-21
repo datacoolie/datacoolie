@@ -8,6 +8,34 @@ from datacoolie.orchestration.execution.window import map_watermark_window
 from datacoolie.transformers.base import ColumnMapping
 
 
+def test_window_mapping_preserves_distinct_exact_names_and_operators():
+    window = WindowSpec(bounds={"UserID": (100, 200), "userid": (1, 10)},
+                        lower_operator=">=", upper_operator="<")
+    assert map_watermark_window(window, column_mapping=ColumnMapping.identity(
+        ["UserID", "userid"]), output_columns=["userid", "UserID"]) == window
+
+
+def test_window_mapping_unique_final_fallback():
+    assert map_watermark_window(WindowSpec(bounds={"id": (1, 2)}),
+        column_mapping=ColumnMapping({"id": "USER_ID"}),
+        output_columns=["user_id"]).bounds == {"user_id": (1, 2)}
+
+
+@pytest.mark.parametrize("mapping, outputs, message", [
+    ({"id": "ID"}, ["Id", "iD"], "[Aa]mbiguous"),
+    ({"ID": "a", "Id": "b"}, ["a", "b"], "[Aa]mbiguous"),
+    ({"id": "missing"}, ["other"], "absent"),
+    ({"id": "same", "other": "same"}, ["same"], "collide"),
+])
+def test_window_mapping_rejects_unsafe_correspondence(mapping, outputs, message):
+    bounds = {"id": (1, 2)}
+    if "other" in mapping:
+        bounds["other"] = (3, 4)
+    with pytest.raises(TransformError, match=message):
+        map_watermark_window(WindowSpec(bounds=bounds),
+                             column_mapping=ColumnMapping(mapping), output_columns=outputs)
+
+
 def test_explicit_range_is_independent_of_opaque_persisted_cursor():
     window = build_watermark_window(enabled=True, watermark_effective={"id": 1},
         watermark_after={"cursor": "next"}, explicit_start=None, explicit_end={"id": 5},

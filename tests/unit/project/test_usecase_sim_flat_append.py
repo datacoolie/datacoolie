@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -34,8 +33,9 @@ from datacoolie.utils.identity import name_to_uuid  # noqa: E402
 
 @pytest.mark.parametrize("fmt", FORMATS)
 def test_authored_flat_append_fixture_is_one_unpartitioned_string_flow(fmt: str) -> None:
-    metadata_path = SIM_ROOT / "metadata" / "file" / "write_basic" / f"append_{fmt}.json"
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    from runner.metadata_sources import recipe_document
+
+    metadata = recipe_document("write_basic", f"append_{fmt}")
     connections = {item["name"]: item for item in metadata["connections"]}
     flows = metadata["dataflows"]
 
@@ -142,7 +142,6 @@ def test_shared_receipt_payload_retains_delta_default() -> None:
     case = CasePaths(
         group="write_basic",
         root=case_root,
-        metadata=case_root / "metadata.json",
         input=case_root / "input",
         output=case_root / "output",
         state=case_root / "state",

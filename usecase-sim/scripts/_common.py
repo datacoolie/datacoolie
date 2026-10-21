@@ -16,6 +16,7 @@ from runner.runtime_paths import (
     DATACOOLIE_ROOT as DATACOOLIE,  # noqa: F401 - exported shared path
     USECASE_SIM_DIR as USECASE_SIM,
     RUNTIME_DIR, DATA_DIR, LOG_DIR, WATERMARKS_DIR,  # noqa: F401 - exported shared paths
+    METADATA_DATABASE_DIR, sqlite_metadata_url,
 )
 
 logger = logging.getLogger("usecase_sim")
@@ -32,23 +33,21 @@ PERF_OUTPUT_DIR = PERF_DIR / "output"
 
 SCENARIO_LOG_DIR = LOG_DIR / "scenarios"
 DATABASES_DIR = DATA_DIR / "databases"
-METADATA_DATABASE_DIR = DATABASES_DIR / "metadata"
 SOURCE_DATABASE_DIR = DATABASES_DIR / "source"
 
 METADATA_DIR = USECASE_SIM / "metadata"
 METADATA_FILE_DIR = METADATA_DIR / "file"
-METADATA_DB_DIR = METADATA_DIR / "database"
+METADATA_DB_DIR = METADATA_DATABASE_DIR
 METADATA_API_DIR = METADATA_DIR / "api"
 FILE_WATERMARKS_DIR = WATERMARKS_DIR
 API_WATERMARKS_DIR = WATERMARKS_DIR / "api"
-COMPILED_METADATA_DIR = DATA_DIR / "metadata"
 
 DOCKER_DIR = USECASE_SIM / "docker"
 COMPOSE_FILE = DOCKER_DIR / "docker-compose.yml"
 
-LOCAL_USE_CASES_JSON = METADATA_FILE_DIR / "workflows" / "local_use_cases.json"
-AWS_USE_CASES_JSON = METADATA_FILE_DIR / "workflows" / "aws_use_cases.json"
-PERF_USE_CASES_JSON = METADATA_FILE_DIR / "performance" / "perf_test.json"
+LOCAL_USE_CASES_JSON = USECASE_SIM / "scenarios/workflows/local_use_cases.json"
+AWS_USE_CASES_JSON = USECASE_SIM / "scenarios/workflows/aws_use_cases.json"
+PERF_USE_CASES_JSON = METADATA_FILE_DIR / "performance.json"
 
 # ---------------------------------------------------------------------------
 # MinIO / Iceberg defaults (match docker-compose.yml + _runner_utils.py)
@@ -65,7 +64,7 @@ ICEBERG_REST_URI = "http://localhost:8181"
 # Default database connection strings per dialect
 # ---------------------------------------------------------------------------
 DB_URLS: dict[str, str] = {
-    "sqlite":     f"sqlite:///{METADATA_DATABASE_DIR / 'datacoolie_metadata.db'}",
+    "sqlite":     sqlite_metadata_url(),
     "postgresql": "postgresql+psycopg2://datacoolie:datacoolie@localhost:5432/datacoolie",
     "mysql":      "mysql+pymysql://datacoolie:datacoolie@localhost:3306/datacoolie",
     "mssql":      "mssql+pymssql://sa:Datacoolie%401@localhost:1433/datacoolie",

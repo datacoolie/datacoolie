@@ -9,7 +9,7 @@ Use this pattern when an upstream source can return the **complete current
 state** for every record in a bounded watermark interval, including unchanged
 records that must remain. A change-only feed or an API response stopped by
 `max_pages` cannot safely replace that interval. Learn the individual
-[watermark and look-back](source-patterns.md#incremental-windows-and-look-back),
+[watermark and look-back](source-incremental.md#incremental-windows-and-look-back),
 [source](source-patterns.md) and
 [destination strategy](destination-and-load-patterns.md#replace-by-watermark)
 first. Exact shapes are in the [Source](../../reference/metadata-schema.md#source)
@@ -58,8 +58,8 @@ The final output must retain the active watermark column or have a
 deterministic mapping to its renamed output column. A projection that drops it,
 an unknown mapping, or a collision between mapped watermark columns fails
 before destination mutation. Review
-[projection and renaming](transform-patterns.md#columnprojector) and
-[sanitization](transform-patterns.md#columnnamesanitizer) together with this
+[projection and renaming](transform-projection.md#columnprojector) and
+[sanitization](transform-layout.md#columnnamesanitizer) together with this
 window. A deterministic rename is permitted when the runtime can map it.
 
 ## First run, empty reads, and recovery

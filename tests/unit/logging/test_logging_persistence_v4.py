@@ -13,6 +13,7 @@ import pytest
 from datacoolie import __version__
 from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.core.models.run_config import DataCoolieRunConfig
+from datacoolie.logging.configuration.constants import LOG_SCHEMA_VERSION
 from datacoolie.logging import ExecutionLogger, LogConfig, SystemLogger
 from datacoolie.logging.persistence.writer import JsonLogWriter, SharedByteBudget, encode_json_line
 from datacoolie.platforms.local_platform import LocalPlatform
@@ -91,7 +92,7 @@ def test_execution_snapshot_writes_job_and_dataflow_json(tmp_path):
     dataflow_row = json.loads(dataflow_payload)
     job_row = json.loads(job_payload)
     assert dataflow_row["datacoolie_version"] == job_row["datacoolie_version"] == __version__
-    assert dataflow_row["log_schema_version"] == 6
+    assert dataflow_row["log_schema_version"] == LOG_SCHEMA_VERSION
     assert dataflow_row["log_session_id"]
     assert dataflow_row["log_session_id"] == job_row["log_session_id"]
     assert dataflow_row["source_query"] == "sql/orders/incremental.sql"
@@ -192,7 +193,7 @@ def test_system_logger_uses_shared_json_writer(tmp_path):
     files = list(tmp_path.rglob("system_*.json"))
     assert len(files) == 1
     record = json.loads(files[0].read_text(encoding="utf-8"))
-    assert record["log_schema_version"] == 6
+    assert record["log_schema_version"] == LOG_SCHEMA_VERSION
     assert record["datacoolie_version"] == __version__
     assert record["_type"] == "system_log"
     assert record["log_session_id"]

@@ -3,12 +3,12 @@
   "eval_schema_version": 2,
   "case_kinds": {
     "decision": [1, 2, 3, 5, 6, 7, 8],
-    "execution": [4]
+    "execution": [4, 9]
   },
   "capability_families": {
     "source-probing": [1, 4, 7],
     "incremental-evidence": [2, 3, 5, 8],
-    "refresh-and-handoff": [6]
+    "refresh-and-handoff": [6, 9]
   },
   "evals": [
     {
@@ -98,6 +98,21 @@
         "The transaction date is a backward fallback with correction horizon and older-correction risk, not claimed as complete change coverage.",
         "File discovery verifies modification-time stability, rewrite or restore behavior, and actual ordered date-folder levels separately from row schema.",
         "Framework virtual values are not fabricated in observations.csv and discovery leaves exact runtime metadata to build."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Two bounded filtered probes cover the ERP source according to a verified owner inventory. Generate a full-source refresh candidate and show what happens if their equal-count status files are swapped or one object is omitted.",
+      "expected_output": "Bind each CSV digest to its own status and compare object scope to the owner-backed boundary declaration before source replacement.",
+      "files": [
+        "scripts/merge_observations.py",
+        "references/worked-example.md"
+      ],
+      "expectations": [
+        "Each probe uses its own CSV/status pair and the explicit source coverage declaration.",
+        "Swapped or modified artifacts and missing boundary objects fail without altering the base.",
+        "The scratch diff is reviewed and partial replacement requires exact-source acceptance.",
+        "Report the exact command, exit code and observable output/evidence for each successful and rejected invocation."
       ]
     }
   ]

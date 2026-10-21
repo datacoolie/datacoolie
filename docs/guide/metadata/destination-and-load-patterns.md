@@ -32,7 +32,7 @@ data is treated. In DataCoolie, those are separate decisions:
     { "column": "order_date", "expression": "CAST(created_at AS DATE)" }
   ],
   "configure": {
-    "write_options": { "mergeSchema": true }
+    "merge_options": { "source_alias": "incoming", "target_alias": "existing" }
   }
 }
 ```
@@ -57,6 +57,11 @@ MERGE condition (for example `source_alias`, `target_alias`, or `predicate`) in
 compression in `write_options`. A legacy merge alias placed in
 `write_options` is still read for compatibility, but it is not forwarded to
 the append phase.
+
+Schema evolution in `write_options` does not automatically evolve an existing
+target during `merge_upsert`: that operation forwards `merge_options`, while
+its first-load fallback uses `write_options`. Check the selected engine and
+format's operation-specific options before enabling schema changes.
 
 ## Which destination types are built in?
 
@@ -161,7 +166,7 @@ Nothing is deleted.
     keep only the latest one before the merge. See
     [Transform patterns](transform-patterns.md).
 
-  !!! info "First load falls back to overwrite"
+!!! info "First load falls back to overwrite"
     If the target table does not exist yet, DataCoolie performs an initial
     overwrite-style write and only uses merge semantics on later runs.
 
@@ -251,7 +256,7 @@ See the worked case, including first-run behavior and the distinction between
 source-empty reads and transformed-empty batches, in
 [Replace a complete watermark window](watermark-window-replacement.md).
 For the source-side look-back forms and connection/source precedence, see
-[Incremental windows and look-back](source-patterns.md#incremental-windows-and-look-back).
+[Incremental windows and look-back](source-incremental.md#incremental-windows-and-look-back).
 
 ---
 
@@ -296,7 +301,7 @@ adds three audit columns to every version row:
     append step inserts every incoming row. Filter and deduplicate upstream so
     an older value cannot create a second open current version.
 
-  !!! info "First load falls back to overwrite"
+!!! info "First load falls back to overwrite"
     On the first run, DataCoolie creates the destination table first and then
     switches to SCD2 versioning on subsequent runs.
 
@@ -388,7 +393,7 @@ provider-specific `date(...)` function. For year extraction use
 Java-style `date_format(..., "yyyy-MM-dd")` works in Polars; use the system
 timestamp or portable `CAST` instead. Check every expression on the selected
 engine before running it in another engine. Also see the
-[PartitionHandler](transform-patterns.md#partitionhandler) execution order.
+[PartitionHandler](transform-layout.md#partitionhandler) execution order.
 
 For merge-style writes, partition columns extend the effective merge key. If
 an existing entity changes partition value, a key-based merge may not match
@@ -518,9 +523,11 @@ catalog integration. Their connection-level shape is under
 | `register_symlink_table` | `connection.configure` | Registers a Glue symlink table; implies manifest generation |
 | `symlink_database_prefix` | `connection.configure` | Prefix for the generated symlink database name |
 
-When `catalog` or `database` is present, DataCoolie identifies the physical
-destination by **qualified table name**. Otherwise it identifies it by **path**.
-That distinction matters for maintenance deduplication and fan-in orchestration.
+The executing engine determines addressing after destination forced-path rules.
+Polars Delta uses **path** even when `catalog` or `database` is present; supported
+Spark catalog routes use **qualified table name**. Maintenance requires qualified
+physical identity, including backend case and alias semantics. See
+[maintenance deduplication](../operations/maintenance.md#deduplication).
 
 ### AWS Delta registration: complete prerequisites
 
@@ -580,4 +587,4 @@ for the operational workflow.
 
 ## Next
 
-→ [Validation checklist](validation-checklist.md) · [Incremental windows and look-back](source-patterns.md#incremental-windows-and-look-back)
+→ [Validation checklist](validation-checklist.md) · [Incremental windows and look-back](source-incremental.md#incremental-windows-and-look-back)

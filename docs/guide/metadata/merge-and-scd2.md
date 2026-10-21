@@ -44,7 +44,7 @@ When a batch contains two versions of one key, the deduplicator keeps the
 latest `updated_at` in that batch. For a strictly newer row, the writer closes
 the matched current version and appends the new current row with its validity
 start. If a batch has ties, add a deterministic source ordering or tie-breaker
-as explained in [Deduplicator](transform-patterns.md#deduplicator).
+as explained in [Deduplicator](transform-keys.md#deduplicator).
 
 ## Equal and older events
 
@@ -55,7 +55,7 @@ deduplication within this run cannot compare it with history already stored.
 Do not present a metadata flag as automatic retroactive restatement. Exclude
 such events in an upstream query/function or handle historical repair as a
 separately designed process. For source choices see
-[Source patterns](source-patterns.md#inline-sql-or-sql-file-query-sources).
+[Source patterns](source-database.md#inline-sql-or-sql-file-query-sources).
 
 If the destination uses `partition_columns`, DataCoolie extends the effective
 merge keys with those partition columns. A changed partition value may leave

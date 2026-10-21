@@ -46,6 +46,11 @@ class SparkEngine(BaseEngine[DataFrame]):
             supplied session; framework defaults are applied only when
             DataCoolie creates the session.
         platform: Optional platform attached to this engine.
+        maintenance_deployment: Optional operator-attested REST deployment
+            record for qualified REST Iceberg maintenance.
+        maintenance_guard_manifest: Optional manifest for the prebuilt native
+            helper used by Spark REST Iceberg maintenance. It is required with
+            ``maintenance_deployment`` for that profile.
 
     Implementation details are delegated to the private ``_spark`` capability
     modules; this class remains the stable public facade and runtime-state owner.
@@ -56,8 +61,13 @@ class SparkEngine(BaseEngine[DataFrame]):
         spark_session: Optional[SparkSession] = None,
         config: Optional[Dict[str, str]] = None,
         platform: Optional[BasePlatform] = None,
+        *,
+        maintenance_deployment: Optional[Any] = None,
+        maintenance_guard_manifest: Optional[Any] = None,
     ) -> None:
         super().__init__(platform=platform)
+        self._maintenance_deployment = maintenance_deployment
+        self._maintenance_guard_manifest = maintenance_guard_manifest
         self._spark = get_or_create_spark_session(
             app_name="DataCoolie_SparkEngine",
             config=config,
@@ -73,6 +83,35 @@ class SparkEngine(BaseEngine[DataFrame]):
     def spark_major_version(self) -> int:
         """Return the active Spark runtime's major version."""
         return int(self._spark.version.split(".")[0])
+
+    def target_name_identity(self, *, fmt: str, table_name: str) -> Optional[Tuple[str, str]]:
+        """Pure projection of qualified, already-loaded native catalog state."""
+        from datacoolie.engines._spark.target_identity import target_name_identity
+        return target_name_identity(self._spark, fmt=fmt, table_name=table_name)
+
+    def maintenance_preparation(self):
+        from datacoolie.engines._spark.iceberg.maintenance import preparation
+        prepare_rest = preparation(self._spark, self._maintenance_deployment, self._maintenance_guard_manifest)
+        def prepare(*, fmt, table_name=None, path=None, table_address=None):
+            if fmt == "iceberg" and table_name and self._maintenance_deployment is not None:
+                return prepare_rest(fmt=fmt, table_name=table_name, path=path, table_address=table_address)
+            return super(SparkEngine, self).prepare_maintenance_target(fmt=fmt, table_name=table_name, path=path)
+        return prepare
+
+    def prepare_maintenance_target(self, *, fmt, table_name=None, path=None, table_address=None):
+        return self.maintenance_preparation()(fmt=fmt, table_name=table_name, path=path, table_address=table_address)
+
+    def execute_maintenance_action(self, prepared, *, action, retention_hours=168):
+        if prepared.binding is not None and prepared.format == "iceberg":
+            from datacoolie.engines._spark.iceberg.maintenance import execute_action
+            return execute_action(prepared, action=action, retention_hours=retention_hours)
+        return super().execute_maintenance_action(prepared, action=action, retention_hours=retention_hours)
+
+    def maintenance_history(self, prepared, *, limit=5, start_time=None, end_time=None):
+        if prepared.binding is not None and prepared.format == "iceberg":
+            from datacoolie.engines._spark.iceberg.maintenance import history
+            return history(prepared, limit=limit, start_time=start_time, end_time=end_time)
+        return super().maintenance_history(prepared, limit=limit, start_time=start_time, end_time=end_time)
 
     def read_parquet(
         self, path: str | list[str], options: Optional[Dict[str, str]] = None
@@ -362,7 +401,7 @@ class SparkEngine(BaseEngine[DataFrame]):
         resolved: List[str] = []
         for requested in rule.columns:
             try:
-                resolved.append(self._resolve_column_name(df.columns, requested))
+                resolved.append(self.resolve_column_name(df.columns, requested))
             except EngineError:
                 if missing_column_policy != "ignore":
                     raise
@@ -374,7 +413,7 @@ class SparkEngine(BaseEngine[DataFrame]):
         resolved: List[str] = []
         for requested in rule.columns:
             try:
-                resolved.append(self._resolve_column_name(df.columns, requested))
+                resolved.append(self.resolve_column_name(df.columns, requested))
             except EngineError:
                 if missing_column_policy != "ignore":
                     raise
@@ -382,7 +421,7 @@ class SparkEngine(BaseEngine[DataFrame]):
 
     def add_hash_column(self, df: DataFrame, definition: HashColumn) -> DataFrame:
         resolved = [
-            self._resolve_column_name(df.columns, requested)
+            self.resolve_column_name(df.columns, requested)
             for requested in definition.columns
         ]
         return spark_transforms.add_hash_column(df, definition, resolved)

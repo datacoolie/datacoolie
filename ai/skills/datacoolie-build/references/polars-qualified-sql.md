@@ -60,12 +60,8 @@ an unbounded discovery scan merely to avoid selecting a project-owned root.
 
 ## Outcome-scoped verification
 
-For author/build-only requests, validate metadata, the selected SQL resources, runner bytes, and
-the artifact without executing a workload. For a requested safe runtime check, derive expected
-registered names, selected dataflows, output schema/rows, and state from the matching public
-recipe/project criteria; run the exact runner and independently reconcile those outputs. Report
-ambiguous names, legitimate empty/skipped selection, unavailable host dependencies, and skipped
-runtime checks explicitly.
+Apply [Build's outcome checks](../SKILL.md#build-and-local-verification). For requested runtime use, verify registered names and reconcile output schema/rows in the exact runner process; report ambiguous names.
+
 
 When the framework or public example changes, recheck the public qualified-SQL page, installed
 capability evidence, the same-process mapping, and the exact retrieved source before changing a

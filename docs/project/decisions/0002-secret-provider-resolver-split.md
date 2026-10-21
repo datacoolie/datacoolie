@@ -28,6 +28,12 @@ resolver by prefix. Unrecognised or unprefixed sources use
 are discovered via `datacoolie.resolvers`; providers are constructor-selected
 through the active platform.
 
+A selected entry point that fails to load, exposes an invalid class, or fails
+construction raises during preparation; it never invokes the native fallback.
+The registry's `get_or_create_optional` returns `None` only for proven absence.
+Incomplete group discovery cannot establish absence and raises for unresolved
+names; unrelated broken plugins do not block healthy names or proven absence.
+
 ## Consequences
 
 - Adding a new resolver prefix/backend integration = one class.

@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from datetime import datetime, date
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 
+from datacoolie.core.constants import DatabaseAuthType
 from datacoolie.core.exceptions import SourceError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.source import Source
@@ -44,8 +46,25 @@ class TestDatabaseReader:
     def test_read_from_query(self, engine: MockEngine, query_source: Source) -> None:
         engine.set_max_values({"modified_at": "2024-06-01"})
         reader = DatabaseReader(engine)
-        result = reader.read(query_source, request=read_request())
-        assert result is not None
+        with patch.object(engine, "read_database", wraps=engine.read_database) as read_database, \
+             patch.object(engine, "read", wraps=engine.read) as read:
+            result = reader.read(query_source, request=read_request())
+
+        read_database.assert_called_once_with(
+            query=query_source.query,
+            options={
+                "auth_type": DatabaseAuthType.PASSWORD,
+                "base_path": "/data",
+            },
+        )
+        read.assert_not_called()
+        assert result.frame == engine._data
+        assert result.rows_read == 3
+        assert result.runtime is not None
+        assert result.runtime.source_action == {
+            "reader": "DatabaseReader",
+            "query": query_source.query,
+        }
 
     def test_read_with_watermark_table_mode(self, engine: MockEngine, db_source: Source) -> None:
         """Table mode: watermark pushed to SQL as WHERE clause."""

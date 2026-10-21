@@ -20,7 +20,6 @@ from _stateful_support import (  # noqa: E402
     run_driver,
     write_receipt,
 )
-from datacoolie.metadata.file_provider import FileProvider  # noqa: E402
 from datacoolie.platforms.local_platform import LocalPlatform  # noqa: E402
 from datacoolie.utils.identity import name_to_uuid  # noqa: E402
 
@@ -33,7 +32,7 @@ def validate(root=None, mode="days"):
     document, identity = compile_existing(case, "incremental", flow)
     destination = document["dataflows"][0]["destination"]
     destination["load_type"] = "overwrite"  # Observe this phase's selection directly.
-    case.metadata.write_text(json.dumps(document, indent=2))
+    case.document = document
     current = datetime(2024, 3, 20, 12, tzinfo=timezone.utc)
     # Closing-day uses the current operation reference clock, not the saved
     # watermark. Prepare known files around the real month's boundary.
@@ -74,8 +73,10 @@ def validate(root=None, mode="days"):
             )
         pl.DataFrame([row]).write_csv(path)
         os.utime(path, (mtime, mtime))
-    provider = FileProvider(
-        config_path=str(case.metadata),
+    from runner.metadata_sources import make_case_provider
+
+    provider = make_case_provider(
+        case,
         platform=LocalPlatform(),
         watermark_base_path=str(case.watermarks / "provider"),
     )

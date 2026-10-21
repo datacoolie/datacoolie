@@ -37,8 +37,4 @@ failure prevents its dependent phase; a later-phase failure is
 `partial_failure`. Retain earlier successful output and retry the same pinned
 bytes without deleting or inventing rollback behavior.
 
-Report the exact validation results, pinned build/environment, adapter commands
-and phase outcomes, skipped remote checks, and unresolved questions. Author/build
-checks do not require workload execution; workload output, activation, and target
-health checks belong to the project/platform workflow and are outside upload-only
-Release evidence.
+Apply [Release's evidence gate](../SKILL.md#verification), retaining the pinned build and actual phase results. Route target health, activation and workload checks to the project/platform workflow.

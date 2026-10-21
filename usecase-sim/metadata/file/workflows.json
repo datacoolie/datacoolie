@@ -1,0 +1,114 @@
+{
+  "dataflows": [
+    {
+      "name": "api-watermark-lifecycle",
+      "stage": "api_watermark_lifecycle",
+      "source": {
+        "connection_name": "api_lifecycle_source",
+        "table": "rows",
+        "watermark_columns": [
+          "modified_at"
+        ]
+      },
+      "destination": {
+        "connection_name": "api_lifecycle_destination",
+        "table": "orders",
+        "load_type": "append"
+      }
+    },
+    {
+      "name": "aws_combined__dedup_schema_addcols_partition",
+      "stage": "aws_transform_combined",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "aws_csv_source",
+        "table": "sample"
+      },
+      "destination": {
+        "connection_name": "aws_delta_dest",
+        "table": "orders_combined",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ],
+        "additional_columns": [
+          {
+            "column": "etl_batch",
+            "expression": "'combined_test'"
+          }
+        ]
+      }
+    },
+    {
+      "name": "combined__dedup_schema_addcols_partition",
+      "stage": "transform_combined",
+      "processing_mode": "batch",
+      "source": {
+        "connection_name": "local_csv_source",
+        "table": "sample"
+      },
+      "transform": {
+        "deduplicate_columns": [
+          "order_id"
+        ],
+        "latest_data_columns": [
+          "modified_at"
+        ],
+        "additional_columns": [
+          {
+            "column": "etl_batch",
+            "expression": "'combined_test'"
+          }
+        ],
+        "schema_hints": [
+          {
+            "column_name": "order_date",
+            "data_type": "DATE",
+            "format": "yyyy-MM-dd"
+          },
+          {
+            "column_name": "amount",
+            "data_type": "DECIMAL",
+            "precision": 18,
+            "scale": 2
+          }
+        ]
+      },
+      "destination": {
+        "connection_name": "local_delta_dest",
+        "table": "orders_combined",
+        "load_type": "overwrite",
+        "partition_columns": [
+          {
+            "column": "order_year",
+            "expression": "EXTRACT(YEAR FROM order_date)"
+          }
+        ]
+      }
+    }
+  ]
+}

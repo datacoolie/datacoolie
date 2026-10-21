@@ -1,0 +1,59 @@
+{
+  "fixture_profile": "canonical-execution-v7-t7-terminal-cases",
+  "generator_version": "t7-2026-10-11",
+  "job_id": "fixture-v7-job",
+  "producer_version": "0.2.0",
+  "schema_file": "schema.json",
+  "schema_version": 7,
+  "session_id": "fixture-v7-session",
+  "streams": {
+    "dataflow_diagnostics_snapshot.json": {
+      "kind": "dataflow",
+      "mode": "snapshot",
+      "rows": 4,
+      "sha256": "705aad5f4428f7bd875c76c07fcf104ccd88792651f96a905195edcb4b5675f4"
+    },
+    "dataflow_part_00000001.json": {
+      "kind": "dataflow",
+      "mode": "batch",
+      "rows": 1,
+      "sha256": "6a4dbb7ba0ddfee14d8b7f1960e864f3e825393ac47ca32a5c9acbee29aee8e6"
+    },
+    "dataflow_part_00000002.json": {
+      "kind": "dataflow",
+      "mode": "batch",
+      "rows": 13,
+      "sha256": "b644a403a34a690adeeb5be95aea9f5b5bcb4edb1af39b702d22797a23a7179f"
+    },
+    "dataflow_snapshot.json": {
+      "kind": "dataflow",
+      "mode": "snapshot",
+      "rows": 3,
+      "sha256": "2f57e3d54cb0b51fd059984ef115e80e261eb813cb4fb9dc4e83d71cbe896a09"
+    },
+    "job_bounded_snapshot.json": {
+      "kind": "job",
+      "mode": "snapshot",
+      "rows": 1,
+      "sha256": "8d9e89009e70eb41e312426870503c311bd620566be437b0a74317acb7e0c137"
+    },
+    "job_snapshot.json": {
+      "kind": "job",
+      "mode": "snapshot",
+      "rows": 1,
+      "sha256": "e29c55446fa05a330a3945ea1746e85191dea1e0f0143cda14a628c1832de18a"
+    },
+    "system_part_00000001.json": {
+      "kind": "system",
+      "mode": "batch",
+      "rows": 1,
+      "sha256": "ac78ca86901868386183351f2e88282a21dbcec01df4780be0bd0a2a05763c5d"
+    },
+    "system_snapshot.json": {
+      "kind": "system",
+      "mode": "snapshot",
+      "rows": 1,
+      "sha256": "ee86241fc5c84b8944aad1514a19fa5bdabf71e05ab3cc3c7156a25bb8c3300a"
+    }
+  }
+}

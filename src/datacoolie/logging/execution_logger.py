@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import logging
 import threading
-from dataclasses import fields
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -15,6 +14,10 @@ from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.orchestration.execution.runtime import (
     DataFlowRuntimeInfo,
     ExecutionMetrics,
+)
+from datacoolie.core.models.metrics import (
+    METRIC_FIELDS,
+    MetricAccumulator,
 )
 from datacoolie.orchestration.runtime import JobRuntimeInfo
 from datacoolie.logging.base import (
@@ -96,6 +99,7 @@ class ExecutionLogger(BaseLogger):
         self._job_finalized = False
         self._log_records_dropped = 0
         self._log_bytes_dropped = 0
+        self._job_metric_accumulator = MetricAccumulator()
         self._job_metrics: Optional[ExecutionMetrics] = None
         self._run_attributes_rejected = False
 
@@ -278,7 +282,7 @@ class ExecutionLogger(BaseLogger):
 
     @staticmethod
     def _validate_metrics(metrics: ExecutionMetrics) -> None:
-        names = {item.name for item in fields(ExecutionMetrics)}
+        names = set(METRIC_FIELDS)
         if names != set(_METRIC_TO_TOTAL) | _JOB_METRIC_EXCLUSIONS:
             raise ConfigurationError("Execution metric inventory has no explicit job mapping")
         for name in names:
@@ -588,10 +592,8 @@ class ExecutionLogger(BaseLogger):
         if metrics is None:
             metrics = self._metrics_for_job(runtime)
         self._validate_metrics(metrics)
-        aggregate = (
-            copy.deepcopy(metrics) if self._job_metrics is None
-            else ExecutionMetrics.sum((self._job_metrics, metrics))
-        )
+        self._job_metric_accumulator.add(metrics)
+        aggregate = self._job_metric_accumulator.metrics
         ji = self._job_info
         ji.total_dataflows += 1
         if runtime.status == DataFlowStatus.SUCCEEDED.value:
@@ -618,18 +620,13 @@ class ExecutionLogger(BaseLogger):
         """Return one observation's metrics at job grain.
 
         Maintenance rows describe file/byte housekeeping, not ingestion.  Their
-        row metrics therefore contribute known zero while file and byte
-        uncertainty remains untouched.
+        row metrics therefore remain excluded from ingestion totals while the
+        raw row observations stay on the dataflow record.
         """
 
         metrics = runtime.metrics
         if metrics is None:
-            # ``None`` here means the producer could not expose a final
-            # metric object.  Keep that uncertainty visible; an empty sum is
-            # the separate case that is allowed to produce measured zeros.
-            return ExecutionMetrics(
-                **{item.name: None for item in fields(ExecutionMetrics)}
-            )
+            return ExecutionMetrics()
         if runtime.operation_type != ExecutionType.MAINTENANCE.value:
             return metrics
 
@@ -641,8 +638,8 @@ class ExecutionLogger(BaseLogger):
             "rows_deleted",
         }
         values = {
-            item.name: 0 if item.name in row_fields else getattr(metrics, item.name)
-            for item in fields(ExecutionMetrics)
+            name: None if name in row_fields else getattr(metrics, name)
+            for name in METRIC_FIELDS
         }
         return ExecutionMetrics(**values)
 

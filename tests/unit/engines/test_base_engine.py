@@ -5,12 +5,16 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
 from datacoolie.core.exceptions import EngineError, TransformError
 from datacoolie.engines.base import BaseEngine
 from datacoolie.engines.contracts.windows import WindowSpec
+from datacoolie.platforms.local_platform import LocalPlatform
+from datacoolie.platforms.fabric_platform import FabricPlatform
 
 
 class StubEngine(BaseEngine[dict]):
@@ -229,6 +233,44 @@ class TestConcreteDefaultMethods:
     def test_format_extensions_fallback(self) -> None:
         engine = StubEngine()
         assert engine.FORMAT_EXTENSIONS.get("parquet", ".parquet") == ".parquet"
+
+    def test_json_discovery_deduplicates_explicit_directory_overlap(self, tmp_path):
+        engine = StubEngine(platform=LocalPlatform())
+        path = tmp_path / "one.json"
+        path.write_text("{}", encoding="utf-8")
+        (tmp_path / "directory.json").mkdir()
+        resolved = engine._resolve_file_paths([str(tmp_path), str(path)], ".json")
+        assert len(resolved) == 1
+        assert resolved[0].replace("\\", "/") == str(path).replace("\\", "/")
+
+    def test_format_discovery_defaults_and_authoritative_overrides(self):
+        engine = StubEngine()
+        assert engine.file_extensions("jsonl") == (".jsonl", ".json")
+        assert engine.file_extensions("json") == (".json",)
+        assert engine.file_extensions("excel") == (".xlsx",)
+        engine.FORMAT_EXTENSIONS = {"jsonl": ".custom", "csv": ".text"}
+        assert engine.file_extensions("jsonl") == (".custom",)
+        assert engine.file_extensions("csv") == (".text",)
+
+    def test_json_discovery_handles_fabric_exists_including_directories(self):
+        platform = FabricPlatform()
+        platform._fs = MagicMock()
+        platform._fs.exists.return_value = True
+        files = [SimpleNamespace(name=name, path="Files/events/" + name, size=1, isDir=False, modifyTime=1735689600000) for name in ["one.json", "two.jsonl"]]
+        folders = [SimpleNamespace(name=name, path="Files/" + name, size=0, isDir=True, modifyTime=None) for name in ["events", "empty"]]
+        platform._fs.ls.side_effect = lambda path: folders if path == "Files" else [] if path == "Files/empty" else files if path == "Files/events" else [next(f for f in files if f.path == path)]
+        engine = StubEngine(platform=platform)
+        assert [fi.path for fi in engine.list_format_files("Files/events", "jsonl")] == [f.path for f in files]
+        assert engine._resolve_file_paths("Files/events", ".json") == [files[0].path]
+        assert engine._resolve_file_paths(files[1].path, ".json") == [files[1].path]
+        assert engine.list_format_files(files[1].path, "json") == [platform.get_file_info(files[1].path)]
+        assert engine.list_format_files("Files/empty", "jsonl") == []
+
+    def test_json_explicit_file_with_platform_relative_path(self, tmp_path):
+        (tmp_path / "explicit.jsonl").write_text("{}", encoding="utf-8")
+        engine = StubEngine(platform=LocalPlatform(base_path=str(tmp_path)))
+        assert engine._resolve_file_paths("explicit.jsonl", ".json") == ["explicit.jsonl"]
+        assert engine.list_format_files("explicit.jsonl", "json")[0].name == "explicit.jsonl"
 
     def test_remove_system_columns_drops_existing(self) -> None:
         engine = StubEngine()
@@ -744,11 +786,11 @@ class TestEnginesInitLazyImport:
 class TestBaseEngineUncoveredBranches:
     """Cover uncovered branches in base engine (lines 147-151, 922-925, 1073, 1085, 1102-1106)."""
 
-    def test_resolve_column_name_not_found_raises(self) -> None:
+    def testresolve_column_name_not_found_raises(self) -> None:
         """Lines 147-151: raise EngineError when column not found."""
         engine = StubEngine()
         with pytest.raises(EngineError, match="Column 'missing' not found"):
-            engine._resolve_column_name(["col1", "col2"], "missing")
+            engine.resolve_column_name(["col1", "col2"], "missing")
 
     def test_delete_by_window_no_args_raises(self) -> None:
         """Lines 922-925: delete_by_window raises when neither table_name nor path given."""
@@ -781,11 +823,11 @@ class TestBaseEngineRemainingLines:
     def _make_engine(self):
         return StubEngine()
 
-    def test_resolve_column_name_raises_when_not_found(self) -> None:
-        """Line 150: _resolve_column_name raises EngineError when column missing."""
+    def testresolve_column_name_raises_when_not_found(self) -> None:
+        """Line 150: resolve_column_name raises EngineError when column missing."""
         engine = self._make_engine()
         with pytest.raises(EngineError, match="not found"):
-            engine._resolve_column_name(["col_a", "col_b"], "missing_col")
+            engine.resolve_column_name(["col_a", "col_b"], "missing_col")
 
     def test_delete_by_window_no_table_or_path_raises(self) -> None:
         """Line 923: delete_by_window raises when both table_name and path are None."""
@@ -801,3 +843,29 @@ class TestBaseEngineRemainingLines:
         df = pl.DataFrame({"id": [1], "val": ["a"]})
         with pytest.raises(EngineError, match="requires table_name or path"):
             engine.scd2(df, table_name=None, path=None, merge_keys=["id"])
+
+@pytest.mark.parametrize('actual, requested, expected', [
+    (['ID', 'id'], 'id', 'id'),
+    (['ID', 'id'], 'Id', 'ID'),
+    (['id', 'ID'], 'Id', 'id'),
+    (['Alpha'], 'alpha', 'Alpha'),
+])
+def test_public_column_resolution_retains_exact_and_first_lower_match(actual, requested, expected):
+    assert StubEngine().resolve_column_name(actual, requested) == expected
+    assert BaseEngine.resolve_column_name(actual, requested) == expected
+
+
+def test_public_column_list_retains_order_duplicates_and_static_default_dispatch():
+    class Override(StubEngine):
+        @staticmethod
+        def resolve_column_name(actual, requested):
+            return 'override'
+    engine = Override()
+    assert engine.resolve_column_name(['ID'], 'Id') == 'override'
+    assert engine.resolve_column_names(['ID', 'id'], ['Id', 'id', 'Id']) == ['ID', 'id', 'ID']
+    assert engine.resolve_column_names(['ID'], []) == []
+    with pytest.raises(EngineError, match="Column 'missing' not found") as caught:
+        engine.resolve_column_names(['ID'], ['missing'])
+    assert caught.value.details == {'available_columns': ['ID']}
+    assert 'resolve_column_name' not in BaseEngine.__abstractmethods__
+    assert 'resolve_column_names' not in BaseEngine.__abstractmethods__

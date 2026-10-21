@@ -1,0 +1,1411 @@
+{
+  "connections": [
+    {
+      "name": "aws_csv_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        }
+      }
+    },
+    {
+      "name": "aws_json_source",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/json",
+        "read_options": {
+          "multiLine": "true"
+        }
+      }
+    },
+    {
+      "name": "aws_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet"
+      }
+    },
+    {
+      "name": "aws_avro_source",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/avro"
+      }
+    },
+    {
+      "name": "aws_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/jsonl"
+      }
+    },
+    {
+      "name": "aws_csv_dest",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/csv"
+      }
+    },
+    {
+      "name": "aws_json_dest",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/json"
+      }
+    },
+    {
+      "name": "aws_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "aws_avro_dest",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/avro"
+      }
+    },
+    {
+      "name": "aws_jsonl_dest",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/jsonl"
+      }
+    },
+    {
+      "name": "aws_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/delta"
+      }
+    },
+    {
+      "name": "aws_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/delta"
+      }
+    },
+    {
+      "name": "aws_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "aws_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "aws_sqlite_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_SQLITE_DB",
+      "configure": {
+        "database_type": "sqlite",
+        "database": "DATACOOLIE_SQLITE_DB"
+      },
+      "secrets_ref": {
+        "env:": [
+          "database"
+        ]
+      }
+    },
+    {
+      "name": "aws_postgres_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_PG_DB",
+      "configure": {
+        "database_type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_PG_USER",
+        "password": "DATACOOLIE_PG_PASS"
+      },
+      "secrets_ref": {
+        "env:": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "aws_parquet_date_folder_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "aws_parquet_date_folder_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "aws_parquet_hive_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet_hive",
+        "use_hive_partitioning": true
+      }
+    },
+    {
+      "name": "aws_function_src",
+      "connection_type": "function",
+      "format": "function",
+      "configure": {}
+    },
+    {
+      "name": "aws_csv_no_hint",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        },
+        "use_schema_hint": false
+      }
+    },
+    {
+      "name": "local_csv_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        }
+      }
+    },
+    {
+      "name": "local_json_source",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/json",
+        "read_options": {
+          "multiLine": "true"
+        }
+      }
+    },
+    {
+      "name": "local_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/parquet"
+      }
+    },
+    {
+      "name": "local_avro_source",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/avro"
+      }
+    },
+    {
+      "name": "local_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/jsonl"
+      }
+    },
+    {
+      "name": "local_csv_dest",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/csv"
+      }
+    },
+    {
+      "name": "local_json_dest",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/json"
+      }
+    },
+    {
+      "name": "local_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "local_avro_dest",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/avro"
+      }
+    },
+    {
+      "name": "local_jsonl_dest",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/jsonl"
+      }
+    },
+    {
+      "name": "local_excel_source",
+      "connection_type": "file",
+      "format": "excel",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/excel"
+      }
+    },
+    {
+      "name": "local_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
+      }
+    },
+    {
+      "name": "local_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
+      }
+    },
+    {
+      "name": "local_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/iceberg"
+      }
+    },
+    {
+      "name": "local_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/iceberg"
+      }
+    },
+    {
+      "name": "local_sqlite_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_SQLITE_DB",
+      "configure": {
+        "database_type": "sqlite",
+        "database": "DATACOOLIE_SQLITE_DB"
+      },
+      "secrets_ref": {
+        "": [
+          "database"
+        ]
+      }
+    },
+    {
+      "name": "local_postgres_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_PG_DB",
+      "configure": {
+        "database_type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_PG_USER",
+        "password": "DATACOOLIE_PG_PASS"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_mysql_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mysql",
+        "host": "localhost",
+        "port": 3306,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_MYSQL_USER",
+        "password": "DATACOOLIE_MYSQL_PASS"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_mssql_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mssql",
+        "host": "localhost",
+        "port": 1433,
+        "database": "datacoolie",
+        "username": "DATACOOLIE_MSSQL_USER",
+        "password": "DATACOOLIE_MSSQL_PASS",
+        "encrypt": "false"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_oracle_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "oracle",
+        "host": "localhost",
+        "port": 1521,
+        "database": "FREEPDB1",
+        "username": "DATACOOLIE_ORA_USER",
+        "password": "DATACOOLIE_ORA_PASS"
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_api_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30
+      }
+    },
+    {
+      "name": "local_api_bearer",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "bearer",
+        "auth_token": "DATACOOLIE_API_BEARER_TOKEN",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "auth_token"
+        ]
+      }
+    },
+    {
+      "name": "local_api_apikey",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "api_key",
+        "api_key_header": "X-API-Key",
+        "api_key_value": "DATACOOLIE_API_KEY_VALUE",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "api_key_value"
+        ]
+      }
+    },
+    {
+      "name": "local_api_basic",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "basic",
+        "username": "DATACOOLIE_API_BASIC_USER",
+        "password": "DATACOOLIE_API_BASIC_PASS",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "username",
+          "password"
+        ]
+      }
+    },
+    {
+      "name": "local_api_oauth2",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "oauth2_client_credentials",
+        "token_url": "http://localhost:8082/oauth/token",
+        "client_id": "DATACOOLIE_OAUTH2_CLIENT_ID",
+        "client_secret": "DATACOOLIE_OAUTH2_CLIENT_SECRET",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "client_id",
+          "client_secret"
+        ]
+      }
+    },
+    {
+      "name": "local_api_oauth2_ext",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "auth_type": "oauth2_client_credentials",
+        "token_url": "http://localhost:8082/oauth/token",
+        "client_id": "DATACOOLIE_OAUTH2_CLIENT_ID",
+        "client_secret": "DATACOOLIE_OAUTH2_CLIENT_SECRET",
+        "token_auth_method": "client_secret_basic",
+        "scope": "read:orders",
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "client_id",
+          "client_secret"
+        ]
+      }
+    },
+    {
+      "name": "local_api_tz",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30,
+        "watermark_to_param_timezone": "+07:00"
+      }
+    },
+    {
+      "name": "local_parquet_date_folder_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "local_parquet_date_folder_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/parquet_dated",
+        "date_folder_partitions": "{year}/{month}/{day}"
+      }
+    },
+    {
+      "name": "local_parquet_hive_src",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/parquet_hive",
+        "use_hive_partitioning": true
+      }
+    },
+    {
+      "name": "local_function_src",
+      "connection_type": "function",
+      "format": "function",
+      "configure": {}
+    },
+    {
+      "name": "local_csv_no_hint",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/csv",
+        "read_options": {
+          "header": "true",
+          "inferSchema": "true"
+        },
+        "use_schema_hint": false
+      }
+    },
+    {
+      "name": "transform_features_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/input/transform_features"
+      }
+    },
+    {
+      "name": "transform_features_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "case_api_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 10
+      }
+    },
+    {
+      "name": "case_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "api_recovery_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30
+      }
+    },
+    {
+      "name": "api_recovery_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
+      }
+    },
+    {
+      "name": "maintenance_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "maintenance_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "__ICEBERG_NAMESPACE__",
+      "configure": {}
+    },
+    {
+      "name": "maintenance_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "a9_iceberg_partition_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_iceberg_partition_destination",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "__ICEBERG_NAMESPACE__",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "a9_iceberg_schema_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_iceberg_schema_destination",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "__ICEBERG_NAMESPACE__",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "merge_composite_keys_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "merge_composite_keys_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "merge_custom_predicate_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "merge_custom_predicate_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "merge_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "merge_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "explicit_multi_sql_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "explicit_multi_sql_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/explicit_multi_sql"
+      }
+    },
+    {
+      "name": "query_contract_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures/delta-positive"
+      }
+    },
+    {
+      "name": "query_contract_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/query_contract"
+      }
+    },
+    {
+      "name": "sql_root_precedence_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/registered"
+      }
+    },
+    {
+      "name": "sql_root_precedence_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "state_contract_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/state_contract/fixtures"
+      }
+    },
+    {
+      "name": "state_contract_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/state_contract"
+      }
+    },
+    {
+      "name": "perf_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/input/jsonl"
+      }
+    },
+    {
+      "name": "perf_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/input/parquet"
+      }
+    },
+    {
+      "name": "perf_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "perf_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/output/delta"
+      }
+    },
+    {
+      "name": "perf_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/output/delta"
+      }
+    },
+    {
+      "name": "perf_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "perf_src",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/output/iceberg"
+      }
+    },
+    {
+      "name": "perf_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "perf_dst",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/perf/output/iceberg"
+      }
+    },
+    {
+      "name": "a9_api_oauth2_json",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "__MOCK_BASE_URL__",
+        "auth_type": "oauth2_client_credentials",
+        "token_url": "__MOCK_BASE_URL__/oauth/token",
+        "client_id": "DATACOOLIE_OAUTH2_CLIENT_ID",
+        "client_secret": "DATACOOLIE_OAUTH2_CLIENT_SECRET",
+        "token_request_body_format": "json",
+        "scope": "read:orders",
+        "token_request_extras": {
+          "audience": "datacoolie-orders"
+        },
+        "timeout": 30
+      },
+      "secrets_ref": {
+        "": [
+          "client_id",
+          "client_secret"
+        ]
+      }
+    },
+    {
+      "name": "a9_api_parquet_dest",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output/parquet",
+        "write_options": {
+          "compression": "snappy"
+        }
+      }
+    },
+    {
+      "name": "a9_api_rate_case",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "__MOCK_BASE_URL__",
+        "timeout": 30,
+        "default_headers": {
+          "X-Sim-Case-Token": "__RATE_CASE_TOKEN__"
+        }
+      }
+    },
+    {
+      "name": "a9_file_info_flat_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input/flat"
+      }
+    },
+    {
+      "name": "a9_file_info_roundtrip_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output/delta"
+      }
+    },
+    {
+      "name": "minio_sigv4_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://127.0.0.1:9000",
+        "auth_type": "aws_sigv4",
+        "aws_service": "s3",
+        "aws_region": "us-east-1",
+        "aws_access_key_id": "A9_MINIO_ACCESS_KEY",
+        "aws_secret_access_key": "A9_MINIO_SECRET_KEY"
+      },
+      "secrets_ref": {
+        "": [
+          "aws_access_key_id",
+          "aws_secret_access_key"
+        ]
+      }
+    },
+    {
+      "name": "minio_sigv4_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "qualified_sql_delta_source",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/fixtures"
+      }
+    },
+    {
+      "name": "qualified_sql_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "datacoolie",
+      "database": "qsql_positive",
+      "configure": {}
+    },
+    {
+      "name": "qualified_sql_result_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/qualified_sql/results"
+      }
+    },
+    {
+      "name": "replay_api_source",
+      "connection_type": "api",
+      "format": "api",
+      "configure": {
+        "base_url": "http://localhost:8082",
+        "timeout": 30
+      }
+    },
+    {
+      "name": "replay_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/output/delta"
+      }
+    },
+    {
+      "name": "replay_aws_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "s3://datacoolie-test/input/parquet"
+      }
+    },
+    {
+      "name": "replay_aws_delta_dest",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/delta"
+      }
+    },
+    {
+      "name": "replay_iceberg_source",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "replay_iceberg_dest",
+      "connection_type": "lakehouse",
+      "format": "iceberg",
+      "catalog": "local_catalog",
+      "database": "default",
+      "configure": {
+        "base_path": "s3://datacoolie-test/output/iceberg"
+      }
+    },
+    {
+      "name": "sqlite_replay_source",
+      "connection_type": "database",
+      "format": "sql",
+      "database": "DATACOOLIE_SQLITE_DB",
+      "configure": {
+        "database_type": "sqlite",
+        "database": "DATACOOLIE_SQLITE_DB"
+      },
+      "secrets_ref": {
+        "": [
+          "database"
+        ]
+      }
+    },
+    {
+      "name": "scd2_older_effective_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "scd2_older_effective_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "scd2_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "scd2_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "a9_merge_schema_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_merge_schema_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "datatype_qualification_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "spark_sql"
+      }
+    },
+    {
+      "name": "datatype_qualification_csv_source",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/csv"
+      }
+    },
+    {
+      "name": "datatype_qualification_unhinted_parquet_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet"
+      }
+    },
+    {
+      "name": "datatype_qualification_json_source",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/json",
+        "read_options": {
+          "multiLine": "true"
+        }
+      }
+    },
+    {
+      "name": "datatype_qualification_jsonl_source",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/jsonl"
+      }
+    },
+    {
+      "name": "datatype_qualification_postgresql_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "postgresql"
+      }
+    },
+    {
+      "name": "datatype_qualification_mysql_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "mysql"
+      }
+    },
+    {
+      "name": "datatype_qualification_mssql_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "mssql"
+      }
+    },
+    {
+      "name": "datatype_qualification_oracle_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "oracle"
+      }
+    },
+    {
+      "name": "datatype_qualification_sqlite_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "sqlite"
+      }
+    },
+    {
+      "name": "datatype_qualification_spark_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/input/parquet",
+        "schema_hint_type_system": "spark_sql"
+      }
+    },
+    {
+      "name": "datatype_qualification_postgresql_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "postgresql",
+        "url": "postgresql://datacoolie:datacoolie@localhost:5432/datacoolie",
+        "username": "datacoolie",
+        "password": "datacoolie"
+      }
+    },
+    {
+      "name": "datatype_qualification_mysql_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mysql",
+        "url": "mysql://datacoolie:datacoolie@localhost:3306/datacoolie",
+        "username": "datacoolie",
+        "password": "datacoolie"
+      }
+    },
+    {
+      "name": "datatype_qualification_sqlite_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "sqlite",
+        "url": "sqlite:///__run_owned_database__"
+      }
+    },
+    {
+      "name": "datatype_qualification_mssql_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "mssql",
+        "url": "mssql://sa:Datacoolie%401@localhost:1433/datacoolie",
+        "username": "sa",
+        "password": "Datacoolie@1"
+      }
+    },
+    {
+      "name": "datatype_qualification_oracle_db_source",
+      "connection_type": "database",
+      "format": "sql",
+      "configure": {
+        "database_type": "oracle",
+        "url": "oracle://datacoolie:datacoolie@localhost:1521/FREEPDB1",
+        "username": "datacoolie",
+        "password": "datacoolie"
+      }
+    },
+    {
+      "name": "datatype_qualification_destination",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "./usecase-sim/.runtime/data/datatype_qualification/output/parquet/{engine}"
+      }
+    },
+    {
+      "name": "ntz_timezone_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "ntz_timezone_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "schema_evolution_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "schema_evolution_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "a9_transform_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_transform_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "api_lifecycle_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "api_lifecycle_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "a9_csv_options_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "a9_csv_options_destination",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output",
+        "write_options": {
+          "header": false,
+          "sep": ";"
+        }
+      }
+    },
+    {
+      "name": "flat_append_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "flat_append_avro_destination",
+      "connection_type": "file",
+      "format": "avro",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "flat_append_csv_destination",
+      "connection_type": "file",
+      "format": "csv",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "flat_append_json_destination",
+      "connection_type": "file",
+      "format": "json",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "flat_append_jsonl_destination",
+      "connection_type": "file",
+      "format": "jsonl",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    },
+    {
+      "name": "write_basic_source",
+      "connection_type": "file",
+      "format": "parquet",
+      "configure": {
+        "base_path": "__CASE_ROOT__/input"
+      }
+    },
+    {
+      "name": "write_basic_destination",
+      "connection_type": "lakehouse",
+      "format": "delta",
+      "configure": {
+        "base_path": "__CASE_ROOT__/output"
+      }
+    }
+  ]
+}

@@ -591,8 +591,8 @@ class TestDataFlowRuntimeInfo:
         )
         assert info.final_attempt is final
         assert info.retry_attempts == 1
-        assert info.metrics.rows_read == 0
-        assert info.metrics.rows_written == 0
+        assert info.metrics.rows_read is None
+        assert info.metrics.rows_written is None
 
     def test_success_state(self) -> None:
         info = DataFlowRuntimeInfo(status=DataFlowStatus.SUCCEEDED.value)

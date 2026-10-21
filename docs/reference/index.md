@@ -5,6 +5,10 @@ description: Precise field-level contracts for DataCoolie metadata, runtime conf
 
 # Reference
 
+Use [dependency profiles](dependencies.md) to select installation extras and
+[runtime configuration](runtime-configuration.md) for session/replay/logging
+fields. Both references are generated from the current source declarations.
+
 Precise, mechanical contracts. Use this section when you need exact field names,
 types, defaults, or Python signatures. Metadata and session runtime contracts
 are intentionally separate. Prose explanations live under

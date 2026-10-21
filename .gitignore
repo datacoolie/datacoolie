@@ -3,6 +3,10 @@ __pycache__/
 .cache/
 .scratch/
 .runtime/
+/usecase-sim/metadata/database/datacoolie_metadata.db
+/usecase-sim/metadata/database/datacoolie_metadata.db-wal
+/usecase-sim/metadata/database/datacoolie_metadata.db-shm
+/usecase-sim/metadata/database/datacoolie_metadata.db-journal
 
 # Spark artifacts (shared across tests and usecase-sim)
 # iceberg-warehouse is NOT local — REST catalog stores it on MinIO/S3

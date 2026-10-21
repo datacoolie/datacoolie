@@ -141,7 +141,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/scd2/aws.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "aws_load_delta__scd2",
           "role": "primary"
         }
@@ -172,7 +172,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/scd2/aws.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "aws_load_iceberg__scd2",
           "role": "primary"
         }
@@ -203,7 +203,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "load_delta__scd2",
           "role": "primary"
         }
@@ -234,7 +234,7 @@
       "contract": "src/datacoolie/destinations/strategies/load.py",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/scd2/local.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "load_iceberg__scd2",
           "role": "primary"
         }
@@ -271,12 +271,12 @@
       "contract": "docs/reference/concepts/load-strategies.md",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/scd2/scd2.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "scd2-seed",
           "role": "primary"
         },
         {
-          "fixture": "usecase-sim/metadata/file/scd2/scd2.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "scd2-change",
           "role": "primary"
         }
@@ -313,7 +313,7 @@
       "contract": "src/datacoolie/engines/_polars/delta.py::scd2_path",
       "flows": [
         {
-          "fixture": "usecase-sim/metadata/file/scd2/older_effective.json",
+          "fixture": "usecase-sim/metadata/file/scd2.json",
           "flow": "scd2-older-effective-late",
           "role": "primary"
         }

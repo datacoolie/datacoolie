@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
+from types import SimpleNamespace
 from typing import Dict
 from unittest.mock import MagicMock
 
@@ -225,15 +225,22 @@ class TestBaseSecretProvider:
         provider.get_secret("db-password")
         assert provider.fetch_count == 2
 
-    def test_cache_expires(self):
+    def test_cache_expires(self, monkeypatch):
+        now = [100.0]
+        clock = SimpleNamespace(monotonic=lambda: now[0])
+        monkeypatch.setattr("datacoolie.core.secrets.provider.time", clock)
         p = InMemorySecretProvider(
             secrets={"k": "v"},
             cache_ttl=1,
         )
-        p.get_secret("k")
+        assert p.get_secret("k") == "v"
         assert p.fetch_count == 1
-        time.sleep(1.1)
-        p.get_secret("k")
+        now[0] = 100.999
+        assert p.get_secret("k") == "v"
+        assert p.fetch_count == 1
+        p._secrets["k"] = "refreshed"
+        now[0] = 101.0
+        assert p.get_secret("k") == "refreshed"
         assert p.fetch_count == 2
 
     def test_thread_safety(self, provider):

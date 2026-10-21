@@ -8,7 +8,7 @@ description: Combine canonical API ranges, pagination, look-back and idempotent 
 Use this pattern when an API accepts lower and upper range parameters and
 returns a stable, paginated result for each interval. Configure connection
 [authentication](connections.md#api-authentication), then use
-[API source configuration](source-patterns.md#api-source-configuration) for the
+[API source configuration](source-api.md#api-source-configuration) for the
 request and pagination settings. The [Source reference](../../reference/metadata-schema.md#source)
 defines their types and options.
 
@@ -74,8 +74,8 @@ pages. This intentionally rereads rows; `merge_upsert` updates by `order_id`
 rather than blindly appending duplicates. It does not reflect a source-side
 deletion that the API never sends. Check that the provider's offset parameter
 means **record offset**, not page number, and that it returns the complete
-interval at the chosen page limit. See [offset pagination](source-patterns.md#offset-pagination-with-provider-specific-parameter-names)
-and [incremental windows](source-patterns.md#incremental-windows-and-look-back).
+interval at the chosen page limit. See [offset pagination](source-api.md#offset-pagination-with-provider-specific-parameter-names)
+and [incremental windows](source-incremental.md#incremental-windows-and-look-back).
 
 ## Boundary and completeness checks
 

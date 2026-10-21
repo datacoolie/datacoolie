@@ -1,0 +1,1650 @@
+{
+  "execution/local": {
+    "metadata_path": "metadata/file/execution.json",
+    "dataflows": [
+      "streaming__append"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "incremental/api_date_positive": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_wm__date_fmt"
+    ],
+    "connections": [
+      "case_api_source",
+      "case_parquet_dest"
+    ]
+  },
+  "incremental/api_date_precision_negative": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_wm__date_precision_negative"
+    ],
+    "connections": [
+      "case_api_source",
+      "case_parquet_dest"
+    ]
+  },
+  "incremental/api_incremental_continuation": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "connections": [
+      "api_recovery_source",
+      "api_recovery_dest"
+    ]
+  },
+  "incremental/api_incremental_continuation_spark": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "metadata_bindings": {
+      "connections": {
+        "api_recovery_dest": {
+          "replace": {
+            "name": "api_recovery_dest",
+            "connection_type": "lakehouse",
+            "format": "delta",
+            "configure": {
+              "base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"
+            }
+          }
+        }
+      }
+    },
+    "connections": [
+      "api_recovery_source",
+      "api_recovery_dest"
+    ]
+  },
+  "incremental/api_incremental_recovery": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "metadata_bindings": {
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 10,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "connections": [
+      "api_recovery_source",
+      "api_recovery_dest"
+    ]
+  },
+  "incremental/api_incremental_recovery_fail": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "metadata_bindings": {
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 1,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "connections": [
+      "api_recovery_source",
+      "api_recovery_dest"
+    ]
+  },
+  "incremental/api_incremental_recovery_spark": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "metadata_bindings": {
+      "connections": {
+        "api_recovery_dest": {
+          "replace": {
+            "name": "api_recovery_dest",
+            "connection_type": "lakehouse",
+            "format": "delta",
+            "configure": {
+              "base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"
+            }
+          }
+        }
+      },
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 10,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "connections": [
+      "api_recovery_source",
+      "api_recovery_dest"
+    ]
+  },
+  "incremental/api_incremental_recovery_spark_fail": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "api_incremental_recovery_validation"
+    ],
+    "metadata_bindings": {
+      "connections": {
+        "api_recovery_dest": {
+          "replace": {
+            "name": "api_recovery_dest",
+            "connection_type": "lakehouse",
+            "format": "delta",
+            "configure": {
+              "base_path": "./usecase-sim/.runtime/data/output/delta/api_recovery_spark"
+            }
+          }
+        }
+      },
+      "dataflows": {
+        "api_incremental_recovery_validation": {
+          "replace": {
+            "name": "api_incremental_recovery_validation",
+            "stage": "api_incremental_recovery_validation",
+            "processing_mode": "batch",
+            "source": {
+              "connection_name": "api_recovery_source",
+              "table": "orders",
+              "watermark_columns": [
+                "modified_at"
+              ],
+              "configure": {
+                "endpoint": "/api/orders/next-link",
+                "pagination_type": "next_link",
+                "data_path": "records",
+                "next_link_path": "_links.next",
+                "page_size": 5,
+                "max_pages": 1,
+                "params": {
+                  "limit": 5
+                },
+                "range_param_mapping": {
+                  "modified_at": {
+                    "lower": {
+                      "location": "params",
+                      "name": "modified_since",
+                      "operator": ">="
+                    },
+                    "format": "iso",
+                    "response_column": "modified_at",
+                    "watermark_value": "observed_max"
+                  }
+                }
+              }
+            },
+            "destination": {
+              "connection_name": "api_recovery_dest",
+              "table": "api_incremental_recovery_validation",
+              "load_type": "append"
+            }
+          }
+        }
+      }
+    },
+    "connections": [
+      "api_recovery_source",
+      "api_recovery_dest"
+    ]
+  },
+  "incremental/aws": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "aws_watermark__file_mtime",
+      "aws_watermark__file_mtime_multi_col",
+      "aws_watermark__data_col",
+      "aws_watermark_db__postgres",
+      "aws_watermark_db__sqlite",
+      "aws_backward__days",
+      "aws_backward__months_closing_day",
+      "aws_date_folder__src_partition",
+      "aws_backward__hours",
+      "aws_backward__years",
+      "aws_watermark_iceberg__data_col"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "incremental/local": {
+    "metadata_path": "metadata/file/incremental.json",
+    "dataflows": [
+      "watermark__file_mtime",
+      "watermark__file_mtime_multi_col",
+      "watermark__data_col",
+      "watermark_db__postgres",
+      "watermark_db__oracle",
+      "watermark_db__mysql",
+      "watermark_db__mssql",
+      "watermark_db__sqlite",
+      "backward__days",
+      "backward__months_closing_day",
+      "api_wm__iso",
+      "api_wm__timestamp_ms",
+      "api_wm__body",
+      "api_wm__tz_conn",
+      "api_wm__tz_src_override",
+      "api_wm__exclusive_offset",
+      "api_range__day_interval",
+      "api_range__month_interval",
+      "api_range__year_interval",
+      "api_range__multi_worker",
+      "api_range__with_bearer",
+      "date_folder__src_partition",
+      "api_wm__timestamp",
+      "api_wm__datetime",
+      "api_wm__datetime_ms",
+      "backward__hours",
+      "backward__years",
+      "watermark_iceberg__data_col"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "maintenance/iceberg_rest_maintenance": {
+    "metadata_path": "metadata/file/maintenance.json",
+    "dataflows": [
+      "iceberg-rest-maintenance"
+    ],
+    "connections": [
+      "maintenance_source",
+      "maintenance_iceberg_dest"
+    ]
+  },
+  "maintenance/maintenance": {
+    "metadata_path": "metadata/file/maintenance.json",
+    "dataflows": [
+      "maintenance-eligible",
+      "maintenance-protected",
+      "maintenance-missing"
+    ],
+    "connections": [
+      "maintenance_source",
+      "maintenance_destination"
+    ]
+  },
+  "merge/a9_iceberg_partition_change": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "a9-iceberg-partition-change"
+    ],
+    "connections": [
+      "a9_iceberg_partition_source",
+      "a9_iceberg_partition_destination"
+    ]
+  },
+  "merge/a9_iceberg_schema_merge": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "a9-iceberg-schema-merge"
+    ],
+    "connections": [
+      "a9_iceberg_schema_source",
+      "a9_iceberg_schema_destination"
+    ]
+  },
+  "merge/aws": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "aws_load_delta__merge_upsert",
+      "aws_load_delta__merge_overwrite",
+      "aws_load_delta__merge_upsert_no_watermark",
+      "aws_load_iceberg__merge_upsert",
+      "aws_load_iceberg__merge_overwrite",
+      "aws_load_iceberg__merge_upsert_no_watermark"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "merge/composite_keys": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "merge-composite-keys"
+    ],
+    "connections": [
+      "merge_composite_keys_source",
+      "merge_composite_keys_destination"
+    ]
+  },
+  "merge/custom_predicate": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "merge-custom-predicate"
+    ],
+    "connections": [
+      "merge_custom_predicate_source",
+      "merge_custom_predicate_destination"
+    ]
+  },
+  "merge/local": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "load_delta__merge_upsert",
+      "load_delta__merge_overwrite",
+      "load_delta__merge_upsert_no_watermark",
+      "load_iceberg__merge_upsert",
+      "load_iceberg__merge_overwrite",
+      "load_delta__merge_overwrite_rbw",
+      "load_iceberg__merge_overwrite_rbw",
+      "load_iceberg__merge_upsert_no_watermark"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "merge/merge": {
+    "metadata_path": "metadata/file/merge.json",
+    "dataflows": [
+      "merge-seed",
+      "merge-upsert"
+    ],
+    "connections": [
+      "merge_source",
+      "merge_destination"
+    ]
+  },
+  "metadata_artifacts/multi_sql_root_contract": {
+    "metadata_path": "metadata/file/metadata_artifacts.json",
+    "dataflows": [
+      "query_explicit_multiple_roots"
+    ],
+    "connections": [
+      "explicit_multi_sql_source",
+      "explicit_multi_sql_destination"
+    ]
+  },
+  "metadata_artifacts/query_contract": {
+    "metadata_path": "metadata/file/metadata_artifacts.json",
+    "dataflows": [
+      "query_root_routing"
+    ],
+    "connections": [
+      "query_contract_source",
+      "query_contract_destination"
+    ]
+  },
+  "metadata_artifacts/sql_root_precedence": {
+    "metadata_path": "metadata/file/metadata_artifacts.json",
+    "dataflows": [
+      "sql-root-precedence"
+    ],
+    "connections": [
+      "sql_root_precedence_source",
+      "sql_root_precedence_destination"
+    ]
+  },
+  "metadata_artifacts/state_contract": {
+    "metadata_path": "metadata/file/metadata_artifacts.json",
+    "dataflows": [
+      "state_base_path"
+    ],
+    "connections": [
+      "state_contract_source",
+      "state_contract_destination"
+    ]
+  },
+  "performance/perf_test": {
+    "metadata_path": "metadata/file/performance.json",
+    "dataflows": [
+      "perf_jsonl_parquet__10k",
+      "perf_jsonl_parquet__50k",
+      "perf_jsonl_parquet__100k",
+      "perf_jsonl_parquet__500k",
+      "perf_jsonl_parquet__1m",
+      "perf_jsonl_delta__10k",
+      "perf_jsonl_delta__50k",
+      "perf_jsonl_delta__100k",
+      "perf_jsonl_delta__500k",
+      "perf_jsonl_delta__1m",
+      "perf_jsonl_iceberg__10k",
+      "perf_jsonl_iceberg__50k",
+      "perf_jsonl_iceberg__100k",
+      "perf_jsonl_iceberg__500k",
+      "perf_jsonl_iceberg__1m",
+      "perf_parquet_parquet__10k",
+      "perf_parquet_parquet__50k",
+      "perf_parquet_parquet__100k",
+      "perf_parquet_parquet__500k",
+      "perf_parquet_parquet__1m",
+      "perf_parquet_parquet__5m",
+      "perf_parquet_parquet__10m",
+      "perf_parquet_parquet__50m",
+      "perf_parquet_delta__10k",
+      "perf_parquet_delta__50k",
+      "perf_parquet_delta__100k",
+      "perf_parquet_delta__500k",
+      "perf_parquet_delta__1m",
+      "perf_parquet_delta__5m",
+      "perf_parquet_delta__10m",
+      "perf_parquet_delta__50m",
+      "perf_parquet_iceberg__10k",
+      "perf_parquet_iceberg__50k",
+      "perf_parquet_iceberg__100k",
+      "perf_parquet_iceberg__500k",
+      "perf_parquet_iceberg__1m",
+      "perf_parquet_iceberg__5m",
+      "perf_parquet_iceberg__10m",
+      "perf_parquet_iceberg__50m",
+      "perf_delta_delta__10k",
+      "perf_delta_delta__50k",
+      "perf_delta_delta__100k",
+      "perf_delta_delta__500k",
+      "perf_delta_delta__1m",
+      "perf_delta_delta__5m",
+      "perf_delta_delta__10m",
+      "perf_delta_delta__50m",
+      "perf_iceberg_iceberg__10k",
+      "perf_iceberg_iceberg__50k",
+      "perf_iceberg_iceberg__100k",
+      "perf_iceberg_iceberg__500k",
+      "perf_iceberg_iceberg__1m",
+      "perf_iceberg_iceberg__5m",
+      "perf_iceberg_iceberg__10m",
+      "perf_iceberg_iceberg__50m"
+    ],
+    "connections": [
+      "perf_jsonl_source",
+      "perf_parquet_source",
+      "perf_parquet_dest",
+      "perf_delta_source",
+      "perf_delta_dest",
+      "perf_iceberg_source",
+      "perf_iceberg_dest"
+    ]
+  },
+  "read/a9_api_oauth_json": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "api_service__oauth2_json"
+    ],
+    "connections": [
+      "a9_api_oauth2_json",
+      "a9_api_parquet_dest"
+    ]
+  },
+  "read/a9_api_rate_limit": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "api_service__rate_limit_case"
+    ],
+    "connections": [
+      "a9_api_rate_case",
+      "a9_api_parquet_dest"
+    ]
+  },
+  "read/a9_file_info_roundtrip": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "a9-file-info-roundtrip-read"
+    ],
+    "connections": [
+      "a9_file_info_flat_source",
+      "a9_file_info_roundtrip_destination"
+    ]
+  },
+  "read/api_max_pages_negative": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "api_request__max_pages"
+    ],
+    "connections": [
+      "case_api_source",
+      "case_parquet_dest"
+    ]
+  },
+  "read/aws": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "aws_read__csv",
+      "aws_read__json",
+      "aws_read__jsonl",
+      "aws_read__parquet",
+      "aws_read__avro",
+      "aws_read__delta",
+      "aws_read__iceberg",
+      "aws_read_db__sqlite",
+      "aws_read_db__postgres",
+      "aws_python_fn__delta_sql",
+      "aws_python_fn__iceberg_sql",
+      "aws_python_fn__custom_load",
+      "aws_hive_partition__source",
+      "aws_read_db__sqlite_query",
+      "aws_read_delta__query",
+      "aws_read_delta__scd2",
+      "aws_read_iceberg__query",
+      "aws_read_iceberg__scd2"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "read/local": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "read__csv",
+      "read__json",
+      "read__jsonl",
+      "read__parquet",
+      "read__avro",
+      "read__excel",
+      "read__delta",
+      "read__iceberg",
+      "read_db__sqlite",
+      "read_db__postgres",
+      "read_db__mysql",
+      "read_db__mssql",
+      "read_db__oracle",
+      "filter__simple",
+      "filter__compound",
+      "filter__transform_simple",
+      "filter__transform_date",
+      "python_fn__delta_sql",
+      "python_fn__iceberg_sql",
+      "python_fn__custom_load",
+      "api_auth__none",
+      "api_auth__bearer",
+      "api_auth__api_key",
+      "api_auth__basic",
+      "api_auth__oauth2",
+      "api_auth__oauth2_basic_method",
+      "api_page__none",
+      "api_page__offset",
+      "api_page__cursor",
+      "api_page__next_link",
+      "api_request__post_body",
+      "api_request__static_params",
+      "api_request__nested_data_path",
+      "api_request__server_filter",
+      "api_request__rate_limit",
+      "hive_partition__source",
+      "api_page__offset_concurrent",
+      "read_db__sqlite_query",
+      "read_delta__query",
+      "read_delta__scd2",
+      "read_iceberg__query",
+      "read_iceberg__scd2"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "read/minio_sigv4": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "minio-sigv4-private-read"
+    ],
+    "connections": [
+      "minio_sigv4_source",
+      "minio_sigv4_destination"
+    ]
+  },
+  "read/polars_qualified_sql": {
+    "metadata_path": "metadata/file/read.json",
+    "dataflows": [
+      "qualified_sql__delta_name_4",
+      "qualified_sql__delta_name_3",
+      "qualified_sql__delta_name_2",
+      "qualified_sql__delta_name_1",
+      "qualified_sql__delta_include",
+      "qualified_sql__delta_exclude",
+      "qualified_sql__delta_lazy_reuse",
+      "qualified_sql__delta_ambiguity",
+      "qualified_sql__iceberg_default_root",
+      "qualified_sql__iceberg_logical_prefix",
+      "qualified_sql__iceberg_name_1",
+      "qualified_sql__iceberg_include",
+      "qualified_sql__iceberg_exclude",
+      "qualified_sql__iceberg_lazy_reuse",
+      "qualified_sql__iceberg_ambiguity"
+    ],
+    "connections": [
+      "qualified_sql_delta_source",
+      "qualified_sql_iceberg_source",
+      "qualified_sql_result_destination"
+    ]
+  },
+  "replay/local": {
+    "metadata_path": "metadata/file/replay.json",
+    "dataflows": [
+      "replay__orders"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "replay/replay_api_validation": {
+    "metadata_path": "metadata/file/replay.json",
+    "dataflows": [
+      "api_replay_validation"
+    ],
+    "connections": [
+      "replay_api_source",
+      "replay_delta_dest"
+    ]
+  },
+  "replay/replay_aws_validation": {
+    "metadata_path": "metadata/file/replay.json",
+    "dataflows": [
+      "aws_replay_validation"
+    ],
+    "connections": [
+      "replay_aws_parquet_source",
+      "replay_aws_delta_dest"
+    ]
+  },
+  "replay/replay_iceberg_validation": {
+    "metadata_path": "metadata/file/replay.json",
+    "dataflows": [
+      "iceberg_replay_validation"
+    ],
+    "connections": [
+      "replay_iceberg_source",
+      "replay_iceberg_dest"
+    ]
+  },
+  "replay/replay_sql_validation": {
+    "metadata_path": "metadata/file/replay.json",
+    "dataflows": [
+      "sql_replay_validation"
+    ],
+    "connections": [
+      "sqlite_replay_source",
+      "replay_delta_dest"
+    ]
+  },
+  "scd2/aws": {
+    "metadata_path": "metadata/file/scd2.json",
+    "dataflows": [
+      "aws_load_delta__scd2",
+      "aws_load_iceberg__scd2"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "scd2/local": {
+    "metadata_path": "metadata/file/scd2.json",
+    "dataflows": [
+      "load_delta__scd2",
+      "load_iceberg__scd2"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "scd2/older_effective": {
+    "metadata_path": "metadata/file/scd2.json",
+    "dataflows": [
+      "scd2-older-effective-late"
+    ],
+    "connections": [
+      "scd2_older_effective_source",
+      "scd2_older_effective_destination"
+    ]
+  },
+  "scd2/scd2": {
+    "metadata_path": "metadata/file/scd2.json",
+    "dataflows": [
+      "scd2-seed",
+      "scd2-change"
+    ],
+    "connections": [
+      "scd2_source",
+      "scd2_destination"
+    ]
+  },
+  "schema_types/a9_merge_schema": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "a9-schema-merge-schema-append"
+    ],
+    "connections": [
+      "a9_merge_schema_source",
+      "a9_merge_schema_destination"
+    ]
+  },
+  "schema_types/aws": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "aws_schema__date_format",
+      "aws_schema__timestamp",
+      "aws_schema__decimal",
+      "aws_schema__numeric_types",
+      "aws_schema__global_hint",
+      "aws_load_delta__schema_evolve_base",
+      "aws_load_delta__schema_evolve_new_cols",
+      "aws_read_delta__schema_evolve",
+      "aws_load_delta__schema_evolve_fewer_cols",
+      "aws_read_delta__schema_evolve_fewer_cols",
+      "aws_schema__string_cast",
+      "aws_schema__hint_inactive",
+      "aws_schema__no_ntz_convert",
+      "aws_schema__skip_hints",
+      "aws_schema__boolean",
+      "aws_schema__bigint",
+      "aws_schema__timestamp_ntz",
+      "aws_load_iceberg__schema_evolve_base",
+      "aws_load_iceberg__schema_evolve_new_cols",
+      "aws_read_iceberg__schema_evolve",
+      "aws_load_iceberg__schema_evolve_fewer_cols",
+      "aws_read_iceberg__schema_evolve_fewer_cols"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "schema_types/datatype_qualification": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "datatype_decimal_and_date",
+      "datatype_unhinted_csv",
+      "datatype_unhinted_parquet",
+      "datatype_unhinted_json",
+      "datatype_unhinted_jsonl",
+      "datatype_matrix_postgresql",
+      "datatype_matrix_mysql",
+      "datatype_matrix_mssql",
+      "datatype_matrix_oracle",
+      "datatype_matrix_sqlite",
+      "datatype_matrix_spark_sql",
+      "datatype_database_postgresql",
+      "datatype_database_mysql",
+      "datatype_database_sqlite",
+      "datatype_database_mssql",
+      "datatype_database_oracle"
+    ],
+    "connections": [
+      "datatype_qualification_parquet_source",
+      "datatype_qualification_csv_source",
+      "datatype_qualification_unhinted_parquet_source",
+      "datatype_qualification_json_source",
+      "datatype_qualification_jsonl_source",
+      "datatype_qualification_postgresql_source",
+      "datatype_qualification_mysql_source",
+      "datatype_qualification_mssql_source",
+      "datatype_qualification_oracle_source",
+      "datatype_qualification_sqlite_source",
+      "datatype_qualification_spark_source",
+      "datatype_qualification_postgresql_db_source",
+      "datatype_qualification_mysql_db_source",
+      "datatype_qualification_sqlite_db_source",
+      "datatype_qualification_mssql_db_source",
+      "datatype_qualification_oracle_db_source",
+      "datatype_qualification_destination"
+    ]
+  },
+  "schema_types/local": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "schema__date_format",
+      "schema__timestamp",
+      "schema__decimal",
+      "schema__numeric_types",
+      "schema__global_hint",
+      "load_delta__schema_evolve_base",
+      "load_delta__schema_evolve_new_cols",
+      "read_delta__schema_evolve",
+      "load_delta__schema_evolve_fewer_cols",
+      "read_delta__schema_evolve_fewer_cols",
+      "schema__string_cast",
+      "schema__hint_inactive",
+      "schema__no_ntz_convert",
+      "schema__skip_hints",
+      "schema__boolean",
+      "schema__bigint",
+      "schema__timestamp_ntz",
+      "load_iceberg__schema_evolve_base",
+      "load_iceberg__schema_evolve_new_cols",
+      "read_iceberg__schema_evolve",
+      "load_iceberg__schema_evolve_fewer_cols",
+      "read_iceberg__schema_evolve_fewer_cols"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "schema_types/ntz_timezone": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "ntz-timezone-conversion"
+    ],
+    "connections": [
+      "ntz_timezone_source",
+      "ntz_timezone_destination"
+    ]
+  },
+  "schema_types/schema_evolution": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "schema-evolution-seed",
+      "schema-evolution-new-columns",
+      "schema-evolution-fewer-columns"
+    ],
+    "connections": [
+      "schema_evolution_source",
+      "schema_evolution_destination"
+    ]
+  },
+  "schema_types/transformer_features": {
+    "metadata_path": "metadata/file/schema_types.json",
+    "dataflows": [
+      "transform_value__before_schema_cast",
+      "transform_schema__cast",
+      "transform_schema__missing_warning"
+    ],
+    "connections": [
+      "transform_features_source",
+      "transform_features_destination"
+    ]
+  },
+  "transform/a9_local": {
+    "metadata_path": "metadata/file/transform.json",
+    "dataflows": [
+      "a9-transform-uppercase",
+      "a9-transform-map-null",
+      "a9-transform-partial-keep-start",
+      "a9-transform-timestamp-truncate-hour"
+    ],
+    "connections": [
+      "a9_transform_source",
+      "a9_transform_destination"
+    ]
+  },
+  "transform/aws": {
+    "metadata_path": "metadata/file/transform.json",
+    "dataflows": [
+      "aws_dedup__row_number",
+      "aws_dedup__rank",
+      "aws_dedup__no_order_col",
+      "aws_addcols__literal",
+      "aws_addcols__expression",
+      "aws_dedup__composite_key"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "transform/local": {
+    "metadata_path": "metadata/file/transform.json",
+    "dataflows": [
+      "dedup__row_number",
+      "dedup__rank",
+      "dedup__no_order_col",
+      "addcols__literal",
+      "addcols__expression",
+      "row_filter__on_computed_col",
+      "row_filter__simple",
+      "dedup__composite_key"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "transform/transformer_features": {
+    "metadata_path": "metadata/file/transform.json",
+    "dataflows": [
+      "transform_value__trim",
+      "transform_value__case",
+      "transform_value__regex_replace",
+      "transform_value__regex_literal_replacement",
+      "transform_value__empty_to_null",
+      "transform_value__fill_null",
+      "transform_value__map",
+      "transform_value__stable_rule_order",
+      "transform_hash__sha256",
+      "transform_hash__xxhash64",
+      "transform_mask__redact",
+      "transform_mask__nullify",
+      "transform_mask__partial",
+      "transform_mask__numeric_bucket",
+      "transform_mask__date_truncate",
+      "transform_projection__select",
+      "transform_projection__drop",
+      "transform_projection__batch_rename",
+      "transform_missing_policy__value_rule",
+      "transform_missing_policy__hash",
+      "transform_missing_policy__masking",
+      "transform_missing_policy__projection",
+      "transform_value__invalid_typed_fill",
+      "transform_mask__invalid_typed_redact",
+      "transform_sanitizer__collision",
+      "transform_dedup__missing_is_strict"
+    ],
+    "connections": [
+      "transform_features_source",
+      "transform_features_destination"
+    ]
+  },
+  "workflows/api_watermark_lifecycle": {
+    "metadata_path": "metadata/file/workflows.json",
+    "dataflows": [
+      "api-watermark-lifecycle"
+    ],
+    "connections": [
+      "api_lifecycle_source",
+      "api_lifecycle_destination"
+    ]
+  },
+  "workflows/aws": {
+    "metadata_path": "metadata/file/workflows.json",
+    "dataflows": [
+      "aws_combined__dedup_schema_addcols_partition"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "workflows/local": {
+    "metadata_path": "metadata/file/workflows.json",
+    "dataflows": [
+      "combined__dedup_schema_addcols_partition"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "write_basic/a9_csv_options": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "a9-write-csv-options"
+    ],
+    "connections": [
+      "a9_csv_options_source",
+      "a9_csv_options_destination"
+    ]
+  },
+  "write_basic/append_avro": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "flat-append-avro"
+    ],
+    "connections": [
+      "flat_append_source",
+      "flat_append_avro_destination"
+    ]
+  },
+  "write_basic/append_csv": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "flat-append-csv"
+    ],
+    "connections": [
+      "flat_append_source",
+      "flat_append_csv_destination"
+    ]
+  },
+  "write_basic/append_json": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "flat-append-json"
+    ],
+    "connections": [
+      "flat_append_source",
+      "flat_append_json_destination"
+    ]
+  },
+  "write_basic/append_jsonl": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "flat-append-jsonl"
+    ],
+    "connections": [
+      "flat_append_source",
+      "flat_append_jsonl_destination"
+    ]
+  },
+  "write_basic/aws": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "aws_write__csv",
+      "aws_write__json",
+      "aws_write__jsonl",
+      "aws_write__avro",
+      "aws_write__parquet",
+      "aws_load_delta__full_load",
+      "aws_load_delta__overwrite",
+      "aws_load_delta__append",
+      "aws_load_iceberg__full_load",
+      "aws_load_iceberg__overwrite",
+      "aws_load_iceberg__append",
+      "aws_partition__single",
+      "aws_partition__multi",
+      "aws_date_folder__dest_partition",
+      "aws_write__json_to_jsonl",
+      "aws_load_iceberg__append_partitioned"
+    ],
+    "connections": [
+      "aws_csv_source",
+      "aws_json_source",
+      "aws_parquet_source",
+      "aws_avro_source",
+      "aws_jsonl_source",
+      "aws_csv_dest",
+      "aws_json_dest",
+      "aws_parquet_dest",
+      "aws_avro_dest",
+      "aws_jsonl_dest",
+      "aws_delta_source",
+      "aws_delta_dest",
+      "aws_iceberg_source",
+      "aws_iceberg_dest",
+      "aws_sqlite_source",
+      "aws_postgres_source",
+      "aws_parquet_date_folder_src",
+      "aws_parquet_date_folder_dest",
+      "aws_parquet_hive_src",
+      "aws_function_src",
+      "aws_csv_no_hint"
+    ]
+  },
+  "write_basic/local": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "write__csv",
+      "write__json",
+      "write__jsonl",
+      "write__avro",
+      "write__parquet",
+      "load_delta__full_load",
+      "load_delta__overwrite",
+      "load_delta__append",
+      "load_iceberg__full_load",
+      "load_iceberg__overwrite",
+      "load_iceberg__append",
+      "partition__single",
+      "partition__multi",
+      "date_folder__dest_partition",
+      "write__json_to_jsonl",
+      "load_iceberg__append_partitioned"
+    ],
+    "connections": [
+      "local_csv_source",
+      "local_json_source",
+      "local_parquet_source",
+      "local_avro_source",
+      "local_jsonl_source",
+      "local_csv_dest",
+      "local_json_dest",
+      "local_parquet_dest",
+      "local_avro_dest",
+      "local_jsonl_dest",
+      "local_excel_source",
+      "local_delta_source",
+      "local_delta_dest",
+      "local_iceberg_source",
+      "local_iceberg_dest",
+      "local_sqlite_source",
+      "local_postgres_source",
+      "local_mysql_source",
+      "local_mssql_source",
+      "local_oracle_source",
+      "local_api_source",
+      "local_api_bearer",
+      "local_api_apikey",
+      "local_api_basic",
+      "local_api_oauth2",
+      "local_api_oauth2_ext",
+      "local_api_tz",
+      "local_parquet_date_folder_src",
+      "local_parquet_date_folder_dest",
+      "local_parquet_hive_src",
+      "local_function_src",
+      "local_csv_no_hint"
+    ]
+  },
+  "write_basic/write_basic": {
+    "metadata_path": "metadata/file/write_basic.json",
+    "dataflows": [
+      "write-basic-overwrite",
+      "write-basic-append"
+    ],
+    "connections": [
+      "write_basic_source",
+      "write_basic_destination"
+    ]
+  }
+}

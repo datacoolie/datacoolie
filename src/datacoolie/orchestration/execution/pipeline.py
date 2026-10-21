@@ -13,6 +13,7 @@ from datacoolie.core.exceptions import PipelineError
 from datacoolie.core.models.dataflow import DataFlow
 from datacoolie.destinations.runtime import DestinationRuntimeInfo
 from datacoolie.engines.base import BaseEngine
+from datacoolie.engines.contracts.maintenance import default_options
 from datacoolie.logging.runtime.diagnostics import emit_safely
 from datacoolie.logging.runtime.manager import get_logger
 from datacoolie.orchestration.execution.read_baseline import ReadBaseline
@@ -102,6 +103,34 @@ def _finish_phase(phase, *, status, error=None):
         phase.message = str(error) or type(error).__name__
 
 
+def _enrich_maintenance_phase(phase, writer, *, runtime_value=None):
+    """Copy optional fields into the pipeline phase without adopting custom runtimes."""
+    try:
+        observed = _observe_runtime(writer, DestinationRuntimeInfo, "maintenance",
+                                    fallback=phase, runtime_value=runtime_value)
+        if observed is None:
+            return
+        # Control fields and completed end timing remain pipeline-owned. Stage
+        # fields on a standard runtime: even a successful deepcopy can be readonly.
+        staged = DestinationRuntimeInfo(start_time=phase.start_time, end_time=phase.end_time)
+        diagnostic_fields = [item.name for item in fields(staged)
+                             if item.name not in ("status", "message", "operation_type", "end_time")]
+        for name in diagnostic_fields:
+            try:
+                value = copy.deepcopy(getattr(observed, name))
+                if name == "start_time" and value is None:
+                    continue
+                setattr(staged, name, value)
+            except Exception:
+                continue
+        _sanitize_timing(staged, phase)
+        for name in diagnostic_fields:
+            setattr(phase, name, getattr(staged, name))
+    except BaseException:
+        emit_safely(logger, logging.WARNING, "Maintenance runtime enrichment unavailable",
+                    exc_info=True, catch_base=True)
+
+
 def build_source_reader(engine: BaseEngine, fmt: str, *, allowed_prefixes=None):
     from datacoolie import source_registry
     kwargs = {"engine": engine}
@@ -116,8 +145,7 @@ def build_transformer_pipeline(engine: BaseEngine, *, dataflow_run_id=None, colu
     kwargs = {"column_name_sanitizer": {"mode": column_name_mode},
               "system_column_adder": {"dataflow_run_id": dataflow_run_id}}
     for name in DEFAULT_TRANSFORMERS:
-        if transformer_registry.is_available(name):
-            pipeline.add_transformer(transformer_registry.get(name, engine=engine, **kwargs.get(name, {})))
+        pipeline.add_transformer(transformer_registry.get(name, engine=engine, **kwargs.get(name, {})))
     return pipeline
 
 
@@ -296,6 +324,7 @@ def execute_maintenance_pipeline(
     dataflow: DataFlow, *, baseline: ReadBaseline, attempt: AttemptRuntimeInfo,
     create_destination_writer: Callable, retention_hours: int,
     do_compact: bool, do_cleanup: bool,
+    prepared_maintenance=None, compact_options=None, cleanup_options=None,
 ) -> AttemptRuntimeInfo:
     writer = None
     try:
@@ -304,29 +333,42 @@ def execute_maintenance_pipeline(
         attempt.destination = DestinationRuntimeInfo(
             status=DataFlowStatus.RUNNING.value, operation_type=ExecutionType.MAINTENANCE.value,
         )
-        returned = writer.run_maintenance(dataflow=dataflow, do_compact=do_compact,
-                                          do_cleanup=do_cleanup, retention_hours=retention_hours)
-        # A successful work return must not become a retry because observation
-        # is absent/malformed. An explicitly returned failed status is business failure.
-        if isinstance(returned, DestinationRuntimeInfo):
-            observed = _observe_runtime(writer, DestinationRuntimeInfo, "maintenance",
-                fallback=attempt.destination, runtime_value=returned)
-            if observed is not None:
-                attempt.destination = observed
+        kwargs = dict(dataflow=dataflow, do_compact=do_compact,
+                      do_cleanup=do_cleanup, retention_hours=retention_hours)
+        compact_options, cleanup_options = default_options(compact_options), default_options(cleanup_options)
+        if prepared_maintenance is not None or compact_options is not None or cleanup_options is not None:
+            _require_callable_contract(writer, "destination writer", ("run_selected_maintenance",))
+            returned = writer.run_selected_maintenance(**kwargs, prepared=prepared_maintenance,
+                        compact_options=compact_options, cleanup_options=cleanup_options)
         else:
-            _finish_phase(attempt.destination, status=DataFlowStatus.SUCCEEDED.value)
-        if attempt.destination.status == DataFlowStatus.FAILED.value:
-            raise PipelineError(attempt.destination.message or "Maintenance failed")
-        attempt.status = attempt.destination.status
-        if attempt.status == DataFlowStatus.SKIPPED.value:
+            returned = writer.run_maintenance(**kwargs)
+        # Retain control evidence before optional copy/timing/metric capture.
+        status = DataFlowStatus.SUCCEEDED.value
+        message = None
+        if isinstance(returned, DestinationRuntimeInfo):
+            status, message = returned.status, returned.message
+            if status not in (
+                DataFlowStatus.SUCCEEDED.value,
+                DataFlowStatus.SKIPPED.value,
+                DataFlowStatus.FAILED.value,
+            ):
+                raise PipelineError("maintenance result must have a terminal status")
+        _finish_phase(attempt.destination, status=status)
+        attempt.destination.message = message
+        if isinstance(returned, DestinationRuntimeInfo):
+            _enrich_maintenance_phase(attempt.destination, writer, runtime_value=returned)
+        if status == DataFlowStatus.FAILED.value:
+            raise PipelineError(message or "Maintenance failed")
+        attempt.status = status
+        attempt.message = message
+        if status == DataFlowStatus.SKIPPED.value and not message:
             attempt.message = "Maintenance performed no operations"
         return attempt
     except Exception as exc:
         if attempt.destination is not None:
-            if writer is not None:
-                evidence = _observe_runtime(writer, DestinationRuntimeInfo, "destination writer", fallback=attempt.destination)
-                if evidence:
-                    attempt.destination = evidence
             _finish_phase(attempt.destination, status=DataFlowStatus.FAILED.value, error=exc)
+            if writer is not None:
+                _enrich_maintenance_phase(attempt.destination, writer)
         attempt.status = DataFlowStatus.FAILED.value
+        attempt.message = str(exc) or type(exc).__name__
         raise PipelineError(str(exc) or type(exc).__name__, attempt=attempt) from exc

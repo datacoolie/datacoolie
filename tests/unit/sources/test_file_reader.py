@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re as re_mod
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call, patch
 
 import polars as pl
 import pytest
@@ -249,8 +249,52 @@ class TestFileReaderDateFolders:
         ]
         engine.set_platform(mock_platform)
         reader = FileReader(engine)
-        result = reader.read(date_folder_source, request=read_request())
-        assert result is not None
+        with patch.object(engine, "read", wraps=engine.read) as read:
+            result = reader.read(date_folder_source, request=read_request())
+
+        assert mock_platform.list_folders.call_args_list == [
+            call("/data/events/raw/clicks", recursive=False),
+            call("/data/events/raw/clicks/2024", recursive=False),
+            call("/data/events/raw/clicks/2024/01", recursive=False),
+            call("/data/events/raw/clicks/2024/03", recursive=False),
+        ]
+        assert mock_platform.list_files.call_args_list == [
+            call(
+                "/data/events/raw/clicks/2024/01/01",
+                extension=".parquet",
+                recursive=False,
+            ),
+            call(
+                "/data/events/raw/clicks/2024/03/15",
+                extension=".parquet",
+                recursive=False,
+            ),
+        ]
+        read.assert_called_once_with(
+            fmt="parquet",
+            path=[
+                "/data/events/raw/clicks/2024/01/01/a.parquet",
+                "/data/events/raw/clicks/2024/03/15/b.parquet",
+            ],
+            options={},
+        )
+        assert result.frame == {
+            "id": [1, 2, 3],
+            "value": [10, 20, 30],
+            "__file_name": "a.parquet",
+            "__file_path": "/data/events/raw/clicks/2024/01/01/a.parquet",
+            "__file_modification_time": datetime(2024, 1, 1, tzinfo=timezone.utc),
+        }
+        assert result.rows_read == 3
+        assert result.runtime is not None
+        assert result.runtime.source_action == {
+            "reader": "FileReader",
+            "format": "parquet",
+            "paths": [
+                "/data/events/raw/clicks/2024/01/01/a.parquet",
+                "/data/events/raw/clicks/2024/03/15/b.parquet",
+            ],
+        }
 
     def test_read_with_date_folders_empty(
         self, engine: MockEngine, date_folder_source: Source

@@ -55,16 +55,27 @@ def test_exists_does_not_hide_permission_failure(
         backend.file_exists("Files/protected.txt")
 
 
-def test_file_and_folder_exists_both_delegate_to_fs_exists(
+@pytest.mark.parametrize("is_dir", [False, True])
+def test_exists_distinguishes_entry_kind(
     backend: NotebookUtilsBackend,
     fs: MagicMock,
+    is_dir: bool,
 ) -> None:
-    fs.exists.side_effect = [True, False]
+    fs.exists.return_value = True
+    fs.ls.return_value = [SimpleNamespace(name="value", isDir=is_dir)]
 
-    assert backend.file_exists("Files/value") is True
-    assert backend.folder_exists("Files/value") is False
+    assert backend.file_exists("Files/value") is (not is_dir)
+    assert backend.folder_exists("Files/value") is is_dir
 
     assert fs.exists.call_args_list == [call("Files/value"), call("Files/value")]
+    assert fs.ls.call_args_list == [call("Files"), call("Files")]
+
+
+def test_missing_path_is_neither_file_nor_folder(backend, fs) -> None:
+    fs.exists.return_value = False
+    assert backend.file_exists("Files/missing") is False
+    assert backend.folder_exists("Files/missing") is False
+    fs.ls.assert_not_called()
 
 
 def test_recursive_lists_use_shared_tree_traversal(

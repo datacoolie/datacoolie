@@ -33,7 +33,9 @@ parallel **non-spark** test execution. It does not execute Spark-marked tests
 unless you override the marker selection explicitly.
 
 GitHub Actions synchronizes the locked development, documentation, and selected
-capability profiles, then calls `scripts/verify_release.py`. That release gate
+capability profiles, then calls `scripts/verify_ci.py`. That CI wrapper records
+a shadow test selection and calls the unchanged `scripts/verify_release.py`.
+The release gate
 runs the non-Spark package suite and the release-contract suite serially with
 `-n 0`; it does not use the local `-n auto` default. A restored virtual
 environment cache never replaces `poetry sync`.
@@ -65,6 +67,8 @@ The suites have deliberately separate owners:
 - `tests/` tests the `src/datacoolie` package and owns only its fixtures and
   shared harnesses.
 - `scripts/tests/` verifies release and packaging contracts.
+- `scripts/select_tests.py` owns the conservative change-to-test impact map;
+  its contracts and the CI wrapper are verified under `scripts/tests/`.
 - `ai/skills/tests/` tests Skill-owned scripts and evidence tooling; source
   integration is opt-in. Framework and CLI contracts stay under `tests/`.
 - `usecase-sim/` is an executable scenario runner. It owns preparation and
@@ -72,6 +76,59 @@ The suites have deliberately separate owners:
   runner-owned, while datatype parity assertions live in
   `tests/integration/data_types/`. It has no pytest suite of its own and is not
   collected by the core pytest configuration.
+
+## Writing and maintaining tests
+
+Identify the changed behavior, a concrete failure that could break it, and the
+existing tests that already protect it. Use the lowest reliable boundary:
+check observable rows, files, checkpoints, exceptions or forwarded arguments.
+Mock network and storage transport outside the behavior being verified. An
+accepted database input test should reach a mocked driver and assert its query
+and returned rows, rather than wait for an unrelated connection error.
+
+Check that a test fails when its named operation is omitted or receives the
+wrong input. A non-`None` result or a label alone often cannot prove that work
+happened. Investigate failures before changing expectations; do not silence
+failures with skips or comments. Remove a duplicate only after comparing its
+fixtures and parameters and identifying the surviving protection. Retain real
+integration checks for persistence and recovery where those contracts matter.
+
+## CI shadow selection
+
+PR verification currently runs the complete serial non-Spark release gate.
+The selector proposes a conservative set of product tests from the PR diff and
+uploads `ci-selection-receipt-<run-id>` with selected roots, reasons, resolved
+base/head/merge-base and the checked-out commit. Receipts also state the
+explicit qualification exclusions. A proposed narrow selection does not mean
+that CI ran only those tests.
+
+The impact map includes component tests and their consumers. Mixed changes
+take the union; dependency/shared changes, unknown paths, deleted tests and
+unavailable or inconsistent diff evidence fall back to the full suite. Every
+proposed narrow selection includes a real local FileProvider-to-Driver write
+and checkpoint recovery check. The map has one owner in
+`scripts/select_tests.py`; new source surfaces need mapping and consumer
+qualification before selection can be activated.
+
+To inspect a PR diff locally without running the release gate:
+
+```powershell
+python scripts/select_tests.py --base <base-sha> --head <pr-head-sha> `
+  --tested-head <checked-out-sha> --receipt <receipt-file>
+```
+
+Run from the product root with fetched commits and a checkout corresponding to
+the tested commit. The normal release command remains the full-run escape
+hatch:
+
+```powershell
+python scripts/verify_release.py
+```
+
+Main pushes and manual CI runs also keep the full gate. AI Skills, package,
+release-contract and strict docs failures remain blocking. PR selection is
+still shadow-only pending Linux full/selected comparisons and transitive
+failure probes for each family. No hosted CI saving is established yet.
 
 ## Markers
 
@@ -114,8 +171,10 @@ authored contract and has the following bounded qualification cells:
   contract for Parquet, Delta, and Iceberg. This is source-convention and
   engine/output qualification; it does not replace live database extraction
   cells.
-- `usecase-sim/metadata/file/schema_types/datatype_qualification.json` is the checked-in
-  logical contract. Qualification setup materializes disposable execution
+- `usecase-sim/metadata/file/schema_types.json` is the checked-in flat
+  group, and the `schema_types/datatype_qualification` entry in
+  `usecase-sim/scenarios/metadata_recipes.json` selects the logical contract.
+  Qualification setup materializes disposable execution
   metadata under `.runtime/data/datatype_qualification/`; the integration test
   uses an additional run-scoped `<run-id>/metadata/` directory so engine and
   format output bindings cannot collide. These generated files are not a

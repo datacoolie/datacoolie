@@ -21,6 +21,10 @@ import uuid
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _MANIFEST = "manifest.json"
 _IGNORED = {".gitkeep", ".DS_Store", "Thumbs.db"}
+_SAFE_ERROR_LIMIT = 512
+_SECRET_FRAGMENT = re.compile(
+    r"(?i)(password|passwd|token|secret|api[_-]?key|credential|sig)=([^&\s]+)"
+)
 
 
 class UploadError(ValueError):
@@ -152,9 +156,10 @@ def _copy_phase(
 
 
 def _write_record(path: Path, value: dict[str, Any]) -> None:
-    path = path.expanduser().resolve()
-    if path.is_symlink():
-        raise UploadError(f"Upload record must not be a symlink: {path}")
+    supplied_path = path.expanduser()
+    if supplied_path.is_symlink():
+        raise UploadError(f"Upload record must not be a symlink: {supplied_path}")
+    path = supplied_path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp-{uuid.uuid4().hex}")
     try:
@@ -165,16 +170,39 @@ def _write_record(path: Path, value: dict[str, Any]) -> None:
             temporary.unlink()
 
 
-def upload_environment(
+def _safe_error(error: BaseException | str) -> str:
+    """Bound and redact exception text before it becomes release evidence."""
+
+    message = str(error).replace("\r", " ").replace("\n", " ").strip()
+    message = _SECRET_FRAGMENT.sub(r"\1=<redacted>", message)
+    if not message:
+        message = type(error).__name__ if isinstance(error, BaseException) else "upload error"
+    if len(message) > _SAFE_ERROR_LIMIT:
+        message = message[: _SAFE_ERROR_LIMIT - 3].rstrip() + "..."
+    return message
+
+
+def _safe_uploads(uploads: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Copy phase evidence while redacting and bounding v2 error strings."""
+
+    result: dict[str, dict[str, Any]] = {}
+    for phase, entry in uploads.items():
+        safe_entry = dict(entry)
+        if "error" in safe_entry:
+            safe_entry["error"] = _safe_error(safe_entry["error"])
+        result[phase] = safe_entry
+    return result
+
+
+def _prepare_upload(
     source: Path | str,
     deployment_path: Path | str,
     *,
     build_id: str,
     environment: str,
     release_id: str,
-    copy: Callable[[Path, Path, Path], None] = _copy_file,
-) -> dict[str, Any]:
-    """Upload *source* to artifact history, then to current, in that order."""
+) -> tuple[Path, Path, str, str, str, list[Path]]:
+    """Validate all transfer inputs without writing to the target."""
 
     source_candidate = Path(source).expanduser()
     if source_candidate.is_symlink():
@@ -186,6 +214,17 @@ def upload_environment(
     release_id = _validate_id(release_id, "release_id")
     _assert_no_overlap(source_path, target)
     files = _source_files(source_path, build_id, environment)
+    return source_path, target, build_id, environment, release_id, files
+
+
+def _transfer_prepared(
+    prepared: tuple[Path, Path, str, str, str, list[Path]],
+    *,
+    copy: Callable[[Path, Path, Path], None] = _copy_file,
+) -> dict[str, Any]:
+    """Transfer one already validated and pinned source tuple."""
+
+    source_path, target, build_id, environment, release_id, files = prepared
     artifact_target = target / "artifacts" / build_id
     current_target = target / "current"
     artifact = _copy_phase(source_path, artifact_target, target, files, copy)
@@ -212,6 +251,113 @@ def upload_environment(
     }
 
 
+def upload_environment(
+    source: Path | str,
+    deployment_path: Path | str,
+    *,
+    build_id: str,
+    environment: str,
+    release_id: str,
+    copy: Callable[[Path, Path, Path], None] = _copy_file,
+) -> dict[str, Any]:
+    """Upload *source* to artifact history, then to current, in that order."""
+
+    prepared = _prepare_upload(
+        source,
+        deployment_path,
+        build_id=build_id,
+        environment=environment,
+        release_id=release_id,
+    )
+    return _transfer_prepared(prepared, copy=copy)
+
+
+def _v2_record(
+    *,
+    release_id: str | None,
+    build_id: str | None,
+    environment: str | None,
+    deployment_path: str | None,
+    source: str | None,
+    preflight: dict[str, str],
+    status: str,
+    uploads: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema_version": 2,
+        "release_id": release_id,
+        "build_id": build_id,
+        "environment": environment,
+        "deployment_path": deployment_path,
+        "source": source,
+        "preflight": preflight,
+        "status": status,
+        "uploads": _safe_uploads(uploads),
+        "record": {"status": "not_requested"},
+    }
+
+
+def _record_destination_error(
+    path: Path | None,
+    forbidden_roots: tuple[Path, ...],
+) -> str | None:
+    if path is None:
+        return None
+    supplied_path = path.expanduser()
+    if supplied_path.is_symlink():
+        return "Upload record path must not be a symlink"
+    resolved = supplied_path.resolve(strict=False)
+    for root in forbidden_roots:
+        root_resolved = root.resolve(strict=False)
+        if resolved == root_resolved or root_resolved in resolved.parents:
+            return "Upload record path must be separate from the source and upload target trees"
+    return None
+
+
+def _candidate_forbidden_roots(
+    source: Path | str,
+    deployment_path: Path | str,
+) -> tuple[Path, ...]:
+    roots = [Path(source).expanduser().resolve(strict=False)]
+    try:
+        target = _local_target(str(deployment_path))
+    except (OSError, UploadError, ValueError):
+        return tuple(roots)
+    roots.extend((target / "current", target / "artifacts"))
+    return tuple(roots)
+
+
+def _persist_v2_record(
+    result: dict[str, Any],
+    path: Path | None,
+    *,
+    forbidden_roots: tuple[Path, ...] = (),
+) -> bool:
+    """Persist one final v2 result and report whether persistence succeeded."""
+
+    if path is None:
+        return True
+    if not forbidden_roots and isinstance(result.get("source"), str) and isinstance(
+        result.get("deployment_path"), str
+    ):
+        forbidden_roots = _candidate_forbidden_roots(
+            result["source"], result["deployment_path"]
+        )
+    destination_error = _record_destination_error(path, forbidden_roots)
+    if destination_error is not None:
+        result["record"] = {"status": "failed", "error": destination_error}
+        return False
+    candidate = dict(result)
+    candidate["record"] = {"status": "written"}
+    try:
+        _write_record(path, candidate)
+    except (OSError, UploadError, ValueError) as exc:
+        result["record"] = {"status": "failed", "error": _safe_error(exc)}
+        return False
+    result["record"] = {"status": "written"}
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
@@ -221,29 +367,81 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--release-id", required=True)
     parser.add_argument("--record", type=Path)
     args = parser.parse_args(argv)
+
+    # Preflight is deliberately separate from transfer.  It is read-only and
+    # makes a requested record useful even when no phase could be attempted.
     try:
-        result = upload_environment(
+        prepared = _prepare_upload(
             args.source,
             args.deployment_path,
             build_id=args.build_id,
             environment=args.environment,
             release_id=args.release_id,
         )
-        if args.record:
-            _write_record(args.record, result)
+        source_path, deployment_path, build_id, environment, release_id, _files = prepared
+        destination_error = _record_destination_error(
+            args.record,
+            (source_path, deployment_path / "current", deployment_path / "artifacts"),
+        )
+        if destination_error is not None:
+            raise UploadError(destination_error)
     except (OSError, UploadError, ValueError) as exc:
-        result = {
-            "schema_version": 1,
-            "release_id": args.release_id,
-            "build_id": args.build_id,
-            "environment": args.environment,
-            "status": "failed",
-            "error": str(exc),
-        }
+        result = _v2_record(
+            release_id=None,
+            build_id=None,
+            environment=None,
+            deployment_path=None,
+            source=None,
+            preflight={"status": "failed", "error": _safe_error(exc)},
+            status="failed",
+            uploads={
+                "artifact": {"status": "skipped", "files": 0},
+                "current": {"status": "skipped", "files": 0},
+            },
+        )
+        _persist_v2_record(
+            result,
+            args.record,
+            forbidden_roots=_candidate_forbidden_roots(
+                args.source, args.deployment_path
+            ),
+        )
         print(json.dumps(result, ensure_ascii=False))
         return 1
+
+    try:
+        v1_result = _transfer_prepared(prepared)
+        result = _v2_record(
+            release_id=v1_result["release_id"],
+            build_id=v1_result["build_id"],
+            environment=v1_result["environment"],
+            deployment_path=v1_result["deployment_path"],
+            source=v1_result["source"],
+            preflight={"status": "passed"},
+            status=v1_result["status"],
+            uploads=v1_result["uploads"],
+        )
+    except (OSError, UploadError, ValueError) as exc:
+        result = _v2_record(
+            release_id=release_id,
+            build_id=build_id,
+            environment=environment,
+            deployment_path=str(deployment_path),
+            source=str(source_path),
+            preflight={"status": "passed"},
+            status="failed",
+            uploads={
+                "artifact": {"status": "failed", "files": 0, "error": _safe_error(exc)},
+                "current": {"status": "skipped", "files": 0},
+            },
+        )
+    record_ok = _persist_v2_record(
+        result,
+        args.record,
+        forbidden_roots=(source_path, deployment_path / "current", deployment_path / "artifacts"),
+    )
     print(json.dumps(result, ensure_ascii=False))
-    return 0 if result["status"] == "success" else 1
+    return 0 if result["status"] == "success" and record_ok else 1
 
 
 __all__ = ["UploadError", "upload_environment"]

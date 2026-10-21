@@ -3,12 +3,12 @@
   "eval_schema_version": 2,
   "case_kinds": {
     "decision": [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14],
-    "execution": [7]
+    "execution": [7, 15]
   },
   "capability_families": {
     "architecture-contract": [1, 3, 4, 5, 12, 13, 14],
     "routing-and-boundary": [2, 6],
-    "approval-gate": [7, 8, 9, 10, 11]
+    "approval-gate": [7, 8, 9, 10, 11, 15]
   },
   "evals": [
     {
@@ -163,6 +163,21 @@
         "The architecture records requested distribution/import intent per root and required Build proof without claiming a resolved format before a CLI build.",
         "Compatible execution hosts, attachment mechanisms, dependency strategy, and rationale are explicit.",
         "Design routes packaging mechanics to the public project contract and actual package generation/verification to Build/CLI."
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "A candidate architecture is final but not yet approved. Show its hash, then record only after the task supplies explicit approval; change one byte afterward and verify the stale receipt fails.",
+      "expected_output": "Hash final bytes, wait for actual current-session approval before confirmed record, and fail verification after any byte change.",
+      "files": [
+        "scripts/design_approval.py",
+        "references/approval-commands.md"
+      ],
+      "expectations": [
+        "No receipt is created before explicit current-session approval.",
+        "Record and verify use the exact canonical workspace architecture and full hash.",
+        "A changed architecture blocks dependent Build through stale receipt verification.",
+        "Report the exact command, exit code and observable output/evidence for each successful and rejected invocation."
       ]
     }
   ]

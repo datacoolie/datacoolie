@@ -48,7 +48,7 @@ if str(_USECASE_SIM_IMPORT_ROOT) not in sys.path:
     sys.path.insert(0, str(_USECASE_SIM_IMPORT_ROOT))
 
 from runner.runtime_paths import (  # noqa: E402
-    spark_data_dir,
+    spark_state_dir,
     spark_dependencies_dir,
     spark_log_dir,
     spark_profile,
@@ -77,6 +77,9 @@ try:  # boto3 is optional
 except ImportError:  # pragma: no cover
     AWSPlatform = None  # type: ignore[assignment,misc]
 
+from runner.runtime_profile import optimized, functional_spark_config, ivy_cache  # noqa: E402
+from runner.runtime_timing import phase  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -86,7 +89,7 @@ logger = logging.getLogger(__name__)
 # ``build_spark_session`` resolves the active profile at call time.
 # ---------------------------------------------------------------------------
 _SPARK_PROFILE = spark_profile()
-_SPARK_STATE_DIR = spark_data_dir(_SPARK_PROFILE)
+_SPARK_STATE_DIR = spark_state_dir(_SPARK_PROFILE)
 _SPARK_WAREHOUSE = str(_SPARK_STATE_DIR / "warehouse")
 _METASTORE_DIR = str(_SPARK_STATE_DIR / "metastore_db")
 _SPARK_IVY_DIR = str(spark_dependencies_dir(_SPARK_PROFILE))
@@ -246,6 +249,7 @@ def _resolve_packages(
     needs_s3: bool = False,
     needs_iceberg: bool = False,
     catalog_preset: str = "local",
+    needs_jdbc: bool = True,
 ) -> str | None:
     """Build a comma-separated ``spark.jars.packages`` value.
 
@@ -281,9 +285,9 @@ def _resolve_packages(
         "com.microsoft.sqlserver:mssql-jdbc:12.8.1.jre11",
         "com.oracle.database.jdbc:ojdbc11:23.7.0.25.01",
     ]
-    for drv in jdbc_drivers:
-        packages.append(drv)
-    logger.info("Added JDBC drivers: %s", ", ".join(jdbc_drivers))
+    if needs_jdbc:
+        packages.extend(jdbc_drivers)
+        logger.info("Added JDBC drivers: %s", ", ".join(jdbc_drivers))
 
     if needs_iceberg:
         try:
@@ -336,6 +340,8 @@ def build_spark_session(
     needs_iceberg: bool = False,
     extra_config: dict[str, str] | None = None,
     verify_local_file_checksums: bool = True,
+    needs_jdbc: bool = True,
+    functional_profile: bool = True,
 ) -> "SparkSession":
     """Create (or reuse) a SparkSession for usecase-sim runners.
 
@@ -361,11 +367,13 @@ def build_spark_session(
     # every session so tests and container entrypoints may select Spark 4
     # without importing this module again in the same process.
     active_profile = spark_profile()
-    spark_state_dir = spark_data_dir(active_profile)
-    spark_warehouse = spark_state_dir / "warehouse"
-    metastore_dir = spark_state_dir / "metastore_db"
+    active_state_dir = spark_state_dir(active_profile)
+    spark_warehouse = active_state_dir / "warehouse"
+    metastore_dir = active_state_dir / "metastore_db"
     derby_log_dir = spark_log_dir(active_profile)
     ivy_dir = spark_dependencies_dir(active_profile)
+    if functional_profile:
+        ivy_dir = ivy_cache(ivy_dir, active_profile)
     # Spark/Derby create most descendants lazily, but the Derby stream log
     # property points at a file and must have a stable parent before the JVM
     # starts.
@@ -422,6 +430,9 @@ def build_spark_session(
         "spark.sql.autoBroadcastJoinThreshold": f"{32*1024*1024}",  # 32MB
     }
 
+    if functional_profile and optimized():
+        spark_config.update(functional_spark_config())
+
     # Iceberg configuration is injected only for stages that use it. This
     # keeps focused file/Delta scenarios independent from the Iceberg runtime.
     if needs_iceberg:
@@ -461,6 +472,7 @@ def build_spark_session(
     spark_config["spark.jars.ivy"] = str(ivy_dir)
     packages = _resolve_packages(
         needs_s3=needs_s3, needs_iceberg=needs_iceberg, catalog_preset=catalog_preset,
+        needs_jdbc=needs_jdbc,
     )
     if packages:
         spark_config.setdefault("spark.jars.packages", packages)
@@ -509,6 +521,18 @@ def build_spark_session(
             configurator.setLevel(logger_name, log4j_level)
     except Exception:  # pragma: no cover — best-effort log tweak
         pass
+    if functional_profile:
+        import json
+        effective = spark.sparkContext.getConf()
+        names = ("spark.master", "spark.driver.memory", "spark.sql.shuffle.partitions",
+                 "spark.sql.sources.parallelPartitionDiscovery.parallelism",
+                 "spark.databricks.delta.snapshotPartitions", "spark.jars.ivy", "spark.jars.packages")
+        print("SIM_RUNTIME_PROFILE=" + json.dumps({
+            "mode": "optimized" if optimized() else "sequential", "spark_version": spark.version,
+            "heap_bytes": spark.sparkContext._jvm.java.lang.Runtime.getRuntime().maxMemory(),
+            "parallelism": spark.sparkContext.defaultParallelism,
+            "config": {name: effective.get(name, None) for name in names},
+        }), flush=True)
     return spark
 
 
@@ -658,11 +682,12 @@ def run_and_report(
                 excluded, len(dataflows),
             )
 
-        result = driver.run(
-            stage=stage,
-            dataflows=dataflows,
-            column_name_mode=ColumnCaseMode(column_name_mode),
-        )
+        with phase("execution_s"):
+            result = driver.run(
+                stage=stage,
+                dataflows=dataflows,
+                column_name_mode=ColumnCaseMode(column_name_mode),
+            )
         logger.info(
             "Result — total: %d, succeeded: %d, failed: %d, skipped: %d (%.1fs)",
             result.total, result.succeeded, result.failed, result.skipped, result.duration_seconds,
@@ -675,9 +700,12 @@ def run_and_report(
         logger.exception("Runtime error")
         sys.exit(2)
     finally:
-        driver.close()
-        if cleanup_fn:
-            cleanup_fn()
+        with phase("shutdown_s"):
+            try:
+                driver.close()
+            finally:
+                if cleanup_fn:
+                    cleanup_fn()
 
 
 def parse_chunk_interval(pairs: list[str]) -> dict[str, int]:
@@ -784,11 +812,12 @@ def replay_and_report(
             len(dataflows),
         )
 
-        result = driver.run_replay(
-            dataflows=dataflows,
-            replay=replay,
-            column_name_mode=ColumnCaseMode(column_name_mode),
-        )
+        with phase("execution_s"):
+            result = driver.run_replay(
+                dataflows=dataflows,
+                replay=replay,
+                column_name_mode=ColumnCaseMode(column_name_mode),
+            )
         logger.info(
             "Replay result — total: %d, succeeded: %d, failed: %d (%.1fs)",
             result.total, result.succeeded, result.failed, result.duration_seconds,
@@ -801,7 +830,10 @@ def replay_and_report(
         logger.exception("Replay runtime error")
         sys.exit(2)
     finally:
-        driver.close()
-        if cleanup_fn:
-            cleanup_fn()
+        with phase("shutdown_s"):
+            try:
+                driver.close()
+            finally:
+                if cleanup_fn:
+                    cleanup_fn()
 

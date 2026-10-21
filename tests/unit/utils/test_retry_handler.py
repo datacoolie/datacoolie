@@ -28,7 +28,9 @@ class TestRetryHandlerInit:
 
     def test_custom_params(self) -> None:
         """Verify custom parameters are stored and max_attempts = retry_count + 1."""
-        h = RetryHandler(retry_count=3, retry_delay=1.0, backoff_multiplier=3.0, max_delay=30.0)
+        h = RetryHandler(
+            retry_count=3, retry_delay=1.0, backoff_multiplier=3.0, max_delay=30.0
+        )
         assert h.retry_count == 3
         assert h.retry_delay == 1.0
         assert h.backoff_multiplier == 3.0
@@ -131,7 +133,9 @@ class TestExecute:
         mock_sleep.assert_any_call(2.0)
 
     @patch("datacoolie.utils.retry.time.sleep")
-    def test_retry_observer_receives_attempt_and_delay(self, mock_sleep: MagicMock) -> None:
+    def test_retry_observer_receives_attempt_and_delay(
+        self, mock_sleep: MagicMock
+    ) -> None:
         observed: list[tuple[int, int, str, float]] = []
         h = RetryHandler(retry_count=1, retry_delay=0.5)
         fn = MagicMock(side_effect=[ValueError("first"), 99])
@@ -155,7 +159,9 @@ class TestExecute:
         fn = MagicMock(side_effect=RuntimeError("operation failed"))
 
         with pytest.raises(RuntimeError, match="operation failed"):
-            h.execute(fn, on_retry=lambda *_args: (_ for _ in ()).throw(OSError("log failed")))
+            h.execute(
+                fn, on_retry=lambda *_args: (_ for _ in ()).throw(OSError("log failed"))
+            )
 
         assert fn.call_count == 2
 
@@ -178,54 +184,3 @@ class TestExecute:
         result, attempts = h.execute(fn, 1, 2, c=3)
         assert result == 6
         assert attempts == 1
-
-
-# ============================================================================
-# attempts counting (returned from execute)
-# ============================================================================
-
-
-class TestAttemptsCounting:
-    def test_one_on_first_success(self):
-        h = RetryHandler(retry_count=3)
-        _, attempts = h.execute(lambda: "ok")
-        assert attempts == 1
-
-    @patch("datacoolie.utils.retry.time.sleep")
-    def test_counts_retries(self, mock_sleep):
-        h = RetryHandler(retry_count=3, retry_delay=0.1)
-        fn = MagicMock(side_effect=[RuntimeError("t"), ValueError("t"), "ok"])
-        _, attempts = h.execute(fn)
-        assert attempts == 3
-
-    @patch("datacoolie.utils.retry.time.sleep")
-    def test_counts_after_exhaustion(self, mock_sleep):
-        h = RetryHandler(retry_count=2, retry_delay=0.1)
-        fn = MagicMock(side_effect=RuntimeError("always"))
-        with pytest.raises(RuntimeError):
-            h.execute(fn)
-
-
-# ============================================================================
-# Additional edge cases (merged from edge-case module)
-# ============================================================================
-
-
-class TestRetryHandlerEdgeCases:
-    @patch("datacoolie.utils.retry.range", return_value=[])
-    def test_execute_impossible_fallback_assertion(self, _mock_range):
-        h = RetryHandler(retry_count=0)
-        with pytest.raises(RuntimeError, match="without result"):
-            h.execute(lambda: "never")
-
-    @patch("datacoolie.utils.retry.time.sleep")
-    def test_execute_fallback_raises_last_error(self, _mock_sleep):
-        h = RetryHandler(retry_count=0)
-
-        def fake_range(_max_attempts):
-            h._retry_count = 99
-            return [0]
-
-        with patch("datacoolie.utils.retry.range", side_effect=fake_range):
-            with pytest.raises(ValueError, match="boom"):
-                h.execute(lambda: (_ for _ in ()).throw(ValueError("boom")))

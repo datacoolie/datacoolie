@@ -82,7 +82,7 @@ class NotebookUtilsBackend:
 
     def write_file(self, path: str, content: str, *, overwrite: bool = False) -> None:
         self._protect_qualified_mutation(path)
-        if not overwrite and self.file_exists(path):
+        if not overwrite and self._path_exists(path):
             raise PlatformError(f"File already exists (set overwrite=True): {path}")
         try:
             self.fs.put(path, content, overwrite=overwrite)
@@ -170,24 +170,42 @@ class NotebookUtilsBackend:
         return results
 
     def file_exists(self, path: str) -> bool:
-        try:
-            return bool(self.fs.exists(path))
-        except Exception as exc:
-            if _is_not_found(exc):
-                return False
-            raise PlatformError(f"Failed to check file existence: {path}") from exc
+        return self._path_is_directory(path) is False
 
     def folder_exists(self, path: str) -> bool:
+        return self._path_is_directory(path) is True
+
+    def _path_is_directory(self, path: str) -> bool | None:
+        """Classify the requested entry; fs.exists alone also accepts folders."""
+        try:
+            if not self._path_exists(path):
+                return None
+            trimmed = path.rstrip("/")
+            parsed = urlsplit(path)
+            if path == "/" or (parsed.scheme and parsed.netloc and not parsed.path.strip("/")):
+                return True
+            parent, _, name = trimmed.rpartition("/")
+            for item in self.fs.ls(parent or "."):
+                if item.name.rstrip("/") == name:
+                    return bool(item.isDir)
+            return None
+        except Exception as exc:
+            if _is_not_found(exc):
+                return None
+            raise PlatformError(f"Failed to check path existence: {path}") from exc
+
+    def _path_exists(self, path: str) -> bool:
+        """Preserve existence-based conflict guards for files and folders."""
         try:
             return bool(self.fs.exists(path))
         except Exception as exc:
             if _is_not_found(exc):
                 return False
-            raise PlatformError(f"Failed to check folder existence: {path}") from exc
+            raise PlatformError(f"Failed to check path existence: {path}") from exc
 
     def upload_file(self, local_path: str, dest: str, *, overwrite: bool = False) -> None:
         self._protect_qualified_mutation(dest)
-        if not overwrite and self.file_exists(dest):
+        if not overwrite and self._path_exists(dest):
             raise PlatformError(f"Destination already exists (set overwrite=True): {dest}")
         try:
             self.fs.cp(f"file://{local_path}", dest)
@@ -204,7 +222,7 @@ class NotebookUtilsBackend:
         self._protect_qualified_mutation(dest)
         if src.rstrip("/") == dest.rstrip("/"):
             return
-        if not overwrite and self.file_exists(dest):
+        if not overwrite and self._path_exists(dest):
             raise PlatformError(f"Destination already exists (set overwrite=True): {dest}")
         try:
             self.fs.cp(src, dest, recurse=False)
@@ -216,7 +234,7 @@ class NotebookUtilsBackend:
         self._protect_qualified_mutation(dest)
         if src.rstrip("/") == dest.rstrip("/"):
             return
-        if not overwrite and self.file_exists(dest):
+        if not overwrite and self._path_exists(dest):
             raise PlatformError(f"Destination already exists (set overwrite=True): {dest}")
         try:
             self.fs.mv(src, dest, create_path=True, overwrite=overwrite)
@@ -253,7 +271,7 @@ class NotebookUtilsBackend:
 
     def write_bytes(self, path: str, data: bytes, *, overwrite: bool = False) -> None:
         self._protect_qualified_mutation(path)
-        if not overwrite and self.file_exists(path):
+        if not overwrite and self._path_exists(path):
             raise PlatformError(f"File already exists (set overwrite=True): {path}")
         fd, temp_path = tempfile.mkstemp(prefix="dc_wb_")
         try:

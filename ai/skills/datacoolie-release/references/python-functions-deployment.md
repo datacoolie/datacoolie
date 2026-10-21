@@ -12,7 +12,4 @@ and must use the build's
 published inventory and the project's fixed import prefixes. A release receipt
 is transfer evidence, not proof of import or runtime health.
 
-For author/build-only requests, inspect the build manifest and packaging plan
-without running a workload. For an authorized upload, report local validation
-and transfer evidence only; host import, workload output, activation, and target
-health checks belong to the project/platform workflow.
+Use [Release's evidence gate](../SKILL.md#verification). Hand the retained functions-root inventory and fixed import prefixes to the execution-host owner for attachment and import verification.

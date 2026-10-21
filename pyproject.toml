@@ -176,6 +176,7 @@ packages = [{include = "datacoolie", from = "src"}]
 include = [
     {path = "src/datacoolie/project/build", format = ["sdist", "wheel"]},
     {path = "src/datacoolie/project/schemas", format = ["sdist", "wheel"]},
+    {path = "src/datacoolie/engines/_spark/iceberg/native", format = ["sdist", "wheel"]},
 ]
 
 [tool.poetry.dependencies]

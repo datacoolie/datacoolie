@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import PurePosixPath
+from threading import RLock
 from typing import Any, Iterable
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -100,23 +101,66 @@ class AzureSdkBackend:
         *,
         dependencies: AzureSdkDependencies | None = None,
     ) -> None:
+        self._acquisition_lock = RLock()
+        self._closed = False
+        self._owns_credential = credential is None
         self._credential = credential
         self._dependencies = dependencies
         self._service_clients: dict[str, Any] = {}
         self._file_system_clients: dict[tuple[str, str], Any] = {}
         self._secret_clients: dict[str, Any] = {}
 
+    def _ensure_open(self) -> None:
+        with self._acquisition_lock:
+            if self._closed:
+                raise PlatformError("Azure Fabric backend is closed.")
+
+    def close(self) -> None:
+        """Close owned root clients, then the owned credential, after quiescence.
+
+        Child clients share root transports and are only dereferenced. Cleanup
+        errors still leave this backend terminal and do not skip other resources.
+        """
+        with self._acquisition_lock:
+            if self._closed:
+                return
+            self._closed = True
+            resources = list(self._service_clients.values()) + list(self._secret_clients.values())
+            if self._owns_credential and self._credential is not None:
+                resources.append(self._credential)
+            self._service_clients.clear()
+            self._file_system_clients.clear()
+            self._secret_clients.clear()
+            self._credential = self._dependencies = None
+        error = None
+        seen = set()
+        for resource in resources:
+            if id(resource) in seen:
+                continue
+            seen.add(id(resource))
+            try:
+                resource.close()
+            except Exception as exc:
+                if error is None:
+                    error = exc
+        if error is not None:
+            raise PlatformError("Azure Fabric resource cleanup failed.") from error
+
     @property
     def dependencies(self) -> AzureSdkDependencies:
-        if self._dependencies is None:
-            self._dependencies = load_azure_sdk()
-        return self._dependencies
+        with self._acquisition_lock:
+            self._ensure_open()
+            if self._dependencies is None:
+                self._dependencies = load_azure_sdk()
+            return self._dependencies
 
     @property
     def credential(self) -> Any:
-        if self._credential is None:
-            self._credential = self.dependencies.default_credential()
-        return self._credential
+        with self._acquisition_lock:
+            self._ensure_open()
+            if self._credential is None:
+                self._credential = self.dependencies.default_credential()
+            return self._credential
 
     def _is_not_found(self, exc: Exception) -> bool:
         return isinstance(exc, self.dependencies.not_found_error) or _status_code(exc) == 404
@@ -131,28 +175,34 @@ class AzureSdkBackend:
         return PlatformError(f"Azure {operation} failed for {target}{suffix}.")
 
     def _service_client(self, location: AzureDataLakePath) -> Any:
-        client = self._service_clients.get(location.account_url)
-        if client is None:
-            client = self.dependencies.service_client(
-                account_url=location.account_url,
-                credential=self.credential,
-            )
-            self._service_clients[location.account_url] = client
-        return client
+        with self._acquisition_lock:
+            self._ensure_open()
+            client = self._service_clients.get(location.account_url)
+            if client is None:
+                client = self.dependencies.service_client(
+                    account_url=location.account_url,
+                    credential=self.credential,
+                )
+                self._service_clients[location.account_url] = client
+            return client
 
     def _file_system_client(self, location: AzureDataLakePath) -> Any:
-        key = (location.account_url, location.file_system)
-        client = self._file_system_clients.get(key)
-        if client is None:
-            client = self._service_client(location).get_file_system_client(location.file_system)
-            self._file_system_clients[key] = client
-        return client
+        with self._acquisition_lock:
+            self._ensure_open()
+            key = (location.account_url, location.file_system)
+            client = self._file_system_clients.get(key)
+            if client is None:
+                client = self._service_client(location).get_file_system_client(location.file_system)
+                self._file_system_clients[key] = client
+            return client
 
     def _file_client(self, location: AzureDataLakePath) -> Any:
-        return self._file_system_client(location).get_file_client(location.path)
+        with self._acquisition_lock:
+            return self._file_system_client(location).get_file_client(location.path)
 
     def _directory_client(self, location: AzureDataLakePath) -> Any:
-        return self._file_system_client(location).get_directory_client(location.path)
+        with self._acquisition_lock:
+            return self._file_system_client(location).get_directory_client(location.path)
 
     @staticmethod
     def _parse(path: str) -> AzureDataLakePath:
@@ -213,15 +263,22 @@ class AzureSdkBackend:
             raise PlatformError("source must be a qualified Azure Key Vault HTTPS URL.")
         return f"https://{host}"
 
+    def _secret_client(self, vault_url: str) -> Any:
+        with self._acquisition_lock:
+            self._ensure_open()
+            client = self._secret_clients.get(vault_url)
+            if client is None:
+                client = self.dependencies.secret_client(
+                    vault_url=vault_url,
+                    credential=self.credential,
+                )
+                self._secret_clients[vault_url] = client
+            return client
+
     def fetch_secret(self, key: str, source: str) -> str:
+        self._ensure_open()
         vault_url = self._validate_vault_url(source)
-        client = self._secret_clients.get(vault_url)
-        if client is None:
-            client = self.dependencies.secret_client(
-                vault_url=vault_url,
-                credential=self.credential,
-            )
-            self._secret_clients[vault_url] = client
+        client = self._secret_client(vault_url)
         try:
             value = client.get_secret(key).value
             if value is None:
@@ -233,6 +290,7 @@ class AzureSdkBackend:
             raise self._failure("Key Vault secret retrieval", vault_url, exc) from exc
 
     def read_bytes(self, path: str) -> bytes:
+        self._ensure_open()
         location = self._parse(path)
         try:
             value = self._file_client(location).download_file().readall()
@@ -245,6 +303,7 @@ class AzureSdkBackend:
             raise self._failure("file read", location.canonical_uri, exc) from exc
 
     def read_file(self, path: str) -> str:
+        self._ensure_open()
         try:
             return self.read_bytes(path).decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -297,6 +356,7 @@ class AzureSdkBackend:
             raise operation_error
 
     def write_bytes(self, path: str, data: bytes, *, overwrite: bool = False) -> None:
+        self._ensure_open()
         location = self._parse(path)
         ensure_mutable_path(location)
         try:
@@ -314,9 +374,11 @@ class AzureSdkBackend:
             raise self._failure("file write", location.canonical_uri, exc) from exc
 
     def write_file(self, path: str, content: str, *, overwrite: bool = False) -> None:
+        self._ensure_open()
         self.write_bytes(path, content.encode("utf-8"), overwrite=overwrite)
 
     def append_file(self, path: str, content: str) -> None:
+        self._ensure_open()
         location = self._parse(path)
         ensure_mutable_path(location)
         data = content.encode("utf-8")
@@ -337,6 +399,7 @@ class AzureSdkBackend:
             raise self._failure("file append", location.canonical_uri, exc) from exc
 
     def delete_file(self, path: str) -> None:
+        self._ensure_open()
         location = self._parse(path)
         ensure_mutable_path(location)
         try:
@@ -346,6 +409,7 @@ class AzureSdkBackend:
                 raise self._failure("file delete", location.canonical_uri, exc) from exc
 
     def create_folder(self, path: str) -> None:
+        self._ensure_open()
         location = self._parse(path)
         ensure_mutable_path(location)
         try:
@@ -355,6 +419,7 @@ class AzureSdkBackend:
                 raise self._failure("folder create", location.canonical_uri, exc) from exc
 
     def delete_folder(self, path: str, *, recursive: bool = False) -> None:
+        self._ensure_open()
         location = self._parse(path)
         ensure_mutable_path(location)
         try:
@@ -382,6 +447,7 @@ class AzureSdkBackend:
         recursive: bool = False,
         extension: str | None = None,
     ) -> list[FileInfo]:
+        self._ensure_open()
         location = self._parse(path)
         try:
             paths = self._file_system_client(location).get_paths(
@@ -402,6 +468,7 @@ class AzureSdkBackend:
             raise self._failure("file listing", location.canonical_uri, exc) from exc
 
     def list_folders(self, path: str, *, recursive: bool = False) -> list[str]:
+        self._ensure_open()
         location = self._parse(path)
         try:
             paths = self._file_system_client(location).get_paths(
@@ -418,6 +485,7 @@ class AzureSdkBackend:
             raise self._failure("folder listing", location.canonical_uri, exc) from exc
 
     def file_exists(self, path: str) -> bool:
+        self._ensure_open()
         location = self._parse(path)
         if not location.path:
             return False
@@ -429,6 +497,7 @@ class AzureSdkBackend:
             raise self._failure("file existence check", location.canonical_uri, exc) from exc
 
     def folder_exists(self, path: str) -> bool:
+        self._ensure_open()
         location = self._parse(path)
         if not location.path:
             try:
@@ -445,6 +514,7 @@ class AzureSdkBackend:
             raise self._failure("folder existence check", location.canonical_uri, exc) from exc
 
     def upload_file(self, local_path: str, dest: str, *, overwrite: bool = False) -> None:
+        self._ensure_open()
         location = self._parse(dest)
         ensure_mutable_path(location)
         try:
@@ -463,6 +533,7 @@ class AzureSdkBackend:
             raise self._failure("file upload", location.canonical_uri, exc) from exc
 
     def download_file(self, src: str, dest: str) -> None:
+        self._ensure_open()
         location = self._parse(src)
         try:
             with open(dest, "wb") as handle:
@@ -633,6 +704,7 @@ class AzureSdkBackend:
             raise operation_error
 
     def copy_file(self, src: str, dest: str, *, overwrite: bool = False) -> None:
+        self._ensure_open()
         source = self._parse(src)
         destination = self._parse(dest)
         ensure_mutable_path(destination)
@@ -648,6 +720,7 @@ class AzureSdkBackend:
             raise self._failure("file copy", destination.canonical_uri, exc) from exc
 
     def move_file(self, src: str, dest: str, *, overwrite: bool = False) -> None:
+        self._ensure_open()
         source = self._parse(src)
         destination = self._parse(dest)
         ensure_mutable_path(source)
@@ -675,6 +748,7 @@ class AzureSdkBackend:
             raise self._failure("file move", destination.canonical_uri, exc) from exc
 
     def get_file_info(self, path: str) -> FileInfo:
+        self._ensure_open()
         location = self._parse(path)
         if not location.path:
             try:
