@@ -214,10 +214,8 @@ def run_owned(command, *, cwd, timeout, on_line=None, grace=120):
                 job.kill()
             elif os.name == "nt":
                 process.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                # Registered groups may have exited during the controls above.
-                # Recheck ownership and tolerate an already vanished group.
-                _signal_owned(process.pid, token, signal.SIGKILL if hard else signal.SIGTERM)
+            # POSIX children are registered above and were already signalled
+            # through _control. A second signal races their process exit.
 
     def watchdog():
         try:

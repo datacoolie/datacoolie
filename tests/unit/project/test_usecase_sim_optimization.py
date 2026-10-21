@@ -459,6 +459,14 @@ def test_host_timeout_kills_grandchild_but_preserves_unrelated_process(tmp_path,
     monkeypatch.setattr(owned_process, "ROOT", tmp_path)
     monkeypatch.delenv(owned_process.OWNER_ENV, raising=False)
     owned_process.CANCEL.clear()
+    signals = []
+    signal_owned = owned_process._signal_owned
+
+    def record_signal(group, token, sig):
+        signals.append((group, sig))
+        return signal_owned(group, token, sig)
+
+    monkeypatch.setattr(owned_process, "_signal_owned", record_signal)
     pid_file = tmp_path / "grandchild.pid"
     child = "import time; time.sleep(60)"
     parent = ("import subprocess,sys,time,pathlib; "
@@ -491,6 +499,9 @@ def test_host_timeout_kills_grandchild_but_preserves_unrelated_process(tmp_path,
                 kernel.CloseHandle(handle)
         else:
             assert not owned_process._members(pid)
+            if not parent_exits_early:
+                import signal
+                assert sum(sig == signal.SIGTERM for _, sig in signals) == 1
     finally:
         unrelated.terminate()
         unrelated.wait(timeout=5)
