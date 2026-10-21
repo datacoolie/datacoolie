@@ -15,9 +15,10 @@ def workflow(name: str) -> dict:
     return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
 
 
-def test_ci_installs_avro_fixture_dependency_before_ai_gate() -> None:
+def test_ci_installs_fixture_dependencies_before_test_gates() -> None:
     requirements = (ROOT / "scripts/requirements-release.txt").read_text().splitlines()
     assert "fastavro==1.12.2" in requirements
+    assert "rfc3339-validator==0.1.4" in requirements
     steps = workflow("ci.yml")["jobs"]["validate"]["steps"]
     install = next(i for i, step in enumerate(steps) if "requirements-release.txt" in step.get("run", ""))
     ai_gate = next(i for i, step in enumerate(steps) if "ai/skills/tests/run_all.py" in step.get("run", ""))

@@ -215,7 +215,9 @@ def run_owned(command, *, cwd, timeout, on_line=None, grace=120):
             elif os.name == "nt":
                 process.send_signal(signal.CTRL_BREAK_EVENT)
             else:
-                os.killpg(process.pid, signal.SIGKILL if hard else signal.SIGTERM)
+                # Registered groups may have exited during the controls above.
+                # Recheck ownership and tolerate an already vanished group.
+                _signal_owned(process.pid, token, signal.SIGKILL if hard else signal.SIGTERM)
 
     def watchdog():
         try:

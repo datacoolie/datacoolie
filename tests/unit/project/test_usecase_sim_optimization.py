@@ -76,6 +76,27 @@ def test_vanished_proc_entry_does_not_signal_an_unverified_group(monkeypatch, va
     assert not signalled
 
 
+def test_verified_group_exiting_before_signal_is_already_torn_down(monkeypatch):
+    class ProcPath:
+        def __truediv__(self, part):
+            return self
+
+        def read_bytes(self):
+            return b"DATACOOLIE_SIM_PROCESS_TOKEN=token\0"
+
+    monkeypatch.setattr(owned_process, "Path", lambda value: ProcPath())
+    monkeypatch.setattr(owned_process, "_members", lambda group: [17])
+    signalled = []
+
+    def vanished(group, sig):
+        signalled.append((group, sig))
+        raise ProcessLookupError("owned group exited before signal")
+
+    monkeypatch.setattr(owned_process.os, "killpg", vanished, raising=False)
+    owned_process._signal_owned(17, "token", 15)
+    assert signalled == [(17, 15)]
+
+
 def test_failed_engine_creation_reports_shutdown_without_fake_execution(tmp_path, capsys):
     @runtime_entrypoint
     def run():

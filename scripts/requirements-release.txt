@@ -4,3 +4,5 @@ setuptools>=61.0
 flask==3.1.0
 # AI discovery fixtures write Avro files before testing schema inference.
 fastavro==1.12.2
+# jsonschema's date-time format checker is optional without this dependency.
+rfc3339-validator==0.1.4
