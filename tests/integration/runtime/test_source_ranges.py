@@ -8,7 +8,6 @@ delivers the range to the reader.
 
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 from datetime import date, datetime
@@ -55,14 +54,11 @@ _FUNCTION_CALLS: list[dict[str, Any]] = []
 
 @pytest.fixture
 def persisted_manager(tmp_path: Path):
-    """Use the concrete codec/provider and close the owned provider."""
-    metadata = tmp_path / "state-metadata.json"
-    metadata.write_text(json.dumps({"connections": [], "dataflows": []}), encoding="utf-8")
+    """Use FileProvider as a standalone watermark store for explicit flows."""
     provider = FileProvider(
-        config_path=str(metadata), platform=LocalPlatform(),
+        platform=LocalPlatform(),
         watermark_base_path=str(tmp_path / "state"),
     )
-    provider.initialize()
     try:
         yield WatermarkManager(provider)
     finally:
@@ -71,10 +67,9 @@ def persisted_manager(tmp_path: Path):
 
 def _reloaded_state(tmp_path: Path, dataflow_id: str) -> dict[str, Any] | None:
     provider = FileProvider(
-        config_path=str(tmp_path / "state-metadata.json"), platform=LocalPlatform(),
+        platform=LocalPlatform(),
         watermark_base_path=str(tmp_path / "state"),
     )
-    provider.initialize()
     try:
         return WatermarkManager(provider).get_watermark(dataflow_id)
     finally:
