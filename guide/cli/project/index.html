@@ -5827,8 +5827,10 @@ that the environment uses the common snapshot unchanged. The overlay is not a
 second project config and cannot add arbitrary top-level keys; its supported
 shape is section arrays, an optional <code>$schema</code>, and an optional ordered
 <code>patches</code> array.</p>
-<p>Top-level section entries are matched by identity (<code>name</code>/ID for connections
-and dataflows; connection/schema/table for schema-hint groups). An existing
+<p>Top-level section entries are matched by workspace and explicit ID, or a unique
+scoped name, for connections/dataflows; connection/schema/table identifies
+schema-hint groups. A name-only entry must resolve unambiguously in the common
+snapshot. An existing
 entry is recursively object-merged and a new identity is appended. Arrays
 nested inside an entry use ordinary replacement semantics, except schema-hint
 groups and dataflow-local <code>transform.schema_hints</code>, which merge by
@@ -5839,7 +5841,8 @@ groups and dataflow-local <code>transform.schema_hints</code>, which merge by
 with AND semantics and must not contain arrays or empty objects. Matching is
 against a canonical pre-patch snapshot for each patch, patches are applied in
 file order, and zero matches fail validation. Identity fields cannot be
-changed, and there is no deletion operator.</p>
+changed, including <code>workspace_id</code>, and there is no deletion operator. A name
+selector matching multiple connections/dataflows fails; supply workspace and ID.</p>
 <p>For example, a common connection can keep its identity while changing only a
 production database, and a dataflow can replace one nested filter:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>

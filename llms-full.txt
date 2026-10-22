@@ -4982,8 +4982,10 @@ second project config and cannot add arbitrary top-level keys; its supported
 shape is section arrays, an optional `$schema`, and an optional ordered
 `patches` array.
 
-Top-level section entries are matched by identity (`name`/ID for connections
-and dataflows; connection/schema/table for schema-hint groups). An existing
+Top-level section entries are matched by workspace and explicit ID, or a unique
+scoped name, for connections/dataflows; connection/schema/table identifies
+schema-hint groups. A name-only entry must resolve unambiguously in the common
+snapshot. An existing
 entry is recursively object-merged and a new identity is appended. Arrays
 nested inside an entry use ordinary replacement semantics, except schema-hint
 groups and dataflow-local `transform.schema_hints`, which merge by
@@ -4995,7 +4997,8 @@ Patches run before section entries are merged. Each patch has exactly
 with AND semantics and must not contain arrays or empty objects. Matching is
 against a canonical pre-patch snapshot for each patch, patches are applied in
 file order, and zero matches fail validation. Identity fields cannot be
-changed, and there is no deletion operator.
+changed, including `workspace_id`, and there is no deletion operator. A name
+selector matching multiple connections/dataflows fails; supply workspace and ID.
 
 For example, a common connection can keep its identity while changing only a
 production database, and a dataflow can replace one nested filter:
@@ -6449,7 +6452,8 @@ before adding `connection_id`.
 
 Keep `name` unique in the document/provider scope used by name references, and
 use `connection_name` in source, destination and shared schema-hint references.
-DataCoolie derives `connection_id` from the name if it is omitted. Author an
+DataCoolie derives `connection_id` from the exact name and optional workspace
+if it is omitted. Author an
 explicit, stable `connection_id` only when a provider or external system owns
 it; do not regenerate it per deployment or reuse it for two connections in the
 same shared ID store. Prefer names in normal documents, and keep any
@@ -6458,18 +6462,24 @@ shared-hint `connection_id` consistent with its connection. See the
 
 The document loader allows distinct explicit IDs to carry the same display
 name, but a name-based reference or shared schema hint rejects an ambiguous
-name and asks for `connection_id`. If duplicate display names are intended,
-each connection must provide a distinct explicit ID; omitted IDs derive from
-the same name and therefore collide. Database and API providers load one
-workspace at a time. Supporting duplicate display names across a
-mixed-workspace file snapshot still requires an explicit workspace-aware file
-scope.
+name and asks for `connection_id`. Within one workspace, duplicate names need
+distinct explicit IDs. Equal names in different workspaces receive different
+generated IDs. Database and API providers load one workspace at a time.
 
 When metadata is loaded for a specific `workspace_id`, name lookups belong to
 that workspace. Database and API providers are loaded one workspace at a time;
-the file provider currently treats one metadata snapshot as one name scope.
-Do not place same-name connections from multiple workspaces in one file
-snapshot until a multi-workspace file scope is explicitly configured.
+the file provider can load multiple workspaces. Each dataflow resolves named
+connections only in its own workspace. Public name-only lookup across the whole
+file snapshot rejects ambiguity; use an explicit connection ID for that lookup
+and for ambiguous shared schema-hint references.
+
+A document with one explicit workspace assigns it to entities missing scope.
+A mixed-workspace document must specify `workspace_id` on every top-level
+connection and dataflow. Inline connections inherit their dataflow's workspace;
+an explicit mismatch fails. Names are matched exactly, including surrounding
+spaces. Workspace strings are trimmed and blank means absent. Adding or changing
+workspace changes generated IDs and selects different state; no old-ID migration
+or alias is provided.
 
 For a provider-managed stable identity, add the ID alongside the readable
 name (connection fragment):
@@ -6812,8 +6822,9 @@ name. The four-part name applies to a
 [schema-enabled Fabric Lakehouse](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-schemas);
 the namespace required by another Fabric connector may differ.
 
-`workspace_id` is separate: it scopes metadata stored by a database or API
-provider; it does not replace `catalog` when naming a Fabric workspace.
+`workspace_id` is separate: it scopes metadata identities and connection
+references in file, database and API providers; it does not replace `catalog`
+when naming a Fabric workspace.
 
 ### Three-part names when one level is implicit
 
@@ -6988,12 +6999,16 @@ explicit stable ID.
 ### Dataflow identity
 
 Use a unique name when the dataflow is authored or selected by name. DataCoolie
-derives `dataflow_id` from the name when an explicit ID is absent. An explicit
+derives `dataflow_id` from the exact name and optional workspace when an explicit
+ID is absent. An explicit
 ID may be used without a name for ID-based integrations; keep that ID unique
 and stable across deployments. The document mapper enforces dataflow ID
 uniqueness and permits distinct explicit IDs with the same display name, but
 any name-based consumer must still have one unambiguous match. When
-`workspace_id` is supplied, name scope is that workspace. Watermark and
+`workspace_id` is supplied, name scope is that workspace. Named and inline
+connections must belong to the same workspace; see
+[Connection identity](https://datacoolie.github.io/datacoolie/guide/metadata/connections/#connection-identity) for document inheritance
+and mixed-workspace rules. Watermark and
 provider records use dataflow identity, so changing an explicit ID can select a
 different state record. For most documents, omit it and use the name. See the
 [Dataflow](https://datacoolie.github.io/datacoolie/reference/metadata-schema/#dataflow) contract.

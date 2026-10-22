@@ -5822,12 +5822,16 @@ and failure behavior.</p>
 explicit stable ID.</p>
 <h3 id="dataflow-identity">Dataflow identity<a class="headerlink" href="#dataflow-identity" title="Permanent link">&para;</a></h3>
 <p>Use a unique name when the dataflow is authored or selected by name. DataCoolie
-derives <code>dataflow_id</code> from the name when an explicit ID is absent. An explicit
+derives <code>dataflow_id</code> from the exact name and optional workspace when an explicit
+ID is absent. An explicit
 ID may be used without a name for ID-based integrations; keep that ID unique
 and stable across deployments. The document mapper enforces dataflow ID
 uniqueness and permits distinct explicit IDs with the same display name, but
 any name-based consumer must still have one unambiguous match. When
-<code>workspace_id</code> is supplied, name scope is that workspace. Watermark and
+<code>workspace_id</code> is supplied, name scope is that workspace. Named and inline
+connections must belong to the same workspace; see
+<a href="../connections/#connection-identity">Connection identity</a> for document inheritance
+and mixed-workspace rules. Watermark and
 provider records use dataflow identity, so changing an explicit ID can select a
 different state record. For most documents, omit it and use the name. See the
 <a href="../../../reference/metadata-schema/#dataflow">Dataflow</a> contract.</p>
