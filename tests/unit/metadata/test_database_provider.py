@@ -272,6 +272,29 @@ class TestWarmUpRetry:
 class TestConnections:
     """Connection fetch methods."""
 
+    @pytest.mark.parametrize("enable_cache", [False, True])
+    def test_connection_by_name_rejects_ambiguous_ids_across_cache_modes(
+        self,
+        engine: Engine,
+        enable_cache: bool,
+    ) -> None:
+        provider = DatabaseProvider(
+            engine=engine,
+            workspace_id=WS,
+            enable_cache=enable_cache,
+        )
+        provider.create_tables()
+        _insert_connection(engine, connection_id="c-1", name="shared")
+        _insert_connection(engine, connection_id="c-2", name="shared")
+        try:
+            with pytest.raises(MetadataError, match="Connection name is ambiguous"):
+                provider.get_connection_by_name("shared")
+            selected = provider.get_connection_by_id("c-1")
+            assert selected is not None
+            assert selected.connection_id == "c-1"
+        finally:
+            provider.close()
+
     def test_fetch_connections_empty(self, provider: DatabaseProvider) -> None:
         assert provider.get_connections() == []
 

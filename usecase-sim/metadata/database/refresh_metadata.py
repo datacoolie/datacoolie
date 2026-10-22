@@ -239,7 +239,9 @@ def refresh(engine, url, document, payload):
             (TABLES[1], "dataflows", "dataflow_id"),
         ]:
             ids = [
-                r.get(key) or name_to_uuid(r["name"]) for r in document.get(section, [])
+                r.get(key) or name_to_uuid(
+                    r["name"], r.get("workspace_id") or WORKSPACE
+                ) for r in document.get(section, [])
             ]
             table = tables[name]
             if (

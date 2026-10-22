@@ -88,7 +88,52 @@ def _verify_file_case(scenario, locks, root):
     if bindings:
         from runner.metadata_bindings import bind_document
         document = bind_document(document, bindings)
-    connections = {c["name"]: c for c in document.get("connections", [])}
+    from datacoolie.utils.identity import normalize_workspace_id
+
+    connections = [c for c in document.get("connections", []) if isinstance(c, dict)]
+    connections_by_id = {
+        c.get("connection_id"): c for c in connections if c.get("connection_id")
+    }
+
+    def resolve_connection(flow, side):
+        endpoint = flow.get(side, {}) or {}
+        if not isinstance(endpoint, dict):
+            raise ValueError(f"{side} endpoint must be an object")
+        inline = endpoint.get("connection")
+        if isinstance(inline, dict):
+            explicit_id = inline.get("connection_id")
+            reference = inline.get("name")
+            flow_scope = normalize_workspace_id(flow.get("workspace_id"))
+            inline_scope = normalize_workspace_id(inline.get("workspace_id"))
+            if inline_scope is not None and inline_scope != flow_scope:
+                raise ValueError("inline connection workspace mismatch")
+            if explicit_id and explicit_id in connections_by_id:
+                owner = connections_by_id[explicit_id]
+                if reference is not None and owner.get("name") != reference:
+                    raise ValueError("inline connection ID/name mismatch")
+                if normalize_workspace_id(owner.get("workspace_id")) != flow_scope:
+                    raise ValueError("inline connection workspace mismatch")
+                return owner
+            if not isinstance(reference, str) or not reference.strip():
+                raise ValueError("inline connection requires a non-empty name")
+            return inline
+        explicit_id = endpoint.get("connection_id") or flow.get(f"{side}_connection_id")
+        reference = endpoint.get("connection_name") or flow.get(f"{side}_connection")
+        flow_scope = normalize_workspace_id(flow.get("workspace_id"))
+        if explicit_id:
+            connection = connections_by_id.get(explicit_id)
+            if connection is None or normalize_workspace_id(connection.get("workspace_id")) != flow_scope:
+                raise ValueError(f"Unknown or foreign connection_id: {explicit_id}")
+            return connection
+        candidates = [
+            connection for connection in connections
+            if connection.get("name") == reference
+            and normalize_workspace_id(connection.get("workspace_id")) == flow_scope
+        ]
+        if len(candidates) != 1:
+            raise ValueError(f"Ambiguous or unknown connection name: {reference!r}")
+        return candidates[0]
+
     stages = {s.strip() for s in scenario.get("stage", "").split(",") if s.strip()}
     names = scenario.get("dataflows")
     if names is not None:
@@ -96,8 +141,17 @@ def _verify_file_case(scenario, locks, root):
             not isinstance(name, str) or not name for name in names
         ) or len(names) != len(set(names)):
             raise ValueError("dataflows must be a non-empty unique name list")
-        available = {flow["name"] for flow in document["dataflows"]
-                     if flow.get("is_active", True) and (not stages or flow.get("stage") in stages)}
+        available_rows = [flow for flow in document["dataflows"]
+                          if flow.get("is_active", True) and (not stages or flow.get("stage") in stages)]
+        available_by_name = {}
+        for flow in available_rows:
+            available_by_name.setdefault(flow["name"], []).append(flow)
+        ambiguous = sorted(name for name, rows in available_by_name.items() if len(rows) > 1)
+        if any(name in ambiguous for name in names):
+            raise ValueError(
+                f"dataflow selector is ambiguous across workspaces: {ambiguous}"
+            )
+        available = set(available_by_name)
         if not set(names) <= available:
             raise ValueError("dataflow selector is unknown or incompatible with stage")
     selected = 0
@@ -111,7 +165,7 @@ def _verify_file_case(scenario, locks, root):
             raise ValueError("Incremental flows require separate admission qualification")
         for side, mode in (("source", "read"), ("destination", "write")):
             endpoint = flow.get(side, {})
-            connection = connections.get(endpoint.get("connection_name"), {})
+            connection = resolve_connection(flow, side)
             if connection.get("connection_type") != "file" or connection.get("format") != "parquet" or any(endpoint.get(key) for key in ("sql", "query", "function")):
                 raise ValueError("Opaque or non-Parquet endpoint requires exclusive admission")
             table = endpoint.get("table")

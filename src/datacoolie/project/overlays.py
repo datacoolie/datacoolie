@@ -6,6 +6,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Any
+from datacoolie.utils.identity import normalize_workspace_id, is_usable_identifier, normalize_document_workspace
 
 from .documents import SECTION_KEYS, MetadataSnapshot
 from .errors import ProjectValidationError
@@ -14,8 +15,8 @@ from .errors import ProjectValidationError
 _ALLOWED_KEYS = {"$schema", "patches", *SECTION_KEYS}
 _PATCH_TYPES = set(SECTION_KEYS)
 _IDENTITY_FIELDS = {
-    "connections": {"name", "connection_id"},
-    "dataflows": {"name", "dataflow_id"},
+    "connections": {"name", "connection_id", "workspace_id"},
+    "dataflows": {"name", "dataflow_id", "workspace_id"},
     "schema_hints": {
         "connection_name",
         "connection_id",
@@ -100,17 +101,14 @@ def _validate_overlay(value: Any, path: Path) -> dict[str, Any]:
 
 
 def _item_key(section: str, item: dict[str, Any], index: int) -> Any:
-    if section == "connections":
-        key = item.get("name") or item.get("connection_id")
+    if section in {"connections", "dataflows"}:
+        id_field = "connection_id" if section == "connections" else "dataflow_id"
+        explicit = item.get(id_field)
+        key = explicit if is_usable_identifier(explicit) else item.get("name")
         if not isinstance(key, str) or not key.strip():
             raise ProjectValidationError(f"{section}[{index}] requires a stable name/id")
-        return key
-    if section == "dataflows":
-        key = item.get("name") or item.get("dataflow_id")
-        if not isinstance(key, str) or not key.strip():
-            raise ProjectValidationError(f"{section}[{index}] requires a stable name/id")
-        return key
-    connection = item.get("connection_name") or item.get("connection_id")
+        return (normalize_workspace_id(item.get("workspace_id")), "id" if is_usable_identifier(explicit) else "name", key)
+    connection = item.get("connection_id") or item.get("connection_name")
     table = item.get("table_name")
     schema = item.get("schema_name") or None
     if not connection or not table:
@@ -216,6 +214,23 @@ def _merge_section(base: list[dict[str, Any]], update: list[dict[str, Any]], sec
             raise ProjectValidationError(f"Duplicate {section} identity: {key!r}")
         base_map[key] = item
     for index, item in enumerate(update):
+        item = deepcopy(item)
+        if section in {"connections", "dataflows"}:
+            id_field = "connection_id" if section == "connections" else "dataflow_id"
+            field = id_field if is_usable_identifier(item.get(id_field)) else "name"
+            scope = normalize_workspace_id(item.get("workspace_id"))
+            candidates = [row for row in base if row.get(field) == item.get(field)]
+            if scope is not None:
+                if field == id_field and any(normalize_workspace_id(row.get("workspace_id")) != scope for row in candidates):
+                    raise ProjectValidationError("Overlay must not change workspace identity")
+                candidates = [row for row in candidates if normalize_workspace_id(row.get("workspace_id")) == scope]
+            if len(candidates) > 1:
+                raise ProjectValidationError(f"Ambiguous overlay {section} identity; specify workspace_id and explicit ID")
+            if candidates:
+                canonical = candidates[0]
+                if is_usable_identifier(canonical.get(id_field)) and not is_usable_identifier(item.get(id_field)):
+                    item[id_field] = canonical[id_field]
+                item["workspace_id"] = canonical.get("workspace_id")
         key = _item_key(section, item, index)
         if key in update_map:
             raise ProjectValidationError(f"Duplicate overlay {section} identity: {key!r}")
@@ -257,6 +272,8 @@ def _apply_patches(metadata: dict[str, Any], patches: list[dict[str, Any]]) -> N
             for item_index, candidate in enumerate(canonical[kind]):
                 if _matches(candidate, where):
                     matches.append((item_index, {}))
+            if "name" in where and len(matches) > 1:
+                raise ProjectValidationError(f"patches[{index}] name is ambiguous; specify workspace_id and explicit ID")
             for item_index, _ in matches:
                 if kind == "dataflows":
                     metadata[kind][item_index] = _merge_dataflow_patch(
@@ -286,7 +303,10 @@ def load_overlay(metadata_root: Path, environment: str) -> tuple[dict[str, Any],
 def resolve_environment(snapshot: MetadataSnapshot, environment: str) -> tuple[dict[str, Any], Path | None]:
     """Return common metadata with one optional environment overlay applied."""
 
-    metadata = snapshot.merged()
+    try:
+        metadata = normalize_document_workspace(snapshot.merged())
+    except ValueError as exc:
+        raise ProjectValidationError(str(exc)) from exc
     overlay, path = load_overlay(snapshot.root if snapshot.root.is_dir() else snapshot.root.parent, environment)
     if not overlay:
         return metadata, path
@@ -299,7 +319,10 @@ def resolve_environment(snapshot: MetadataSnapshot, environment: str) -> tuple[d
         )
     if "$schema" in overlay:
         metadata["$schema"] = overlay["$schema"]
-    return metadata, path
+    try:
+        return normalize_document_workspace(metadata), path
+    except ValueError as exc:
+        raise ProjectValidationError(str(exc)) from exc
 
 
 __all__ = ["load_overlay", "resolve_environment"]

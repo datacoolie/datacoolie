@@ -16,6 +16,7 @@ from datacoolie.metadata.documents.parsers import (
     validate_document,
 )
 from datacoolie.metadata.documents.excel import parse_excel
+from datacoolie.utils.identity import normalize_document_workspace, normalize_workspace_id, is_usable_identifier
 
 from .errors import ProjectDependencyError, ProjectValidationError
 
@@ -150,11 +151,14 @@ def _source_paths(root: Path) -> Iterable[Path]:
 
 def _identity(section: str, item: dict[str, Any], index: int) -> str:
     if section in {"connections", "dataflows"}:
-        return str(item.get("name") or item.get("dataflow_id") or item.get("connection_id") or f"#{index}")
-    connection = item.get("connection_name") or item.get("connection_id") or "?"
+        field = "connection_id" if section == "connections" else "dataflow_id"
+        explicit = item.get(field)
+        identity = ["id", explicit] if is_usable_identifier(explicit) else ["name", item.get("name") or f"#{index}"]
+        return json.dumps([normalize_workspace_id(item.get("workspace_id")), *identity], ensure_ascii=False, separators=(",", ":"))
+    connection = item.get("connection_id") or item.get("connection_name") or "?"
     schema = item.get("schema_name") or ""
     table = item.get("table_name") or "?"
-    return f"{connection}|{schema}|{table}"
+    return json.dumps(["id" if item.get("connection_id") else "name", connection, schema, table], ensure_ascii=False, separators=(",", ":"))
 
 
 def load_snapshot(root: Path | str) -> MetadataSnapshot:
@@ -201,6 +205,18 @@ def load_snapshot(root: Path | str) -> MetadataSnapshot:
                 copied = _copy_document(item)
                 snapshot.sections[section].append(copied)
                 snapshot.origins[(section, _identity(section, copied, index))] = relative
+    try:
+        normalized = normalize_document_workspace(snapshot.sections)
+    except ValueError as exc:
+        raise ProjectValidationError(str(exc)) from exc
+    origins = {}
+    for section in SECTION_KEYS:
+        for index, (old, new) in enumerate(zip(snapshot.sections[section], normalized[section])):
+            original = snapshot.origins.get((section, _identity(section, old, index)))
+            if original is not None:
+                origins[(section, _identity(section, new, index))] = original
+    snapshot.sections = normalized
+    snapshot.origins = origins
     return snapshot
 
 

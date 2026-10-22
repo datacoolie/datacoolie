@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
-from datacoolie.core.constants import LoadType, ProcessingMode
+from datacoolie.core.constants import ProcessingMode
 from datacoolie.core.exceptions import MetadataError, WatermarkError
 from datacoolie.core.models.connection import Connection
 from datacoolie.core.models.dataflow import DataFlow
@@ -123,7 +123,11 @@ class APIProvider(BaseMetadataProvider):
                 "Use HTTPS in production.",
                 self._base_url.split("://")[0] if "://" in self._base_url else "unknown",
             )
-        self._workspace_id = workspace_id
+        from datacoolie.utils.identity import normalize_workspace_id
+
+        self._workspace_id = normalize_workspace_id(workspace_id)
+        if self._workspace_id is None:
+            raise MetadataError("APIProvider requires a non-empty workspace_id")
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff
         self._page_size = page_size
@@ -378,6 +382,9 @@ class APIProvider(BaseMetadataProvider):
     @classmethod
     def _dict_to_dataflow(cls, data: Dict[str, Any]) -> DataFlow:
         """Map an API dict to a ``DataFlow`` model."""
+        from datacoolie.utils.identity import normalize_document_workspace
+
+        data = normalize_document_workspace({"dataflows": [data]})["dataflows"][0]
         src_data = data.get("source", {})
         dest_data = data.get("destination", {})
         transform_data = data.get("transform", {})
@@ -406,16 +413,21 @@ class APIProvider(BaseMetadataProvider):
             configure=src_data.get("configure") or {},
         )
 
-        # Destination
-        destination = Destination(
-            connection=dest_conn,
-            schema_name=dest_data.get("schema_name"),
-            table=dest_data.get("table", ""),
-            load_type=dest_data.get("load_type", LoadType.OVERWRITE.value),
-            merge_keys=ensure_list(dest_data.get("merge_keys")),
-            partition_columns=dest_data.get("partition_columns") or [],
-            configure=dest_data.get("configure") or {},
-        )
+        # Destination.  Keep the model as the owner of the omitted-field
+        # default (append).  Passing ``load_type`` only when the API payload
+        # contains it also preserves explicit ``null`` and invalid values for
+        # the model's existing normalization/validation behaviour.
+        destination_kwargs: Dict[str, Any] = {
+            "connection": dest_conn,
+            "schema_name": dest_data.get("schema_name"),
+            "table": dest_data.get("table", ""),
+            "merge_keys": ensure_list(dest_data.get("merge_keys")),
+            "partition_columns": dest_data.get("partition_columns") or [],
+            "configure": dest_data.get("configure") or {},
+        }
+        if "load_type" in dest_data:
+            destination_kwargs["load_type"] = dest_data["load_type"]
+        destination = Destination(**destination_kwargs)
 
         # Transform
         transform = Transform(**transform_data) if transform_data else Transform()
@@ -435,6 +447,24 @@ class APIProvider(BaseMetadataProvider):
             transform=transform,
             configure=data.get("configure") or {},
         )
+
+    def _scoped_connection(self, data: Dict[str, Any]) -> Connection:
+        from datacoolie.utils.identity import normalize_document_workspace
+
+        try:
+            scoped = normalize_document_workspace({"connections": [data]}, self._workspace_id)
+            return self._dict_to_connection(scoped["connections"][0])
+        except ValueError as exc:
+            raise MetadataError(str(exc)) from exc
+
+    def _scoped_dataflow(self, data: Dict[str, Any]) -> DataFlow:
+        from datacoolie.utils.identity import normalize_document_workspace
+
+        try:
+            scoped = normalize_document_workspace({"dataflows": [data]}, self._workspace_id)
+            return self._dict_to_dataflow(scoped["dataflows"][0])
+        except ValueError as exc:
+            raise MetadataError(str(exc)) from exc
 
     # ------------------------------------------------------------------
     # Bulk pre-load — fetch entire workspace metadata concurrently
@@ -483,7 +513,7 @@ class APIProvider(BaseMetadataProvider):
                     f"Connection response item at index {index} must be an object"
                 )
             try:
-                connections.append(self._dict_to_connection(raw))
+                connections.append(self._scoped_connection(raw))
             except Exception as exc:
                 raise MetadataError(
                     f"Invalid connection response item at index {index}"
@@ -506,7 +536,7 @@ class APIProvider(BaseMetadataProvider):
                     "Dataflow response is missing a source or destination connection "
                     f"at index {index}"
                 )
-            dataflows.append(self._dict_to_dataflow(raw))
+            dataflows.append(self._scoped_dataflow(raw))
         grouped = self._group_schema_hint_rows(hint_rows)
         valid_connection_ids = {connection.connection_id for connection in connections}
         for dataflow in dataflows:
@@ -582,11 +612,11 @@ class APIProvider(BaseMetadataProvider):
         if active_only:
             params["active_only"] = "true"
         data = self._request("GET", "/connections", params=params, paginate=True)
-        return [self._dict_to_connection(d) for d in data]
+        return [self._scoped_connection(d) for d in data]
 
     def _fetch_connection_by_id(self, connection_id: str) -> Optional[Connection]:
         return self._safe_single_fetch(
-            lambda: self._dict_to_connection(
+            lambda: self._scoped_connection(
                 self._request("GET", f"/connections/{connection_id}")
             )
         )
@@ -594,7 +624,13 @@ class APIProvider(BaseMetadataProvider):
     def _fetch_connection_by_name(self, name: str) -> Optional[Connection]:
         def _do() -> Optional[Connection]:
             data = self._request("GET", "/connections", params={"name": name}, paginate=True)
-            return self._dict_to_connection(data[0]) if data else None
+            connections = [self._scoped_connection(item) for item in data]
+            distinct_ids = {connection.connection_id for connection in connections}
+            if len(distinct_ids) > 1:
+                raise MetadataError(
+                    f"Connection name is ambiguous: {name}; use connection_id"
+                )
+            return connections[0] if connections else None
         return self._safe_single_fetch(_do)
 
     # ------------------------------------------------------------------
@@ -613,11 +649,11 @@ class APIProvider(BaseMetadataProvider):
         if stages is not None:
             params["stage"] = ",".join(stages)
         data = self._request("GET", "/dataflows", params=params, paginate=True)
-        return [self._dict_to_dataflow(d) for d in data]
+        return [self._scoped_dataflow(d) for d in data]
 
     def _fetch_dataflow_by_id(self, dataflow_id: str) -> Optional[DataFlow]:
         return self._safe_single_fetch(
-            lambda: self._dict_to_dataflow(
+            lambda: self._scoped_dataflow(
                 self._request("GET", f"/dataflows/{dataflow_id}")
             )
         )

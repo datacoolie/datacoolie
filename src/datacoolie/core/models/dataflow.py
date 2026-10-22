@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -10,7 +11,7 @@ from datacoolie.core.constants import (
     ProcessingMode,
 )
 from datacoolie.core.exceptions import ConfigurationError
-from datacoolie.utils.identity import is_usable_identifier, name_to_uuid
+from datacoolie.utils.identity import is_usable_identifier, name_to_uuid, normalize_workspace_id
 
 from datacoolie.core.models.base import CompatModel, _parse_json_object
 from datacoolie.core.models.destination import Destination, PartitionColumn
@@ -46,7 +47,7 @@ class DataFlow(CompatModel):
         ):
             name = values.get("name")
             if is_usable_identifier(name):
-                values["dataflow_id"] = name_to_uuid(str(name))
+                values["dataflow_id"] = name_to_uuid(str(name), values.get("workspace_id"))
         return values
 
     @classmethod
@@ -60,8 +61,19 @@ class DataFlow(CompatModel):
         return _parse_json_object(v)
 
     def __post_init__(self) -> None:
+        self.workspace_id = normalize_workspace_id(self.workspace_id)
+        self.source = copy.deepcopy(self.source)
+        self.destination = copy.deepcopy(self.destination)
+        for endpoint in (self.source, self.destination):
+            connection = endpoint.connection
+            if connection.workspace_id is None and self.workspace_id is not None:
+                connection.workspace_id = self.workspace_id
+                if getattr(connection, "_generated_identity", False):
+                    connection.connection_id = name_to_uuid(connection.name, self.workspace_id)
+            elif connection.workspace_id != self.workspace_id:
+                raise ConfigurationError("Dataflow and endpoint workspace_id must match")
         values = self._derive_dataflow_id_from_name(
-            {"dataflow_id": self.dataflow_id, "name": self.name}
+            {"dataflow_id": self.dataflow_id, "name": self.name, "workspace_id": self.workspace_id}
         )
         self.dataflow_id = values.get("dataflow_id")
         self.processing_mode = self._normalise_mode(self.processing_mode)

@@ -107,7 +107,7 @@ def test_seed_uses_isolated_workspace_ids_and_api_mapper_preserves_explicit_id(
         for workspace in workspaces
     ]
     expected_ids = [
-        validator.name_to_uuid(f"{workspace}:{authored_name}")
+        validator.name_to_uuid(authored_name, workspace)
         for workspace in workspaces
     ]
     assert persisted_ids == expected_ids

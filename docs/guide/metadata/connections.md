@@ -107,7 +107,8 @@ before adding `connection_id`.
 
 Keep `name` unique in the document/provider scope used by name references, and
 use `connection_name` in source, destination and shared schema-hint references.
-DataCoolie derives `connection_id` from the name if it is omitted. Author an
+DataCoolie derives `connection_id` from the exact name and optional workspace
+if it is omitted. Author an
 explicit, stable `connection_id` only when a provider or external system owns
 it; do not regenerate it per deployment or reuse it for two connections in the
 same shared ID store. Prefer names in normal documents, and keep any
@@ -116,18 +117,24 @@ shared-hint `connection_id` consistent with its connection. See the
 
 The document loader allows distinct explicit IDs to carry the same display
 name, but a name-based reference or shared schema hint rejects an ambiguous
-name and asks for `connection_id`. If duplicate display names are intended,
-each connection must provide a distinct explicit ID; omitted IDs derive from
-the same name and therefore collide. Database and API providers load one
-workspace at a time. Supporting duplicate display names across a
-mixed-workspace file snapshot still requires an explicit workspace-aware file
-scope.
+name and asks for `connection_id`. Within one workspace, duplicate names need
+distinct explicit IDs. Equal names in different workspaces receive different
+generated IDs. Database and API providers load one workspace at a time.
 
 When metadata is loaded for a specific `workspace_id`, name lookups belong to
 that workspace. Database and API providers are loaded one workspace at a time;
-the file provider currently treats one metadata snapshot as one name scope.
-Do not place same-name connections from multiple workspaces in one file
-snapshot until a multi-workspace file scope is explicitly configured.
+the file provider can load multiple workspaces. Each dataflow resolves named
+connections only in its own workspace. Public name-only lookup across the whole
+file snapshot rejects ambiguity; use an explicit connection ID for that lookup
+and for ambiguous shared schema-hint references.
+
+A document with one explicit workspace assigns it to entities missing scope.
+A mixed-workspace document must specify `workspace_id` on every top-level
+connection and dataflow. Inline connections inherit their dataflow's workspace;
+an explicit mismatch fails. Names are matched exactly, including surrounding
+spaces. Workspace strings are trimmed and blank means absent. Adding or changing
+workspace changes generated IDs and selects different state; no old-ID migration
+or alias is provided.
 
 For a provider-managed stable identity, add the ID alongside the readable
 name (connection fragment):
@@ -470,8 +477,9 @@ name. The four-part name applies to a
 [schema-enabled Fabric Lakehouse](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-schemas);
 the namespace required by another Fabric connector may differ.
 
-`workspace_id` is separate: it scopes metadata stored by a database or API
-provider; it does not replace `catalog` when naming a Fabric workspace.
+`workspace_id` is separate: it scopes metadata identities and connection
+references in file, database and API providers; it does not replace `catalog`
+when naming a Fabric workspace.
 
 ### Three-part names when one level is implicit
 

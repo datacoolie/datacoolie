@@ -27,6 +27,7 @@ from datacoolie.metadata.contracts.identity import (
     connection_identity_error,
     dataflow_identity_error,
 )
+from datacoolie.utils.identity import normalize_workspace_id
 
 
 def _source(origins: Optional[Mapping[int, str]], value: Any) -> str:
@@ -72,27 +73,34 @@ def build_connections(
 def resolve_connection(
     name_or_ref: str | Dict[str, Any],
     by_name: Mapping[str, Connection | List[Connection]],
+    workspace_id: str | None = None,
 ) -> Connection:
     """Resolve a named connection or create an inline connection model."""
 
     if isinstance(name_or_ref, dict):
         try:
-            return Connection(**copy.deepcopy(name_or_ref))
+            raw = copy.deepcopy(name_or_ref)
+            scope = normalize_workspace_id(raw.get("workspace_id"))
+            if scope is not None and scope != workspace_id:
+                raise MetadataError("Inline connection workspace mismatch")
+            raw["workspace_id"] = workspace_id
+            return Connection(**raw)
         except Exception as exc:
             raise MetadataError("Invalid inline connection definition") from exc
     if not isinstance(name_or_ref, str) or not name_or_ref.strip():
         raise MetadataError("Connection reference must be a non-empty name or mapping")
-    name_or_ref = name_or_ref.strip()
     connection = by_name.get(name_or_ref)
     if connection is None:
         raise MetadataError(f"Connection not found: {name_or_ref}")
-    if isinstance(connection, list):
-        if len(connection) != 1:
-            raise MetadataError(
-                f"Connection name is ambiguous: {name_or_ref}; use connection_id"
-            )
-        return connection[0]
-    return connection
+    candidates = connection if isinstance(connection, list) else [connection]
+    candidates = [item for item in candidates if item.workspace_id == workspace_id]
+    if not candidates:
+        raise MetadataError(f"Connection not found in workspace {workspace_id!r}: {name_or_ref}")
+    if len(candidates) != 1:
+        raise MetadataError(
+            f"Connection name is ambiguous: {name_or_ref}; use connection_id"
+        )
+    return candidates[0]
 
 
 def build_single_dataflow(
@@ -102,6 +110,7 @@ def build_single_dataflow(
     """Build one dataflow while resolving source/destination references."""
 
     raw_copy = copy.deepcopy(raw)
+    workspace_id = normalize_workspace_id(raw_copy.get("workspace_id"))
     source_raw: Dict[str, Any] = dict(raw_copy.get("source", {}))
     source_has_name = "connection_name" in source_raw
     source_has_inline = "connection" in source_raw
@@ -121,7 +130,7 @@ def build_single_dataflow(
             "'connection_name' or 'connection'"
         )
     source = Source(
-        connection=resolve_connection(source_ref, by_name),
+        connection=resolve_connection(source_ref, by_name, workspace_id),
         **source_raw,
     )
 
@@ -144,7 +153,7 @@ def build_single_dataflow(
             "'connection_name' or 'connection'"
         )
     destination = Destination(
-        connection=resolve_connection(destination_ref, by_name),
+        connection=resolve_connection(destination_ref, by_name, workspace_id),
         **destination_raw,
     )
 
@@ -268,7 +277,7 @@ def build_grouped_schema_hints(
                 f"{type(group).__name__!r}. Source: {_source(origins, group)}. "
                 'Expected format: {"connection_name": "...", "table_name": "...", "hints": [...]} '
             )
-        connection_ref = group.get("connection_name") or group.get("connection_id")
+        connection_ref = group.get("connection_id") or group.get("connection_name")
         table_name = group.get("table_name")
         if not connection_ref or not table_name:
             raise MetadataError(
@@ -280,14 +289,13 @@ def build_grouped_schema_hints(
                 f"Schema hint group {index} connection reference must be a string "
                 f"(source: {_source(origins, group)})"
             )
-        connection_ref = connection_ref.strip()
-        if not connection_ref:
+        if not connection_ref.strip():
             raise MetadataError(
                 f"Schema hint group {index} is missing connection and table "
                 f"(source: {_source(origins, group)})"
             )
-        if connection_ref in valid_ids:
-            connection_id = connection_ref
+        if group.get("connection_id"):
+            connection_id = connection_ref if connection_ref in valid_ids else None
         else:
             matching_ids = name_to_ids.get(connection_ref, [])
             if len(matching_ids) > 1:

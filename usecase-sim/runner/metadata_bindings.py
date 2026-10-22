@@ -16,6 +16,7 @@ from os import PathLike
 from typing import Any
 
 from datacoolie.metadata.file_provider import FileProvider
+from datacoolie.utils.identity import normalize_workspace_id
 
 from runner.metadata_documents import load_metadata_files
 
@@ -26,8 +27,8 @@ IDENTITY_FIELDS = {
     # configuration, but it must never create a different logical entity or
     # move it to another stage.  Keep these fields explicit instead of
     # relying on model validation after the projection has been applied.
-    "connections": frozenset({"name", "connection_id"}),
-    "dataflows": frozenset({"name", "dataflow_id", "stage"}),
+    "connections": frozenset({"name", "connection_id", "workspace_id"}),
+    "dataflows": frozenset({"name", "dataflow_id", "workspace_id", "stage"}),
 }
 _OPERATION_KEYS = frozenset({"replace", "patch", "delete"})
 
@@ -303,14 +304,13 @@ def _apply_operations(
             if operations and require_targets:
                 raise MetadataBindingError(f"metadata section {section!r} must be a list")
             continue
-        indexes = {
-            row.get("name"): index
-            for index, row in enumerate(rows)
-            if isinstance(row, Mapping) and isinstance(row.get("name"), str)
-        }
+        indexes: dict[str, list[int]] = {}
+        for index, row in enumerate(rows):
+            if isinstance(row, Mapping) and isinstance(row.get("name"), str):
+                indexes.setdefault(row["name"], []).append(index)
         for target, operation in operations.items():
-            index = indexes.get(target)
-            if index is None:
+            candidates = indexes.get(target, [])
+            if not candidates:
                 if require_targets:
                     raise MetadataBindingError(
                         f"Unknown {section[:-1]} binding target: {target}"
@@ -318,6 +318,12 @@ def _apply_operations(
                 # The same named row may be present in another exact source
                 # file; source-level transforms ignore absent rows.
                 continue
+            if len(candidates) != 1:
+                raise MetadataBindingError(
+                    f"Ambiguous {section[:-1]} binding target {target!r}; "
+                    "use an explicit identity"
+                )
+            index = candidates[0]
             base = rows[index]
             if not isinstance(base, dict):
                 raise MetadataBindingError(f"{section} target {target!r} must be an object")
@@ -360,21 +366,37 @@ def _validate_effective_identities(document: Mapping[str, Any]) -> None:
         rows = document.get(section, [])
         if not isinstance(rows, list):
             return
-        names: set[str] = set()
+        names: dict[tuple[str | None, str], list[tuple[str, bool]]] = {}
         identities: set[str] = set()
         for index, row in enumerate(rows):
             if not isinstance(row, Mapping):
                 continue
             name = row.get("name")
             if isinstance(name, str):
-                if name in names:
-                    raise MetadataBindingError(f"Duplicate {section} name: {name!r}")
-                names.add(name)
+                scope = normalize_workspace_id(row.get("workspace_id"))
+                identity = row.get(id_field)
+                names.setdefault((scope, name), []).append(
+                    (identity, isinstance(identity, str) and bool(identity.strip()))
+                )
             identity = row.get(id_field)
             if isinstance(identity, str):
                 if identity in identities:
                     raise MetadataBindingError(f"Duplicate {id_field}: {identity!r}")
                 identities.add(identity)
+        for (scope, name), candidates in names.items():
+            if len(candidates) <= 1:
+                continue
+            # Equal display names are valid when the authored rows have
+            # distinct explicit IDs. A generated/missing ID would collapse
+            # to the same identity, so name based bindings must reject it.
+            if not all(explicit for _, explicit in candidates) or len(
+                {identity for identity, _ in candidates}
+            ) != len(candidates):
+                label = f" in workspace {scope!r}" if scope is not None else ""
+                raise MetadataBindingError(
+                    f"Duplicate {section} name{label}: {name!r}; "
+                    "use distinct explicit IDs"
+                )
 
 
 def _normalise_selectors(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -437,12 +459,18 @@ def bind_document(
     selectors = _normalise_selectors(selectors_input)
     if selectors:
         rows = bound.get("dataflows", [])
-        known = {
-            row.get("name")
-            for row in rows
-            if isinstance(row, Mapping) and isinstance(row.get("name"), str)
-        } if isinstance(rows, list) else set()
-        missing = [name for name in selectors if name not in known]
+        grouped: dict[str, list[Mapping[str, Any]]] = {}
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, Mapping) and isinstance(row.get("name"), str):
+                    grouped.setdefault(row["name"], []).append(row)
+        ambiguous = [name for name in selectors if len(grouped.get(name, [])) > 1]
+        if ambiguous:
+            raise MetadataBindingError(
+                f"Ambiguous dataflow selector(s): {', '.join(ambiguous)}; "
+                "use an explicit dataflow ID"
+            )
+        missing = [name for name in selectors if name not in grouped]
         if missing:
             raise MetadataBindingError(
                 f"Unknown dataflow selector(s): {', '.join(missing)}"
@@ -455,12 +483,19 @@ def _select_models(
 ) -> list[Any]:
     if not selectors:
         return dataflows
-    by_name = {
-        getattr(dataflow, "name", None): dataflow
-        for dataflow in dataflows
-        if getattr(dataflow, "name", None)
-    }
-    missing = [name for name in selectors if name not in by_name]
+    grouped: dict[str, list[Any]] = {}
+    for dataflow in dataflows:
+        name = getattr(dataflow, "name", None)
+        if name:
+            grouped.setdefault(name, []).append(dataflow)
+    ambiguous = [name for name in selectors if len(grouped.get(name, [])) > 1]
+    if ambiguous:
+        raise MetadataBindingError(
+            f"Dataflow selector is ambiguous for {context}: "
+            f"{', '.join(ambiguous)}; use an explicit dataflow ID"
+        )
+    by_name = {name: rows[0] for name, rows in grouped.items()}
+    missing = [name for name in selectors if name not in grouped]
     if missing:
         raise MetadataBindingError(
             f"Dataflow selector is incompatible with {context}: {', '.join(missing)}"
@@ -602,11 +637,17 @@ class BoundFileProvider(FileProvider):
             active_only=False,
             attach_schema_hints=attach_schema_hints,
         )
-        by_name = {
-            dataflow.name: dataflow
-            for dataflow in eligible
-            if dataflow.name is not None
-        }
+        eligible_by_name: dict[str, list[Any]] = {}
+        for dataflow in eligible:
+            if dataflow.name is not None:
+                eligible_by_name.setdefault(dataflow.name, []).append(dataflow)
+        ambiguous = [name for name in self._selectors if len(eligible_by_name.get(name, [])) > 1]
+        if ambiguous:
+            raise MetadataBindingError(
+                "Maintenance dataflow selector is ambiguous: "
+                f"{', '.join(ambiguous)}; use an explicit dataflow ID"
+            )
+        by_name = {name: rows[0] for name, rows in eligible_by_name.items()}
         selected = [by_name[name] for name in self._selectors if name in by_name]
         if active_only:
             selected = [dataflow for dataflow in selected if dataflow.is_active]

@@ -417,6 +417,7 @@ def assert_successful_flow(
     flow_name: str,
     *,
     expected_dataflow_id: str | None = None,
+    workspace_id: str | None = None,
 ) -> None:
     """Require one successful intended-flow row in this invocation's session.
 
@@ -434,7 +435,7 @@ def assert_successful_flow(
     expected_id = (
         expected_dataflow_id
         if expected_dataflow_id is not None
-        else name_to_uuid(flow_name)
+        else name_to_uuid(flow_name, workspace_id)
     )
     matching = [
         record for record in evidence.records

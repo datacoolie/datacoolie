@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import importlib
 import threading
+from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
@@ -258,6 +259,102 @@ def make_client():
 
 class TestAPIProviderConnections:
 
+    @pytest.mark.parametrize(
+        ("payload_value", "expected"),
+        [
+            ("overwrite", "overwrite"),
+            (None, None),
+            ("unsupported", "unsupported"),
+        ],
+    )
+    def test_destination_load_type_preserves_explicit_values(self, payload_value, expected) -> None:
+        payload = _dataflow_dict()
+        payload["destination"]["load_type"] = payload_value
+
+        from datacoolie.metadata.api_provider import APIProvider
+
+        dataflow = APIProvider._dict_to_dataflow(payload)
+
+        assert dataflow.destination.load_type == expected
+
+    def test_destination_load_type_omitted_uses_destination_default(self) -> None:
+        payload = _dataflow_dict()
+        payload["destination"].pop("load_type")
+
+        from datacoolie.metadata.api_provider import APIProvider
+
+        dataflow = APIProvider._dict_to_dataflow(payload)
+
+        assert dataflow.destination.load_type == "append"
+
+    @pytest.mark.integration
+    def test_api_omitted_load_type_appends_to_existing_local_csv(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """An API-hydrated flow uses append when the target already exists."""
+        pl = pytest.importorskip("polars")
+
+        from datacoolie.engines.polars_engine import PolarsEngine
+        from datacoolie.metadata.api_provider import APIProvider
+        from datacoolie.orchestration.driver import DataCoolieDriver
+        from datacoolie.platforms.local_platform import LocalPlatform
+
+        source_root = tmp_path / "input"
+        destination_root = tmp_path / "output"
+        source_table = source_root / "orders"
+        destination_table = destination_root / "orders"
+        source_table.mkdir(parents=True)
+        destination_table.mkdir(parents=True)
+        (source_table / "orders.csv").write_text(
+            "order_id,amount\n2,29.00\n",
+            encoding="utf-8",
+        )
+        existing = destination_table / "orders.csv"
+        existing_contents = "order_id,amount\n1,19.99\n"
+        existing.write_text(existing_contents, encoding="utf-8")
+
+        payload = _dataflow_dict(name="orders_to_csv", dataflow_id="df-orders")
+        payload["source"]["schema_name"] = None
+        payload["source"]["table"] = "orders"
+        payload["source"]["connection"].update(
+            {
+                "format": "csv",
+                "configure": {"base_path": str(source_root)},
+            }
+        )
+        payload["destination"].pop("load_type")
+        payload["destination"]["schema_name"] = None
+        payload["destination"]["table"] = "orders"
+        payload["destination"]["connection"].update(
+            {
+                "format": "csv",
+                "configure": {"base_path": str(destination_root)},
+            }
+        )
+
+        # Exercise the same mapper used by APIProvider responses, then send
+        # that model through the local Driver/Polars writer.  No HTTP service
+        # or metadata provider is needed because the flow is already hydrated.
+        dataflow = APIProvider._dict_to_dataflow(payload)
+        assert dataflow.destination.load_type == "append"
+
+        platform = LocalPlatform()
+        with DataCoolieDriver(
+            engine=PolarsEngine(platform=platform),
+            platform=platform,
+            state_base_path=str(tmp_path / "state"),
+        ) as driver:
+            result = driver.run(dataflows=[dataflow])
+
+        assert result.succeeded == 1
+        assert result.failed == 0
+        assert existing.read_text(encoding="utf-8") == existing_contents
+
+        appended_files = [path for path in destination_table.glob("*.csv") if path != existing]
+        assert len(appended_files) == 1
+        assert pl.read_csv(appended_files[0]).get_column("order_id").to_list() == [2]
+
     def test_fetch_connections(self, make_client) -> None:
         data = [_connection_dict("a"), _connection_dict("b", "c-2")]
         resp = _FakeResponse(200, _paginated(data))
@@ -296,6 +393,62 @@ class TestAPIProviderConnections:
         resp = _FakeResponse(200, _paginated([]))
         client, _ = make_client([resp])
         assert client.get_connection_by_name("nope") is None
+
+    @pytest.mark.parametrize("enable_cache", [False, True])
+    def test_connection_by_name_rejects_ambiguous_ids_across_cache_modes(
+        self,
+        enable_cache: bool,
+    ) -> None:
+        """Name lookup must not depend on cache or API result ordering."""
+        import httpx
+
+        rows = [
+            _connection_dict("shared", "c-1"),
+            _connection_dict("shared", "c-2"),
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            if path.endswith("/connections"):
+                name = request.url.params.get("name")
+                if name:
+                    page = int(request.url.params.get("page", "1"))
+                    page_rows = [rows[0]] if page == 1 else [rows[1]]
+                    body = _paginated(page_rows, page=page, total_pages=2)
+                else:
+                    body = _paginated(rows)
+                return httpx.Response(200, json=body)
+            if "/connections/" in path:
+                connection_id = path.rsplit("/", 1)[-1]
+                row = next((item for item in rows if item["connection_id"] == connection_id), None)
+                return httpx.Response(200, json=row or {})
+            if path.endswith(("/dataflows", "/schema-hints")):
+                return httpx.Response(200, json=_paginated([]))
+            return httpx.Response(404, json={"detail": "not found"})
+
+        from datacoolie.metadata.api_provider import APIProvider
+
+        client = APIProvider(
+            base_url="https://api.test.io",
+            api_key="k",
+            workspace_id="ws-1",
+            enable_cache=enable_cache,
+            max_retries=0,
+            retry_backoff=0.0,
+        )
+        client._client = httpx.Client(
+            base_url="https://api.test.io",
+            transport=httpx.MockTransport(handler),
+        )
+        client._client_owned = True
+        try:
+            with pytest.raises(MetadataError, match="Connection name is ambiguous"):
+                client.get_connection_by_name("shared")
+            selected = client.get_connection_by_id("c-1")
+            assert selected is not None
+            assert selected.connection_id == "c-1"
+        finally:
+            client.close()
 
     def test_fetch_connections_active_only_false_omits_param(self, make_client) -> None:
         resp = _FakeResponse(200, _paginated([_connection_dict("a")]))

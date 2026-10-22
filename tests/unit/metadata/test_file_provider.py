@@ -799,6 +799,35 @@ class TestFileProviderParserHelpers:
 class TestFileProviderConnections:
     """Connection loading and filtering."""
 
+    @pytest.mark.parametrize("enable_cache", [False, True])
+    def test_connection_by_name_rejects_ambiguous_ids_across_cache_modes(
+        self,
+        tmp_path: Path,
+        enable_cache: bool,
+    ) -> None:
+        data = {
+            "connections": [
+                {"connection_id": "c-1", "name": "shared", "connection_type": "file"},
+                {"connection_id": "c-2", "name": "shared", "connection_type": "file"},
+            ],
+            "dataflows": [],
+            "schema_hints": [],
+        }
+        path = _write_json_config(tmp_path, data)
+        provider = FileProvider(
+            config_path=path,
+            platform=LocalPlatform(),
+            enable_cache=enable_cache,
+        )
+        try:
+            with pytest.raises(MetadataError, match="Connection name is ambiguous"):
+                provider.get_connection_by_name("shared")
+            selected = provider.get_connection_by_id("c-1")
+            assert selected is not None
+            assert selected.connection_id == "c-1"
+        finally:
+            provider.close()
+
     def test_get_connections_all(self, tmp_path: Path) -> None:
         path = _write_json_config(tmp_path, MINIMAL_CONFIG)
         provider = FileProvider(config_path=path, platform=LocalPlatform())
@@ -1512,8 +1541,8 @@ class TestFileProviderSchemaHintsOptionalFields:
 class TestFileProviderWatermarkFolderNoDataflow:
     """Cover line 632: _watermark_path when dataflow is None."""
 
-    def test_watermark_path_uses_dataflow_id_when_no_df(self, tmp_path) -> None:
-        """Line 632: folder = dataflow_id when get_dataflow_by_id returns None."""
+    def test_watermark_path_rejects_unknown_bound_dataflow(self, tmp_path) -> None:
+        """A metadata-bound store cannot write state for an unknown owner."""
         import json
         config = {
             'connections': [{'connection_id': 'c1', 'name': 'c1', 'connection_type': 'file', 'format': 'parquet'}],
@@ -1526,7 +1555,6 @@ class TestFileProviderWatermarkFolderNoDataflow:
         provider = FileProvider(config_path=str(path), platform=LocalPlatform())
         provider._watermark_base_path
         provider._watermark_base_path = str(tmp_path / 'wm')
-        # Patch get_dataflow_by_id to return None — should use dataflow_id as folder
         with patch.object(provider, 'get_dataflow_by_id', return_value=None):
-            result = provider._watermark_path(dataflow_id='df-xyz')
-        assert 'df-xyz' in result
+            with pytest.raises(WatermarkError, match="not owned"):
+                provider._watermark_path(dataflow_id='df-xyz')

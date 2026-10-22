@@ -38,6 +38,13 @@ def normalize_identifier(value: object, field_name: str) -> str:
     return value.strip()
 
 
+def normalize_connection_id(value: object) -> str:
+    """Validate a connection ID without changing its authored bytes."""
+    if not isinstance(value, str) or not value.strip():
+        raise MetadataError("connection_id must be a non-empty string")
+    return value
+
+
 def normalized_key(
     connection_id: object,
     schema_name: object,
@@ -51,7 +58,7 @@ def normalized_key(
     use this key for cache storage.
     """
 
-    connection = normalize_identifier(connection_id, "connection_id")
+    connection = normalize_connection_id(connection_id)
     schema = normalize_schema_name(schema_name)
     table = normalize_identifier(table_name, "table_name")
     return connection, schema, table
@@ -141,7 +148,7 @@ def select_schema_hints(
     default or mixing columns.
     """
 
-    requested_connection = normalize_identifier(connection_id, "connection_id")
+    requested_connection = normalize_connection_id(connection_id)
     requested_schema = normalize_schema_name(schema_name)
     requested_table = normalize_identifier(table_name, "table_name")
     wanted_table = requested_table.casefold()

@@ -12,6 +12,7 @@ from datacoolie.metadata.documents.mapping import (
     build_grouped_schema_hints,
 )
 from datacoolie.project.errors import ProjectDependencyError
+from datacoolie.utils.identity import normalize_document_workspace
 from .queries import _validate_queries
 from .reports import Diagnostic, ValidationReport, _error, _warning
 from .schema_hints import _validate_datatype_hints, _validate_grouped_datatype_hints
@@ -148,6 +149,11 @@ def validate_metadata_document(
 
     connections = []
     dataflows = []
+    try:
+        metadata = normalize_document_workspace(metadata)
+    except ValueError as exc:
+        _error(errors, "metadata.workspace", str(exc), source)
+        return ValidationReport(scope, errors, warnings, checks, {"metadata_loaded": False})
     try:
         connections = build_connections(metadata["connections"])
     except Exception as exc:

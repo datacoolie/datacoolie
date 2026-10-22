@@ -412,7 +412,10 @@ class BaseMetadataProvider(ABC):
         seen_ids: set[str] = set()
         connections_by_id: Dict[str, Connection] = {}
         connections_by_name: Dict[str, List[Connection]] = {}
+        provider_scope = getattr(self, "_workspace_id", None)
         for connection in connections:
+            if provider_scope is not None and connection.workspace_id != provider_scope:
+                raise MetadataError("Connection workspace_id does not match provider workspace")
             if connection.connection_id in seen_ids:
                 raise MetadataError(
                     f"Duplicate connection_id in metadata: {connection.connection_id}"
@@ -423,6 +426,8 @@ class BaseMetadataProvider(ABC):
 
         seen_dataflow_ids: set[str] = set()
         for dataflow in dataflows:
+            if provider_scope is not None and dataflow.workspace_id != provider_scope:
+                raise MetadataError("Dataflow workspace_id does not match provider workspace")
             identity_error = dataflow_identity_error(
                 dataflow.dataflow_id,
                 dataflow.name,
@@ -440,6 +445,8 @@ class BaseMetadataProvider(ABC):
                 ("source", dataflow.source.connection),
                 ("destination", dataflow.destination.connection),
             ):
+                if connection.workspace_id != dataflow.workspace_id:
+                    raise MetadataError("Dataflow and endpoint workspace_id must match")
                 identity_error = connection_identity_error(
                     connection,
                     connections_by_id,

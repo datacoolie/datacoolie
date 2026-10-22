@@ -670,7 +670,19 @@ class FileProvider(BaseMetadataProvider):
         merged.setdefault("connections", [])
         merged.setdefault("dataflows", [])
         merged.setdefault("schema_hints", [])
-        self._data = merged
+        from datacoolie.utils.identity import normalize_document_workspace
+
+        try:
+            normalized = normalize_document_workspace(merged)
+        except ValueError as exc:
+            raise MetadataError(str(exc)) from exc
+        self._metadata_origins = {
+            id(new): self._metadata_origins.get(id(old), "metadata")
+            for section in METADATA_SECTION_KEYS
+            for old, new in zip(merged[section], normalized[section])
+            if isinstance(new, dict)
+        }
+        self._data = normalized
         self._config_loaded = True
         self._all_connections_cache = None
         self._all_dataflows_cache = None
@@ -802,7 +814,13 @@ class FileProvider(BaseMetadataProvider):
                 "FileProvider watermark_base_path is not configured; bind a runtime state/log path "
                 "or supply watermark_base_path explicitly"
             )
-        df = self.get_dataflow_by_id(dataflow_id, attach_schema_hints=False)
+        metadata_bound = bool(self._config_paths or self._metadata_base_path or self._artifact_base_path)
+        df = (
+            self.get_dataflow_by_id(dataflow_id, attach_schema_hints=False)
+            if metadata_bound else None
+        )
+        if metadata_bound and df is None:
+            raise WatermarkError(f"Dataflow {dataflow_id} is not owned by this metadata snapshot")
         if df is not None:
             parts = []
             if df.stage:
@@ -873,10 +891,17 @@ class FileProvider(BaseMetadataProvider):
         )
 
     def _fetch_connection_by_name(self, name: str) -> Optional[Connection]:
-        return next(
-            (c for c in self._build_connections(active_only=False) if c.name == name),
-            None,
-        )
+        matches = [
+            connection
+            for connection in self._build_connections(active_only=False)
+            if connection.name == name
+        ]
+        distinct_ids = {connection.connection_id for connection in matches}
+        if len(distinct_ids) > 1:
+            raise MetadataError(
+                f"Connection name is ambiguous: {name}; use connection_id"
+            )
+        return matches[0] if matches else None
 
     def _fetch_dataflows(
         self,

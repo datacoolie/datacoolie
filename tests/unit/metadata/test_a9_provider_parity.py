@@ -28,12 +28,14 @@ def _document():
         "connections": [
             {
                 "name": "parity_src",
+                "workspace_id": "a9-parity",
                 "connection_type": "file",
                 "format": "parquet",
                 "configure": {"base_path": "data/input"},
             },
             {
                 "name": "parity_dst",
+                "workspace_id": "a9-parity",
                 "connection_type": "file",
                 "format": "parquet",
                 "configure": {"base_path": "data/output"},
@@ -42,6 +44,7 @@ def _document():
         "dataflows": [
             {
                 "name": "parity_z",
+                "workspace_id": "a9-parity",
                 "description": "non-empty export description",
                 "stage": "parity",
                 "group_number": 1,
@@ -66,6 +69,7 @@ def _document():
             },
             {
                 "name": "parity_a",
+                "workspace_id": "a9-parity",
                 "stage": "parity",
                 "group_number": 1,
                 "execution_order": 1,
@@ -85,10 +89,6 @@ def _models(provider):
     values = []
     for flow in provider.get_dataflows(stage="parity"):
         payload = flow.model_dump()
-        # Workspace identity and operational binding are dimensions, not ETL rules.
-        payload["workspace_id"] = None
-        for role in ["source", "destination"]:
-            payload[role]["connection"]["workspace_id"] = None
         values.append(payload)
     return sorted(values, key=lambda flow: (flow["execution_order"], flow["name"]))
 

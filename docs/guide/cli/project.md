@@ -119,8 +119,10 @@ second project config and cannot add arbitrary top-level keys; its supported
 shape is section arrays, an optional `$schema`, and an optional ordered
 `patches` array.
 
-Top-level section entries are matched by identity (`name`/ID for connections
-and dataflows; connection/schema/table for schema-hint groups). An existing
+Top-level section entries are matched by workspace and explicit ID, or a unique
+scoped name, for connections/dataflows; connection/schema/table identifies
+schema-hint groups. A name-only entry must resolve unambiguously in the common
+snapshot. An existing
 entry is recursively object-merged and a new identity is appended. Arrays
 nested inside an entry use ordinary replacement semantics, except schema-hint
 groups and dataflow-local `transform.schema_hints`, which merge by
@@ -132,7 +134,8 @@ Patches run before section entries are merged. Each patch has exactly
 with AND semantics and must not contain arrays or empty objects. Matching is
 against a canonical pre-patch snapshot for each patch, patches are applied in
 file order, and zero matches fail validation. Identity fields cannot be
-changed, and there is no deletion operator.
+changed, including `workspace_id`, and there is no deletion operator. A name
+selector matching multiple connections/dataflows fails; supply workspace and ID.
 
 For example, a common connection can keep its identity while changing only a
 production database, and a dataflow can replace one nested filter:

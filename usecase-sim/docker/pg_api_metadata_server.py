@@ -317,6 +317,10 @@ def create_app(database_url: str) -> Flask:
             "   SELECT connection_id FROM dc_framework_connections"
             "    WHERE workspace_id = :ws AND deleted_at IS NULL"
             " )"
+            " AND (dataflow_id IS NULL OR dataflow_id IN ("
+            "   SELECT dataflow_id FROM dc_framework_dataflows"
+            "    WHERE workspace_id = :ws AND deleted_at IS NULL"
+            " ))"
         )
         params["ws"] = workspace_id
         if cid:
@@ -340,13 +344,16 @@ def create_app(database_url: str) -> Flask:
     @app.route("/workspaces/<workspace_id>/watermarks/<dataflow_id>", methods=["GET"])
     def get_watermark(workspace_id: str, dataflow_id: str):
         sql = """
-            SELECT watermark_id, dataflow_id, current_value, previous_value,
-                   job_id, dataflow_run_id, updated_at
-              FROM dc_framework_watermarks
-             WHERE dataflow_id = :did
+            SELECT w.watermark_id, w.dataflow_id, w.current_value, w.previous_value,
+                   w.job_id, w.dataflow_run_id, w.updated_at
+              FROM dc_framework_watermarks w
+              JOIN dc_framework_dataflows d ON d.dataflow_id = w.dataflow_id
+             WHERE w.dataflow_id = :did
+               AND d.workspace_id = :ws
+               AND d.deleted_at IS NULL
         """
         with engine.connect() as conn:
-            row = conn.execute(text(sql), {"did": dataflow_id}).first()
+            row = conn.execute(text(sql), {"did": dataflow_id, "ws": workspace_id}).first()
         if row is None:
             return jsonify({"current_value": None})
         return jsonify({
@@ -356,7 +363,11 @@ def create_app(database_url: str) -> Flask:
             "previous_value": row.previous_value,
             "job_id": row.job_id,
             "dataflow_run_id": row.dataflow_run_id,
-            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            "updated_at": (
+                row.updated_at.isoformat()
+                if hasattr(row.updated_at, "isoformat")
+                else row.updated_at
+            ) if row.updated_at else None,
         })
 
     @app.route("/workspaces/<workspace_id>/watermarks/<dataflow_id>", methods=["PUT"])
@@ -385,6 +396,16 @@ def create_app(database_url: str) -> Flask:
             VALUES (:wid, :did, :cv, NULL, :jid, :rid, :now)
         """
         with engine.begin() as conn:
+            owner = conn.execute(
+                text(
+                    "SELECT 1 FROM dc_framework_dataflows "
+                    "WHERE dataflow_id = :did AND workspace_id = :ws "
+                    "AND deleted_at IS NULL"
+                ),
+                {"did": dataflow_id, "ws": workspace_id},
+            ).first()
+            if owner is None:
+                return jsonify({"error": "not found"}), 404
             result = conn.execute(text(update_sql), {
                 "cv": current_value, "jid": job_id, "rid": run_id,
                 "now": now, "did": dataflow_id,

@@ -178,3 +178,31 @@ def test_bound_copy_never_shares_mutable_rows_with_input_or_patch(tokens):
     bound["dataflows"][0]["source"]["table"] = "edited"
     assert document == original
     assert patch["connections"]["source"]["patch"]["configure"]["headers"]["values"] == ["original"]
+
+
+def test_bindings_keep_workspace_identity_and_reject_ambiguous_name_operations():
+    _, _, error, bind_document = _load_bindings()
+    document = _document()
+    document["connections"].append({
+        "name": "source",
+        "connection_id": "other-source-id",
+        "workspace_id": "ws-b",
+        "connection_type": "file",
+        "format": "csv",
+    })
+    document["connections"][0]["workspace_id"] = "ws-a"
+    document["connections"][1]["workspace_id"] = "ws-a"
+    document["dataflows"][0]["workspace_id"] = "ws-a"
+
+    bound = bind_document(document)
+    assert {row["connection_id"] for row in bound["connections"] if row["name"] == "source"} == {
+        "source-id", "other-source-id"
+    }
+
+    with pytest.raises(error, match="Ambiguous connection binding target"):
+        bind_document(document, {"connections": {"source": {"patch": {"description": "x"}}}})
+
+    with pytest.raises(error, match="identity"):
+        bind_document(document, {"connections": {"destination": {
+            "patch": {"workspace_id": "ws-b"}
+        }}})

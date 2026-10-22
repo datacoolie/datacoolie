@@ -44,7 +44,7 @@ def _database():
 def _runtime_flow_id(workspace: str, authored_name: str) -> str:
     """Return the globally unique persisted ID for one workspace/name pair."""
 
-    return name_to_uuid(f"{workspace}:{authored_name}")
+    return name_to_uuid(authored_name, workspace)
 
 
 def _seed(case, workspace: str, runtime_name: str):
@@ -230,7 +230,7 @@ def validate(root=None):
                     "name": runtime_name,
                     "workspace_id": workspace,
                     "dataflow_id": flow_id,
-                    "id_strategy": "name_to_uuid(workspace_id + ':' + authored_name)",
+                    "id_strategy": "name_to_uuid(authored_name, workspace_id)",
                 }
             },
             "workspace": workspace,

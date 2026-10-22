@@ -83,6 +83,14 @@ def cast(value: Any) -> Any:
     return value
 
 
+def _cast_exact(value: Any) -> Any:
+    """Keep authored identity strings byte-for-byte while treating blanks as absent."""
+
+    if isinstance(value, str):
+        return value if value.strip() else None
+    return value
+
+
 def safe_bool(value: Any) -> bool:
     """Coerce a cell to ``bool``; unrecognized values are inactive."""
 
@@ -213,7 +221,7 @@ def parse_excel_connections(
     for row_number, row in excel_sheet_rows(wb, "connections"):
         if not any(cast(value) is not None for value in row.values()):
             continue
-        name = cast(row.get("name"))
+        name = _cast_exact(row.get("name"))
         connection_type = cast(row.get("connection_type"))
         context = excel_row_context(source_path, "connections", row_number)
         if not name or not connection_type:
@@ -225,7 +233,7 @@ def parse_excel_connections(
         configure: Dict[str, Any] = {}
         try:
             for key, raw_value in row.items():
-                value = cast(raw_value)
+                value = _cast_exact(raw_value) if key in {"name", "connection_id"} else cast(raw_value)
                 if key == "configure":
                     parsed = json_cell(raw_value)
                     if isinstance(parsed, dict):
@@ -263,16 +271,19 @@ def parse_excel_dataflows(
     for row_number, row in excel_sheet_rows(wb, "dataflows"):
         if not any(cast(value) is not None for value in row.values()):
             continue
-        source_connection = cast(
-            row.get("source_connection_name") or row.get("source_connection")
-        )
+        source_connection = _cast_exact(row.get("source_connection_name"))
+        if source_connection is None:
+            source_connection = _cast_exact(row.get("source_connection"))
+        if source_connection is None:
+            source_connection = _cast_exact(row.get("source_connection_id"))
         source_table = cast(row.get("source_table"))
         source_query = cast(row.get("source_query"))
         source_function = cast(row.get("source_python_function"))
-        destination_connection = cast(
-            row.get("destination_connection_name")
-            or row.get("destination_connection")
-        )
+        destination_connection = _cast_exact(row.get("destination_connection_name"))
+        if destination_connection is None:
+            destination_connection = _cast_exact(row.get("destination_connection"))
+        if destination_connection is None:
+            destination_connection = _cast_exact(row.get("destination_connection_id"))
         destination_table = cast(row.get("destination_table"))
         context = excel_row_context(source_path, "dataflows", row_number)
         if not source_connection or not (source_table or source_query or source_function):
@@ -309,7 +320,10 @@ def parse_excel_dataflows(
                 elif key.startswith("transform_"):
                     target, sub_key = transform, key[len("transform_"):]
                 else:
-                    value = json_cell(raw_value) if key in EXCEL_JSON_COLS else cast(raw_value)
+                    if key in {"name", "dataflow_id"}:
+                        value = _cast_exact(raw_value)
+                    else:
+                        value = json_cell(raw_value) if key in EXCEL_JSON_COLS else cast(raw_value)
                     if value is not None:
                         dataflow[key] = value
                     continue
@@ -322,7 +336,11 @@ def parse_excel_dataflows(
                     if parsed_json is not None:
                         target[sub_key] = parsed_json
                 else:
-                    value = cast(raw_value)
+                    identity_fields = {
+                        "source_connection_name", "source_connection", "source_connection_id",
+                        "destination_connection_name", "destination_connection", "destination_connection_id",
+                    }
+                    value = _cast_exact(raw_value) if key in identity_fields else cast(raw_value)
                     if value is not None:
                         target[sub_key] = value
         except MetadataError as exc:
@@ -348,10 +366,13 @@ def parse_excel_schema_hints(
 
     hints_map: Dict[tuple, Dict[str, Any]] = {}
     for row_number, row in excel_sheet_rows(wb, "schema_hints"):
-        connection_name = cast(row.get("connection_name"))
-        connection_id = cast(row.get("connection_id"))
+        connection_name = _cast_exact(row.get("connection_name"))
+        connection_id = _cast_exact(row.get("connection_id"))
+        workspace_id = cast(row.get("workspace_id"))
         table_name = cast(row.get("table_name"))
         schema_name = cast(row.get("schema_name"))
+        dataflow_id = _cast_exact(row.get("dataflow_id"))
+        schema_hint_id = _cast_exact(row.get("schema_hint_id"))
         connection_ref = connection_name or connection_id
         if not connection_ref or not table_name:
             if any(cast(value) is not None for value in row.values()):
@@ -373,8 +394,10 @@ def parse_excel_schema_hints(
         # the display name if the workbook contains both reference forms.
         group_key = (
             f"id:{connection_id}" if connection_id else f"name:{connection_name}",
+            workspace_id,
             table_name,
             schema_name,
+            dataflow_id,
         )
         if group_key not in hints_map:
             hints_map[group_key] = {
@@ -385,18 +408,28 @@ def parse_excel_schema_hints(
                 hints_map[group_key]["connection_name"] = connection_name
             if connection_id is not None:
                 hints_map[group_key]["connection_id"] = connection_id
+            if workspace_id is not None:
+                hints_map[group_key]["workspace_id"] = workspace_id
             if schema_name is not None:
                 hints_map[group_key]["schema_name"] = schema_name
+            if dataflow_id is not None:
+                hints_map[group_key]["dataflow_id"] = dataflow_id
         else:
             if connection_name is not None:
                 hints_map[group_key].setdefault("connection_name", connection_name)
             if connection_id is not None:
                 hints_map[group_key].setdefault("connection_id", connection_id)
+            if workspace_id is not None:
+                hints_map[group_key].setdefault("workspace_id", workspace_id)
+            if dataflow_id is not None:
+                hints_map[group_key].setdefault("dataflow_id", dataflow_id)
         hint: Dict[str, Any] = {}
         for field in ("column_name", "data_type", "format"):
             value = cast(row.get(field))
             if value is not None:
                 hint[field] = value
+        if schema_hint_id is not None:
+            hint["schema_hint_id"] = schema_hint_id
         for field in ("precision", "scale"):
             try:
                 converted = _convert_excel_integer(row.get(field))

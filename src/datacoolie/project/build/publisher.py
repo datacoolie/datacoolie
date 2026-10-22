@@ -14,6 +14,7 @@ from datacoolie import __version__
 from ..config import ProjectConfig
 from ..documents import (
     MetadataSnapshot,
+    _identity,
     output_suffix,
     write_document,
 )
@@ -55,14 +56,7 @@ def _copy_files(source: Path, destination: Path) -> None:
 
 
 def _item_identity(section: str, item: dict[str, Any], index: int) -> str:
-    if section == "connections":
-        return str(item.get("name") or item.get("connection_id") or f"#{index}")
-    if section == "dataflows":
-        return str(item.get("name") or item.get("dataflow_id") or f"#{index}")
-    connection = item.get("connection_name") or item.get("connection_id") or "?"
-    schema = item.get("schema_name") or ""
-    table = item.get("table_name") or "?"
-    return f"{connection}|{schema}|{table}"
+    return _identity(section, item, index)
 
 
 def _preserve_documents(

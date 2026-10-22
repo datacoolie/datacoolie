@@ -71,7 +71,17 @@ def test_scenario_provenance_keeps_exact_stage_selection():
         "schema_hints_path": "usecase-sim/metadata/file/schema_hints.json",
         "dataflows": ["merge-seed", "merge-upsert"], "stage": "merge_upsert"})
     assert records[0]["dataflows"] == [{"name": "merge-upsert", "stage": "merge_upsert",
+                                       "workspace_id": None,
                                        "dataflow_id": name_to_uuid("merge-upsert")}]
+    scoped = metadata_provenance(
+        {"dataflows": [{"name": "merge-upsert", "workspace_id": "ws-a"}]}
+    )
+    assert scoped["dataflows"] == [{
+        "name": "merge-upsert",
+        "stage": None,
+        "workspace_id": "ws-a",
+        "dataflow_id": name_to_uuid("merge-upsert", "ws-a"),
+    }]
 
 
 @pytest.mark.parametrize("case", ["c4", "c5"])

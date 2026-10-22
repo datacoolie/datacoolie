@@ -31,6 +31,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from runner.runtime_paths import DATACOOLIE_ROOT, USECASE_SIM_DIR as SIM_ROOT
 from runner.metadata_documents import load_metadata_files
+from datacoolie.utils.identity import (  # noqa: E402
+    is_usable_identifier,
+    name_to_uuid,
+    normalize_document_workspace,
+    normalize_workspace_id,
+)
 sys.path.insert(0, str(SIM_ROOT / 'scripts'))
 
 
@@ -133,11 +139,9 @@ def _json_str(obj):
     return json.dumps(obj)
 
 
-def _name_to_uuid(name: str) -> str:
-    # Vendored from datacoolie.utils.identity.name_to_uuid to avoid importing
-    # the full datacoolie package.
-    import uuid  # noqa: PLC0415
-    return str(uuid.uuid5(uuid.UUID("da7ac001-e000-4000-8000-000000000000"), name))
+def _name_to_uuid(name: str, workspace_id: str | None = None) -> str:
+    """Keep the bootstrap call sites on the canonical identity contract."""
+    return name_to_uuid(name, workspace_id)
 
 
 def _connections_sql(dialect: str) -> str:
@@ -233,24 +237,237 @@ def _truncate_workspace(engine, workspace_id: str) -> None:
     logger.info("Truncated workspace_id=%s", workspace_id)
 
 
-def _expected_seed_records(meta: dict) -> dict[str, dict[str, str]]:
-    connections = {
-        str(c.get("connection_id") or _name_to_uuid(c["name"])): c["name"]
-        for c in meta.get("connections", [])
-    }
-    dataflows = {
-        str(d.get("dataflow_id") or _name_to_uuid(d["name"])): d["name"]
-        for d in meta.get("dataflows", [])
-    }
-    hints: dict[str, str] = {}
-    for group in meta.get("schema_hints", []):
-        for col in group.get("hints", []) or group.get("columns", []):
-            hint_key = (
-                f"{group.get('connection_name', '')}__"
-                f"{group.get('table_name', '')}__{col['column_name']}"
+def _seed_document(meta: dict, workspace_id: str) -> dict:
+    """Normalize scope and reject foreign rows before touching the database."""
+    workspace_id = normalize_workspace_id(workspace_id)
+    if workspace_id is None:
+        raise ValueError("workspace_id must be a non-empty string")
+    try:
+        document = normalize_document_workspace(meta, default_workspace=workspace_id)
+    except ValueError as exc:
+        raise ValueError(f"Invalid metadata workspace: {exc}") from exc
+    for section in ("connections", "dataflows"):
+        for row in document.get(section, []):
+            if not isinstance(row, dict) or normalize_workspace_id(row.get("workspace_id")) != workspace_id:
+                raise ValueError(
+                    f"{section} row is not bound to workspace {workspace_id!r}"
+                )
+    for group in document.get("schema_hints", []):
+        if isinstance(group, dict):
+            scope = normalize_workspace_id(group.get("workspace_id"))
+            if scope is not None and scope != workspace_id:
+                raise ValueError(
+                    f"schema_hints row is not bound to workspace {workspace_id!r}"
+                )
+            if scope is None:
+                group["workspace_id"] = workspace_id
+    return document
+
+
+def _seed_records(meta: dict, workspace_id: str) -> dict[str, list[dict]]:
+    """Resolve every identity/reference without performing I/O."""
+    document = _seed_document(meta, workspace_id)
+    connections: list[dict] = []
+    by_id: dict[str, dict] = {}
+    by_name: dict[str, list[dict]] = {}
+
+    def register_connection(row: dict, *, inline: bool = False) -> dict:
+        """Register one canonical connection, checking ID/name ownership."""
+        if not isinstance(row, dict):
+            raise ValueError("Connection definitions must be objects")
+        name = row.get("name")
+        if not is_usable_identifier(name):
+            raise ValueError("Connection name must be a non-empty string")
+        scope = normalize_workspace_id(row.get("workspace_id"))
+        if scope != workspace_id:
+            raise ValueError(
+                f"Connection {name!r} is not bound to workspace {workspace_id!r}"
             )
-            hints[_name_to_uuid(hint_key)] = hint_key
-    return {"connections": connections, "dataflows": dataflows, "schema_hints": hints}
+        connection_id = row.get("connection_id")
+        if not is_usable_identifier(connection_id):
+            connection_id = _name_to_uuid(name, workspace_id)
+        existing = by_id.get(connection_id)
+        if existing is not None:
+            if existing.get("name") != name or normalize_workspace_id(
+                existing.get("workspace_id")
+            ) != workspace_id:
+                raise ValueError(
+                    f"Connection ID {connection_id!r} has conflicting name/workspace"
+                )
+            return existing
+        # Connection models supply these defaults for inline definitions. The
+        # database target stores a normalized connection row, so make the
+        # defaults explicit before writing instead of silently dropping an
+        # inline endpoint's identity/configuration.
+        row["connection_id"] = connection_id
+        row["workspace_id"] = workspace_id
+        row.setdefault("connection_type", "file")
+        row.setdefault("format", "parquet")
+        by_id[connection_id] = row
+        by_name.setdefault(name, []).append(row)
+        connections.append(row)
+        if inline:
+            document.setdefault("connections", []).append(row)
+        return row
+
+    for row in document.get("connections", []):
+        before = row.get("connection_id") if isinstance(row, dict) else None
+        owner = register_connection(row)
+        if owner is not row:
+            raise ValueError(f"Duplicate connection_id: {before or owner['connection_id']}")
+
+    def hint_identity_key(
+        connection_id: str,
+        schema_name: object,
+        table_name: object,
+        column_name: str,
+        dataflow_id: object = None,
+    ) -> str:
+        # IDs are derived from the authoritative connection identity.  The
+        # optional dataflow grain keeps scoped hints distinct when a catalog
+        # intentionally publishes a dataflow-specific contract.
+        values = [connection_id, schema_name or "", table_name or "", column_name]
+        if is_usable_identifier(dataflow_id):
+            values.append(dataflow_id)
+        return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+
+    def resolve_endpoint(dataflow: dict, role: str) -> tuple[str, dict]:
+        endpoint = dataflow.get(role) or {}
+        if not isinstance(endpoint, dict):
+            raise ValueError(f"Dataflow {dataflow.get('name')!r} {role} must be an object")
+        inline = endpoint.get("connection")
+        if isinstance(inline, dict):
+            explicit_id = inline.get("connection_id")
+            name = inline.get("name")
+            inline_scope = normalize_workspace_id(inline.get("workspace_id"))
+            if inline_scope is not None and inline_scope != workspace_id:
+                raise ValueError(f"Dataflow {dataflow.get('name')!r} {role} crosses workspaces")
+            if not is_usable_identifier(name):
+                raise ValueError(
+                    f"Dataflow {dataflow.get('name')!r} {role} inline connection "
+                    "requires a non-empty name"
+                )
+            if is_usable_identifier(explicit_id) and explicit_id in by_id:
+                owner = by_id[explicit_id]
+                if owner.get("name") != name:
+                    raise ValueError(
+                        f"Dataflow {dataflow.get('name')!r} {role} connection_id "
+                        f"{explicit_id!r} conflicts with inline name {name!r}"
+                    )
+                if normalize_workspace_id(owner.get("workspace_id")) != workspace_id:
+                    raise ValueError(
+                        f"Dataflow {dataflow.get('name')!r} {role} crosses workspaces"
+                    )
+                return explicit_id, owner
+            inline = dict(inline)
+            inline["workspace_id"] = workspace_id
+            owner = register_connection(inline, inline=True)
+            return owner["connection_id"], owner
+        else:
+            explicit_id = endpoint.get("connection_id")
+            name = endpoint.get("connection_name")
+        explicit_id = explicit_id or dataflow.get(f"{role}_connection_id")
+        name = name or dataflow.get(f"{role}_connection")
+        if is_usable_identifier(explicit_id):
+            connection = by_id.get(explicit_id)
+            if connection is None:
+                raise ValueError(
+                    f"Dataflow {dataflow.get('name')!r} {role} references unknown connection_id {explicit_id!r}"
+                )
+            if is_usable_identifier(name) and connection.get("name") != name:
+                raise ValueError(
+                    f"Dataflow {dataflow.get('name')!r} {role} connection_id "
+                    f"{explicit_id!r} conflicts with connection name {name!r}"
+                )
+            return explicit_id, connection
+        if not is_usable_identifier(name):
+            raise ValueError(f"Dataflow {dataflow.get('name')!r} {role} has no connection reference")
+        candidates = by_name.get(name, [])
+        if len(candidates) != 1:
+            raise ValueError(
+                f"Dataflow {dataflow.get('name')!r} {role} connection name is ambiguous or unknown: {name!r}"
+            )
+        return candidates[0]["connection_id"], candidates[0]
+
+    dataflows: list[dict] = []
+    flow_ids: dict[str, dict] = {}
+    for row in document.get("dataflows", []):
+        name = row.get("name")
+        if not is_usable_identifier(name):
+            raise ValueError("Dataflow name must be a non-empty string")
+        dataflow_id = row.get("dataflow_id")
+        if not is_usable_identifier(dataflow_id):
+            dataflow_id = _name_to_uuid(name, workspace_id)
+        if dataflow_id in flow_ids:
+            raise ValueError(f"Duplicate dataflow_id: {dataflow_id}")
+        source_id, _ = resolve_endpoint(row, "source")
+        destination_id, _ = resolve_endpoint(row, "destination")
+        row["dataflow_id"] = dataflow_id
+        row["workspace_id"] = workspace_id
+        row["source_connection_id"] = source_id
+        row["destination_connection_id"] = destination_id
+        flow_ids[dataflow_id] = row
+        dataflows.append(row)
+
+    hints: list[dict] = []
+    hint_ids: set[str] = set()
+    for group in document.get("schema_hints", []):
+        if not isinstance(group, dict):
+            raise ValueError("Schema hint groups must be objects")
+        reference = group.get("connection_id") or group.get("connection_name")
+        connection = None
+        if is_usable_identifier(group.get("connection_id")):
+            connection = by_id.get(group["connection_id"])
+        elif is_usable_identifier(group.get("connection_name")):
+            candidates = by_name.get(group["connection_name"], [])
+            if len(candidates) == 1:
+                connection = candidates[0]
+        if connection is None:
+            raise ValueError(f"Schema hint references unknown or ambiguous connection: {reference!r}")
+        group["connection_id"] = connection["connection_id"]
+        group["connection_name"] = group.get("connection_name") or connection["name"]
+        if group.get("dataflow_id") is not None and group["dataflow_id"] not in flow_ids:
+            raise ValueError(f"Schema hint references unknown dataflow_id: {group['dataflow_id']!r}")
+        for col in group.get("hints", []) or group.get("columns", []):
+            if not isinstance(col, dict) or not is_usable_identifier(col.get("column_name")):
+                raise ValueError("Schema hint columns require a non-empty column_name")
+            hint_key = (
+                f"{group['connection_name']}__{group.get('table_name', '')}__"
+                f"{col['column_name']}"
+            )
+            hint_identity = hint_identity_key(
+                group["connection_id"],
+                group.get("schema_name"),
+                group.get("table_name"),
+                col["column_name"],
+                group.get("dataflow_id"),
+            )
+            col["schema_hint_id"] = (
+                col.get("schema_hint_id") if is_usable_identifier(col.get("schema_hint_id"))
+                else _name_to_uuid(hint_identity, workspace_id)
+            )
+            if col["schema_hint_id"] in hint_ids:
+                raise ValueError(f"Duplicate schema_hint_id: {col['schema_hint_id']}")
+            hint_ids.add(col["schema_hint_id"])
+            hints.append({"group": group, "column": col, "hint_key": hint_key})
+    return {
+        "document": document,
+        "connections": connections,
+        "dataflows": dataflows,
+        "schema_hints": hints,
+    }
+
+
+def _expected_seed_records(meta: dict, workspace_id: str) -> dict[str, dict[str, str]]:
+    records = _seed_records(meta, workspace_id)
+    return {
+        "connections": {str(row["connection_id"]): row["name"] for row in records["connections"]},
+        "dataflows": {str(row["dataflow_id"]): row["name"] for row in records["dataflows"]},
+        "schema_hints": {
+            str(item["column"]["schema_hint_id"]): item["hint_key"]
+            for item in records["schema_hints"]
+        },
+    }
 
 
 def _validate_seeded_metadata(engine, meta: dict, workspace_id: str) -> None:
@@ -295,7 +512,7 @@ def _validate_seeded_metadata(engine, meta: dict, workspace_id: str) -> None:
             },
         }
 
-    expected = _expected_seed_records(meta)
+    expected = _expected_seed_records(meta, workspace_id)
     missing = {
         category: [labels[item_id] for item_id in sorted(set(labels) - actual[category])]
         for category, labels in expected.items()
@@ -310,6 +527,12 @@ def _validate_seeded_metadata(engine, meta: dict, workspace_id: str) -> None:
 
 def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: bool) -> None:
     from sqlalchemy import create_engine, make_url  # noqa: PLC0415
+
+    workspace_id = normalize_workspace_id(workspace_id)
+    if workspace_id is None:
+        raise ValueError("workspace_id must be a non-empty string")
+    records = _seed_records(meta, workspace_id)
+    meta = records["document"]
 
     # SQLite does not create missing parent directories for a file database.
     # A fresh checkout must create the selected database parent before SQLAlchemy
@@ -332,10 +555,10 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
     conn_sql  = _connections_sql(dialect)
     hints_sql = _schema_hints_sql(dialect)
 
-    connections = meta.get("connections", [])
+    connections = records["connections"]
     with engine.begin() as conn:
         for c in connections:
-            cid = c.get("connection_id") or _name_to_uuid(c["name"])
+            cid = c["connection_id"]
             _insert_or_skip(conn, conn_sql, {
                 "cid": cid, "ws": workspace_id,
                 "name": c["name"], "desc": c.get("description"),
@@ -348,20 +571,14 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
                 "now": now,
             }, nested)
 
-    dataflows = meta.get("dataflows", [])
+    dataflows = records["dataflows"]
     with engine.begin() as conn:
         for d in dataflows:
-            did = d.get("dataflow_id") or _name_to_uuid(d["name"])
+            did = d["dataflow_id"]
             src = d.get("source", {}) or {}
             dst = d.get("destination", {}) or {}
-            src_cid = (
-                d.get("source_connection_id")
-                or _name_to_uuid(src.get("connection_name", "") or d.get("source_connection", ""))
-            )
-            dst_cid = (
-                d.get("destination_connection_id")
-                or _name_to_uuid(dst.get("connection_name", "") or d.get("destination_connection", ""))
-            )
+            src_cid = d["source_connection_id"]
+            dst_cid = d["destination_connection_id"]
 
             dst_configure = dst.get("configure") or d.get("destination_configure") or {}
             if isinstance(dst_configure, str):
@@ -384,7 +601,7 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
                 "eorder": d.get("execution_order"),
                 "pmode": d.get("processing_mode"),
                 "src_cid": src_cid,
-                "src_schema": src.get("schema") or d.get("source_schema"),
+                "src_schema": src.get("schema") or src.get("schema_name") or d.get("source_schema"),
                 "src_table":  src.get("table")  or d.get("source_table"),
                 "src_query":  src.get("query")  or d.get("source_query"),
                 "src_pyfunc": src.get("python_function") or d.get("source_python_function"),
@@ -393,7 +610,7 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
                 "src_conf": _json_str(src.get("configure") or d.get("source_configure")),
                 "transform": _json_str(d.get("transform")),
                 "dst_cid": dst_cid,
-                "dst_schema": dst.get("schema") or d.get("destination_schema"),
+                "dst_schema": dst.get("schema") or dst.get("schema_name") or d.get("destination_schema"),
                 "dst_table":  dst.get("table")  or d.get("destination_table"),
                 "dst_load":   dst.get("load_type") or d.get("destination_load_type"),
                 "dst_merge":  _json_str(dst.get("merge_keys") or d.get("destination_merge_keys")),
@@ -403,28 +620,26 @@ def seed_db(connection_string: str, meta: dict, workspace_id: str, truncate: boo
                 "now": now,
             }, nested)
 
-    schema_hints = meta.get("schema_hints", [])
+    schema_hints = records["schema_hints"]
     with engine.begin() as conn:
-        for group in schema_hints:
-            cid = group.get("connection_id") or _name_to_uuid(group.get("connection_name", ""))
-            columns = group.get("hints", []) or group.get("columns", [])
-            for col in columns:
-                hint_key = f"{group.get('connection_name', '')}__{group.get('table_name', '')}__{col['column_name']}"
-                hid = _name_to_uuid(hint_key)
-                _insert_or_skip(conn, hints_sql, {
-                    "hid": hid, "cid": cid, "dfid": group.get("dataflow_id"),
-                    "sname": group.get("schema_name"),
-                    "tname": group.get("table_name"),
-                    "cname": col["column_name"],
-                    "dtype": col["data_type"],
-                    "fmt": col.get("format"),
-                    "prec": col.get("precision"),
-                    "scale": col.get("scale"),
-                    "defval": col.get("default_value"),
-                    "ordinal": col.get("ordinal_position"),
-                    "active": col.get("is_active", True),
-                    "now": now,
-                }, nested)
+        for item in schema_hints:
+            group = item["group"]
+            col = item["column"]
+            hid = col["schema_hint_id"]
+            _insert_or_skip(conn, hints_sql, {
+                "hid": hid, "cid": group["connection_id"], "dfid": group.get("dataflow_id"),
+                "sname": group.get("schema_name"),
+                "tname": group.get("table_name"),
+                "cname": col["column_name"],
+                "dtype": col["data_type"],
+                "fmt": col.get("format"),
+                "prec": col.get("precision"),
+                "scale": col.get("scale"),
+                "defval": col.get("default_value"),
+                "ordinal": col.get("ordinal_position"),
+                "active": col.get("is_active", True),
+                "now": now,
+            }, nested)
 
     _validate_seeded_metadata(engine, meta, workspace_id)
     logger.info("Seeded %s (%s): %d connections, %d dataflows, %d hint groups",
@@ -474,11 +689,12 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
 
     ws_c = wb.active
     ws_c.title = "connections"
-    ws_c.append(["name", "connection_type", "format", "catalog", "database",
-                 "configure", "secrets_ref", "is_active"])
+    ws_c.append(["name", "connection_id", "workspace_id", "connection_type", "format",
+                 "catalog", "database", "configure", "secrets_ref", "is_active"])
     for c in data.get("connections", []):
         ws_c.append([
-            c.get("name", ""), c.get("connection_type", ""), c.get("format", ""),
+            c.get("name", ""), c.get("connection_id", ""), c.get("workspace_id", ""),
+            c.get("connection_type", ""), c.get("format", ""),
             c.get("catalog", ""), c.get("database", ""),
             _json_cell(c.get("configure")), _json_cell(c.get("secrets_ref")),
             "" if c.get("is_active", True) else False,
@@ -486,12 +702,12 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
 
     ws_d = wb.create_sheet("dataflows")
     ws_d.append([
-        "name", "description", "stage", "group_number", "execution_order", "processing_mode",
+        "name", "dataflow_id", "workspace_id", "description", "stage", "group_number", "execution_order", "processing_mode",
         "is_active", "configure",
-        "source_connection_name", "source_schema_name", "source_table",
+        "source_connection_name", "source_connection_id", "source_schema_name", "source_table",
         "source_query", "source_python_function", "source_watermark_columns",
         "source_filter_expression", "source_configure",
-        "destination_connection_name", "destination_schema_name", "destination_table",
+        "destination_connection_name", "destination_connection_id", "destination_schema_name", "destination_table",
         "destination_load_type", "destination_merge_keys",
         "destination_partition_columns", "destination_configure", "transform",
     ])
@@ -502,18 +718,19 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
         part = dst.get("partition_columns", [])
         part_str = json.dumps(part, ensure_ascii=False) if part and isinstance(part[0], dict) else _list_to_csv(part)
         ws_d.append([
-            d.get("name", ""), d.get("description", ""), d.get("stage", ""),
+            d.get("name", ""), d.get("dataflow_id", ""), d.get("workspace_id", ""),
+            d.get("description", ""), d.get("stage", ""),
             d.get("group_number", ""), d.get("execution_order", ""),
             d.get("processing_mode", "batch"),
             "" if d.get("is_active", True) else False,
             _json_cell(d.get("configure")),
-            src.get("connection_name", ""), src.get("schema_name", ""),
+            src.get("connection_name", ""), src.get("connection_id", "") or d.get("source_connection_id", ""), src.get("schema_name", ""),
             src.get("table", ""), src.get("query", ""),
             src.get("python_function", ""),
             _list_to_csv(src.get("watermark_columns", [])),
             src.get("filter_expression", ""),
             _json_cell(src.get("configure")),
-            dst.get("connection_name", ""), dst.get("schema_name", ""),
+            dst.get("connection_name", ""), dst.get("connection_id", "") or d.get("destination_connection_id", ""), dst.get("schema_name", ""),
             dst.get("table", ""), dst.get("load_type", "append"),
             _list_to_csv(dst.get("merge_keys", [])),
             part_str, _json_cell(dst.get("configure")),
@@ -521,16 +738,18 @@ def emit_xlsx(data: dict, out_path: Path) -> None:
         ])
 
     ws_h = wb.create_sheet("schema_hints")
-    ws_h.append(["connection_name", "table_name", "schema_name",
-                 "column_name", "data_type", "format", "precision", "scale", "is_active"])
+    ws_h.append(["connection_name", "connection_id", "workspace_id", "dataflow_id",
+                 "table_name", "schema_name", "column_name", "schema_hint_id",
+                 "data_type", "format", "precision", "scale", "is_active"])
     for group in data.get("schema_hints", []):
         cn = group.get("connection_name", "")
         tn = group.get("table_name", "")
         sn = group.get("schema_name", "")
         for h in group.get("hints", []):
             ws_h.append([
-                cn, tn, sn,
-                h.get("column_name", ""), h.get("data_type", ""),
+                cn, group.get("connection_id", ""), group.get("workspace_id", ""),
+                group.get("dataflow_id", ""), tn, sn, h.get("column_name", ""),
+                h.get("schema_hint_id", ""), h.get("data_type", ""),
                 h.get("format", ""), h.get("precision", ""), h.get("scale", ""),
                 "" if h.get("is_active", True) else False,
             ])

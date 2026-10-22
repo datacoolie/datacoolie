@@ -90,6 +90,7 @@ def _hint_group_key(group: Mapping[str, Any], path: Path, index: int) -> tuple[A
     identity = (
         group.get("connection_id"),
         group.get("connection_name"),
+        group.get("workspace_id"),
         group.get("schema_name"),
         group.get("table_name"),
     )

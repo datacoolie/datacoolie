@@ -14,7 +14,7 @@ from datacoolie.core.constants import (
 )
 from datacoolie.core.exceptions import ConfigurationError
 from datacoolie.utils.converters import convert_to_bool
-from datacoolie.utils.identity import is_usable_identifier, name_to_uuid
+from datacoolie.utils.identity import is_usable_identifier, name_to_uuid, normalize_workspace_id
 from datacoolie.utils.path_utils import normalize_path
 
 from datacoolie.core.models.base import CompatModel, _parse_json_object
@@ -66,7 +66,7 @@ class Connection(CompatModel):
         ):
             name = values.get("name")
             if is_usable_identifier(name):
-                values["connection_id"] = name_to_uuid(str(name))
+                values["connection_id"] = name_to_uuid(str(name), values.get("workspace_id"))
         return values
 
     @classmethod
@@ -207,8 +207,10 @@ class Connection(CompatModel):
         return self
 
     def __post_init__(self) -> None:
+        self.workspace_id = normalize_workspace_id(self.workspace_id)
+        self._generated_identity = not is_usable_identifier(self.connection_id)
         values = self._derive_connection_id_from_name(
-            {"connection_id": self.connection_id, "name": self.name}
+            {"connection_id": self.connection_id, "name": self.name, "workspace_id": self.workspace_id}
         )
         self.connection_id = values.get("connection_id")
         self.name = self._name_non_empty(self.name)

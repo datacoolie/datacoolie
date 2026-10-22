@@ -36,8 +36,7 @@ def connection_identity_error(
     An inline connection may repeat an existing ID/name pair.  An ID/name
     mismatch is rejected.  A different explicit ID may reuse a display name;
     later name-based resolution must then reject the ambiguous name and ask
-    for ``connection_id``.  Workspace-aware name indexes remain a separate
-    gated contract.
+    for ``connection_id``. An existing ID must retain its workspace owner.
     """
 
     connection_id = connection.connection_id
@@ -49,6 +48,8 @@ def connection_identity_error(
 
     known_by_id = by_id.get(connection_id)
     if known_by_id is not None:
+        if connection.workspace_id != known_by_id.workspace_id:
+            return f"{context} connection {connection_id} has conflicting workspace_id"
         expected_name = known_by_id.name
         if name != expected_name:
             return (

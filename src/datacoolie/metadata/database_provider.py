@@ -240,7 +240,11 @@ class DatabaseProvider(BaseMetadataProvider):
             self._engine_options = pool_kwargs
         elif engine is None:
             raise MetadataError("Either 'connection_string' or 'engine' is required")
-        self._workspace_id = workspace_id
+        from datacoolie.utils.identity import normalize_workspace_id
+
+        self._workspace_id = normalize_workspace_id(workspace_id)
+        if self._workspace_id is None:
+            raise MetadataError("DatabaseProvider requires a non-empty workspace_id")
         self._retry_handler = RetryHandler(
             retry_count=warm_up_retries,
             retry_delay=warm_up_delay,
@@ -428,10 +432,16 @@ class DatabaseProvider(BaseMetadataProvider):
                 self._workspace_filter(t),
                 self._soft_delete_filter(t),
             )
-        )
+        ).limit(2)
         with self._session() as session:
-            row = session.execute(stmt).first()
-            return self._row_to_connection(row) if row else None
+            rows = session.execute(stmt).all()
+            connections = [self._row_to_connection(row) for row in rows]
+            distinct_ids = {connection.connection_id for connection in connections}
+            if len(distinct_ids) > 1:
+                raise MetadataError(
+                    f"Connection name is ambiguous: {name}; use connection_id"
+                )
+            return connections[0] if connections else None
 
     # ------------------------------------------------------------------
     # Abstract method implementations — dataflows

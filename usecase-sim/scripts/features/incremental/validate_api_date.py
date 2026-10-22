@@ -138,7 +138,11 @@ def validate(
                 )
                 runs.append(run)
                 if iteration < 3:
-                    assert_successful_flow(run, flow["name"])
+                    assert_successful_flow(
+                        run,
+                        flow["name"],
+                        workspace_id=flow.get("workspace_id"),
+                    )
                 else:
                     matching = [
                         r
@@ -149,7 +153,9 @@ def validate(
                     ]
                     if (
                         len(matching) != 1
-                        or matching[0].get("dataflow_id") != name_to_uuid(flow["name"])
+                        or matching[0].get("dataflow_id") != name_to_uuid(
+                            flow["name"], flow.get("workspace_id")
+                        )
                         or matching[0].get("status") != "skipped"
                     ):
                         raise AssertionError(

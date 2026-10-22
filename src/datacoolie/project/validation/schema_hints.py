@@ -86,9 +86,9 @@ def _validate_grouped_datatype_hints(
     for group_index, group in enumerate(raw_groups):
         if not isinstance(group, dict):
             continue
-        connection_ref = group.get("connection_name") or group.get("connection_id")
-        if connection_ref in by_id:
-            connection = by_id[connection_ref]
+        connection_ref = group.get("connection_id") or group.get("connection_name")
+        if group.get("connection_id"):
+            connection = by_id.get(connection_ref)
         else:
             name_matches = by_name.get(connection_ref, [])
             connection = name_matches[0] if len(name_matches) == 1 else None

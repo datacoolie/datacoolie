@@ -25,6 +25,16 @@ def snapshot(root):
     }
 
 
+def _flow_identity(case, flow):
+    """Use an authored ID when present, otherwise the scoped generated ID."""
+    for row in case.document.get("dataflows", []):
+        if row.get("name") == flow:
+            return row.get("dataflow_id") or name_to_uuid(
+                flow, row.get("workspace_id")
+            )
+    return name_to_uuid(flow)
+
+
 def seed_checkpoint(case, flow, values):
     provider = make_case_provider(
         case,
@@ -34,13 +44,13 @@ def seed_checkpoint(case, flow, values):
     try:
         provider.initialize()
         provider.update_watermark(
-            name_to_uuid(flow), WatermarkSerializer.serialize(values)
+            _flow_identity(case, flow), WatermarkSerializer.serialize(values)
         )
     finally:
         provider.close()
 
 
-def assert_rejection(exit_code, rows, *, flow, session_id, error):
+def assert_rejection(exit_code, rows, *, flow, session_id, error, dataflow_id=None):
     if exit_code != 2 or not session_id:
         raise AssertionError(
             f"Expected child exit 2 and current session, got {exit_code}/{session_id}"
@@ -48,7 +58,7 @@ def assert_rejection(exit_code, rows, *, flow, session_id, error):
     flows = [r for r in rows if r.get("_type") == "dataflow_run_log"]
     if (
         len(flows) != 1
-        or flows[0].get("dataflow_id") != name_to_uuid(flow)
+        or flows[0].get("dataflow_id") != (dataflow_id or name_to_uuid(flow))
         or flows[0].get("log_session_id") != session_id
         or flows[0].get("status") != "failed"
     ):
@@ -112,7 +122,10 @@ def run_rejection(case, *, flow, stage, error, engine="polars"):
     session = next(iter(sessions))
     require_job_logs(LOG_DIR, job, session)
     rows = [row for _, row in records(LOG_DIR, job, "execution_logs", session)]
-    assert_rejection(child.returncode, rows, flow=flow, session_id=session, error=error)
+    assert_rejection(
+        child.returncode, rows, flow=flow, session_id=session, error=error,
+        dataflow_id=_flow_identity(case, flow),
+    )
     if (
         snapshot(case.output) != before_output
         or snapshot(case.watermarks) != before_state

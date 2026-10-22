@@ -32,6 +32,61 @@ def substitute_tokens(document, tokens):
     return copy.deepcopy(document)
 
 
+def _connection_for_flow(document, flow, role):
+    """Resolve an endpoint within its flow scope for simulator projections."""
+    from datacoolie.utils.identity import normalize_workspace_id
+
+    endpoint = flow.get(role, {}) or {}
+    if not isinstance(endpoint, dict):
+        raise ValueError(f"{role} endpoint must be an object")
+    inline = endpoint.get("connection")
+    explicit_id = endpoint.get("connection_id") or flow.get(f"{role}_connection_id")
+    if isinstance(inline, dict):
+        explicit_id = explicit_id or inline.get("connection_id")
+        reference = inline.get("name")
+    else:
+        reference = endpoint.get("connection_name") or flow.get(f"{role}_connection")
+    scope = normalize_workspace_id(flow.get("workspace_id"))
+    by_id = {
+        row.get("connection_id"): row
+        for row in document.get("connections", [])
+        if row.get("connection_id")
+    }
+    if isinstance(inline, dict):
+        inline_scope = normalize_workspace_id(inline.get("workspace_id"))
+        if inline_scope is not None and inline_scope != scope:
+            raise ValueError(f"{role} inline connection crosses workspaces")
+        if not isinstance(reference, str) or not reference.strip():
+            raise ValueError(f"{role} inline connection requires a non-empty name")
+        if explicit_id and explicit_id in by_id:
+            owner = by_id[explicit_id]
+            if owner.get("name") != reference or normalize_workspace_id(
+                owner.get("workspace_id")
+            ) != scope:
+                raise ValueError(f"{role} inline connection ID/name/workspace mismatch")
+            return owner
+        inline = copy.deepcopy(inline)
+        inline.setdefault("workspace_id", scope)
+        if explicit_id:
+            inline["connection_id"] = explicit_id
+        return inline
+    if explicit_id:
+        connection = by_id.get(explicit_id)
+        if connection is None or normalize_workspace_id(connection.get("workspace_id")) != scope:
+            raise ValueError(f"Unknown or foreign connection_id: {explicit_id}")
+        if reference is not None and connection.get("name") != reference:
+            raise ValueError(f"Connection ID/name mismatch: {explicit_id}")
+        return connection
+    candidates = [
+        row for row in document.get("connections", [])
+        if row.get("name") == reference
+        and normalize_workspace_id(row.get("workspace_id")) == scope
+    ]
+    if len(candidates) != 1:
+        raise ValueError(f"Ambiguous or unknown connection name: {reference!r}")
+    return candidates[0]
+
+
 def shared_paths(root=USECASE_SIM_DIR):
     return {
         "connections_path": str(Path(root) / "metadata/file/connections.json"),
@@ -60,8 +115,25 @@ def recipe_document(group, recipe_name, *, tokens=None, root=USECASE_SIM_DIR):
     recipe = recipes[key]
     document = group_document(group, root=root)
     document = bind_document(document, recipe.get("metadata_bindings", {}))
-    by_name = {flow["name"]: flow for flow in document["dataflows"]}
-    connections = {row["name"]: row for row in document["connections"]}
+    by_name = {}
+    for flow in document["dataflows"]:
+        by_name.setdefault(flow["name"], []).append(flow)
+    ambiguous = sorted(name for name, rows in by_name.items() if len(rows) > 1)
+    if ambiguous:
+        raise ValueError(f"recipe flow names are ambiguous across workspaces: {ambiguous}")
+    by_name = {name: rows[0] for name, rows in by_name.items()}
+    connection_rows = {}
+    for row in document["connections"]:
+        connection_rows.setdefault(row["name"], []).append(row)
+    ambiguous_connections = sorted(
+        name for name, rows in connection_rows.items() if len(rows) > 1
+    )
+    if ambiguous_connections:
+        raise ValueError(
+            "recipe connection names are ambiguous across workspaces: "
+            f"{ambiguous_connections}"
+        )
+    connections = {name: rows[0] for name, rows in connection_rows.items()}
     result = {
         "connections": [connections[name] for name in recipe["connections"]],
         "dataflows": [by_name[name] for name in recipe["dataflows"]],
@@ -79,11 +151,27 @@ def recipe_document(group, recipe_name, *, tokens=None, root=USECASE_SIM_DIR):
 def case_bindings(case):
     """Describe complete projected rows against their canonical named owners."""
     document = copy.deepcopy(case.document)
-    return {
-        section: {row["name"]: {"replace": row} for row in document.get(section, [])}
-        for section in ("connections", "dataflows")
-        if document.get(section)
-    }
+    result = {}
+    for section in ("connections", "dataflows"):
+        rows = document.get(section, [])
+        if not rows:
+            continue
+        grouped = {}
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("name"), str):
+                raise ValueError(f"case {section} rows require a non-empty name")
+            grouped.setdefault(row["name"], []).append(row)
+        ambiguous = sorted(name for name, candidates in grouped.items() if len(candidates) > 1)
+        if ambiguous:
+            raise ValueError(
+                f"case {section} names are ambiguous across workspaces: {ambiguous}; "
+                "use an explicit ID"
+            )
+        result[section] = {
+            name: {"replace": candidates[0]}
+            for name, candidates in grouped.items()
+        }
+    return result
 
 
 def make_case_provider(case, *, stage=None, maintenance=False, **kwargs):
@@ -95,9 +183,10 @@ def make_case_provider(case, *, stage=None, maintenance=False, **kwargs):
         names = [row["name"] for row in case.document["dataflows"]
                  if not stages or row.get("stage") in stages]
         if maintenance:
-            connections = {row["name"]: row for row in case.document["connections"]}
             names = [row["name"] for row in case.document["dataflows"]
-                     if row["name"] in names and connections[row["destination"]["connection_name"]].get("format") in {"delta", "iceberg"}]
+                     if row["name"] in names and _connection_for_flow(
+                         case.document, row, "destination"
+                     ).get("format") in {"delta", "iceberg"}]
         if not names:
             raise ValueError(f"case has no selected dataflow for stage: {stage}")
         return BoundFileProvider(
@@ -158,7 +247,10 @@ def metadata_provenance(document, *, sources=(), bindings=None, root=USECASE_SIM
         "source_kind": "file" if files else "memory",
         "sources": files,
         "dataflows": [{"name": row["name"], "stage": row.get("stage"),
-                       "dataflow_id": row.get("dataflow_id") or name_to_uuid(row["name"])}
+                       "workspace_id": row.get("workspace_id"),
+                       "dataflow_id": row.get("dataflow_id") or name_to_uuid(
+                           row["name"], row.get("workspace_id")
+                       )}
                       for row in document.get("dataflows", [])],
         "binding_fields": sorted(fields(bindings or {})),
         "effective_snapshot_sha256": hashlib.sha256(encoded).hexdigest(),
@@ -175,9 +267,10 @@ def case_metadata_provenance(case, *, stage=None, maintenance=False):
         stages = {value.strip() for value in stage.split(",")} if isinstance(stage, str) else set(stage)
         document["dataflows"] = [row for row in document.get("dataflows", []) if row.get("stage") in stages]
     if maintenance:
-        connections = {row["name"]: row for row in document.get("connections", [])}
         document["dataflows"] = [row for row in document.get("dataflows", [])
-                                if connections[row["destination"]["connection_name"]].get("format") in {"delta", "iceberg"}]
+                                if _connection_for_flow(
+                                    document, row, "destination"
+                                ).get("format") in {"delta", "iceberg"}]
     return metadata_provenance(document, sources=sources, bindings=case_bindings(case))
 
 
@@ -198,7 +291,15 @@ def scenario_metadata_provenance(scenario):
             document = bind_document(load_metadata_files(paths, **sections), effective.get("metadata_bindings", {}))
             selected = effective.get("dataflows")
             if selected:
-                by_name = {row["name"]: row for row in document["dataflows"]}
+                by_name = {}
+                for row in document["dataflows"]:
+                    by_name.setdefault(row["name"], []).append(row)
+                ambiguous = sorted(name for name, rows in by_name.items() if len(rows) > 1)
+                if any(name in ambiguous for name in selected):
+                    raise ValueError(
+                        f"selected flow names are ambiguous across workspaces: {ambiguous}"
+                    )
+                by_name = {name: rows[0] for name, rows in by_name.items()}
                 document["dataflows"] = [by_name[name] for name in selected]
             stage = effective.get("stage")
             if stage:
