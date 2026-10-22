@@ -439,14 +439,19 @@ def verify_export(destination, token, *, revision=None):
         )
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError("missing, failed or unreconciled current workspace export") from exc
+    return verify_manifest_archive(manifest, destination / "runtime.zip", token, revision=revision)
+
+
+def verify_manifest_archive(manifest, archive_path, token, *, revision=None):
+    """Verify captured manifest/ZIP evidence through the native export contract."""
     directories, files = _validate_manifest(
         manifest,
-        destination,
+        Path(archive_path).parent,
         token,
         revision=revision,
     )
     _verify_archive(
-        destination / "runtime.zip",
+        archive_path,
         directories,
         files,
         prefix=manifest["member_prefix"],

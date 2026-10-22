@@ -54,6 +54,11 @@ from runner.compose_config import compose_file_arguments, compose_startup_argume
 from runner.runtime_workspace import enabled as workspace_enabled, command_arguments, verify_export  # noqa: E402
 from runner.runtime_timing import measured, scope, read_runtime_timing  # noqa: E402
 from runner.runtime_logs import job_sessions  # noqa: E402
+from runner.suite_archive import (  # noqa: E402
+    SuiteArchiveError,
+    acquire_suite_writer_lock,
+    finalize_suite_archive,
+)
 from cases.catalog import (  # noqa: E402
     CatalogError,
     is_scenario_bundle,
@@ -1392,6 +1397,52 @@ def _write_bundle_receipt(
     )
 
 
+def _finalize_suite_artifacts(
+    *,
+    bundle_dispatch: dict[str, list[str]],
+    scenarios: dict,
+    names: list[str],
+    requested_names: list[str],
+    results: dict[str, int],
+    revision: str,
+    suite_id: str,
+    suite_started: float,
+) -> None:
+    """Write rolling completion artifacts and retain their evidence closure."""
+
+    for bundle_name, leaves in bundle_dispatch.items():
+        _write_bundle_receipt(
+            bundle_name,
+            leaves,
+            results,
+            revision,
+            expected_leaf_names=scenario_leaf_names(scenarios, bundle_name),
+        )
+    total_seconds = time.perf_counter() - suite_started
+    revision_after = worktree_fingerprint(USECASE_SIM_DIR)
+    (SCENARIO_LOG_DIR / "suite.timing.json").write_text(json.dumps({
+        "suite_id": suite_id,
+        "total_s": total_seconds,
+        "requested": requested_names, "selected": names, "results": results,
+        "revision_before": revision, "revision_after": revision_after,
+    }, indent=2) + "\n", encoding="utf-8")
+    try:
+        archive = finalize_suite_archive(
+            scenario_log_dir=SCENARIO_LOG_DIR,
+            selected_names=names,
+            bundle_names=list(bundle_dispatch),
+            requested_names=requested_names,
+            results=results,
+            revision_before=revision,
+            revision_after=revision_after,
+            total_seconds=total_seconds,
+            suite_id=suite_id,
+        )
+        logger.info("Suite evidence archive: %s", archive.archive_dir)
+    except SuiteArchiveError as archive_exc:
+        logger.error("Suite evidence archive rejected: %s", archive_exc)
+
+
 def _run_scenario(name, scenarios, spark_container_status, last_spark_finish=0.0):
     results = {}
     if name not in scenarios:
@@ -1750,21 +1801,32 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
         return 1
     suite_started = time.perf_counter()
     _setup_log_dirs()
-
-    attempts = {name: uuid.uuid4().hex for name in names}
-    revision = worktree_fingerprint(USECASE_SIM_DIR)
-    results: dict[str, int] = {}
-    for name in names:
-        # Invalidate an earlier PASS before any cleanup/setup can fail. Pending
-        # cases also remain visibly blocked if the suite aborts mid-dispatch.
-        (SCENARIO_LOG_DIR / f"{name}.receipt.json").write_text(json.dumps({
-            "schema_version": 1, "scenario": name, "attempt_id": attempts[name],
-            "revision": revision, "status": "blocked", "runtime_verified": False,
-            "final_status": "BLOCKED (execution in progress)",
-            "recorded_at": datetime.now(timezone.utc).isoformat(),
-        }, indent=2) + "\n", encoding="utf-8")
+    writer_lock = acquire_suite_writer_lock(SCENARIO_LOG_DIR / "suites")
+    try:
+        attempts = {name: uuid.uuid4().hex for name in names}
+        suite_id = uuid.uuid4().hex
+        revision = worktree_fingerprint(USECASE_SIM_DIR)
+        results: dict[str, int] = {}
+        for name in names:
+            # Invalidate an earlier PASS before any cleanup/setup can fail. Pending
+            # cases also remain visibly blocked if the suite aborts mid-dispatch.
+            (SCENARIO_LOG_DIR / f"{name}.receipt.json").write_text(json.dumps({
+                "schema_version": 1, "scenario": name, "attempt_id": attempts[name],
+                "revision": revision, "status": "blocked", "runtime_verified": False,
+                "final_status": "BLOCKED (execution in progress)",
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+            }, indent=2) + "\n", encoding="utf-8")
+    except BaseException:
+        writer_lock.release()
+        raise
 
     def abort(exc):
+        try:
+            return _abort(exc)
+        finally:
+            writer_lock.release()
+
+    def _abort(exc):
         logger.error("Suite stopped: %s: %s", type(exc).__name__, exc)
         for name in names:
             path = SCENARIO_LOG_DIR / f"{name}.receipt.json"
@@ -1773,6 +1835,7 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
                 payload["final_status"] = f"BLOCKED (suite aborted: {exc})"
                 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         (SCENARIO_LOG_DIR / "suite.timing.json").write_text(json.dumps({
+            "suite_id": suite_id,
             "total_s": time.perf_counter() - suite_started, "selected": names,
             "aborted": True, "error": str(exc), "revision": revision,
         }, indent=2) + "\n", encoding="utf-8")
@@ -1784,6 +1847,23 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
                 revision,
                 expected_leaf_names=scenario_leaf_names(scenarios, bundle_name),
             )
+        try:
+            archive = finalize_suite_archive(
+                scenario_log_dir=SCENARIO_LOG_DIR,
+                selected_names=names,
+                bundle_names=list(bundle_dispatch),
+                requested_names=requested_names,
+                results=results,
+                revision_before=revision,
+                revision_after=worktree_fingerprint(USECASE_SIM_DIR),
+                total_seconds=time.perf_counter() - suite_started,
+                aborted=True,
+                error=str(exc),
+                suite_id=suite_id,
+            )
+            logger.info("Suite evidence archive: %s", archive.archive_dir)
+        except SuiteArchiveError as archive_exc:
+            logger.error("Suite evidence archive rejected: %s", archive_exc)
         return 130 if isinstance(exc, KeyboardInterrupt) else 1
     last_spark_finish = 0.0
 
@@ -1890,19 +1970,19 @@ def run_scenarios(names: list[str], scenarios: dict) -> int:
                           cancel=CANCEL.set)
     except (Exception, KeyboardInterrupt) as exc:
         return abort(exc)
-    for bundle_name, leaves in bundle_dispatch.items():
-        _write_bundle_receipt(
-            bundle_name,
-            leaves,
-            results,
-            revision,
-            expected_leaf_names=scenario_leaf_names(scenarios, bundle_name),
+    try:
+        _finalize_suite_artifacts(
+            bundle_dispatch=bundle_dispatch,
+            scenarios=scenarios,
+            names=names,
+            requested_names=requested_names,
+            results=results,
+            revision=revision,
+            suite_id=suite_id,
+            suite_started=suite_started,
         )
-    (SCENARIO_LOG_DIR / "suite.timing.json").write_text(json.dumps({
-        "total_s": time.perf_counter() - suite_started,
-        "requested": requested_names, "selected": names, "results": results,
-        "revision_before": revision, "revision_after": worktree_fingerprint(USECASE_SIM_DIR),
-    }, indent=2) + "\n", encoding="utf-8")
+    finally:
+        writer_lock.release()
     return _print_summary(results)
 
 

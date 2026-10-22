@@ -257,8 +257,9 @@ def test_runtime_profile_without_dispatch_override_remains_sequential(monkeypatc
 
 
 @pytest.mark.parametrize("mode, expected_parallel", [("optimized", True), ("sequential", False)])
+@pytest.mark.parametrize("retention_failure", [False, True])
 def test_dispatcher_mode_reaches_admission_child_and_receipt(
-    tmp_path, monkeypatch, mode, expected_parallel
+    tmp_path, monkeypatch, mode, expected_parallel, retention_failure
 ):
     from types import SimpleNamespace
 
@@ -311,11 +312,23 @@ def test_dispatcher_mode_reaches_admission_child_and_receipt(
 
     monkeypatch.setattr(module, "execute", observe_execute)
     scenarios = {"case": {"engine": "polars", "metadata_type": "file"}}
+    pointer = scenario_dir / "suites/latest-retained.json"
+    if retention_failure:
+        def prepare_logs():
+            pointer.parent.mkdir(parents=True)
+            pointer.write_text('{"suite_id":"previous"}', encoding="utf-8")
+        monkeypatch.setattr(module, "_setup_log_dirs", prepare_logs)
+        def reject_retention(**kwargs):
+            raise module.SuiteArchiveError("synthetic retention failure")
+        monkeypatch.setattr(module, "finalize_suite_archive", reject_retention)
 
     assert module.run_scenarios(["case"], scenarios) == 0
     receipt = json.loads((scenario_dir / "case.receipt.json").read_text())
     assert observed == {"child_mode": mode, "parallel": expected_parallel}
     assert receipt["profile"]["optimization_mode"] == mode
+    if retention_failure:
+        assert pointer.read_text(encoding="utf-8") == '{"suite_id":"previous"}'
+    assert not (scenario_dir / "suites/.suite-writer.lock").exists()
 
 @pytest.mark.parametrize("failure", ["engine", "setup", "provider", "driver", None])
 def test_runner_stops_spark_once_on_startup_failure_and_success(monkeypatch, failure):
