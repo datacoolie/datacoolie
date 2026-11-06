@@ -5,8 +5,7 @@ opening a pull request.
 
 ## License of contributions
 
-DataCoolie is released under the **GNU Affero General Public License v3.0 or
-later (AGPL-3.0-or-later)**. By submitting a contribution (a patch, pull
+DataCoolie is released under the **MIT License**. By submitting a contribution (a patch, pull
 request, or any other material) to this project, you agree to the terms below.
 
 ## Contributor terms
@@ -17,9 +16,9 @@ By contributing, you represent and agree that:
    right to submit it under these terms (e.g., you have permission from your
    employer if the work was done on company time or equipment).
 
-2. **Outbound license (AGPL-3.0-or-later).** You license your contribution to
+2. **Outbound license (MIT).** You license your contribution to
    the project and to all downstream recipients under the
-   AGPL-3.0-or-later, the same license as the rest of the project.
+   MIT License, the same license as the rest of the project.
 
 3. **License grant to the project maintainer.** You additionally grant the
    project maintainer (Do Bui Nguyen Hieu, the "Licensor") a perpetual,

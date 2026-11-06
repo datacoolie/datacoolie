@@ -305,7 +305,7 @@ registry of every built-in plugin.
 
 ## License
 
-[AGPL-3.0-or-later](https://github.com/datacoolie/datacoolie/blob/main/LICENSE) —
+[MIT](https://github.com/datacoolie/datacoolie/blob/main/LICENSE) —
 free and open source. See [Contributing](project/contributing.md) for contribution terms.
 
 ## Community

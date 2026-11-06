@@ -1082,4 +1082,4 @@ Deferred status details:
 
 ## License
 
-AGPL-3.0-or-later — same as the parent `datacoolie` package. See [../LICENSE](../LICENSE).
+MIT — same as the parent `datacoolie` package. See [../LICENSE](../LICENSE).

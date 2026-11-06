@@ -10,7 +10,7 @@ authors = [
     {name = "DataCoolie Team"},
     {name = "Do Bui Nguyen Hieu", email = "nguyenhieubis@gmail.com"},
 ]
-license = "AGPL-3.0-or-later"
+license = "MIT"
 requires-python = ">=3.11,<4.0"
 keywords = ["etl", "etl-framework", "data-engineering", "metadata-driven", "polars", "pyspark", "lakehouse"]
 classifiers = [

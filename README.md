@@ -229,6 +229,6 @@ backend stack. It is a representative scenario set, not a full platform cross-pr
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE) — free and open source.
+[MIT](LICENSE) — free and open source.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution terms.
