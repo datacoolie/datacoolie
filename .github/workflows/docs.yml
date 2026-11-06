@@ -72,7 +72,7 @@ jobs:
       - name: Build docs (strict)
         run: poetry run properdocs build --strict
 
-      - name: Verify search metadata and sitemap
+      - name: Verify search metadata, sitemap and images
         run: poetry run python scripts/verify_docs_seo.py --site-dir site
 
       - name: Upload verified documentation

@@ -1,4 +1,4 @@
-"""Check crawler-facing output after a ProperDocs build (standard library only)."""
+"""Check metadata and image targets after a ProperDocs build (standard library only)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import gzip
 from html.parser import HTMLParser
 import json
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 import xml.etree.ElementTree as ET
 
 
@@ -23,12 +23,24 @@ class PageMetadata(HTMLParser):
         self.meta: dict[str, str] = {}
         self.canonicals: list[str] = []
         self.schemas: list[dict] = []
+        self.images: list[str] = []
         self._title = False
         self._json: list[str] | None = None
         self.feed(html)
 
     def handle_starttag(self, tag: str, attrs) -> None:
         values = dict(attrs)
+        if tag == "img" and values.get("src"):
+            self.images.append(values["src"])
+        if tag in ("img", "source"):
+            remaining = values.get("srcset", "")
+            while remaining.strip(" \t\n\r\f,"):
+                parts = remaining.lstrip(" \t\n\r\f,").split(None, 1)
+                source = parts[0]
+                remaining = parts[1] if len(parts) > 1 else ""
+                self.images.append(source.rstrip(","))
+                if not source.endswith(","):
+                    remaining = remaining.partition(",")[2]
         if tag == "title":
             self._title = True
             self.titles += 1
@@ -68,6 +80,29 @@ def local_target(site_dir: Path, site_url: str, url: str) -> Path:
     if not result.resolve().is_relative_to(site_dir.resolve()):
         raise ValueError(f"URL escapes build directory: {url}")
     return result
+
+
+def verify_images(site_dir: Path, site_url: str) -> int:
+    """Resolve images from published page URLs, including pages outside the sitemap."""
+    origin = urlsplit(site_url).netloc
+    count = 0
+    missing = []
+    for target in sorted(site_dir.rglob("*.html")):
+        relative = target.relative_to(site_dir).as_posix()
+        route = relative.removesuffix("index.html")
+        page_url = urljoin(site_url, route)
+        page = PageMetadata(target.read_text(encoding="utf-8"))
+        for source in page.images:
+            resolved = urljoin(page_url, source)
+            parsed = urlsplit(resolved)
+            if parsed.scheme not in ("http", "https") or parsed.netloc != origin:
+                continue
+            count += 1
+            if not local_target(site_dir, site_url, resolved).is_file():
+                missing.append(f"{relative}: {source} -> {resolved}")
+    if missing:
+        raise ValueError("Missing image targets:\n" + "\n".join(missing))
+    return count
 
 
 def verify_site(site_dir: Path, site_url: str) -> int:
@@ -127,8 +162,10 @@ def main() -> None:
     parser.add_argument("--site-dir", type=Path, default=Path("site"))
     parser.add_argument("--site-url", default="https://datacoolie.github.io/datacoolie/")
     args = parser.parse_args()
+    images = verify_images(args.site_dir, args.site_url)
     count = verify_site(args.site_dir, args.site_url)
     print(f"SEO output verified: {count} canonical pages; metadata, JSON-LD, breadcrumbs and sitemap parity OK")
+    print(f"Image targets verified: {images} local references across all HTML pages")
 
 
 if __name__ == "__main__":

@@ -95,3 +95,54 @@ def test_verifier_rejects_outside_or_traversal_urls(tmp_path):
     for url in ("https://example.org/", SITE_URL + "../../secret", SITE_URL + "%2e%2e/secret"):
         with pytest.raises(ValueError):
             VERIFY["local_target"](tmp_path, SITE_URL, url)
+
+
+@pytest.mark.parametrize("page,source", [
+    ("index.html", "images/studio/overview.png"),
+    ("studio/index.html", "../images/studio/overview.png"),
+    ("studio/tour/index.html", "../../images/studio/overview.png"),
+    ("studio/monitoring/index.html", "/datacoolie/images/studio/overview.png"),
+    ("404.html", SITE_URL + "images/studio/overview.png?version=2#preview"),
+])
+def test_image_verifier_resolves_published_routes_without_a_sitemap(tmp_path, page, source):
+    image = tmp_path / "images/studio/overview.png"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(b"image")
+    target = tmp_path / page
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(f'<img src="{source}">', encoding="utf-8")
+    assert VERIFY["verify_images"](tmp_path, SITE_URL) == 1
+
+
+def test_image_verifier_catches_original_studio_relative_path_failure(tmp_path):
+    image = tmp_path / "images/studio/overview.png"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(b"image")
+    page = tmp_path / "studio/tour/index.html"
+    page.parent.mkdir(parents=True)
+    page.write_text('<img src="../images/studio/overview.png">', encoding="utf-8")
+    with pytest.raises(ValueError, match="studio/images/studio/overview.png"):
+        VERIFY["verify_images"](tmp_path, SITE_URL)
+
+
+def test_image_verifier_checks_picture_and_img_srcset_candidates(tmp_path):
+    (tmp_path / "banner.webp").write_bytes(b"image")
+    page = tmp_path / "index.html"
+    page.write_text(
+        '<picture><source srcset="banner.webp 1x, missing.webp 2x">'
+        '<img srcset="banner.webp, missing.png 2x"></picture>', encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        VERIFY["verify_images"](tmp_path, SITE_URL)
+    assert "missing.webp" in str(error.value) and "missing.png" in str(error.value)
+
+
+def test_image_verifier_skips_remote_and_inline_images(tmp_path):
+    (tmp_path / "index.html").write_text(
+        '<img src="https://github.com/datacoolie.png">'
+        '<img src="//example.org/banner.png">'
+        '<img src="data:image/png;base64,aGVsbG8=">'
+        '<img srcset="data:image/png;base64,aGVsbG8= 1x, https://example.org/banner.png 2x">',
+        encoding="utf-8",
+    )
+    assert VERIFY["verify_images"](tmp_path, SITE_URL) == 0

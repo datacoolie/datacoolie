@@ -26,7 +26,7 @@ dataflows are succeeding, how run health is trending, and which runtime context
 or phase deserves attention.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-overview.png"
+  <img src="../../images/studio/monitoring-overview.png"
        alt="DataCoolie Studio monitoring overview with job health, dataflow status, failures, performance, and volume signals"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Use the overview for triage, then move into focused monitoring pages for investigation.</figcaption>
@@ -42,7 +42,7 @@ job success rate and duration, identify failed stages, and open the evidence for
 a specific run.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-jobs.png"
+  <img src="../../images/studio/monitoring-jobs.png"
        alt="DataCoolie Studio Monitoring Jobs page with job KPIs, status trend, duration distribution, workload efficiency, fan-out, and job-run table"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Jobs combines run-level health, runtime context, stage impact, duration, fan-out, and drill-in evidence.</figcaption>
@@ -58,7 +58,7 @@ separates source, transform, destination, and overhead phases while retaining
 source/destination, volume, watermark, status, and parent-job context.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-dataflows.png"
+  <img src="../../images/studio/monitoring-dataflows.png"
        alt="DataCoolie Studio Monitoring Dataflows page with execution KPIs, phase timing, route health, workload, watermarks, and dataflow runs"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Dataflows helps isolate the slow or failing phase and the affected source-to-destination route.</figcaption>
@@ -74,7 +74,7 @@ individually. Use it to spot repeated signatures, the most affected endpoints,
 and whether the issue is concentrated in one phase or stage.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-failures.png"
+  <img src="../../images/studio/monitoring-failures.png"
        alt="DataCoolie Studio Monitoring Failures page with failure KPIs, incident queue, trends, repeated signatures, endpoint impact, and failing stages"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Failures prioritizes the newest incidents while exposing repeated causes and their operational reach.</figcaption>
@@ -91,7 +91,7 @@ source check age, stale-data signals, consecutive skips, watermark coverage,
 and watermark movement.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-freshness.png"
+  <img src="../../images/studio/monitoring-freshness.png"
        alt="DataCoolie Studio Monitoring Freshness page with stale dataflows, check age, watermark coverage, movement, adjustments, and skip streaks"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Freshness separates stale checks from watermark configuration and movement problems.</figcaption>
@@ -108,7 +108,7 @@ slow profiles, outliers, throughput pressure, and candidates where optimization
 work is most likely to matter.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-performance.png"
+  <img src="../../images/studio/monitoring-performance.png"
        alt="DataCoolie Studio Monitoring Performance page with duration distribution, phase cost, trends, workload efficiency, runtime profiles, and optimization candidates"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Performance links duration and throughput symptoms to phases, dataflows, engines, platforms, and providers.</figcaption>
@@ -125,7 +125,7 @@ Use it to find high-volume dataflows, unusual storage deltas, file churn, or a
 route whose read and write behavior no longer matches expectations.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-volume.png"
+  <img src="../../images/studio/monitoring-volume.png"
        alt="DataCoolie Studio Monitoring Volume page with rows, bytes, files, storage delta trends, workload mix, routes, and high-volume dataflows"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Volume connects workload trends and storage impact to operations, routes, and individual dataflows.</figcaption>
@@ -142,7 +142,7 @@ Use it to confirm coverage, identify no-op or slow work, and compare time spent
 with storage reclaimed or files removed.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-maintenance.png"
+  <img src="../../images/studio/monitoring-maintenance.png"
        alt="DataCoolie Studio Monitoring Maintenance page with operation health, trends, bytes reclaimed, files removed, table efficiency, and destination registry"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Maintenance shows whether table-care work is healthy and whether its runtime produces useful storage outcomes.</figcaption>
@@ -159,7 +159,7 @@ metrics look incomplete, a job has no child dataflows, reconciliation does not
 match, or a log source/cache warning may explain missing results.
 
 <figure markdown>
-  <img src="../images/studio/monitoring-diagnostics.png"
+  <img src="../../images/studio/monitoring-diagnostics.png"
        alt="DataCoolie Studio Monitoring Diagnostics page with core integrity, job linkage, reconciliation, evidence coverage, log sources, and investigation queue"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Diagnostics makes evidence quality explicit before you trust or compare operational metrics.</figcaption>

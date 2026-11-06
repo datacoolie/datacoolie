@@ -42,7 +42,7 @@ metadata counts, lineage coverage, recent run health, and recommended next
 actions so you can decide where to investigate.
 
 <figure markdown>
-  <img src="../images/studio/overview.png"
+  <img src="../../images/studio/overview.png"
        alt="DataCoolie Studio Environment Overview with source readiness, metadata counts, lineage coverage, monitoring health, and next actions"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Environment Overview connects setup readiness, the data estate, operational health, and attention items.</figcaption>
@@ -66,7 +66,7 @@ and filters to narrow large metadata files, then select a definition to inspect
 or edit its structured fields.
 
 <figure markdown>
-  <img src="../images/studio/metadata.png"
+  <img src="../../images/studio/metadata.png"
        alt="DataCoolie Studio metadata editor with connections, dataflows, schema hints, transforms, and validation issues"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Edit and validate source-defined metadata without hiding the original files.</figcaption>
@@ -84,7 +84,7 @@ it when you need to find a table or path, understand whether it acts as a source
 or destination, or locate unresolved SQL/Python references.
 
 <figure markdown>
-  <img src="../images/studio/assets.png"
+  <img src="../../images/studio/assets.png"
        alt="DataCoolie Studio Assets inventory with asset type, connection, usage, lineage, dependencies, attention state, and provenance"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Assets combines inventory, usage, dependency, attention, and provenance evidence.</figcaption>
@@ -102,7 +102,7 @@ you are investigating. Run-status context helps connect a structural
 relationship to recent operational evidence.
 
 <figure markdown>
-  <img src="../images/studio/lineage.png"
+  <img src="../../images/studio/lineage.png"
        alt="DataCoolie Studio interactive lineage graph with upstream and downstream asset relationships"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Lineage connects source definitions and code evidence while leaving source files authoritative.</figcaption>
@@ -120,7 +120,7 @@ URI, test access, scan a project, and review validation and synchronization
 state. Each source reports whether it is enabled, readable, and current.
 
 <figure markdown>
-  <img src="../images/studio/sources.png"
+  <img src="../../images/studio/sources.png"
        alt="DataCoolie Studio Sources page with local and cloud bindings for metadata, SQL, Python code, and execution and system logs"
        width="1912" height="900" loading="lazy" decoding="async">
   <figcaption>Sources keeps metadata, SQL, code, and logs separate while exposing validation, synchronization, and refresh state.</figcaption>
