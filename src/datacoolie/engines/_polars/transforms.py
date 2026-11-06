@@ -6,7 +6,9 @@ receive resolved names and never retain engine state.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
+import struct
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -16,6 +18,138 @@ from datacoolie.core.constants import DEFAULT_AUTHOR, XXHASH64_SEED, SystemColum
 from datacoolie.core.exceptions import ConfigurationError, EngineError, TransformError
 from datacoolie.core.models.transform import HashColumn, MaskingRule, ValueRule
 from datacoolie.engines.base import BaseEngine
+from datacoolie.logging.runtime.manager import get_logger
+
+logger = get_logger(__name__)
+
+_UINT64_MASK = (1 << 64) - 1
+_XXHASH64_PRIME1 = 11400714785074694791
+_XXHASH64_PRIME2 = 14029467366897019727
+_XXHASH64_PRIME3 = 1609587929392839161
+_XXHASH64_PRIME4 = 9650029242287828579
+_XXHASH64_PRIME5 = 2870177450012600261
+
+
+def _rotate_left_64(value: int, shift: int) -> int:
+    return ((value << shift) | (value >> (64 - shift))) & _UINT64_MASK
+
+
+def _xxhash64_round(accumulator: int, input_value: int) -> int:
+    accumulator = (accumulator + input_value * _XXHASH64_PRIME2) & _UINT64_MASK
+    accumulator = _rotate_left_64(accumulator, 31)
+    return (accumulator * _XXHASH64_PRIME1) & _UINT64_MASK
+
+
+def _xxhash64_merge_round(accumulator: int, value: int) -> int:
+    accumulator ^= _xxhash64_round(0, value)
+    return (accumulator * _XXHASH64_PRIME1 + _XXHASH64_PRIME4) & _UINT64_MASK
+
+
+def _xxhash64_bytes(data: bytes, seed: int) -> int:
+    """Return the unsigned xxHash64 value for ``data``.
+
+    This is the reference xxHash64 algorithm expressed in Python so a host
+    with a blocked ``polars-hash`` native extension can still honor the same
+    cross-engine hash contract. The caller converts the result to signed
+    Int64, matching Polars' ``reinterpret(signed=True)`` behavior.
+    """
+
+    length = len(data)
+    offset = 0
+    seed &= _UINT64_MASK
+    if length >= 32:
+        value1 = (seed + _XXHASH64_PRIME1 + _XXHASH64_PRIME2) & _UINT64_MASK
+        value2 = (seed + _XXHASH64_PRIME2) & _UINT64_MASK
+        value3 = seed
+        value4 = (seed - _XXHASH64_PRIME1) & _UINT64_MASK
+        limit = length - 32
+        while offset <= limit:
+            value1 = _xxhash64_round(value1, struct.unpack_from("<Q", data, offset)[0])
+            offset += 8
+            value2 = _xxhash64_round(value2, struct.unpack_from("<Q", data, offset)[0])
+            offset += 8
+            value3 = _xxhash64_round(value3, struct.unpack_from("<Q", data, offset)[0])
+            offset += 8
+            value4 = _xxhash64_round(value4, struct.unpack_from("<Q", data, offset)[0])
+            offset += 8
+        result = (
+            _rotate_left_64(value1, 1)
+            + _rotate_left_64(value2, 7)
+            + _rotate_left_64(value3, 12)
+            + _rotate_left_64(value4, 18)
+        ) & _UINT64_MASK
+        result = _xxhash64_merge_round(result, value1)
+        result = _xxhash64_merge_round(result, value2)
+        result = _xxhash64_merge_round(result, value3)
+        result = _xxhash64_merge_round(result, value4)
+    else:
+        result = (seed + _XXHASH64_PRIME5) & _UINT64_MASK
+
+    result = (result + length) & _UINT64_MASK
+    while offset + 8 <= length:
+        result ^= _xxhash64_round(0, struct.unpack_from("<Q", data, offset)[0])
+        result = (
+            _rotate_left_64(result, 27) * _XXHASH64_PRIME1 + _XXHASH64_PRIME4
+        ) & _UINT64_MASK
+        offset += 8
+    if offset + 4 <= length:
+        result ^= (
+            struct.unpack_from("<I", data, offset)[0] * _XXHASH64_PRIME1
+        ) & _UINT64_MASK
+        result = (
+            _rotate_left_64(result, 23) * _XXHASH64_PRIME2 + _XXHASH64_PRIME3
+        ) & _UINT64_MASK
+        offset += 4
+    while offset < length:
+        result ^= (data[offset] * _XXHASH64_PRIME5) & _UINT64_MASK
+        result = (_rotate_left_64(result, 11) * _XXHASH64_PRIME1) & _UINT64_MASK
+        offset += 1
+
+    result ^= result >> 33
+    result = (result * _XXHASH64_PRIME2) & _UINT64_MASK
+    result ^= result >> 29
+    result = (result * _XXHASH64_PRIME3) & _UINT64_MASK
+    return result ^ (result >> 32)
+
+
+def _signed_int64(value: int) -> int:
+    return value - (1 << 64) if value >= (1 << 63) else value
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _xxhash64_text(value: str) -> int:
+    return _signed_int64(_xxhash64_bytes(value.encode("utf-8"), XXHASH64_SEED))
+
+
+def _is_native_hash_load_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    path = str(getattr(exc, "path", "") or "").lower()
+    return (
+        "dll load failed" in message
+        or "application control policy has blocked" in message
+        or "cannot open shared object file" in message
+        or path.endswith((".pyd", ".so", ".dylib"))
+    )
+
+
+def _load_polars_hash() -> Any | None:
+    try:
+        return importlib.import_module("polars_hash")
+    except (ImportError, OSError) as exc:
+        if not _is_native_hash_load_error(exc):
+            raise EngineError(
+                "hash_columns with the Polars engine requires the optional polars-hash package",
+                details={"install": "pip install 'datacoolie[polars-hash]'"},
+            ) from exc
+        logger.warning(
+            "polars_hash native extension could not be loaded; using the pure-Python "
+            "hash fallback. Cause: %s",
+            exc,
+        )
+        return None
 
 
 def add_column(df: pl.LazyFrame, column_name: str, expression: str) -> pl.LazyFrame:
@@ -233,13 +367,7 @@ def add_hash_column(
     schema: pl.Schema,
     columns: Sequence[str],
 ) -> pl.LazyFrame:
-    try:
-        polars_hash = importlib.import_module("polars_hash")
-    except (ImportError, OSError) as exc:
-        raise EngineError(
-            "hash_columns with the Polars engine requires the optional polars-hash package",
-            details={"install": "pip install 'datacoolie[polars-hash]'"},
-        ) from exc
+    polars_hash = _load_polars_hash()
     components: List[pl.Expr] = []
     for column in columns:
         dtype = schema[column]
@@ -271,11 +399,20 @@ def add_hash_column(
                 )
             )
         )
-    payload = polars_hash.concat_str([pl.lit("DCH1;"), *components])
+    concat_str = polars_hash.concat_str if polars_hash is not None else pl.concat_str
+    payload = concat_str([pl.lit("DCH1;"), *components])
     if definition.algorithm == "sha256":
-        result = payload.chash.sha2_256()
+        result = (
+            payload.chash.sha2_256()
+            if polars_hash is not None
+            else payload.map_elements(_sha256_text, return_dtype=pl.String)
+        )
     elif definition.algorithm == "xxhash64":
-        result = payload.nchash.xxhash64(seed=XXHASH64_SEED).reinterpret(signed=True)
+        result = (
+            payload.nchash.xxhash64(seed=XXHASH64_SEED).reinterpret(signed=True)
+            if polars_hash is not None
+            else payload.map_elements(_xxhash64_text, return_dtype=pl.Int64)
+        )
     else:  # HashColumn validation prevents this branch for public callers.
         raise TransformError(
             "Unsupported hash_columns algorithm",

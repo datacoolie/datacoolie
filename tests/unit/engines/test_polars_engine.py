@@ -275,6 +275,47 @@ class TestStableHashColumns:
             exc_info.value.details["install"] == "pip install 'datacoolie[polars-hash]'"
         )
 
+    @pytest.mark.parametrize(
+        ("algorithm", "expected", "expected_type"),
+        [
+            pytest.param("sha256", SHA256_HASHES, pl.String, id="sha256"),
+            pytest.param("xxhash64", XXHASH64_HASHES, pl.Int64, id="xxhash64"),
+        ],
+    )
+    def test_native_hash_load_failure_uses_contract_preserving_fallback(
+        self,
+        engine: PolarsEngine,
+        algorithm: str,
+        expected: list[str] | list[int],
+        expected_type: pl.DataType,
+    ) -> None:
+        frame = pl.DataFrame(
+            {
+                "country": [row[0] for row in HASH_CONTRACT_ROWS],
+                "customer_id": [row[1] for row in HASH_CONTRACT_ROWS],
+                "active": [row[2] for row in HASH_CONTRACT_ROWS],
+                "business_date": [row[3] for row in HASH_CONTRACT_ROWS],
+            }
+        ).lazy()
+        with patch(
+            "datacoolie.engines._polars.transforms.importlib.import_module",
+            side_effect=ImportError(
+                "DLL load failed while importing _internal: "
+                "an Application Control policy has blocked this file."
+            ),
+        ):
+            result = engine.add_hash_column(
+                frame,
+                HashColumn(
+                    target_column="business_hash",
+                    columns=["country", "customer_id", "active", "business_date"],
+                    algorithm=algorithm,
+                ),
+            ).collect()
+
+        assert result["business_hash"].to_list() == expected
+        assert result["business_hash"].dtype == expected_type
+
 
 # =====================================================================
 # Read
@@ -345,9 +386,7 @@ class TestReadJson:
         path.write_text('[{"id": 1}]', encoding="utf-8")
         with patch("datacoolie.engines._polars.file_io.pl.read_json") as read_json:
             read_json.return_value = pl.DataFrame({"id": [1]})
-            platform_engine.read_json(
-                str(path), options={"inferSchema": "false"}
-            )
+            platform_engine.read_json(str(path), options={"inferSchema": "false"})
 
         assert read_json.call_args.kwargs == {"infer_schema_length": 0}
 
@@ -503,7 +542,9 @@ class TestReadExcel:
             str(path), options={"sheet_id": 0}
         ).collect()
         assert FileInfoColumn.FILE_PATH in result.columns
-        assert all(v == path.as_posix() for v in result[FileInfoColumn.FILE_PATH].to_list())
+        assert all(
+            v == path.as_posix() for v in result[FileInfoColumn.FILE_PATH].to_list()
+        )
 
     def test_read_excel_empty_directory_raises(
         self, platform_engine: PolarsEngine, tmp_path: Path
@@ -1222,9 +1263,7 @@ class TestWatermarkFilter:
     def test_typed_temporal_bounds_are_compared_as_temporal_values(
         self, engine: PolarsEngine
     ) -> None:
-        date_frame = pl.DataFrame(
-            {"day": [date(2026, 1, 1), date(2026, 1, 3)]}
-        ).lazy()
+        date_frame = pl.DataFrame({"day": [date(2026, 1, 1), date(2026, 1, 3)]}).lazy()
         date_result = engine.apply_watermark_filter(
             date_frame, ["day"], {"day": date(2026, 1, 1)}
         ).collect()
@@ -2024,9 +2063,7 @@ class TestPolarsEngineAdvancedCoverage:
         """_delta_post_commit should not raise on bad path."""
         engine = PolarsEngine()
         # Non-existent path; should log debug and not raise
-        delta_ops.post_commit(
-            "/tmp/nonexistent_delta_table_xyz", engine.delta, {}
-        )
+        delta_ops.post_commit("/tmp/nonexistent_delta_table_xyz", engine.delta, {})
 
     def test_compact_cleanup_non_delta_paths_and_name_unsupported(
         self,
@@ -2058,9 +2095,18 @@ class TestPolarsEngineAdvancedCoverage:
         catalog = MagicMock()
         engine = PolarsEngine(iceberg_catalog=catalog)
         with pytest.raises(EngineError, match="does not support compaction"):
-            engine.compact_by_name("ns.tbl", fmt="iceberg", options={"rewrite_data_files": False})
-        engine.compact_by_name("ns.tbl", fmt="iceberg", options={
-            "rewrite_data_files": False, "rewrite_position_delete_files": False, "rewrite_manifests": False})
+            engine.compact_by_name(
+                "ns.tbl", fmt="iceberg", options={"rewrite_data_files": False}
+            )
+        engine.compact_by_name(
+            "ns.tbl",
+            fmt="iceberg",
+            options={
+                "rewrite_data_files": False,
+                "rewrite_position_delete_files": False,
+                "rewrite_manifests": False,
+            },
+        )
 
     def test_cleanup_by_name_iceberg_expire_snapshots(self) -> None:
         ice_table = MagicMock()
@@ -2080,7 +2126,12 @@ class TestPolarsEngineAdvancedCoverage:
         catalog.load_table.return_value = ice_table
 
         engine = PolarsEngine(iceberg_catalog=catalog)
-        engine.cleanup_by_name("ns.tbl", retention_hours=48, fmt="iceberg", options={"remove_orphan_files": False})
+        engine.cleanup_by_name(
+            "ns.tbl",
+            retention_hours=48,
+            fmt="iceberg",
+            options={"remove_orphan_files": False},
+        )
         catalog.load_table.assert_called_once_with("ns.tbl")
         ice_table.maintenance.expire_snapshots.assert_called_once()
         expire.older_than.assert_called_once()
@@ -2113,9 +2164,10 @@ class TestPolarsEngineAdvancedCoverage:
 
         engine = PolarsEngine(iceberg_catalog=catalog)
         with pytest.raises(EngineError, match="does not support remove_orphan_files"):
-            engine.cleanup_by_name("ns.tbl", fmt="iceberg", options={"remove_orphan_files": True})
+            engine.cleanup_by_name(
+                "ns.tbl", fmt="iceberg", options={"remove_orphan_files": True}
+            )
         catalog.load_table.assert_not_called()
-
 
 
 # =====================================================================
